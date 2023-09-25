@@ -29,29 +29,34 @@
 
 use crate::{
 	behaviour::{self, Behaviour, BehaviourOut},
-	config::{parse_addr, FullNetworkConfiguration, MultiaddrWithPeerId, Params, TransportConfig},
+	bitswap::BitswapRequestHandler,
+	config::{
+		parse_addr, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
+		NonDefaultSetConfig, NotificationHandshake, Params, SetConfig, TransportConfig,
+	},
 	discovery::DiscoveryConfig,
 	error::Error,
 	event::{DhtEvent, Event},
 	network_state::{
 		NetworkState, NotConnectedPeer as NetworkStateNotConnectedPeer, Peer as NetworkStatePeer,
 	},
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	peer_store::{PeerStore, PeerStoreProvider},
 	protocol::{self, NotifsHandlerError, Protocol, Ready},
 	protocol_controller::{self, ProtoSetConfig, ProtocolController, SetId},
-	request_responses::{IfDisconnected, RequestFailure},
+	request_responses::{IfDisconnected, ProtocolConfig as RequestResponseConfig, RequestFailure},
 	service::{
 		signature::{Signature, SigningError},
 		traits::{
-			NetworkDHTProvider, NetworkEventStream, NetworkNotification, NetworkPeers,
-			NetworkRequest, NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider,
+			BandwidthSink, NetworkBackend, NetworkDHTProvider, NetworkEventStream,
+			NetworkNotification, NetworkPeers, NetworkRequest, NetworkService as NetworkServiceT,
+			NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider,
 			NotificationSender as NotificationSenderT, NotificationSenderError,
 			NotificationSenderReady as NotificationSenderReadyT,
 		},
 	},
 	transport,
 	types::ProtocolName,
-	Multiaddr, PeerId, ReputationChange,
+	Multiaddr, NotificationService, PeerId, ReputationChange,
 };
 
 use codec::DecodeAll;
@@ -73,7 +78,9 @@ use libp2p::{
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
+use prometheus_endpoint::Registry;
 
+use sc_client_api::BlockBackend;
 use sc_network_common::{
 	role::{ObservedRole, Roles},
 	ExHashT,
@@ -93,17 +100,33 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
+	time::Duration,
 };
 
 pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
 pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
+pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
 
-mod metrics;
-mod out_events;
+pub(crate) mod metrics;
+pub(crate) mod out_events;
 
 pub mod signature;
 pub mod traits;
+
+struct Libp2pBandwidthSink {
+	sink: Arc<transport::BandwidthSinks>,
+}
+
+impl BandwidthSink for Libp2pBandwidthSink {
+	fn total_inbound(&self) -> u64 {
+		self.sink.total_inbound()
+	}
+
+	fn total_outbound(&self) -> u64 {
+		self.sink.total_outbound()
+	}
+}
 
 /// Substrate network service. Handles network IO and manages connectivity.
 pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
@@ -118,9 +141,7 @@ pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
 	/// The `KeyPair` that defines the `PeerId` of the local node.
 	local_identity: Keypair,
 	/// Bandwidth logging system. Can be queried to know the average bandwidth consumed.
-	bandwidth: Arc<transport::BandwidthSinks>,
-	/// Used to query and report reputation changes.
-	peer_store_handle: PeerStoreHandle,
+	bandwidth: Arc<dyn BandwidthSink>,
 	/// Channel that sends messages to the actual worker.
 	to_worker: TracingUnboundedSender<ServiceToWorkerMsg>,
 	/// Protocol name -> `SetId` mapping for notification protocols. The map never changes after
@@ -131,11 +152,97 @@ pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
 	protocol_handles: Vec<protocol_controller::ProtocolHandle>,
 	/// Shortcut to sync protocol handle (`protocol_handles[0]`).
 	sync_protocol_handle: protocol_controller::ProtocolHandle,
+	/// Handle to `PeerStore`.
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
 	/// Marker for block type
 	_block: PhantomData<B>,
+}
+
+#[async_trait::async_trait]
+impl<B, H> NetworkBackend<B, H> for NetworkWorker<B, H>
+where
+	B: BlockT + 'static,
+	H: ExHashT,
+{
+	type NotificationProtocolConfig = NonDefaultSetConfig;
+	type RequestResponseProtocolConfig = RequestResponseConfig;
+	type NetworkService<Block, Hash> = Arc<NetworkService<B, H>>;
+	type PeerStore = PeerStore;
+	type BitswapConfig = RequestResponseConfig;
+
+	fn new(params: Params<B, H, Self>) -> Result<Self, Error>
+	where
+		Self: Sized,
+	{
+		NetworkWorker::new(params)
+	}
+
+	/// Get handle to `NetworkService` of the `NetworkBackend`.
+	fn network_service(&self) -> Arc<dyn NetworkServiceT> {
+		self.service.clone()
+	}
+
+	/// Create `PeerStore`.
+	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
+		PeerStore::new(bootnodes.into_iter().map(From::from).collect())
+	}
+
+	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
+		NotificationMetrics::new(registry)
+	}
+
+	fn bitswap_server(
+		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
+		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
+
+		(Box::pin(async move { handler.run().await }), protocol_config)
+	}
+
+	/// Create notification protocol configuration.
+	fn notification_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec<ProtocolName>,
+		max_notification_size: u64,
+		handshake: Option<NotificationHandshake>,
+		set_config: SetConfig,
+		_metrics: NotificationMetrics,
+	) -> (Self::NotificationProtocolConfig, Box<dyn NotificationService>) {
+		NonDefaultSetConfig::new(
+			protocol_name,
+			fallback_names,
+			max_notification_size,
+			handshake,
+			set_config,
+		)
+	}
+
+	/// Create request-response protocol configuration.
+	fn request_response_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec<ProtocolName>,
+		max_request_size: u64,
+		max_response_size: u64,
+		request_timeout: Duration,
+		inbound_queue: Option<async_channel::Sender<IncomingRequest>>,
+	) -> Self::RequestResponseProtocolConfig {
+		Self::RequestResponseProtocolConfig {
+			name: protocol_name,
+			fallback_names,
+			max_request_size,
+			max_response_size,
+			request_timeout,
+			inbound_queue,
+		}
+	}
+
+	/// Start [`NetworkBackend`] event loop.
+	async fn run(mut self) {
+		self.run().await
+	}
 }
 
 impl<B, H> NetworkWorker<B, H>
@@ -148,7 +255,7 @@ where
 	/// Returns a `NetworkWorker` that implements `Future` and must be regularly polled in order
 	/// for the network processing to advance. From it, you can extract a `NetworkService` using
 	/// `worker.service()`. The `NetworkService` can be shared through the codebase.
-	pub fn new(params: Params<B>) -> Result<Self, Error> {
+	pub fn new(params: Params<B, H, Self>) -> Result<Self, Error> {
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
@@ -292,7 +399,7 @@ where
 					SetId::from(set_id),
 					proto_set_config,
 					to_notifications.clone(),
-					Box::new(params.peer_store.clone()),
+					params.peer_store.clone(),
 				)
 			})
 			.unzip();
@@ -478,7 +585,7 @@ where
 				.per_connection_event_buffer_size(24)
 				.max_negotiating_inbound_streams(2048);
 
-			(builder.build(), bandwidth)
+			(builder.build(), Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
 		};
 
 		// Initialize the metrics.
@@ -735,18 +842,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkService<B, H> {
 		}
 	}
 
-	/// Get the list of reserved peers.
-	///
-	/// Returns an error if the `NetworkWorker` is no longer running.
-	pub async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
-		let (tx, rx) = oneshot::channel();
-
-		self.sync_protocol_handle.reserved_peers(tx);
-
-		// The channel can only be closed if `ProtocolController` no longer exists.
-		rx.await.map_err(|_| ())
-	}
-
 	/// Utility function to extract `PeerId` from each `Multiaddr` for peer set updates.
 	///
 	/// Returns an `Err` if one of the given addresses is invalid or contains an
@@ -802,8 +897,8 @@ where
 	B: sp_runtime::traits::Block,
 	H: ExHashT,
 {
-	fn sign_with_local_identity(&self, msg: impl AsRef<[u8]>) -> Result<Signature, SigningError> {
-		Signature::sign_message(msg.as_ref(), &self.local_identity)
+	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError> {
+		Signature::sign_message(AsRef::<[u8]>::as_ref(&msg), &self.local_identity)
 	}
 }
 
@@ -848,8 +943,13 @@ where
 			Err(_) => Err(()),
 		}
 	}
+
+	async fn network_state(&self) -> Result<NetworkState, ()> {
+		todo!();
+	}
 }
 
+#[async_trait::async_trait]
 impl<B, H> NetworkPeers for NetworkService<B, H>
 where
 	B: BlockT + 'static,
@@ -1013,6 +1113,20 @@ where
 				self.peer_store_handle.peer_role(&(peer_id.into()))
 			},
 		}
+	}
+
+	/// Get the list of reserved peers.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	async fn reserved_peers(&self) -> Result<Vec<sc_network_types::PeerId>, ()> {
+		let (tx, rx) = oneshot::channel();
+
+		self.sync_protocol_handle.reserved_peers(tx);
+
+		// The channel can only be closed if `ProtocolController` no longer exists.
+		rx.await
+			.map(|peers| peers.into_iter().map(From::from).collect())
+			.map_err(|_| ())
 	}
 }
 
@@ -1222,7 +1336,7 @@ where
 	/// Boot nodes that we already have reported as invalid.
 	reported_invalid_boot_nodes: HashSet<PeerId>,
 	/// Peer reputation store handle.
-	peer_store_handle: PeerStoreHandle,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 	/// Notification protocol handles.
 	notif_protocol_handles: Vec<protocol::ProtocolHandle>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
@@ -1435,10 +1549,10 @@ where
 						.behaviour_mut()
 						.add_self_reported_address_to_dht(&peer_id, &protocols, addr);
 				}
-				self.peer_store_handle.add_known_peer(peer_id);
+				self.peer_store_handle.add_known_peer(peer_id.into());
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
-				self.peer_store_handle.add_known_peer(peer_id);
+				self.peer_store_handle.add_known_peer(peer_id.into());
 			},
 			SwarmEvent::Behaviour(BehaviourOut::RandomKademliaStarted) => {
 				if let Some(metrics) = self.metrics.as_ref() {
@@ -1738,7 +1852,7 @@ where
 {
 }
 
-fn ensure_addresses_consistent_with_transport<'a>(
+pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 	addresses: impl Iterator<Item = &'a Multiaddr>,
 	transport: &TransportConfig,
 ) -> Result<(), Error> {

@@ -80,6 +80,7 @@ mockall::mock! {
 mockall::mock! {
 	pub Network {}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for Network {
 		fn set_authorized_peers(&self, peers: HashSet<PeerId>);
 		fn set_authorized_only(&self, reserved_only: bool);
@@ -108,6 +109,7 @@ mockall::mock! {
 		) -> Result<(), String>;
 		fn sync_num_connected(&self) -> usize;
 		fn peer_role(&self, peer_id: PeerId, handshake: Vec<u8>) -> Option<ObservedRole>;
+		async fn reserved_peers(&self) -> Result<Vec<sc_network_types::PeerId>, ()>;
 	}
 
 	#[async_trait::async_trait]

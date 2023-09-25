@@ -16,12 +16,16 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[build-dependencies]
+prost-build = "0.11"
+
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
 bytes = "1"
+cid = "0.9.0"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 either = "1.5.3"
 fnv = "1.0.6"
@@ -45,6 +49,7 @@ tokio-stream = "0.1.7"
 unsigned-varint = { version = "0.7.1", features = ["asynchronous_codec", "futures"] }
 zeroize = "1.4.3"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+prost = "0.11"
 sc-client-api = { path = "../api" }
 sc-network-common = { path = "common" }
 sc-network-types = { path = "types" }
@@ -64,8 +69,10 @@ tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["macros"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 tokio-test = "0.4.2"
+sc-block-builder = { path = "../block-builder" }
 sc-network-light = { path = "light" }
 sc-network-sync = { path = "sync" }
+sp-consensus = { path = "../../primitives/consensus/common" }
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }

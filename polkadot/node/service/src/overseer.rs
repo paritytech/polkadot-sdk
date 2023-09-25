@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
+use super::{AuthorityDiscoveryApi, Block, Error, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::traits::SpawnNamed;
@@ -93,7 +93,7 @@ where
 	/// The underlying key value store for the parachains.
 	pub parachains_db: Arc<dyn polkadot_node_subsystem_util::database::Database>,
 	/// Underlying network service implementation.
-	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
+	pub network_service: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// Underlying syncing service implementation.
 	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
 	/// Underlying authority discovery service.
@@ -194,11 +194,11 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		RuntimeApiSubsystem<DefaultSubsystemClient<RuntimeClient>>,
 		AvailabilityStoreSubsystem,
 		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,

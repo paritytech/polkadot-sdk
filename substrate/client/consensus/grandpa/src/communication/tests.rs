@@ -63,6 +63,7 @@ pub(crate) struct TestNetwork {
 	sender: TracingUnboundedSender<Event>,
 }
 
+#[async_trait::async_trait]
 impl NetworkPeers for TestNetwork {
 	fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 		unimplemented!();
@@ -134,6 +135,10 @@ impl NetworkPeers for TestNetwork {
 		Roles::decode_all(&mut &handshake[..])
 			.ok()
 			.and_then(|role| Some(ObservedRole::from(role)))
+	}
+
+	async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+		unimplemented!();
 	}
 }
 
@@ -242,13 +247,13 @@ impl NotificationService for TestNotificationService {
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>) {
+	fn send_sync_notification(&mut self, peer: &PeerId, notification: Vec<u8>) {
 		let _ = self.sender.unbounded_send(Event::WriteNotification(*peer, notification));
 	}
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
-		&self,
+		&mut self,
 		_peer: &PeerId,
 		_notification: Vec<u8>,
 	) -> Result<(), sc_network::error::Error> {

@@ -76,24 +76,46 @@ pub fn new_full(
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
-	polkadot_service::new_full(
-		config,
-		polkadot_service::NewFullParams {
-			is_parachain_node,
-			enable_beefy: true,
-			force_authoring_backoff: false,
-			jaeger_agent: None,
-			telemetry_worker_handle: None,
-			node_version: None,
-			secure_validator_mode: false,
-			workers_path,
-			workers_names: None,
-			overseer_gen: polkadot_service::RealOverseerGen,
-			overseer_message_channel_capacity_override: None,
-			malus_finality_delay: None,
-			hwbench: None,
-		},
-	)
+	match config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =>
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
+				config,
+				polkadot_service::NewFullParams {
+					is_parachain_node,
+					enable_beefy: true,
+					force_authoring_backoff: false,
+					jaeger_agent: None,
+					telemetry_worker_handle: None,
+					node_version: None,
+					secure_validator_mode: false,
+					workers_path,
+					workers_names: None,
+					overseer_gen: polkadot_service::RealOverseerGen,
+					overseer_message_channel_capacity_override: None,
+					malus_finality_delay: None,
+					hwbench: None,
+				},
+			),
+		sc_network::config::NetworkBackendType::Litep2p =>
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(
+				config,
+				polkadot_service::NewFullParams {
+					is_parachain_node,
+					enable_beefy: true,
+					force_authoring_backoff: false,
+					jaeger_agent: None,
+					telemetry_worker_handle: None,
+					node_version: None,
+					secure_validator_mode: false,
+					workers_path,
+					workers_names: None,
+					overseer_gen: polkadot_service::RealOverseerGen,
+					overseer_message_channel_capacity_override: None,
+					malus_finality_delay: None,
+					hwbench: None,
+				},
+			),
+	}
 }
 
 fn get_relative_workers_path_for_test() -> PathBuf {

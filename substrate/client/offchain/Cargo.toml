@@ -46,6 +46,7 @@ sp-externalities = { path = "../../primitives/externalities" }
 log = "0.4.17"
 
 [dev-dependencies]
+async-trait = "0.1"
 lazy_static = "1.4.0"
 tokio = "1.22.0"
 sc-block-builder = { path = "../block-builder" }

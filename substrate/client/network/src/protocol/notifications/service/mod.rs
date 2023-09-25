@@ -230,7 +230,7 @@ impl NotificationService for NotificationHandle {
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, peer: &sc_network_types::PeerId, notification: Vec<u8>) {
+	fn send_sync_notification(&mut self, peer: &sc_network_types::PeerId, notification: Vec<u8>) {
 		if let Some(info) = self.peers.get(&((*peer).into())) {
 			metrics::register_notification_sent(
 				&info.sink.metrics(),
@@ -244,7 +244,7 @@ impl NotificationService for NotificationHandle {
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
-		&self,
+		&mut self,
 		peer: &sc_network_types::PeerId,
 		notification: Vec<u8>,
 	) -> Result<(), error::Error> {

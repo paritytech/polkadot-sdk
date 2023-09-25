@@ -30,7 +30,10 @@ use sc_network::{
 	PeerId, ReputationChange,
 };
 use sc_utils::mpsc::tracing_unbounded;
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
 /// Peer events as observed by `Notifications` / fuzz test.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -140,7 +143,7 @@ async fn test_once() {
 		.collect();
 
 	let peer_store = PeerStore::new(bootnodes);
-	let mut peer_store_handle = peer_store.handle();
+	let peer_store_handle = peer_store.handle();
 
 	let (to_notifications, mut from_controller) =
 		tracing_unbounded("test_to_notifications", 10_000);
@@ -162,7 +165,7 @@ async fn test_once() {
 			reserved_only: Uniform::new_inclusive(0, 10).sample(&mut rng) == 0,
 		},
 		to_notifications,
-		Box::new(peer_store_handle.clone()),
+		Arc::new(peer_store_handle.clone()),
 	);
 
 	tokio::spawn(peer_store.run());
@@ -318,7 +321,7 @@ async fn test_once() {
 				1 => {
 					let new_id = PeerId::random();
 					known_nodes.insert(new_id, State::Disconnected);
-					peer_store_handle.add_known_peer(new_id);
+					peer_store_handle.add_known_peer(new_id.into());
 				},
 
 				// If we generate 2, adjust a random reputation.

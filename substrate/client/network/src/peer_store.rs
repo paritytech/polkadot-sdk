@@ -19,7 +19,9 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::PeerId;
+use crate::{
+	protocol_controller::ProtocolHandle, service::traits::PeerStore as PeerStoreT, PeerId,
+};
 
 use log::trace;
 use parking_lot::Mutex;
@@ -33,8 +35,6 @@ use std::{
 	time::{Duration, Instant},
 };
 use wasm_timer::Delay;
-
-use crate::protocol_controller::ProtocolHandle;
 
 /// Log target for this file.
 pub const LOG_TARGET: &str = "peerset";
@@ -54,7 +54,7 @@ const INVERSE_DECREMENT: i32 = 50;
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
 
 /// Trait providing peer reputation management and connection candidates.
-pub trait PeerStoreProvider: Debug + Send {
+pub trait PeerStoreProvider: Debug + Send + Sync {
 	/// Check whether the peer is banned.
 	fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
 
@@ -62,13 +62,13 @@ pub trait PeerStoreProvider: Debug + Send {
 	fn register_protocol(&self, protocol_handle: ProtocolHandle);
 
 	/// Report peer disconnection for reputation adjustment.
-	fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId);
+	fn report_disconnect(&self, peer_id: sc_network_types::PeerId);
 
 	/// Adjust peer reputation.
-	fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange);
+	fn report_peer(&self, peer_id: sc_network_types::PeerId, change: ReputationChange);
 
 	/// Set peer role.
-	fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
+	fn set_peer_role(&self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
 
 	/// Get peer reputation.
 	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
@@ -82,6 +82,15 @@ pub trait PeerStoreProvider: Debug + Send {
 		count: usize,
 		ignored: HashSet<sc_network_types::PeerId>,
 	) -> Vec<sc_network_types::PeerId>;
+
+	/// Get the number of known peers.
+	///
+	/// This number might not include some connected peers in rare cases when their reputation
+	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
+	fn num_known_peers(&self) -> usize;
+
+	/// Add known peer.
+	fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 }
 
 /// Actual implementation of peer reputations and connection candidates provider.
@@ -99,16 +108,19 @@ impl PeerStoreProvider for PeerStoreHandle {
 		self.inner.lock().register_protocol(protocol_handle);
 	}
 
-	fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId) {
-		self.inner.lock().report_disconnect(peer_id.into())
+	fn report_disconnect(&self, peer_id: sc_network_types::PeerId) {
+		let mut inner = self.inner.lock();
+		inner.report_disconnect(peer_id.into())
 	}
 
-	fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange) {
-		self.inner.lock().report_peer(peer_id.into(), change)
+	fn report_peer(&self, peer_id: sc_network_types::PeerId, change: ReputationChange) {
+		let mut inner = self.inner.lock();
+		inner.report_peer(peer_id.into(), change)
 	}
 
-	fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole) {
-		self.inner.lock().set_peer_role(&peer_id.into(), role)
+	fn set_peer_role(&self, peer_id: &sc_network_types::PeerId, role: ObservedRole) {
+		let mut inner = self.inner.lock();
+		inner.set_peer_role(&peer_id.into(), role)
 	}
 
 	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32 {
@@ -131,20 +143,13 @@ impl PeerStoreProvider for PeerStoreHandle {
 			.map(|peer_id| peer_id.into())
 			.collect()
 	}
-}
 
-impl PeerStoreHandle {
-	/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	pub fn num_known_peers(&self) -> usize {
+	fn num_known_peers(&self) -> usize {
 		self.inner.lock().peers.len()
 	}
 
-	/// Add known peer.
-	pub fn add_known_peer(&mut self, peer_id: PeerId) {
-		self.inner.lock().add_known_peer(peer_id);
+	fn add_known_peer(&self, peer_id: sc_network_types::PeerId) {
+		self.inner.lock().add_known_peer(peer_id.into());
 	}
 }
 
@@ -389,6 +394,17 @@ impl PeerStore {
 			self.inner.lock().progress_time(seconds_passed);
 			let _ = Delay::new(Duration::from_secs(1)).await;
 		}
+	}
+}
+
+#[async_trait::async_trait]
+impl PeerStoreT for PeerStore {
+	fn handle(&self) -> Arc<dyn PeerStoreProvider> {
+		Arc::new(self.handle())
+	}
+
+	async fn run(self) {
+		self.run().await;
 	}
 }
 

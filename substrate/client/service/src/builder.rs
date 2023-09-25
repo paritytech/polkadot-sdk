@@ -43,10 +43,12 @@ use sc_executor::{
 use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{FullNetworkConfiguration, SyncMode},
-	peer_store::PeerStore,
-	NetworkService, NetworkStateInfo, NetworkStatusProvider,
+	service::{
+		traits::{PeerStore, RequestResponseConfig},
+		NotificationMetrics,
+	},
+	NetworkBackend, NetworkStateInfo,
 };
-use sc_network_bitswap::BitswapRequestHandler;
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
@@ -338,19 +340,6 @@ where
 	)
 }
 
-/// Shared network instance implementing a set of mandatory traits.
-pub trait SpawnTaskNetwork<Block: BlockT>:
-	NetworkStateInfo + NetworkStatusProvider + Send + Sync + 'static
-{
-}
-
-impl<T, Block> SpawnTaskNetwork<Block> for T
-where
-	Block: BlockT,
-	T: NetworkStateInfo + NetworkStatusProvider + Send + Sync + 'static,
-{
-}
-
 /// Parameters to pass into `build`.
 pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	/// The service configuration.
@@ -369,7 +358,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub rpc_builder:
 		Box<dyn Fn(DenyUnsafe, SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
 	/// A shared network instance.
-	pub network: Arc<dyn SpawnTaskNetwork<TBl>>,
+	pub network: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// A Sender for RPC requests.
 	pub system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
 	/// Controller for transactions handlers
@@ -699,11 +688,18 @@ where
 }
 
 /// Parameters to pass into `build_network`.
-pub struct BuildNetworkParams<'a, TBl: BlockT, TExPool, TImpQu, TCl> {
+pub struct BuildNetworkParams<
+	'a,
+	TBl: BlockT,
+	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
+	TExPool,
+	TImpQu,
+	TCl,
+> {
 	/// The service configuration.
 	pub config: &'a Configuration,
 	/// Full network configuration.
-	pub net_config: FullNetworkConfiguration,
+	pub net_config: FullNetworkConfiguration<TBl, <TBl as BlockT>::Hash, TNet>,
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<TCl>,
 	/// A shared transaction pool.
@@ -719,15 +715,17 @@ pub struct BuildNetworkParams<'a, TBl: BlockT, TExPool, TImpQu, TCl> {
 	pub warp_sync_params: Option<WarpSyncParams<TBl>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
-	pub block_relay: Option<BlockRelayParams<TBl>>,
+	pub block_relay: Option<BlockRelayParams<TBl, TNet>>,
+	/// Metrics.
+	pub metrics: NotificationMetrics,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub fn build_network<TBl, TExPool, TImpQu, TCl>(
-	params: BuildNetworkParams<TBl, TExPool, TImpQu, TCl>,
+pub fn build_network<TBl, TNet, TExPool, TImpQu, TCl>(
+	params: BuildNetworkParams<TBl, TNet, TExPool, TImpQu, TCl>,
 ) -> Result<
 	(
-		Arc<NetworkService<TBl, <TBl as BlockT>::Hash>>,
+		Arc<dyn sc_network::service::traits::NetworkService>,
 		TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
 		sc_network_transactions::TransactionsHandlerController<<TBl as BlockT>::Hash>,
 		NetworkStarter,
@@ -748,6 +746,7 @@ where
 		+ 'static,
 	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TImpQu: ImportQueue<TBl> + 'static,
+	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
 {
 	let BuildNetworkParams {
 		config,
@@ -759,6 +758,7 @@ where
 		block_announce_validator_builder,
 		warp_sync_params,
 		block_relay,
+		metrics,
 	} = params;
 
 	if warp_sync_params.is_none() && config.network.sync_mode.is_warp() {
@@ -793,7 +793,7 @@ where
 		None => {
 			// Custom protocol was not specified, use the default block handler.
 			// Allow both outgoing and incoming requests.
-			let params = BlockRequestHandler::new(
+			let params = BlockRequestHandler::new::<TNet>(
 				chain_sync_network_handle.clone(),
 				&protocol_id,
 				config.chain_spec.fork_id(),
@@ -812,13 +812,13 @@ where
 		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
 			net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = StateRequestHandler::new(
+		let (handler, protocol_config) = StateRequestHandler::new::<TNet>(
 			&protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
 			num_peer_hint,
 		);
-		let config_name = protocol_config.name.clone();
+		let config_name = protocol_config.protocol_name().clone();
 
 		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
 		(protocol_config, config_name)
@@ -827,13 +827,13 @@ where
 	let (warp_sync_protocol_config, warp_request_protocol_name) = match warp_sync_params.as_ref() {
 		Some(WarpSyncParams::WithProvider(warp_with_provider)) => {
 			// Allow both outgoing and incoming requests.
-			let (handler, protocol_config) = WarpSyncRequestHandler::new(
+			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, TNet>(
 				protocol_id.clone(),
 				genesis_hash,
 				config.chain_spec.fork_id(),
 				warp_with_provider.clone(),
 			);
-			let config_name = protocol_config.name.clone();
+			let config_name = protocol_config.protocol_name().clone();
 
 			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
 			(Some(protocol_config), Some(config_name))
@@ -843,7 +843,7 @@ where
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = LightClientRequestHandler::new(
+		let (handler, protocol_config) = LightClientRequestHandler::new::<TNet>(
 			&protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -861,23 +861,25 @@ where
 		net_config.add_request_response_protocol(config);
 	}
 
-	if config.network.ipfs_server {
-		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
-		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler.run());
-		net_config.add_request_response_protocol(protocol_config);
-	}
+	let bitswap_config = config.network.ipfs_server.then_some({
+		let (handler, config) = TNet::bitswap_server(client.clone());
+		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
+
+		config
+	});
 
 	// create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =
-		sc_network_transactions::TransactionsHandlerPrototype::new(
+		sc_network_transactions::TransactionsHandlerPrototype::new::<_, TBl, TNet>(
 			protocol_id.clone(),
 			genesis_hash,
 			config.chain_spec.fork_id(),
+			metrics.clone(),
 		);
 	net_config.add_notification_protocol(transactions_config);
 
 	// Create `PeerStore` and initialize it with bootnode peer ids.
-	let peer_store = PeerStore::new(
+	let peer_store = TNet::peer_store(
 		net_config
 			.network_config
 			.boot_nodes
@@ -892,6 +894,7 @@ where
 		Roles::from(&config.role),
 		client.clone(),
 		config.prometheus_config.as_ref().map(|config| config.registry.clone()).as_ref(),
+		metrics.clone(),
 		&net_config,
 		protocol_id.clone(),
 		&config.chain_spec.fork_id().map(ToOwned::to_owned),
@@ -908,7 +911,7 @@ where
 	let sync_service = Arc::new(sync_service);
 
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
-	let network_params = sc_network::config::Params::<TBl> {
+	let network_params = sc_network::config::Params::<TBl, <TBl as BlockT>::Hash, TNet> {
 		role: config.role.clone(),
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
@@ -923,11 +926,12 @@ where
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
+		bitswap_config,
 	};
 
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
-	let network_mut = sc_network::NetworkWorker::new(network_params)?;
-	let network = network_mut.service().clone();
+	let network_mut = TNet::new(network_params)?;
+	let network = network_mut.network_service().clone();
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),
@@ -940,7 +944,7 @@ where
 	spawn_handle.spawn_blocking(
 		"chain-sync-network-service-provider",
 		Some("networking"),
-		chain_sync_network_provider.run(network.clone()),
+		chain_sync_network_provider.run(Arc::new(network.clone())),
 	);
 	spawn_handle.spawn("import-queue", None, import_queue.run(Box::new(sync_service_import_queue)));
 	spawn_handle.spawn_blocking("syncing", None, engine.run());
@@ -949,9 +953,9 @@ where
 	spawn_handle.spawn(
 		"system-rpc-handler",
 		Some("networking"),
-		build_system_rpc_future(
+		build_system_rpc_future::<_, _, <TBl as BlockT>::Hash>(
 			config.role.clone(),
-			network_mut.service().clone(),
+			network_mut.network_service(),
 			sync_service.clone(),
 			client.clone(),
 			system_rpc_rx,
@@ -959,18 +963,22 @@ where
 		),
 	);
 
-	let future =
-		build_network_future(network_mut, client, sync_service.clone(), config.announce_block);
+	let future = build_network_future::<_, _, <TBl as BlockT>::Hash, _>(
+		network_mut,
+		client,
+		sync_service.clone(),
+		config.announce_block,
+	);
 
 	// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
 	// node through the `NetworkConfiguration` struct. But because this function doesn't know in
 	// advance which components, such as GrandPa or Polkadot, will be plugged on top of the
-	// service, it is unfortunately not possible to do so without some deep refactoring. To bypass
-	// this problem, the `NetworkService` provides a `register_notifications_protocol` method that
-	// can be called even after the network has been initialized. However, we want to avoid the
-	// situation where `register_notifications_protocol` is called *after* the network actually
-	// connects to other peers. For this reason, we delay the process of the network future until
-	// the user calls `NetworkStarter::start_network`.
+	// service, it is unfortunately not possible to do so without some deep refactoring. To
+	// bypass this problem, the `NetworkService` provides a `register_notifications_protocol`
+	// method that can be called even after the network has been initialized. However, we want to
+	// avoid the situation where `register_notifications_protocol` is called *after* the network
+	// actually connects to other peers. For this reason, we delay the process of the network
+	// future until the user calls `NetworkStarter::start_network`.
 	//
 	// This entire hack should eventually be removed in favour of passing the list of protocols
 	// through the configuration.

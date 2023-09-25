@@ -153,6 +153,30 @@ impl From<&PeerId> for libp2p_identity::PeerId {
 	}
 }
 
+impl From<litep2p::PeerId> for PeerId {
+	fn from(peer: litep2p::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	}
+}
+
+impl From<PeerId> for litep2p::PeerId {
+	fn from(peer: PeerId) -> Self {
+		litep2p::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	}
+}
+
+impl From<&litep2p::PeerId> for PeerId {
+	fn from(peer: &litep2p::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	}
+}
+
+impl From<&PeerId> for litep2p::PeerId {
+	fn from(peer: &PeerId) -> Self {
+		litep2p::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	}
+}
+
 /// Error when parsing a [`PeerId`] from string or bytes.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {

@@ -20,7 +20,7 @@ use crate::{
 	discovery::{DiscoveryBehaviour, DiscoveryConfig, DiscoveryOut},
 	event::DhtEvent,
 	peer_info,
-	peer_store::PeerStoreHandle,
+	peer_store::PeerStoreProvider,
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
 	request_responses::{self, IfDisconnected, ProtocolConfig, RequestFailure},
@@ -173,7 +173,7 @@ impl<B: BlockT> Behaviour<B> {
 		local_public_key: PublicKey,
 		disco_config: DiscoveryConfig,
 		request_response_protocols: Vec<ProtocolConfig>,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
@@ -186,7 +186,7 @@ impl<B: BlockT> Behaviour<B> {
 			discovery: disco_config.finish(),
 			request_responses: request_responses::RequestResponsesBehaviour::new(
 				request_response_protocols.into_iter(),
-				Box::new(peer_store_handle),
+				peer_store_handle,
 			)?,
 		})
 	}

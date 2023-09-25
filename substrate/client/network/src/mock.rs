@@ -37,11 +37,11 @@ impl PeerStoreProvider for MockPeerStore {
 		// Make sure not to fail.
 	}
 
-	fn report_disconnect(&mut self, _peer_id: PeerId) {
+	fn report_disconnect(&self, _peer_id: PeerId) {
 		// Make sure not to fail.
 	}
 
-	fn report_peer(&mut self, _peer_id: PeerId, _change: ReputationChange) {
+	fn report_peer(&self, _peer_id: PeerId, _change: ReputationChange) {
 		// Make sure not to fail.
 	}
 
@@ -54,11 +54,19 @@ impl PeerStoreProvider for MockPeerStore {
 		None
 	}
 
-	fn set_peer_role(&mut self, _peer_id: &PeerId, _role: ObservedRole) {
+	fn set_peer_role(&self, _peer_id: &PeerId, _role: ObservedRole) {
 		unimplemented!();
 	}
 
 	fn outgoing_candidates(&self, _count: usize, _ignored: HashSet<PeerId>) -> Vec<PeerId> {
+		unimplemented!()
+	}
+
+	fn num_known_peers(&self) -> usize {
+		0usize
+	}
+
+	fn add_known_peer(&self, _peer_id: PeerId) {
 		unimplemented!()
 	}
 }

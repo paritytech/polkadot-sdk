@@ -833,7 +833,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let (chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		let mut block_relay_params = BlockRequestHandler::new(
+		let mut block_relay_params = BlockRequestHandler::new::<NetworkWorker<_, _>>(
 			chain_sync_network_handle.clone(),
 			&protocol_id,
 			None,
@@ -845,18 +845,24 @@ pub trait TestNetFactory: Default + Sized + Send {
 		}));
 
 		let state_request_protocol_config = {
-			let (handler, protocol_config) =
-				StateRequestHandler::new(&protocol_id, None, client.clone(), 50);
+			let (handler, protocol_config) = StateRequestHandler::new::<NetworkWorker<_, _>>(
+				&protocol_id,
+				None,
+				client.clone(),
+				50,
+			);
 			self.spawn_task(handler.run().boxed());
 			protocol_config
 		};
 
-		let light_client_request_protocol_config = {
-			let (handler, protocol_config) =
-				LightClientRequestHandler::new(&protocol_id, None, client.clone());
-			self.spawn_task(handler.run().boxed());
-			protocol_config
-		};
+		let light_client_request_protocol_config =
+			{
+				let (handler, protocol_config) = LightClientRequestHandler::new::<
+					NetworkWorker<_, _>,
+				>(&protocol_id, None, client.clone());
+				self.spawn_task(handler.run().boxed());
+				protocol_config
+			};
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
@@ -870,16 +876,17 @@ pub trait TestNetFactory: Default + Sized + Send {
 		};
 
 		let warp_protocol_config = {
-			let (handler, protocol_config) = warp_request_handler::RequestHandler::new(
-				protocol_id.clone(),
-				client
-					.block_hash(0u32.into())
-					.ok()
-					.flatten()
-					.expect("Genesis block exists; qed"),
-				None,
-				warp_sync.clone(),
-			);
+			let (handler, protocol_config) =
+				warp_request_handler::RequestHandler::new::<_, NetworkWorker<_, _>>(
+					protocol_id.clone(),
+					client
+						.block_hash(0u32.into())
+						.ok()
+						.flatten()
+						.expect("Genesis block exists; qed"),
+					None,
+					warp_sync.clone(),
+				);
 			self.spawn_task(handler.run().boxed());
 			protocol_config
 		};
@@ -891,18 +898,23 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
 		);
-		let peer_store_handle = peer_store.handle();
+		let peer_store_handle = Arc::new(peer_store.handle());
 		self.spawn_task(peer_store.run().boxed());
 
 		let block_announce_validator = config
 			.block_announce_validator
 			.unwrap_or_else(|| Box::new(DefaultBlockAnnounceValidator));
+		let metrics = <NetworkWorker<_, _> as sc_network::NetworkBackend<
+			Block,
+			<Block as BlockT>::Hash,
+		>>::register_notification_metrics(None);
 
 		let (engine, sync_service, block_announce_config) =
 			sc_network_sync::engine::SyncingEngine::new(
 				Roles::from(if config.is_authority { &Role::Authority } else { &Role::Full }),
 				client.clone(),
 				None,
+				metrics,
 				&full_net_config,
 				protocol_id.clone(),
 				&fork_id,
@@ -949,6 +961,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			fork_id,
 			metrics_registry: None,
 			block_announce_config,
+			bitswap_config: None,
 		})
 		.unwrap();
 

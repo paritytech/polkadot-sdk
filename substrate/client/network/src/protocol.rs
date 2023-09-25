@@ -18,7 +18,7 @@
 
 use crate::{
 	config, error,
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	peer_store::PeerStoreProvider,
 	protocol_controller::{self, SetId},
 	service::traits::Direction,
 	types::ProtocolName,
@@ -41,7 +41,7 @@ use sc_network_common::role::Roles;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{collections::HashSet, iter, task::Poll};
+use std::{collections::HashSet, iter, sync::Arc, task::Poll};
 
 use notifications::{metrics, Notifications, NotificationsOut};
 
@@ -69,7 +69,7 @@ pub struct Protocol<B: BlockT> {
 	/// List of notifications protocols that have been registered.
 	notification_protocols: Vec<ProtocolName>,
 	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 	/// Streams for peers whose handshake couldn't be determined.
 	bad_handshake_streams: HashSet<PeerId>,
 	sync_handle: ProtocolHandle,
@@ -83,7 +83,7 @@ impl<B: BlockT> Protocol<B> {
 		registry: &Option<Registry>,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 	) -> error::Result<(Self, Vec<ProtocolHandle>)> {

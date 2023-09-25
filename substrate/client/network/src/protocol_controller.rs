@@ -49,6 +49,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_arithmetic::traits::SaturatedConversion;
 use std::{
 	collections::{HashMap, HashSet},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use wasm_timer::Delay;
@@ -288,7 +289,7 @@ pub struct ProtocolController {
 	to_notifications: TracingUnboundedSender<Message>,
 	/// `PeerStore` handle for checking peer reputation values and getting connection candidates
 	/// with highest reputation.
-	peer_store: Box<dyn PeerStoreProvider>,
+	peer_store: Arc<dyn PeerStoreProvider>,
 }
 
 impl ProtocolController {
@@ -297,7 +298,7 @@ impl ProtocolController {
 		set_id: SetId,
 		config: ProtoSetConfig,
 		to_notifications: TracingUnboundedSender<Message>,
-		peer_store: Box<dyn PeerStoreProvider>,
+		peer_store: Arc<dyn PeerStoreProvider>,
 	) -> (ProtocolHandle, ProtocolController) {
 		let (actions_tx, actions_rx) = tracing_unbounded("mpsc_api_protocol", 10_000);
 		let (events_tx, events_rx) = tracing_unbounded("mpsc_notifications_protocol", 10_000);
@@ -860,12 +861,14 @@ mod tests {
 		impl PeerStoreProvider for PeerStoreHandle {
 			fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
 			fn register_protocol(&self, protocol_handle: ProtocolHandle);
-			fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId);
-			fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
-			fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange);
+			fn report_disconnect(&self, peer_id: sc_network_types::PeerId);
+			fn set_peer_role(&self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
+			fn report_peer(&self, peer_id: sc_network_types::PeerId, change: ReputationChange);
 			fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
 			fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
 			fn outgoing_candidates(&self, count: usize, ignored: HashSet<sc_network_types::PeerId>) -> Vec<sc_network_types::PeerId>;
+			fn num_known_peers(&self) -> usize;
+			fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 		}
 	}
 
@@ -889,7 +892,7 @@ mod tests {
 		peer_store.expect_report_disconnect().times(2).return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Add second reserved node at runtime (this currently calls `alloc_slots` internally).
 		controller.on_add_reserved_peer(reserved2);
@@ -950,7 +953,7 @@ mod tests {
 		peer_store.expect_is_banned().times(6).return_const(true);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Add second reserved node at runtime (this currently calls `alloc_slots` internally).
 		controller.on_add_reserved_peer(reserved2);
@@ -1002,7 +1005,7 @@ mod tests {
 		peer_store.expect_report_disconnect().times(2).return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Add second reserved node at runtime (this calls `alloc_slots` internally).
 		controller.on_add_reserved_peer(reserved2);
@@ -1060,7 +1063,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1107,7 +1110,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1149,7 +1152,7 @@ mod tests {
 		peer_store.expect_report_disconnect().times(2).return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1216,7 +1219,7 @@ mod tests {
 		peer_store.expect_register_protocol().once().return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1242,7 +1245,7 @@ mod tests {
 		peer_store.expect_register_protocol().once().return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		let peer = PeerId::random();
 		let incoming_index = IncomingIndex(1);
@@ -1280,7 +1283,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1327,7 +1330,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert_eq!(controller.num_out, 0);
 		assert_eq!(controller.num_in, 0);
 
@@ -1385,7 +1388,7 @@ mod tests {
 		peer_store.expect_register_protocol().once().return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert_eq!(controller.reserved_nodes.len(), 2);
 		assert_eq!(controller.nodes.len(), 0);
 		assert_eq!(controller.num_out, 0);
@@ -1418,7 +1421,7 @@ mod tests {
 		peer_store.expect_is_banned().times(2).return_const(false);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Initiate connections.
 		controller.alloc_slots();
@@ -1468,7 +1471,7 @@ mod tests {
 			.return_const(Vec::<sc_network_types::PeerId>::new());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `peer1` as inbound, `peer2` as outbound.
 		controller.on_incoming_connection(peer1, IncomingIndex(1));
@@ -1514,7 +1517,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `peer1` as outbound & `peer2` as inbound.
 		controller.alloc_slots();
@@ -1556,7 +1559,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `peer1` as outbound & `peer2` as inbound.
 		controller.alloc_slots();
@@ -1615,7 +1618,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `reserved1` as inbound & `reserved2` as outbound.
 		controller.on_incoming_connection(reserved1, IncomingIndex(1));
@@ -1672,7 +1675,7 @@ mod tests {
 		peer_store.expect_report_disconnect().times(2).return_const(());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `peer1` as outbound & `peer2` as inbound.
 		controller.alloc_slots();
@@ -1723,7 +1726,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `reserved1` as inbound & `reserved2` as outbound.
 		controller.on_incoming_connection(reserved1, IncomingIndex(1));
@@ -1783,7 +1786,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert_eq!(controller.num_out, 0);
 		assert_eq!(controller.num_in, 0);
 
@@ -1836,7 +1839,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert_eq!(controller.num_out, 0);
 		assert_eq!(controller.num_in, 0);
 
@@ -1888,7 +1891,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert_eq!(controller.num_out, 0);
 		assert_eq!(controller.num_in, 0);
 
@@ -1940,7 +1943,7 @@ mod tests {
 		peer_store.expect_is_banned().once().return_const(false);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Connect `peer1` as inbound.
 		controller.on_incoming_connection(peer1, IncomingIndex(1));
@@ -1970,7 +1973,7 @@ mod tests {
 		peer_store.expect_is_banned().once().return_const(true);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 
 		// Incoming request.
 		controller.on_incoming_connection(peer1, IncomingIndex(1));
@@ -1995,7 +1998,7 @@ mod tests {
 		peer_store.expect_is_banned().once().return_const(true);
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert!(controller.reserved_nodes.contains_key(&reserved1));
 
 		// Incoming request.
@@ -2022,7 +2025,7 @@ mod tests {
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		let (_handle, mut controller) =
-			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(0), config, tx, Arc::new(peer_store));
 		assert!(matches!(controller.reserved_nodes.get(&reserved1), Some(PeerState::NotConnected)));
 
 		// Initiate connectios

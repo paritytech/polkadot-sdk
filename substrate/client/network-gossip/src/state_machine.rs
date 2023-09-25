@@ -608,6 +608,7 @@ mod tests {
 		peer_reports: Vec<(PeerId, ReputationChange)>,
 	}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for NoOpNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -680,6 +681,10 @@ mod tests {
 		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
 			None
 		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
 	}
 
 	impl NetworkEventStream for NoOpNetwork {
@@ -736,13 +741,13 @@ mod tests {
 		}
 
 		/// Send synchronous `notification` to `peer`.
-		fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+		fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
 			unimplemented!();
 		}
 
 		/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 		async fn send_async_notification(
-			&self,
+			&mut self,
 			_peer: &PeerId,
 			_notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {

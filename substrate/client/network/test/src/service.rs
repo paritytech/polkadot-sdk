@@ -22,10 +22,10 @@ use sc_consensus::{ImportQueue, Link};
 use sc_network::{
 	config::{self, FullNetworkConfiguration, MultiaddrWithPeerId, ProtocolId, TransportConfig},
 	event::Event,
-	peer_store::PeerStore,
+	peer_store::{PeerStore, PeerStoreProvider},
 	service::traits::{NotificationEvent, ValidationResult},
 	Multiaddr, NetworkEventStream, NetworkPeers, NetworkService, NetworkStateInfo, NetworkWorker,
-	NotificationService, PeerId,
+	NotificationMetrics, NotificationService, PeerId,
 };
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -158,27 +158,35 @@ impl TestNetworkBuilder {
 
 		let (chain_sync_network_provider, chain_sync_network_handle) =
 			self.chain_sync_network.unwrap_or(NetworkServiceProvider::new());
-		let mut block_relay_params = BlockRequestHandler::new(
-			chain_sync_network_handle.clone(),
-			&protocol_id,
-			None,
-			client.clone(),
-			50,
-		);
+		let mut block_relay_params =
+			BlockRequestHandler::new::<
+				NetworkWorker<
+					substrate_test_runtime_client::runtime::Block,
+					substrate_test_runtime_client::runtime::Hash,
+				>,
+			>(chain_sync_network_handle.clone(), &protocol_id, None, client.clone(), 50);
 		tokio::spawn(Box::pin(async move {
 			block_relay_params.server.run().await;
 		}));
 
 		let state_request_protocol_config = {
-			let (handler, protocol_config) =
-				StateRequestHandler::new(&protocol_id, None, client.clone(), 50);
+			let (handler, protocol_config) = StateRequestHandler::new::<
+				NetworkWorker<
+					substrate_test_runtime_client::runtime::Block,
+					substrate_test_runtime_client::runtime::Hash,
+				>,
+			>(&protocol_id, None, client.clone(), 50);
 			tokio::spawn(handler.run().boxed());
 			protocol_config
 		};
 
 		let light_client_request_protocol_config = {
-			let (handler, protocol_config) =
-				LightClientRequestHandler::new(&protocol_id, None, client.clone());
+			let (handler, protocol_config) = LightClientRequestHandler::new::<
+				NetworkWorker<
+					substrate_test_runtime_client::runtime::Block,
+					substrate_test_runtime_client::runtime::Hash,
+				>,
+			>(&protocol_id, None, client.clone());
 			tokio::spawn(handler.run().boxed());
 			protocol_config
 		};
@@ -190,13 +198,14 @@ impl TestNetworkBuilder {
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
 		);
-		let peer_store_handle = peer_store.handle();
+		let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
 		tokio::spawn(peer_store.run().boxed());
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
 			Roles::from(&config::Role::Full),
 			client.clone(),
 			None,
+			NotificationMetrics::new(None),
 			&full_net_config,
 			protocol_id.clone(),
 			&None,
@@ -207,7 +216,7 @@ impl TestNetworkBuilder {
 			block_relay_params.downloader,
 			state_request_protocol_config.name.clone(),
 			None,
-			peer_store_handle.clone(),
+			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();
 		let mut link = self.link.unwrap_or(Box::new(chain_sync_service.clone()));
@@ -242,7 +251,11 @@ impl TestNetworkBuilder {
 		let worker = NetworkWorker::<
 			substrate_test_runtime_client::runtime::Block,
 			substrate_test_runtime_client::runtime::Hash,
-		>::new(config::Params::<substrate_test_runtime_client::runtime::Block> {
+		>::new(config::Params::<
+			substrate_test_runtime_client::runtime::Block,
+			substrate_test_runtime_client::runtime::Hash,
+			NetworkWorker<_, _>,
+		> {
 			block_announce_config,
 			role: config::Role::Full,
 			executor: Box::new(|f| {
@@ -250,10 +263,11 @@ impl TestNetworkBuilder {
 			}),
 			genesis_hash,
 			network_config: full_net_config,
-			peer_store: peer_store_handle,
+			peer_store: Arc::clone(&peer_store_handle),
 			protocol_id,
 			fork_id,
 			metrics_registry: None,
+			bitswap_config: None,
 		})
 		.unwrap();
 

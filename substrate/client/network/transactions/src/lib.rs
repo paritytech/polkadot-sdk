@@ -34,12 +34,15 @@ use log::{debug, trace, warn};
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, ProtocolId, SetConfig},
+	config::{NonReservedPeerMode, ProtocolId, SetConfig},
 	error, multiaddr,
-	service::traits::{NotificationEvent, NotificationService, ValidationResult},
+	service::{
+		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkNotification, NetworkPeers,
 };
 use sc_network_common::{role::ObservedRole, ExHashT};
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -124,11 +127,16 @@ pub struct TransactionsHandlerPrototype {
 
 impl TransactionsHandlerPrototype {
 	/// Create a new instance.
-	pub fn new<Hash: AsRef<[u8]>>(
+	pub fn new<
+		Hash: AsRef<[u8]>,
+		Block: BlockT,
+		Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	>(
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-	) -> (Self, NonDefaultSetConfig) {
+		metrics: NotificationMetrics,
+	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let protocol_name: ProtocolName = if let Some(fork_id) = fork_id {
 			format!("/{}/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
@@ -136,7 +144,7 @@ impl TransactionsHandlerPrototype {
 			format!("/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash))
 		}
 		.into();
-		let (config, notification_service) = NonDefaultSetConfig::new(
+		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone(),
 			vec![format!("/{}/transactions/1", protocol_id.as_ref()).into()],
 			MAX_TRANSACTIONS_SIZE,
@@ -147,6 +155,7 @@ impl TransactionsHandlerPrototype {
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
+			metrics,
 		);
 
 		(Self { protocol_name, notification_service }, config)
@@ -345,6 +354,9 @@ where
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				let _peer = self.peers.remove(&peer);
+				if _peer.is_none() {
+					panic!("peer doesn't exist {peer:?}");
+				}
 				debug_assert!(_peer.is_some());
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
@@ -369,7 +381,7 @@ where
 					iter::once(addr).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "sync", "Add reserved peer failed: {}", err);
+					log::error!(target: "transactions", "Add reserved peer failed: {}", err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
@@ -378,7 +390,7 @@ where
 					iter::once(remote).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "sync", "Remove reserved peer failed: {}", err);
+					log::error!(target: "transactions", "Remove reserved peer failed: {}", err);
 				}
 			},
 		}
@@ -388,16 +400,16 @@ where
 	fn on_transactions(&mut self, who: PeerId, transactions: Transactions<B::Extrinsic>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			trace!(target: "sync", "{} Ignoring transactions while major syncing", who);
+			trace!(target: "transactions", "{} Ignoring transactions while major syncing", who);
 			return
 		}
 
-		trace!(target: "sync", "Received {} transactions from {}", transactions.len(), who);
+		trace!(target: "transactions", "Received {} transactions from {}", transactions.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			for t in transactions {
 				if self.pending_transactions.len() > MAX_PENDING_TRANSACTIONS {
 					debug!(
-						target: "sync",
+						target: "transactions",
 						"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit",
 						MAX_PENDING_TRANSACTIONS,
 					);
@@ -442,7 +454,7 @@ where
 			return
 		}
 
-		debug!(target: "sync", "Propagating transaction [{:?}]", hash);
+		debug!(target: "transactions", "Propagating transaction [{:?}]", hash);
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
@@ -506,7 +518,7 @@ where
 			return
 		}
 
-		debug!(target: "sync", "Propagating transactions");
+		debug!(target: "transactions", "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);

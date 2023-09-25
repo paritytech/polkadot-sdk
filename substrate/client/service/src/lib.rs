@@ -41,7 +41,10 @@ use futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
 use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
-use sc_network::{config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo};
+use sc_network::{
+	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
+	NetworkPeers, NetworkStateInfo,
+};
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
 use sc_utils::mpsc::TracingUnboundedReceiver;
@@ -153,8 +156,9 @@ async fn build_network_future<
 		+ Sync
 		+ 'static,
 	H: sc_network_common::ExHashT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
 >(
-	network: sc_network::NetworkWorker<B, H>,
+	network: N,
 	client: Arc<C>,
 	sync_service: Arc<SyncingService<B>>,
 	announce_imported_blocks: bool,
@@ -221,7 +225,7 @@ pub async fn build_system_rpc_future<
 	H: sc_network_common::ExHashT,
 >(
 	role: Role,
-	network_service: Arc<sc_network::NetworkService<B, H>>,
+	network_service: Arc<dyn NetworkService>,
 	sync_service: Arc<SyncingService<B>>,
 	client: Arc<C>,
 	mut rpc_rx: TracingUnboundedReceiver<sc_rpc::system::Request<B>>,
@@ -306,14 +310,12 @@ pub async fn build_system_rpc_future<
 				};
 			},
 			sc_rpc::system::Request::NetworkReservedPeers(sender) => {
-				let reserved_peers = network_service.reserved_peers().await;
-				if let Ok(reserved_peers) = reserved_peers {
-					let reserved_peers =
-						reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect();
-					let _ = sender.send(reserved_peers);
-				} else {
-					break
-				}
+				let Ok(reserved_peers) = network_service.reserved_peers().await else {
+					break;
+				};
+
+				let _ =
+					sender.send(reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect());
 			},
 			sc_rpc::system::Request::NodeRoles(sender) => {
 				use sc_rpc::system::NodeRole;

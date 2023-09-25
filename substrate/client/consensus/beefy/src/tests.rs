@@ -121,7 +121,11 @@ impl BeefyTestNet {
 		let mut net = BeefyTestNet { peers: Vec::with_capacity(n_authority), beefy_genesis };
 
 		for i in 0..n_authority {
-			let (rx, cfg) = on_demand_justifications_protocol_config(GENESIS_HASH, None);
+			let (rx, cfg) = on_demand_justifications_protocol_config::<
+				_,
+				Block,
+				sc_network::NetworkWorker<_, _>,
+			>(GENESIS_HASH, None);
 			let justif_protocol_name = cfg.name.clone();
 
 			net.add_authority_peer(vec![cfg]);

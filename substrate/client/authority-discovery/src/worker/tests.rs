@@ -158,9 +158,19 @@ impl Default for TestNetwork {
 impl NetworkSigner for TestNetwork {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, &self.identity)
+	}
+
+	fn verify(
+		&self,
+		_: sc_network_types::PeerId,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		unimplemented!();
 	}
 }
 
@@ -202,9 +212,19 @@ struct TestSigner<'a> {
 impl<'a> NetworkSigner for TestSigner<'a> {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, self.keypair)
+	}
+
+	fn verify(
+		&self,
+		_: sc_network_types::PeerId,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		unimplemented!();
 	}
 }
 
@@ -500,7 +520,6 @@ struct DhtValueFoundTester {
 	pub local_worker: Option<
 		Worker<
 			TestApi,
-			TestNetwork,
 			sp_runtime::generic::Block<
 				sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
 				substrate_test_runtime_client::runtime::Extrinsic,

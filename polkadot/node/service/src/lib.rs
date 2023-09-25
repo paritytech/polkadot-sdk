@@ -651,7 +651,7 @@ pub struct NewFull {
 	pub task_manager: TaskManager,
 	pub client: Arc<FullClient>,
 	pub overseer_handle: Option<Handle>,
-	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
+	pub network: Arc<dyn sc_network::service::traits::NetworkService>,
 	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
 	pub rpc_handlers: RpcHandlers,
 	pub backend: Arc<FullBackend>,
@@ -715,7 +715,10 @@ pub const AVAILABILITY_CONFIG: AvailabilityConfig = AvailabilityConfig {
 /// searched. If the path points to an executable rather then directory, that executable is used
 /// both as preparation and execution worker (supposed to be used for tests only).
 #[cfg(feature = "full-node")]
-pub fn new_full<OverseerGenerator: OverseerGen>(
+pub fn new_full<
+	OverseerGenerator: OverseerGen,
+	Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
+>(
 	mut config: Configuration,
 	NewFullParams {
 		is_parachain_node,
@@ -803,9 +806,13 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		other: (rpc_extensions_builder, import_setup, rpc_setup, slot_duration, mut telemetry),
 	} = new_partial::<SelectRelayChain<_>>(&mut config, basics, select_chain)?;
 
+	let metrics = Network::register_notification_metrics(
+		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+	);
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
-	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+	let mut net_config =
+		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 
@@ -814,7 +821,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// Substrate nodes.
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	let (grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+		grandpa::grandpa_peers_set_config::<_, Network>(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	let beefy_gossip_proto_name =
@@ -822,7 +832,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	let (beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy::communication::request_response::BeefyJustifsRequestHandler::new(
+		beefy::communication::request_response::BeefyJustifsRequestHandler::new::<_, Network>(
 			&genesis_hash,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -832,7 +842,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		false => None,
 		true => {
 			let (beefy_notification_config, beefy_notification_service) =
-				beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+				beefy::communication::beefy_peers_set_config::<_, Network>(
+					beefy_gossip_proto_name.clone(),
+					metrics.clone(),
+				);
 
 			net_config.add_notification_protocol(beefy_notification_config);
 			net_config.add_request_response_protocol(beefy_req_resp_cfg);
@@ -854,7 +867,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 			let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 
-			peer_sets_info(is_authority, &peerset_protocol_names)
+			peer_sets_info::<_, Network>(is_authority, &peerset_protocol_names, metrics.clone())
 				.into_iter()
 				.map(|(config, (peerset, service))| {
 					net_config.add_notification_protocol(config);
@@ -867,25 +880,29 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (chunk_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (collation_req_v1_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (collation_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (candidate_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (dispute_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
@@ -911,6 +928,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: None,
+			metrics,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -926,7 +944,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				transaction_pool: Some(OffchainTransactionPoolFactory::new(
 					transaction_pool.clone(),
 				)),
-				network_provider: network.clone(),
+				network_provider: Arc::new(network.clone()),
 				is_validator: role.is_authority(),
 				enable_http_requests: false,
 				custom_extensions: move |_| vec![],
@@ -1046,7 +1064,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					..Default::default()
 				},
 				client.clone(),
-				network.clone(),
+				Arc::new(network.clone()),
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
@@ -1202,7 +1220,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	if let Some(notification_service) = beefy_notification_service {
 		let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
 		let network_params = beefy::BeefyNetworkParams {
-			network: network.clone(),
+			network: Arc::new(network.clone()),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
@@ -1370,7 +1388,12 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 			capacity
 		});
 
-	new_full(config, params)
+	match config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =>
+			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params),
+		sc_network::config::NetworkBackendType::Litep2p =>
+			new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
+	}
 }
 
 /// Reverts the node state down to at most the last finalized block.

@@ -40,7 +40,7 @@ pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, 
 
 /// Predefined metric sources that are fed directly into prometheus.
 pub struct MetricSources {
-	pub bandwidth: Arc<BandwidthSinks>,
+	pub bandwidth: Arc<dyn BandwidthSink>,
 	pub connected_peers: Arc<AtomicUsize>,
 }
 
@@ -208,12 +208,12 @@ impl Metrics {
 
 /// The bandwidth counter metric.
 #[derive(Clone)]
-pub struct BandwidthCounters(Arc<BandwidthSinks>);
+pub struct BandwidthCounters(Arc<dyn BandwidthSink>);
 
 impl BandwidthCounters {
 	/// Registers the `BandwidthCounters` metric whose values are
 	/// obtained from the given sinks.
-	fn register(registry: &Registry, sinks: Arc<BandwidthSinks>) -> Result<(), PrometheusError> {
+	fn register(registry: &Registry, sinks: Arc<dyn BandwidthSink>) -> Result<(), PrometheusError> {
 		prometheus::register(
 			SourcedCounter::new(
 				&Opts::new("substrate_sub_libp2p_network_bytes_total", "Total bandwidth usage")

@@ -54,7 +54,6 @@ sp-consensus = { path = "../../primitives/consensus/common" }
 sc-consensus = { path = "../consensus/common" }
 sp-storage = { path = "../../primitives/storage" }
 sc-network = { path = "../network" }
-sc-network-bitswap = { path = "../network/bitswap" }
 sc-network-common = { path = "../network/common" }
 sc-network-light = { path = "../network/light" }
 sc-network-sync = { path = "../network/sync" }

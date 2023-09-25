@@ -28,4 +28,5 @@ sc-network-sync = { path = "../sync" }
 sc-network-types = { path = "../types" }
 sc-network = { path = ".." }
 sp-consensus = { path = "../../../primitives/consensus/common" }
+sp-runtime = { path = "../../../primitives/runtime" }
 sp-statement-store = { path = "../../../primitives/statement-store" }

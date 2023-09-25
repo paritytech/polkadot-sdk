@@ -361,6 +361,7 @@ mod tests {
 		}
 	}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -432,6 +433,10 @@ mod tests {
 
 		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
 			None
+		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
 		}
 	}
 

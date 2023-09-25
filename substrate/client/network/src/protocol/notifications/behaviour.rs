@@ -2442,7 +2442,7 @@ mod tests {
 				reserved_only: false,
 			},
 			to_notifications,
-			Box::new(MockPeerStore {}),
+			Arc::new(MockPeerStore {}),
 		);
 
 		let (notif_handle, command_stream) = protocol_handle_pair.split();

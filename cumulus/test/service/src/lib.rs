@@ -62,7 +62,9 @@ use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
-	multiaddr, NetworkBlock, NetworkService, NetworkStateInfo,
+	multiaddr,
+	service::traits::NetworkService,
+	NetworkBackend, NetworkBlock, NetworkStateInfo,
 };
 use sc_service::{
 	config::{
@@ -74,7 +76,7 @@ use sc_service::{
 };
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
-use sp_core::{Pair, H256};
+use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{codec::Encode, generic};
 use sp_state_machine::BasicExternalities;
@@ -303,7 +305,7 @@ async fn build_relay_chain_interface(
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
-pub async fn start_node_impl<RB>(
+pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
@@ -317,7 +319,7 @@ pub async fn start_node_impl<RB>(
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
-	Arc<NetworkService<Block, H256>>,
+	Arc<dyn NetworkService>,
 	RpcHandlers,
 	TransactionPool,
 	Arc<Backend>,
@@ -347,7 +349,7 @@ where
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 	let import_queue_service = params.import_queue.service();
-	let net_config = FullNetworkConfiguration::new(&parachain_config.network);
+	let net_config = FullNetworkConfiguration::<Block, Hash, Net>::new(&parachain_config.network);
 
 	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
@@ -493,7 +495,7 @@ pub struct TestNode {
 	/// Client's instance.
 	pub client: Arc<Client>,
 	/// Node's network.
-	pub network: Arc<NetworkService<Block, H256>>,
+	pub network: Arc<dyn NetworkService>,
 	/// The `MultiaddrWithPeerId` to this node. This is useful if you want to pass it as "boot
 	/// node" to other nodes.
 	pub addr: MultiaddrWithPeerId,
@@ -701,21 +703,38 @@ impl TestNodeBuilder {
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			start_node_impl(
-				parachain_config,
-				self.collator_key,
-				relay_chain_config,
-				self.para_id,
-				self.wrap_announce_block,
-				false,
-				|_| Ok(jsonrpsee::RpcModule::new(())),
-				self.consensus,
-				collator_options,
-				self.record_proof_during_import,
-			)
-			.await
-			.expect("could not create Cumulus test service");
-
+			match relay_chain_config.network.network_backend {
+				sc_network::config::NetworkBackendType::Libp2p =>
+					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
+						parachain_config,
+						self.collator_key,
+						relay_chain_config,
+						self.para_id,
+						self.wrap_announce_block,
+						false,
+						|_| Ok(jsonrpsee::RpcModule::new(())),
+						self.consensus,
+						collator_options,
+						self.record_proof_during_import,
+					)
+					.await
+					.expect("could not create Cumulus test service"),
+				sc_network::config::NetworkBackendType::Litep2p =>
+					start_node_impl::<_, sc_network::Litep2pNetworkBackend>(
+						parachain_config,
+						self.collator_key,
+						relay_chain_config,
+						self.para_id,
+						self.wrap_announce_block,
+						false,
+						|_| Ok(jsonrpsee::RpcModule::new(())),
+						self.consensus,
+						collator_options,
+						self.record_proof_during_import,
+					)
+					.await
+					.expect("could not create Cumulus test service"),
+			};
 		let peer_id = network.local_peer_id();
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
