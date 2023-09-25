@@ -143,13 +143,13 @@ async fn batch_revalidate<Api: ChainApi>(
 }
 
 impl<Api: ChainApi> RevalidationWorker<Api> {
-	fn new(api: Arc<Api>, pool: Arc<Pool<Api>>) -> Self {
+	fn new(api: Arc<Api>, pool: Arc<Pool<Api>>, best_block: BlockHash<Api>) -> Self {
 		Self {
 			api,
 			pool,
+			best_block,
 			block_ordered: Default::default(),
 			members: Default::default(),
-			best_block: Default::default(),
 		}
 	}
 
@@ -311,10 +311,11 @@ where
 		api: Arc<Api>,
 		pool: Arc<Pool<Api>>,
 		interval: Duration,
+		best_block: BlockHash<Api>,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
 		let (to_worker, from_queue) = tracing_unbounded("mpsc_revalidation_queue", 100_000);
 
-		let worker = RevalidationWorker::new(api.clone(), pool.clone());
+		let worker = RevalidationWorker::new(api.clone(), pool.clone(), best_block);
 
 		let queue = Self { api, pool, background: Some(to_worker) };
 
@@ -325,8 +326,9 @@ where
 	pub fn new_background(
 		api: Arc<Api>,
 		pool: Arc<Pool<Api>>,
+		best_block: BlockHash<Api>,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		Self::new_with_interval(api, pool, BACKGROUND_REVALIDATION_INTERVAL)
+		Self::new_with_interval(api, pool, BACKGROUND_REVALIDATION_INTERVAL, best_block)
 	}
 
 	/// Queue some transaction for later revalidation.

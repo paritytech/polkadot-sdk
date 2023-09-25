@@ -166,8 +166,11 @@ where
 		finalized_hash: Block::Hash,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
 		let pool = Arc::new(graph::Pool::new(Default::default(), true.into(), pool_api.clone()));
-		let (revalidation_queue, background_task) =
-			revalidation::RevalidationQueue::new_background(pool_api.clone(), pool.clone());
+		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
+			pool_api.clone(),
+			pool.clone(),
+			finalized_hash,
+		);
 		(
 			Self {
 				api: pool_api,
@@ -203,8 +206,11 @@ where
 			RevalidationType::Light =>
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
 			RevalidationType::Full => {
-				let (queue, background) =
-					revalidation::RevalidationQueue::new_background(pool_api.clone(), pool.clone());
+				let (queue, background) = revalidation::RevalidationQueue::new_background(
+					pool_api.clone(),
+					pool.clone(),
+					finalized_hash,
+				);
 				(queue, Some(background))
 			},
 		};
