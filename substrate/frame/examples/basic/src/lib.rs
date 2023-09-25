@@ -38,18 +38,32 @@
 //!
 //! This pallet provides basic examples of using:
 //!
+//! - Pallet hooks to implement some logic that's executed before and after a block is imported
+//!   (see: [`frame_support::traits::Hooks`])
+//! - The [`StorageValue`](frame_support::storage::types::StorageValue) API to demonstrate it's use
+//!   of `mutate` on:
+//! 	- A storage value that stores some `Balance` and uses the default
+//!    [`OptionQuery`](frame_support::storage::types::OptionQuery) which will always return the
+//!    value in storage when queried
+//! 	- A storage value that stores a `u32` and uses
+//!    [`ValueQuery`](frame_support::storage::types::ValueQuery) which will return the default for
+//!    the stored type if its value is removed, in this case `u32::default()`
+//! - A storage map of AccountIds and Balances
 //! - A custom weight calculator able to classify a call's dispatch class (see:
 //!   [`frame_support::dispatch::DispatchClass`])
-//! - Pallet hooks to implement some custom logic that's executed before and after a block is
-//!   imported (see: [`frame_support::traits::Hooks`])
 //! - Inherited weight annotation for pallet calls, used to create less repetition for calls that
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
-//! - A private function that performs a storage update.
 //! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
 //!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
 //!   with an encoded length higher than 200 bytes.
-
+//!
+//! ## Examples
+//!
+//! 1. Construct a signed call to accumulate the value in Dummy:
+#![doc = docify::embed!("src/tests.rs", accumulate_dummy_works)]
+//! 2. Construct a root call to execute `set_dummy`:
+#![doc = docify::embed!("src/tests.rs", set_dummy_works)]
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -82,6 +96,8 @@ pub use weights::*;
 
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
+
+/// A way to calculate transaction fees for our custom weight calculator.
 const MILLICENTS: u32 = 1_000_000_000;
 
 // A custom weight calculator tailored for the dispatch call `set_dummy()`. This actually examines
@@ -117,7 +133,7 @@ impl<T: pallet_balances::Config> WeighData<(&BalanceOf<T>,)> for WeightForSetDum
 
 impl<T: pallet_balances::Config> ClassifyDispatch<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
 	fn classify_dispatch(&self, target: (&BalanceOf<T>,)) -> DispatchClass {
-		if *target.0 > <BalanceOf<T>>::from(1000u32) {
+		if *target.0 > BalanceOf::<T>::from(1000u32) {
 			DispatchClass::Operational
 		} else {
 			DispatchClass::Normal
@@ -131,8 +147,7 @@ impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy
 	}
 }
 
-// Definition of the pallet logic, to be aggregated at runtime definition through
-// `construct_runtime`.
+// Definition of the pallet logic, to be aggregated in a chain's runtime definition.
 #[frame_support::pallet]
 pub mod pallet {
 	// Import various types used to declare pallet in scope.
@@ -140,34 +155,30 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// Our pallet's configuration trait. All our types and constants go in here. If the
-	/// pallet is dependent on specific other pallets, then their configuration traits
-	/// should be added to our implied traits list.
+	/// Our pallet's configuration trait.
 	///
-	/// `frame_system::Config` should always be included.
+	/// Because all FRAME pallets depend on some core utility types from the System pallet,
+	/// [`frame_system::Config`] should always be included. This pallet example uses the `Balances`
+	/// type from `pallet_balances` which we make available by bounding this trait with
+	/// `pallet_balances::Config`.
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
-		// Setting a constant config parameter from the runtime
-		#[pallet::constant]
-		type MagicNumber: Get<Self::Balance>;
-
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Type representing the weight of this pallet
+		/// A type representing the weight information for this pallet's callable functions.
 		type WeightInfo: WeightInfo;
 	}
 
-	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
-	// method.
+	// The `Pallet` type is a placeholder we use to implement traits and methods for the pallet.
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// This pallet implements the [`frame_support::traits::Hooks`] trait to define some logic to
-	// execute in some context.
+	// This pallet implements the [`frame_support::traits::Hooks`] trait to demonstrate how we could
+	// define some logic to execute in some context.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		// `on_initialize` is executed at the beginning of the block before any extrinsic are
+		// `on_initialize` is executed at the beginning of the block before any extrinsics are
 		// dispatched.
 		//
 		// This function must return the weight consumed by `on_initialize` and `on_finalize`.
@@ -177,171 +188,59 @@ pub mod pallet {
 			Weight::zero()
 		}
 
-		// `on_finalize` is executed at the end of block after all extrinsic are dispatched.
+		// `on_finalize` is executed at the end of block after all extrinsics are dispatched.
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			// Perform necessary data/state clean up here.
 		}
-
-		// A runtime code run after every block and have access to extended set of APIs.
-		//
-		// For instance you can generate extrinsics for the upcoming produced block.
-		fn offchain_worker(_n: BlockNumberFor<T>) {
-			// We don't do anything here.
-			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
-			// sp_io::submit_extrinsic.
-			// To see example on offchain worker, please refer to example-offchain-worker pallet
-			// accompanied in this repository.
-		}
 	}
 
-	// The call declaration. This states the entry points that we handle. The
-	// macro takes care of the marshalling of arguments and dispatch.
-	//
-	// Anyone can have these functions execute by signing and submitting
-	// an extrinsic. Ensure that calls into each of these execute in a time, memory and
-	// using storage space proportional to any costs paid for by the caller or otherwise the
-	// difficulty of forcing the call to happen.
-	//
-	// Generally you'll want to split these into three groups:
-	// - Public calls that are signed by an external account.
-	// - Root calls that are allowed to be made only by the governance system.
-	// - Unsigned calls that can be of two kinds:
-	//   * "Inherent extrinsics" that are opinions generally held by the block authors that build
-	//     child blocks.
-	//   * Unsigned Transactions that are of intrinsic recognizable utility to the network, and are
-	//     validated by the runtime.
-	//
-	// Information about where this dispatch initiated from is provided as the first argument
-	// "origin". As such functions must always look like:
-	//
-	// `fn foo(origin: OriginFor<T>, bar: Bar, baz: Baz) -> DispatchResultWithPostInfo { ... }`
-	//
-	// The `DispatchResultWithPostInfo` is required as part of the syntax (and can be found at
-	// `pallet_prelude::DispatchResultWithPostInfo`).
-	//
-	// There are three entries in the `frame_system::Origin` enum that correspond
-	// to the above bullets: `::Signed(AccountId)`, `::Root` and `::None`. You should always match
-	// against them as the first thing you do in your function. There are three convenience calls
-	// in system that do the matching for you and return a convenient result: `ensure_signed`,
-	// `ensure_root` and `ensure_none`.
-	#[pallet::call(weight(<T as Config>::WeightInfo))]
-	impl<T: Config> Pallet<T> {
-		/// This is your public interface. Be extremely careful.
-		/// This is just a simple example of how to interact with the pallet from the external
-		/// world.
-		// This just increases the value of `Dummy` by `increase_by`.
-		//
-		// Since this is a dispatched function there are two extremely important things to
-		// remember:
-		//
-		// - MUST NOT PANIC: Under no circumstances (save, perhaps, storage getting into an
-		// irreparably damaged state) must this function panic.
-		// - NO SIDE-EFFECTS ON ERROR: This function must either complete totally (and return
-		// `Ok(())` or it must have no side-effects on storage and return `Err('Some reason')`.
-		//
-		// The first is relatively easy to audit for - just ensure all panickers are removed from
-		// logic that executes in production (which you do anyway, right?!). To ensure the second
-		// is followed, you should do all tests for validity at the top of your function. This
-		// is stuff like checking the sender (`origin`) or that state is such that the operation
-		// makes sense.
-		//
-		// Once you've determined that it's all good, then enact the operation and change storage.
-		// If you can't be certain that the operation will succeed without substantial computation
-		// then you have a classic blockchain attack scenario. The normal way of managing this is
-		// to attach a bond to the operation. As the first major alteration of storage, reserve
-		// some value from the sender's account (`Balances` Pallet has a `reserve` function for
-		// exactly this scenario). This amount should be enough to cover any costs of the
-		// substantial execution in case it turns out that you can't proceed with the operation.
-		//
-		// If it eventually transpires that the operation is fine and, therefore, that the
-		// expense of the checks should be borne by the network, then you can refund the reserved
-		// deposit. If, however, the operation turns out to be invalid and the computation is
-		// wasted, then you can burn it or repatriate elsewhere.
-		//
-		// Security bonds ensure that attackers can't game it by ensuring that anyone interacting
-		// with the system either progresses it or pays for the trouble of faffing around with
-		// no progress.
-		//
-		// If you don't respect these rules, it is likely that your chain will be attackable.
-		//
-		// Each transaction must define a `#[pallet::weight(..)]` attribute to convey a set of
-		// static information about its dispatch. FRAME System and FRAME Executive pallet then use
-		// this information to properly execute the transaction, whilst keeping the total load of
-		// the chain in a moderate rate.
-		//
-		// The parenthesized value of the `#[pallet::weight(..)]` attribute can be any type that
-		// implements a set of traits, namely [`WeighData`], [`ClassifyDispatch`], and
-		// [`PaysFee`]. The first conveys the weight (a numeric representation of pure
-		// execution time and difficulty) of the transaction and the second demonstrates the
-		// [`DispatchClass`] of the call, the third gives whereas extrinsic must pay fees or not.
-		// A higher weight means a larger transaction (less of which can be placed in a single
-		// block).
-		//
-		// The weight for this extrinsic we rely on the auto-generated `WeightInfo` from the
-		// benchmark toolchain.
-		#[pallet::call_index(0)]
-		pub fn accumulate_dummy(origin: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
-			// This is a public call, so we ensure that the origin is some signed account.
-			let _sender = ensure_signed(origin)?;
+	/// An example storage item to store a single value, in our case, some Balance.
+	/// This storage item uses [`OptionQuery`] by default which will return what is in the actual DB
+	/// state. If this is `None`, then the resulting query will be `None`.
+	///
+	/// The getter attribute generates a function on the `Pallet` struct that we can use to
+	/// conveniently retrieve the current value stored.
+	#[pallet::storage]
+	#[pallet::getter(fn dummy)]
+	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
-			// Read the value of dummy from storage.
-			// let dummy = Self::dummy();
-			// Will also work using the `::get` on the storage item type itself:
-			// let dummy = <Dummy<T>>::get();
+	/// An example storage item that stores a `u32` value.
+	/// Here, we demonstrate using [`ValueQuery`] instead of the default query which will always
+	/// return a value.
+	///
+	/// In our example, if ever the stored value is removed, the value stored will be `0` which is
+	/// `u32::default()`.
+	#[pallet::storage]
+	#[pallet::getter(fn dummy_value_query)]
+	pub(super) type DummyValueQuery<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-			// Calculate the new value.
-			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
+	/// An example storage map that has enumerable entries. In our case this is a mapping of
+	/// AccountIds to Balances.
+	///
+	/// We don't actually use this anywhere.
+	#[pallet::storage]
+	#[pallet::getter(fn accounts_to_balances_map)]
+	pub(super) type AccountsToBalancesMap<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
-			// Put the new value into storage.
-			// <Dummy<T>>::put(new_dummy);
-			// Will also work with a reference:
-			// <Dummy<T>>::put(&new_dummy);
+	/// The genesis configuration type.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		pub dummy: T::Balance,
+		pub dummy_value_query: u32,
+		pub accounts_to_balances_map: Vec<(T::AccountId, T::Balance)>,
+	}
 
-			// Here's the new one of read and then modify the value.
-			<Dummy<T>>::mutate(|dummy| {
-				// Using `saturating_add` instead of a regular `+` to avoid overflowing
-				let new_dummy = dummy.map_or(increase_by, |d| d.saturating_add(increase_by));
-				*dummy = Some(new_dummy);
-			});
-
-			// Let's deposit an event to let the outside world know this happened.
-			Self::deposit_event(Event::AccumulateDummy { balance: increase_by });
-
-			// All good, no refund.
-			Ok(())
-		}
-
-		/// A privileged call; in this case it resets our dummy value to something new.
-		// Implementation of a privileged call. The `origin` parameter is ROOT because
-		// it's not (directly) from an extrinsic, but rather the system as a whole has decided
-		// to execute it. Different runtimes have different reasons for allow privileged
-		// calls to be executed - we don't need to care why. Because it's privileged, we can
-		// assume it's a one-off operation and substantial processing/storage/memory can be used
-		// without worrying about gameability or attack scenarios.
-		//
-		// The weight for this extrinsic we use our own weight object `WeightForSetDummy` to
-		// determine its weight
-		#[pallet::call_index(1)]
-		#[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u32)))]
-		pub fn set_dummy(
-			origin: OriginFor<T>,
-			#[pallet::compact] new_value: T::Balance,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-
-			// Print out log or debug message in the console via log::{error, warn, info, debug,
-			// trace}, accepting format strings similar to `println!`.
-			// https://paritytech.github.io/substrate/master/sp_io/logging/fn.log.html
-			// https://paritytech.github.io/substrate/master/frame_support/constant.LOG_TARGET.html
-			info!("New value is now: {:?}", new_value);
-
-			// Put the new value into storage.
-			<Dummy<T>>::put(new_value);
-
-			Self::deposit_event(Event::SetDummy { balance: new_value });
-
-			// All good, no refund.
-			Ok(())
+	/// The genesis build for this pallet.
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			Dummy::<T>::put(&self.dummy);
+			DummyValueQuery::<T>::put(&self.dummy_value_query);
+			for (a, b) in &self.accounts_to_balances_map {
+				AccountsToBalancesMap::<T>::insert(a, b);
+			}
 		}
 	}
 
@@ -349,95 +248,139 @@ pub mod pallet {
 	/// circumstances that have happened that users, Dapps and/or chain explorers would find
 	/// interesting and otherwise difficult to detect.
 	#[pallet::event]
-	/// This attribute generate the function `deposit_event` to deposit one of this pallet event,
-	/// it is optional, it is also possible to provide a custom implementation.
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		// Just a normal `enum`, here's a dummy event to ensure it compiles.
-		/// Dummy event, just here so there's a generic type that's used.
+		/// The Dummy value has been accumulated.
 		AccumulateDummy {
+			/// The new value of Dummy.
 			balance: BalanceOf<T>,
 		},
+		/// The Dummy value has been set.
 		SetDummy {
-			balance: BalanceOf<T>,
-		},
-		SetBar {
-			account: T::AccountId,
+			/// The new value of Dummy.
 			balance: BalanceOf<T>,
 		},
 	}
 
-	// pallet::storage attributes allow for type-safe usage of the Substrate storage database,
-	// so you can keep things around between blocks.
+	// The call declaration block of our pallet. This states the entry points that we handle. The
+	// macro takes care of the marshalling of arguments and dispatch.
 	//
-	// Any storage must be one of `StorageValue`, `StorageMap` or `StorageDoubleMap`.
-	// The first generic holds the prefix to use and is generated by the macro.
-	// The query kind is either `OptionQuery` (the default) or `ValueQuery`.
-	// - for `type Foo<T> = StorageValue<_, u32, OptionQuery>`:
-	//   - `Foo::put(1); Foo::get()` returns `Some(1)`;
-	//   - `Foo::kill(); Foo::get()` returns `None`.
-	// - for `type Foo<T> = StorageValue<_, u32, ValueQuery>`:
-	//   - `Foo::put(1); Foo::get()` returns `1`;
-	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
-	#[pallet::storage]
-	// The getter attribute generate a function on `Pallet` placeholder:
-	// `fn getter_name() -> Type` for basic value items or
-	// `fn getter_name(key: KeyType) -> ValueType` for map items.
-	#[pallet::getter(fn dummy)]
-	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
+	// Each call must define a `#[pallet::weight(..)]` attribute to convey a set of
+	// static information about its dispatch. The FRAME System and FRAME Executive pallets then use
+	// this information to properly execute transaction, whilst keeping the total load of
+	// the chain in a moderate rate.
+	//
+	// The parenthesized value of the `#[pallet::weight(..)]` attribute can be any type that
+	// implements the following traits:
+	// - [`WeighData`]: conveys the weight (a numeric representation of pure
+	// execution time and difficulty) of the transaction
+	// - [`ClassifyDispatch`]: demonstrates the [`DispatchClass`] of the call
+	// - [`PaysFee`]: indicates whether an extrinsic must pay transaction fees or not
+	//
+	// Larger weights imply larger execution time a block can handle (less of which can be placed in
+	// a single block).
+	//
+	// The weight for these calls relies on `WeightInfo`, which is auto-generated from the
+	// benchmark toolchain.
+	#[pallet::call(weight(<T as Config>::WeightInfo))]
+	impl<T: Config> Pallet<T> {
+		/// A public call that increases the value of `Dummy` in storage.
+		///
+		/// This can be called by any signed origin. The example uses the [`StorageValue::mutate`]
+		/// method to demonstrate a safe and elegant way to accumulate the stored value.
+		#[pallet::call_index(0)]
+		pub fn accumulate_dummy(origin: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
+			// we ensure that the origin is signed
+			let _sender = ensure_signed(origin)?;
 
-	// A map that has enumerable entries.
-	#[pallet::storage]
-	#[pallet::getter(fn bar)]
-	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
+			// using `mutate`, we can query the value in storage and update it in just a few lines
+			Dummy::<T>::mutate(|dummy| {
+				// we use `saturating_add` instead of a regular `+` to avoid overflowing
+				let new_dummy = dummy.map_or(increase_by, |d| d.saturating_add(increase_by));
+				*dummy = Some(new_dummy);
+			});
 
-	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
-	#[pallet::storage]
-	#[pallet::getter(fn foo)]
-	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
+			// Here's another way to accumulate the value in `Dummy`:
+			// read the value from storage using the generated getter function
+			// let dummy = Self::dummy();
+			// calculate the new value
+			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy.saturating_add(increase_by));
+			// put the new value into storage
+			// Dummy::<T>::put(new_dummy);
 
-	#[pallet::storage]
-	pub type CountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u8, u16>;
+			// deposit an event to let the outside world know this storage update has
+			// happened
+			Self::deposit_event(Event::AccumulateDummy { balance: increase_by });
 
-	// The genesis config type.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		pub dummy: T::Balance,
-		pub bar: Vec<(T::AccountId, T::Balance)>,
-		pub foo: T::Balance,
-	}
+			// all good, no refund
+			Ok(())
+		}
 
-	// The build of genesis for the pallet.
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			<Dummy<T>>::put(&self.dummy);
-			for (a, b) in &self.bar {
-				<Bar<T>>::insert(a, b);
-			}
-			<Foo<T>>::put(&self.foo);
+		/// A privileged call that can set the value in `Dummy` to a new value.
+		///
+		/// This must be called with a `Root` origin, implying that only the system as a whole has
+		/// decided to execute this call. Different runtimes have different reasons to allow
+		/// privileged calls to be executed - we don't need to care why. Because it's privileged, we
+		/// can assume it's a one-off operation and substantial processing/storage/memory can be
+		/// used without worrying about gameability or attack scenarios.
+		///
+		/// In this call example, we use our own weight object `WeightForSetDummy` to determine the
+		/// weight of this call. This overrides the `WeightInfo` type used to derive weights for
+		/// other calls in this block.
+		#[pallet::call_index(1)]
+		#[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u32)))]
+		pub fn set_dummy(
+			origin: OriginFor<T>,
+			#[pallet::compact] new_value: T::Balance,
+		) -> DispatchResult {
+			// we ensure that the caller is a root origin
+			ensure_root(origin)?;
+
+			// put the new value into storage
+			Dummy::<T>::put(new_value);
+
+			// deposit an event
+			Self::deposit_event(Event::SetDummy { balance: new_value });
+
+			// we can also print out a log message to the client console via log::{error, warn,
+			// info, debug, trace}, accepting format strings similar to `println!`
+			info!("New value is now: {:?}", new_value);
+
+			// all good, no refund
+			Ok(())
 		}
 	}
 }
 
-// The main implementation block for the pallet. Functions here fall into three broad
-// categories:
-// - Public interface. These are functions that are `pub` and generally fall into inspector
-// functions that do not write to storage and operation functions that do.
-// - Private functions. These are your usual private utilities unavailable to other pallets.
+// The main implementation block for the pallet.
 impl<T: Config> Pallet<T> {
-	// Add public immutables and private mutables.
-	#[allow(dead_code)]
-	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
+	/// Removes the values in our Dummy and DummyValueQuery storage items.
+	///
+	/// We use this function in our unit tests to showcase the behavior of [`OptionQuery`] and
+	/// [`ValueQuery`].
+	#[warn(dead_code)]
+	fn do_reset_dummy(origin: T::RuntimeOrigin) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
-		let prev = <Foo<T>>::get();
-		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
-		// Option<> type.
-		let result = <Foo<T>>::mutate(|foo| {
-			*foo = foo.saturating_add(increase_by);
-			*foo
+		Dummy::<T>::kill();
+		DummyValueQuery::<T>::kill();
+
+		Ok(())
+	}
+
+	/// Accumulates the value in DummyValueQuery.
+	///
+	/// This demonstrates using the `mutate` method from the [`StorageValue`] API.
+	#[warn(dead_code)]
+	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: u32) -> DispatchResult {
+		let _sender = ensure_signed(origin)?;
+
+		let prev = DummyValueQuery::<T>::get();
+		// because DummyValueQuery uses [`ValueQuery`], 'value' in the closure is the raw type
+		// instead of an Option<> type
+		let result = DummyValueQuery::<T>::mutate(|value| {
+			*value = value.saturating_add(increase_by);
+			*value
 		});
 		assert!(prev + increase_by == result);
 
@@ -461,7 +404,7 @@ impl<T: Config> Pallet<T> {
 // for an example.
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
-// default, an extension is applied to all `Call` functions (i.e. all transactions). the `Call` enum
+// default, an extension is applied to all `Call` functions (i.e. all transactions). The `Call` enum
 // variant is given to each function of `SignedExtension`. Hence, you can filter based on pallet or
 // a particular call if needed.
 //
@@ -483,19 +426,19 @@ impl<T: Config> Pallet<T> {
 /// particular reason why, just to demonstrate the power of signed extensions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
+pub struct WatchSetDummy<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchDummy<T> {
+impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchSetDummy<T> {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "WatchDummy")
+		write!(f, "WatchSetDummy")
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for WatchDummy<T>
+impl<T: Config + Send + Sync> SignedExtension for WatchSetDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	const IDENTIFIER: &'static str = "WatchDummy";
+	const IDENTIFIER: &'static str = "WatchSetDummy";
 	type AccountId = T::AccountId;
 	type Call = <T as frame_system::Config>::RuntimeCall;
 	type AdditionalSigned = ();
