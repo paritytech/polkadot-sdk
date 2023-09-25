@@ -1415,6 +1415,7 @@ construct_runtime! {
 
 		// Generalized message queue
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 100,
+		Sudo: pallet_sudo = 255,
 	}
 }
 
@@ -2598,4 +2599,10 @@ mod remote_tests {
 			runtime_common::try_runtime::migrate_all_inactive_nominators::<Runtime>()
 		});
 	}
+}
+
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
 }

@@ -111,6 +111,8 @@ xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
+
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
@@ -188,6 +190,7 @@ std = [
 	"pallet-society/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
+	"pallet-sudo/std",
 	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
 	"pallet-tips/std",
