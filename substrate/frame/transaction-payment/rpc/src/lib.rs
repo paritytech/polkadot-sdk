@@ -35,7 +35,7 @@ use sp_runtime::traits::{Block as BlockT, MaybeDisplay};
 pub use pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi as TransactionPaymentRuntimeApi;
 
 #[rpc(client, server)]
-pub trait TransactionPaymentApi<BlockHash, ResponseType> {
+pub trait TransactionPaymentApi<Balance, BlockHash, ResponseType> {
 	#[method(name = "payment_queryInfo")]
 	fn query_info(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> RpcResult<ResponseType>;
 
@@ -45,6 +45,10 @@ pub trait TransactionPaymentApi<BlockHash, ResponseType> {
 		encoded_xt: Bytes,
 		at: Option<BlockHash>,
 	) -> RpcResult<FeeDetails<NumberOrHex>>;
+
+	#[method(name = "payment_queryWeightToFee")]
+	fn query_weight_to_fee(&self, weight: sp_weights::Weight, at: Option<BlockHash>) -> RpcResult<Balance>;
+
 }
 
 /// Provides RPC methods to query a dispatchable's class, weight and fee.
@@ -80,6 +84,7 @@ impl From<Error> for i32 {
 
 impl<C, Block, Balance>
 	TransactionPaymentApiServer<
+		Balance,
 		<Block as BlockT>::Hash,
 		RuntimeDispatchInfo<Balance, sp_weights::Weight>,
 	> for TransactionPayment<C, Block>
@@ -173,5 +178,28 @@ where
 			},
 			tip: Default::default(),
 		})
+	}
+
+	fn query_weight_to_fee(
+		&self,
+		weight: sp_weights::Weight,
+		at: Option<Block::Hash>,
+	) -> RpcResult<Balance> {
+		let api = self.client.runtime_api();
+		let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+		fn map_err(error: impl ToString, desc: &'static str) -> CallError {
+			CallError::Custom(ErrorObject::owned(
+				Error::RuntimeError.into(),
+				desc,
+				Some(error.to_string()),
+			))
+		}
+
+		let res = api
+			.query_weight_to_fee(at_hash, weight)
+			.map_err(|e| map_err(e, "Unable to query dispatch info."))?;
+
+		Ok(res)
 	}
 }
