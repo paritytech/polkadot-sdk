@@ -184,6 +184,42 @@ impl syn::parse::Parse for TaskDef {
 			))
 		};
 
+		if let Some(duplicate) = task_attrs
+			.iter()
+			.filter(|attr| matches!(attr.meta, TaskAttrMeta::TaskCondition(_)))
+			.collect::<Vec<_>>()
+			.get(1)
+		{
+			return Err(Error::new(
+				duplicate.span(),
+				"duplicate `#[pallet::task_condition(..)]` attribute",
+			))
+		}
+
+		if let Some(duplicate) = task_attrs
+			.iter()
+			.filter(|attr| matches!(attr.meta, TaskAttrMeta::TaskList(_)))
+			.collect::<Vec<_>>()
+			.get(1)
+		{
+			return Err(Error::new(
+				duplicate.span(),
+				"duplicate `#[pallet::task_list(..)]` attribute",
+			))
+		}
+
+		if let Some(duplicate) = task_attrs
+			.iter()
+			.filter(|attr| matches!(attr.meta, TaskAttrMeta::TaskIndex(_)))
+			.collect::<Vec<_>>()
+			.get(1)
+		{
+			return Err(Error::new(
+				duplicate.span(),
+				"duplicate `#[pallet::task_index(..)]` attribute",
+			))
+		}
+
 		let index_attr = index_attr.try_into().expect("we check the type above; QED");
 		let condition_attr = condition_attr.try_into().expect("we check the type above; QED");
 		let list_attr = list_attr.try_into().expect("we check the type above; QED");
@@ -501,5 +537,62 @@ fn test_parse_tasks_def_missing_task_index() {
 			}
 		}),
 		r"missing `#\[pallet::task_index\(\.\.\)\]`"
+	);
+}
+
+#[test]
+fn test_parse_tasks_def_duplicate_task_list_attr() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_index(0)]
+				#[pallet::task_list(Something::iter())]
+				#[pallet::task_list(SomethingElse::iter())]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"duplicate `#\[pallet::task_list\(\.\.\)\]`"
+	);
+}
+
+#[test]
+fn test_parse_tasks_def_duplicate_task_condition_attr() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_condition(|i| i % 4 == 0)]
+				#[pallet::task_index(0)]
+				#[pallet::task_list(Something::iter())]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"duplicate `#\[pallet::task_condition\(\.\.\)\]`"
+	);
+}
+
+#[test]
+fn test_parse_tasks_def_duplicate_task_index_attr() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_index(0)]
+				#[pallet::task_index(0)]
+				#[pallet::task_list(Something::iter())]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"duplicate `#\[pallet::task_index\(\.\.\)\]`"
 	);
 }
