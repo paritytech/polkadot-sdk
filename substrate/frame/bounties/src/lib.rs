@@ -556,7 +556,10 @@ pub mod pallet {
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
-						Self::deposit_event(Event::<T, I>::CuratorAccepted { bounty_id, curator: signer });
+						Self::deposit_event(Event::<T, I>::CuratorAccepted {
+							bounty_id,
+							curator: signer,
+						});
 						Ok(())
 					},
 					_ => Err(Error::<T, I>::UnexpectedStatus.into()),
