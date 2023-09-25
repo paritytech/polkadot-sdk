@@ -943,6 +943,25 @@ pub trait TestNetFactory: Default + Sized + Send {
 			full_net_config.add_notification_protocol(config);
 		}
 
+		#[derive(Debug)]
+		struct TestExecutor {}
+
+		impl litep2p::executor::Executor for TestExecutor {
+			fn run(&self, future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>) {
+				let _ = tokio::spawn(future);
+			}
+
+			fn run_with_name(
+				&self,
+				_: &'static str,
+				future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>,
+			) {
+				let _ = tokio::spawn(future);
+			}
+		}
+
+		let executor = Arc::new(TestExecutor {});
+
 		let genesis_hash =
 			client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 		let network = NetworkWorker::new(sc_network::config::Params {
@@ -958,6 +977,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			metrics_registry: None,
 			block_announce_config,
 			bitswap_config: None,
+			spawn_handle: executor,
 		})
 		.unwrap();
 

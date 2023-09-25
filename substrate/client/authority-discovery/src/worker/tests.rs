@@ -165,12 +165,17 @@ impl NetworkSigner for TestNetwork {
 
 	fn verify(
 		&self,
-		_: sc_network_types::PeerId,
-		_: &Vec<u8>,
-		_: &Vec<u8>,
-		_: &Vec<u8>,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
 	) -> std::result::Result<bool, String> {
-		unimplemented!();
+		let public_key = libp2p::identity::PublicKey::try_decode_protobuf(&public_key)
+			.map_err(|error| error.to_string())?;
+		let peer_id: PeerId = peer_id.into();
+		let remote: libp2p::PeerId = public_key.to_peer_id();
+
+		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
 }
 

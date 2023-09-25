@@ -39,6 +39,7 @@ exit-future = "0.2.0"
 pin-project = "1.0.12"
 serde = "1.0.193"
 serde_json = "1.0.108"
+litep2p = { path = "/home/altonen/code/rust/litep2p" }
 sc-keystore = { path = "../keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-trie = { path = "../../primitives/trie" }

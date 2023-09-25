@@ -910,6 +910,27 @@ where
 	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
 
+	// TODO: move this to litep2p backend
+	struct TestExecutor {
+		spawn_handle: SpawnTaskHandle,
+	}
+
+	impl litep2p::executor::Executor for TestExecutor {
+		fn run(&self, future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>) {
+			self.spawn_handle.spawn("libp2p-node", Some("networking"), future);
+		}
+
+		fn run_with_name(
+			&self,
+			name: &'static str,
+			future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>,
+		) {
+			self.spawn_handle.spawn(name, Some("networking"), future);
+		}
+	}
+
+	let executor = Arc::new(TestExecutor { spawn_handle: spawn_handle.clone() });
+
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	let network_params = sc_network::config::Params::<TBl, <TBl as BlockT>::Hash, TNet> {
 		role: config.role.clone(),
@@ -919,6 +940,7 @@ where
 				spawn_handle.spawn("libp2p-node", Some("networking"), fut);
 			})
 		},
+		spawn_handle: executor,
 		network_config: net_config,
 		peer_store: peer_store_handle,
 		genesis_hash,

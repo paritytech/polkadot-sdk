@@ -898,7 +898,28 @@ where
 	H: ExHashT,
 {
 	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError> {
-		Signature::sign_message(AsRef::<[u8]>::as_ref(&msg), &self.local_identity)
+		let public_key = self.local_identity.public();
+		let bytes = self.local_identity.sign(msg.as_ref())?;
+
+		Ok(Signature {
+			public_key: crate::service::signature::PublicKey::Libp2p(public_key),
+			bytes,
+		})
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String> {
+		let public_key =
+			PublicKey::try_decode_protobuf(&public_key).map_err(|error| error.to_string())?;
+		let peer_id: PeerId = peer_id.into();
+		let remote: libp2p::PeerId = public_key.to_peer_id();
+
+		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
 }
 

@@ -46,6 +46,9 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
+# TODO(aaro): this doesn't belong here
+litep2p = { path = '/home/altonen/code/rust/litep2p' }
+
 array-bytes = "6.1"
 tracing = "0.1.37"
 async-trait = "0.1.74"

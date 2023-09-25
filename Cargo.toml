@@ -260,7 +260,6 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
-	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
