@@ -192,7 +192,7 @@ impl syn::parse::Parse for TaskDef {
 		{
 			return Err(Error::new(
 				duplicate.span(),
-				"duplicate `#[pallet::task_condition(..)]` attribute",
+				"unexpected extra `#[pallet::task_condition(..)]` attribute",
 			))
 		}
 
@@ -204,7 +204,7 @@ impl syn::parse::Parse for TaskDef {
 		{
 			return Err(Error::new(
 				duplicate.span(),
-				"duplicate `#[pallet::task_list(..)]` attribute",
+				"unexpected extra `#[pallet::task_list(..)]` attribute",
 			))
 		}
 
@@ -216,7 +216,7 @@ impl syn::parse::Parse for TaskDef {
 		{
 			return Err(Error::new(
 				duplicate.span(),
-				"duplicate `#[pallet::task_index(..)]` attribute",
+				"unexpected extra `#[pallet::task_index(..)]` attribute",
 			))
 		}
 
@@ -541,7 +541,7 @@ fn test_parse_tasks_def_missing_task_index() {
 }
 
 #[test]
-fn test_parse_tasks_def_duplicate_task_list_attr() {
+fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
 	assert_error_matches!(
 		parse2::<TasksDef>(quote! {
 			#[pallet::tasks]
@@ -555,12 +555,12 @@ fn test_parse_tasks_def_duplicate_task_list_attr() {
 				}
 			}
 		}),
-		r"duplicate `#\[pallet::task_list\(\.\.\)\]`"
+		r"unexpected extra `#\[pallet::task_list\(\.\.\)\]`"
 	);
 }
 
 #[test]
-fn test_parse_tasks_def_duplicate_task_condition_attr() {
+fn test_parse_tasks_def_unexpected_extra_task_condition_attr() {
 	assert_error_matches!(
 		parse2::<TasksDef>(quote! {
 			#[pallet::tasks]
@@ -574,12 +574,12 @@ fn test_parse_tasks_def_duplicate_task_condition_attr() {
 				}
 			}
 		}),
-		r"duplicate `#\[pallet::task_condition\(\.\.\)\]`"
+		r"unexpected extra `#\[pallet::task_condition\(\.\.\)\]`"
 	);
 }
 
 #[test]
-fn test_parse_tasks_def_duplicate_task_index_attr() {
+fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
 	assert_error_matches!(
 		parse2::<TasksDef>(quote! {
 			#[pallet::tasks]
@@ -593,6 +593,6 @@ fn test_parse_tasks_def_duplicate_task_index_attr() {
 				}
 			}
 		}),
-		r"duplicate `#\[pallet::task_index\(\.\.\)\]`"
+		r"unexpected extra `#\[pallet::task_index\(\.\.\)\]`"
 	);
 }
