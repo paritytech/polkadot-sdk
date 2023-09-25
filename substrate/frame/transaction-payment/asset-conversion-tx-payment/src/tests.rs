@@ -19,7 +19,10 @@ use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::{fungible::Inspect, fungibles::Mutate},
+	traits::{
+		fungible::Inspect,
+		fungibles::{Inspect as FungiblesInspect, Mutate},
+	},
 	weights::Weight,
 };
 use frame_system as system;
@@ -110,13 +113,19 @@ fn default_post_info() -> PostDispatchInfo {
 
 fn setup_lp(asset_id: u32, balance_factor: u64) {
 	let lp_provider = 5;
+	let ed = Balances::minimum_balance();
+	let ed_asset = Assets::minimum_balance(asset_id);
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		lp_provider,
-		10_000 * balance_factor
+		10_000 * balance_factor + ed,
 	));
 	let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
-	assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, 10_000 * balance_factor));
+	assert_ok!(Assets::mint_into(
+		asset_id.into(),
+		&lp_provider_account,
+		10_000 * balance_factor + ed_asset
+	));
 
 	let token_1 = NativeOrAssetId::Native;
 	let token_2 = NativeOrAssetId::Asset(asset_id);
