@@ -27,7 +27,7 @@ rules:
       exclude: 
         - ^polkadot/runtime\/(kusama|polkadot)\/src\/weights\/.+\.rs$
         - ^substrate\/frame\/.+\.md$
-    min_approvals: 2
+    min_approvals: 1
     allowedToSkipRule:
       teams:
         - core-devs
