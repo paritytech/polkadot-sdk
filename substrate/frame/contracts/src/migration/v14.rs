@@ -70,7 +70,7 @@ mod old {
 
 	#[storage_alias]
 	pub type CodeInfoOf<T: Config, OldCurrency> =
-		StorageMap<Pallet<T>, Twox64Concat, CodeHash<T>, CodeInfo<T, OldCurrency>>;
+		StorageMap<Pallet<T>, Identity, CodeHash<T>, CodeInfo<T, OldCurrency>>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
