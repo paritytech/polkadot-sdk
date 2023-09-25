@@ -337,7 +337,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 
 		log::info!(target: LOG_TARGET, "=== POST UPGRADE CHECKS ===");
 
-		// Ensure that the hashing algorithm is correct for each storage maps.
+		// Ensure that the hashing algorithm is correct for each storage map.
 		if let Some(hash) = crate::CodeInfoOf::<T>::iter_keys().next() {
 			crate::CodeInfoOf::<T>::get(hash).expect("CodeInfo exists for hash; qed");
 		}
