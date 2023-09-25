@@ -28,7 +28,7 @@ pub mod adapter;
 pub use adapter::XcmAdapter;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
-pub trait XCM<T: Config> {
+pub trait Xcm<T: Config> {
 	type QueryId: Encode + Decode + MaxEncodedLen;
 	type WeightInfo: WeightInfo;
 
@@ -81,7 +81,7 @@ pub trait XCM<T: Config> {
 	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<BlockNumberFor<T>>;
 }
 
-impl<T: Config> XCM<T> for () {
+impl<T: Config> Xcm<T> for () {
 	type QueryId = ();
 	type WeightInfo = Self;
 	fn execute(

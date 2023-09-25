@@ -17,7 +17,7 @@
 //! Adapter exposes an implementation of the [`XCM`] trait using pallet-xcm.
 
 use crate::{
-	xcm::{CallOf, WeightInfo, XCM},
+	xcm::{CallOf, WeightInfo, Xcm},
 	AccountIdOf, Box, Config, RawOrigin,
 };
 use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
@@ -75,7 +75,7 @@ impl<T: Config + pallet_xcm::Config> XcmAdapter<T> {
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> XCM<T> for XcmAdapter<T> {
+impl<T: Config + pallet_xcm::Config> Xcm<T> for XcmAdapter<T> {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
 	type WeightInfo = Self;
 

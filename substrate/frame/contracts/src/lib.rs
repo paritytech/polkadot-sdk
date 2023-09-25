@@ -108,7 +108,7 @@ use crate::{
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
-	xcm::XCM,
+	xcm::Xcm,
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
@@ -408,7 +408,7 @@ pub mod pallet {
 		/// execute XCM messages.
 		///
 		/// Use [`xcm::XCMAdapter`] to enable or `()` to disable.
-		type Xcm: XCM<Self>;
+		type Xcm: Xcm<Self>;
 	}
 
 	#[pallet::hooks]
