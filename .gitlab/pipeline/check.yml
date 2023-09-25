@@ -119,7 +119,7 @@ test-rust-feature-propagation:
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
       echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
       time try-runtime \
-          --runtime ./target/release/wbuild/"$PACKAGE"/target/wasm32-unknown-unknown/release/"$WASM" \
+          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}
 
 # Check runtime migrations for Parity managed relay chains
