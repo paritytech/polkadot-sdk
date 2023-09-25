@@ -52,7 +52,7 @@ pub trait Xcm<T: Config> {
 	///
 	/// - `origin`: the origin of the call.
 	/// - `dest`: the destination of the message.
-	/// - `msg`: the XCM message to be sent.
+	/// - `msg`: the XCM to be sent.
 	fn send(
 		origin: &AccountIdOf<T>,
 		dest: VersionedMultiLocation,
