@@ -32,7 +32,7 @@ pub trait Xcm<T: Config> {
 	type QueryId: Encode + Decode + MaxEncodedLen;
 	type WeightInfo: WeightInfo;
 
-	/// Execute an XCM message locally. see [`pallet_xcm::pallet::Pallet::execute`]
+	/// Execute an XCM locally. see [`pallet_xcm::pallet::Pallet::execute`]
 	///
 	/// # Parameters
 	///
