@@ -3,6 +3,8 @@ const yargs = require('yargs');
 const { ApiPromise, WsProvider } = require('@polkadot/api');
 var { xxhashAsHex } = require('@polkadot/util-crypto');
 
+
+// Open chain_spec raw file
 const openFile = (filePath) => {
 	try {
 		const jsonData = fs.readJSONSync(filePath);
@@ -13,11 +15,13 @@ const openFile = (filePath) => {
 	}
 }
 
-const connect = async () => {
-	const wsProvider = new WsProvider('wss://rpc.polkadot.io');
+// Connect to chain
+const connect = async (endpoint) => {
+	const wsProvider = new WsProvider(endpoint);
 	return await ApiPromise.create({ provider: wsProvider });
 }
 
+// Query all storage under a certain key
 const queryStorage = async (api, argv) => {
 	let rootKey = argv.key ? argv.key : xxhashAsHex(argv.pallet);
 
@@ -35,6 +39,7 @@ const queryStorage = async (api, argv) => {
 	return storageKeyValues;
 }
 
+// Edit chain_spec raw adding the queried storage
 const editChainSpec = (filePath, jsonData, storageKeyValues) => {
 	console.log("Editing json chain_spec...")
 
@@ -42,14 +47,22 @@ const editChainSpec = (filePath, jsonData, storageKeyValues) => {
 		for (const key in storageKeyValues) {
 			jsonData.genesis.raw.top[key] = storageKeyValues[key];
 		}
+	} else {
+		console.log(`${filePath} - invalid raw chain_spec format json file`);
+		process.exit(1);
 	}
 
-	// Write the modified JSON data back to the file
 	fs.writeJSONSync(filePath, jsonData, { spaces: 2 });
 }
 
 const run = async () => {
 	const argv = yargs
+	.option('chain', {
+		alias: 'c',
+		describe: 'Endpoint to the chain to query sorage',
+		demandOption: true, // Requires the --file option
+		type: 'string',
+	})
 	.option('file', {
 		alias: 'f',
 		describe: 'Path to the JSON file',
@@ -79,7 +92,7 @@ const run = async () => {
 
 	let jsonData = openFile(filePath);
 
-	let api = await connect();
+	let api = await connect(argv.chain);
 
 	let storageKeyValues = await queryStorage(api, argv);
 

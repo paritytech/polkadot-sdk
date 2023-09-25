@@ -4,7 +4,7 @@
   "description": "query storage from a pallet and add it to a new raw_chain_spec.json",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "migrate": "node index.js"
   },
   "author": "Parity Technologies <admin@parity.io>",
   "license": "ISC",
