@@ -65,8 +65,7 @@ type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type Extrinsic = testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
-	pub enum Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
@@ -90,6 +89,7 @@ pub(crate) type Moment = u32;
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
