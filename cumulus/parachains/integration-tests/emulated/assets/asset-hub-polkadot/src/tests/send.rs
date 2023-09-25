@@ -22,6 +22,7 @@ fn send_transact_as_superuser_from_relay_to_system_para_works() {
 	super::do_force_create_asset_from_relay_to_system_para(OriginKind::Superuser);
 }
 
+// TODO: should go to the runtime as unit-test directly, not needed in emulator tests
 /// System Parachain shouldn't be able to execute `Transact` instructions in Relay Chain
 /// when `OriginKind::Native`
 #[test]

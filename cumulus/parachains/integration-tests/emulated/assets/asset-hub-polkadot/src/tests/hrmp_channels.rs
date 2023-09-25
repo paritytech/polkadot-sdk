@@ -18,6 +18,8 @@ use crate::*;
 const MAX_CAPACITY: u32 = 8;
 const MAX_MESSAGE_SIZE: u32 = 8192;
 
+// TODO: does not test anything relevant to AssetHub (uses just Kuama and Penpals) - move to Kusama
+// tests
 /// Opening HRMP channels between Parachains should work
 #[test]
 fn open_hrmp_channel_between_paras_works() {
@@ -157,6 +159,8 @@ fn force_open_hrmp_channel_for_system_para_works() {
 	// Parachain A init values
 	let para_a_id = PenpalPolkadotA::para_id();
 
+	// TODO: try PenpalPolkadotA::send(AssetHubPolkadot) -> XcmpQueue should fail Unroutable?
+
 	Polkadot::execute_with(|| {
 		assert_ok!(<Polkadot as PolkadotPallet>::Hrmp::force_open_hrmp_channel(
 			relay_root_origin,
@@ -187,4 +191,8 @@ fn force_open_hrmp_channel_for_system_para_works() {
 	});
 
 	Polkadot::force_process_hrmp_open(system_para_id, para_a_id);
+
+	// TODO: try PenpalKusamaA::send(AssetHubKusama) -> should pass on PenpalKusamaA
+	// TODO: assert call result on AssetHubKusama
+	// TODO: or join this test with `send_xcm_from_para_to_system_para_paying_fee_with_assets_works`
 }

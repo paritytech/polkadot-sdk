@@ -15,6 +15,8 @@
 
 use crate::*;
 
+// TODO: does not test anything relevant to AssetHub (AssetHubPolkadot::para_id() can be changed for
+// whatever para_id) - move to Polkadot tests or directly to the Polkadot runtime as unit-test
 #[test]
 fn relay_sets_system_para_xcm_supported_version() {
 	// Init tests variables
