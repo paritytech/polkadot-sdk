@@ -212,10 +212,13 @@ pub fn worker_entrypoint(
 								Err(err)
 							},
 							Ok(ok) => {
-								#[cfg(not(target_os = "linux"))]
-								let (artifact, cpu_time_elapsed) = ok;
-								#[cfg(target_os = "linux")]
-								let (artifact, cpu_time_elapsed, max_rss) = ok;
+								cfg_if::cfg_if! {
+									if #[cfg(target_os = "linux")] {
+										let (artifact, cpu_time_elapsed, max_rss) = ok;
+									} else {
+										let (artifact, cpu_time_elapsed) = ok;
+									}
+								}
 
 								// Stop the memory stats worker and get its observed memory stats.
 								#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
