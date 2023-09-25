@@ -486,3 +486,20 @@ fn test_parse_tasks_def_missing_task_condition() {
 		r"missing `#\[pallet::task_condition\(\.\.\)\]`"
 	);
 }
+
+#[test]
+fn test_parse_tasks_def_missing_task_index() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_list(Something::iter())]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"missing `#\[pallet::task_index\(\.\.\)\]`"
+	);
+}
