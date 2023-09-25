@@ -597,7 +597,7 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 	assert_ok!(Session::set_keys(
 		RuntimeOrigin::signed(who),
 		SessionKeys { other: who.into() },
-		vec![]
+		SessionKeys { other: who.into() }.create_ownership_proof(&who.encode()).unwrap(),
 	));
 }
 

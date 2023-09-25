@@ -420,7 +420,9 @@ fn staking_should_work() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(3),
 			SessionKeys { other: 4.into() },
-			vec![]
+			SessionKeys { other: 4.into() }
+				.create_ownership_proof(&AccountId::from(3u32).encode())
+				.unwrap(),
 		));
 
 		// No effects will be seen so far.
@@ -1861,7 +1863,9 @@ fn switching_roles() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(5),
 			SessionKeys { other: 6.into() },
-			vec![]
+			SessionKeys { other: 6.into() }
+				.create_ownership_proof(&AccountId::from(5u32).encode())
+				.unwrap(),
 		));
 
 		mock::start_active_era(1);
@@ -1874,7 +1878,9 @@ fn switching_roles() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(1),
 			SessionKeys { other: 2.into() },
-			vec![]
+			SessionKeys { other: 2.into() }
+				.create_ownership_proof(&AccountId::from(1u32).encode())
+				.unwrap(),
 		));
 		// new stakes:
 		// 11: 1000 self vote
@@ -1986,7 +1992,9 @@ fn bond_with_little_staked_value_bounded() {
 			assert_ok!(Session::set_keys(
 				RuntimeOrigin::signed(1),
 				SessionKeys { other: 1.into() },
-				vec![]
+				SessionKeys { other: 1.into() }
+					.create_ownership_proof(&AccountId::from(1u32).encode())
+					.unwrap(),
 			));
 
 			// 1 era worth of reward. BUT, we set the timestamp after on_initialize, so outdated by
@@ -4638,6 +4646,7 @@ mod election_data_provider {
 	// maybe_max_len`.
 	#[test]
 	#[should_panic]
+	#[cfg(debug_assertions)]
 	fn only_iterates_max_2_times_max_allowed_len() {
 		ExtBuilder::default()
 			.nominate(false)
@@ -5308,6 +5317,7 @@ fn min_commission_works() {
 
 #[test]
 #[should_panic]
+#[cfg(debug_assertions)]
 fn change_of_absolute_max_nominations() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()

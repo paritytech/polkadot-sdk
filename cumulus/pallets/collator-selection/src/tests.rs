@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{Currency, OnInitialize},
 };
 use pallet_balances::Error as BalancesError;
-use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage, RuntimeAppPublic};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage};
 
 #[test]
 fn basic_setup_works() {
