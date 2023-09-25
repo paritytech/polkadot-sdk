@@ -136,8 +136,9 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 		if let Some((account, old_contract)) = iter.next() {
 			let deposit_account = &old_contract.deposit_account;
-			System::<T>::dec_consumers(deposit_account);
-
+			if System::<T>::consumers(deposit_account) > 0 {
+				System::<T>::dec_consumers(deposit_account);
+			}
 			// Get the deposit balance to transfer.
 			let total_deposit_balance = T::Currency::total_balance(deposit_account);
 			let reducible_deposit_balance = T::Currency::reducible_balance(
