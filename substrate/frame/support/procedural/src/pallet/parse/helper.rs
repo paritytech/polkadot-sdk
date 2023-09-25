@@ -494,7 +494,7 @@ pub fn check_type_def_gen(
 /// return the instance if found for `GenesisBuild`
 /// return None for BuildGenesisConfig
 pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<InstanceUsage>> {
-	let expected = "expected `GenesisBuild<T>` or `GenesisBuild<T, I>`";
+	let expected = "expected `BuildGenesisConfig` (or the deprecated `GenesisBuild<T>` or `GenesisBuild<T, I>`)";
 	pub struct Checker(Option<InstanceUsage>);
 	impl syn::parse::Parse for Checker {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
