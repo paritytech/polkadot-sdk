@@ -18,6 +18,7 @@
 //! Stuff for dealing with 32-byte hashed preimages.
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use scale_info::TypeInfo;
 use sp_core::{RuntimeDebug, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::ConstU32, DispatchError};
@@ -29,9 +30,7 @@ pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
 /// The maximum we expect a single legacy hash lookup to be.
 const MAX_LEGACY_LEN: u32 = 1_000_000;
 
-#[derive(
-	Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, scale_info::TypeInfo, RuntimeDebug,
-)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, RuntimeDebug)]
 #[codec(mel_bound())]
 pub enum Bounded<T> {
 	/// A Blake2 256 hash with no preimage length. We

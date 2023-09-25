@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,41 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! > Made with *Substrate*, for *Polkadot*.
+//!
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/sudo)
+//! [![polkadot]](https://polkadot.network)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//!
 //! # Sudo Pallet
 //!
-//! - [`Config`]
-//! - [`Call`]
+//! A pallet to provide a way to execute privileged runtime calls using a specified sudo ("superuser
+//! do") account.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! The Sudo pallet allows for a single account (called the "sudo key")
-//! to execute dispatchable functions that require a `Root` call
-//! or designate a new account to replace them as the sudo key.
-//! Only one account can be the sudo key at a time.
+//! In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
+//! the system level of the chain (i.e. dispatchables that require a `Root` origin).
+//! Setting a privileged account, called the _sudo key_, allows you to make such calls as an
+//! extrinisic.
 //!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! Only the sudo key can call the dispatchable functions from the Sudo pallet.
-//!
-//! * `sudo` - Make a `Root` call to a dispatchable function.
-//! * `set_key` - Assign a new account to be the sudo key.
-//!
-//! ## Usage
-//!
-//! ### Executing Privileged Functions
-//!
-//! The Sudo pallet itself is not intended to be used within other pallets.
-//! Instead, you can build "privileged functions" (i.e. functions that require `Root` origin) in
-//! other pallets. You can execute these privileged functions by calling `sudo` with the sudo key
-//! account. Privileged functions cannot be directly executed via an extrinsic.
-//!
-//! Learn more about privileged functions and `Root` origin in the [`Origin`] type documentation.
-//!
-//! ### Simple Code Snippet
-//!
-//! This is an example of a pallet that exposes a privileged function:
+//! Here's an example of a privileged function in another pallet:
 //!
 //! ```
 //! #[frame_support::pallet]
@@ -76,27 +67,58 @@
 //!         }
 //! 	}
 //! }
-//! # fn main() {}
 //! ```
 //!
-//! ### Signed Extension
+//! With the Sudo pallet configured in your chain's runtime you can execute this privileged
+//! function by constructing a call using the [`sudo`](Pallet::sudo) dispatchable.
 //!
-//! The Sudo pallet defines the following extension:
+//! To use this pallet in your runtime, a sudo key must be specified in the [`GenesisConfig`] of
+//! the pallet. You can change this key at anytime once your chain is live using the
+//! [`set_key`](Pallet::set_key) dispatchable, however <strong>only one sudo key can be set at a
+//! time</strong>. The pallet also allows you to make a call using
+//! [`sudo_unchecked_weight`](Pallet::sudo_unchecked_weight), which allows the sudo account to
+//! execute a call with a custom weight.
 //!
-//!   - [`CheckOnlySudoAccount`]: Ensures that the signed transactions are only valid if they are
-//!     signed by sudo account.
+//! <div class="example-wrap" style="display:inline-block"><pre class="compile_fail"
+//! style="white-space:normal;font:inherit;">
+//! <strong>Note:</strong> this pallet is not meant to be used inside other pallets. It is only
+//! meant to be used by constructing runtime calls from outside the runtime.
+//! </pre></div>
 //!
-//! ## Genesis Config
+//! This pallet also defines a [`SignedExtension`](sp_runtime::traits::SignedExtension) called
+//! [`CheckOnlySudoAccount`] to ensure that only signed transactions by the sudo account are
+//! accepted by the transaction pool. The intended use of this signed extension is to prevent other
+//! accounts from spamming the transaction pool for the initial phase of a chain, during which
+//! developers may only want a sudo account to be able to make transactions.
 //!
-//! The Sudo pallet depends on the [`GenesisConfig`].
-//! You need to set an initial superuser account as the sudo `key`.
+//! Learn more about the `Root` origin in the [`RawOrigin`](frame_system::RawOrigin) type
+//! documentation.
 //!
-//! ## Related Pallets
+//! ### Examples
 //!
-//! * [Democracy](../pallet_democracy/index.html)
+//! 1. You can make a privileged runtime call using `sudo` with an account that matches the sudo
+//!    key.
+#![doc = docify::embed!("src/tests.rs", sudo_basics)]
 //!
-//! [`Origin`]: https://docs.substrate.io/main-docs/build/origins/
+//! 2. Only an existing sudo key can set a new one.
+#![doc = docify::embed!("src/tests.rs", set_key_basics)]
+//!
+//! 3. You can also make non-privileged calls using `sudo_as`.
+#![doc = docify::embed!("src/tests.rs", sudo_as_emits_events_correctly)]
+//!
+//! ## Low Level / Implementation Details
+//!
+//! This pallet checks that the caller of its dispatchables is a signed account and ensures that the
+//! caller matches the sudo key in storage.
+//! A caller of this pallet's dispatchables does not pay any fees to dispatch a call. If the account
+//! making one of these calls is not the sudo key, the pallet returns a [`Error::RequireSudo`]
+//! error.
+//!
+//! Once an origin is verified, sudo calls use `dispatch_bypass_filter` from the
+//! [`UnfilteredDispatchable`](frame_support::traits::UnfilteredDispatchable) trait to allow call
+//! execution without enforcing any further origin checks.
 
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_runtime::{traits::StaticLookup, DispatchResult};
@@ -261,12 +283,21 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A sudo just took place. \[result\]
-		Sudid { sudo_result: DispatchResult },
-		/// The \[sudoer\] just switched identity; the old key is supplied if one existed.
-		KeyChanged { old_sudoer: Option<T::AccountId> },
-		/// A sudo just took place. \[result\]
-		SudoAsDone { sudo_result: DispatchResult },
+		/// A sudo call just took place.
+		Sudid {
+			/// The result of the call made by the sudo user.
+			sudo_result: DispatchResult,
+		},
+		/// The sudo key has been updated.
+		KeyChanged {
+			/// The old sudo key if one was previously set.
+			old_sudoer: Option<T::AccountId>,
+		},
+		/// A [sudo_as](Pallet::sudo_as) call just took place.
+		SudoAsDone {
+			/// The result of the call made by the sudo user.
+			sudo_result: DispatchResult,
+		},
 	}
 
 	#[pallet::error]

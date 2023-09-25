@@ -28,6 +28,7 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SubsystemSender,
 };
+use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
@@ -75,6 +76,10 @@ pub struct RuntimeInfo {
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
 
+	/// Unpin handle of *some* block in the session.
+	/// Only blocks pinned explicitly by `pin_block` are stored here.
+	pinned_blocks: LruMap<SessionIndex, UnpinHandle>,
+
 	/// Key store for determining whether we are a validator and what `ValidatorIndex` we have.
 	keystore: Option<KeystorePtr>,
 }
@@ -120,6 +125,7 @@ impl RuntimeInfo {
 		Self {
 			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
+			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
 	}
@@ -143,6 +149,17 @@ impl RuntimeInfo {
 				Ok(index)
 			},
 		}
+	}
+
+	/// Pin a given block in the given session if none are pinned in that session.
+	/// Unpinning will happen automatically when LRU cache grows over the limit.
+	pub fn pin_block(&mut self, session_index: SessionIndex, unpin_handle: UnpinHandle) {
+		self.pinned_blocks.get_or_insert(session_index, || unpin_handle);
+	}
+
+	/// Get the hash of a pinned block for the given session index, if any.
+	pub fn get_block_in_session(&self, session_index: SessionIndex) -> Option<Hash> {
+		self.pinned_blocks.peek(&session_index).map(|h| h.hash())
 	}
 
 	/// Get `ExtendedSessionInfo` by relay parent hash.
