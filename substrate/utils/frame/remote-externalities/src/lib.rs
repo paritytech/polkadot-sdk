@@ -349,10 +349,10 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 4;
+	const PARALLEL_REQUESTS: usize = 2;
 	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
 	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
-	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(2);
+	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
 	const INITIAL_BATCH_SIZE: usize = 10;
 	// nodes by default will not return more than 1000 keys per request
 	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
