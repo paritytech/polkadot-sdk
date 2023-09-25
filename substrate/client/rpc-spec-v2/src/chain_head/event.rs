@@ -48,12 +48,13 @@ pub struct RuntimeVersionEvent {
 	pub spec: RuntimeVersion,
 }
 
-
-// Note: PartialEq mainly used in tests, manual implementation necessary, because BTreeMap in RuntimeVersionWrapper does not preserve order of apis vec.
+// Note: PartialEq mainly used in tests, manual implementation necessary, because BTreeMap in
+// RuntimeVersionWrapper does not preserve order of apis vec.
 impl PartialEq for RuntimeVersionEvent {
-    fn eq(&self, other: &Self) -> bool {
-        RuntimeVersionWrapper::from(self.spec.clone()) == RuntimeVersionWrapper::from(other.spec.clone())
-    }
+	fn eq(&self, other: &Self) -> bool {
+		RuntimeVersionWrapper::from(self.spec.clone()) ==
+			RuntimeVersionWrapper::from(other.spec.clone())
+	}
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -444,7 +445,6 @@ pub struct MethodResponseStarted {
 	#[serde(default)]
 	pub discarded_items: Option<usize>,
 }
-
 
 #[cfg(test)]
 mod tests {
