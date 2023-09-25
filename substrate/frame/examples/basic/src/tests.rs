@@ -21,7 +21,7 @@ use crate::*;
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ConstU64, OnInitialize},
+	traits::ConstU64,
 };
 use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -88,7 +88,6 @@ impl pallet_balances::Config for Test {
 }
 
 impl Config for Test {
-	type MagicNumber = ConstU64<1_000_000_000>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -97,14 +96,14 @@ impl Config for Test {
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
-		// We use default for brevity, but you can configure as desired if needed.
+		// we use default for brevity, but you can configure as desired if needed
 		system: Default::default(),
 		balances: Default::default(),
 		example: pallet_example_basic::GenesisConfig {
 			dummy: 42,
-			// we configure the map with (key, value) pairs.
-			bar: vec![(1, 2), (2, 3)],
-			foo: 24,
+			dummy_value_query: 24,
+			// we configure the map with (key, value) pairs
+			accounts_to_balances_map: vec![(1, 2), (2, 3)],
 		},
 	}
 	.build_storage()
@@ -112,37 +111,56 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+#[docify::export]
 #[test]
-fn it_works_for_optional_value() {
+fn accumulate_dummy_works() {
 	new_test_ext().execute_with(|| {
-		// Check that GenesisBuilder works properly.
+		// check that GenesisBuilder works properly
 		let val1 = 42;
 		let val2 = 27;
 		assert_eq!(Example::dummy(), Some(val1));
 
-		// Check that accumulate works when we have Some value in Dummy already.
+		// check that accumulate works when we have `Some` value in Dummy already
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val2));
 		assert_eq!(Example::dummy(), Some(val1 + val2));
 
-		// Check that accumulate works when we Dummy has None in it.
-		<Example as OnInitialize<u64>>::on_initialize(2);
+		// use our private helper to reset storage
+		let _ = Example::do_reset_dummy(RuntimeOrigin::signed(1));
+		assert_eq!(Example::dummy(), None);
+
+		// putting in a new value should work
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val1));
-		assert_eq!(Example::dummy(), Some(val1 + val2 + val1));
+		assert_eq!(Example::dummy(), Some(val1));
 	});
 }
 
 #[test]
-fn it_works_for_default_value() {
+#[docify::export]
+fn accumulate_dummy_value_query_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Example::foo(), 24);
-		assert_ok!(Example::accumulate_foo(RuntimeOrigin::signed(1), 1));
-		assert_eq!(Example::foo(), 25);
+		// check that GenesisBuilder works properly
+		let val1 = 24;
+		assert_eq!(Example::dummy_value_query(), val1);
+
+		// use our private helper to accumulate the value
+		let _ = Example::accumulate_foo(RuntimeOrigin::signed(1), 1);
+		assert_eq!(Example::dummy_value_query(), val1 + 1);
+
+		// use our private helper to reset storage
+		let _ = Example::do_reset_dummy(RuntimeOrigin::signed(1));
+		// we expect the stored value is `u32::default()`
+		assert_eq!(Example::dummy_value_query(), 0);
 	});
 }
 
+#[docify::export]
 #[test]
 fn set_dummy_works() {
 	new_test_ext().execute_with(|| {
+		// verify what we expect to have from our genesis build
+		assert_eq!(Example::dummy(), Some(42));
+
+		// we expect that calling set_dummy will replace what's previously in storage
 		let test_val = 133;
 		assert_ok!(Example::set_dummy(RuntimeOrigin::root(), test_val.into()));
 		assert_eq!(Example::dummy(), Some(test_val));
@@ -150,37 +168,28 @@ fn set_dummy_works() {
 }
 
 #[test]
-fn signed_ext_watch_dummy_works() {
+fn signed_ext_watch_set_dummy_works() {
 	new_test_ext().execute_with(|| {
 		let call = pallet_example_basic::Call::set_dummy { new_value: 10 }.into();
 		let info = DispatchInfo::default();
 
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData)
+			WatchSetDummy::<Test>(PhantomData)
 				.validate(&1, &call, &info, 150)
 				.unwrap()
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
+			WatchSetDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})
 }
 
 #[test]
-fn counted_map_works() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(CountedMap::<Test>::count(), 0);
-		CountedMap::<Test>::insert(3, 3);
-		assert_eq!(CountedMap::<Test>::count(), 1);
-	})
-}
-
-#[test]
 fn weights_work() {
-	// must have a defined weight.
+	// must have a defined weight
 	let default_call = pallet_example_basic::Call::<Test>::accumulate_dummy { increase_by: 10 };
 	let info1 = default_call.get_dispatch_info();
 	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
@@ -194,4 +203,24 @@ fn weights_work() {
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
 	assert!(info1.weight.ref_time() > info2.weight.ref_time());
+}
+
+#[test]
+fn events_work() {
+	new_test_ext().execute_with(|| {
+		let amount = 42;
+		System::set_block_number(System::block_number() + 1); // otherwise event won't be registered
+		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), amount));
+
+		// get the stored events from system
+		let events = System::events();
+
+		// manually create the event we're expecting
+		let system_event: <Test as frame_system::Config>::RuntimeEvent =
+			Event::AccumulateDummy { balance: amount.into() }.into();
+
+		// check against the last event in system
+		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
+		assert_eq!(event, &system_event);
+	});
 }
