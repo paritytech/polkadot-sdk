@@ -21,9 +21,9 @@ use futures::{channel::oneshot, StreamExt};
 use log::{debug, trace};
 use sc_client_api::BlockBackend;
 use sc_network::{
-	config as netconfig, config::RequestResponseConfig, types::ProtocolName, PeerId,
-	ReputationChange,
+	config as netconfig, config::RequestResponseConfig, types::ProtocolName, ReputationChange,
 };
+use sc_network_types::PeerId;
 use sp_consensus_beefy::BEEFY_ENGINE_ID;
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};

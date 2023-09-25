@@ -18,8 +18,9 @@
 
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
-use sc_network::{PeerId, ReputationChange};
+use sc_network::ReputationChange;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 use codec::{Decode, DecodeAll, Encode};
@@ -498,11 +499,11 @@ pub(crate) mod tests {
 
 		fn broadcast_message(&mut self, _topic: B::Hash, _message: Vec<u8>, _force: bool) {}
 
-		fn send_message(&mut self, _who: &sc_network::PeerId, _message: Vec<u8>) {
+		fn send_message(&mut self, _who: &sc_network_types::PeerId, _message: Vec<u8>) {
 			todo!()
 		}
 
-		fn send_topic(&mut self, _who: &sc_network::PeerId, _topic: B::Hash, _force: bool) {
+		fn send_topic(&mut self, _who: &sc_network_types::PeerId, _topic: B::Hash, _force: bool) {
 			todo!()
 		}
 	}
@@ -665,7 +666,7 @@ pub(crate) mod tests {
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
 		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
-		let sender = sc_network::PeerId::random();
+		let sender = sc_network_types::PeerId::random();
 		let topic = Default::default();
 		let intent = MessageIntent::Broadcast;
 
@@ -742,7 +743,7 @@ pub(crate) mod tests {
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
 		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
-		let sender = sc_network::PeerId::random();
+		let sender = sc_network_types::PeerId::random();
 		let topic = Default::default();
 
 		let vote = dummy_vote(1);

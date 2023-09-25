@@ -25,13 +25,13 @@ use crate::{
 		Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
 	},
 	types::ProtocolName,
+	PeerId,
 };
 
 use futures::{
 	stream::{FuturesUnordered, Stream},
 	StreamExt,
 };
-use libp2p::PeerId;
 use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
@@ -220,18 +220,18 @@ impl NotificationHandle {
 #[async_trait::async_trait]
 impl NotificationService for NotificationHandle {
 	/// Instruct `Notifications` to open a new substream for `peer`.
-	async fn open_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+	async fn open_substream(&mut self, _peer: sc_network_types::PeerId) -> Result<(), ()> {
 		todo!("support for opening substreams not implemented yet");
 	}
 
 	/// Instruct `Notifications` to close substream for `peer`.
-	async fn close_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+	async fn close_substream(&mut self, _peer: sc_network_types::PeerId) -> Result<(), ()> {
 		todo!("support for closing substreams not implemented yet, call `NetworkService::disconnect_peer()` instead");
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>) {
-		if let Some(info) = self.peers.get(&peer) {
+	fn send_sync_notification(&self, peer: &sc_network_types::PeerId, notification: Vec<u8>) {
+		if let Some(info) = self.peers.get(&((*peer).into())) {
 			metrics::register_notification_sent(
 				&info.sink.metrics(),
 				&self.protocol,
@@ -245,11 +245,15 @@ impl NotificationService for NotificationHandle {
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
 		&self,
-		peer: &PeerId,
+		peer: &sc_network_types::PeerId,
 		notification: Vec<u8>,
 	) -> Result<(), error::Error> {
 		let notification_len = notification.len();
-		let sink = &self.peers.get(&peer).ok_or_else(|| error::Error::PeerDoesntExist(*peer))?.sink;
+		let sink = &self
+			.peers
+			.get(&peer.into())
+			.ok_or_else(|| error::Error::PeerDoesntExist((*peer).into()))?
+			.sink;
 
 		sink.reserve_notification()
 			.await
@@ -288,7 +292,7 @@ impl NotificationService for NotificationHandle {
 			match self.rx.next().await? {
 				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } =>
 					return Some(NotificationEvent::ValidateInboundSubstream {
-						peer,
+						peer: peer.into(),
 						handshake,
 						result_tx,
 					}),
@@ -307,7 +311,7 @@ impl NotificationService for NotificationHandle {
 						},
 					);
 					return Some(NotificationEvent::NotificationStreamOpened {
-						peer,
+						peer: peer.into(),
 						handshake,
 						direction,
 						negotiated_fallback,
@@ -315,10 +319,13 @@ impl NotificationService for NotificationHandle {
 				},
 				InnerNotificationEvent::NotificationStreamClosed { peer } => {
 					self.peers.remove(&peer);
-					return Some(NotificationEvent::NotificationStreamClosed { peer })
+					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() })
 				},
 				InnerNotificationEvent::NotificationReceived { peer, notification } =>
-					return Some(NotificationEvent::NotificationReceived { peer, notification }),
+					return Some(NotificationEvent::NotificationReceived {
+						peer: peer.into(),
+						notification,
+					}),
 				InnerNotificationEvent::NotificationSinkReplaced { peer, sink } => {
 					match self.peers.get_mut(&peer) {
 						None => log::error!(
@@ -356,8 +363,8 @@ impl NotificationService for NotificationHandle {
 	}
 
 	/// Get message sink of the peer.
-	fn message_sink(&self, peer: &PeerId) -> Option<Box<dyn MessageSink>> {
-		match self.peers.get(peer) {
+	fn message_sink(&self, peer: &sc_network_types::PeerId) -> Option<Box<dyn MessageSink>> {
+		match self.peers.get(&peer.into()) {
 			Some(context) => Some(Box::new(context.shared_sink.clone())),
 			None => None,
 		}

@@ -25,6 +25,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 sc-network = { path = ".." }
 sc-network-common = { path = "../common" }
 sc-network-sync = { path = "../sync" }
+sc-network-types = { path = "../types" }
 sc-utils = { path = "../../utils" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-consensus = { path = "../../../primitives/consensus/common" }

@@ -15,6 +15,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-network-common = { path = "../../../../substrate/client/network/common" }
+sc-network-types = { path = "../../../../substrate/client/network/types" }
 
 polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }

@@ -182,8 +182,8 @@ impl NetworkDHTProvider for TestNetwork {
 }
 
 impl NetworkStateInfo for TestNetwork {
-	fn local_peer_id(&self) -> PeerId {
-		self.peer_id
+	fn local_peer_id(&self) -> sc_network_types::PeerId {
+		self.peer_id.into()
 	}
 
 	fn external_addresses(&self) -> Vec<Multiaddr> {

@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::prelude::*;
-use libp2p::{Multiaddr, PeerId};
 
 use sc_consensus::{ImportQueue, Link};
 use sc_network::{
@@ -25,8 +24,8 @@ use sc_network::{
 	event::Event,
 	peer_store::PeerStore,
 	service::traits::{NotificationEvent, ValidationResult},
-	NetworkEventStream, NetworkPeers, NetworkService, NetworkStateInfo, NetworkWorker,
-	NotificationService,
+	Multiaddr, NetworkEventStream, NetworkPeers, NetworkService, NetworkStateInfo, NetworkWorker,
+	NotificationService, PeerId,
 };
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -185,7 +184,11 @@ impl TestNetworkBuilder {
 		};
 
 		let peer_store = PeerStore::new(
-			network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect(),
+			network_config
+				.boot_nodes
+				.iter()
+				.map(|bootnode| bootnode.peer_id.into())
+				.collect(),
 		);
 		let peer_store_handle = peer_store.handle();
 		tokio::spawn(peer_store.run().boxed());
@@ -670,7 +673,7 @@ async fn ensure_boot_node_addresses_consistent_with_transport_memory() {
 	let listen_addr = config::build_multiaddr![Memory(rand::random::<u64>())];
 	let boot_node = MultiaddrWithPeerId {
 		multiaddr: config::build_multiaddr![Ip4([127, 0, 0, 1]), Tcp(0_u16)],
-		peer_id: PeerId::random(),
+		peer_id: PeerId::random().into(),
 	};
 
 	let _ = TestNetworkBuilder::new()
@@ -696,7 +699,7 @@ async fn ensure_boot_node_addresses_consistent_with_transport_not_memory() {
 	let listen_addr = config::build_multiaddr![Ip4([127, 0, 0, 1]), Tcp(0_u16)];
 	let boot_node = MultiaddrWithPeerId {
 		multiaddr: config::build_multiaddr![Memory(rand::random::<u64>())],
-		peer_id: PeerId::random(),
+		peer_id: PeerId::random().into(),
 	};
 
 	let _ = TestNetworkBuilder::new()
@@ -721,7 +724,7 @@ async fn ensure_reserved_node_addresses_consistent_with_transport_memory() {
 	let listen_addr = config::build_multiaddr![Memory(rand::random::<u64>())];
 	let reserved_node = MultiaddrWithPeerId {
 		multiaddr: config::build_multiaddr![Ip4([127, 0, 0, 1]), Tcp(0_u16)],
-		peer_id: PeerId::random(),
+		peer_id: PeerId::random().into(),
 	};
 
 	let _ = TestNetworkBuilder::new()
@@ -750,7 +753,7 @@ async fn ensure_reserved_node_addresses_consistent_with_transport_not_memory() {
 	let listen_addr = config::build_multiaddr![Ip4([127, 0, 0, 1]), Tcp(0_u16)];
 	let reserved_node = MultiaddrWithPeerId {
 		multiaddr: config::build_multiaddr![Memory(rand::random::<u64>())],
-		peer_id: PeerId::random(),
+		peer_id: PeerId::random().into(),
 	};
 
 	let _ = TestNetworkBuilder::new()

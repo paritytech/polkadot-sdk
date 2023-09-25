@@ -22,7 +22,6 @@
 
 use cid::{self, Version};
 use futures::StreamExt;
-use libp2p_identity::PeerId;
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -30,6 +29,7 @@ use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
 	types::ProtocolName,
 };
+use sc_network_types::PeerId;
 use schema::bitswap::{
 	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,

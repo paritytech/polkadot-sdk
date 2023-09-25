@@ -264,7 +264,6 @@ pub mod utils;
 
 pub use event::{DhtEvent, Event};
 #[doc(inline)]
-pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
 	role::{ObservedRole, Roles},
@@ -282,7 +281,7 @@ pub use service::{
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
-pub use types::ProtocolName;
+pub use types::{multiaddr, Multiaddr, PeerId, ProtocolName};
 
 /// The maximum allowed number of established connections per peer.
 ///

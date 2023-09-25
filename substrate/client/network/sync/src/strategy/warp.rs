@@ -27,11 +27,11 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
-use libp2p::PeerId;
 use log::{debug, error, trace};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
+use sc_network_types::PeerId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, Zero},

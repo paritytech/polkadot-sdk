@@ -26,7 +26,8 @@ pub use incoming_requests_handler::BeefyJustifsRequestHandler;
 use std::time::Duration;
 
 use codec::{Decode, Encode, Error as CodecError};
-use sc_network::{config::RequestResponseConfig, PeerId};
+use sc_network::config::RequestResponseConfig;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, NumberFor};
 
 use crate::communication::{beefy_protocol_name::justifications_protocol_name, peers::PeerReport};

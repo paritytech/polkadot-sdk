@@ -67,11 +67,12 @@ pub use self::{
 	validator::{DiscardAll, MessageIntent, ValidationResult, Validator, ValidatorContext},
 };
 
-use libp2p::{multiaddr, PeerId};
 use sc_network::{
-	types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
+	multiaddr, types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkNotification,
+	NetworkPeers,
 };
 use sc_network_sync::SyncEventStream;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::iter;
 

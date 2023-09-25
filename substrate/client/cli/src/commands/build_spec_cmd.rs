@@ -67,7 +67,7 @@ impl BuildSpecCmd {
 			let peer_id = keys.public().to_peer_id();
 			let addr = MultiaddrWithPeerId {
 				multiaddr: build_multiaddr![Ip4([127, 0, 0, 1]), Tcp(30333u16)],
-				peer_id,
+				peer_id: peer_id.into(),
 			};
 			spec.add_boot_node(addr)
 		}

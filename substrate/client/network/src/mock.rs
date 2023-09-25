@@ -19,8 +19,8 @@
 //! Mocked components for tests.
 
 use crate::{peer_store::PeerStoreProvider, protocol_controller::ProtocolHandle, ReputationChange};
-use libp2p::PeerId;
 use sc_network_common::role::ObservedRole;
+use sc_network_types::PeerId;
 use std::collections::HashSet;
 
 /// No-op `PeerStore`.
@@ -58,7 +58,7 @@ impl PeerStoreProvider for MockPeerStore {
 		unimplemented!();
 	}
 
-	fn outgoing_candidates(&self, _count: usize, _ignored: HashSet<&PeerId>) -> Vec<PeerId> {
+	fn outgoing_candidates(&self, _count: usize, _ignored: HashSet<PeerId>) -> Vec<PeerId> {
 		unimplemented!()
 	}
 }

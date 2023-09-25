@@ -17,17 +17,17 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::channel::oneshot;
-use libp2p::{Multiaddr, PeerId};
 
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
+	Multiaddr, NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
 	NotificationSenderError, NotificationSenderT, ReputationChange,
 };
 use sc_network_common::role::ObservedRole;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::collections::HashSet;

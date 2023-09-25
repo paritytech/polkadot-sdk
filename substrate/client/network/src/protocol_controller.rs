@@ -41,8 +41,9 @@
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
 //! view of the peers' states at any given moment, the eventual consistency is maintained.
 
+use crate::{peer_store::PeerStoreProvider, PeerId};
+
 use futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
-use libp2p::PeerId;
 use log::{debug, error, trace, warn};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_arithmetic::traits::SaturatedConversion;
@@ -51,8 +52,6 @@ use std::{
 	time::{Duration, Instant},
 };
 use wasm_timer::Delay;
-
-use crate::peer_store::PeerStoreProvider;
 
 /// Log target for this file.
 pub const LOG_TARGET: &str = "peerset";
@@ -445,12 +444,12 @@ impl ProtocolController {
 	/// Report peer disconnect event to `PeerStore` for it to update peer's reputation accordingly.
 	/// Should only be called if the remote node disconnected us, not the other way around.
 	fn report_disconnect(&mut self, peer_id: PeerId) {
-		self.peer_store.report_disconnect(peer_id);
+		self.peer_store.report_disconnect(peer_id.into());
 	}
 
 	/// Ask `Peerset` if the peer has a reputation value not sufficent for connection with it.
 	fn is_banned(&self, peer_id: &PeerId) -> bool {
-		self.peer_store.is_banned(peer_id)
+		self.peer_store.is_banned(&peer_id.into())
 	}
 
 	/// Add the peer to the set of reserved peers. [`ProtocolController`] will try to always
@@ -665,7 +664,7 @@ impl ProtocolController {
 					self.accept_connection(peer_id, incoming_index);
 				},
 				PeerState::NotConnected =>
-					if self.peer_store.is_banned(&peer_id) {
+					if self.peer_store.is_banned(&peer_id.into()) {
 						self.reject_connection(peer_id, incoming_index);
 					} else {
 						*state = PeerState::Connected(Direction::Inbound);
@@ -778,7 +777,7 @@ impl ProtocolController {
 		self.reserved_nodes
 			.iter_mut()
 			.filter_map(|(peer_id, state)| {
-				(!state.is_connected() && !self.peer_store.is_banned(peer_id)).then(|| {
+				(!state.is_connected() && !self.peer_store.is_banned(&peer_id.into())).then(|| {
 					*state = PeerState::Connected(Direction::Outbound);
 					peer_id
 				})
@@ -803,8 +802,11 @@ impl ProtocolController {
 		let ignored = self
 			.reserved_nodes
 			.keys()
-			.collect::<HashSet<&PeerId>>()
-			.union(&self.nodes.keys().collect::<HashSet<&PeerId>>())
+			.map(From::from)
+			.collect::<HashSet<sc_network_types::PeerId>>()
+			.union(
+				&self.nodes.keys().map(From::from).collect::<HashSet<sc_network_types::PeerId>>(),
+			)
 			.cloned()
 			.collect();
 
@@ -813,16 +815,17 @@ impl ProtocolController {
 			.outgoing_candidates(available_slots, ignored)
 			.into_iter()
 			.filter_map(|peer_id| {
-				(!self.reserved_nodes.contains_key(&peer_id) && !self.nodes.contains_key(&peer_id))
-					.then_some(peer_id)
-					.or_else(|| {
-						error!(
-							target: LOG_TARGET,
-							"`PeerStore` returned a node we asked to ignore: {peer_id}.",
-						);
-						debug_assert!(false, "`PeerStore` returned a node we asked to ignore.");
-						None
-					})
+				(!self.reserved_nodes.contains_key(&peer_id.into()) &&
+					!self.nodes.contains_key(&peer_id.into()))
+				.then_some(peer_id)
+				.or_else(|| {
+					error!(
+						target: LOG_TARGET,
+						"`PeerStore` returned a node we asked to ignore: {peer_id}.",
+					);
+					debug_assert!(false, "`PeerStore` returned a node we asked to ignore.");
+					None
+				})
 			})
 			.collect::<Vec<_>>();
 
@@ -836,8 +839,8 @@ impl ProtocolController {
 
 		candidates.into_iter().take(available_slots).for_each(|peer_id| {
 			self.num_out += 1;
-			self.nodes.insert(peer_id, Direction::Outbound);
-			self.start_connection(peer_id);
+			self.nodes.insert(peer_id.into(), Direction::Outbound);
+			self.start_connection(peer_id.into());
 		})
 	}
 }
@@ -845,8 +848,7 @@ impl ProtocolController {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{peer_store::PeerStoreProvider, ReputationChange};
-	use libp2p::PeerId;
+	use crate::{peer_store::PeerStoreProvider, PeerId, ReputationChange};
 	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;
@@ -856,14 +858,14 @@ mod tests {
 		pub PeerStoreHandle {}
 
 		impl PeerStoreProvider for PeerStoreHandle {
-			fn is_banned(&self, peer_id: &PeerId) -> bool;
+			fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
 			fn register_protocol(&self, protocol_handle: ProtocolHandle);
-			fn report_disconnect(&mut self, peer_id: PeerId);
-			fn set_peer_role(&mut self, peer_id: &PeerId, role: ObservedRole);
-			fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange);
-			fn peer_reputation(&self, peer_id: &PeerId) -> i32;
-			fn peer_role(&self, peer_id: &PeerId) -> Option<ObservedRole>;
-			fn outgoing_candidates<'a>(&self, count: usize, ignored: HashSet<&'a PeerId>) -> Vec<PeerId>;
+			fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId);
+			fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
+			fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange);
+			fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
+			fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
+			fn outgoing_candidates(&self, count: usize, ignored: HashSet<sc_network_types::PeerId>) -> Vec<sc_network_types::PeerId>;
 		}
 	}
 
@@ -1042,7 +1044,7 @@ mod tests {
 	fn nodes_supplied_by_peer_store_are_connected() {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
-		let candidates = vec![peer1, peer2];
+		let candidates = vec![peer1.into(), peer2.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 0,
@@ -1092,7 +1094,7 @@ mod tests {
 		let reserved2 = PeerId::random();
 		let regular1 = PeerId::random();
 		let regular2 = PeerId::random();
-		let outgoing_candidates = vec![regular1, regular2];
+		let outgoing_candidates = vec![regular1.into(), regular2.into()];
 		let reserved_nodes = [reserved1, reserved2].iter().cloned().collect();
 
 		let config =
@@ -1128,8 +1130,8 @@ mod tests {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
 		let peer3 = PeerId::random();
-		let candidates1 = vec![peer1, peer2];
-		let candidates2 = vec![peer3];
+		let candidates1 = vec![peer1.into(), peer2.into()];
+		let candidates2 = vec![peer3.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 0,
@@ -1262,7 +1264,7 @@ mod tests {
 	fn disabling_reserved_only_mode_allows_to_connect_to_peers() {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
-		let candidates = vec![peer1, peer2];
+		let candidates = vec![peer1.into(), peer2.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 0,
@@ -1309,7 +1311,7 @@ mod tests {
 		let reserved2 = PeerId::random();
 		let regular1 = PeerId::random();
 		let regular2 = PeerId::random();
-		let outgoing_candidates = vec![regular1];
+		let outgoing_candidates = vec![regular1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1460,7 +1462,10 @@ mod tests {
 		let mut peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
 		peer_store.expect_is_banned().times(2).return_const(false);
-		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
+		peer_store
+			.expect_outgoing_candidates()
+			.once()
+			.return_const(Vec::<sc_network_types::PeerId>::new());
 
 		let (_handle, mut controller) =
 			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
@@ -1493,7 +1498,7 @@ mod tests {
 	fn regular_nodes_stop_occupying_slots_when_become_reserved() {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
-		let outgoing_candidates = vec![peer1];
+		let outgoing_candidates = vec![peer1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1535,7 +1540,7 @@ mod tests {
 	fn disconnecting_regular_peers_work() {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
-		let outgoing_candidates = vec![peer1];
+		let outgoing_candidates = vec![peer1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1650,7 +1655,7 @@ mod tests {
 	fn dropping_regular_peers_work() {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
-		let outgoing_candidates = vec![peer1];
+		let outgoing_candidates = vec![peer1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1762,7 +1767,7 @@ mod tests {
 	fn incoming_request_for_connected_regular_node_switches_it_to_inbound() {
 		let regular1 = PeerId::random();
 		let regular2 = PeerId::random();
-		let outgoing_candidates = vec![regular1];
+		let outgoing_candidates = vec![regular1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1814,7 +1819,7 @@ mod tests {
 	fn incoming_request_for_connected_node_is_rejected_if_its_banned() {
 		let regular1 = PeerId::random();
 		let regular2 = PeerId::random();
-		let outgoing_candidates = vec![regular1];
+		let outgoing_candidates = vec![regular1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 10,
@@ -1867,7 +1872,7 @@ mod tests {
 	fn incoming_request_for_connected_node_is_rejected_if_no_slots_available() {
 		let regular1 = PeerId::random();
 		let regular2 = PeerId::random();
-		let outgoing_candidates = vec![regular1];
+		let outgoing_candidates = vec![regular1.into()];
 
 		let config = ProtoSetConfig {
 			in_peers: 1,

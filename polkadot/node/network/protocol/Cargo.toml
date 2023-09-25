@@ -18,6 +18,7 @@ polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sc-network = { path = "../../../../substrate/client/network" }
+sc-network-types = { path = "../../../../substrate/client/network/types" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
 strum = { version = "0.24", features = ["derive"] }
 futures = "0.3.21"

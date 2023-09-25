@@ -19,7 +19,8 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use libp2p::PeerId;
+use crate::PeerId;
+
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;
@@ -55,28 +56,32 @@ const FORGET_AFTER: Duration = Duration::from_secs(3600);
 /// Trait providing peer reputation management and connection candidates.
 pub trait PeerStoreProvider: Debug + Send {
 	/// Check whether the peer is banned.
-	fn is_banned(&self, peer_id: &PeerId) -> bool;
+	fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
 
 	/// Register a protocol handle to disconnect peers whose reputation drops below the threshold.
 	fn register_protocol(&self, protocol_handle: ProtocolHandle);
 
 	/// Report peer disconnection for reputation adjustment.
-	fn report_disconnect(&mut self, peer_id: PeerId);
+	fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId);
 
 	/// Adjust peer reputation.
-	fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange);
+	fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange);
 
 	/// Set peer role.
-	fn set_peer_role(&mut self, peer_id: &PeerId, role: ObservedRole);
+	fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
 
 	/// Get peer reputation.
-	fn peer_reputation(&self, peer_id: &PeerId) -> i32;
+	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
 
 	/// Get peer role, if available.
-	fn peer_role(&self, peer_id: &PeerId) -> Option<ObservedRole>;
+	fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
 
 	/// Get candidates with highest reputations for initiating outgoing connections.
-	fn outgoing_candidates(&self, count: usize, ignored: HashSet<&PeerId>) -> Vec<PeerId>;
+	fn outgoing_candidates(
+		&self,
+		count: usize,
+		ignored: HashSet<sc_network_types::PeerId>,
+	) -> Vec<sc_network_types::PeerId>;
 }
 
 /// Actual implementation of peer reputations and connection candidates provider.
@@ -86,36 +91,45 @@ pub struct PeerStoreHandle {
 }
 
 impl PeerStoreProvider for PeerStoreHandle {
-	fn is_banned(&self, peer_id: &PeerId) -> bool {
-		self.inner.lock().is_banned(peer_id)
+	fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool {
+		self.inner.lock().is_banned(&peer_id.into())
 	}
 
 	fn register_protocol(&self, protocol_handle: ProtocolHandle) {
 		self.inner.lock().register_protocol(protocol_handle);
 	}
 
-	fn report_disconnect(&mut self, peer_id: PeerId) {
-		self.inner.lock().report_disconnect(peer_id)
+	fn report_disconnect(&mut self, peer_id: sc_network_types::PeerId) {
+		self.inner.lock().report_disconnect(peer_id.into())
 	}
 
-	fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange) {
-		self.inner.lock().report_peer(peer_id, change)
+	fn report_peer(&mut self, peer_id: sc_network_types::PeerId, change: ReputationChange) {
+		self.inner.lock().report_peer(peer_id.into(), change)
 	}
 
-	fn set_peer_role(&mut self, peer_id: &PeerId, role: ObservedRole) {
-		self.inner.lock().set_peer_role(peer_id, role)
+	fn set_peer_role(&mut self, peer_id: &sc_network_types::PeerId, role: ObservedRole) {
+		self.inner.lock().set_peer_role(&peer_id.into(), role)
 	}
 
-	fn peer_reputation(&self, peer_id: &PeerId) -> i32 {
-		self.inner.lock().peer_reputation(peer_id)
+	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32 {
+		self.inner.lock().peer_reputation(&peer_id.into())
 	}
 
-	fn peer_role(&self, peer_id: &PeerId) -> Option<ObservedRole> {
-		self.inner.lock().peer_role(peer_id)
+	fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole> {
+		self.inner.lock().peer_role(&peer_id.into())
 	}
 
-	fn outgoing_candidates(&self, count: usize, ignored: HashSet<&PeerId>) -> Vec<PeerId> {
-		self.inner.lock().outgoing_candidates(count, ignored)
+	fn outgoing_candidates(
+		&self,
+		count: usize,
+		ignored: HashSet<sc_network_types::PeerId>,
+	) -> Vec<sc_network_types::PeerId> {
+		self.inner
+			.lock()
+			.outgoing_candidates(count, ignored.iter().map(|peer_id| (*peer_id).into()).collect())
+			.iter()
+			.map(|peer_id| peer_id.into())
+			.collect()
 	}
 }
 
@@ -283,7 +297,7 @@ impl PeerStoreInner {
 		self.peers.get(peer_id).map_or(None, |info| info.role)
 	}
 
-	fn outgoing_candidates(&self, count: usize, ignored: HashSet<&PeerId>) -> Vec<PeerId> {
+	fn outgoing_candidates(&self, count: usize, ignored: HashSet<PeerId>) -> Vec<PeerId> {
 		let mut candidates = self
 			.peers
 			.iter()

@@ -28,6 +28,8 @@ use std::{
 	sync::Arc,
 };
 
+pub use libp2p::{multiaddr, Multiaddr, PeerId};
+
 /// The protocol name transmitted on the wire.
 #[derive(Debug, Clone)]
 pub enum ProtocolName {

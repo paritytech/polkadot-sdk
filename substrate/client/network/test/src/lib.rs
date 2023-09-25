@@ -248,7 +248,7 @@ where
 {
 	/// Get this peer ID.
 	pub fn id(&self) -> PeerId {
-		self.network.service().local_peer_id()
+		self.network.service().local_peer_id().into()
 	}
 
 	/// Returns true if we're major syncing.
@@ -295,7 +295,11 @@ where
 		hash: <Block as BlockT>::Hash,
 		number: NumberFor<Block>,
 	) {
-		self.sync_service.set_sync_fork_request(peers, hash, number);
+		self.sync_service.set_sync_fork_request(
+			peers.into_iter().map(From::from).collect(),
+			hash,
+			number,
+		);
 	}
 
 	/// Add blocks to the peer -- edit the block before adding
@@ -881,7 +885,11 @@ pub trait TestNetFactory: Default + Sized + Send {
 		};
 
 		let peer_store = PeerStore::new(
-			network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect(),
+			network_config
+				.boot_nodes
+				.iter()
+				.map(|bootnode| bootnode.peer_id.into())
+				.collect(),
 		);
 		let peer_store_handle = peer_store.handle();
 		self.spawn_task(peer_store.run().boxed());
@@ -961,8 +969,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		self.mut_peers(move |peers| {
 			for peer in peers.iter_mut() {
-				peer.network
-					.add_known_address(network.service().local_peer_id(), listen_addr.clone());
+				peer.network.add_known_address(
+					network.service().local_peer_id().into(),
+					listen_addr.clone(),
+				);
 			}
 
 			let imported_blocks_stream = Box::pin(client.import_notification_stream().fuse());

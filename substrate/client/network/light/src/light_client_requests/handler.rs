@@ -25,7 +25,6 @@
 use crate::schema;
 use codec::{self, Decode, Encode};
 use futures::prelude::*;
-use libp2p_identity::PeerId;
 use log::{debug, trace};
 use prost::Message;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -34,6 +33,7 @@ use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
 	ReputationChange,
 };
+use sc_network_types::PeerId;
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},

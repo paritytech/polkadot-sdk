@@ -133,7 +133,7 @@ pub struct ProtocolConfig {
 #[derive(Debug)]
 pub struct IncomingRequest {
 	/// Who sent the request.
-	pub peer: PeerId,
+	pub peer: sc_network_types::PeerId,
 
 	/// Request sent by the remote. Will always be smaller than
 	/// [`ProtocolConfig::max_request_size`].
@@ -670,7 +670,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							self.pending_responses_arrival_time
 								.insert((protocol.clone(), request_id).into(), Instant::now());
 
-							let reputation = self.peer_store.peer_reputation(&peer);
+							let reputation = self.peer_store.peer_reputation(&peer.into());
 
 							if reputation < BANNED_THRESHOLD {
 								log::debug!(
@@ -694,7 +694,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								// because the latter allocates an extra slot for every cloned
 								// sender.
 								let _ = resp_builder.try_send(IncomingRequest {
-									peer,
+									peer: peer.into(),
 									payload: request,
 									pending_response: tx,
 								});

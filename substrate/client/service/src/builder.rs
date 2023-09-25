@@ -882,7 +882,7 @@ where
 			.network_config
 			.boot_nodes
 			.iter()
-			.map(|bootnode| bootnode.peer_id)
+			.map(|bootnode| bootnode.peer_id.into())
 			.collect(),
 	);
 	let peer_store_handle = peer_store.handle();

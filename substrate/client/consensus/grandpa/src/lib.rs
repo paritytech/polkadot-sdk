@@ -343,7 +343,7 @@ pub(crate) trait BlockSyncRequester<Block: BlockT> {
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	);
@@ -357,7 +357,7 @@ where
 {
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	) {

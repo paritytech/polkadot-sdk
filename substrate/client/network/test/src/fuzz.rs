@@ -20,7 +20,6 @@
 //! and `PeerStore` to discover possible inconsistencies in peer management.
 
 use futures::prelude::*;
-use libp2p::PeerId;
 use rand::{
 	distributions::{Distribution, Uniform, WeightedIndex},
 	seq::IteratorRandom,
@@ -28,7 +27,7 @@ use rand::{
 use sc_network::{
 	peer_store::{PeerStore, PeerStoreProvider},
 	protocol_controller::{IncomingIndex, Message, ProtoSetConfig, ProtocolController, SetId},
-	ReputationChange,
+	PeerId, ReputationChange,
 };
 use sc_utils::mpsc::tracing_unbounded;
 use std::collections::{HashMap, HashSet};
@@ -326,7 +325,8 @@ async fn test_once() {
 				2 =>
 					if let Some(id) = known_nodes.keys().choose(&mut rng) {
 						let val = Uniform::new_inclusive(i32::MIN, i32::MAX).sample(&mut rng);
-						peer_store_handle.report_peer(*id, ReputationChange::new(val, ""));
+						let peer: sc_network_types::PeerId = id.into();
+						peer_store_handle.report_peer(peer, ReputationChange::new(val, ""));
 					},
 
 				// If we generate 3, disconnect from a random node.

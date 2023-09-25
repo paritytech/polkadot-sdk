@@ -34,8 +34,9 @@ pub use crate::{
 pub use libp2p::{
 	build_multiaddr,
 	identity::{self, ed25519, Keypair},
-	multiaddr, Multiaddr, PeerId,
+	multiaddr, Multiaddr,
 };
+use sc_network_types::PeerId;
 
 use crate::peer_store::PeerStoreHandle;
 use codec::Encode;
@@ -99,7 +100,7 @@ impl fmt::Debug for ProtocolId {
 /// let (peer_id, addr) = parse_str_addr(
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
 /// ).unwrap();
-/// assert_eq!(peer_id, "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse::<PeerId>().unwrap());
+/// assert_eq!(peer_id, "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse::<PeerId>().unwrap().into());
 /// assert_eq!(addr, "/ip4/198.51.100.19/tcp/30333".parse::<Multiaddr>().unwrap());
 /// ```
 pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {

@@ -179,7 +179,7 @@ impl<B: BlockT> Protocol<B> {
 	fn role_available(&self, peer_id: &PeerId, handshake: &Vec<u8>) -> bool {
 		match Roles::decode_all(&mut &handshake[..]) {
 			Ok(_) => true,
-			Err(_) => self.peer_store_handle.peer_role(&peer_id).is_some(),
+			Err(_) => self.peer_store_handle.peer_role(&((*peer_id).into())).is_some(),
 		}
 	}
 }

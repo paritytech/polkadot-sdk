@@ -20,7 +20,8 @@ use futures::{channel::oneshot, StreamExt};
 
 use parity_scale_codec::{Decode, Encode};
 
-use sc_network::{config as netconfig, config::RequestResponseConfig, PeerId};
+use sc_network::{config as netconfig, config::RequestResponseConfig};
+use sc_network_types::PeerId;
 
 use super::{IsRequest, ReqProtocolNames};
 use crate::UnifiedReputationChange;

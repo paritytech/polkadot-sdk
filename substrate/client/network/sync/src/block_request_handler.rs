@@ -29,9 +29,10 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, stream::StreamExt};
-use libp2p::PeerId;
 use log::debug;
 use prost::Message;
+use schnellru::{ByLength, LruMap};
+
 use sc_client_api::BlockBackend;
 use sc_network::{
 	config::ProtocolId,
@@ -41,12 +42,13 @@ use sc_network::{
 	types::ProtocolName,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
-use schnellru::{ByLength, LruMap};
+use sc_network_types::PeerId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, One, Zero},
 };
+
 use std::{
 	cmp::min,
 	hash::{Hash, Hasher},

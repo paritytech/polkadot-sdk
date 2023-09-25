@@ -58,6 +58,7 @@ sc-network-bitswap = { path = "../network/bitswap" }
 sc-network-common = { path = "../network/common" }
 sc-network-light = { path = "../network/light" }
 sc-network-sync = { path = "../network/sync" }
+sc-network-types = { path = "../network/types" }
 sc-network-transactions = { path = "../network/transactions" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }

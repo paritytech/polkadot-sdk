@@ -19,7 +19,7 @@
 use crate::{MessageIntent, Network, ValidationResult, Validator, ValidatorContext};
 
 use ahash::AHashSet;
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};

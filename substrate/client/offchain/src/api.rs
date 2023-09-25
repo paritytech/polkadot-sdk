@@ -22,7 +22,8 @@ use crate::NetworkProvider;
 use codec::{Decode, Encode};
 use futures::Future;
 pub use http::SharedClient;
-use libp2p::{Multiaddr, PeerId};
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
 use sp_core::{
 	offchain::{
 		self, HttpError, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,

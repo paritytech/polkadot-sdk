@@ -41,10 +41,9 @@ use futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
 use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
-use sc_network::{
-	config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo, PeerId,
-};
+use sc_network::{config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo};
 use sc_network_sync::SyncingService;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
