@@ -442,6 +442,10 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
+		/// Reserve chain could not be determined for assets to be transferred.
+		UnknownReserve,
+		/// Too many assets with different reserve locations have been attempted for transfer.
+		TooManyReserves,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1193,14 +1197,89 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum TransferType {
+	Teleport,
+	LocalReserve,
+	DestinationReserve,
+	RemoteReserve(MultiLocation),
+}
+
+impl TransferType {
+	/// Determine transfer type to be used for transferring `asset` from local chain to `dest`.
+	pub fn determine_for<T: Config>(
+		asset: &MultiAsset,
+		dest: &MultiLocation,
+	) -> Result<TransferType, Error<T>> {
+		if <T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(asset, dest) {
+			// we trust destination for teleporting asset
+			return Ok(TransferType::Teleport)
+		} else if <T::XcmExecutor as AssetTransferFilter>::IsReserve::contains(asset, dest) {
+			// we trust destination as asset reserve location
+			return Ok(TransferType::DestinationReserve)
+		}
+
+		// try to determine reserve location based on asset id/location
+		let asset_location = match asset.id {
+			Concrete(location) => Ok(location.chain_location()),
+			_ => Err(Error::<T>::InvalidAsset),
+		}?;
+		if asset_location == MultiLocation::here() ||
+			<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(
+				asset,
+				&asset_location,
+			) {
+			// local asset, or remote location that allows local teleports => local reserve
+			Ok(TransferType::LocalReserve)
+		} else if <T::XcmExecutor as AssetTransferFilter>::IsReserve::contains(
+			asset,
+			&asset_location,
+		) {
+			// remote location that is recognized as reserve location for asset
+			Ok(TransferType::RemoteReserve(asset_location))
+		} else {
+			// remote location that is not configured either as teleporter or reserve => cannot
+			// determine asset reserve
+			Err(Error::<T>::UnknownReserve)
+		}
+	}
+}
+
 impl<T: Config> Pallet<T> {
+	/// Validate `assets` to be reserve-transferred and return their reserve location.
+	fn validate_assets_and_find_reserve(
+		assets: &[MultiAsset],
+		dest: &MultiLocation,
+	) -> Result<TransferType, Error<T>> {
+		let mut reserve = None;
+		for asset in assets.iter() {
+			// Ensure fungible asset.
+			ensure!(
+				matches!(asset.fun, Fungibility::Fungible(x) if !x.is_zero()),
+				Error::<T>::InvalidAsset
+			);
+			let transfer_type = TransferType::determine_for::<T>(&asset, dest)?;
+			// Ensure asset is not teleportable to `dest`.
+			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
+			if let Some(reserve) = reserve.as_ref() {
+				// Ensure transfer for multiple assets uses same reserve location (only fee may have
+				// different reserve location)
+				ensure!(reserve == &transfer_type, Error::<T>::TooManyReserves);
+			} else {
+				// asset reserve identified
+				reserve = Some(transfer_type);
+			}
+		}
+		reserve.ok_or(Error::<T>::Empty)
+	}
+
 	fn do_reserve_transfer_assets(
 		origin: OriginFor<T>,
 		dest: Box<VersionedMultiLocation>,
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		weight_limit: WeightLimit,
+		mut weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1211,43 +1290,215 @@ impl<T: Config> Pallet<T> {
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
-		let (origin_location, assets) = value;
-		// Don't allow inclusion of teleportable assets in this reserve-based-transfer (other than
-		// fee asset).
-		for (idx, asset) in assets.iter().enumerate() {
-			ensure!(
-				idx == fee_asset_item as usize ||
-					!<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(
-						asset, &dest
-					),
-				Error::<T>::Filtered
-			);
+		let (origin_location, mut assets) = value;
+
+		if fee_asset_item as usize >= assets.len() {
+			return Err(Error::<T>::Empty.into())
+		}
+		let fees = assets.swap_remove(fee_asset_item as usize);
+		let fees_transfer_type = TransferType::determine_for::<T>(&fees, &dest)?;
+		let assets_transfer_type = if assets.is_empty() {
+			// Single asset to transfer (also used for fees).
+			fees_transfer_type.clone()
+		} else {
+			// Find reserve for non-fee assets.
+			Self::validate_assets_and_find_reserve(&assets, &dest)?
+		};
+
+		// Disallow (for now) different _remote_ reserves for assets and fees.
+		match (&fees_transfer_type, &assets_transfer_type) {
+			(TransferType::RemoteReserve(a), TransferType::RemoteReserve(b)) if a != b =>
+				return Err(Error::<T>::TooManyReserves.into()),
+			_ => (),
+		};
+
+		if fees_transfer_type == assets_transfer_type {
+			// Same reserve location (fees not teleportable), we can batch together fees and assets
+			// in same reserve-based-transfer.
+			assets.push(fees.clone());
+		} else {
+			// Different transfer types: we have to do separate transfers for fees and assets.
+			// This code block handles transferring the assets *used for fees*.
+
+			// Use only half the weight limit for fees transfer, then other half for assets
+			// transfer.
+			weight_limit = Self::halve_weight_limit(&weight_limit);
+
+			// When assets reserve is remote chain, we need to "prefund" fees to be able to
+			// BuyExecution on both chains. Split fees, and deposit half at assets-reserve chain
+			// and half at destination.
+			if let TransferType::RemoteReserve(assets_reserve) = assets_transfer_type {
+				let (fees_for_reserve, fees_for_dest) = Self::equal_split_asset(&fees)?;
+				// Halve weight limit again to be used for the two fees transfers.
+				let quarter_weight_limit = Self::halve_weight_limit(&weight_limit);
+				// TODO:
+				// let assets_reserve_beneficiary = sov_acc_of(dest, assets_reserve);
+				let assets_reserve_beneficiary = beneficiary.clone();
+				// Send half the `fees` to
+				Self::prefund_transfer_fees(
+					origin_location,
+					assets_reserve,
+					assets_reserve_beneficiary,
+					fees_for_reserve,
+					quarter_weight_limit.clone(),
+				)?;
+				Self::prefund_transfer_fees(
+					origin_location,
+					dest,
+					beneficiary,
+					fees_for_dest,
+					quarter_weight_limit,
+				)?;
+			} else {
+				Self::prefund_transfer_fees(
+					origin_location,
+					dest,
+					beneficiary,
+					fees.clone(),
+					weight_limit.clone(),
+				)?;
+			}
 		}
 
-		let context = T::UniversalLocation::get();
-		let fees = assets
-			.get(fee_asset_item as usize)
-			.ok_or(Error::<T>::Empty)?
-			.clone()
-			.reanchored(&dest, context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
-		let assets: MultiAssets = assets.into();
-		let xcm = Xcm(vec![
-			BuyExecution { fees, weight_limit },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
-		let mut message = Xcm(vec![
-			SetFeesMode { jit_withdraw: true },
-			TransferReserveAsset { assets, dest, xcm },
-		]);
+		// Fees have been prefunded/transferred (or batched together with assets), now do
+		// reserve-transfer assets.
+		Self::build_and_execute_xcm_transfer_type(
+			origin_location,
+			dest,
+			beneficiary,
+			assets,
+			assets_transfer_type,
+			fees,
+			weight_limit,
+		)
+	}
+
+	/// Teleport or reserve transfer `fees` - not to be used by itself, it is a helper function for
+	/// prefunding fees for subsequent assets transfer.
+	///
+	/// Fees are allowed to be either teleported or reserve transferred.
+	fn prefund_transfer_fees(
+		origin: impl Into<MultiLocation>,
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		asset: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> DispatchResult {
+		// TODO
+		Ok(())
+	}
+
+	fn build_and_execute_xcm_transfer_type(
+		origin: impl Into<MultiLocation>,
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		transfer_type: TransferType,
+		fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> DispatchResult {
+		let mut message = match transfer_type {
+			TransferType::LocalReserve =>
+				Self::local_reserve_transfer_message(dest, beneficiary, assets, fees, weight_limit),
+			TransferType::DestinationReserve => Self::destination_reserve_transfer_message(
+				dest,
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			),
+			TransferType::RemoteReserve(reserve) => Self::remote_reserve_transfer_message(
+				reserve,
+				dest,
+				beneficiary,
+				assets,
+				fees,
+				weight_limit,
+			),
+			TransferType::Teleport => todo!(),
+		}?;
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
 		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
+		let outcome = T::XcmExecutor::execute_xcm_in_credit(origin, message, hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome });
 		Ok(())
+	}
+
+	fn local_reserve_transfer_message(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		let context = T::UniversalLocation::get();
+		let fees = fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let max_assets = assets.len() as u32;
+		let xcm_on_dest = Xcm(vec![
+			BuyExecution { fees, weight_limit },
+			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		]);
+		Ok(Xcm(vec![
+			SetFeesMode { jit_withdraw: true },
+			TransferReserveAsset { assets: assets.into(), dest, xcm: xcm_on_dest },
+		]))
+	}
+
+	fn destination_reserve_transfer_message(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		// let context = T::UniversalLocation::get();
+		// let fees = assets.get(fee_asset_item as usize).reanchored(&dest, context);
+		// Ok(Xcm(vec![
+		// 	WithdrawAsset(assets),
+		// 	InitiateReserveWithdraw {
+		// 		assets: Wild(AllCounted(max_assets)),
+		// 		reserve: dest,
+		// 		xcm: Xcm(vec![
+		// 			BuyExecution { fees, weight_limit },
+		// 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		// 		]),
+		// 	},
+		// ]))
+		todo!()
+	}
+
+	fn remote_reserve_transfer_message(
+		reserve: MultiLocation,
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		fees: MultiAsset,
+		weight_limit: WeightLimit,
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+		// let context = T::UniversalLocation::get();
+		// let reserve_fees = assets.get(fee_asset_item as usize).reanchored(&reserve, context);
+		// let dest_fees = assets.get(fee_asset_item as usize).reanchored(&dest, context);
+		// let dest = dest.reanchored(&reserve, context);
+		// Ok(Xcm(vec![
+		// 	WithdrawAsset(assets),
+		// 	InitiateReserveWithdraw {
+		// 		assets: Wild(AllCounted(max_assets)),
+		// 		reserve,
+		// 		xcm: Xcm(vec![
+		// 			BuyExecution { fees: reserve_fees, weight_limit },
+		// 			DepositReserveAsset {
+		// 				assets: Wild(AllCounted(max_assets)),
+		// 				dest,
+		// 				xcm: Xcm(vec![
+		// 					BuyExecution { fees: dest_fees, weight_limit },
+		// 					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		// 				]),
+		// 			},
+		// 		]),
+		// 	},
+		// ]))
+		todo!()
 	}
 
 	fn do_teleport_assets(
@@ -1634,6 +1885,24 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::FeesNotMet)?;
 		Self::deposit_event(Event::FeesPaid { paying: location, fees: assets });
 		Ok(())
+	}
+
+	/// Return `WeightLimit` with half the given weight `limit`.
+	fn halve_weight_limit(limit: &WeightLimit) -> WeightLimit {
+		match limit {
+			Unlimited => Unlimited,
+			Limited(w) => Limited(w.saturating_div(2)),
+		}
+	}
+
+	/// Split fungible `asset` in two equal `MultiAsset`s.
+	fn equal_split_asset(asset: &MultiAsset) -> Result<(MultiAsset, MultiAsset), Error<T>> {
+		let half_amount = match &asset.fun {
+			Fungible(amount) => amount.saturating_div(2),
+			NonFungible(_) => return Err(Error::<T>::InvalidAsset),
+		};
+		let half = MultiAsset { fun: Fungible(half_amount), id: asset.id };
+		Ok((half.clone(), half))
 	}
 }
 
