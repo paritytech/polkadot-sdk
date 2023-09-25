@@ -1331,10 +1331,12 @@ impl<T: Config> Pallet<T> {
 				let (fees_for_reserve, fees_for_dest) = Self::equal_split_asset(&fees)?;
 				// Halve weight limit again to be used for the two fees transfers.
 				let quarter_weight_limit = Self::halve_weight_limit(&weight_limit);
-				// TODO:
-				// let assets_reserve_beneficiary = sov_acc_of(dest, assets_reserve);
-				let assets_reserve_beneficiary = beneficiary.clone();
-				// Send half the `fees` to
+				let context = T::UniversalLocation::get();
+				// Send half the `fees` to the Sovereign Account of `dest` on assets-reserve chain.
+				let assets_reserve_beneficiary = dest
+					.clone()
+					.reanchored(&assets_reserve, context)
+					.map_err(|_| Error::<T>::CannotReanchor)?;
 				Self::prefund_transfer_fees(
 					origin_location,
 					assets_reserve,
