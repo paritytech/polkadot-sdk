@@ -186,7 +186,6 @@ async fn archive_hash_by_height() {
 	// Test nonfinalized heights.
 	// Height N must include block 1.
 	let mut height = block_1.header.number;
-	println!("Heigh {:?}", height);
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [height]).await.unwrap();
 	assert_eq!(hashes, vec![format!("{:?}", block_1_hash)]);
 
