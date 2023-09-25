@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ApprovalVotingParams, SessionIndex, LEGACY_MIN_BACKING_VOTES};
+use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
@@ -151,9 +151,6 @@ on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
 minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES,
-approval_voting_params                   : ApprovalVotingParams {
-												max_approval_coalesce_count: 1,
-											}
 		}
 	};
 

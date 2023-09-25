@@ -260,9 +260,6 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
-	/// Params used by approval-voting
-	/// TODO: fixme this is not correctly migrated
-	pub approval_voting_params: ApprovalVotingParams,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -308,7 +305,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			pvf_voting_ttl: 2u32.into(),
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
-			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
@@ -1204,12 +1200,10 @@ pub mod pallet {
 		))]
 		pub fn set_approval_voting_params(
 			origin: OriginFor<T>,
-			new: ApprovalVotingParams,
+			_new: ApprovalVotingParams,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.approval_voting_params = new;
-			})
+			Ok(())
 		}
 	}
 

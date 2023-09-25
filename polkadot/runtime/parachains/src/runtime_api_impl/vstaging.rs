@@ -30,8 +30,7 @@ use primitives::{
 use sp_std::prelude::*;
 
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
-	config.approval_voting_params
+	ApprovalVotingParams { max_approval_coalesce_count: 6 }
 }
 
 /// Implementation for `StagingParaBackingState` function from the runtime API
