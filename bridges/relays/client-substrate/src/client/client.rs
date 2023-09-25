@@ -75,6 +75,11 @@ pub trait Client<C: Chain>: 'static + Send + Sync + Clone + Debug {
 		Ok(self.best_header().await?.hash())
 	}
 
+	/// Subscribe to new best headers.
+	async fn subscribe_best_headers(&self) -> Result<Subscription<HeaderOf<C>>>;
+	/// Subscribe to new finalized headers.
+	async fn subscribe_finalized_headers(&self) -> Result<Subscription<HeaderOf<C>>>;
+
 	/// Subscribe to GRANDPA finality justifications.
 	async fn subscribe_grandpa_finality_justifications(&self) -> Result<Subscription<Bytes>>
 	where

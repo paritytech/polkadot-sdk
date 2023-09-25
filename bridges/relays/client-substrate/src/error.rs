@@ -173,12 +173,39 @@ pub enum Error {
 		error: Box<Error>,
 	},
 	/// Failed to subscribe to GRANDPA justifications stream.
+	#[error("Failed to subscribe to {chain} best headers: {error:?}.")]
+	FailedToSubscribeBestHeaders {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to subscribe to GRANDPA justifications stream.
+	#[error("Failed to subscribe to {chain} finalized headers: {error:?}.")]
+	FailedToSubscribeFinalizedHeaders {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Underlying error.
+		error: Box<Error>,
+	},
+	/// Failed to subscribe to GRANDPA justifications stream.
 	#[error("Failed to subscribe to {chain} justifications: {error:?}.")]
 	FailedToSubscribeJustifications {
 		/// Name of the chain where the error has happened.
 		chain: String,
 		/// Underlying error.
 		error: Box<Error>,
+	},
+	/// Headers of the chain are finalized out of order. Maybe chain has been
+	/// restarted?
+	#[error("Finalized headers of {chain} are unordered: previously finalized {prev_number} vs new {next_number}")]
+	UnorderedFinalizedHeaders {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Previously finalized header number.
+		prev_number: String,
+		/// New finalized header number.
+		next_number: String,
 	},
 	/// The bridge pallet is halted and all transactions will be rejected.
 	#[error("Bridge pallet is halted.")]
@@ -247,6 +274,8 @@ impl Error {
 			Self::FailedStateCall { ref error, .. } => Some(&**error),
 			Self::FailedToProveStorage { ref error, .. } => Some(&**error),
 			Self::FailedToGetSystemHealth { ref error, .. } => Some(&**error),
+			Self::FailedToSubscribeBestHeaders { ref error, .. } => Some(&**error),
+			Self::FailedToSubscribeFinalizedHeaders { ref error, .. } => Some(&**error),
 			Self::FailedToSubscribeJustifications { ref error, .. } => Some(&**error),
 			_ => None,
 		}
@@ -356,9 +385,31 @@ impl Error {
 		Error::FailedToGetSystemHealth { chain: C::NAME.into(), error: e.boxed() }
 	}
 
+	/// Constructs `FailedToSubscribeBestHeaders` variant.
+	pub fn failed_to_subscribe_best_headers<C: Chain>(e: Error) -> Self {
+		Error::FailedToSubscribeBestHeaders { chain: C::NAME.into(), error: e.boxed() }
+	}
+
+	/// Constructs `FailedToSubscribeFinalizedHeaders` variant.
+	pub fn failed_to_subscribe_finalized_headers<C: Chain>(e: Error) -> Self {
+		Error::FailedToSubscribeFinalizedHeaders { chain: C::NAME.into(), error: e.boxed() }
+	}
+
 	/// Constructs `FailedToSubscribeJustifications` variant.
 	pub fn failed_to_subscribe_justification<C: Chain>(e: Error) -> Self {
 		Error::FailedToSubscribeJustifications { chain: C::NAME.into(), error: e.boxed() }
+	}
+
+	/// Constructs `Un`
+	pub fn unordered_finalized_headers<C: Chain>(
+		prev_number: BlockNumberOf<C>,
+		next_number: BlockNumberOf<C>,
+	) -> Self {
+		Error::UnorderedFinalizedHeaders {
+			chain: C::NAME.into(),
+			prev_number: format!("{}", prev_number),
+			next_number: format!("{}", next_number),
+		}
 	}
 }
 
@@ -369,6 +420,7 @@ impl MaybeConnectionError for Error {
 			Error::RpcError(ref e) =>
 				matches!(*e, RpcError::Transport(_) | RpcError::RestartNeeded(_),),
 			Error::ClientNotSynced(_) => true,
+			Error::UnorderedFinalizedHeaders { .. } => true,
 			_ => self.nested().map(|e| e.is_connection_error()).unwrap_or(false),
 		}
 	}

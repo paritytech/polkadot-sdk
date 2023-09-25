@@ -24,19 +24,23 @@ use crate::{
 	HashOf, HeaderIdOf, HeaderOf, NonceOf, SignedBlockOf, SimpleRuntimeVersion, Subscription,
 	TransactionTracker, UnsignedTransaction, ANCIENT_BLOCK_THRESHOLD,
 };
-use std::future::Future;
+use std::{cmp::Ordering, future::Future, task::Poll};
 
-use async_std::sync::{Arc, Mutex, RwLock};
+use async_std::{
+	sync::{Arc, Mutex, RwLock},
+	task::JoinHandle,
+};
 use async_trait::async_trait;
 use codec::Encode;
 use frame_support::weights::Weight;
+use futures::{FutureExt, StreamExt};
 use quick_cache::unsync::Cache;
 use sp_consensus_grandpa::{AuthorityId, OpaqueKeyOwnershipProof, SetId};
 use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes, Pair,
 };
-use sp_runtime::transaction_validity::TransactionValidity;
+use sp_runtime::{traits::Header as _, transaction_validity::TransactionValidity};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 
@@ -57,6 +61,9 @@ pub struct CachingClient<C: Chain, B: Client<C>> {
 struct ClientData<C: Chain> {
 	grandpa_justifications: Arc<Mutex<Option<SubscriptionBroadcaster<Bytes>>>>,
 	beefy_justifications: Arc<Mutex<Option<SubscriptionBroadcaster<Bytes>>>>,
+	background_task_handle: Arc<Mutex<JoinHandle<Result<()>>>>,
+	best_header: Arc<RwLock<Option<HeaderOf<C>>>>,
+	best_finalized_header: Arc<RwLock<Option<HeaderOf<C>>>>,
 	// `quick_cache::sync::Cache` has the `get_or_insert_async` method, which fits our needs,
 	// but it uses synchronization primitives that are not aware of async execution. They
 	// can block the executor threads and cause deadlocks => let's use primitives from
@@ -70,19 +77,32 @@ struct ClientData<C: Chain> {
 
 impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 	/// Creates new `CachingClient` on top of given `backend`.
-	pub fn new(backend: B) -> Self {
+	pub async fn new(backend: B) -> Self {
 		// most of relayer operations will never touch more than `ANCIENT_BLOCK_THRESHOLD`
 		// headers, so we'll use this as a cache capacity for all chain-related caches
 		let chain_state_capacity = ANCIENT_BLOCK_THRESHOLD as usize;
+		let best_header = Arc::new(RwLock::new(None));
+		let best_finalized_header = Arc::new(RwLock::new(None));
+		let header_by_hash_cache = Arc::new(RwLock::new(Cache::new(chain_state_capacity)));
+		let background_task_handle = Self::start_background_task(
+			backend.clone(),
+			best_header.clone(),
+			best_finalized_header.clone(),
+			header_by_hash_cache.clone(),
+		)
+		.await;
 		CachingClient {
 			backend,
 			data: Arc::new(ClientData {
 				grandpa_justifications: Arc::new(Mutex::new(None)),
 				beefy_justifications: Arc::new(Mutex::new(None)),
+				background_task_handle: Arc::new(Mutex::new(background_task_handle)),
+				best_header,
+				best_finalized_header,
 				header_hash_by_number_cache: Arc::new(RwLock::new(Cache::new(
 					chain_state_capacity,
 				))),
-				header_by_hash_cache: Arc::new(RwLock::new(Cache::new(chain_state_capacity))),
+				header_by_hash_cache,
 				block_by_hash_cache: Arc::new(RwLock::new(Cache::new(chain_state_capacity))),
 				raw_storage_value_cache: Arc::new(RwLock::new(Cache::new(1_024))),
 				state_call_cache: Arc::new(RwLock::new(Cache::new(1_024))),
@@ -114,6 +134,7 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		Ok(value)
 	}
 
+	/// Subscribe to finality justifications, trying to reuse existing subscription.
 	async fn subscribe_finality_justifications<'a>(
 		&'a self,
 		maybe_broadcaster: &Mutex<Option<SubscriptionBroadcaster<Bytes>>>,
@@ -132,6 +153,98 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		};
 
 		broadcaster.subscribe().await
+	}
+
+	/// Start background task that reads best (and best finalized) headers from subscriptions.
+	async fn start_background_task(
+		backend: B,
+		best_header: Arc<RwLock<Option<HeaderOf<C>>>>,
+		best_finalized_header: Arc<RwLock<Option<HeaderOf<C>>>>,
+		header_by_hash_cache: SyncCache<HashOf<C>, HeaderOf<C>>,
+	) -> JoinHandle<Result<()>> {
+		async_std::task::spawn(async move {
+			// initialize by reading headers directly from backend to avoid doing that in the
+			// high-level code
+			let mut last_finalized_header =
+				backend.header_by_hash(backend.best_finalized_header_hash().await?).await?;
+			*best_header.write().await = Some(backend.best_header().await?);
+			*best_finalized_header.write().await = Some(last_finalized_header.clone());
+
+			// ...and then continue with subscriptions
+			let mut best_headers = backend.subscribe_best_headers().await?;
+			let mut finalized_headers = backend.subscribe_finalized_headers().await?;
+			loop {
+				futures::select! {
+					new_best_header = best_headers.next().fuse() => {
+						// we assume that the best header is always the actual best header, even if its
+						// number is lower than the number of previous-best-header (chain may use its own
+						// best header selection algorithms)
+						let new_best_header = new_best_header
+							.ok_or_else(|| Error::ChannelError(format!("Mandatory best headers subscription for {} has finished", C::NAME)))?;
+						let new_best_header_hash = new_best_header.hash();
+						header_by_hash_cache.write().await.insert(new_best_header_hash, new_best_header.clone());
+						*best_header.write().await = Some(new_best_header);
+					},
+					new_finalized_header = finalized_headers.next().fuse() => {
+						// in theory we'll always get finalized headers in order, but let's double check
+						let new_finalized_header = new_finalized_header.
+							ok_or_else(|| Error::ChannelError(format!("Finalized headers subscription for {} has finished", C::NAME)))?;
+						let new_finalized_header_number = *new_finalized_header.number();
+						let last_finalized_header_number = *last_finalized_header.number();
+						match new_finalized_header_number.cmp(&last_finalized_header_number) {
+							Ordering::Greater => {
+								let new_finalized_header_hash = new_finalized_header.hash();
+								header_by_hash_cache.write().await.insert(new_finalized_header_hash, new_finalized_header.clone());
+								*best_finalized_header.write().await = Some(new_finalized_header.clone());
+								last_finalized_header = new_finalized_header;
+							},
+							Ordering::Less => {
+								return Err(Error::unordered_finalized_headers::<C>(
+									new_finalized_header_number,
+									last_finalized_header_number,
+								));
+							},
+							_ => (),
+						}
+					},
+				}
+			}
+		})
+	}
+
+	/// Ensure that the background task is active.
+	async fn ensure_background_task_active(&self) -> Result<()> {
+		let mut background_task_handle = self.data.background_task_handle.lock().await;
+		if let Poll::Ready(result) = futures::poll!(&mut *background_task_handle) {
+			return Err(Error::ChannelError(format!(
+				"Background task of {} client has exited with result: {:?}",
+				C::NAME,
+				result
+			)))
+		}
+
+		Ok(())
+	}
+
+	/// Try to get header, read elsewhere by background task through subscription.
+	async fn read_header_from_background<'a>(
+		&'a self,
+		header: &Arc<RwLock<Option<HeaderOf<C>>>>,
+		read_header_from_backend: impl Future<Output = Result<HeaderOf<C>>> + 'a,
+	) -> Result<HeaderOf<C>> {
+		// ensure that the background task is active
+		self.ensure_background_task_active().await?;
+
+		// now we know that the background task is active, so we could trust that the
+		// `header` has the most recent updates from it
+		match header.read().await.clone() {
+			Some(header) => Ok(header),
+			None => {
+				// header has not yet been read from the subscription, which means that
+				// we are just starting - let's read header directly from backend this time
+				read_header_from_backend.await
+			},
+		}
 	}
 }
 
@@ -162,6 +275,16 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		// since we have new underlying client, we need to restart subscriptions too
 		*self.data.grandpa_justifications.lock().await = None;
 		*self.data.beefy_justifications.lock().await = None;
+		// also restart background task too
+		*self.data.best_header.write().await = None;
+		*self.data.best_finalized_header.write().await = None;
+		*self.data.background_task_handle.lock().await = Self::start_background_task(
+			self.backend.clone(),
+			self.data.best_header.clone(),
+			self.data.best_finalized_header.clone(),
+			self.data.header_by_hash_cache.clone(),
+		)
+		.await;
 		Ok(())
 	}
 
@@ -197,16 +320,27 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 	}
 
 	async fn best_finalized_header_hash(&self) -> Result<HashOf<C>> {
-		// TODO: after https://github.com/paritytech/parity-bridges-common/issues/2074 we may
-		// use single-value-cache here, but for now let's just call the backend
-		self.backend.best_finalized_header_hash().await
+		self.read_header_from_background(
+			&self.data.best_finalized_header,
+			self.backend.best_finalized_header(),
+		)
+		.await
+		.map(|h| h.hash())
 	}
 
 	async fn best_header(&self) -> Result<HeaderOf<C>> {
-		// TODO: if after https://github.com/paritytech/parity-bridges-common/issues/2074 we'll
-		// be using subscriptions to get best blocks, we may use single-value-cache here, but for
-		// now let's just call the backend
-		self.backend.best_header().await
+		self.read_header_from_background(&self.data.best_header, self.backend.best_header())
+			.await
+	}
+
+	async fn subscribe_best_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
+		// we may share the sunbscription here, but atm there's no callers of this method
+		self.backend.subscribe_best_headers().await
+	}
+
+	async fn subscribe_finalized_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
+		// we may share the sunbscription here, but atm there's no callers of this method
+		self.backend.subscribe_finalized_headers().await
 	}
 
 	async fn subscribe_grandpa_finality_justifications(&self) -> Result<Subscription<Bytes>>

@@ -54,6 +54,20 @@ pub(crate) trait SubstrateChain<C> {
 	/// Return signed block (with justifications) by its hash.
 	#[method(name = "getBlock")]
 	async fn block(&self, block_hash: Option<C::Hash>) -> RpcResult<C::SignedBlock>;
+	/// Subscribe to best headers.
+	#[subscription(
+		name = "subscribeNewHeads" => "newHead",
+		unsubscribe = "unsubscribeNewHeads",
+		item = C::Header
+	)]
+	async fn subscribe_new_heads(&self);
+	/// Subscribe to finalized headers.
+	#[subscription(
+		name = "subscribeFinalizedHeads" => "finalizedHead",
+		unsubscribe = "unsubscribeFinalizedHeads",
+		item = C::Header
+	)]
+	async fn subscribe_finalized_heads(&self);
 }
 
 /// RPC methods of Substrate `author` namespace, that we are using.
