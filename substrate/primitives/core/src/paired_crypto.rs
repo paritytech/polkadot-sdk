@@ -672,7 +672,6 @@ mod test {
 	use super::*;
 	use crate::crypto::DEV_PHRASE;
 	use ecdsa_n_bls377::{Pair, Signature};
-	use hex_literal::hex;
 
 	#[test]
 	fn default_phrase_should_be_used() {
@@ -686,8 +685,8 @@ mod test {
 
 	#[test]
 	fn seed_and_derive_should_work() {
-		let seed_for_right_and_left =
-			hex!("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+		let seed_for_right_and_left: [u8; SECURE_SEED_LEN] =
+			array_bytes::hex2array_unchecked("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
 		let pair = Pair::from_seed(&seed_for_right_and_left);
 		// we are using hash to field so this is not going to work
 		// assert_eq!(pair.seed(), seed);
@@ -696,8 +695,8 @@ mod test {
 		assert_eq!(
 			derived.to_raw_vec(),
 			[
-				hex!("b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61"),
-				hex!("3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12")
+				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>("b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61"),
+				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>("3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12")
 			]
 			.concat()
 		);
@@ -705,19 +704,19 @@ mod test {
 
 	#[test]
 	fn test_vector_should_work() {
-		let seed_left_and_right =
-			hex!("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+		let seed_left_and_right: [u8; SECURE_SEED_LEN] =
+			array_bytes::hex2array_unchecked("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
 		let pair = Pair::from_seed(&([seed_left_and_right].concat()[..].try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
 			public,
 			Public::unchecked_from(
-				hex!("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
+				array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
  ),
     		),
     	);
 		let message = b"";
-		let signature = hex!("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b");
+		let signature = array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b");
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -734,12 +733,12 @@ mod test {
 		assert_eq!(
 			public,
 			Public::unchecked_from(
-				hex!("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd916dc6be608fab3c6bd894a606be86db346cc170db85c733853a371f3db54ae1b12052c0888d472760c81b537572a26f00db865e5963aef8634f9917571c51b538b564b2a9ceda938c8b930969ee3b832448e08e33a79e9ddd28af419a3ce45300f5dbc768b067781f44f3fe05a19e6b07b1c4196151ec3f8ea37e4f89a8963030d2101e931276bb9ebe1f20102239d780"
+				array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd916dc6be608fab3c6bd894a606be86db346cc170db85c733853a371f3db54ae1b12052c0888d472760c81b537572a26f00db865e5963aef8634f9917571c51b538b564b2a9ceda938c8b930969ee3b832448e08e33a79e9ddd28af419a3ce45300f5dbc768b067781f44f3fe05a19e6b07b1c4196151ec3f8ea37e4f89a8963030d2101e931276bb9ebe1f20102239d780"
  ),
     		),
     	);
 		let message = b"";
-		let signature = hex!("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00bbb395bbdee1a35930912034f5fde3b36df2835a0536c865501b0675776a1d5931a3bea2e66eff73b2546c6af2061a8019223e4ebbbed661b2538e0f5823f2c708eb89c406beca8fcb53a5c13dbc7c0c42e4cf2be2942bba96ea29297915a06bd2b1b979c0e2ac8fd4ec684a6b5d110c");
+		let signature = array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00bbb395bbdee1a35930912034f5fde3b36df2835a0536c865501b0675776a1d5931a3bea2e66eff73b2546c6af2061a8019223e4ebbbed661b2538e0f5823f2c708eb89c406beca8fcb53a5c13dbc7c0c42e4cf2be2942bba96ea29297915a06bd2b1b979c0e2ac8fd4ec684a6b5d110c");
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -763,11 +762,11 @@ mod test {
 		assert_eq!(
     		public,
 			Public::unchecked_from(
-				hex!("035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080")
+				array_bytes::hex2array_unchecked("035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080")
  ),
     	);
 		let message =
-    	hex!("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
+    	array_bytes::hex2bytes_unchecked("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
     );
 		let signature = pair.sign(&message[..]);
 		println!("Correct signature: {:?}", signature);
