@@ -349,7 +349,7 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 2;
+	const PARALLEL_REQUESTS: usize = 4;
 	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
 	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
 	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
@@ -531,9 +531,9 @@ where
 						Self::MAX_RETRIES,
 						e.to_string()
 					);
-					// after 3 subsequent failures something very wrong is happening. log a warning
+					// after 2 subsequent failures something very wrong is happening. log a warning
 					// and reset the batch size down to 1.
-					if retries >= 3 {
+					if retries >= 2 {
 						log::warn!("{}", failure_log);
 						batch_size = 1;
 					} else {
