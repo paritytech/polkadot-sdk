@@ -178,6 +178,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	let metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
+	let peer_store_handle = net_config.peer_store_handle();
 
 	let prometheus_registry = config.prometheus_registry();
 	let task_manager = TaskManager::new(config.tokio_handle.clone(), prometheus_registry)?;
@@ -194,15 +195,18 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	let peer_set_protocol_names =
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
-	let notification_services =
-		peer_sets_info::<_, Network>(is_authority, &peer_set_protocol_names, metrics.clone())
-			.into_iter()
-			.map(|(config, (peerset, service))| {
-				net_config.add_notification_protocol(config);
-				(peerset, service)
-			})
-			.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>(
-			);
+	let notification_services = peer_sets_info::<_, Network>(
+		is_authority,
+		&peer_set_protocol_names,
+		metrics.clone(),
+		Arc::clone(&peer_store_handle),
+	)
+	.into_iter()
+	.map(|(config, (peerset, service))| {
+		net_config.add_notification_protocol(config);
+		(peerset, service)
+	})
+	.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let (collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver) =

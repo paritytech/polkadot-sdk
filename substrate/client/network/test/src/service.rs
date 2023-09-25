@@ -263,7 +263,6 @@ impl TestNetworkBuilder {
 			}),
 			genesis_hash,
 			network_config: full_net_config,
-			peer_store: Arc::clone(&peer_store_handle),
 			protocol_id,
 			fork_id,
 			metrics_registry: None,

@@ -210,6 +210,7 @@ where
 		handshake: Option<NotificationHandshake>,
 		set_config: SetConfig,
 		_metrics: NotificationMetrics,
+		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		NonDefaultSetConfig::new(
 			protocol_name,
@@ -256,10 +257,12 @@ where
 	/// for the network processing to advance. From it, you can extract a `NetworkService` using
 	/// `worker.service()`. The `NetworkService` can be shared through the codebase.
 	pub fn new(params: Params<B, H, Self>) -> Result<Self, Error> {
+		let peer_store_handle = params.network_config.peer_store_handle();
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
 			mut network_config,
+			..
 		} = params.network_config;
 
 		// Private and public keys configuration.
@@ -325,6 +328,7 @@ where
 			"🏷  Local node identity is: {}",
 			local_peer_id.to_base58(),
 		);
+		log::info!(target: "sub-libp2p", "Running libp2p network backend");
 
 		let (transport, bandwidth) = {
 			let config_mem = match network_config.transport {
@@ -399,7 +403,7 @@ where
 					SetId::from(set_id),
 					proto_set_config,
 					to_notifications.clone(),
-					params.peer_store.clone(),
+					Arc::clone(&peer_store_handle),
 				)
 			})
 			.unzip();
@@ -488,7 +492,7 @@ where
 			&params.metrics_registry,
 			notification_protocols,
 			params.block_announce_config,
-			params.peer_store.clone(),
+			Arc::clone(&peer_store_handle),
 			protocol_handles.clone(),
 			from_protocol_controllers,
 		)?;
@@ -544,7 +548,7 @@ where
 					local_public,
 					discovery_config,
 					request_response_protocols,
-					params.peer_store.clone(),
+					Arc::clone(&peer_store_handle),
 					external_addresses.clone(),
 				);
 
@@ -629,7 +633,7 @@ where
 			notification_protocol_ids,
 			protocol_handles,
 			sync_protocol_handle,
-			peer_store_handle: params.peer_store.clone(),
+			peer_store_handle: Arc::clone(&peer_store_handle),
 			_marker: PhantomData,
 			_block: Default::default(),
 		});
@@ -644,7 +648,7 @@ where
 			metrics,
 			boot_node_ids,
 			reported_invalid_boot_nodes: Default::default(),
-			peer_store_handle: params.peer_store,
+			peer_store_handle: Arc::clone(&peer_store_handle),
 			notif_protocol_handles,
 			_marker: Default::default(),
 			_block: Default::default(),
@@ -898,7 +902,28 @@ where
 	H: ExHashT,
 {
 	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError> {
-		Signature::sign_message(AsRef::<[u8]>::as_ref(&msg), &self.local_identity)
+		let public_key = self.local_identity.public();
+		let bytes = self.local_identity.sign(msg.as_ref())?;
+
+		Ok(Signature {
+			public_key: crate::service::signature::PublicKey::Libp2p(public_key),
+			bytes,
+		})
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String> {
+		let public_key =
+			PublicKey::try_decode_protobuf(&public_key).map_err(|error| error.to_string())?;
+		let peer_id: PeerId = peer_id.into();
+		let remote: libp2p::PeerId = public_key.to_peer_id();
+
+		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
 }
 

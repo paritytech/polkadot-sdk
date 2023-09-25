@@ -129,7 +129,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	fn network_service(&self) -> Arc<dyn NetworkService>;
 
 	/// Create [`PeerStore`].
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore;
+	fn peer_store(bootnodes: Vec<PeerId>) -> Self::PeerStore;
 
 	/// Register metrics that are used by the notification protocols.
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics;
@@ -148,6 +148,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 		handshake: Option<NotificationHandshake>,
 		set_config: SetConfig,
 		metrics: NotificationMetrics,
+		peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self::NotificationProtocolConfig, Box<dyn NotificationService>);
 
 	/// Create request-response protocol configuration.
@@ -168,6 +169,19 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 pub trait NetworkSigner {
 	/// Signs the message with the `KeyPair` that defines the local [`PeerId`].
 	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError>;
+
+	/// Verify signature using peer's public key.
+	///
+	/// `public_key` must be Protobuf-encoded ed25519 public key.
+	///
+	/// Returns `Err(())` if public cannot be parsed into a valid ed25519 public key.
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String>;
 }
 
 impl<T> NetworkSigner for Arc<T>
@@ -177,6 +191,16 @@ where
 {
 	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError> {
 		T::sign_with_local_identity(self, msg)
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String> {
+		T::verify(self, peer_id, public_key, signature, message)
 	}
 }
 
@@ -815,6 +839,15 @@ pub enum Direction {
 
 	/// Substream opened by the local node.
 	Outbound,
+}
+
+impl From<litep2p::protocol::notification::Direction> for Direction {
+	fn from(direction: litep2p::protocol::notification::Direction) -> Self {
+		match direction {
+			litep2p::protocol::notification::Direction::Inbound => Direction::Inbound,
+			litep2p::protocol::notification::Direction::Outbound => Direction::Outbound,
+		}
+	}
 }
 
 impl Direction {

@@ -57,7 +57,6 @@ impl PeerId {
 	}
 
 	/// Try to extract `PeerId` from `Multiaddr`.
-	// TODO(aaro): add tests
 	pub fn try_from_multiaddr(address: &Multiaddr) -> Option<PeerId> {
 		match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
 			Some(Protocol::P2p(multihash)) => Some(Self { multihash }),
@@ -95,7 +94,7 @@ impl PeerId {
 		bs58::encode(self.to_bytes()).into_string()
 	}
 
-	// TODO(aaro): add tests
+	/// Convert `PeerId` into ed25519 public key bytes.
 	pub fn into_ed25519(&self) -> Option<[u8; 32]> {
 		let hash = &self.multihash;
 		if hash.code() != 0 {
@@ -107,7 +106,7 @@ impl PeerId {
 		public.try_into_ed25519().ok().map(|public| public.to_bytes())
 	}
 
-	// TODO(aaro): add tests
+	/// Get `PeerId` from ed25519 public key bytes.
 	pub fn from_ed25519(bytes: &[u8; 32]) -> Option<PeerId> {
 		let public = libp2p_identity::ed25519::PublicKey::try_from_bytes(bytes).ok()?;
 		let public: libp2p_identity::PublicKey = public.into();
@@ -197,5 +196,52 @@ impl FromStr for PeerId {
 		let peer_id = PeerId::from_bytes(&bytes)?;
 
 		Ok(peer_id)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn extract_peer_id_from_multiaddr() {
+		{
+			let peer = PeerId::random();
+			let address = "/ip4/198.51.100.19/tcp/30333"
+				.parse::<Multiaddr>()
+				.unwrap()
+				.with(Protocol::P2p(peer.into()));
+
+			assert_eq!(PeerId::try_from_multiaddr(&address), Some(peer));
+		}
+
+		{
+			let peer = PeerId::random();
+			assert_eq!(
+				PeerId::try_from_multiaddr(&Multiaddr::empty().with(Protocol::P2p(peer.into()))),
+				Some(peer)
+			);
+		}
+
+		{
+			assert!(PeerId::try_from_multiaddr(
+				&"/ip4/198.51.100.19/tcp/30333".parse::<Multiaddr>().unwrap()
+			)
+			.is_none());
+		}
+	}
+
+	#[test]
+	fn from_ed25519() {
+		let keypair = litep2p::crypto::ed25519::Keypair::generate();
+		let original_peer_id = litep2p::PeerId::from_public_key(
+			&litep2p::crypto::PublicKey::Ed25519(keypair.public()),
+		);
+
+		let peer: PeerId = original_peer_id.into();
+		assert_eq!(original_peer_id.to_bytes(), peer.to_bytes());
+
+		let key = peer.into_ed25519().unwrap();
+		assert_eq!(PeerId::from_ed25519(&key).unwrap(), original_peer_id.into());
 	}
 }

@@ -7908,6 +7908,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
+source = "git+https://github.com/altonen/litep2p?branch=master#8e47047df32f28369bb922cb48b21c6f27f0a74f"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -16231,9 +16232,11 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
+ "litep2p",
  "log",
  "mockall",
  "multistream-select",
+ "once_cell",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "partial_sort",
@@ -16248,6 +16251,7 @@ dependencies = [
  "sc-network-sync",
  "sc-network-types",
  "sc-utils",
+ "schnellru",
  "serde",
  "serde_json",
  "smallvec",
@@ -16268,6 +16272,7 @@ dependencies = [
  "tokio-test",
  "tokio-util",
  "unsigned-varint",
+ "void",
  "wasm-timer",
  "zeroize",
 ]

@@ -813,8 +813,8 @@ pub fn new_full<
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	let mut net_config =
 		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
-
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let peer_store_handle = net_config.peer_store_handle();
 
 	// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
@@ -824,6 +824,7 @@ pub fn new_full<
 		grandpa::grandpa_peers_set_config::<_, Network>(
 			grandpa_protocol_name.clone(),
 			metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
@@ -845,6 +846,7 @@ pub fn new_full<
 				beefy::communication::beefy_peers_set_config::<_, Network>(
 					beefy_gossip_proto_name.clone(),
 					metrics.clone(),
+					Arc::clone(&peer_store_handle),
 				);
 
 			net_config.add_notification_protocol(beefy_notification_config);
@@ -867,13 +869,18 @@ pub fn new_full<
 			use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 			let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 
-			peer_sets_info::<_, Network>(is_authority, &peerset_protocol_names, metrics.clone())
-				.into_iter()
-				.map(|(config, (peerset, service))| {
-					net_config.add_notification_protocol(config);
-					(peerset, service)
-				})
-				.collect::<HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>()
+			peer_sets_info::<_, Network>(
+				is_authority,
+				&peerset_protocol_names,
+				metrics.clone(),
+				Arc::clone(&peer_store_handle),
+			)
+			.into_iter()
+			.map(|(config, (peerset, service))| {
+				net_config.add_notification_protocol(config);
+				(peerset, service)
+			})
+			.collect::<HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>()
 		} else {
 			std::collections::HashMap::new()
 		};

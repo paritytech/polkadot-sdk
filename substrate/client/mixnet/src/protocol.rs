@@ -20,6 +20,7 @@ use super::config::Config;
 use mixnet::core::PACKET_SIZE;
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
+	peer_store::PeerStoreProvider,
 	service::NotificationMetrics,
 	NetworkBackend, NotificationService, ProtocolName,
 };
@@ -40,6 +41,7 @@ pub fn peers_set_config<Block: BlockT, Network: NetworkBackend<Block, <Block as 
 	name: ProtocolName,
 	config: &Config,
 	metrics: NotificationMetrics,
+	peerstore_handle: std::sync::Arc<dyn PeerStoreProvider>,
 ) -> (Network::NotificationProtocolConfig, Box<dyn NotificationService>) {
 	let set_config = if config.substrate.num_gateway_slots != 0 {
 		// out_peers is always 0; we are only interested in connecting to mixnodes, which we do by
@@ -59,5 +61,13 @@ pub fn peers_set_config<Block: BlockT, Network: NetworkBackend<Block, <Block as 
 		}
 	};
 
-	Network::notification_config(name, Vec::new(), PACKET_SIZE as u64, None, set_config, metrics)
+	Network::notification_config(
+		name,
+		Vec::new(),
+		PACKET_SIZE as u64,
+		None,
+		set_config,
+		metrics,
+		peerstore_handle,
+	)
 }

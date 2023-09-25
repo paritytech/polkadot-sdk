@@ -710,6 +710,7 @@ pub struct GrandpaParams<Block: BlockT, C, N, S, SC, VR> {
 pub fn grandpa_peers_set_config<B: BlockT, N: NetworkBackend<B, <B as BlockT>::Hash>>(
 	protocol_name: ProtocolName,
 	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: Arc<dyn sc_network::peer_store::PeerStoreProvider>,
 ) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 	use communication::grandpa_protocol_name;
 	N::notification_config(
@@ -725,6 +726,7 @@ pub fn grandpa_peers_set_config<B: BlockT, N: NetworkBackend<B, <B as BlockT>::H
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
 		},
 		metrics,
+		peer_store_handle,
 	)
 }
 

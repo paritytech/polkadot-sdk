@@ -955,7 +955,6 @@ pub trait TestNetFactory: Default + Sized + Send {
 				tokio::spawn(f);
 			}),
 			network_config: full_net_config,
-			peer_store: peer_store_handle,
 			genesis_hash,
 			protocol_id,
 			fork_id,

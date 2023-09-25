@@ -19,9 +19,7 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::{
-	protocol_controller::ProtocolHandle, service::traits::PeerStore as PeerStoreT, PeerId,
-};
+use crate::{service::traits::PeerStore as PeerStoreT, PeerId};
 
 use log::trace;
 use parking_lot::Mutex;
@@ -53,13 +51,19 @@ const INVERSE_DECREMENT: i32 = 50;
 /// remove it, once the reputation value reaches 0.
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
 
+/// Trait describing the required functionality from a `Peerset` handle.
+pub trait ProtocolHandle: Debug + Send + Sync {
+	/// Disconnect peer.
+	fn disconnect_peer(&self, peer_id: sc_network_types::PeerId);
+}
+
 /// Trait providing peer reputation management and connection candidates.
 pub trait PeerStoreProvider: Debug + Send + Sync {
 	/// Check whether the peer is banned.
 	fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
 
 	/// Register a protocol handle to disconnect peers whose reputation drops below the threshold.
-	fn register_protocol(&self, protocol_handle: ProtocolHandle);
+	fn register_protocol(&self, protocol_handle: Arc<dyn ProtocolHandle>);
 
 	/// Report peer disconnection for reputation adjustment.
 	fn report_disconnect(&self, peer_id: sc_network_types::PeerId);
@@ -104,7 +108,7 @@ impl PeerStoreProvider for PeerStoreHandle {
 		self.inner.lock().is_banned(&peer_id.into())
 	}
 
-	fn register_protocol(&self, protocol_handle: ProtocolHandle) {
+	fn register_protocol(&self, protocol_handle: Arc<dyn ProtocolHandle>) {
 		self.inner.lock().register_protocol(protocol_handle);
 	}
 
@@ -229,7 +233,7 @@ impl PeerInfo {
 #[derive(Debug)]
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
-	protocols: Vec<ProtocolHandle>,
+	protocols: Vec<Arc<dyn ProtocolHandle>>,
 }
 
 impl PeerStoreInner {
@@ -237,7 +241,7 @@ impl PeerStoreInner {
 		self.peers.get(peer_id).map_or(false, |info| info.is_banned())
 	}
 
-	fn register_protocol(&mut self, protocol_handle: ProtocolHandle) {
+	fn register_protocol(&mut self, protocol_handle: Arc<dyn ProtocolHandle>) {
 		self.protocols.push(protocol_handle);
 	}
 
@@ -259,7 +263,7 @@ impl PeerStoreInner {
 		peer_info.add_reputation(change.value);
 
 		if peer_info.reputation < BANNED_THRESHOLD {
-			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id));
+			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
 
 			log::warn!(
 				target: LOG_TARGET,

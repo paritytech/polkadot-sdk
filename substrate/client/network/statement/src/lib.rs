@@ -34,6 +34,7 @@ use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
+	peer_store::PeerStoreProvider,
 	service::{
 		traits::{NotificationEvent, NotificationService, ValidationResult},
 		NotificationMetrics,
@@ -119,6 +120,7 @@ impl StatementHandlerPrototype {
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
 		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let protocol_name = if let Some(fork_id) = fork_id {
@@ -138,6 +140,7 @@ impl StatementHandlerPrototype {
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
 			metrics,
+			peer_store_handle,
 		);
 
 		(Self { protocol_name: protocol_name.into(), notification_service }, config)

@@ -41,7 +41,10 @@
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
 //! view of the peers' states at any given moment, the eventual consistency is maintained.
 
-use crate::{peer_store::PeerStoreProvider, PeerId};
+use crate::{
+	peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
+	PeerId,
+};
 
 use futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
 use log::{debug, error, trace, warn};
@@ -230,6 +233,12 @@ impl ProtocolHandle {
 	}
 }
 
+impl ProtocolHandleT for ProtocolHandle {
+	fn disconnect_peer(&self, peer_id: sc_network_types::PeerId) {
+		let _ = self.actions_tx.unbounded_send(Action::DisconnectPeer(peer_id.into()));
+	}
+}
+
 /// Direction of a connection
 #[derive(Clone, Copy, Debug)]
 enum Direction {
@@ -303,7 +312,7 @@ impl ProtocolController {
 		let (actions_tx, actions_rx) = tracing_unbounded("mpsc_api_protocol", 10_000);
 		let (events_tx, events_rx) = tracing_unbounded("mpsc_notifications_protocol", 10_000);
 		let handle = ProtocolHandle { actions_tx, events_tx };
-		peer_store.register_protocol(handle.clone());
+		peer_store.register_protocol(Arc::new(handle.clone()));
 		let reserved_nodes =
 			config.reserved_nodes.iter().map(|p| (*p, PeerState::NotConnected)).collect();
 		let controller = ProtocolController {
@@ -849,7 +858,10 @@ impl ProtocolController {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{peer_store::PeerStoreProvider, PeerId, ReputationChange};
+	use crate::{
+		peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
+		PeerId, ReputationChange,
+	};
 	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;
@@ -860,7 +872,7 @@ mod tests {
 
 		impl PeerStoreProvider for PeerStoreHandle {
 			fn is_banned(&self, peer_id: &sc_network_types::PeerId) -> bool;
-			fn register_protocol(&self, protocol_handle: ProtocolHandle);
+			fn register_protocol(&self, protocol_handle: Arc<dyn ProtocolHandleT>);
 			fn report_disconnect(&self, peer_id: sc_network_types::PeerId);
 			fn set_peer_role(&self, peer_id: &sc_network_types::PeerId, role: ObservedRole);
 			fn report_peer(&self, peer_id: sc_network_types::PeerId, change: ReputationChange);

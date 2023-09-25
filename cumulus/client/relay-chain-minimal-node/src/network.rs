@@ -19,9 +19,10 @@ use sp_runtime::traits::NumberFor;
 
 use sc_network::{
 	config::{
-		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
+		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, PeerStore, ProtocolId,
+		SetConfig,
 	},
-	peer_store::PeerStore,
+	peer_store::PeerStoreProvider,
 	service::traits::NetworkService,
 	NotificationMetrics,
 };
@@ -53,21 +54,14 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		best_header.hash(),
 		genesis_hash,
 		metrics,
+		network_config.peer_store_handle(),
 	);
 
 	// Since this node has no syncing, we do not want light-clients to connect to it.
 	// Here we set any potential light-client slots to 0.
 	adjust_network_config_light_in_peers(&mut network_config.network_config);
 
-	let peer_store = PeerStore::new(
-		network_config
-			.network_config
-			.boot_nodes
-			.iter()
-			.map(|bootnode| bootnode.peer_id.into())
-			.collect(),
-	);
-	let peer_store_handle = peer_store.handle();
+	let peer_store = network_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
 	let network_params = sc_network::config::Params::<Block, Hash, Network> {
@@ -80,7 +74,6 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		},
 		fork_id: None,
 		network_config,
-		peer_store: Arc::new(peer_store_handle),
 		genesis_hash,
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
@@ -150,6 +143,7 @@ fn get_block_announce_proto_config<Network: NetworkBackend<Block, Hash>>(
 	best_hash: Hash,
 	genesis_hash: Hash,
 	metrics: NotificationMetrics,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 ) -> (Network::NotificationProtocolConfig, Box<dyn NotificationService>) {
 	let block_announces_protocol = {
 		let genesis_hash = genesis_hash.as_ref();
@@ -179,5 +173,6 @@ fn get_block_announce_proto_config<Network: NetworkBackend<Block, Hash>>(
 			non_reserved_mode: NonReservedPeerMode::Deny,
 		},
 		metrics,
+		peer_store_handle,
 	)
 }

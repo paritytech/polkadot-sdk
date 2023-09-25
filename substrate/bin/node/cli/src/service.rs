@@ -430,10 +430,15 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let mut net_config =
 		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&config.network);
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let peer_store_handle = net_config.peer_store_handle();
 
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	let (grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config::<_, N>(grandpa_protocol_name.clone(), metrics.clone());
+		grandpa::grandpa_peers_set_config::<_, N>(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			Arc::clone(&peer_store_handle),
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	let beefy_gossip_proto_name =
@@ -463,6 +468,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
 	net_config.add_notification_protocol(statement_config);
 
@@ -473,6 +479,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			mixnet_protocol_name.clone(),
 			mixnet_config,
 			metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
 		net_config.add_notification_protocol(config);
 		notification_service

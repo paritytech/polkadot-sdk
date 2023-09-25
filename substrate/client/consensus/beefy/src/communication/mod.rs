@@ -71,6 +71,7 @@ pub fn beefy_peers_set_config<
 >(
 	gossip_protocol_name: sc_network::ProtocolName,
 	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: std::sync::Arc<dyn sc_network::peer_store::PeerStoreProvider>,
 ) -> (N::NotificationProtocolConfig, Box<dyn sc_network::NotificationService>) {
 	let (cfg, notification_service) = N::notification_config(
 		gossip_protocol_name,
@@ -84,6 +85,7 @@ pub fn beefy_peers_set_config<
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 		},
 		metrics,
+		peer_store_handle,
 	);
 	(cfg, notification_service)
 }

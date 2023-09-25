@@ -433,6 +433,7 @@ where
 					.expect("Genesis block exists; qed"),
 				&net_config.network_config.default_peers_set,
 				network_metrics,
+				Arc::clone(&peer_store_handle),
 			);
 
 		// Split warp sync params into warp sync config and a channel to retreive target block
@@ -1391,6 +1392,7 @@ where
 		genesis_hash: B::Hash,
 		set_config: &SetConfig,
 		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
@@ -1417,6 +1419,7 @@ where
 			))),
 			set_config.clone(),
 			metrics,
+			peer_store_handle,
 		)
 	}
 

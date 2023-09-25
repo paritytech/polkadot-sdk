@@ -141,6 +141,7 @@ pub fn new_full<
 	>::new(&config.network);
 	let metrics = N::register_notification_metrics(config.prometheus_registry());
 
+	let peer_store_handle = net_config.peer_store_handle();
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
@@ -149,6 +150,7 @@ pub fn new_full<
 		sc_consensus_grandpa::grandpa_peers_set_config::<_, N>(
 			grandpa_protocol_name.clone(),
 			metrics.clone(),
+			peer_store_handle,
 		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
@@ -212,7 +214,7 @@ pub fn new_full<
 	};
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: Arc::new(network.clone()), // TODO: remove if possible
+		network: Arc::new(network.clone()),
 		client: client.clone(),
 		keystore: keystore_container.keystore(),
 		task_manager: &mut task_manager,

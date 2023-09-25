@@ -18,10 +18,15 @@
 
 //! Mocked components for tests.
 
-use crate::{peer_store::PeerStoreProvider, protocol_controller::ProtocolHandle, ReputationChange};
+use crate::{
+	peer_store::{PeerStoreProvider, ProtocolHandle},
+	ReputationChange,
+};
+
 use sc_network_common::role::ObservedRole;
 use sc_network_types::PeerId;
-use std::collections::HashSet;
+
+use std::{collections::HashSet, sync::Arc};
 
 /// No-op `PeerStore`.
 #[derive(Debug)]
@@ -33,7 +38,7 @@ impl PeerStoreProvider for MockPeerStore {
 		false
 	}
 
-	fn register_protocol(&self, _protocol_handle: ProtocolHandle) {
+	fn register_protocol(&self, _protocol_handle: Arc<dyn ProtocolHandle>) {
 		// Make sure not to fail.
 	}
 

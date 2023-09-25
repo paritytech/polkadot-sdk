@@ -861,7 +861,7 @@ where
 		net_config.add_request_response_protocol(config);
 	}
 
-	let bitswap_config = config.network.ipfs_server.then_some({
+	let bitswap_config = config.network.ipfs_server.then(|| {
 		let (handler, config) = TNet::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
@@ -869,24 +869,19 @@ where
 	});
 
 	// create transactions protocol and add it to the list of supported protocols of
+	let peer_store_handle = net_config.peer_store_handle();
 	let (transactions_handler_proto, transactions_config) =
 		sc_network_transactions::TransactionsHandlerPrototype::new::<_, TBl, TNet>(
 			protocol_id.clone(),
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
 	net_config.add_notification_protocol(transactions_config);
 
-	// Create `PeerStore` and initialize it with bootnode peer ids.
-	let peer_store = TNet::peer_store(
-		net_config
-			.network_config
-			.boot_nodes
-			.iter()
-			.map(|bootnode| bootnode.peer_id.into())
-			.collect(),
-	);
+	// Start task for `PeerStore`
+	let peer_store = net_config.take_peer_store();
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
@@ -905,7 +900,7 @@ where
 		block_downloader,
 		state_request_protocol_name,
 		warp_request_protocol_name,
-		peer_store_handle.clone(),
+		Arc::clone(&peer_store_handle),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
@@ -920,7 +915,6 @@ where
 			})
 		},
 		network_config: net_config,
-		peer_store: peer_store_handle,
 		genesis_hash,
 		protocol_id: protocol_id.clone(),
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),

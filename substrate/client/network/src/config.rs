@@ -23,11 +23,12 @@
 
 pub use crate::{
 	discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR,
+	peer_store::PeerStoreProvider,
 	protocol::{notification_service, NotificationsSink, ProtocolHandlePair},
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
 	},
-	service::traits::{NotificationConfig, NotificationService},
+	service::traits::{NotificationConfig, NotificationService, PeerStore},
 	types::ProtocolName,
 };
 
@@ -38,7 +39,7 @@ pub use libp2p::{
 };
 use sc_network_types::PeerId;
 
-use crate::{peer_store::PeerStoreHandle, service::traits::NetworkBackend};
+use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
 use codec::Encode;
 use prometheus_endpoint::Registry;
 use zeroize::Zeroize;
@@ -744,13 +745,10 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub role: Role,
 
 	/// How to spawn background tasks.
-	pub executor: Box<dyn Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send>,
+	pub executor: Box<dyn Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send + Sync>,
 
 	/// Network layer configuration.
 	pub network_config: FullNetworkConfiguration<Block, H, N>,
-
-	/// Peer store with known nodes, peer reputations, etc.
-	pub peer_store: Arc<dyn PeerStoreProvider>,
 
 	/// Legacy name of the protocol to use on the wire. Should be different for each chain.
 	pub protocol_id: ProtocolId,
@@ -782,12 +780,24 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 
 	/// Network configuration.
 	pub network_config: NetworkConfiguration,
+
+	/// [`PeerStore`](crate::peer_store::PeerStore),
+	peer_store: Option<N::PeerStore>,
+
+	/// Hndle to [`PeerStore`](crate::peer_store::PeerStore).
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 }
 
 impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfiguration<B, H, N> {
 	/// Create new [`FullNetworkConfiguration`].
 	pub fn new(network_config: &NetworkConfiguration) -> Self {
+		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
+		let peer_store = N::peer_store(bootnodes);
+		let peer_store_handle = peer_store.handle();
+
 		Self {
+			peer_store: Some(peer_store),
+			peer_store_handle,
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
@@ -807,6 +817,104 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 	/// Add a request-response protocol.
 	pub fn add_request_response_protocol(&mut self, config: N::RequestResponseProtocolConfig) {
 		self.request_response_protocols.push(config);
+	}
+
+	/// Get handle to [`PeerStore`].
+	pub fn peer_store_handle(&self) -> Arc<dyn PeerStoreProvider> {
+		Arc::clone(&self.peer_store_handle)
+	}
+
+	/// Take [`PeerStore`].
+	///
+	/// TODO: explain why this is needed.
+	pub fn take_peer_store(&mut self) -> N::PeerStore {
+		self.peer_store
+			.take()
+			.expect("`PeerStore` can only be taken once when it's started; qed")
+	}
+
+	/// Verify addresses are consistent with enabled transports.
+	pub fn sanity_check_addresses(&self) -> Result<(), crate::error::Error> {
+		ensure_addresses_consistent_with_transport(
+			self.network_config.listen_addresses.iter(),
+			&self.network_config.transport,
+		)?;
+		ensure_addresses_consistent_with_transport(
+			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr),
+			&self.network_config.transport,
+		)?;
+		ensure_addresses_consistent_with_transport(
+			self.network_config
+				.default_peers_set
+				.reserved_nodes
+				.iter()
+				.map(|x| &x.multiaddr),
+			&self.network_config.transport,
+		)?;
+
+		for notification_protocol in &self.notification_protocols {
+			ensure_addresses_consistent_with_transport(
+				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
+				&self.network_config.transport,
+			)?;
+		}
+		ensure_addresses_consistent_with_transport(
+			self.network_config.public_addresses.iter(),
+			&self.network_config.transport,
+		)?;
+
+		Ok(())
+	}
+
+	/// Check for duplicate bootnodes.
+	pub fn sanity_check_bootnodes(&self) -> Result<(), crate::error::Error> {
+		self.network_config.boot_nodes.iter().try_for_each(|bootnode| {
+			if let Some(other) = self
+				.network_config
+				.boot_nodes
+				.iter()
+				.filter(|o| o.multiaddr == bootnode.multiaddr)
+				.find(|o| o.peer_id != bootnode.peer_id)
+			{
+				Err(crate::error::Error::DuplicateBootnode {
+					address: bootnode.multiaddr.clone(),
+					first_id: bootnode.peer_id.into(),
+					second_id: other.peer_id.into(),
+				})
+			} else {
+				Ok(())
+			}
+		})
+	}
+
+	/// Collect all reserved nodes and bootnodes addresses.
+	pub fn known_addresses(&self) -> Vec<(PeerId, Multiaddr)> {
+		let mut addresses: Vec<_> = self
+			.network_config
+			.default_peers_set
+			.reserved_nodes
+			.iter()
+			.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
+			.chain(self.notification_protocols.iter().flat_map(|protocol| {
+				protocol
+					.set_config()
+					.reserved_nodes
+					.iter()
+					.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
+			}))
+			.chain(
+				self.network_config
+					.boot_nodes
+					.iter()
+					.map(|bootnode| (bootnode.peer_id, bootnode.multiaddr.clone())),
+			)
+			.collect();
+
+		// Remove possible duplicates.
+		addresses.sort();
+		addresses.dedup();
+
+		addresses
 	}
 }
 
