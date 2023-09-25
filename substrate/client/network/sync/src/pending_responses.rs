@@ -51,7 +51,7 @@ pub(crate) struct ResponseEvent<B: BlockT> {
 pub(crate) struct PendingResponses<B: BlockT> {
 	/// Pending responses
 	pending_responses:
-		StreamMap<PeerId, Pin<Box<dyn Stream<Item = (PeerRequest<B>, ResponseResult)>>>>,
+		StreamMap<PeerId, Pin<Box<dyn Stream<Item = (PeerRequest<B>, ResponseResult)> + Send>>>,
 }
 
 impl<B: BlockT> PendingResponses<B> {
