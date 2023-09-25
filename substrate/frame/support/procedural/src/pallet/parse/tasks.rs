@@ -596,3 +596,15 @@ fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
 		r"unexpected extra `#\[pallet::task_index\(\.\.\)\]`"
 	);
 }
+
+#[test]
+fn test_parse_tasks_def_extra_tasks_attribute() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {}
+		}),
+		r"unexpected extra `#\[pallet::tasks\]` attribute"
+	);
+}
