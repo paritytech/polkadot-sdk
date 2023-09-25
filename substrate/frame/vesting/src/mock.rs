@@ -17,7 +17,7 @@
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, ConstU64, WithdrawReasons},
+	traits::{ConstU32, ConstU64, WithdrawReasons, tokens::Balance},
 };
 use sp_core::H256;
 use sp_runtime::{
@@ -65,6 +65,8 @@ impl frame_system::Config for Test {
 	type Version = ();
 }
 
+type MaxFreezes = ConstU32<1>;
+
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type Balance = u64;
@@ -75,8 +77,8 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = [u8; 8];
+	type MaxFreezes = MaxFreezes;
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
 }
@@ -85,11 +87,16 @@ parameter_types! {
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 	pub static ExistentialDeposit: u64 = 1;
+	pub const VestingId: [u8;8] = *b"vesting ";
 }
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
+	type Balance = u64;
+	type MaxFreezes = MaxFreezes;
+	type VestingId = VestingId;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
