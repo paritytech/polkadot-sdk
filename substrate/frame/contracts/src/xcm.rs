@@ -37,7 +37,7 @@ pub trait Xcm<T: Config> {
 	/// # Parameters
 	///
 	/// - `origin`: the origin of the call.
-	/// - `message`: the XCM message to be executed.
+	/// - `message`: the XCM program to be executed.
 	/// - `max_weight`: the maximum weight that can be consumed by the execution.
 	fn execute(
 		origin: &AccountIdOf<T>,
