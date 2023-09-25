@@ -28,9 +28,9 @@ use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// An implementation of the [`XCM`] trait using pallet-xcm.
-pub struct XCMAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
+pub struct XcmAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
 
-impl<T> WeightInfo for XCMAdapter<T>
+impl<T> WeightInfo for XcmAdapter<T>
 where
 	T: pallet_xcm::Config,
 {
@@ -48,7 +48,7 @@ where
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> XCMAdapter<T> {
+impl<T: Config + pallet_xcm::Config> XcmAdapter<T> {
 	/// Ensure that the message is executable, by checking that it does not contain any [`Transact`]
 	/// instruction with a call that is not allowed by the CallFilter.
 	fn ensure_executable(
@@ -75,7 +75,7 @@ impl<T: Config + pallet_xcm::Config> XCMAdapter<T> {
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> XCM<T> for XCMAdapter<T> {
+impl<T: Config + pallet_xcm::Config> XCM<T> for XcmAdapter<T> {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
 	type WeightInfo = Self;
 

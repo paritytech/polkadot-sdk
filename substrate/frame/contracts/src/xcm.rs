@@ -25,7 +25,7 @@ use xcm_executor::traits::QueryResponseStatus;
 
 pub mod adapter;
 
-pub use adapter::XCMAdapter;
+pub use adapter::XcmAdapter;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 pub trait XCM<T: Config> {
