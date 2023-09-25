@@ -93,7 +93,7 @@ use sp_runtime::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
 		One, TrailingZeroInput, Zero,
 	},
-	BoundedVec, DispatchError, Saturating, TransactionOutcome,
+	BoundedVec, DispatchError, Saturating, TokenError, TransactionOutcome,
 };
 
 #[frame_support::pallet]
@@ -940,11 +940,25 @@ pub mod pallet {
 				false => Expendable,
 			};
 			match T::MultiAssetIdConverter::try_convert(asset) {
-				MultiAssetIdConversionResult::Converted(asset) =>
+				MultiAssetIdConversionResult::Converted(asset) => {
+					if preservation == Preserve {
+						// TODO drop the ensure! when this issue addressed
+						// https://github.com/paritytech/polkadot-sdk/issues/1698
+						let free =
+							T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
+						ensure!(free >= value, TokenError::NotExpendable);
+					}
 					T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
-						.map(|c| c.into()),
+						.map(|c| c.into())
+				},
 				MultiAssetIdConversionResult::Native => {
 					let value = Self::convert_asset_balance_to_native_balance(value)?;
+					if preservation == Preserve {
+						// TODO drop the ensure! when this issue addressed
+						// https://github.com/paritytech/polkadot-sdk/issues/1698
+						let free = T::Currency::reducible_balance(who, preservation, Polite);
+						ensure!(free >= value, TokenError::NotExpendable);
+					}
 					T::Currency::withdraw(who, value, Exact, preservation, Polite).map(|c| c.into())
 				},
 				MultiAssetIdConversionResult::Unsupported(_) =>
@@ -1021,12 +1035,6 @@ pub mod pallet {
 							asset1.clone(),
 							asset2.clone(),
 						));
-
-						let reserve = Self::get_balance(&pool_from, asset2)?;
-						let reserve_left = reserve.saturating_sub(*amount_out);
-						Self::validate_minimal_amount(reserve_left, asset2)
-							.map_err(|_| Error::<T>::ReserveLeftLessThanMinimal)?;
-
 						if let Some((asset3, _)) = path.get(pos + 2) {
 							let pool_to = Self::get_pool_account(&Self::get_pool_id(
 								asset2.clone(),
