@@ -19,119 +19,15 @@
 use crate::{BridgedChainOf, Config, InboundLanes, OutboundLanes, Pallet, LOG_TARGET};
 
 use bp_messages::{
-	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, MessageNonce,
+	target_chain::MessageDispatch, BaseMessagesProofInfo, ChainWithMessages, InboundLaneData,
+	LaneId, MessageNonce, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo,
+	ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
 };
 use bp_runtime::{AccountIdOf, OwnedBridgeModule};
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
-use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
-use sp_std::ops::RangeInclusive;
+use sp_runtime::transaction_validity::TransactionValidity;
 
-/// Generic info about a messages delivery/confirmation proof.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct BaseMessagesProofInfo {
-	/// Message lane, used by the call.
-	pub lane_id: LaneId,
-	/// Nonces of messages, included in the call.
-	///
-	/// For delivery transaction, it is nonces of bundled messages. For confirmation
-	/// transaction, it is nonces that are to be confirmed during the call.
-	pub bundled_range: RangeInclusive<MessageNonce>,
-	/// Nonce of the best message, stored by this chain before the call is dispatched.
-	///
-	/// For delivery transaction, it is the nonce of best delivered message before the call.
-	/// For confirmation transaction, it is the nonce of best confirmed message before the call.
-	pub best_stored_nonce: MessageNonce,
-}
-
-impl BaseMessagesProofInfo {
-	/// Returns true if `bundled_range` continues the `0..=best_stored_nonce` range.
-	fn appends_to_stored_nonce(&self) -> bool {
-		Some(*self.bundled_range.start()) == self.best_stored_nonce.checked_add(1)
-	}
-}
-
-/// Occupation state of the unrewarded relayers vector.
-#[derive(PartialEq, RuntimeDebug)]
-#[cfg_attr(test, derive(Default))]
-pub struct UnrewardedRelayerOccupation {
-	/// The number of remaining unoccupied entries for new relayers.
-	pub free_relayer_slots: MessageNonce,
-	/// The number of messages that we are ready to accept.
-	pub free_message_slots: MessageNonce,
-}
-
-/// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesProofInfo {
-	/// Base messages proof info
-	pub base: BaseMessagesProofInfo,
-	/// State of unrewarded relayers vector.
-	pub unrewarded_relayers: UnrewardedRelayerOccupation,
-}
-
-impl ReceiveMessagesProofInfo {
-	/// Returns true if:
-	///
-	/// - either inbound lane is ready to accept bundled messages;
-	///
-	/// - or there are no bundled messages, but the inbound lane is blocked by too many unconfirmed
-	///   messages and/or unrewarded relayers.
-	fn is_obsolete(&self, is_dispatcher_active: bool) -> bool {
-		// if dispatcher is inactive, we don't accept any delivery transactions
-		if !is_dispatcher_active {
-			return true
-		}
-
-		// transactions with zero bundled nonces are not allowed, unless they're message
-		// delivery transactions, which brings reward confirmations required to unblock
-		// the lane
-		if self.base.bundled_range.is_empty() {
-			let empty_transactions_allowed =
-				// we allow empty transactions when we can't accept delivery from new relayers
-				self.unrewarded_relayers.free_relayer_slots == 0 ||
-				// or if we can't accept new messages at all
-				self.unrewarded_relayers.free_message_slots == 0;
-
-			return !empty_transactions_allowed
-		}
-
-		// otherwise we require bundled messages to continue stored range
-		!self.base.appends_to_stored_nonce()
-	}
-}
-
-/// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct ReceiveMessagesDeliveryProofInfo(pub BaseMessagesProofInfo);
-
-impl ReceiveMessagesDeliveryProofInfo {
-	/// Returns true if outbound lane is ready to accept confirmations of bundled messages.
-	fn is_obsolete(&self) -> bool {
-		self.0.bundled_range.is_empty() || !self.0.appends_to_stored_nonce()
-	}
-}
-
-/// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
-/// which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
-pub enum CallInfo {
-	/// Messages delivery call info.
-	ReceiveMessagesProof(ReceiveMessagesProofInfo),
-	/// Messages delivery confirmation call info.
-	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
-}
-
-impl CallInfo {
-	/// Returns range of messages, bundled with the call.
-	pub fn bundled_messages(&self) -> RangeInclusive<MessageNonce> {
-		match *self {
-			Self::ReceiveMessagesProof(ref info) => info.base.bundled_range.clone(),
-			Self::ReceiveMessagesDeliveryProof(ref info) => info.0.bundled_range.clone(),
-		}
-	}
-}
-
-/// Helper struct that provides methods for working with a call supported by `CallInfo`.
+/// Helper struct that provides methods for working with a call supported by `MessagesCallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
 	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
 }
@@ -143,9 +39,9 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 	///
 	/// - call is `receive_messages_delivery_proof` and all messages confirmations have been
 	///   received.
-	pub fn was_successful(info: &CallInfo) -> bool {
+	pub fn was_successful(info: &MessagesCallInfo) -> bool {
 		match info {
-			CallInfo::ReceiveMessagesProof(info) => {
+			MessagesCallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data = match InboundLanes::<T, I>::get(info.base.lane_id) {
 					Some(inbound_lane_data) => inbound_lane_data,
 					None => return false,
@@ -163,7 +59,7 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 
 				inbound_lane_data.last_delivered_nonce() == *info.base.bundled_range.end()
 			},
-			CallInfo::ReceiveMessagesDeliveryProof(info) => {
+			MessagesCallInfo::ReceiveMessagesDeliveryProof(info) => {
 				let outbound_lane_data = match OutboundLanes::<T, I>::get(info.0.lane_id) {
 					Some(outbound_lane_data) => outbound_lane_data,
 					None => return false,
@@ -185,13 +81,13 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// a `ReceiveMessagesDeliveryProof` call.
 	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo>;
 
-	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
+	/// Create a new instance of `MessagesCallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call.
-	fn call_info(&self) -> Option<CallInfo>;
+	fn call_info(&self) -> Option<MessagesCallInfo>;
 
-	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
+	/// Create a new instance of `MessagesCallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
-	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo>;
+	fn call_info_for(&self, lane_id: LaneId) -> Option<MessagesCallInfo>;
 
 	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
 	///
@@ -263,23 +159,23 @@ impl<
 		None
 	}
 
-	fn call_info(&self) -> Option<CallInfo> {
+	fn call_info(&self) -> Option<MessagesCallInfo> {
 		if let Some(info) = self.receive_messages_proof_info() {
-			return Some(CallInfo::ReceiveMessagesProof(info))
+			return Some(MessagesCallInfo::ReceiveMessagesProof(info))
 		}
 
 		if let Some(info) = self.receive_messages_delivery_proof_info() {
-			return Some(CallInfo::ReceiveMessagesDeliveryProof(info))
+			return Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(info))
 		}
 
 		None
 	}
 
-	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo> {
+	fn call_info_for(&self, lane_id: LaneId) -> Option<MessagesCallInfo> {
 		self.call_info().filter(|info| {
 			let actual_lane_id = match info {
-				CallInfo::ReceiveMessagesProof(info) => info.base.lane_id,
-				CallInfo::ReceiveMessagesDeliveryProof(info) => info.0.lane_id,
+				MessagesCallInfo::ReceiveMessagesProof(info) => info.base.lane_id,
+				MessagesCallInfo::ReceiveMessagesDeliveryProof(info) => info.0.lane_id,
 			};
 			actual_lane_id == lane_id
 		})
@@ -297,7 +193,7 @@ impl<
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
 			},
-			Some(CallInfo::ReceiveMessagesProof(proof_info))
+			Some(MessagesCallInfo::ReceiveMessagesProof(proof_info))
 				if proof_info
 					.is_obsolete(T::MessageDispatch::is_active(proof_info.base.lane_id)) =>
 			{
@@ -309,7 +205,7 @@ impl<
 
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
 			},
-			Some(CallInfo::ReceiveMessagesDeliveryProof(proof_info))
+			Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(proof_info))
 				if proof_info.is_obsolete() =>
 			{
 				log::trace!(
@@ -582,7 +478,7 @@ mod tests {
 		bundled_range: RangeInclusive<MessageNonce>,
 		is_empty: bool,
 	) -> bool {
-		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesProof(
+		CallHelper::<TestRuntime, ()>::was_successful(&MessagesCallInfo::ReceiveMessagesProof(
 			ReceiveMessagesProofInfo {
 				base: BaseMessagesProofInfo {
 					lane_id: test_lane_id(),
@@ -643,13 +539,15 @@ mod tests {
 	}
 
 	fn was_message_confirmation_successful(bundled_range: RangeInclusive<MessageNonce>) -> bool {
-		CallHelper::<TestRuntime, ()>::was_successful(&CallInfo::ReceiveMessagesDeliveryProof(
-			ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
-				lane_id: test_lane_id(),
-				bundled_range,
-				best_stored_nonce: 0, // doesn't matter for `was_successful`
-			}),
-		))
+		CallHelper::<TestRuntime, ()>::was_successful(
+			&MessagesCallInfo::ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo(
+				BaseMessagesProofInfo {
+					lane_id: test_lane_id(),
+					bundled_range,
+					best_stored_nonce: 0, // doesn't matter for `was_successful`
+				},
+			)),
+		)
 	}
 
 	#[test]

@@ -35,6 +35,13 @@ use sp_core::{RuntimeDebug, TypeId, H256};
 use sp_io::hashing::blake2_256;
 use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 
+pub use call_info::{
+	BaseMessagesProofInfo, BridgeMessagesCall, BridgeMessagesCallOf, MessagesCallInfo,
+	ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+};
+
+mod call_info;
+
 pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
@@ -610,32 +617,6 @@ where
 		}
 	}
 	relayers_rewards
-}
-
-/// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
-	/// `pallet-bridge-messages::Call::receive_messages_proof`
-	#[codec(index = 2)]
-	receive_messages_proof {
-		/// Account id of relayer at the **bridged** chain.
-		relayer_id_at_bridged_chain: AccountId,
-		/// Messages proof.
-		proof: MessagesProof,
-		/// A number of messages in the proof.
-		messages_count: u32,
-		/// Total dispatch weight of messages in the proof.
-		dispatch_weight: Weight,
-	},
-	/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
-	#[codec(index = 3)]
-	receive_messages_delivery_proof {
-		/// Messages delivery proof.
-		proof: MessagesDeliveryProof,
-		/// "Digest" of unrewarded relayers state at the bridged chain.
-		relayers_state: UnrewardedRelayersState,
-	},
 }
 
 /// Error that happens during message verification.

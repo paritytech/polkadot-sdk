@@ -19,15 +19,14 @@
 //! checks.
 
 use crate::extensions::refund_relayer_extension::RefundableParachainId;
+use bp_parachains::SubmitParachainHeadsInfo;
 use bp_relayers::ExplicitOrAccountParams;
 use bp_runtime::Parachain;
 use pallet_bridge_grandpa::{
 	BridgedBlockNumber, CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
 };
 use pallet_bridge_messages::CallSubType as MessagesCallSubType;
-use pallet_bridge_parachains::{
-	CallSubType as ParachainsCallSubtype, SubmitParachainHeadsHelper, SubmitParachainHeadsInfo,
-};
+use pallet_bridge_parachains::{CallSubType as ParachainsCallSubtype, SubmitParachainHeadsHelper};
 use pallet_bridge_relayers::Pallet as RelayersPallet;
 use sp_runtime::{
 	traits::{Get, PhantomData, UniqueSaturatedInto},

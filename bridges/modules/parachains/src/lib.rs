@@ -28,7 +28,7 @@ pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
-use bp_parachains::{ParaInfo, ParaStoredHeaderData};
+use bp_parachains::{ParaInfo, ParaStoredHeaderData, SubmitParachainHeadsInfo};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
