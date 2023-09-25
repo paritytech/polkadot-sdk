@@ -281,11 +281,11 @@ impl pallet_template::Config for Runtime {
 // Create the runtime by composing the FRAME pallets that were previously configured.
 #[frame_support::construct_runtime_v2]
 mod runtime {
-	#[frame::runtime]
+	#[runtime::runtime]
 	pub struct Runtime;
 
-	#[frame::pallets]
-	#[frame::derive(
+	#[runtime::pallets]
+	#[runtime::derive(
 		RuntimeCall,
 		RuntimeEvent,
 		RuntimeError,
@@ -295,25 +295,32 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId
 	)]
-	pub struct Pallets {
-		#[frame::pallet_index(0)]
-		System: frame_system,
-		#[frame::pallet_index(1)]
-		Timestamp: pallet_timestamp,
-		#[frame::pallet_index(2)]
-		Aura: pallet_aura,
-		#[frame::pallet_index(3)]
-		Grandpa: pallet_grandpa,
-		#[frame::pallet_index(4)]
-		Balances: pallet_balances,
-		#[frame::pallet_index(5)]
-		TransactionPayment: pallet_transaction_payment,
-		#[frame::pallet_index(6)]
-		Sudo: pallet_sudo,
-		// Include the custom logic from the pallet-template in the runtime.
-		#[frame::pallet_index(7)]
-		TemplateModule: pallet_template,
-	}
+	pub struct AllPallets;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type Timestamp = pallet_timestamp;
+
+	#[runtime::pallet_index(2)]
+	pub type Aura = pallet_aura;
+
+	#[runtime::pallet_index(3)]
+	pub type Grandpa = pallet_grandpa;
+
+	#[runtime::pallet_index(4)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(5)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(6)]
+	pub type Sudo = pallet_sudo;
+
+	// Include the custom logic from the pallet-template in the runtime.
+	#[runtime::pallet_index(7)]
+	pub type TemplateModule = pallet_template;
 }
 
 /// The address format for describing accounts.

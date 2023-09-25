@@ -18,28 +18,33 @@
 pub mod helper;
 pub mod pallet;
 pub mod pallet_decl;
-pub mod pallets;
 pub mod runtime_struct;
 pub mod runtime_types;
 
+use crate::construct_runtime::parse::Pallet;
+use pallet_decl::PalletDeclaration;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
-use syn::{spanned::Spanned, Token};
+use std::collections::HashMap;
+use syn::{spanned::Spanned, Ident, Token};
 
 use frame_support_procedural_tools::syn_ext as ext;
 use runtime_types::RuntimeType;
 
 mod keyword {
-	syn::custom_keyword!(frame);
-	syn::custom_keyword!(runtime);
-	syn::custom_keyword!(pallets);
-	syn::custom_keyword!(derive);
+	use syn::custom_keyword;
+
+	custom_keyword!(runtime);
+	custom_keyword!(pallets);
+	custom_keyword!(derive);
+	custom_keyword!(pallet_index);
 }
 
 enum RuntimeAttr {
 	Runtime(proc_macro2::Span),
 	Pallets(proc_macro2::Span),
 	Derive(proc_macro2::Span, Vec<RuntimeType>),
+	PalletIndex(proc_macro2::Span, u8),
 }
 
 impl RuntimeAttr {
@@ -48,6 +53,7 @@ impl RuntimeAttr {
 			Self::Runtime(span) => *span,
 			Self::Pallets(span) => *span,
 			Self::Derive(span, _) => *span,
+			Self::PalletIndex(span, _) => *span,
 		}
 	}
 }
@@ -57,7 +63,7 @@ impl syn::parse::Parse for RuntimeAttr {
 		input.parse::<syn::Token![#]>()?;
 		let content;
 		syn::bracketed!(content in input);
-		content.parse::<keyword::frame>()?;
+		content.parse::<keyword::runtime>()?;
 		content.parse::<syn::Token![::]>()?;
 
 		let lookahead = content.lookahead1();
@@ -73,17 +79,48 @@ impl syn::parse::Parse for RuntimeAttr {
 				derive_content.parse::<ext::Punctuated<RuntimeType, Token![,]>>()?;
 			let runtime_types = runtime_types.inner.into_iter().collect();
 			Ok(RuntimeAttr::Derive(derive_content.span(), runtime_types))
+		} else if lookahead.peek(keyword::pallet_index) {
+			let _ = content.parse::<keyword::pallet_index>();
+			let pallet_index_content;
+			syn::parenthesized!(pallet_index_content in content);
+			let pallet_index = pallet_index_content.parse::<syn::LitInt>()?;
+			if !pallet_index.suffix().is_empty() {
+				let msg = "Number literal must not have a suffix";
+				return Err(syn::Error::new(pallet_index.span(), msg))
+			}
+			Ok(RuntimeAttr::PalletIndex(pallet_index.span(), pallet_index.base10_parse()?))
 		} else {
 			Err(lookahead.error())
 		}
 	}
 }
 
+#[derive(Debug, Clone)]
+pub enum AllPalletsDeclaration {
+	Implicit(ImplicitAllPalletsDeclaration),
+	Explicit(ExplicitAllPalletsDeclaration),
+}
+
+/// Declaration of a runtime with some pallet with implicit declaration of parts.
+#[derive(Debug, Clone)]
+pub struct ImplicitAllPalletsDeclaration {
+	pub name: Ident,
+	pub pallet_decls: Vec<PalletDeclaration>,
+	pub pallet_count: usize,
+}
+
+/// Declaration of a runtime with all pallet having explicit declaration of parts.
+#[derive(Debug, Clone)]
+pub struct ExplicitAllPalletsDeclaration {
+	pub name: Ident,
+	pub pallets: Vec<Pallet>,
+}
+
 pub struct Def {
 	pub input: TokenStream2,
 	pub item: syn::ItemMod,
 	pub runtime_struct: runtime_struct::RuntimeStructDef,
-	pub pallets: pallets::AllPalletsDeclaration,
+	pub pallets: AllPalletsDeclaration,
 	pub runtime_types: Vec<RuntimeType>,
 }
 
@@ -101,8 +138,13 @@ impl Def {
 			.1;
 
 		let mut runtime_struct = None;
-		let mut pallets = None;
 		let mut runtime_types = None;
+
+		let mut indices = HashMap::new();
+		let mut names = HashMap::new();
+
+		let mut pallet_decls = vec![];
+		let mut pallets = vec![];
 
 		for item in items.iter_mut() {
 			while let Some(runtime_attr) =
@@ -113,12 +155,57 @@ impl Def {
 						let p = runtime_struct::RuntimeStructDef::try_from(span, item)?;
 						runtime_struct = Some(p);
 					},
-					RuntimeAttr::Pallets(span) if pallets.is_none() => {
-						let p = pallets::AllPalletsDeclaration::try_from(span, item)?;
-						pallets = Some(p);
+					RuntimeAttr::Pallets(_span) => {
+						//Todo: Parse pallets struct
 					},
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {
 						runtime_types = Some(types);
+					},
+					RuntimeAttr::PalletIndex(span, pallet_index) => {
+						let item = if let syn::Item::Type(item) = item {
+							item
+						} else {
+							let msg = "Invalid runtime::pallet_index, expected type definition";
+							return Err(syn::Error::new(span, msg))
+						};
+
+						match *item.ty.clone() {
+							syn::Type::Path(ref path) => {
+								let pallet_decl =
+									PalletDeclaration::try_from(item.span(), item, path)?;
+
+								if let Some(used_pallet) =
+									names.insert(pallet_decl.name.clone(), pallet_decl.name.span())
+								{
+									let msg = "Two pallets with the same name!";
+
+									let mut err = syn::Error::new(used_pallet, &msg);
+									err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
+									return Err(err)
+								}
+
+								pallet_decls.push(pallet_decl);
+							},
+							syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
+								let pallet =
+									Pallet::try_from(item.span(), item, pallet_index, &bounds)?;
+
+								if let Some(used_pallet) =
+									indices.insert(pallet.index, pallet.name.clone())
+								{
+									let msg = format!(
+										"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
+										used_pallet, pallet.name, pallet.index,
+									);
+									let mut err = syn::Error::new(used_pallet.span(), &msg);
+									err.combine(syn::Error::new(pallet.name.span(), msg));
+									return Err(err)
+								}
+
+								pallets.push(pallet);
+							},
+							_ => continue,
+						}
 					},
 					attr => {
 						let msg = "Invalid duplicated attribute";
@@ -128,15 +215,26 @@ impl Def {
 			}
 		}
 
+		let name = item.ident.clone();
+		let decl_count = pallet_decls.len();
+		let pallets = if decl_count > 0 {
+			AllPalletsDeclaration::Implicit(ImplicitAllPalletsDeclaration {
+				name,
+				pallet_decls,
+				pallet_count: decl_count.saturating_add(pallets.len()),
+			})
+		} else {
+			AllPalletsDeclaration::Explicit(ExplicitAllPalletsDeclaration { name, pallets })
+		};
+
 		let def = Def {
 			input,
 			item,
 			runtime_struct: runtime_struct
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::runtime]`"))?,
-			pallets: pallets
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::pallets]`"))?,
+				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[runtime::runtime]`"))?,
+			pallets,
 			runtime_types: runtime_types
-				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[frame::derive]`"))?,
+				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[runtime::derive]`"))?,
 		};
 
 		Ok(def)

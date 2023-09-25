@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::helper;
 use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
@@ -22,14 +23,12 @@ use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArg
 mod keyword {
 	use syn::custom_keyword;
 
-	custom_keyword!(frame);
-	custom_keyword!(pallet_index);
+	custom_keyword!(runtime);
 	custom_keyword!(disable_call);
 	custom_keyword!(disable_unsigned);
 }
 
 enum PalletAttr {
-	PalletIndex(proc_macro2::Span, u8),
 	DisableCall(proc_macro2::Span),
 	DisableUnsigned(proc_macro2::Span),
 }
@@ -39,21 +38,11 @@ impl syn::parse::Parse for PalletAttr {
 		input.parse::<syn::Token![#]>()?;
 		let content;
 		syn::bracketed!(content in input);
-		content.parse::<keyword::frame>()?;
+		content.parse::<keyword::runtime>()?;
 		content.parse::<syn::Token![::]>()?;
 
 		let lookahead = content.lookahead1();
-		if lookahead.peek(keyword::pallet_index) {
-			let _ = content.parse::<keyword::pallet_index>();
-			let pallet_index_content;
-			syn::parenthesized!(pallet_index_content in content);
-			let pallet_index = pallet_index_content.parse::<syn::LitInt>()?;
-			if !pallet_index.suffix().is_empty() {
-				let msg = "Number literal must not have a suffix";
-				return Err(syn::Error::new(pallet_index.span(), msg))
-			}
-			Ok(PalletAttr::PalletIndex(pallet_index.span(), pallet_index.base10_parse()?))
-		} else if lookahead.peek(keyword::disable_call) {
+		if lookahead.peek(keyword::disable_call) {
 			Ok(PalletAttr::DisableCall(content.parse::<keyword::disable_call>()?.span()))
 		} else if lookahead.peek(keyword::disable_unsigned) {
 			Ok(PalletAttr::DisableUnsigned(content.parse::<keyword::disable_unsigned>()?.span()))
@@ -63,49 +52,24 @@ impl syn::parse::Parse for PalletAttr {
 	}
 }
 
-fn take_first_item_pallet_attr<Attr>(item: &mut syn::Field) -> syn::Result<Option<Attr>>
-where
-	Attr: syn::parse::Parse,
-{
-	let attrs = &mut item.attrs;
-
-	if let Some(index) = attrs.iter().position(|attr| {
-		attr.path().segments.first().map_or(false, |segment| segment.ident == "frame")
-	}) {
-		let runtime_attr = attrs.remove(index);
-		Ok(Some(syn::parse2(runtime_attr.into_token_stream())?))
-	} else {
-		Ok(None)
-	}
-}
-
 impl Pallet {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		item: &mut syn::Field,
+		item: &mut syn::ItemType,
+		pallet_index: u8,
 		bounds: &Punctuated<syn::TypeParamBound, token::Plus>,
 	) -> syn::Result<Self> {
-		let name = item
-			.ident
-			.clone()
-			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a named field"))?;
+		let name = item.ident.clone();
 
-		let mut pallet_index: Option<u8> = None;
 		let mut disable_call = false;
 		let mut disable_unsigned = false;
 
-		while let Some(pallet_attr) = take_first_item_pallet_attr::<PalletAttr>(item)? {
+		while let Some(pallet_attr) = helper::take_first_item_runtime_attr::<PalletAttr>(item)? {
 			match pallet_attr {
-				PalletAttr::PalletIndex(_, index) => pallet_index = Some(index),
 				PalletAttr::DisableCall(_) => disable_call = true,
 				PalletAttr::DisableUnsigned(_) => disable_unsigned = true,
 			}
 		}
-
-		let pallet_index = pallet_index.ok_or(Error::new(
-			attr_span,
-			"Invalid pallet declaration, expected a #[frame::pallet_index]",
-		))?;
 
 		let mut pallet_path = None;
 		let mut pallet_parts = vec![];

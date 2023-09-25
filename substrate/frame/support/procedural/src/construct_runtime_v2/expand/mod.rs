@@ -22,7 +22,7 @@ use crate::{
 		decl_static_assertions, expand,
 	},
 	construct_runtime_v2::{
-		parse::pallets::{
+		parse::{
 			AllPalletsDeclaration, ExplicitAllPalletsDeclaration, ImplicitAllPalletsDeclaration,
 		},
 		Def,
@@ -87,7 +87,7 @@ fn construct_runtime_implicit_to_explicit(
 				frame_support = [{ #frame_support }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
-					pattern = [{ #pallet_name: #pallet_path #pallet_instance  }]
+					pattern = [{ #pallet_name = #pallet_path #pallet_instance  }]
 				}
 			}
 		);

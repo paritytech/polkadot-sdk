@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Error, Ident, PathArguments};
+use syn::{spanned::Spanned, Attribute, Ident, PathArguments};
 
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
@@ -33,14 +33,11 @@ pub struct PalletDeclaration {
 
 impl PalletDeclaration {
 	pub fn try_from(
-		attr_span: proc_macro2::Span,
-		item: &mut syn::Field,
+		_attr_span: proc_macro2::Span,
+		item: &mut syn::ItemType,
 		path: &syn::TypePath,
 	) -> syn::Result<Self> {
-		let name = item
-			.ident
-			.clone()
-			.ok_or(Error::new(attr_span, "Invalid pallet declaration, expected a named field"))?;
+		let name = item.ident.clone();
 
 		let mut path = path.path.clone();
 

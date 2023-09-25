@@ -27,7 +27,7 @@ where
 	let attrs = if let Some(attrs) = item.mut_item_attrs() { attrs } else { return Ok(None) };
 
 	if let Some(index) = attrs.iter().position(|attr| {
-		attr.path().segments.first().map_or(false, |segment| segment.ident == "frame")
+		attr.path().segments.first().map_or(false, |segment| segment.ident == "runtime")
 	}) {
 		let runtime_attr = attrs.remove(index);
 		Ok(Some(syn::parse2(runtime_attr.into_token_stream())?))
