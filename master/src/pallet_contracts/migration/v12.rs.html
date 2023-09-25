@@ -444,7 +444,7 @@
 
 <span class="attr">#[storage_alias]
 </span><span class="kw">pub type </span>CodeInfoOf&lt;T: Config, OldCurrency&gt; =
-	StorageMap&lt;Pallet&lt;T&gt;, Twox64Concat, CodeHash&lt;T&gt;, CodeInfo&lt;T, OldCurrency&gt;&gt;;
+	StorageMap&lt;Pallet&lt;T&gt;, Identity, CodeHash&lt;T&gt;, CodeInfo&lt;T, OldCurrency&gt;&gt;;
 
 <span class="attr">#[storage_alias]
 </span><span class="kw">pub type </span>PristineCode&lt;T: Config&gt; = StorageMap&lt;Pallet&lt;T&gt;, Identity, CodeHash&lt;T&gt;, Vec&lt;u8&gt;&gt;;

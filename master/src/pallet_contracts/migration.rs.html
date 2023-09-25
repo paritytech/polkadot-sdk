@@ -629,6 +629,32 @@
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
 <a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -958,6 +984,32 @@
 			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;
 		</span>);
 		<span class="prelude-val">Ok</span>(Default::default())
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">if </span>!TEST_ALL_STEPS {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;=== POST UPGRADE CHECKS ===&quot;</span>);
+
+		<span class="comment">// Ensure that the hashing algorithm is correct for each storage map.
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="kw">crate</span>::CodeInfoOf::&lt;T&gt;::iter_keys().next() {
+			<span class="kw">crate</span>::CodeInfoOf::&lt;T&gt;::get(hash).expect(<span class="string">&quot;CodeInfo exists for hash; qed&quot;</span>);
+		}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="kw">crate</span>::PristineCode::&lt;T&gt;::iter_keys().next() {
+			<span class="kw">crate</span>::PristineCode::&lt;T&gt;::get(hash).expect(<span class="string">&quot;PristineCode exists for hash; qed&quot;</span>);
+		}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(account_id) = <span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::iter_keys().next() {
+			<span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::get(account_id)
+				.expect(<span class="string">&quot;ContractInfo exists for account_id; qed&quot;</span>);
+		}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(nonce) = <span class="kw">crate</span>::DeletionQueue::&lt;T&gt;::iter_keys().next() {
+			<span class="kw">crate</span>::DeletionQueue::&lt;T&gt;::get(nonce).expect(<span class="string">&quot;DeletionQueue exists for nonce; qed&quot;</span>);
+		}
+
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
