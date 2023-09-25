@@ -18,7 +18,10 @@ use crate::{
 	weights::WeightInfo, BestFinalized, BridgedBlockNumber, BridgedHeader, Config,
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
-use bp_header_chain::{justification::GrandpaJustification, submit_finality_proof_limits_extras};
+use bp_header_chain::{
+	justification::GrandpaJustification, submit_finality_proof_limits_extras,
+	SubmitFinalityProofInfo,
+};
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
 use frame_support::{
 	dispatch::CallableCallFor,
@@ -32,33 +35,6 @@ use sp_runtime::{
 	RuntimeDebug, SaturatedConversion,
 };
 
-/// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-pub struct SubmitFinalityProofInfo<N> {
-	/// Number of the finality target.
-	pub block_number: N,
-	/// An identifier of the validators set that has signed the submitted justification.
-	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
-	pub current_set_id: Option<SetId>,
-	/// If `true`, then the call proves new **mandatory** header.
-	pub is_mandatory: bool,
-	/// If `true`, then the call must be free (assuming that everything else is valid) to
-	/// be treated as valid.
-	pub is_free_execution_expected: bool,
-	/// Extra weight that we assume is included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for weight above that limit, is never refunded.
-	pub extra_weight: Weight,
-	/// Extra size (in bytes) that we assume are included in the call.
-	///
-	/// We have some assumptions about headers and justifications of the bridged chain.
-	/// We know that if our assumptions are correct, then the call must not have the
-	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
-	pub extra_size: u32,
-}
-
 /// Verified `SubmitFinalityProofInfo<N>`.
 #[derive(Copy, Clone, PartialEq, RuntimeDebug)]
 pub struct VerifiedSubmitFinalityProofInfo<N> {
@@ -67,13 +43,6 @@ pub struct VerifiedSubmitFinalityProofInfo<N> {
 	/// A difference between bundled bridged header and best bridged header known to us
 	/// before the call.
 	pub improved_by: N,
-}
-
-impl<N> SubmitFinalityProofInfo<N> {
-	/// Returns `true` if call size/weight is below our estimations for regular calls.
-	pub fn fits_limits(&self) -> bool {
-		self.extra_weight.is_zero() && self.extra_size.is_zero()
-	}
 }
 
 /// Helper struct that provides methods for working with the `SubmitFinalityProof` call.
@@ -336,9 +305,9 @@ mod tests {
 			TestRuntime,
 		},
 		BestFinalized, Config, CurrentAuthoritySet, FreeHeadersRemaining, PalletOperatingMode,
-		StoredAuthoritySet, SubmitFinalityProofInfo, WeightInfo,
+		StoredAuthoritySet, WeightInfo,
 	};
-	use bp_header_chain::ChainWithGrandpa;
+	use bp_header_chain::{ChainWithGrandpa, SubmitFinalityProofInfo};
 	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,

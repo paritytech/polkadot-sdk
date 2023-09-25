@@ -19,7 +19,9 @@
 //! with calls that are: delivering new message and all necessary underlying headers
 //! (parachain or relay chain).
 
-use bp_messages::{ChainWithMessages, LaneId, MessageNonce};
+use bp_header_chain::SubmitFinalityProofInfo;
+use bp_messages::{ChainWithMessages, LaneId, MessageNonce, MessagesCallInfo};
+use bp_parachains::SubmitParachainHeadsInfo;
 use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
@@ -29,16 +31,13 @@ use frame_support::{
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use pallet_bridge_grandpa::{
-	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
-};
+use pallet_bridge_grandpa::{CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper};
 use pallet_bridge_messages::{
-	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo,
-	CallSubType as MessagesCallSubType, Config as MessagesConfig,
+	CallHelper as MessagesCallHelper, CallSubType as MessagesCallSubType, Config as MessagesConfig,
 };
 use pallet_bridge_parachains::{
 	BoundedBridgeGrandpaConfig, CallSubType as ParachainsCallSubType, Config as ParachainsConfig,
-	RelayBlockNumber, SubmitParachainHeadsHelper, SubmitParachainHeadsInfo,
+	RelayBlockNumber, SubmitParachainHeadsHelper,
 };
 use pallet_bridge_relayers::{
 	Config as RelayersConfig, Pallet as RelayersPallet, WeightInfoExt as _,
@@ -939,9 +938,10 @@ pub(crate) mod tests {
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
-		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData, LaneState,
-		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
-		UnrewardedRelayersState,
+		target_chain::FromBridgedChainMessagesProof, BaseMessagesProofInfo, DeliveredMessages,
+		InboundLaneData, LaneState, MessageNonce, MessagesOperatingMode, OutboundLaneData,
+		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayer,
+		UnrewardedRelayerOccupation, UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -953,10 +953,7 @@ pub(crate) mod tests {
 		weights::Weight,
 	};
 	use pallet_bridge_grandpa::{Call as GrandpaCall, Pallet as GrandpaPallet, StoredAuthoritySet};
-	use pallet_bridge_messages::{
-		BaseMessagesProofInfo, Call as MessagesCall, Pallet as MessagesPallet,
-		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
-	};
+	use pallet_bridge_messages::{Call as MessagesCall, Pallet as MessagesPallet};
 	use pallet_bridge_parachains::{
 		Call as ParachainsCall, Pallet as ParachainsPallet, RelayBlockHash,
 	};
