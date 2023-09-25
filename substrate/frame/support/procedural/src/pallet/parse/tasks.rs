@@ -169,7 +169,7 @@ impl syn::parse::Parse for TaskDef {
 		else {
 			return Err(Error::new(
 				item.sig.ident.span(),
-				"missing `#[pallet::task_index(..)]` attribute",
+				"missing `#[pallet::task_condition(..)]` attribute",
 			))
 		};
 
@@ -180,7 +180,7 @@ impl syn::parse::Parse for TaskDef {
 		else {
 			return Err(Error::new(
 				item.sig.ident.span(),
-				"missing `#[pallet::task_index(..)]` attribute",
+				"missing `#[pallet::task_list(..)]` attribute",
 			))
 		};
 
@@ -437,18 +437,35 @@ fn test_parse_tasks_def_duplicate_index() {
 				#[pallet::task_list(Something::iter())]
 				#[pallet::task_condition(|i| i % 2 == 0)]
 				#[pallet::task_index(0)]
-				pub fn bar(i: u32) -> DispatchResult {
+				pub fn foo(i: u32) -> DispatchResult {
 					Ok(())
 				}
 
 				#[pallet::task_list(Numbers::<T, I>::iter_keys())]
 				#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
 				#[pallet::task_index(0)]
-				pub fn foo(i: u32) -> DispatchResult {
+				pub fn bar(i: u32) -> DispatchResult {
 					Ok(())
 				}
 			}
 		}),
 		"duplicate task index `0`"
+	);
+}
+
+#[test]
+fn test_parse_tasks_def_missing_task_list() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_index(0)]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		r"missing `#\[pallet::task_list\(\.\.\)\]`"
 	);
 }
