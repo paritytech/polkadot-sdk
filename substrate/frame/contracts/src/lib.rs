@@ -405,7 +405,7 @@ pub mod pallet {
 		type Environment: Get<Environment<Self>>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
-		/// execute XCM messages.
+		/// execute XCM program.
 		///
 		/// Use [`xcm::XCMAdapter`] to enable or `()` to disable.
 		type Xcm: Xcm<Self>;

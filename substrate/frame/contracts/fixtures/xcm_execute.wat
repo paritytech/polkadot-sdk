@@ -17,13 +17,13 @@
 		)
 		;; Input data layout.
 		;; [0..4) - size of the call
-		;; [4..) - xcm message
+		;; [4..) - message
 
 		;; Just use the call passed as input and store result to memory
 		(i32.store (i32.const 0)
 			(call $xcm_execute
-				(i32.const 4)		     ;; Pointer where the xcm msg is stored
-				(i32.load (i32.const 0)) ;; Size of the xcm msg
+				(i32.const 4)		     ;; Pointer where the message is stored
+				(i32.load (i32.const 0)) ;; Size of the message
 			)
 		)
 		(call $seal_return

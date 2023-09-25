@@ -135,7 +135,7 @@ fn test_xcm_execute_filtered_call() {
 	let contract_addr = instantiate_test_contract("xcm_execute");
 
 	ParaA::execute_with(|| {
-		// `remark` transact inside the Xcm message should be rejected, as CallFilter is set to
+		// `remark` transact inside the Xcm should be rejected, as CallFilter is set to
 		// `Nothing`.
 		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![Transact {
@@ -283,7 +283,7 @@ fn test_xcm_take_response() {
 		// Query is not yet answered.
 		assert_eq!(QueryResponseStatus::Pending { timeout: 1u32.into() }, call(query_id));
 
-		// Execute the XCM message that answers the query.
+		// Execute the XCM program that answers the query.
 		let fee = parachain::estimate_message_fee(4);
 		let message = Xcm(vec![
 			WithdrawAsset(vec![(Parent, fee).into()].into()),

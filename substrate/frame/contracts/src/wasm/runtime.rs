@@ -2648,18 +2648,18 @@ pub mod env {
 		ctx.call_dispatchable(call.get_dispatch_info(), |ext| ext.call_runtime(call))
 	}
 
-	/// Execute an XCM message locally, using the contract's address as the origin.
+	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
 	/// the function is called directly instead of being dispatched.
 	///
 	/// # Parameters
 	///
-	/// - `msg_ptr`: the pointer into the linear memory where the XCM message is placed.
-	/// - `msg_len`: the length of the XCM message in bytes.
+	/// - `msg_ptr`: the pointer into the linear memory where the message is placed.
+	/// - `msg_len`: the length of the message in bytes.
 	///
 	/// # Return Value
 	///
-	/// Returns `ReturnCode::Success` when the XCM message was successfully executed. When the XCM
+	/// Returns `ReturnCode::Success` when the XCM was successfully executed. When the XCM
 	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
 	#[unstable]
 	fn xcm_execute(
@@ -2689,7 +2689,7 @@ pub mod env {
 		})
 	}
 
-	/// Send an XCM message from the contract to the specified destination.
+	/// Send an XCM program from the contract to the specified destination.
 	/// This is equivalent to dispatching `pallet_xcm::send` through call_runtime, except that
 	/// the function is called directly instead of being dispatched.
 	///
@@ -2697,12 +2697,12 @@ pub mod env {
 	///
 	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
 	///   is placed.
-	/// - `msg_ptr`: the pointer into the linear memory where the XCM message is placed.
-	/// - `msg_len`: the length of the XCM message in bytes.
+	/// - `msg_ptr`: the pointer into the linear memory where the message is placed.
+	/// - `msg_len`: the length of the message in bytes.
 	///
 	/// # Return Value
 	///
-	/// Returns `ReturnCode::Success` when the XCM message was successfully sent. When the XCM
+	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
 	#[unstable]
 	fn xcm_send(
