@@ -350,7 +350,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
 }
 
 #[test]
-fn test_parse_pallet_task_list_() {
+fn test_parse_task_list_() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(Numbers::<T, I>::iter_keys())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
@@ -362,7 +362,7 @@ fn test_parse_pallet_task_list_() {
 }
 
 #[test]
-fn test_parse_pallet_task_index() {
+fn test_parse_task_index() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(3)])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(0)])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
@@ -381,7 +381,7 @@ fn test_parse_pallet_task_index() {
 }
 
 #[test]
-fn test_parse_pallet_task_condition() {
+fn test_parse_task_condition() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
 	assert_error_matches!(
@@ -395,7 +395,7 @@ fn test_parse_pallet_task_condition() {
 }
 
 #[test]
-fn test_parse_pallet_tasks_attr() {
+fn test_parse_tasks_attr() {
 	parse2::<PalletTasksAttr>(quote!(#[pallet::tasks])).unwrap();
 	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])), "expected `tasks`");
 	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])), "expected `tasks`");
@@ -426,4 +426,29 @@ fn test_parse_tasks_def_basic() {
 		}
 	})
 	.unwrap();
+}
+
+#[test]
+fn test_parse_tasks_def_duplicate_index() {
+	assert_error_matches!(
+		parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				#[pallet::task_list(Something::iter())]
+				#[pallet::task_condition(|i| i % 2 == 0)]
+				#[pallet::task_index(0)]
+				pub fn bar(i: u32) -> DispatchResult {
+					Ok(())
+				}
+
+				#[pallet::task_list(Numbers::<T, I>::iter_keys())]
+				#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
+				#[pallet::task_index(0)]
+				pub fn foo(i: u32) -> DispatchResult {
+					Ok(())
+				}
+			}
+		}),
+		"duplicate task index `0`"
+	);
 }
