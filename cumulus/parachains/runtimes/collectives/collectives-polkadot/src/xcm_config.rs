@@ -30,14 +30,13 @@ use parachains_common::{
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::system_parachain::SystemParachains;
-use sp_runtime::traits::AccountIdConversion;
+use polkadot_runtime_constants::xcm::body::FELLOWSHIP_ADMIN_INDEX;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, IsConcrete,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
@@ -53,7 +52,17 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
-
+	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
+	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
+	pub UsdtAssetHub: LocatableAssetId = LocatableAssetId {
+		location: AssetHub::get(),
+		asset_id: AssetHubUsdtId::get(),
+	};
+	pub DotAssetHub: LocatableAssetId = LocatableAssetId {
+		location: AssetHub::get(),
+		asset_id: DotLocation::get().into(),
+	};
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
