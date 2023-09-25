@@ -15,12 +15,13 @@
 
 use crate as collator_selection;
 use crate::{mock::*, CandidateInfo, Error};
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, OnInitialize},
 };
 use pallet_balances::Error as BalancesError;
-use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage, RuntimeAppPublic};
 
 #[test]
 fn basic_setup_works() {
@@ -121,7 +122,12 @@ fn invulnerable_limit_works() {
 			if ii > 5 {
 				Balances::make_free_balance_be(&ii, 100);
 				let key = MockSessionKeys { aura: UintAuthorityId(ii) };
-				Session::set_keys(RuntimeOrigin::signed(ii).into(), key, Vec::new()).unwrap();
+				Session::set_keys(
+					RuntimeOrigin::signed(ii).into(),
+					key.clone(),
+					key.create_ownership_proof(&ii.encode()).unwrap(),
+				)
+				.unwrap();
 			}
 			assert_eq!(Balances::free_balance(ii), 100);
 			if ii < 21 {

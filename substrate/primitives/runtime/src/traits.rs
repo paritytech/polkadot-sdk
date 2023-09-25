@@ -2033,10 +2033,8 @@ macro_rules! impl_opaque_keys_inner {
 					)*
 				};
 
-				let proof = $crate::codec::Encode::encode(&($(
-					$crate::RuntimeAppPublic::sign(&keys.$field, &owner)
-						.expect("Private key that was generated a moment ago, should exist; qed")
-				),*));
+				let proof = keys.create_ownership_proof(owner)
+					.expect("Private key that was generated a moment ago, should exist; qed");
 
 				let keys = $crate::codec::Encode::encode(&keys);
 
@@ -2077,6 +2075,22 @@ macro_rules! impl_opaque_keys_inner {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())
+			}
+
+			/// Create the ownership proof.
+			///
+			/// - `owner`: Some bytes that will be signed by the private keys associated to the
+			/// public keys in this session key object. These signatures are put into a tuple in
+			/// the same order as the public keys. The SCALE encoded signature tuple corresponds
+			/// to the `proof` returned by this function.
+			///
+			/// Returns the SCALE encoded proof that will proof the ownership of the keys for `user`.
+			/// An error is returned if the signing of `user` failed, e.g. a private key isn't present in the keystore.
+			#[allow(dead_code)]
+			pub fn create_ownership_proof(&self, owner: &[u8]) -> $crate::sp_std::result::Result<Vec<u8>, ()> {
+				Ok($crate::codec::Encode::encode(&($(
+					$crate::RuntimeAppPublic::sign(&self.$field, &owner).ok_or(())?
+				),*)))
 			}
 		}
 
