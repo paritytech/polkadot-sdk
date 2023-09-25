@@ -31,7 +31,7 @@ use sp_arithmetic::Perbill;
 /// use sp_weights::{Weight, WeightMeter};
 ///
 /// // The weight is limited to (10, 0).
-/// let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 0));
+/// let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 0));
 /// // There is enough weight remaining for an operation with (6, 0) weight.
 /// assert!(meter.try_consume(Weight::from_parts(6, 0)).is_ok());
 /// assert_eq!(meter.remaining(), Weight::from_parts(4, 0));
@@ -51,13 +51,13 @@ pub struct WeightMeter {
 
 impl WeightMeter {
 	/// Creates [`Self`] from a limit for the maximal consumable weight.
-	pub fn from_limit(limit: Weight) -> Self {
+	pub fn with_limit(limit: Weight) -> Self {
 		Self { consumed: Weight::zero(), limit }
 	}
 
 	/// Creates [`Self`] with the maximal possible limit for the consumable weight.
-	pub fn max_limit() -> Self {
-		Self::from_limit(Weight::MAX)
+	pub fn new() -> Self {
+		Self::with_limit(Weight::MAX)
 	}
 
 	/// The already consumed weight.
@@ -84,7 +84,7 @@ impl WeightMeter {
 	/// use sp_weights::{Weight, WeightMeter};
 	/// use sp_arithmetic::Perbill;
 	///
-	/// let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 20));
+	/// let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 20));
 	/// // Nothing consumed so far:
 	/// assert_eq!(meter.consumed_ratio(), Perbill::from_percent(0));
 	/// meter.consume(Weight::from_parts(5, 5));
@@ -158,7 +158,7 @@ mod tests {
 
 	#[test]
 	fn weight_meter_remaining_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 20));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 20));
 
 		assert!(meter.check_accrue(Weight::from_parts(5, 0)));
 		assert_eq!(meter.consumed, Weight::from_parts(5, 0));
@@ -175,7 +175,7 @@ mod tests {
 
 	#[test]
 	fn weight_meter_can_accrue_works() {
-		let meter = WeightMeter::from_limit(Weight::from_parts(1, 1));
+		let meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 
 		assert!(meter.can_accrue(Weight::from_parts(0, 0)));
 		assert!(meter.can_accrue(Weight::from_parts(1, 1)));
@@ -186,7 +186,7 @@ mod tests {
 
 	#[test]
 	fn weight_meter_check_accrue_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(2, 2));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(2, 2));
 
 		assert!(meter.check_accrue(Weight::from_parts(0, 0)));
 		assert!(meter.check_accrue(Weight::from_parts(1, 1)));
@@ -199,7 +199,7 @@ mod tests {
 
 	#[test]
 	fn weight_meter_check_and_can_accrue_works() {
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 
 		assert!(meter.can_accrue(Weight::from_parts(u64::MAX, 0)));
 		assert!(meter.check_accrue(Weight::from_parts(u64::MAX, 0)));
@@ -219,7 +219,7 @@ mod tests {
 
 	#[test]
 	fn consumed_ratio_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 20));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 20));
 
 		assert!(meter.check_accrue(Weight::from_parts(5, 0)));
 		assert_eq!(meter.consumed_ratio(), Perbill::from_percent(50));
@@ -239,7 +239,7 @@ mod tests {
 
 	#[test]
 	fn try_consume_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 0));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 0));
 
 		assert!(meter.try_consume(Weight::from_parts(11, 0)).is_err());
 		assert!(meter.consumed().is_zero(), "No modification");
@@ -253,7 +253,7 @@ mod tests {
 
 	#[test]
 	fn can_consume_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 0));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 0));
 
 		assert!(!meter.can_consume(Weight::from_parts(11, 0)));
 		assert!(meter.consumed().is_zero(), "No modification");
@@ -267,7 +267,7 @@ mod tests {
 	#[test]
 	#[cfg(debug_assertions)]
 	fn consume_works() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(5, 10));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(5, 10));
 
 		meter.consume(Weight::from_parts(4, 0));
 		assert_eq!(meter.remaining(), Weight::from_parts(1, 10));
@@ -281,7 +281,7 @@ mod tests {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "Weight counter overflow")]
 	fn consume_defensive_fail() {
-		let mut meter = WeightMeter::from_limit(Weight::from_parts(10, 0));
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(10, 0));
 		let _ = meter.consume(Weight::from_parts(11, 0));
 	}
 }

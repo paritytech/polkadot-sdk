@@ -19,7 +19,7 @@ mod relay_chain;
 
 use codec::DecodeLimit;
 use polkadot_core_primitives::AccountId;
-use polkadot_parachain::primitives::Id as ParaId;
+use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 

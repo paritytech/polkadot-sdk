@@ -282,4 +282,46 @@ impl<T: frame_system::Config> runtime_parachains::hrmp::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(13))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	/// Storage: `Paras::ParaLifecycles` (r:1 w:0)
+	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpOpenChannelRequests` (r:1 w:1)
+	/// Proof: `Hrmp::HrmpOpenChannelRequests` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpChannels` (r:1 w:0)
+	/// Proof: `Hrmp::HrmpChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpEgressChannelsIndex` (r:1 w:0)
+	/// Proof: `Hrmp::HrmpEgressChannelsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpOpenChannelRequestCount` (r:1 w:1)
+	/// Proof: `Hrmp::HrmpOpenChannelRequestCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpOpenChannelRequestsList` (r:1 w:1)
+	/// Proof: `Hrmp::HrmpOpenChannelRequestsList` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueues` (r:2 w:2)
+	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:2 w:2)
+	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpIngressChannelsIndex` (r:1 w:0)
+	/// Proof: `Hrmp::HrmpIngressChannelsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Hrmp::HrmpAcceptedChannelRequestCount` (r:1 w:1)
+	/// Proof: `Hrmp::HrmpAcceptedChannelRequestCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn establish_system_channel() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `417`
+		//  Estimated: `6357`
+		// Minimum execution time: 629_674_000 picoseconds.
+		Weight::from_parts(640_174_000, 0)
+			.saturating_add(Weight::from_parts(0, 6357))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
+	/// Storage: `Hrmp::HrmpChannels` (r:1 w:1)
+	/// Proof: `Hrmp::HrmpChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn poke_channel_deposits() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `263`
+		//  Estimated: `3728`
+		// Minimum execution time: 173_371_000 picoseconds.
+		Weight::from_parts(175_860_000, 0)
+			.saturating_add(Weight::from_parts(0, 3728))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

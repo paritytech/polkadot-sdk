@@ -24,12 +24,11 @@ use polkadot_node_primitives::{CandidateVotes, DisputeStatus, ACTIVE_DURATION_SE
 use polkadot_node_subsystem::messages::{
 	AllMessages, DisputeCoordinatorMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
-use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
+use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 use polkadot_primitives::{
 	CandidateHash, DisputeState, InvalidDisputeStatementKind, SessionIndex,
 	ValidDisputeStatementKind, ValidatorSignature,
 };
-use std::sync::Arc;
 use test_helpers;
 
 //
@@ -353,12 +352,7 @@ async fn mock_overseer(
 }
 
 fn leaf() -> ActivatedLeaf {
-	ActivatedLeaf {
-		hash: Hash::repeat_byte(0xAA),
-		number: 0xAA,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	}
+	new_leaf(Hash::repeat_byte(0xAA), 0xAA)
 }
 
 struct TestDisputes {

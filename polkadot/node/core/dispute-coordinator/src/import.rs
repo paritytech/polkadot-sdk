@@ -34,8 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, DisputeStatement, Hash, IndexedVec, SessionIndex, SessionInfo,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
+	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 
@@ -47,6 +48,8 @@ pub struct CandidateEnvironment<'a> {
 	session_index: SessionIndex,
 	/// Session for above index.
 	session: &'a SessionInfo,
+	/// Executor parameters for the session.
+	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
 }
@@ -63,17 +66,17 @@ impl<'a> CandidateEnvironment<'a> {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Option<CandidateEnvironment<'a>> {
-		let session_info = match runtime_info
+		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) => &extended_session_info.session_info,
+			Ok(extended_session_info) =>
+				(&extended_session_info.session_info, &extended_session_info.executor_params),
 			Err(_) => return None,
 		};
 
-		let controlled_indices =
-			find_controlled_validator_indices(keystore, &session_info.validators);
-		Some(Self { session_index, session: session_info, controlled_indices })
+		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
+		Some(Self { session_index, session, executor_params, controlled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -84,6 +87,11 @@ impl<'a> CandidateEnvironment<'a> {
 	/// `SessionInfo` for the candidate's session.
 	pub fn session_info(&self) -> &SessionInfo {
 		&self.session
+	}
+
+	/// Executor parameters for the candidate's session
+	pub fn executor_params(&self) -> &ExecutorParams {
+		&self.executor_params
 	}
 
 	/// Retrieve `SessionIndex` for this environment.
@@ -533,11 +541,12 @@ impl ImportResult {
 			if votes.valid.insert_vote(
 				index,
 				// There is a hidden dependency here between approval-voting and this subsystem.
-				// We should be able to start emitting ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
+				// We should be able to start emitting
+				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
 				// 1. Runtime have been upgraded to know about the new format.
 				// 2. All nodes have been upgraded to know about the new format.
-				// Once those two requirements have been met we should be able to increase max_approval_coalesce_count to values
-				// greater than 1.
+				// Once those two requirements have been met we should be able to increase
+				// max_approval_coalesce_count to values greater than 1.
 				if candidate_hashes.len() > 1 {
 					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
 				} else {

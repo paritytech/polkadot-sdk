@@ -1,18 +1,17 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::*;
 
@@ -21,7 +20,6 @@ const MAX_MESSAGE_SIZE: u32 = 8192;
 
 /// Opening HRMP channels between Parachains should work
 #[test]
-#[cfg(feature = "FIXME-IGNORED")] // <https://github.com/paritytech/cumulus/issues/3027>
 fn open_hrmp_channel_between_paras_works() {
 	// Parchain A init values
 	let para_a_id = PenpalPolkadotA::para_id();
@@ -110,6 +108,8 @@ fn open_hrmp_channel_between_paras_works() {
 		PenpalPolkadotB::assert_xcm_pallet_sent();
 	});
 
+	PenpalPolkadotB::execute_with(|| {});
+
 	Polkadot::execute_with(|| {
 		type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
 
@@ -159,12 +159,6 @@ fn force_open_hrmp_channel_for_system_para_works() {
 	// Parachain A init values
 	let para_a_id = PenpalPolkadotA::para_id();
 
-	let fund_amount = POLKADOT_ED * 1000_000_000;
-
-	// Fund Parachain's Sovereign accounts to be able to reserve the deposit
-	let system_para_sovereign_account = Polkadot::fund_para_sovereign(fund_amount, system_para_id);
-	let para_a_sovereign_account = Polkadot::fund_para_sovereign(fund_amount, para_a_id);
-
 	Polkadot::execute_with(|| {
 		assert_ok!(<Polkadot as PolkadotPallet>::Hrmp::force_open_hrmp_channel(
 			relay_root_origin,
@@ -179,14 +173,6 @@ fn force_open_hrmp_channel_for_system_para_works() {
 		assert_expected_events!(
 			Polkadot,
 			vec![
-				// Sender deposit is reserved for System Parachain's Sovereign account
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, .. }) =>{
-					who: *who == system_para_sovereign_account,
-				},
-				// Recipient deposit is reserved for Parachain's Sovereign account
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, .. }) =>{
-					who: *who == para_a_sovereign_account,
-				},
 				// HRMP channel forced opened
 				RuntimeEvent::Hrmp(
 					polkadot_runtime_parachains::hrmp::Event::HrmpChannelForceOpened(

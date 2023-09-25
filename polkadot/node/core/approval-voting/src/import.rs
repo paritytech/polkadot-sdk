@@ -603,7 +603,9 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem::messages::{AllMessages, ApprovalVotingMessage};
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
-	use polkadot_primitives::{Id as ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex};
+	use polkadot_primitives::{
+		ExecutorParams, Id as ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
+	};
 	pub(crate) use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
 		AllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -842,6 +844,20 @@ pub(crate) mod tests {
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
 				}
 			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						req_block_hash,
+						RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
+					)
+				) => {
+					assert_eq!(session, idx);
+					assert_eq!(req_block_hash, hash);
+					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
 		});
 
 		futures::executor::block_on(futures::future::join(test_fut, aux_fut));
@@ -957,6 +973,20 @@ pub(crate) mod tests {
 					assert_eq!(session, idx);
 					assert_eq!(req_block_hash, hash);
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						req_block_hash,
+						RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
+					)
+				) => {
+					assert_eq!(session, idx);
+					assert_eq!(req_block_hash, hash);
+					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				}
 			);
 		});
@@ -1179,6 +1209,20 @@ pub(crate) mod tests {
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
 				}
 			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						req_block_hash,
+						RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
+					)
+				) => {
+					assert_eq!(session, idx);
+					assert_eq!(req_block_hash, hash);
+					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
 		});
 
 		futures::executor::block_on(futures::future::join(test_fut, aux_fut));
@@ -1380,6 +1424,20 @@ pub(crate) mod tests {
 					assert_eq!(session, idx);
 					assert_eq!(req_block_hash, hash);
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						req_block_hash,
+						RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
+					)
+				) => {
+					assert_eq!(session, idx);
+					assert_eq!(req_block_hash, hash);
+					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				}
 			);
 
