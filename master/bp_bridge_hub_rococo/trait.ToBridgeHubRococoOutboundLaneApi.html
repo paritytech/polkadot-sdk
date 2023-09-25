@@ -3,20 +3,20 @@
     fn <a href="#method.message_details" class="fn">message_details</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
-        lane: LaneId,
-        begin: MessageNonce,
-        end: MessageNonce
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;OutboundMessageDetails&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
+        lane: <a class="struct" href="../bp_messages/struct.LaneId.html" title="struct bp_messages::LaneId">LaneId</a>,
+        begin: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>,
+        end: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bp_messages/struct.OutboundMessageDetails.html" title="struct bp_messages::OutboundMessageDetails">OutboundMessageDetails</a>&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Outbound message lane API for messages that are sent to this chain.</p>
 <p>This API is implemented by runtimes that are receiving messages from this chain, not by this
 chain’s runtime itself.</p>
 </div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.message_details" class="method"><a class="srclink rightside" href="../src/bp_bridge_hub_rococo/lib.rs.html#78">source</a><h4 class="code-header">fn <a href="#method.message_details" class="fn">message_details</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
-    lane: LaneId,
-    begin: MessageNonce,
-    end: MessageNonce
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;OutboundMessageDetails&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
+    lane: <a class="struct" href="../bp_messages/struct.LaneId.html" title="struct bp_messages::LaneId">LaneId</a>,
+    begin: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>,
+    end: <a class="type" href="../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bp_messages/struct.OutboundMessageDetails.html" title="struct bp_messages::OutboundMessageDetails">OutboundMessageDetails</a>&gt;, <a class="enum" href="../sp_api/enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns dispatch weight, encoded payload size and delivery+dispatch fee of all
 messages in given inclusive range.</p>
 <p>If some (or all) messages are missing from the storage, they’ll also will
 be missing from the resulting vector. The vector is ordered by the nonce.</p>

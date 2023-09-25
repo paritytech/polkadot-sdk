@@ -2150,8 +2150,6 @@
 <a href="#2150" id="2150">2150</a>
 <a href="#2151" id="2151">2151</a>
 <a href="#2152" id="2152">2152</a>
-<a href="#2153" id="2153">2153</a>
-<a href="#2154" id="2154">2154</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2638,8 +2636,7 @@
 		CallExecutor::runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, hash)
 	}
 
-	<span class="doccomment">/// Apply a checked and validated block to an operation. If a justification is provided
-	/// then `finalized` *must* be true.
+	<span class="doccomment">/// Apply a checked and validated block to an operation.
 	</span><span class="kw">fn </span>apply_block(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		operation: <span class="kw-2">&amp;mut </span>ClientImportOperation&lt;Block, B&gt;,
@@ -3920,8 +3917,7 @@
 {
 	<span class="kw">type </span>Error = ConsensusError;
 
-	<span class="doccomment">/// Import a checked and validated block. If a justification is provided in
-	/// `BlockImportParams` then `finalized` *must* be true.
+	<span class="doccomment">/// Import a checked and validated block.
 	///
 	/// NOTE: only use this implementation when there are NO consensus-level BlockImport
 	/// objects. Otherwise, importing blocks directly into the client would be bypassing
