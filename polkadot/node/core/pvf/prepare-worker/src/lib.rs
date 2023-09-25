@@ -307,6 +307,8 @@ async unsafe fn handle_child_process(
 	if libc::close(pipe_write) == -1 {
 		exit(libc::EXIT_FAILURE);
 	}
+
+	exit(libc::EXIT_SUCCESS);
 }
 
 async unsafe fn handle_parent_process(
