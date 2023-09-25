@@ -213,7 +213,6 @@ parameter_types! {
 
 parameter_types! {
 	pub static RewardRemainderUnbalanced: u128 = 0;
-	static MaxStakedRewards: Percent = Percent::from_parts(100);
 }
 
 pub struct RewardRemainderMock;
@@ -346,7 +345,6 @@ pub struct ExtBuilder {
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
 	min_validator_bond: Balance,
-	max_staked_rewards: Percent,
 	balance_factor: Balance,
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
@@ -365,7 +363,6 @@ impl Default for ExtBuilder {
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),
-			max_staked_rewards: Percent::from_parts(100),
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
@@ -446,10 +443,6 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
-		self
-	}
-	pub fn max_staked_rewards(mut self, fraction: u8) -> Self {
-		self.max_staked_rewards = Percent::from_parts(fraction);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -539,7 +532,6 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
-			max_staked_rewards: self.max_staked_rewards,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
@@ -669,10 +661,9 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		MaxStakedRewards::get(),
+		<MaxStakedRewards<Test>>::get().unwrap_or(Percent::from_parts(100)),
 		duration,
 	);
-	assert!(payout > 0);
 	payout
 }
 
@@ -680,7 +671,7 @@ pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		MaxStakedRewards::get(),
+		<MaxStakedRewards<Test>>::get().unwrap_or(Percent::from_parts(100)),
 		duration,
 	);
 	payout + rest

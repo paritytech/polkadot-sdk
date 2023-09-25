@@ -489,7 +489,7 @@ pub mod pallet {
 	/// is used for stake rewards.
 	/// See [Era payout](./index.html#era-payout).
 	#[pallet::storage]
-	pub type MaxStakedRewards<T> = StorageValue<_, Percent, ValueQuery>;
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
@@ -597,7 +597,6 @@ pub mod pallet {
 		pub canceled_payout: BalanceOf<T>,
 		pub stakers:
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
-		pub max_staked_rewards: Percent,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
@@ -613,7 +612,6 @@ pub mod pallet {
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
-			MaxStakedRewards::<T>::put(self.max_staked_rewards);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
 			if let Some(x) = self.max_validator_count {

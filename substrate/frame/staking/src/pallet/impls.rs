@@ -36,7 +36,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
-	Perbill,
+	Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -461,7 +461,8 @@ impl<T: Config> Pallet<T> {
 			let (validator_payout, remainder) = T::EraPayout::era_payout(
 				staked,
 				issuance,
-				MaxStakedRewards::<T>::get(),
+				// default max staked rewards is 100%.
+				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_parts(100)),
 				era_duration,
 			);
 
