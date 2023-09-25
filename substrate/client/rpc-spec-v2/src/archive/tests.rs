@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::chain_head::hex_string;
+use crate::{chain_head::hex_string, MethodResult};
 
 use super::{archive::Archive, *};
 
@@ -232,16 +232,11 @@ async fn archive_call() {
 	assert_matches!(err, Error::Call(CallError::Custom(ref err)) if err.code() == 3001 && err.message().contains("Invalid parameter"));
 
 	// Invalid hash.
-	let err = api
-		.call::<_, serde_json::Value>(
-			"archive_unstable_call",
-			[&invalid_hash, "BabeApi_current_epoch", "0x00"],
-		)
+	let result: MethodResult = api
+		.call("archive_unstable_call", [&invalid_hash, "BabeApi_current_epoch", "0x00"])
 		.await
-		.unwrap_err();
-	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 3002 && err.message().contains("Runtime call")
-	);
+		.unwrap();
+	assert_matches!(result, MethodResult::Err(_));
 
 	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
 	let block_1_hash = block_1.header.hash();
@@ -251,12 +246,13 @@ async fn archive_call() {
 	let alice_id = AccountKeyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
-	let response: String = api
+	let result: MethodResult = api
 		.call(
 			"archive_unstable_call",
 			[&format!("{:?}", block_1_hash), "AccountNonceApi_account_nonce", &call_parameters],
 		)
 		.await
 		.unwrap();
-	assert_eq!(response, "0x0000000000000000");
+	let expected = MethodResult::ok("0x0000000000000000");
+	assert_eq!(result, expected);
 }

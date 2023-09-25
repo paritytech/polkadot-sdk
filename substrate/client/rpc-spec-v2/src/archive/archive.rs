@@ -21,6 +21,7 @@
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
 	chain_head::hex_string,
+	MethodResult,
 };
 
 use codec::Encode;
@@ -171,13 +172,17 @@ where
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<String> {
+	) -> RpcResult<MethodResult> {
 		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
 
-		self.client
-			.executor()
-			.call(hash, &function, &call_parameters, CallContext::Offchain)
-			.map(|result| hex_string(&result))
-			.map_err(|error| ArchiveError::RuntimeCall(error.to_string()).into())
+		let result =
+			self.client
+				.executor()
+				.call(hash, &function, &call_parameters, CallContext::Offchain);
+
+		Ok(match result {
+			Ok(result) => MethodResult::ok(hex_string(&result)),
+			Err(error) => MethodResult::err(error.to_string()),
+		})
 	}
 }

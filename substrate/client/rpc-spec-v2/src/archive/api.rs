@@ -18,6 +18,7 @@
 
 //! API trait of the archive methods.
 
+use crate::MethodResult;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(client, server)]
@@ -86,5 +87,5 @@ pub trait ArchiveApi<Hash> {
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<String>;
+	) -> RpcResult<MethodResult>;
 }
