@@ -32,6 +32,7 @@ polkadot-primitives = { path = "../../../../../polkadot/primitives", default-fea
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../polkadot/runtime/polkadot" }
 polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants" }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common" }
 kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../polkadot/runtime/kusama" }
 kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants" }
 rococo-runtime = { path = "../../../../../polkadot/runtime/rococo" }
@@ -84,6 +85,7 @@ runtime-benchmarks = [
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",

@@ -88,6 +88,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
+	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -103,6 +104,7 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -125,7 +127,7 @@ runtime-benchmarks = [
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"xcm-executor",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

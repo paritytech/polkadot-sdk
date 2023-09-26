@@ -22,14 +22,17 @@ pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conv
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
+polkadot-runtime-common = { path = "../../../../../../polkadot/runtime/common" }
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../../polkadot/runtime/kusama" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
 asset-hub-kusama-runtime = { path = "../../../../runtimes/assets/asset-hub-kusama" }
+asset-test-utils = { path = "../../../../runtimes/assets/test-utils" }
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
@@ -41,12 +44,14 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"integration-tests-common/runtime-benchmarks",
+	"kusama-runtime/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

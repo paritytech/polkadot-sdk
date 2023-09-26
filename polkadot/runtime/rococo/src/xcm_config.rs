@@ -36,8 +36,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedWeightBounds, IsChildSystemParachain, IsConcrete,
+	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, DescribeBodyTerminal,
+	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
 	MintLocation, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
 	WithUniqueTopic, XcmFeesToAccount,
@@ -53,8 +53,14 @@ parameter_types! {
 	pub TreasuryAccount: Option<AccountId> = Some(Treasury::account_id());
 }
 
-pub type LocationConverter =
-	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
+pub type LocationConverter = (
+	// We can convert a child parachain using the standard `AccountId` conversion.
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	// We can directly alias an `AccountId32` into a local account.
+	AccountId32Aliases<ThisNetwork, AccountId>,
+	// Allow governance body to be used as a sovereign account.
+	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
+);
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
 /// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
@@ -81,8 +87,6 @@ type LocalOriginConverter = (
 	ChildParachainAsNative<parachains_origin::Origin, RuntimeOrigin>,
 	// The AccountId32 location type can be expressed natively as a `Signed` origin.
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
-	// A system child parachain, expressed as a Superuser, converts to the `Root` origin.
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
 parameter_types! {

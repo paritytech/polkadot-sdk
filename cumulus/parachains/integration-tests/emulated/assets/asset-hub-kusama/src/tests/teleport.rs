@@ -16,11 +16,23 @@
 #![allow(dead_code)] // <https://github.com/paritytech/cumulus/issues/3027>
 
 use crate::*;
+use kusama_runtime::xcm_config::{
+	PriceForChildParachainDelivery, TreasuryAccount as KusamaTreasuryAccount,
+};
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Kusama as Chain>::RuntimeEvent;
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(631_531_000, 7_186)));
+
+	let delivery_fees_amount =
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			t.args.assets.clone(),
+			0,
+			t.args.weight_limit,
+			t.args.beneficiary,
+			t.args.dest,
+		);
 
 	assert_expected_events!(
 		Kusama,
@@ -34,6 +46,16 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
 				who: *who == <Kusama as KusamaPallet>::XcmPallet::check_account(),
 				amount:  *amount == t.args.amount,
+			},
+			// Delivery fees are withdrawn from Sender
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == delivery_fees_amount,
+			},
+			// Delivery fees are deposited to Treasury account
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+				who: *who == KusamaTreasuryAccount::get().unwrap(),
+				amount: *amount == delivery_fees_amount,
 			},
 		]
 	);
@@ -177,8 +199,18 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
+	let delivery_fees = Kusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }
@@ -280,8 +312,18 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
+	let delivery_fees = Kusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_westend_runtime::PriceForSiblingParachainDelivery;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -306,7 +307,17 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }
@@ -338,7 +349,17 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }

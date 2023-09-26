@@ -43,7 +43,7 @@ The set of labels and their description can be found [here](https://paritytech.g
 2. Please tag each PR with minimum one `T*` label. The respective `T*` labels should signal the
    component that was changed, they are also used by downstream users to track changes and to
    include these changes properly into their own releases.
-3. If your’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
+3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
    the status to “Open”, so that the maintainers get to review your PR. Generally PRs should sit for
    48 hours in order to garner feedback. It may be merged before if all relevant parties had a look at it.
 4. If you’re introducing a major change, that might impact the documentation please add the label
@@ -143,4 +143,18 @@ UI tests are used for macros to ensure that the output of a macro doesn’t chan
 These UI tests are sensible to any changes in the macro generated code or to switching the rust stable version.
 The tests are only run when the `RUN_UI_TESTS` environment variable is set. So, when the CI is for example complaining
 about failing UI tests and it is expected that they fail these tests need to be executed locally.
-To simplify the updating of the UI test ouput there is the `.maintain/update-rust-stable
+To simplify the updating of the UI test output there is a script
+- `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
+- `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
+
+Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
+- `bot update-ui` - will run the tests for the current rust version
+- `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
+- `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -
+will run the tests for the specified rust version and specified image
+
+## Command Bot
+
+If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:
+
+Start with comment in PR: `bot help` to see the list of available commands.

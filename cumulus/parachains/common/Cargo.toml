@@ -66,6 +66,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"parachain-info/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-constants/std",

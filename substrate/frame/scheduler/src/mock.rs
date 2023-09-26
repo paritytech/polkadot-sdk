@@ -100,7 +100,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Logger: logger::{Pallet, Call, Event<T>},
 		Scheduler: scheduler::{Pallet, Call, Storage, Event<T>},
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -155,8 +155,7 @@ impl pallet_preimage::Config for Test {
 	type WeightInfo = ();
 	type Currency = ();
 	type ManagerOrigin = EnsureRoot<u64>;
-	type BaseDeposit = ();
-	type ByteDeposit = ();
+	type Consideration = ();
 }
 
 pub struct TestWeightInfo;
