@@ -33,9 +33,6 @@ use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll};
 use tokio_stream::StreamMap;
 
-/// Log target for this file.
-const LOG_TARGET: &str = "sync";
-
 /// Response result.
 type ResponseResult = Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
 
@@ -68,12 +65,12 @@ impl<B: BlockT> PendingResponses<B> {
 	) {
 		let request_type = request.get_type();
 
-		if let Some(_) = self.pending_responses.insert(
+		if self.pending_responses.insert(
 			peer_id,
 			Box::pin(async move { (request, response_future.await) }.into_stream()),
-		) {
+		).is_some() {
 			error!(
-				target: LOG_TARGET,
+				target: crate::LOG_TARGET,
 				"Discarded pending response from peer {peer_id}, {request_type:?}.",
 			);
 			debug_assert!(false);
