@@ -136,9 +136,10 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Box::new(state.clock),
 		Box::new(NoSyncOracle),
 		Metrics::default(),
+		None,
 	);
 
-	let subsystem = run(subsystem, context);
+	let subsystem = run(subsystem, context, None);
 
 	let test_fut = test(virtual_overseer);
 

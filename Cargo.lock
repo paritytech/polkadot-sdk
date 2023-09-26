@@ -11806,6 +11806,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "sc-telemetry",
  "sp-consensus",
  "sp-core",
  "sp-keyring",

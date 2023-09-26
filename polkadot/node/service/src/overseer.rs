@@ -263,6 +263,7 @@ where
 			availability_config,
 			Box::new(sync_service.clone()),
 			Metrics::register(registry)?,
+			telemetry.clone(),
 		))
 		.bitfield_distribution(BitfieldDistributionSubsystem::new(Metrics::register(registry)?))
 		.bitfield_signing(BitfieldSigningSubsystem::new(
@@ -272,7 +273,7 @@ where
 		.candidate_backing(CandidateBackingSubsystem::new(
 			keystore.clone(),
 			Metrics::register(registry)?,
-			telemetry,
+			telemetry.clone(),
 		))
 		.candidate_validation(CandidateValidationSubsystem::with_config(
 			candidate_validation_config,

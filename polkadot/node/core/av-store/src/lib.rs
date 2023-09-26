@@ -36,6 +36,7 @@ use futures::{
 use futures_timer::Delay;
 use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
+use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sp_consensus::SyncOracle;
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
@@ -464,6 +465,7 @@ pub struct AvailabilityStoreSubsystem {
 	metrics: Metrics,
 	clock: Box<dyn Clock>,
 	sync_oracle: Box<dyn SyncOracle + Send + Sync>,
+	telemetry: Option<TelemetryHandle>,
 }
 
 impl AvailabilityStoreSubsystem {
@@ -473,6 +475,7 @@ impl AvailabilityStoreSubsystem {
 		config: Config,
 		sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 		metrics: Metrics,
+		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self::with_pruning_config_and_clock(
 			db,
@@ -481,6 +484,7 @@ impl AvailabilityStoreSubsystem {
 			Box::new(SystemClock),
 			sync_oracle,
 			metrics,
+			telemetry,
 		)
 	}
 
@@ -492,6 +496,7 @@ impl AvailabilityStoreSubsystem {
 		clock: Box<dyn Clock>,
 		sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 		metrics: Metrics,
+		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self {
 			pruning_config,
@@ -502,6 +507,7 @@ impl AvailabilityStoreSubsystem {
 			known_blocks: KnownUnfinalizedBlocks::default(),
 			sync_oracle,
 			finalized_number: None,
+			telemetry,
 		}
 	}
 }
@@ -542,14 +548,19 @@ impl KnownUnfinalizedBlocks {
 #[overseer::subsystem(AvailabilityStore, error=SubsystemError, prefix=self::overseer)]
 impl<Context> AvailabilityStoreSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
-		let future = run::<Context>(self, ctx).map(|_| Ok(())).boxed();
+		let telemetry = self.telemetry.clone();
+		let future = run::<Context>(self, ctx, telemetry).map(|_| Ok(())).boxed();
 
 		SpawnedSubsystem { name: "availability-store-subsystem", future }
 	}
 }
 
 #[overseer::contextbounds(AvailabilityStore, prefix = self::overseer)]
-async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Context) {
+async fn run<Context>(
+	mut subsystem: AvailabilityStoreSubsystem,
+	mut ctx: Context,
+	telemetry: Option<TelemetryHandle>,
+) {
 	let mut next_pruning = Delay::new(subsystem.pruning_config.pruning_interval).fuse();
 	// Pruning interval is in the order of minutes so we shouldn't have more than one task running
 	// at one moment in time, so 10 should be more than enough.
@@ -560,6 +571,7 @@ async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Contex
 			&mut subsystem,
 			&mut next_pruning,
 			(&mut pruning_result_tx, &mut pruning_result_rx),
+			telemetry.as_ref(),
 		)
 		.await;
 		match res {
@@ -587,6 +599,7 @@ async fn run_iteration<Context>(
 		&mut MpscSender<Result<(), Error>>,
 		&mut MpscReceiver<Result<(), Error>>,
 	),
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<bool, Error> {
 	select! {
 		incoming = ctx.recv().fuse() => {
@@ -597,7 +610,7 @@ async fn run_iteration<Context>(
 				) => {
 					for activated in activated.into_iter() {
 						let _timer = subsystem.metrics.time_block_activated();
-						process_block_activated(ctx, subsystem, activated.hash).await?;
+						process_block_activated(ctx, subsystem, activated.hash, telemetry).await?;
 					}
 				}
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, number)) => {
@@ -612,8 +625,7 @@ async fn run_iteration<Context>(
 						if !subsystem.sync_oracle.is_major_syncing() {
 							// If we're major syncing, processing finalized
 							// blocks might take quite a very long time
-							// and make the subsystem unresponsive.
-							process_block_activated(ctx, subsystem, hash).await?;
+							process_block_activated(ctx, subsystem, hash, telemetry).await?;
 						}
 					}
 					subsystem.finalized_number = Some(number);
@@ -685,6 +697,7 @@ async fn process_block_activated<Context>(
 	ctx: &mut Context,
 	subsystem: &mut AvailabilityStoreSubsystem,
 	activated: Hash,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	let now = subsystem.clock.now()?;
 
@@ -723,6 +736,7 @@ async fn process_block_activated<Context>(
 			now,
 			hash,
 			header,
+			telemetry,
 		)
 		.await?;
 		subsystem.known_blocks.insert(hash, block_number);
@@ -742,6 +756,7 @@ async fn process_new_head<Context>(
 	now: Duration,
 	hash: Hash,
 	header: Header,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	let candidate_events = util::request_candidate_events(hash, ctx.sender()).await.await??;
 
@@ -771,6 +786,7 @@ async fn process_new_head<Context>(
 					pruning_config,
 					(header.number, hash),
 					receipt,
+					telemetry,
 				)?;
 			},
 			_ => {},
@@ -816,6 +832,7 @@ fn note_block_included(
 	pruning_config: &PruningConfig,
 	block: (BlockNumber, Hash),
 	candidate: CandidateReceipt,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	let candidate_hash = candidate.hash();
 
@@ -833,6 +850,14 @@ fn note_block_included(
 			let be_block = (BEBlockNumber(block.0), block.1);
 
 			gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate included");
+			telemetry!(
+				telemetry;
+				CONSENSUS_INFO;
+				"parachains.candidate_included";
+				"candidate_hash" => ?candidate_hash,
+				"relay_parent" => ?candidate.descriptor.relay_parent,
+				"para_id" => ?candidate.descriptor.para_id,
+			);
 
 			meta.state = match meta.state {
 				State::Unavailable(at) => {
