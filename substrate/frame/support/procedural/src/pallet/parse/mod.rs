@@ -39,6 +39,7 @@ pub mod validate_unsigned;
 
 use composite::{keyword::CompositeKeyword, CompositeDef};
 use frame_support_procedural_tools::generate_crate_access_2018;
+use quote::ToTokens;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -51,7 +52,7 @@ pub struct Def {
 	pub hooks: Option<hooks::HooksDef>,
 	pub call: Option<call::CallDef>,
 	pub tasks: Option<tasks::TasksDef>,
-	pub task_enum: Option<syn::ItemEnum>,
+	pub task_enum: Option<tasks::TaskEnumDef>,
 	pub storages: Vec<storage::StorageDef>,
 	pub error: Option<error::ErrorDef>,
 	pub event: Option<event::EventDef>,
@@ -101,20 +102,13 @@ impl Def {
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
 
+		let mut item_tokens: Option<proc_macro2::TokenStream> = None;
+
 		for (index, item) in items.iter_mut().enumerate() {
-			// find manually specified `Task` enum, if present
-			if let syn::Item::Enum(item_enum) = item {
-				if let Some(_) = item_enum.attrs.iter().find(|attr| {
-					let segs = attr.path().segments.iter().collect::<Vec<_>>();
-					let (Some(seg1), Some(seg2), None) = (segs.get(0), segs.get(1), segs.get(2))
-					else {
-						return false
-					};
-					seg1.ident == "pallet" && seg2.ident == "task"
-				}) {
-					task_enum = Some(item_enum.clone());
-				}
-			}
+			// provides lazy access to the item's underlying `TokenStream2`
+			let mut get_tokens = |item: &syn::Item| {
+				item_tokens.get_or_insert_with(|| item.clone().to_token_stream()).clone()
+			};
 
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
@@ -137,8 +131,10 @@ impl Def {
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(span)) if tasks.is_none() =>
-					tasks = Some(tasks::TasksDef::try_from(span, index, item)?),
+				Some(PalletAttr::Tasks(_)) if tasks.is_none() =>
+					tasks = Some(syn::parse2::<tasks::TasksDef>(get_tokens(item))?),
+				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
+					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(get_tokens(item))?),
 				Some(PalletAttr::Error(span)) if error.is_none() =>
 					error = Some(error::ErrorDef::try_from(span, index, item)?),
 				Some(PalletAttr::RuntimeEvent(span)) if event.is_none() =>
@@ -441,6 +437,7 @@ mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(call);
 	syn::custom_keyword!(tasks);
+	syn::custom_keyword!(task);
 	syn::custom_keyword!(weight);
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
@@ -504,8 +501,9 @@ enum PalletAttr {
 	/// to zero. Now when there is a `weight` attribute on the `#[pallet::call]`, then that is used
 	/// instead of the zero weight. So to say: it works together with `dev_mode`.
 	RuntimeCall(Option<InheritedCallWeightAttr>, proc_macro2::Span),
-	Tasks(proc_macro2::Span),
 	Error(proc_macro2::Span),
+	Tasks(proc_macro2::Span),
+	RuntimeTask(proc_macro2::Span),
 	RuntimeEvent(proc_macro2::Span),
 	RuntimeOrigin(proc_macro2::Span),
 	Inherent(proc_macro2::Span),
@@ -524,9 +522,10 @@ impl PalletAttr {
 			Self::Config(span, _) => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
-			Self::RuntimeCall(_, span) => *span,
 			Self::Tasks(span) => *span,
 			Self::Error(span) => *span,
+			Self::RuntimeTask(span) => *span,
+			Self::RuntimeCall(_, span) => *span,
 			Self::RuntimeEvent(span) => *span,
 			Self::RuntimeOrigin(span) => *span,
 			Self::Inherent(span) => *span,
@@ -572,6 +571,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::RuntimeCall(attr, span))
 		} else if lookahead.peek(keyword::tasks) {
 			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks>()?.span()))
+		} else if lookahead.peek(keyword::task) {
+			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task>()?.span()))
 		} else if lookahead.peek(keyword::error) {
 			Ok(PalletAttr::Error(content.parse::<keyword::error>()?.span()))
 		} else if lookahead.peek(keyword::event) {

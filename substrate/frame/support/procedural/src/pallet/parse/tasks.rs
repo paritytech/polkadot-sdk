@@ -25,7 +25,7 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemImpl, LitInt, Result, Token,
+	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemEnum, ItemImpl, LitInt, Result, Token,
 };
 
 #[cfg(test)]
@@ -51,6 +51,7 @@ pub mod keywords {
 	use syn::custom_keyword;
 
 	custom_keyword!(tasks);
+	custom_keyword!(task);
 	custom_keyword!(task_list);
 	custom_keyword!(task_condition);
 	custom_keyword!(task_index);
@@ -106,17 +107,18 @@ impl syn::parse::Parse for TasksDef {
 	}
 }
 
-impl TasksDef {
-	pub fn try_from(_span: Span, _index: usize, _item: &mut Item) -> Result<Self> {
-		todo!()
-	}
-}
-
 pub type PalletTasksAttr = PalletTaskAttr<keywords::tasks>;
 pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
 pub type TaskIndexAttr = PalletTaskAttr<TaskIndexAttrMeta>;
 pub type TaskConditionAttr = PalletTaskAttr<TaskConditionAttrMeta>;
 pub type TaskListAttr = PalletTaskAttr<TaskListAttrMeta>;
+pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task>;
+
+#[derive(Parse, Clone, Debug)]
+pub struct TaskEnumDef {
+	attr: PalletTaskEnumAttr,
+	item_enum: ItemEnum,
+}
 
 #[derive(Debug, Clone)]
 pub struct TaskDef {
