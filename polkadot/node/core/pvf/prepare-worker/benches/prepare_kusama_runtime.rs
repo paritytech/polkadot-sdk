@@ -15,8 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
-use polkadot_node_core_pvf_common::{prepare::PrepareJobKind, pvf::PvfPrepData};
-use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::{
+	executor_intf::{prepare, prevalidate},
+	prepare::PrepareJobKind,
+	pvf::PvfPrepData,
+};
 use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
