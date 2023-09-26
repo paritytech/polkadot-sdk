@@ -47,7 +47,7 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	// we use U128 account id in this pallet for a good reason.
+	// we use U128 account id in order to get a better iteration order out of a map.
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }

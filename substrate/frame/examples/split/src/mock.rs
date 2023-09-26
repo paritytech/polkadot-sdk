@@ -17,7 +17,6 @@
 
 use crate as pallet_template;
 use frame_support::{derive_impl, sp_runtime::BuildStorage};
-use sp_core::ConstU64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
