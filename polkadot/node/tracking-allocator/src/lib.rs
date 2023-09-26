@@ -65,17 +65,21 @@ impl TrackingAllocatorData {
 		self.current = 0;
 		self.peak = 0;
 		self.limit = limit;
-		let _old_handler = self.failure_handler.take();
+		// Cannot drop it yet, as it would trigger a deallocation
+		let old_handler = self.failure_handler.take();
 		self.failure_handler = failure_handler;
 		self.unlock();
+		core::mem::drop(old_handler);
 	}
 
 	fn end_tracking(&mut self) -> isize {
 		self.lock();
 		let peak = self.peak;
 		self.limit = 0;
-		let _old_handler = self.failure_handler.take();
+		// Cannot drop it yet, as it would trigger a deallocation
+		let old_handler = self.failure_handler.take();
 		self.unlock();
+		core::mem::drop(old_handler);
 		peak
 	}
 

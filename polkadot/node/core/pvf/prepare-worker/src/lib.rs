@@ -47,7 +47,7 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	os::fd::AsRawFd,
+	os::fd::{AsRawFd, RawFd},
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
@@ -100,6 +100,44 @@ async fn recv_request(stream: &mut UnixStream) -> io::Result<(PvfPrepData, PathB
 
 async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
 	framed_send(stream, &result.encode()).await
+}
+
+fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
+	unsafe {
+		// SAFETY: Inside the failure handler, the allocator is locked and no allocations or
+		// deallocations are possible. For Linux, that always holds for the code below, so it's
+		// safe. For MacOS, that technically holds at the time of writing, but there are no future
+		// guarantees.
+		// The arguments of unsafe `libc` calls are valid, the payload validity is covered with
+		// a test.
+		ALLOC.start_tracking(
+			limit,
+			Some(Box::new(move || {
+				#[cfg(target_os = "linux")]
+				{
+					// Syscalls never allocate or deallocate, so this is safe.
+					libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
+					libc::syscall(libc::SYS_close, fd);
+					libc::syscall(libc::SYS_exit, 1);
+				}
+				#[cfg(not(target_os = "linux"))]
+				{
+					// Syscalls are not available on MacOS, so we have to use `libc` wrappers.
+					// Technicaly, there may be allocations inside, although they shouldn't be
+					// there. In that case, we'll see deadlocks on MacOS after the OOM condition
+					// triggered. As we consider running a validator on MacOS unsafe, and this
+					// code is only run by a validator, it's a lesser evil.
+					libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
+					libc::close(fd);
+					std::process::exit(1);
+				}
+			})),
+		);
+	}
+}
+
+fn end_memory_tracking() -> isize {
+	ALLOC.end_tracking()
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
@@ -180,47 +218,20 @@ pub fn worker_entrypoint(
 					WaitOutcome::TimedOut,
 				)?;
 
-				let fd = stream.as_raw_fd();
-				unsafe {
-					// SAFETY: Inside the failure handler, the allocator is locked and no
-					// allocations or deallocations are possible. For Linux, that always holds for
-					// the code below, so it's safe. For MacOS, that technically holds at the time
-					// of writing, but there's no future guarantees.
-					// The arguments of unsafe `libc` calls are valid, the payload validity is
-					// covered with a test.
-					ALLOC.start_tracking(
-						executor_params.prechecking_max_memory().map(|v| {
-							v.try_into().unwrap_or_else(|_| {
-								gum::warn!(
-									LOG_TARGET,
-									%worker_pid,
-									"Illegal pre-checking max memory value {} discarded",
-									v,
-								);
-								0
-							})
-						}),
-						Some(Box::new(move || {
-							#[cfg(target_os = "linux")]
-							{
-								libc::syscall(
-									libc::SYS_write,
-									fd,
-									OOM_PAYLOAD.as_ptr(),
-									OOM_PAYLOAD.len(),
-								);
-								libc::syscall(libc::SYS_close, fd);
-								libc::syscall(libc::SYS_exit, 1);
-							}
-							#[cfg(not(target_os = "linux"))]
-							{
-								libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
-								libc::close(fd);
-								std::process::exit(1);
-							}
-						})),
-					);
-				}
+				start_memory_tracking(
+					stream.as_raw_fd(),
+					executor_params.prechecking_max_memory().map(|v| {
+						v.try_into().unwrap_or_else(|_| {
+							gum::warn!(
+								LOG_TARGET,
+								%worker_pid,
+								"Illegal pre-checking max memory value {} discarded",
+								v,
+							);
+							0
+						})
+					}),
+				);
 
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
@@ -263,7 +274,7 @@ pub fn worker_entrypoint(
 				let outcome = thread::wait_for_threads(condvar);
 
 				let peak_alloc = {
-					let peak = ALLOC.end_tracking();
+					let peak = end_memory_tracking();
 					gum::debug!(
 						target: LOG_TARGET,
 						%worker_pid,
