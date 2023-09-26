@@ -116,11 +116,18 @@ impl fmt::Display for BadPeer {
 
 impl std::error::Error for BadPeer {}
 
+/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportBlocksAction<B: BlockT> {
+	pub origin: BlockOrigin,
+	pub blocks: Vec<IncomingBlock<B>>,
+}
+
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
-	Import(BlockOrigin, Vec<IncomingBlock<Block>>),
+	Import(ImportBlocksAction<Block>),
 	/// A new block request needs to be made to the given peer.
 	Request(PeerId, BlockRequest<Block>),
 	/// Continue processing events.
@@ -134,7 +141,7 @@ pub enum OnBlockJustification<Block: BlockT> {
 	Nothing,
 	/// The justification should be imported.
 	Import {
-		peer: PeerId,
+		peer_id: PeerId,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justifications: Justifications,
@@ -379,7 +386,8 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
 	/// import, so this functions checks for such blocks and returns them.
-	fn peer_disconnected(&mut self, who: &PeerId);
+	#[must_use]
+	fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
