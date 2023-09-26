@@ -275,7 +275,7 @@ mod pallet {
 				StakingMock::set_score_of(&11u64, 17);
 
 				// when
-				assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11, 10));
+				assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11u64, 10));
 
 				// then
 				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![11, 10, 12])]);
