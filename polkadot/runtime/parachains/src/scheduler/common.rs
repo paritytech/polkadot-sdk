@@ -16,6 +16,11 @@
 
 //! Common traits and types used by the scheduler and assignment providers.
 
+use core::fmt::Debug;
+
+use scale_info::TypeInfo;
+use sp_runtime::codec::{Decode, Encode};
+
 use primitives::{CoreIndex, Id as ParaId};
 
 // Only used to link to configuration documentation.
@@ -28,7 +33,7 @@ use crate::configuration::HostConfiguration;
 /// in order to keep properly keep track of assignments over their lifetime.
 pub trait Assignment {
 	/// Para id this assignment refers to.
-	fn para_id(&self) -> &ParaId;
+	fn para_id(&self) -> ParaId;
 }
 
 /// Old/legacy assignment representation (v0).
@@ -40,8 +45,8 @@ pub struct V0Assignment {
 }
 
 impl Assignment for V0Assignment {
-	fn para_id(&self) -> &ParaId {
-		&self.para_id
+	fn para_id(&self) -> ParaId {
+		self.para_id
 	}
 }
 
@@ -75,12 +80,12 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// As the lifetime of an assignment might outlive the current process (and need persistence),
 	/// we provide this type in a versioned fashion. This is where `OldAssignmentType` below and
 	/// `ASSIGNMENT_STORAGE_VERSION` come into play.
-	type AssignmentType: Assignment;
+	type AssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
 
 	/// Previous version of assignments.
 	///
 	/// Useful for migrating persisted assignments to the new version.
-	type OldAssignmentType: Assignment;
+	type OldAssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
 
 	/// What version the binary format of the `AssignmentType` has.
 	///

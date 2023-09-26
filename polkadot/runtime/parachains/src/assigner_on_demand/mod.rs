@@ -116,8 +116,25 @@ struct OnDemandAssignment {
 }
 
 impl Assignment for OnDemandAssignment {
-	fn para_id(&self) -> &ParaId {
-		&self.para_id
+	fn para_id(&self) -> ParaId {
+		self.para_id
+	}
+}
+
+/// Internal representation of an order after it has been enqueued already.
+struct EnqueuedOrder {
+	pub para_id: ParaId,
+}
+
+impl EnqueuedOrder {
+	pub fn new(para_id: ParaId) -> Self {
+		Self { para_id }
+	}
+}
+
+impl From<OnDemandAssignment> for EnqueuedOrder {
+	fn from(assignment: OnDemandAssignment) -> Self {
+		Self::new(assignment.para_id)
 	}
 }
 
@@ -154,7 +171,7 @@ pub mod pallet {
 
 	/// Creates an empty on demand queue if one isn't present in storage already.
 	#[pallet::type_value]
-	pub fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<Assignment> {
+	pub fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
 		VecDeque::new()
 	}
 
@@ -168,7 +185,7 @@ pub mod pallet {
 	/// queue from the scheduler on session boundaries.
 	#[pallet::storage]
 	pub type OnDemandQueue<T: Config> =
-		StorageValue<_, VecDeque<Assignment>, ValueQuery, OnDemandQueueOnEmpty<T>>;
+		StorageValue<_, VecDeque<EnqueuedOrder>, ValueQuery, OnDemandQueueOnEmpty<T>>;
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
 	/// it's lookahead. Keeping track of this affinity prevents parallel execution of the same
@@ -353,9 +370,9 @@ where
 		// Charge the sending account the spot price
 		T::Currency::withdraw(&sender, spot_price, WithdrawReasons::FEE, existence_requirement)?;
 
-		let assignment = Assignment::new(para_id);
+		let order = EnqueuedOrder::new(para_id);
 
-		let res = Pallet::<T>::add_on_demand_assignment(assignment, QueuePushDirection::Back);
+		let res = Pallet::<T>::add_on_demand_order(order, QueuePushDirection::Back);
 
 		match res {
 			Ok(_) => {
@@ -437,7 +454,7 @@ where
 		}
 	}
 
-	/// Adds an assignment to the on demand queue.
+	/// Adds an order to the on demand queue.
 	///
 	/// Paramenters:
 	/// - `assignment`: The on demand assignment to add to the queue.
@@ -450,12 +467,12 @@ where
 	/// Errors:
 	/// - `InvalidParaId`
 	/// - `QueueFull`
-	pub fn add_on_demand_assignment(
-		assignment: Assignment,
+	fn add_on_demand_order(
+		order: EnqueuedOrder,
 		location: QueuePushDirection,
 	) -> Result<(), DispatchError> {
 		// Only parathreads are valid paraids for on the go parachains.
-		ensure!(<paras::Pallet<T>>::is_parathread(assignment.para_id), Error::<T>::InvalidParaId);
+		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id()), Error::<T>::InvalidParaId);
 
 		let config = <configuration::Pallet<T>>::config();
 
@@ -463,8 +480,8 @@ where
 			// Abort transaction if queue is too large
 			ensure!(Self::queue_size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
 			match location {
-				QueuePushDirection::Back => queue.push_back(assignment),
-				QueuePushDirection::Front => queue.push_front(assignment),
+				QueuePushDirection::Back => queue.push_back(order),
+				QueuePushDirection::Front => queue.push_front(order),
 			};
 			Ok(())
 		})
@@ -489,7 +506,7 @@ where
 	}
 
 	/// Getter for the order queue.
-	pub fn get_queue() -> VecDeque<Assignment> {
+	pub fn get_queue() -> VecDeque<EnqueuedOrder> {
 		OnDemandQueue::<T>::get()
 	}
 
@@ -542,7 +559,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	type OldAssignmentType = V0Assignment;
 
-	const ASSIGNMENT_STORAGE_VERSION: crate::scheduler::common::AssignmentVersion = 1;
+	const ASSIGNMENT_STORAGE_VERSION: crate::scheduler::common::AssignmentVersion = 7;
+
+	fn migrate_old_to_current(
+		old: Self::OldAssignmentType,
+		core: CoreIndex,
+	) -> Self::AssignmentType {
+		OnDemandAssignment { para_id: old.para_id, core_index: core }
+	}
 
 	fn session_core_count() -> u32 {
 		let config = <configuration::Pallet<T>>::config();
@@ -559,15 +583,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// - `previous_paraid`: Which paraid was previously processed on the requested core. Is None if
 	///   nothing was processed on the core.
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-		// Only decrease the affinity of the previous para if it exists.
-		// A nonexistant `ParaId` indicates that the scheduler has not processed any
-		// `ParaId` this session.
-		// TODO: This will not work if cores assigned to us will change over time!
-		if let Some(previous_para_id) = previous_para {
-			Pallet::<T>::decrease_affinity(previous_para_id, core_idx)
-		}
-
-		let mut queue: VecDeque<Assignment> = OnDemandQueue::<T>::get();
+		let mut queue: VecDeque<EnqueuedOrder> = OnDemandQueue::<T>::get();
 
 		let mut invalidated_para_id_indexes: Vec<usize> = vec![];
 
@@ -607,15 +623,19 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		popped
 	}
 
-	/// Push an assignment back to the queue.
-	/// Typically used on session boundaries.
+	fn report_processed(assignment: Self::AssignmentType) {
+		Pallet::<T>::decrease_affinity(assignment.para_id, assignment.core_index)
+	}
+
+	/// Push an assignment back to the front of the queue.
+	///
+	/// The assignment has not been processed yet. Typically used on session boundaries.
 	/// Parameters:
-	/// - `core_idx`: The core index
 	/// - `assignment`: The on demand assignment.
-	fn push_back_assignment(core_idx: CoreIndex, assignment: Self::AssignmentType) {
-		Pallet::<T>::decrease_affinity(assignment.para_id, core_idx);
+	fn push_back_assignment(assignment: Self::AssignmentType) {
+		Pallet::<T>::decrease_affinity(assignment.para_id, assignment.core_index);
 		// Skip the queue on push backs from scheduler
-		match Pallet::<T>::add_on_demand_assignment(assignment, QueuePushDirection::Front) {
+		match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front) {
 			Ok(_) => {},
 			Err(_) => {},
 		}

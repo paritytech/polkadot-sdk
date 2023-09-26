@@ -19,7 +19,9 @@
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
+	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
@@ -37,24 +39,42 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 }
 
+pub struct ParachainsAssignment {
+	pub para_id: ParaId,
+}
+
+impl ParachainsAssignment {
+	fn new(para_id: ParaId) {
+		ParachainsAssignment { para_id }
+	}
+}
+
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	type AssignmentType = ParachainsAssignment;
+	type OldAssignmentType = ParachainsAssignment;
+	// Format has not changed for parachains, therefore still version 0.
+	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
+
+	fn migrate_old_to_current(old: Self::OldAssignmentType, _: CoreIndex) -> Self::AssignmentType {
+		old
+	}
+
 	fn session_core_count() -> u32 {
 		<paras::Pallet<T>>::parachains().len() as u32
 	}
 
-	fn pop_assignment_for_core(
-		core_idx: CoreIndex,
-		_concluded_para: Option<ParaId>,
-	) -> Option<Assignment> {
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		<paras::Pallet<T>>::parachains()
 			.get(core_idx.0 as usize)
 			.copied()
-			.map(|para_id| Assignment::new(para_id))
+			.map(|para_id| ParachainsAssignment::new(para_id))
 	}
+
+	fn report_processed(assignment: Self::AssignmentType) {}
 
 	/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.
-	fn push_assignment_for_core(_: CoreIndex, _: Assignment) {}
+	fn push_back_assignment(_: Self::AssignmentType) {}
 
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		AssignmentProviderConfig {

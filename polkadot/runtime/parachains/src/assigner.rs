@@ -57,7 +57,7 @@ type ParachainAssigner<T> = <T as Config>::ParachainsAssignmentProvider;
 type OnDemandAssigner<T> = <T as Config>::OnDemandAssignmentProvider;
 
 /// Assignments as of this top-level assignment provider.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
+#[derive(Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
 enum GenericAssignment<T: Config> {
 	/// Assignment came from on-demand assignment provider.
 	OnDemand(<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType),
