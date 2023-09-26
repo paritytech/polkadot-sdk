@@ -1053,10 +1053,6 @@ impl<T: Config> BondedPool<T> {
 		self.is_root(who)
 	}
 
-	fn is_depositor(&self, who: &T::AccountId) -> bool {
-		&self.roles.depositor == who
-	}
-
 	fn is_destroying(&self) -> bool {
 		matches!(self.state, PoolState::Destroying)
 	}
@@ -2681,8 +2677,8 @@ pub mod pallet {
 		/// When a pool is created, the pool depositor transfers ED to the reward account of the
 		/// pool. ED is subject to change and over time, the deposit in the reward account may be
 		/// insufficient to cover the ED deficit of the pool or vice-versa where there is excess
-		/// deposit to the pool. This call allows the pool operator to adjust the ED deposit of the
-		/// pool.
+		/// deposit to the pool. This call allows anyone to adjust the ED deposit of the
+		/// pool by either topping up the deficit or claiming the excess.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
 		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
@@ -3112,9 +3108,6 @@ impl<T: Config> Pallet<T> {
 
 	fn do_adjust_pool_deposit(who: T::AccountId, pool: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
-		// only depositor can adjust ED deposit.
-		ensure!(bonded_pool.is_depositor(&who), Error::<T>::DoesNotHavePermission);
-
 		let reward_acc = &bonded_pool.reward_account();
 		let pre_frozen_balance =
 			T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), reward_acc);

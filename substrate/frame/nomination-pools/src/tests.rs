@@ -405,21 +405,15 @@ mod reward_pool {
 			// clear events
 			pool_events_since_last_call();
 
-			// Then:
-			// Only depositor (10) can adjust ED deposit. Others do not have permission.
-			assert_ok!(Currency::mint_into(&99, 100));
-			assert_err!(
-				Pools::adjust_pool_deposit(RuntimeOrigin::signed(99), 1),
-				Error::<T>::DoesNotHavePermission
-			);
+			// Then: Anyone can permissionlessly can adjust ED deposit.
 
-			// make sure depositor has enough funds..
-			assert_ok!(Currency::mint_into(&10, 100));
-			let pre_dep_balance = Currency::free_balance(&10);
+			// make sure caller has enough funds..
+			assert_ok!(Currency::mint_into(&99, 100));
+			let pre_balance = Currency::free_balance(&99);
 			// adjust ED
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(99), 1));
 			// depositor's balance should decrease by 45
-			assert_eq!(Currency::free_balance(&10), pre_dep_balance - 45);
+			assert_eq!(Currency::free_balance(&99), pre_balance - 45);
 			assert_eq!(reward_imbalance(1), Surplus(0));
 
 			assert_eq!(
@@ -437,10 +431,11 @@ mod reward_pool {
 			ExistentialDeposit::set(5);
 
 			// And:: adjust ED deposit is called
-			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
+			let pre_balance = Currency::free_balance(&100);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(100), 1));
 
-			// Then: excess ED is transferred back to depositor
-			assert_eq!(Currency::free_balance(&10), pre_dep_balance);
+			// Then: excess ED is claimed by the caller
+			assert_eq!(Currency::free_balance(&100), pre_balance + 45);
 
 			assert_eq!(
 				pool_events_since_last_call(),
