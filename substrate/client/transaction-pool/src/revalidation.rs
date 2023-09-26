@@ -69,6 +69,21 @@ async fn batch_revalidate<Api: ChainApi>(
 	at: BlockHash<Api>,
 	batch: impl IntoIterator<Item = ExtrinsicHash<Api>>,
 ) {
+	// This conversion should work. Otherwise, for unknown block the revalidatiopn shall be skipped,
+	// all the transactions will be kept in the validated pool, and can be scheduled for
+	// revalidation with the next request.
+	let block_number = match api.block_id_to_number(&BlockId::Hash(at)) {
+		Ok(Some(n)) => n,
+		Ok(None) => {
+			log::warn!(target: LOG_TARGET, "revalidation skipped at block {:?}, could not get block number.", at);
+			return
+		},
+		Err(e) => {
+			log::warn!(target: LOG_TARGET, "revalidation skipped at block {:?}: {:?}.", at, e);
+			return
+		},,,,
+	};
+
 	let mut invalid_hashes = Vec::new();
 	let mut revalidated = HashMap::new();
 
@@ -79,16 +94,6 @@ async fn batch_revalidate<Api: ChainApi>(
 		})
 	}))
 	.await;
-
-	//todo:
-	let block_number = api
-		.block_id_to_number(&BlockId::Hash(at))
-		.and_then(|n| {
-			n.ok_or(
-				sc_transaction_pool_api::error::Error::InvalidBlockId(format!("{:?}", at)).into(),
-			)
-		})
-		.expect("hash to number should work");
 
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
@@ -371,7 +376,7 @@ mod tests {
 	use futures::executor::block_on;
 	use sc_transaction_pool_api::TransactionSource;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::Alice;
+	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
 
 	#[test]
 	fn revalidation_queue_works() {
@@ -398,5 +403,56 @@ mod tests {
 		assert_eq!(api.validation_requests().len(), 2);
 		// number of ready
 		assert_eq!(pool.validated_pool().status().ready, 1);
+	}
+
+	#[test]
+	fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
+		let api = Arc::new(TestApi::default());
+		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
+
+		let uxt0 = uxt(Transfer {
+			from: Alice.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(2)),
+			amount: 5,
+			nonce: 0,
+		});
+		let uxt1 = uxt(Transfer {
+			from: Bob.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(2)),
+			amount: 4,
+			nonce: 1,
+		});
+
+		let hash_of_block0 = api.expect_hash_from_number(0);
+		let unknown_block = H256::repeat_byte(0x13);
+
+		let uxt_hashes =
+			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
+				.expect("Should be valid")
+
+
+
+
+
+				.into_iter()
+
+				.map(|r| r.expect("Should be valid"))
+				.collect::<Vec<_>>();
+
+		assert_eq!(api.validation_requests().len(), 2);
+		assert_eq!(pool.validated_pool().status().ready, 2);
+
+		// revalidation works fine for block 0:
+		block_on(queue.revalidate_later(hash_of_block0, uxt_hashes.clone()));
+		assert_eq!(api.validation_requests().len(), 4);
+		assert_eq!(pool.validated_pool().status().ready, 2);
+
+		// revalidation shall be skipped for unknown block:
+		block_on(queue.revalidate_later(unknown_block, uxt_hashes));
+		// no revalidation shall be done
+		assert_eq!(api.validation_requests().len(), 4);
+		// number of ready shall not change
+		assert_eq!(pool.validated_pool().status().ready, 2);
 	}
 }
