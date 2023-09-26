@@ -81,7 +81,7 @@ async fn batch_revalidate<Api: ChainApi>(
 		Err(e) => {
 			log::warn!(target: LOG_TARGET, "revalidation skipped at block {:?}: {:?}.", at, e);
 			return
-		},,,,
+		},
 	};
 
 	let mut invalid_hashes = Vec::new();
@@ -430,13 +430,7 @@ mod tests {
 		let uxt_hashes =
 			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
 				.expect("Should be valid")
-
-
-
-
-
 				.into_iter()
-
 				.map(|r| r.expect("Should be valid"))
 				.collect::<Vec<_>>();
 
