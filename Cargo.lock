@@ -11830,6 +11830,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
  "sc-keystore",
+ "sc-telemetry",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",

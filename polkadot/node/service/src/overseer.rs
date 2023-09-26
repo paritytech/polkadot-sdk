@@ -51,6 +51,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_babe::BabeApi;
 use std::sync::Arc;
+use telemetry::TelemetryHandle;
 
 pub use polkadot_approval_distribution::ApprovalDistribution as ApprovalDistributionSubsystem;
 pub use polkadot_availability_bitfield_distribution::BitfieldDistribution as BitfieldDistributionSubsystem;
@@ -143,6 +144,7 @@ where
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
 	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
+	pub telemetry: Option<TelemetryHandle>,
 }
 
 /// Obtain a prepared `OverseerBuilder`, that is initialized
@@ -176,6 +178,7 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		req_protocol_names,
 		peerset_protocol_names,
 		offchain_transaction_pool_factory,
+		telemetry,
 	}: OverseerGenArgs<Spawner, RuntimeClient>,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -269,6 +272,7 @@ where
 		.candidate_backing(CandidateBackingSubsystem::new(
 			keystore.clone(),
 			Metrics::register(registry)?,
+			telemetry,
 		))
 		.candidate_validation(CandidateValidationSubsystem::with_config(
 			candidate_validation_config,

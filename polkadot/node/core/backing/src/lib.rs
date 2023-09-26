@@ -109,6 +109,7 @@ use polkadot_primitives::{
 	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
 	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
+use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sp_keystore::KeystorePtr;
 use statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -177,12 +178,17 @@ impl ValidatedCandidateCommand {
 pub struct CandidateBackingSubsystem {
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	telemetry: Option<TelemetryHandle>,
 }
 
 impl CandidateBackingSubsystem {
 	/// Create a new instance of the `CandidateBackingSubsystem`.
-	pub fn new(keystore: KeystorePtr, metrics: Metrics) -> Self {
-		Self { keystore, metrics }
+	pub fn new(
+		keystore: KeystorePtr,
+		metrics: Metrics,
+		telemetry: Option<TelemetryHandle>,
+	) -> Self {
+		Self { keystore, metrics, telemetry }
 	}
 }
 
@@ -193,7 +199,7 @@ where
 {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = async move {
-			run(ctx, self.keystore, self.metrics)
+			run(ctx, self.keystore, self.metrics, self.telemetry)
 				.await
 				.map_err(|e| SubsystemError::with_origin("candidate-backing", e))
 		}
@@ -302,13 +308,20 @@ async fn run<Context>(
 	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	telemetry: Option<TelemetryHandle>,
 ) -> FatalResult<()> {
 	let (background_validation_tx, mut background_validation_rx) = mpsc::channel(16);
 	let mut state = State::new(background_validation_tx, keystore);
 
 	loop {
-		let res =
-			run_iteration(&mut ctx, &mut state, &metrics, &mut background_validation_rx).await;
+		let res = run_iteration(
+			&mut ctx,
+			&mut state,
+			&metrics,
+			telemetry.as_ref(),
+			&mut background_validation_rx,
+		)
+		.await;
 
 		match res {
 			Ok(()) => break,
@@ -324,6 +337,7 @@ async fn run_iteration<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	metrics: &Metrics,
+	telemetry: Option<&TelemetryHandle>,
 	background_validation_rx: &mut mpsc::Receiver<(Hash, ValidatedCandidateCommand)>,
 ) -> Result<(), Error> {
 	loop {
@@ -336,6 +350,7 @@ async fn run_iteration<Context>(
 						relay_parent,
 						command,
 						metrics,
+						telemetry,
 					).await?;
 				} else {
 					panic!("background_validation_tx always alive at this point; qed");
@@ -353,7 +368,7 @@ async fn run_iteration<Context>(
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {}
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
-						handle_communication(&mut *ctx, state, msg, metrics).await?;
+						handle_communication(&mut *ctx, state, msg, metrics, telemetry).await?;
 					}
 				}
 			}
@@ -743,13 +758,15 @@ async fn handle_communication<Context>(
 	state: &mut State,
 	message: CandidateBackingMessage,
 	metrics: &Metrics,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	match message {
 		CandidateBackingMessage::Second(_relay_parent, candidate, pvd, pov) => {
 			handle_second_message(ctx, state, candidate, pvd, pov, metrics).await?;
 		},
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
-			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
+			handle_statement_message(ctx, state, relay_parent, statement, metrics, telemetry)
+				.await?;
 		},
 		CandidateBackingMessage::GetBackedCandidates(requested_candidates, tx) =>
 			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)?,
@@ -1242,6 +1259,7 @@ async fn handle_validated_candidate_command<Context>(
 	relay_parent: Hash,
 	command: ValidatedCandidateCommand,
 	metrics: &Metrics,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => {
@@ -1314,6 +1332,7 @@ async fn handle_validated_candidate_command<Context>(
 							statement,
 							state.keystore.clone(),
 							metrics,
+							telemetry,
 						)
 						.await;
 
@@ -1406,6 +1425,7 @@ async fn handle_validated_candidate_command<Context>(
 								statement,
 								state.keystore.clone(),
 								metrics,
+								telemetry,
 							)
 							.await?;
 						}
@@ -1574,6 +1594,7 @@ async fn post_import_statement_actions<Context>(
 	ctx: &mut Context,
 	rp_state: &mut PerRelayParentState,
 	summary: Option<&TableSummary>,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	if let Some(attested) = summary.as_ref().and_then(|s| {
 		rp_state.table.attested_candidate(
@@ -1594,6 +1615,14 @@ async fn post_import_statement_actions<Context>(
 					relay_parent = ?rp_state.parent,
 					%para_id,
 					"Candidate backed",
+				);
+				telemetry!(
+					telemetry;
+					CONSENSUS_INFO;
+					"parachains.candidate_backed";
+					"candidate_hash" => ?candidate_hash,
+					"relay_parent" => ?rp_state.parent,
+					"para_id" => ?para_id,
 				);
 
 				if rp_state.prospective_parachains_mode.is_enabled() {
@@ -1665,6 +1694,7 @@ async fn sign_import_and_distribute_statement<Context>(
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
 	metrics: &Metrics,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<Option<SignedFullStatementWithPVD>, Error> {
 	if let Some(signed_statement) = sign_statement(&*rp_state, statement, keystore, metrics) {
 		let summary = import_statement(ctx, rp_state, per_candidate, &signed_statement).await?;
@@ -1674,7 +1704,7 @@ async fn sign_import_and_distribute_statement<Context>(
 		let smsg = StatementDistributionMessage::Share(rp_state.parent, signed_statement.clone());
 		ctx.send_unbounded_message(smsg);
 
-		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+		post_import_statement_actions(ctx, rp_state, summary.as_ref(), telemetry).await?;
 
 		Ok(Some(signed_statement))
 	} else {
@@ -1771,6 +1801,7 @@ async fn maybe_validate_and_import<Context>(
 	state: &mut State,
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(r) => r,
@@ -1800,7 +1831,7 @@ async fn maybe_validate_and_import<Context>(
 	}
 
 	let summary = res?;
-	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+	post_import_statement_actions(ctx, rp_state, summary.as_ref(), telemetry).await?;
 
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the
@@ -1989,10 +2020,11 @@ async fn handle_statement_message<Context>(
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 	metrics: &Metrics,
+	telemetry: Option<&TelemetryHandle>,
 ) -> Result<(), Error> {
 	let _timer = metrics.time_process_statement();
 
-	match maybe_validate_and_import(ctx, state, relay_parent, statement).await {
+	match maybe_validate_and_import(ctx, state, relay_parent, statement, telemetry).await {
 		Err(Error::ValidationFailed(_)) => Ok(()),
 		Err(e) => Err(e),
 		Ok(()) => Ok(()),
