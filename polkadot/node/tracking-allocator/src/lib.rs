@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Tracking global allocator. Calculates the peak allocation between two checkpoints.
+//! Tracking/limiting global allocator. Calculates the peak allocation between two checkpoints for
+//! the whole process. Accepts an optional limit and a failure handler which is called if the limit
+//! is overflown.
 
 use core::alloc::{GlobalAlloc, Layout};
 use std::{
@@ -63,6 +65,7 @@ impl TrackingAllocatorData {
 		self.current = 0;
 		self.peak = 0;
 		self.limit = limit;
+		let _old_handler = self.failure_handler.take();
 		self.failure_handler = failure_handler;
 		self.unlock();
 	}
@@ -71,7 +74,7 @@ impl TrackingAllocatorData {
 		self.lock();
 		let peak = self.peak;
 		self.limit = 0;
-		self.failure_handler = None;
+		let _old_handler = self.failure_handler.take();
 		self.unlock();
 		peak
 	}
@@ -107,7 +110,14 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 	//   is isolated by an exclusive lock.
 
 	/// Start tracking
-	pub fn start_tracking(&self, limit: Option<isize>, failure_handler: Option<Box<dyn Fn()>>) {
+	/// SAFETY: Failure handler is called with the allocator being in the locked state. Thus, no
+	/// allocations or deallocations are possible inside the failure handler; otherwise, a
+	/// deadlock will occur.
+	pub unsafe fn start_tracking(
+		&self,
+		limit: Option<isize>,
+		failure_handler: Option<Box<dyn Fn()>>,
+	) {
 		unsafe {
 			ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
 		}
@@ -120,6 +130,16 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 	}
 }
 
+#[cold]
+#[inline(never)]
+unsafe fn fail_allocation() -> *mut u8 {
+	if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
+		failure_handler()
+	}
+	ALLOCATOR_DATA.unlock();
+	null_mut()
+}
+
 unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 	// SAFETY:
 	// * The wrapped methods are as safe as the underlying allocator implementation is
@@ -129,11 +149,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track(layout.size() as isize) {
 			self.0.alloc(layout)
 		} else {
-			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
-				failure_handler()
-			}
-			ALLOCATOR_DATA.unlock();
-			null_mut()
+			fail_allocation()
 		}
 	}
 
@@ -142,11 +158,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track(layout.size() as isize) {
 			self.0.alloc_zeroed(layout)
 		} else {
-			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
-				failure_handler()
-			}
-			ALLOCATOR_DATA.unlock();
-			null_mut()
+			fail_allocation()
 		}
 	}
 
@@ -161,11 +173,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 		if ALLOCATOR_DATA.track((new_size as isize) - (layout.size() as isize)) {
 			self.0.realloc(ptr, layout, new_size)
 		} else {
-			if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
-				failure_handler()
-			}
-			ALLOCATOR_DATA.unlock();
-			null_mut()
+			fail_allocation()
 		}
 	}
 }

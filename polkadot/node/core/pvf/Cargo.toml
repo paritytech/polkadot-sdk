@@ -40,7 +40,6 @@ substrate-build-script-utils = { path = "../../../../substrate/utils/build-scrip
 assert_matches = "1.4.0"
 hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
-# For the puppet worker, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }

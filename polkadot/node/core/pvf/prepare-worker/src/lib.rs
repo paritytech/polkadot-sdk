@@ -181,20 +181,46 @@ pub fn worker_entrypoint(
 				)?;
 
 				let fd = stream.as_raw_fd();
-				ALLOC.start_tracking(
-					executor_params.prechecking_max_memory().map(|v| v as isize),
-					Some(Box::new(move || unsafe {
-						// Inside the failure handler, the allocator is locked and no allocations
-						// are possible
-						libc::write(
-							fd,
-							OOM_PAYLOAD as *const _ as *const libc::c_void,
-							OOM_PAYLOAD.len(),
-						);
-						libc::close(fd);
-						std::process::exit(1);
-					})),
-				);
+				unsafe {
+					// SAFETY: Inside the failure handler, the allocator is locked and no
+					// allocations or deallocations are possible. For Linux, that always holds for
+					// the code below, so it's safe. For MacOS, that technically holds at the time
+					// of writing, but there's no future guarantees.
+					// The arguments of unsafe `libc` calls are valid, the payload validity is
+					// covered with a test.
+					ALLOC.start_tracking(
+						executor_params.prechecking_max_memory().map(|v| {
+							v.try_into().unwrap_or_else(|_| {
+								gum::warn!(
+									LOG_TARGET,
+									%worker_pid,
+									"Illegal pre-checking max memory value {} discarded",
+									v,
+								);
+								0
+							})
+						}),
+						Some(Box::new(move || {
+							#[cfg(target_os = "linux")]
+							{
+								libc::syscall(
+									libc::SYS_write,
+									fd,
+									OOM_PAYLOAD.as_ptr(),
+									OOM_PAYLOAD.len(),
+								);
+								libc::syscall(libc::SYS_close, fd);
+								libc::syscall(libc::SYS_exit, 1);
+							}
+							#[cfg(not(target_os = "linux"))]
+							{
+								libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
+								libc::close(fd);
+								std::process::exit(1);
+							}
+						})),
+					);
+				}
 
 				// Spawn another thread for preparation.
 				let prepare_thread = thread::spawn_worker_thread(
