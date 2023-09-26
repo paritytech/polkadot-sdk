@@ -632,7 +632,7 @@ impl<T: Config> Pallet<T> {
 										>(&bounded)
 										{
 											log::error!(
-												"Dropping undecodable call {}: {:?}",
+												"Dropping undecodable call {:?}: {:?}",
 												&h,
 												&err
 											);
