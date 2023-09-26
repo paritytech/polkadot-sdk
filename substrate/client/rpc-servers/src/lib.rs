@@ -145,6 +145,9 @@ fn hosts_filtering(enabled: bool, addrs: &[SocketAddr]) -> AllowHosts {
 
 fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>) -> RpcModule<M> {
 	let mut available_methods = rpc_api.method_names().collect::<Vec<_>>();
+	// The "rpc_methods" method name is guaranteed to not be registered in the rpc module
+	// by `register_method`.
+	available_methods.push("rpc_methods");
 	available_methods.sort();
 
 	rpc_api
