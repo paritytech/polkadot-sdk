@@ -610,3 +610,64 @@ fn test_parse_tasks_def_extra_tasks_attribute() {
 		r"unexpected extra `#\[pallet::tasks\]` attribute"
 	);
 }
+
+#[test]
+fn test_parse_task_enum_def_basic() {
+	parse2::<TaskEnumDef>(quote! {
+		#[pallet::task]
+		pub enum Task<T: Config> {
+			Increment,
+			Decrement,
+		}
+	})
+	.unwrap();
+}
+
+#[test]
+fn test_parse_task_enum_def_non_task_name() {
+	parse2::<TaskEnumDef>(quote! {
+		#[pallet::task]
+		pub enum Something {
+			Foo
+		}
+	})
+	.unwrap();
+}
+
+#[test]
+fn test_parse_task_enum_def_missing_attr() {
+	assert_error_matches!(
+		parse2::<TaskEnumDef>(quote! {
+			pub enum Task<T: Config> {
+				Increment,
+				Decrement,
+			}
+		}),
+		"expected `#`"
+	)
+}
+
+#[test]
+fn test_parse_task_enum_def_wrong_attr() {
+	assert_error_matches!(
+		parse2::<TaskEnumDef>(quote! {
+			#[pallet::something]
+			pub enum Task<T: Config> {
+				Increment,
+				Decrement,
+			}
+		}),
+		"expected `task`"
+	)
+}
+
+#[test]
+fn test_parse_task_enum_def_wrong_item() {
+	assert_error_matches!(
+		parse2::<TaskEnumDef>(quote! {
+			#[pallet::task]
+			pub struct Something;
+		}),
+		"expected `enum`"
+	)
+}
