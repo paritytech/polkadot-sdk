@@ -822,6 +822,11 @@ pub enum AssignmentCheckResult {
 	TooFarInFuture,
 	/// The vote was bad and should be ignored, reporting the peer who propagated it.
 	Bad(AssignmentCheckError),
+	/// Could not launch signature check task.
+	/// IMPORTANT: We should never issue a dispute on this error.
+	TaskSpawn,
+	/// Could not read the signagture check result from task, channel closed ?
+	Channel,
 }
 
 /// The error result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
@@ -904,10 +909,9 @@ pub struct HighestApprovedAncestorBlock {
 pub enum ApprovalVotingMessage {
 	/// Check if the assignment is valid and can be accepted by our view of the protocol.
 	/// Should not be sent unless the block hash is known.
-	CheckAndImportAssignment(
-		IndirectAssignmentCert,
-		CandidateIndex,
-		oneshot::Sender<AssignmentCheckResult>,
+	CheckAndImportAssignments(
+		Vec<(IndirectAssignmentCert, CandidateIndex)>,
+		oneshot::Sender<Vec<AssignmentCheckResult>>,
 	),
 	/// Check if the approval vote is valid and can be accepted by our view of the
 	/// protocol.
