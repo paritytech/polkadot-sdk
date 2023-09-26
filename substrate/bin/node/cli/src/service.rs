@@ -32,8 +32,7 @@ use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::{event::Event, NetworkEventStream, NetworkService};
-use sc_network_common::sync::warp::WarpSyncParams;
-use sc_network_sync::SyncingService;
+use sc_network_sync::{warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_statement_store::Store as StatementStore;
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -389,6 +388,7 @@ pub fn new_full_base(
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: None,
 		})?;
 
 	let role = config.role.clone();

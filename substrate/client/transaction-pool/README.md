@@ -232,7 +232,7 @@ are interested in.
 
 Since the pool is expected to store more transactions than what can fit
 in a single block, validating the entire pool on every block might not be
-feasible. This means that the actual implementation might need to take some 
+feasible. This means that the actual implementation might need to take some
 shortcuts.
 
 ## Suggestions & caveats
@@ -255,7 +255,7 @@ shortcuts.
    lot of re-orgs. Make sure that transactions are never lost.
 
 1. The UTXO model is quite challenging. A transaction becomes valid right after
-   it's included in a block, however it is waiting for exactly the same inputs 
+   it's included in a block, however it is waiting for exactly the same inputs
    to be spent, so it will never really be included again.
 
 1. Note that in a non-ideal implementation the state of the pool will most
@@ -278,7 +278,7 @@ shortcuts.
 
 1. We periodically validate all transactions in the pool in batches.
 
-1. To minimize runtime calls, we introduce the batch-verify call. Note it should 
+1. To minimize runtime calls, we introduce the batch-verify call. Note it should
    reset the state (overlay) after every verification.
 
 1. Consider leveraging finality. Maybe we could verify against latest finalised
@@ -355,7 +355,7 @@ figure out what tags were satisfied by a transaction in that block. For each blo
 transaction we either call into the runtime to get it's `ValidTransaction` object,
 or we check the pool if that transaction is already known to spare the runtime
 call. From this we gather the full set of `provides` tags and perform pruning of
-the `ready` pool based on that. Also, we promote all transactions from `future` 
+the `ready` pool based on that. Also, we promote all transactions from `future`
 that have their tags satisfied.
 
 In case we remove transactions that we are unsure if they were already included

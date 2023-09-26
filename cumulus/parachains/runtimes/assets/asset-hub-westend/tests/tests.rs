@@ -17,13 +17,6 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
-pub use asset_hub_westend_runtime::{
-	constants::fee::WeightToFee,
-	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
-	AllowMultiAssetPools, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
-	TrustBackedAssetsInstance,
-};
 use asset_hub_westend_runtime::{
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
@@ -31,6 +24,12 @@ use asset_hub_westend_runtime::{
 	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
 	RuntimeEvent,
+};
+pub use asset_hub_westend_runtime::{
+	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
+	AllowMultiAssetPools, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
+	ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
+	TrustBackedAssetsInstance,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder, XcmReceivedFrom};
 use codec::{Decode, DecodeLimit, Encode};
@@ -40,7 +39,9 @@ use frame_support::{
 	traits::fungibles::InspectEnumerable,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use parachains_common::{
+	westend::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+};
 use sp_io;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
