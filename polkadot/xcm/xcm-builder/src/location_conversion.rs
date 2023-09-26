@@ -87,9 +87,9 @@ pub type DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccou
 
 pub struct DescribeBodyTerminal;
 impl DescribeLocation for DescribeBodyTerminal {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
-		match (l.parents, &l.interior) {
-			(0, X1(Plurality { id, part })) => Some((b"Body", id, part).encode()),
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match l.unpack() {
+			(0, [Plurality { id, part }]) => Some((b"Body", id, part).encode()),
 			_ => return None,
 		}
 	}
@@ -320,7 +320,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
 pub struct AliasesIntoAccountId32<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]> + Clone>
-	TryConvert<&'a AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
+	TryConvert<&'a AccountId, Location> for AliasesIntoAccountId32<Network, AccountId>
 {
 	fn try_convert(who: &AccountId) -> Result<Location, &AccountId> {
 		Ok(AccountId32 { network: Network::get(), id: who.clone().into() }.into())

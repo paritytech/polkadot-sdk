@@ -1197,7 +1197,7 @@ impl<T: Config> Pallet<T> {
 			.reanchored(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
-		let assets: MultiAssets = assets.into();
+		let assets: Assets = assets.into();
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
@@ -1241,7 +1241,7 @@ impl<T: Config> Pallet<T> {
 			.reanchored(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
-		let assets: MultiAssets = assets.into();
+		let assets: Assets = assets.into();
 		let xcm = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },

@@ -72,8 +72,7 @@ impl<
 		Beneficiary: Clone,
 		AssetKind,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
-		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, MultiLocation>,
-		BeneficiaryRefToLocation: for<'a> Convert<&'a Beneficiary, Location>,
+		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> Pay
 	for PayOverXcm<
 		Interior,
@@ -202,6 +201,6 @@ impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>>
 	TryConvert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
 {
 	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
-		LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() }
+		Ok(LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() })
 	}
 }
