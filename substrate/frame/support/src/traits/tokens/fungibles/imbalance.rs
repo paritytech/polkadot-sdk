@@ -23,7 +23,7 @@ use crate::traits::{
 	misc::{SameOrOther, TryDrop},
 	tokens::{AssetId, Balance},
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -38,7 +38,7 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,
@@ -155,6 +155,35 @@ impl<
 
 	pub fn asset(&self) -> A {
 		self.asset.clone()
+	}
+}
+
+#[cfg(any(feature = "std", feature = "force-debug"))]
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> sp_std::fmt::Debug for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		fmt.debug_struct("Imbalance")
+			.field("asset", &self.asset)
+			.field("amount", &self.amount)
+			.finish()
+	}
+}
+
+#[cfg(all(not(feature = "std"), not(feature = "force-debug")))]
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> sp_std::fmt::Debug for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+		fmt.write_str("<wasm:stripped>")
 	}
 }
 
