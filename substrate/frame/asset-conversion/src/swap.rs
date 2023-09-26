@@ -21,6 +21,9 @@ use super::*;
 
 /// Trait for providing methods to swap between the various asset classes.
 pub trait Swap<AccountId, Balance, MultiAssetId> {
+	/// Returns the upper limit on the length of the swap path.
+	fn max_path_len() -> u32;
+
 	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
 	/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
 	/// the amount desired.
@@ -66,6 +69,9 @@ pub trait SwapCredit<AccountId> {
 	/// alter the total supply.
 	type Credit;
 
+	/// Returns the upper limit on the length of the swap path.
+	fn max_path_len() -> u32;
+
 	/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min` is
 	/// provided and the swap can't achieve at least this amount, an error is returned.
 	///
@@ -94,6 +100,10 @@ pub trait SwapCredit<AccountId> {
 }
 
 impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> for Pallet<T> {
+	fn max_path_len() -> u32 {
+		T::MaxSwapPathLength::get()
+	}
+
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
 		path: Vec<T::MultiAssetId>,
@@ -145,6 +155,10 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 	type Balance = T::AssetBalance;
 	type MultiAssetId = T::MultiAssetId;
 	type Credit = Credit<T>;
+
+	fn max_path_len() -> u32 {
+		T::MaxSwapPathLength::get()
+	}
 
 	fn swap_exact_tokens_for_tokens(
 		path: Vec<Self::MultiAssetId>,
