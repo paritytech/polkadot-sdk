@@ -1497,7 +1497,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		)
 		.unwrap()
 		.first()
-		.map(|(_, a)| a.clone())
+		.map(|(_, a)| *a)
 		.unwrap();
 
 		assert_noop!(
@@ -1519,7 +1519,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		)
 		.unwrap()
 		.first()
-		.map(|(_, a)| a.clone())
+		.map(|(_, a)| *a)
 		.unwrap();
 
 		assert_noop!(
