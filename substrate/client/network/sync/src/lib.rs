@@ -428,15 +428,8 @@ pub struct PeerDownloadState<B: BlockT> {
 }
 
 impl<B: BlockT> PeerDownloadState<B> {
-	fn new(
-		common_number: NumberFor<B>,
-		range: Range<NumberFor<B>>,
-	) -> Self {
-		Self {
-			common_number,
-			range,
-			downloaded: Vec::new(),
-		}
+	fn new(common_number: NumberFor<B>, range: Range<NumberFor<B>>) -> Self {
+		Self { common_number, range, downloaded: Vec::new() }
 	}
 
 	/// Handles the new blocks received from the peer.
@@ -447,9 +440,9 @@ impl<B: BlockT> PeerDownloadState<B> {
 	fn handle_blocks(
 		&mut self,
 		who: &PeerId,
-		mut new_blocks:  Vec<BlockData<B>>,
+		mut new_blocks: Vec<BlockData<B>>,
 		request: BlockRequest<B>,
-		collection: &mut BlockCollection<B>
+		collection: &mut BlockCollection<B>,
 	) -> Result<bool, BadPeer> {
 		collection.clear_peer_download(who);
 
@@ -463,14 +456,15 @@ impl<B: BlockT> PeerDownloadState<B> {
 		// Add the new blocks to the downloaded list.
 		let range_len = (self.range.end - self.range.start).saturated_into::<u32>() as usize;
 		if (self.downloaded.len() + new_blocks.len()) > range_len {
-			return Err(BadPeer(*who, rep::BAD_RESPONSE));
+			return Err(BadPeer(*who, rep::BAD_RESPONSE))
 		}
 		let new_blocks_len = new_blocks.len();
 		new_blocks.append(&mut self.downloaded);
 		self.downloaded.append(&mut new_blocks);
 
 		if self.range.start == (self.common_number + One::one()) &&
-			self.downloaded.len() < range_len {
+			self.downloaded.len() < range_len
+		{
 			// The download extends the common ancestor, but the response
 			// was partial. We want to issue further requests to fetch
 			// the incomplete part before importing.
@@ -480,7 +474,7 @@ impl<B: BlockT> PeerDownloadState<B> {
 				common = {}, range = {:?}, new_blocks = {new_blocks_len}, downloaded = {}",
 				self.common_number, self.range, self.downloaded.len()
 			);
-			return Ok(false);
+			return Ok(false)
 		}
 
 		// Done, report the accumulated blocks to the collection.
@@ -497,8 +491,9 @@ impl<B: BlockT> PeerDownloadState<B> {
 		peer_best_number: NumberFor<B>,
 		peer_best_hash: &B::Hash,
 	) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-		let downloaded_head = if let Some(number) = self.downloaded.first()
-			.and_then(|b| b.header.as_ref()).map(|h| *h.number()) {
+		let downloaded_head = if let Some(number) =
+			self.downloaded.first().and_then(|b| b.header.as_ref()).map(|h| *h.number())
+		{
 			number
 		} else {
 			warn!(
@@ -507,12 +502,9 @@ impl<B: BlockT> PeerDownloadState<B> {
 				common = {}, range = {:?}, downloaded = {}",
 				self.common_number, self.range, self.downloaded.len()
 			);
-			return None;
+			return None
 		};
-		let range = Range {
-			start: self.range.start,
-			end: downloaded_head,
-		};
+		let range = Range { start: self.range.start, end: downloaded_head };
 
 		// The end is not part of the range.
 		let last = range.end.saturating_sub(One::one());
@@ -835,17 +827,17 @@ where
 								// Done with the range, go back to available state.
 								peer.state = PeerSyncState::Available;
 								self.ready_blocks()
-							}
+							},
 							Ok(false) => {
 								// Not done yet, leave it in DownloadingNew state.
 								vec![]
-							}
+							},
 							Err(err) => {
 								peer.state = PeerSyncState::Available;
-								return Err(err);
-							}
+								return Err(err)
+							},
 						}
-					}
+					},
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
 						if let Some(gap_sync) = &mut self.gap_sync {
@@ -2155,11 +2147,8 @@ where
 					Some((id, ancestry_request::<B>(current)))
 				} else if let PeerSyncState::DownloadingNew(download_state) = &peer.state {
 					// We have partially downloaded range, request the remaining part.
-					let result = download_state.peer_block_request(
-						attrs,
-						peer.best_number,
-						&peer.best_hash
-					);
+					let result =
+						download_state.peer_block_request(attrs, peer.best_number, &peer.best_hash);
 					trace!(
 						target: LOG_TARGET,
 						"Continuing block request for {}, (best:{}, common:{}) {:?}",
@@ -2168,8 +2157,7 @@ where
 						peer.common_number,
 						result,
 					);
-					result
-						.map(|(_, req)| (id, req))
+					result.map(|(_, req)| (id, req))
 				} else if let Some((range, req)) = peer_block_request(
 					&id,
 					peer,
@@ -3665,19 +3653,22 @@ mod test {
 			ProtocolName::from("state-request"),
 			None,
 		)
-			.unwrap();
+		.unwrap();
 
 		// Connect the node we will sync from
 		let peer_id1 = PeerId::random();
 		let canonical_tip = canonical_blocks.last().unwrap().clone();
-		let mut request = sync.new_peer(peer_id1, canonical_tip.hash(), *canonical_tip.header().number())
-			.unwrap().unwrap();
+		let mut request = sync
+			.new_peer(peer_id1, canonical_tip.hash(), *canonical_tip.header().number())
+			.unwrap()
+			.unwrap();
 		assert_eq!(FromBlock::Number(client.info().best_number), request.from);
 		assert_eq!(Some(1), request.max);
 
 		// Do the ancestor search
 		loop {
-			let block = &canonical_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
+			let block =
+				&canonical_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
 			let response = create_block_response(vec![block.clone()]);
 
 			let on_block_data = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
@@ -3685,7 +3676,7 @@ mod test {
 				request
 			} else {
 				// We found the ancestor
-				break;
+				break
 			};
 
 			log::trace!(target: LOG_TARGET, "Request: {request:?}");
@@ -3711,17 +3702,12 @@ mod test {
 		let response = create_block_response(resp_blocks.clone());
 		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 		assert!(matches!(
-				res,
-				OnBlockData::Import(_, blocks) if blocks.is_empty()
-			),);
+			res,
+			OnBlockData::Import(_, blocks) if blocks.is_empty()
+		),);
 
 		// Gap filled, expect max_blocks_per_request being imported now.
-		let request = get_block_request(
-			&mut sync,
-			FromBlock::Number(resp_2_from),
-			3,
-			&peer_id1,
-		);
+		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 3, &peer_id1);
 		let mut resp_blocks = canonical_blocks[common_ancestor as usize..18].to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
@@ -3729,14 +3715,17 @@ mod test {
 		let to_import: Vec<_> = match &res {
 			OnBlockData::Import(_, ref blocks) => {
 				assert_eq!(blocks.len(), sync.max_blocks_per_request as usize);
-				blocks.iter().map(|b| {
-					let num = *b.header.as_ref().unwrap().number() as usize;
-					canonical_blocks[num - 1].clone()
-				}).collect()
-			}
+				blocks
+					.iter()
+					.map(|b| {
+						let num = *b.header.as_ref().unwrap().number() as usize;
+						canonical_blocks[num - 1].clone()
+					})
+					.collect()
+			},
 			_ => {
 				panic!("Unexpected response: {res:?}");
-			}
+			},
 		};
 
 		let _ = sync.on_blocks_processed(
@@ -3757,32 +3746,27 @@ mod test {
 				})
 				.collect(),
 		);
-		to_import
-			.into_iter()
-			.for_each(|b| {
-				assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
-				block_on(client.import(BlockOrigin::Own, b)).unwrap();
-			});
+		to_import.into_iter().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
 		let expected_number = common_ancestor as u32 + max_blocks_per_request as u32;
 		assert_eq!(sync.best_queued_number as u32, expected_number);
 		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
 
 		// Sync rest of the chain.
-		let request = get_block_request(
-			&mut sync,
-			FromBlock::Hash(canonical_tip.hash()),
-			10_u32,
-			&peer_id1,
-		);
-		let mut resp_blocks = canonical_blocks[(canonical_chain_length - 10) as usize..
-			canonical_chain_length as usize].to_vec();
+		let request =
+			get_block_request(&mut sync, FromBlock::Hash(canonical_tip.hash()), 10_u32, &peer_id1);
+		let mut resp_blocks = canonical_blocks
+			[(canonical_chain_length - 10) as usize..canonical_chain_length as usize]
+			.to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
 		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 		assert!(matches!(
-				res,
-				OnBlockData::Import(_, blocks) if blocks.len() == 10 as usize
-			),);
+			res,
+			OnBlockData::Import(_, blocks) if blocks.len() == 10 as usize
+		),);
 		let _ = sync.on_blocks_processed(
 			max_blocks_per_request as usize,
 			resp_blocks.len(),
@@ -3801,13 +3785,10 @@ mod test {
 				})
 				.collect(),
 		);
-		resp_blocks
-			.into_iter()
-			.rev()
-			.for_each(|b| {
-				assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
-				block_on(client.import(BlockOrigin::Own, b)).unwrap();
-			});
+		resp_blocks.into_iter().rev().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
 		let expected_number = canonical_chain_length as u32;
 		assert_eq!(sync.best_queued_number as u32, expected_number);
 		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());

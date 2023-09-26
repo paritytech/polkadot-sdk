@@ -347,8 +347,10 @@ mod tests {
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};
-	use std::collections::{HashMap, HashSet};
-	use std::ops::Range;
+	use std::{
+		collections::{HashMap, HashSet},
+		ops::Range,
+	};
 
 	#[test]
 	fn requests_are_processed_in_order() {
@@ -545,10 +547,7 @@ mod tests {
 				// TODO: 1 => PeerSyncState::AncestorSearch(g.gen(), AncestorSearchState<B>),
 				1 => PeerSyncState::DownloadingNew(PeerDownloadState::new(
 					BlockNumber::arbitrary(g),
-					Range {
-						start: BlockNumber::arbitrary(g),
-						end: BlockNumber::arbitrary(g),
-					}
+					Range { start: BlockNumber::arbitrary(g), end: BlockNumber::arbitrary(g) },
 				)),
 				2 => PeerSyncState::DownloadingStale(Hash::random()),
 				_ => PeerSyncState::DownloadingJustification(Hash::random()),
