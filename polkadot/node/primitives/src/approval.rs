@@ -367,7 +367,7 @@ pub mod v2 {
 		/// Multiple assignment stories based on the VRF that authorized the relay-chain block
 		/// where the candidates were included.
 		///
-		/// The context is [`v2::RELAY_VRF_MODULO_CONTEXT`]
+		/// The context is [`super::v2::RELAY_VRF_MODULO_CONTEXT`]
 		#[codec(index = 0)]
 		RelayVRFModuloCompact {
 			/// A bitfield representing the core indices claimed by this assignment.
@@ -376,7 +376,7 @@ pub mod v2 {
 		/// An assignment story based on the VRF that authorized the relay-chain block where the
 		/// candidate was included combined with the index of a particular core.
 		///
-		/// The context is [`v2::RELAY_VRF_DELAY_CONTEXT`]
+		/// The context is [`super::v1::RELAY_VRF_DELAY_CONTEXT`]
 		#[codec(index = 1)]
 		RelayVRFDelay {
 			/// The core index chosen in this cert.
@@ -386,7 +386,7 @@ pub mod v2 {
 		///  An assignment story based on the VRF that authorized the relay-chain block where the
 		/// candidate was included combined with a sample number.
 		///
-		/// The context used to produce bytes is [`v1::RELAY_VRF_MODULO_CONTEXT`]
+		/// The context used to produce bytes is [`super::v1::RELAY_VRF_MODULO_CONTEXT`]
 		#[codec(index = 2)]
 		RelayVRFModulo {
 			/// The sample number used in this cert.
