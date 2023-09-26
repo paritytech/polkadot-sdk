@@ -211,6 +211,15 @@ impl Def {
 			return Err(syn::Error::new(item_span, msg))
 		}
 
+		// ensure either both or none of `(task_enum, tasks)` are specified
+		match (&task_enum, &tasks) {
+			(Some(_), None) =>
+				return Err(syn::Error::new(item_span, "Missing `#[pallet::tasks]` impl")),
+			(None, Some(_)) =>
+				return Err(syn::Error::new(item_span, "Missing `#[pallet::task]` enum")),
+			_ => (),
+		}
+
 		let def = Def {
 			item,
 			config: config
