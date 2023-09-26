@@ -31,22 +31,43 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store values for `(key1, key2)` couple. Similar to `StorageMap` but allow
-/// to iterate and remove value associated to first key.
+/// A type representing a *double map* in storage. This structure associates a pair of keys 
+/// with a value of a specified type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key1))
-/// 		++ Hasher2(encode(key2))
+/// A double map with keys `k1` and `k2` can be likened to a [`StorageMap`](frame_support::storage::types::StorageMap) with a key of type `(k1, k2)`. 
+/// However, a double map offers functions specific to each key, enabling partial iteration 
+/// and deletion based on one key alone.
+///
+/// Additionally, a double map is an alias for [`StorageNMap`](frame_support::storage::types::StorageNMap) using two keys.
+///
+/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
 /// ```
-///
-/// # Warning
-///
-/// If the key1s (or key2s) are not trusted (e.g. can be set by a user), a cryptographic `hasher`
-/// such as `blake2_128_concat` must be used for Hasher1 (resp. Hasher2). Otherwise, other values
-/// in storage can be compromised.
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink storage map, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageDoubleMap<
+/// 		Hasher1 = Blake2_128Concat,
+/// 		Key1 = u8,
+/// 		Hasher2 = Twox64Concat,
+/// 		Key2 = u16,
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
+/// }
+/// ```
 pub struct StorageDoubleMap<
 	Prefix,
 	Hasher1,
