@@ -39,6 +39,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
+use sp_externalities::Extensions;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::sync::Arc;
 
@@ -602,7 +603,9 @@ pub fn new_full_base(
 				is_validator: role.is_authority(),
 				enable_http_requests: true,
 				custom_extensions: move |_| {
-					vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
+					let mut extensions = Extensions::new();
+					extensions.register(statement_store.clone().as_statement_store_ext());
+					extensions
 				},
 			})
 			.run(client.clone(), task_manager.spawn_handle())

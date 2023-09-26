@@ -909,7 +909,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				network_provider: network.clone(),
 				is_validator: role.is_authority(),
 				enable_http_requests: false,
-				custom_extensions: move |_| vec![],
+				custom_extensions: move |_| Default::default(),
 			})
 			.run(client.clone(), task_manager.spawn_handle())
 			.boxed(),

@@ -47,7 +47,7 @@ use sc_network::{NetworkPeers, NetworkStateInfo};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::{offchain, traits::SpawnNamed};
-use sp_externalities::Extension;
+use sp_externalities::Extensions;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::{self, Header};
 use threadpool::ThreadPool;
@@ -120,7 +120,9 @@ pub struct OffchainWorkerOptions<RA, Block: traits::Block, Storage, CE> {
 	///
 	/// ```nocompile
 	/// custom_extensions: |block_hash| {
-	///     vec![MyCustomExtension::new()]
+	///     let extensions = Extensions::new();
+	///     extensions.register(MyCustomExtension::new());
+	///     extensions
 	/// }
 	/// ```
 	pub custom_extensions: CE,
@@ -137,12 +139,12 @@ pub struct OffchainWorkers<RA, Block: traits::Block, Storage> {
 	transaction_pool: Option<OffchainTransactionPoolFactory<Block>>,
 	network_provider: Arc<dyn NetworkProvider + Send + Sync>,
 	is_validator: bool,
-	custom_extensions: Box<dyn Fn(Block::Hash) -> Vec<Box<dyn Extension>> + Send>,
+	custom_extensions: Box<dyn Fn(Block::Hash) -> Extensions + Send>,
 }
 
 impl<RA, Block: traits::Block, Storage> OffchainWorkers<RA, Block, Storage> {
 	/// Creates new [`OffchainWorkers`].
-	pub fn new<CE: Fn(Block::Hash) -> Vec<Box<dyn Extension>> + Send + 'static>(
+	pub fn new<CE: Fn(Block::Hash) -> Extensions + Send + 'static>(
 		OffchainWorkerOptions {
 			runtime_api_provider,
 			keystore,
@@ -283,7 +285,7 @@ where
 					offchain::LimitedExternalities::new(capabilities, api),
 				));
 
-				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
+				runtime.register_extensions(custom_extensions);
 
 				let run = if version == 2 {
 					runtime.offchain_worker(hash, &header)
@@ -444,7 +446,7 @@ mod tests {
 			network_provider: network,
 			is_validator: false,
 			enable_http_requests: false,
-			custom_extensions: |_| Vec::new(),
+			custom_extensions: |_| Default::default(),
 		});
 		futures::executor::block_on(offchain.on_block_imported(&header));
 
