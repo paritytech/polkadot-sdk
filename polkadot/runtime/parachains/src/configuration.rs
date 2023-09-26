@@ -261,7 +261,6 @@ pub struct HostConfiguration<BlockNumber> {
 	/// backable.
 	pub minimum_backing_votes: u32,
 	/// Params used by approval-voting
-	/// TODO: fixme this is not correctly migrated
 	pub approval_voting_params: ApprovalVotingParams,
 }
 

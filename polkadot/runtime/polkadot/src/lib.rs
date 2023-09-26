@@ -1560,6 +1560,7 @@ pub mod migrations {
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		// Migrate parachain info format
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ParachainsToUnlock>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 	);
 }
 
