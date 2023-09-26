@@ -30,7 +30,6 @@ use parachains_runtimes_test_utils::{
 	assert_metadata, assert_total, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
 	ValidatorIdOf, XcmReceivedFrom,
 };
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
@@ -248,7 +247,7 @@ pub fn teleports_for_native_asset_works<
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
-					target_account_balance_before_teleport - native_asset_to_teleport_away - delivery_fees_amount.into()
+					target_account_balance_before_teleport - native_asset_to_teleport_away - delivery_fees.into()
 				);
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
