@@ -88,6 +88,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
+	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -103,9 +104,8 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
-	"xcm/std",
-	"pallet-xcm-benchmarks/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
