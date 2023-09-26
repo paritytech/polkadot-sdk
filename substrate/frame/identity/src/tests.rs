@@ -107,7 +107,7 @@ impl pallet_identity::Config for Test {
 	type BasicDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<10>;
 	type MaxSubAccounts = ConstU32<2>;
-	type IdentityInformation = IdentityInfo;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
@@ -124,7 +124,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
-fn ten() -> IdentityInfo {
+fn ten() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
 		display: Data::Raw(b"ten".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Ten, Esq.".to_vec().try_into().unwrap()),
@@ -132,7 +132,7 @@ fn ten() -> IdentityInfo {
 	}
 }
 
-fn twenty() -> IdentityInfo {
+fn twenty() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
 		display: Data::Raw(b"twenty".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Twenty, Esq.".to_vec().try_into().unwrap()),
@@ -262,6 +262,10 @@ fn registration_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let mut three_fields = ten();
+		three_fields.additional.try_push(Default::default()).unwrap();
+		three_fields.additional.try_push(Default::default()).unwrap();
+		assert!(three_fields.additional.try_push(Default::default()).is_err());
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
 		assert_eq!(Identity::identity(10).unwrap().info, ten());
 		assert_eq!(Balances::free_balance(10), 90);

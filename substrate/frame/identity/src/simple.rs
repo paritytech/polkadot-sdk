@@ -17,8 +17,9 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
+use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{BoundedVec, RuntimeDebug};
 use sp_std::prelude::*;
 
 use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
@@ -95,10 +96,24 @@ impl U64BitFlag for IdentityField {}
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	CloneNoBound,
+	Encode,
+	Decode,
+	EqNoBound,
+	MaxEncodedLen,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(Default))]
-pub struct IdentityInfo {
+#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
+#[scale_info(skip_type_params(FieldLimit))]
+pub struct IdentityInfo<FieldLimit: Get<u32>> {
+	/// Additional fields of the identity that are not catered for with the struct's explicit
+	/// fields.
+	pub additional: BoundedVec<(Data, Data), FieldLimit>,
+
 	/// A reasonable display name for the controller of the account. This should be whatever it is
 	/// that it is typically known as and should not be confusable with other entities, given
 	/// reasonable context.
@@ -140,7 +155,7 @@ pub struct IdentityInfo {
 	pub twitter: Data,
 }
 
-impl IdentityInformationProvider for IdentityInfo {
+impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInfo<FieldLimit> {
 	type IdentityField = IdentityField;
 
 	fn has_identity(&self, fields: u64) -> bool {
@@ -152,6 +167,7 @@ impl IdentityInformationProvider for IdentityInfo {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
+			additional: Default::default(),
 			display: data.clone(),
 			legal: data.clone(),
 			web: data.clone(),
@@ -164,7 +180,7 @@ impl IdentityInformationProvider for IdentityInfo {
 	}
 }
 
-impl IdentityInfo {
+impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 	#[allow(unused)]
 	pub(crate) fn fields(&self) -> IdentityFields<IdentityField> {
 		let mut res = <BitFlags<IdentityField>>::empty();

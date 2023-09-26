@@ -812,7 +812,7 @@ impl pallet_identity::Config for Runtime {
 	type BasicDeposit = BasicDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type IdentityInformation = IdentityInfo;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
