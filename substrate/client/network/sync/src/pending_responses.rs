@@ -19,16 +19,18 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them.
 
-use futures::{channel::oneshot, future::BoxFuture, stream::Stream, FutureExt, StreamExt};
+use futures::{
+	channel::oneshot,
+	future::BoxFuture,
+	stream::{BoxStream, Stream},
+	FutureExt, StreamExt,
+};
 use libp2p::PeerId;
 use log::error;
 use sc_network::request_responses::RequestFailure;
 use sc_network_common::sync::PeerRequest;
 use sp_runtime::traits::Block as BlockT;
-use std::{
-	pin::Pin,
-	task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tokio_stream::StreamMap;
 
 /// Log target for this file.
@@ -50,8 +52,7 @@ pub(crate) struct ResponseEvent<B: BlockT> {
 /// Stream taking care of polling pending responses.
 pub(crate) struct PendingResponses<B: BlockT> {
 	/// Pending responses
-	pending_responses:
-		StreamMap<PeerId, Pin<Box<dyn Stream<Item = (PeerRequest<B>, ResponseResult)> + Send>>>,
+	pending_responses: StreamMap<PeerId, BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,
 }
 
 impl<B: BlockT> PendingResponses<B> {
@@ -97,12 +98,10 @@ impl<B: BlockT> Stream for PendingResponses<B> {
 		mut self: std::pin::Pin<&mut Self>,
 		cx: &mut Context<'_>,
 	) -> Poll<Option<Self::Item>> {
-		if let Some((peer_id, (request, response))) =
-			futures::ready!(self.pending_responses.poll_next_unpin(cx))
-		{
-			Poll::Ready(Some(ResponseEvent { peer_id, request, response }))
-		} else {
-			Poll::Ready(None)
+		match futures::ready!(self.pending_responses.poll_next_unpin(cx)) {
+			Some((peer_id, (request, response))) =>
+				Poll::Ready(Some(ResponseEvent { peer_id, request, response })),
+			None => Poll::Ready(None),
 		}
 	}
 }
