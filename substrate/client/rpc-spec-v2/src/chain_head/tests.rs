@@ -43,7 +43,12 @@ use sp_core::{
 	Blake2Hasher, Hasher,
 };
 use sp_version::RuntimeVersion;
-use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	fmt::Debug,
+	sync::Arc,
+	time::Duration,
+};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, runtime::RuntimeApi, Backend, BlockBuilderExt, Client,
@@ -2582,4 +2587,187 @@ async fn stop_storage_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
+}
+
+#[tokio::test]
+async fn storage_closest_merkle_value() {
+	let (mut client, api, mut sub, sub_id, _) = setup_api().await;
+
+	/// The core of this test.
+	///
+	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// values.
+	///
+	/// Returns (key, merkle value) pairs.
+	async fn expect_merkle_request(
+		api: &RpcModule<ChainHead<Backend, Block, Client<Backend>>>,
+		mut sub: &mut RpcSubscription,
+		sub_id: String,
+		block_hash: String,
+	) -> HashMap<String, String> {
+		// Valid call with storage at the keys.
+		let response: MethodResponse = api
+			.call(
+				"chainHead_unstable_storage",
+				rpc_params![
+					&sub_id,
+					&block_hash,
+					vec![
+						StorageQuery {
+							key: hex_string(b":AAAA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAAB"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Key with descedent.
+						StorageQuery {
+							key: hex_string(b":A"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Keys below this comment do not produce a result.
+						// Key that exceed the keyspace of the trie.
+						StorageQuery {
+							key: hex_string(b":AAAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAABX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Key that are not part of the trie.
+						StorageQuery {
+							key: hex_string(b":AAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+					]
+				],
+			)
+			.await
+			.unwrap();
+		let operation_id = match response {
+			MethodResponse::Started(started) => started.operation_id,
+			MethodResponse::LimitReached => panic!("Expected started response"),
+		};
+
+		let event = get_next_event::<FollowEvent<String>>(&mut sub).await;
+		let merkle_values: HashMap<_, _> = match event {
+			FollowEvent::OperationStorageItems(res) => {
+				assert_eq!(res.operation_id, operation_id);
+
+				res.items
+					.into_iter()
+					.map(|res| {
+						let value = match res.result {
+							StorageResultType::ClosestDescendantMerkleValue(value) => value,
+							_ => panic!("Unexpected StorageResultType"),
+						};
+						(res.key, value)
+					})
+					.collect()
+			},
+			_ => panic!("Expected OperationStorageItems event"),
+		};
+
+		// Finished.
+		assert_matches!(
+				get_next_event::<FollowEvent<String>>(&mut sub).await,
+				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
+		);
+
+		// Response for AAAA, AAAB, A and AA.
+		assert_eq!(merkle_values.len(), 4);
+
+		// While checking for expected merkle values to align,
+		// the following will check that the returned keys are
+		// expected.
+
+		// Values for AAAA and AAAB are different.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":AAAA")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		// Values for A and AA should be on the same branch node.
+		assert_eq!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AA")).unwrap()
+		);
+		// The branch node value must be different than the leaf of either
+		// AAAA and AAAB.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAA")).unwrap()
+		);
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		merkle_values
+	}
+
+	// Import a new block with storage changes.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![2; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	let merkle_values_lhs = expect_merkle_request(&api, &mut sub, sub_id.clone(), block_hash).await;
+
+	// Import a new block with and change AAAB value.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![3; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	let merkle_values_rhs = expect_merkle_request(&api, &mut sub, sub_id.clone(), block_hash).await;
+
+	// Change propagated to the root.
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":A")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":A")).unwrap()
+	);
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":AAAB")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAB")).unwrap()
+	);
+	// However the AAAA branch leaf remains unchanged.
+	assert_eq!(
+		merkle_values_lhs.get(&hex_string(b":AAAA")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
+	);
 }

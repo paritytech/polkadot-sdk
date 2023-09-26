@@ -44,7 +44,6 @@ pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
-pub use trie_db::proof::VerifyError;
 use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{
@@ -53,6 +52,7 @@ pub use trie_db::{
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
 	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
+pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
 
@@ -295,6 +295,25 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided key.
+pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	TrieDBBuilder::<L>::new(db, root)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build()
+		.lookup_first_descendant(key)
+}
+
 /// Read a value from the trie with given Query.
 pub fn read_trie_value_with<
 	L: TrieLayout,
@@ -395,6 +414,27 @@ where
 		.with_optional_cache(cache)
 		.build()
 		.get_hash(key)
+}
+
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided child key.
+pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+	keyspace: &[u8],
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let db = KeySpacedDB::new(db, keyspace);
+	TrieDBBuilder::<L>::new(&db, &root)
+		.with_optional_recorder(recorder)
+		.with_optional_cache(cache)
+		.build()
+		.lookup_first_descendant(key)
 }
 
 /// Read a value from the child trie with given query.
