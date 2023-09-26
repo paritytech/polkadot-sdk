@@ -100,7 +100,7 @@ pub fn expand_outer_task(
 				}
 			}
 
-			fn enumerate() -> Self::Enumeration {
+			fn iter() -> Self::Enumeration {
 				let mut all_tasks = Vec::new();
 				#(all_tasks.extend(#task_paths::enumerate().map(RuntimeTask::from).collect::<Vec<_>>());)*
 				all_tasks.into_iter()

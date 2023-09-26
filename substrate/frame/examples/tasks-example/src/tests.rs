@@ -62,9 +62,7 @@ fn task_enumerate_works() {
 fn runtime_task_enumerate_works_via_frame_system_config() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(
-			<Runtime as frame_system::Config>::RuntimeTask::enumerate()
-				.collect::<Vec<_>>()
-				.len(),
+			<Runtime as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
 			2
 		);
 	});
@@ -74,7 +72,7 @@ fn runtime_task_enumerate_works_via_frame_system_config() {
 fn runtime_task_enumerate_works_via_pallet_config() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(
-			<Runtime as crate::pallet::Config>::RuntimeTask::enumerate()
+			<Runtime as crate::pallet::Config>::RuntimeTask::iter()
 				.collect::<Vec<_>>()
 				.len(),
 			2

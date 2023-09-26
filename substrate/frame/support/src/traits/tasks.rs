@@ -43,7 +43,7 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	const TASK_INDEX: Option<u64>;
 
 	/// Inspects the pallet's state and enumerates tasks of this type.
-	fn enumerate() -> Self::Enumeration;
+	fn iter() -> Self::Enumeration;
 
 	/// Checks if a particular instance of this `Task` variant is a valid piece of work.
 	fn is_valid(&self) -> bool;
