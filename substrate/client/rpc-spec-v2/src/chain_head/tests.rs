@@ -244,7 +244,7 @@ async fn follow_with_runtime() {
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
 
 	let finalized_block_runtime =
-		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	// Runtime must always be reported with the first event.
 	let expected = FollowEvent::Initialized(Initialized {
 		finalized_block_hash: format!("{:?}", finalized_hash),
@@ -308,7 +308,8 @@ async fn follow_with_runtime() {
 	let best_hash = block.header.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	let new_runtime = Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+	let new_runtime =
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
 		block_hash: format!("{:?}", best_hash),

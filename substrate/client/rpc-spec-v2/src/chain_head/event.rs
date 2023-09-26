@@ -37,79 +37,57 @@ pub struct ErrorEvent {
 /// This event is generated for:
 ///   - the first announced block by the follow subscription
 ///   - blocks that suffered a change in runtime compared with their parents
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-	rename_all = "camelCase",
-	try_from = "RuntimeVersionEventWrapper",
-	into = "RuntimeVersionEventWrapper"
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeVersionEvent {
 	/// The runtime version.
-	pub spec: RuntimeVersion,
+	pub spec: ChainHeadRuntimeVersion,
 }
 
-// Note: PartialEq mainly used in tests, manual implementation necessary, because BTreeMap in
-// RuntimeVersionWrapper does not preserve order of apis vec.
-impl PartialEq for RuntimeVersionEvent {
-	fn eq(&self, other: &Self) -> bool {
-		RuntimeVersionWrapper::from(self.spec.clone()) ==
-			RuntimeVersionWrapper::from(other.spec.clone())
-	}
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-struct RuntimeVersionEventWrapper {
-	spec: RuntimeVersionWrapper,
-}
-
-impl TryFrom<RuntimeVersionEventWrapper> for RuntimeVersionEvent {
-	type Error = ApiFromHexError;
-
-	fn try_from(val: RuntimeVersionEventWrapper) -> Result<Self, Self::Error> {
-		let spec = val.spec.try_into()?;
-		Ok(Self { spec })
-	}
-}
-
-impl From<RuntimeVersionEvent> for RuntimeVersionEventWrapper {
-	fn from(val: RuntimeVersionEvent) -> Self {
-		Self { spec: val.spec.into() }
-	}
-}
-
+/// Simplified type clone of `sp_version::RuntimeVersion`. Used instead of
+/// `sp_version::RuntimeVersion` to conform to RPC spec V2.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RuntimeVersionWrapper {
+pub struct ChainHeadRuntimeVersion {
+	/// Identifies the different Substrate runtimes.
 	pub spec_name: String,
+	/// Name of the implementation of the spec.
 	pub impl_name: String,
+	/// Version of the runtime specification.
 	pub spec_version: u32,
+	/// Version of the implementation of the specification.
 	pub impl_version: u32,
+	/// Map of all supported API "features" and their versions.
 	pub apis: BTreeMap<String, u32>,
+	/// Transaction version.
 	pub transaction_version: u32,
 }
 
+/// Error when trying to convert a `ChainHeadRuntimeVersion` into a `RuntimeVersion`
 #[derive(Error, Debug)]
-enum ApiFromHexError {
+pub enum IntoRuntimeVersionError {
+	/// Invalid characters in hex string.
 	#[error("invalid hex string provided")]
 	FromHexError(#[from] sp_core::bytes::FromHexError),
+	/// Hex string did not contain exactly 8 bytes.
 	#[error("buffer must be 8 bytes long")]
 	InvalidLength,
 }
 
-impl TryFrom<RuntimeVersionWrapper> for RuntimeVersion {
-	type Error = ApiFromHexError;
+impl TryFrom<ChainHeadRuntimeVersion> for RuntimeVersion {
+	type Error = IntoRuntimeVersionError;
 
-	fn try_from(val: RuntimeVersionWrapper) -> Result<Self, Self::Error> {
+	fn try_from(val: ChainHeadRuntimeVersion) -> Result<Self, Self::Error> {
 		let apis = val
 			.apis
 			.into_iter()
-			.map(|(api, version)| -> Result<([u8; 8], u32), ApiFromHexError> {
+			.map(|(api, version)| -> Result<([u8; 8], u32), IntoRuntimeVersionError> {
 				let bytes_vec = sp_core::bytes::from_hex(&api)?;
 				let api: [u8; 8] =
-					bytes_vec.try_into().map_err(|_| ApiFromHexError::InvalidLength)?;
+					bytes_vec.try_into().map_err(|_| IntoRuntimeVersionError::InvalidLength)?;
 				Ok((api, version))
 			})
-			.collect::<Result<sp_version::ApisVec, ApiFromHexError>>()?;
+			.collect::<Result<sp_version::ApisVec, IntoRuntimeVersionError>>()?;
 		Ok(Self {
 			spec_name: sp_runtime::RuntimeString::Owned(val.spec_name),
 			impl_name: sp_runtime::RuntimeString::Owned(val.impl_name),
@@ -122,7 +100,7 @@ impl TryFrom<RuntimeVersionWrapper> for RuntimeVersion {
 	}
 }
 
-impl From<RuntimeVersion> for RuntimeVersionWrapper {
+impl From<RuntimeVersion> for ChainHeadRuntimeVersion {
 	fn from(val: RuntimeVersion) -> Self {
 		Self {
 			spec_name: val.spec_name.into(),
@@ -477,7 +455,7 @@ mod tests {
 			..Default::default()
 		};
 
-		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		let mut initialized = Initialized {
 			finalized_block_hash: "0x1".into(),
 			finalized_block_runtime: Some(runtime_event),
@@ -530,7 +508,7 @@ mod tests {
 			..Default::default()
 		};
 
-		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		let mut new_block = NewBlock {
 			block_hash: "0x1".into(),
 			parent_block_hash: "0x2".into(),
