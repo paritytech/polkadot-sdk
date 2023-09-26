@@ -181,7 +181,10 @@ where
 mod ump_constants {
 	use super::FixedU128;
 
-	pub const THRESHOLD_FACTOR: u32 = 2; // The price starts to increase when queue is half full
+	/// `max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
+	/// starts getting exponentially more expensive.
+	/// The price starts to increase when queue is half full
+	pub const THRESHOLD_FACTOR: u32 = 2;
 	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
@@ -335,7 +338,7 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				let threshold = Self::get_ump_threshold(host_config.max_upward_queue_size);
+				let threshold = host_config.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
 				let remaining_total_size: usize = up.iter().map(UpwardMessage::len).sum();
 				if remaining_total_size <= threshold as usize {
 					Self::decrement_ump_fee_factor();
@@ -1020,15 +1023,6 @@ impl<T: Config> Pallet<T> {
 			*f
 		})
 	}
-
-	/// Get the threshold for UMP used to increase or decrease fees.
-	/// The threshold is a factor of the max possible size of the queue.
-	/// It should be checked against the total size in the queue and not the
-	/// number of messages, since messages could be big or small
-	// TODO: Should this be `config.max_upward_queue_size` or `MAX_POSSIBLE_ALLOCATION`?
-	fn get_ump_threshold(max_upward_queue_size: u32) -> u32 {
-		max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR)
-	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -1547,7 +1541,7 @@ impl<T: Config> Pallet<T> {
 			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
 			}
-			let threshold = Self::get_ump_threshold(cfg.max_upward_queue_size);
+			let threshold = cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
 			// We check the threshold against total size and not number of messages since messages
 			// could be big or small
 			let pending_messages = PendingUpwardMessages::<T>::get();
