@@ -484,8 +484,7 @@ where
 		CallExecutor::runtime_version(&self.executor, hash)
 	}
 
-	/// Apply a checked and validated block to an operation. If a justification is provided
-	/// then `finalized` *must* be true.
+	/// Apply a checked and validated block to an operation.
 	fn apply_block(
 		&self,
 		operation: &mut ClientImportOperation<Block, B>,
@@ -1766,8 +1765,7 @@ where
 {
 	type Error = ConsensusError;
 
-	/// Import a checked and validated block. If a justification is provided in
-	/// `BlockImportParams` then `finalized` *must* be true.
+	/// Import a checked and validated block.
 	///
 	/// NOTE: only use this implementation when there are NO consensus-level BlockImport
 	/// objects. Otherwise, importing blocks directly into the client would be bypassing
