@@ -21,6 +21,7 @@ use substrate_wasm_builder::WasmBuilder;
 // prod_or_fast macro.
 const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 
+[cfg(feature = "std")]
 fn main() {
 	let mut builder = WasmBuilder::new().with_current_project().import_memory().export_heap_base();
 
@@ -32,3 +33,6 @@ fn main() {
 
 	println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}
