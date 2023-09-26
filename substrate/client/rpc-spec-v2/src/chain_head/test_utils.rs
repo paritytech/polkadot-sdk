@@ -238,6 +238,13 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 		self.client.block(hash)
 	}
 
+	fn block_body_aux_data(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		self.client.block_body_aux_data(hash)
+	}
+
 	fn block_status(&self, hash: Block::Hash) -> sp_blockchain::Result<sp_consensus::BlockStatus> {
 		self.client.block_status(hash)
 	}

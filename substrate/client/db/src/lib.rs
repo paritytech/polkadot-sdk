@@ -704,6 +704,25 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		self.body_uncached(hash)
 	}
 
+	fn body_aux_data(&self, hash: <Block as BlockT>::Hash) -> ClientResult<Option<Vec<u8>>> {
+		match read_db(
+			&*self.db,
+			columns::KEY_LOOKUP,
+			columns::BODY_AUX,
+			BlockId::<Block>::Hash(hash),
+		)? {
+			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
+				Ok(justifications) => Ok(Some(justifications)),
+				Err(err) =>
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding justifications: {}",
+						err
+					))),
+			},
+			None => Ok(None),
+		}
+	}
+
 	fn justifications(&self, hash: Block::Hash) -> ClientResult<Option<Justifications>> {
 		let cache = self.pinned_blocks_cache.read();
 		if let Some(result) = cache.justifications(&hash) {

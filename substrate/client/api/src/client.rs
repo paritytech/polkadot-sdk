@@ -113,11 +113,21 @@ pub trait PreCommitActions<Block: BlockT> {
 
 /// Interface for fetching block data.
 pub trait BlockBackend<Block: BlockT> {
-	/// Get block body by ID. Returns `None` if the body is not stored.
+	/// Get block body by hash.
+	///
+	/// Returns `None` if the body is not stored.
 	fn block_body(
 		&self,
 		hash: Block::Hash,
 	) -> sp_blockchain::Result<Option<Vec<<Block as BlockT>::Extrinsic>>>;
+
+	/// Get block body aux data by hash.
+	///
+	/// Returns `None` if the body aux is not stored.
+	fn block_body_aux_data(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<Vec<u8>>>;
 
 	/// Get all indexed transactions for a block,
 	/// including renewed transactions.

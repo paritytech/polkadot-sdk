@@ -89,6 +89,13 @@ impl<B: BlockT> StoredBlock<B> {
 		}
 	}
 
+	fn aux_data(&self) -> Option<&[u8]> {
+		match *self {
+			StoredBlock::Header(_, _) => None,
+			StoredBlock::Full(ref b, _) => Some(b.aux_data()),
+		}
+	}
+
 	fn into_inner(self) -> (B::Header, Option<Vec<B::Extrinsic>>, Vec<u8>, Option<Justifications>) {
 		match self {
 			StoredBlock::Header(header, just) => (header, None, Vec::new(), just),
@@ -409,6 +416,15 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 			.blocks
 			.get(&hash)
 			.and_then(|b| b.extrinsics().map(|x| x.to_vec())))
+	}
+
+	fn body_aux_data(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(self
+			.storage
+			.read()
+			.blocks
+			.get(&hash)
+			.and_then(|b| b.aux_data().map(|x| x.to_vec())))
 	}
 
 	fn justifications(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Justifications>> {

@@ -409,8 +409,8 @@ where
 			} else {
 				NewBlockState::Normal
 			};
-			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state)?;
+			let (header, body, body_aux) = genesis_block.deconstruct();
+			op.set_block_data(header, Some(body), None, None, block_state, body_aux)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -747,6 +747,7 @@ where
 			indexed_body,
 			justifications,
 			leaf_state,
+			body_aux,
 		)?;
 
 		operation.op.insert_aux(aux)?;
@@ -867,7 +868,11 @@ where
 
 				runtime_api.execute_block(
 					*parent_hash,
-					Block::new(import_block.header.clone(), body.clone()),
+					Block::new(
+						import_block.header.clone(),
+						body.clone(),
+						import_block.body_aux.clone(),
+					),
 				)?;
 
 				let state = self.backend.state_at(*parent_hash)?;
@@ -1991,11 +1996,27 @@ where
 	}
 
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>> {
-		Ok(match (self.header(hash)?, self.body(hash)?, self.justifications(hash)?) {
-			(Some(header), Some(extrinsics), justifications) =>
-				Some(SignedBlock { block: Block::new(header, extrinsics), justifications }),
-			_ => None,
-		})
+		Ok(
+			match (
+				self.header(hash)?,
+				self.body(hash)?,
+				self.block_body_aux_data(hash)?,
+				self.justifications(hash)?,
+			) {
+				(Some(header), Some(extrinsics), body_aux, justifications) => Some(SignedBlock {
+					block: Block::new(header, extrinsics, body_aux.unwrap_or_default()),
+					justifications,
+				}),
+				_ => None,
+			},
+		)
+	}
+
+	fn block_body_aux_data(
+		&self,
+		hash: <Block as BlockT>::Hash,
+	) -> blockchain::Result<Option<Vec<u8>>> {
+		self.backend.blockchain().body_aux_data(hash)
 	}
 
 	fn block_status(&self, hash: Block::Hash) -> sp_blockchain::Result<BlockStatus> {

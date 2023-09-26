@@ -160,8 +160,14 @@ where
 pub trait Backend<Block: BlockT>:
 	HeaderBackend<Block> + HeaderMetadata<Block, Error = Error>
 {
-	/// Get block body. Returns `None` if block is not found.
+	/// Get block body.
+	///
+	/// Returns `None` if block is not found.
 	fn body(&self, hash: Block::Hash) -> Result<Option<Vec<<Block as BlockT>::Extrinsic>>>;
+	/// Get the aux data associated to the given block `hash`.
+	///
+	/// Returns `None` if block is not found.
+	fn body_aux_data(&self, hash: Block::Hash) -> Result<Option<Vec<u8>>>;
 	/// Get block justifications. Returns `None` if no justification exists.
 	fn justifications(&self, hash: Block::Hash) -> Result<Option<Justifications>>;
 	/// Get last finalized block hash.

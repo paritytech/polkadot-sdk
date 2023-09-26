@@ -93,10 +93,11 @@ where
 	T: Send + Sync,
 {
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -106,10 +107,11 @@ where
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -119,11 +121,12 @@ where
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -134,12 +137,13 @@ where
 		block: Block,
 		justifications: Justifications,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.justifications = Some(justifications);
 		import.body = Some(extrinsics);
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -154,10 +158,11 @@ where
 	E: Send,
 {
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -167,10 +172,11 @@ where
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -180,11 +186,12 @@ where
 		origin: BlockOrigin,
 		block: Block,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.body = Some(extrinsics);
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}
@@ -195,12 +202,13 @@ where
 		block: Block,
 		justifications: Justifications,
 	) -> Result<(), ConsensusError> {
-		let (header, extrinsics) = block.deconstruct();
+		let (header, extrinsics, body_aux) = block.deconstruct();
 		let mut import = BlockImportParams::new(origin, header);
 		import.justifications = Some(justifications);
 		import.body = Some(extrinsics);
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		import.body_aux = body_aux;
 
 		BlockImport::import_block(self, import).await.map(|_| ())
 	}

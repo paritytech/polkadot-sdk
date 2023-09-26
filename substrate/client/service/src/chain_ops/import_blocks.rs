@@ -154,7 +154,7 @@ fn import_block_to_queue<TBl, TImpQu>(
 	TBl: BlockT + MaybeSerializeDeserialize,
 	TImpQu: 'static + ImportQueue<TBl>,
 {
-	let (header, extrinsics) = signed_block.block.deconstruct();
+	let (header, extrinsics, aux_data) = signed_block.block.deconstruct();
 	let hash = header.hash();
 	// import queue handles verification and importing it into the client.
 	queue.service_ref().import_blocks(
