@@ -2352,6 +2352,7 @@ async fn check_continue_operation() {
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	builder.push_storage_change(b":mo".to_vec(), Some(b"ab".to_vec())).unwrap();
 	builder.push_storage_change(b":moc".to_vec(), Some(b"abc".to_vec())).unwrap();
+	builder.push_storage_change(b":moD".to_vec(), Some(b"abcmoD".to_vec())).unwrap();
 	builder.push_storage_change(b":mock".to_vec(), Some(b"abcd".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
@@ -2428,6 +2429,25 @@ async fn check_continue_operation() {
 			res.items.len() == 1 &&
 			res.items[0].key == hex_string(b":mo") &&
 			res.items[0].result == StorageResultType::Value(hex_string(b"ab"))
+	);
+
+	// Pagination event.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
+	);
+	does_not_produce_event::<FollowEvent<String>>(
+		&mut sub,
+		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
+	)
+	.await;
+	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
+			res.items.len() == 1 &&
+			res.items[0].key == hex_string(b":moD") &&
+			res.items[0].result == StorageResultType::Value(hex_string(b"abcmoD"))
 	);
 
 	// Pagination event.
