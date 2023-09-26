@@ -69,7 +69,7 @@ async fn batch_revalidate<Api: ChainApi>(
 	at: BlockHash<Api>,
 	batch: impl IntoIterator<Item = ExtrinsicHash<Api>>,
 ) {
-	// This conversion should work. Otherwise, for unknown block the revalidatiopn shall be skipped,
+	// This conversion should work. Otherwise, for unknown block the revalidation shall be skipped,
 	// all the transactions will be kept in the validated pool, and can be scheduled for
 	// revalidation with the next request.
 	let block_number = match api.block_id_to_number(&BlockId::Hash(at)) {
