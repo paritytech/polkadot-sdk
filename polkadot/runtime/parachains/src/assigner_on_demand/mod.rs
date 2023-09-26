@@ -34,7 +34,7 @@ mod tests;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment},
 };
 
 use frame_support::{
@@ -538,6 +538,12 @@ where
 }
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	type AssignmentType = OnDemandAssignment;
+
+	type OldAssignmentType = V0Assignment;
+
+	const ASSIGNMENT_STORAGE_VERSION: crate::scheduler::common::AssignmentVersion = 1;
+
 	fn session_core_count() -> u32 {
 		let config = <configuration::Pallet<T>>::config();
 		config.on_demand_cores
@@ -552,10 +558,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// - `core_idx`: The core index
 	/// - `previous_paraid`: Which paraid was previously processed on the requested core. Is None if
 	///   nothing was processed on the core.
-	fn pop_assignment_for_core(
-		core_idx: CoreIndex,
-		previous_para: Option<ParaId>,
-	) -> Option<Assignment> {
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		// Only decrease the affinity of the previous para if it exists.
 		// A nonexistant `ParaId` indicates that the scheduler has not processed any
 		// `ParaId` this session.
@@ -609,7 +612,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// Parameters:
 	/// - `core_idx`: The core index
 	/// - `assignment`: The on demand assignment.
-	fn push_assignment_for_core(core_idx: CoreIndex, assignment: Assignment) {
+	fn push_back_assignment(core_idx: CoreIndex, assignment: Self::AssignmentType) {
 		Pallet::<T>::decrease_affinity(assignment.para_id, core_idx);
 		// Skip the queue on push backs from scheduler
 		match Pallet::<T>::add_on_demand_assignment(assignment, QueuePushDirection::Front) {

@@ -393,8 +393,9 @@ impl<T: Config> Pallet<T> {
 
 					// For all claims dropped due to TTL, attempt to pop a new entry to
 					// the back of the claimqueue.
-					for drop in dropped_claims {
-						match T::AssignmentProvider::pop_assignment_for_core(core_idx, drop) {
+					for drop in dropped_claims.flatten() {
+						T::AssignmentProvider::report_processed(drop);
+						match T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 							Some(assignment) => {
 								let AssignmentProviderConfig { ttl, .. } =
 									T::AssignmentProvider::get_provider_config(core_idx);
@@ -581,7 +582,7 @@ impl<T: Config> Pallet<T> {
 	/// timed out on availability before.
 	fn maybe_push_assignment(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
 		if pe.availability_timeouts == 0 {
-			T::AssignmentProvider::push_assignment_for_core(core_idx, pe.assignment);
+			T::AssignmentProvider::push_back_assignment(core_idx, pe.assignment);
 		}
 	}
 
