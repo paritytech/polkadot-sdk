@@ -1,5 +1,8 @@
 #!/usr/bin/env bash -eu
 
+# Sample script showing how to update the chain-spec 'code' field with the pre-built rococo runtime blob with
+# non-standard epoch duration.
+
 CURRENT_DIR=$(pwd)
 
 usage() {
@@ -51,10 +54,10 @@ WASM_RUNTIME_BLOB_PATH=$OUTPUT_ROOT_DIR/rococo-runtime-$EPOCH_DURATION_IN_BLOCKS
 hexdump -v -e '/1 "%02x"' $WASM_RUNTIME_BLOB_PATH > $WASM_RUNTIME_BLOB_PATH.hex
 
 # get westend spec:
-$POLKADOT_CMD build-spec --chain $CHAIN_NAME > $CURRENT_DIR/wococo-source.json
+$POLKADOT_CMD build-spec --chain $CHAIN_NAME > $CURRENT_DIR/chainspec-source.json
 
 # replace runtime in chainspec with newly built runtime with overwritten epoch duration:
-jq --rawfile code $WASM_RUNTIME_BLOB_PATH.hex '.genesis.runtime.system.code = "0x" + $code' > $CURRENT_DIR/chainspec-nonraw.json < $CURRENT_DIR/wococo-source.json 
+jq --rawfile code $WASM_RUNTIME_BLOB_PATH.hex '.genesis.runtime.system.code = "0x" + $code' > $CURRENT_DIR/chainspec-nonraw.json < $CURRENT_DIR/chainspec-source.json 
 
 # jq will write numbers in compact way with 1e+18, substrtate json parser dont support it. 
 sed 's/1e+18/1000000000000000000/' -i $CURRENT_DIR/chainspec-nonraw.json

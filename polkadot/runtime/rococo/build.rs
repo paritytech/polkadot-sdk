@@ -15,13 +15,14 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::env;
+#[cfg(feature = "std")]
 use substrate_wasm_builder::WasmBuilder;
 
 // note: needs to be synced with rococo-runtime-constants::time hard-coded string literal in
 // prod_or_fast macro.
 const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 
-[cfg(feature = "std")]
+#[cfg(feature = "std")]
 fn main() {
 	let mut builder = WasmBuilder::new().with_current_project().import_memory().export_heap_base();
 
