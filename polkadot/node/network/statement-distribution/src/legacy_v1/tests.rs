@@ -36,15 +36,15 @@ use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, Statement, UncheckedSignedFullStatement,
 };
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		network_bridge_event, AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, LeafStatus, RuntimeApiError,
+	RuntimeApiError,
 };
-use polkadot_node_subsystem_test_helpers::mock::make_ferdie_keystore;
+use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
-	GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo, ValidationCode,
+	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo,
+	ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
@@ -786,12 +786,7 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -825,6 +820,17 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -1020,12 +1026,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1059,6 +1060,17 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -1544,12 +1556,7 @@ fn delay_reputation_changes() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1583,6 +1590,17 @@ fn delay_reputation_changes() {
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -2018,12 +2036,7 @@ fn share_prioritizes_backing_group() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -2057,6 +2070,17 @@ fn share_prioritizes_backing_group() {
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -2334,12 +2358,7 @@ fn peer_cant_flood_with_large_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -2373,6 +2392,17 @@ fn peer_cant_flood_with_large_statements() {
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == hash_a && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 
@@ -2553,12 +2583,7 @@ fn handle_multiple_seconded_statements() {
 		// register our active heads.
 		handle
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: relay_parent_hash,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(relay_parent_hash, 1)),
 			)))
 			.await;
 
@@ -2592,6 +2617,17 @@ fn handle_multiple_seconded_statements() {
 				if r == relay_parent_hash && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(session_info)));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::SessionExecutorParams(sess_index, tx))
+			)
+				if r == relay_parent_hash && sess_index == session_index
+			=> {
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
 

@@ -146,6 +146,7 @@ pub enum CandidateValidationMessage {
 	ValidateFromChainState(
 		CandidateReceipt,
 		Arc<PoV>,
+		ExecutorParams,
 		/// Execution timeout
 		PvfExecTimeoutKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
@@ -164,6 +165,7 @@ pub enum CandidateValidationMessage {
 		ValidationCode,
 		CandidateReceipt,
 		Arc<PoV>,
+		ExecutorParams,
 		/// Execution timeout
 		PvfExecTimeoutKind,
 		oneshot::Sender<Result<ValidationResult, ValidationFailed>>,

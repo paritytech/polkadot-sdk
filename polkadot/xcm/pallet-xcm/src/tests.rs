@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{Currency, Hooks},
 	weights::Weight,
 };
-use polkadot_parachain::primitives::Id as ParaId;
+use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
@@ -375,7 +375,7 @@ fn teleport_assets_works() {
 				Xcm(vec![
 					ReceiveTeleportedAsset((Here, SEND_AMOUNT).into()),
 					ClearOrigin,
-					buy_limited_execution((Here, SEND_AMOUNT), Weight::from_parts(4000, 4000)),
+					buy_execution((Here, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
 				]),
 			)]
@@ -508,7 +508,7 @@ fn reserve_transfer_assets_works() {
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
-					buy_limited_execution((Parent, SEND_AMOUNT), Weight::from_parts(4000, 4000)),
+					buy_execution((Parent, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
 				]),
 			)]

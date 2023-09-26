@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use parachains_common::{AccountId, SLOT_DURATION};
-use polkadot_parachain::primitives::{
+use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};

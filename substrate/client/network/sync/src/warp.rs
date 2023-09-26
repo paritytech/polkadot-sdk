@@ -19,36 +19,75 @@
 //! Warp sync support.
 
 use crate::{
-	oneshot,
 	schema::v1::{StateRequest, StateResponse},
 	state::{ImportResult, StateSync},
 };
-use futures::FutureExt;
+use futures::channel::oneshot;
 use log::error;
 use sc_client_api::ProofProvider;
 use sc_network_common::sync::{
 	message::{BlockAttributes, BlockData, BlockRequest, Direction, FromBlock},
 	warp::{
-		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncParams, WarpSyncPhase,
-		WarpSyncProgress, WarpSyncProvider,
+		EncodedProof, VerificationResult, WarpProofRequest, WarpSyncPhase, WarpSyncProgress,
+		WarpSyncProvider,
 	},
 };
 use sp_blockchain::HeaderBackend;
 use sp_consensus_grandpa::{AuthorityList, SetId};
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
-use std::{sync::Arc, task::Poll};
+use std::sync::Arc;
 
+/// Log target for this file.
+const LOG_TARGET: &'static str = "sync";
+
+/// The different types of warp syncing, passed to `build_network`.
+pub enum WarpSyncParams<Block: BlockT> {
+	/// Standard warp sync for the chain.
+	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
+	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
+}
+
+/// Warp sync configuration as accepted by [`WarpSync`].
+pub enum WarpSyncConfig<Block: BlockT> {
+	/// Standard warp sync for the chain.
+	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
+	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	///
+	/// It is expected that the header provider ensures that the header is trusted.
+	WaitForTarget,
+}
+
+impl<Block: BlockT> WarpSyncParams<Block> {
+	/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
+	pub fn split(
+		self,
+	) -> (WarpSyncConfig<Block>, Option<oneshot::Receiver<<Block as BlockT>::Header>>) {
+		match self {
+			WarpSyncParams::WithProvider(provider) =>
+				(WarpSyncConfig::WithProvider(provider), None),
+			WarpSyncParams::WaitForTarget(rx) => (WarpSyncConfig::WaitForTarget, Some(rx)),
+		}
+	}
+}
+
+/// Warp sync phase.
 enum Phase<B: BlockT, Client> {
+	/// Downloading warp proofs.
 	WarpProof {
 		set_id: SetId,
 		authorities: AuthorityList,
 		last_hash: B::Hash,
 		warp_sync_provider: Arc<dyn WarpSyncProvider<B>>,
 	},
-	PendingTargetBlock {
-		target_block: Option<oneshot::Receiver<B::Header>>,
-	},
+	/// Waiting for target block to be set externally if we skip warp proofs downloading,
+	/// and start straight from the target block (used by parachains warp sync).
+	PendingTargetBlock,
+	/// Downloading target block.
 	TargetBlock(B::Header),
+	/// Downloading state.
 	State(StateSync<B, Client>),
 }
 
@@ -83,10 +122,10 @@ where
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	pub fn new(client: Arc<Client>, warp_sync_params: WarpSyncParams<B>) -> Self {
+	pub fn new(client: Arc<Client>, warp_sync_config: WarpSyncConfig<B>) -> Self {
 		let last_hash = client.hash(Zero::zero()).unwrap().expect("Genesis header always exists");
-		match warp_sync_params {
-			WarpSyncParams::WithProvider(warp_sync_provider) => {
+		match warp_sync_config {
+			WarpSyncConfig::WithProvider(warp_sync_provider) => {
 				let phase = Phase::WarpProof {
 					set_id: 0,
 					authorities: warp_sync_provider.current_authorities(),
@@ -95,35 +134,23 @@ where
 				};
 				Self { client, phase, total_proof_bytes: 0 }
 			},
-			WarpSyncParams::WaitForTarget(block) => Self {
-				client,
-				phase: Phase::PendingTargetBlock { target_block: Some(block) },
-				total_proof_bytes: 0,
-			},
+			WarpSyncConfig::WaitForTarget =>
+				Self { client, phase: Phase::PendingTargetBlock, total_proof_bytes: 0 },
 		}
 	}
 
-	/// Poll to make progress.
-	///
-	/// This only makes progress when `phase = Phase::PendingTargetBlock` and the pending block was
-	/// sent.
-	pub fn poll(&mut self, cx: &mut std::task::Context) {
-		let new_phase = if let Phase::PendingTargetBlock { target_block: Some(target_block) } =
-			&mut self.phase
-		{
-			match target_block.poll_unpin(cx) {
-				Poll::Ready(Ok(target)) => Phase::TargetBlock(target),
-				Poll::Ready(Err(e)) => {
-					error!(target: "sync", "Failed to get target block. Error: {:?}",e);
-					Phase::PendingTargetBlock { target_block: None }
-				},
-				_ => return,
-			}
-		} else {
+	/// Set target block externally in case we skip warp proof downloading.
+	pub fn set_target_block(&mut self, header: B::Header) {
+		let Phase::PendingTargetBlock = self.phase else {
+			error!(
+				target: LOG_TARGET,
+				"Attempt to set warp sync target block in invalid phase.",
+			);
+			debug_assert!(false);
 			return
 		};
 
-		self.phase = new_phase;
+		self.phase = Phase::TargetBlock(header);
 	}
 
 	///  Validate and import a state response.

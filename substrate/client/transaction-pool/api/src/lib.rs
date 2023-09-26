@@ -22,6 +22,7 @@
 pub mod error;
 
 use async_trait::async_trait;
+use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
@@ -187,7 +188,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
 	/// Transaction hash type.
-	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned;
+	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
 		Transaction = TransactionFor<Self>,
@@ -247,6 +248,9 @@ pub trait TransactionPool: Send + Sync {
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging
+	/// Get futures transaction list.
+	fn futures(&self) -> Vec<Self::InPoolTransaction>;
+
 	/// Returns pool status.
 	fn status(&self) -> PoolStatus;
 

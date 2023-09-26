@@ -131,7 +131,7 @@ benchmarks! {
 		let now = BlockNumberFor::<T>::from(BLOCK_NUMBER);
 		IncompleteSince::<T>::put(now - One::one());
 	}: {
-		Scheduler::<T>::service_agendas(&mut WeightMeter::max_limit(), now, 0);
+		Scheduler::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 	} verify {
 		assert_eq!(IncompleteSince::<T>::get(), Some(now - One::one()));
 	}
@@ -143,7 +143,7 @@ benchmarks! {
 		fill_schedule::<T>(now, s)?;
 		let mut executed = 0;
 	}: {
-		Scheduler::<T>::service_agenda(&mut WeightMeter::max_limit(), &mut executed, now, now, 0);
+		Scheduler::<T>::service_agenda(&mut WeightMeter::new(), &mut executed, now, now, 0);
 	} verify {
 		assert_eq!(executed, 0);
 	}
@@ -154,7 +154,7 @@ benchmarks! {
 		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
-		let mut counter = WeightMeter::from_limit(Weight::zero());
+		let mut counter = WeightMeter::with_limit(Weight::zero());
 	}: {
 		let result = Scheduler::<T>::service_task(&mut counter, now, now, 0, true, task);
 	} verify {
@@ -172,7 +172,7 @@ benchmarks! {
 		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, false, false, Some(s), 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
-		let mut counter = WeightMeter::from_limit(Weight::zero());
+		let mut counter = WeightMeter::with_limit(Weight::zero());
 	}: {
 		let result = Scheduler::<T>::service_task(&mut counter, now, now, 0, true, task);
 	} verify {
@@ -184,7 +184,7 @@ benchmarks! {
 		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(false, true, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
-		let mut counter = WeightMeter::from_limit(Weight::zero());
+		let mut counter = WeightMeter::with_limit(Weight::zero());
 	}: {
 		let result = Scheduler::<T>::service_task(&mut counter, now, now, 0, true, task);
 	} verify {
@@ -196,7 +196,7 @@ benchmarks! {
 		let now = BLOCK_NUMBER.into();
 		let task = make_task::<T>(true, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
-		let mut counter = WeightMeter::from_limit(Weight::zero());
+		let mut counter = WeightMeter::with_limit(Weight::zero());
 	}: {
 		let result = Scheduler::<T>::service_task(&mut counter, now, now, 0, true, task);
 	} verify {
@@ -204,7 +204,7 @@ benchmarks! {
 
 	// `execute_dispatch` when the origin is `Signed`, not counting the dispatable's weight.
 	execute_dispatch_signed {
-		let mut counter = WeightMeter::max_limit();
+		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(true);
 		let call = T::Preimages::realize(&make_call::<T>(None)).unwrap().0;
 	}: {
@@ -215,7 +215,7 @@ benchmarks! {
 
 	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatable's weight.
 	execute_dispatch_unsigned {
-		let mut counter = WeightMeter::max_limit();
+		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(false);
 		let call = T::Preimages::realize(&make_call::<T>(None)).unwrap().0;
 	}: {

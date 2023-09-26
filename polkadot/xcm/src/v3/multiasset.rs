@@ -34,6 +34,7 @@ use crate::v2::{
 	WildMultiAsset as OldWildMultiAsset,
 };
 use alloc::{vec, vec::Vec};
+use bounded_collections::{BoundedVec, ConstU32};
 use core::{
 	cmp::Ordering,
 	convert::{TryFrom, TryInto},
@@ -506,9 +507,8 @@ impl TryFrom<OldMultiAsset> for MultiAsset {
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub struct MultiAssets(Vec<MultiAsset>);
 
-/// Maximum number of items we expect in a single `MultiAssets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `MultiAssets`.
-const MAX_ITEMS_IN_MULTIASSETS: usize = 20;
+/// Maximum number of items in a single `MultiAssets` value that can be decoded.
+pub const MAX_ITEMS_IN_MULTIASSETS: usize = 20;
 
 impl MaxEncodedLen for MultiAssets {
 	fn max_encoded_len() -> usize {
@@ -517,8 +517,10 @@ impl MaxEncodedLen for MultiAssets {
 }
 
 impl Decode for MultiAssets {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
-		Self::from_sorted_and_deduplicated(Vec::<MultiAsset>::decode(input)?)
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let bounded_instructions =
+			BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
+		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
 	}
 }
@@ -973,5 +975,32 @@ mod tests {
 		let mixed_bad = vec![(Here, *b"bad!").into(), (Here, 10).into()];
 		let r = MultiAssets::from_sorted_and_deduplicated(mixed_bad);
 		assert!(r.is_err());
+	}
+
+	#[test]
+	fn decoding_respects_limit() {
+		use super::*;
+
+		// Having lots of one asset will work since they are deduplicated
+		let lots_of_one_asset: MultiAssets =
+			vec![(GeneralIndex(1), 1u128).into(); MAX_ITEMS_IN_MULTIASSETS + 1].into();
+		let encoded = lots_of_one_asset.encode();
+		assert!(MultiAssets::decode(&mut &encoded[..]).is_ok());
+
+		// Fewer assets than the limit works
+		let mut few_assets: MultiAssets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_MULTIASSETS {
+			few_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = few_assets.encode();
+		assert!(MultiAssets::decode(&mut &encoded[..]).is_ok());
+
+		// Having lots of different assets will not work
+		let mut too_many_different_assets: MultiAssets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_MULTIASSETS + 1 {
+			too_many_different_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = too_many_different_assets.encode();
+		assert!(MultiAssets::decode(&mut &encoded[..]).is_err());
 	}
 }

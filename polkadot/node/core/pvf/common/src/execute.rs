@@ -16,7 +16,7 @@
 
 use crate::error::InternalValidationError;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::ValidationResult;
+use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 

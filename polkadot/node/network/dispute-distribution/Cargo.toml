@@ -20,7 +20,7 @@ polkadot-node-primitives = { path = "../../primitives" }
 sc-network = { path = "../../../../substrate/client/network" }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 fatality = "0.0.6"
 schnellru = "0.2.1"
 indexmap = "1.9.1"

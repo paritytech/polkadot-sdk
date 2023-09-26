@@ -21,16 +21,13 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-std = { path = "../../../substrate/primitives/std" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
-sp-trie = { path = "../../../substrate/primitives/trie" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
-cumulus-pallet-dmp-queue = { path = "../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
-parachain-info = { path = "../../parachains/pallets/parachain-info" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 parachains-common = { path = "../../parachains/common" }
@@ -39,4 +36,5 @@ parachains-common = { path = "../../parachains/common" }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor" }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }

@@ -22,7 +22,9 @@ use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::{MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM};
+use polkadot_parachain_primitives::primitives::{
+	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
+};
 use primitives::{
 	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
@@ -188,11 +190,20 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be non-zero.
 	pub group_rotation_frequency: BlockNumber,
-	/// The availability period, in blocks. This is the amount of blocks
-	/// after inclusion that validators have to make the block available and signal its
-	/// availability to the chain.
+	/// The minimum availability period, in blocks.
 	///
-	/// Must be at least 1.
+	/// This is the minimum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
+	///
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
+	///
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
 	pub paras_availability_period: BlockNumber,
 	/// The amount of blocks ahead to schedule paras.
 	pub scheduling_lookahead: u32,

@@ -19,7 +19,10 @@ use crate::*;
 use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
-use cumulus_primitives_core::{relay_chain::BlockId, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_core::{
+	relay_chain::{self, BlockId},
+	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
+};
 use cumulus_relay_chain_interface::{
 	CommittedCandidateReceipt, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
 	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
@@ -42,12 +45,21 @@ use std::{
 	time::Duration,
 };
 
+fn relay_block_num_from_hash(hash: &PHash) -> relay_chain::BlockNumber {
+	hash.to_low_u64_be() as u32
+}
+
+fn relay_hash_from_block_num(block_number: relay_chain::BlockNumber) -> PHash {
+	PHash::from_low_u64_be(block_number as u64)
+}
+
 struct RelaychainInner {
 	new_best_heads: Option<mpsc::UnboundedReceiver<Header>>,
 	finalized_heads: Option<mpsc::UnboundedReceiver<Header>>,
 	new_best_heads_sender: mpsc::UnboundedSender<Header>,
 	finalized_heads_sender: mpsc::UnboundedSender<Header>,
 	relay_chain_hash_to_header: HashMap<PHash, Header>,
+	relay_chain_hash_to_header_pending: HashMap<PHash, Header>,
 }
 
 impl RelaychainInner {
@@ -61,6 +73,7 @@ impl RelaychainInner {
 			new_best_heads: Some(new_best_heads),
 			finalized_heads: Some(finalized_heads),
 			relay_chain_hash_to_header: Default::default(),
+			relay_chain_hash_to_header_pending: Default::default(),
 		}
 	}
 }
@@ -110,20 +123,17 @@ impl RelayChainInterface for Relaychain {
 		&self,
 		hash: PHash,
 		_: ParaId,
-		_: OccupiedCoreAssumption,
+		assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
-		Ok(Some(PersistedValidationData {
-			parent_head: self
-				.inner
-				.lock()
-				.unwrap()
-				.relay_chain_hash_to_header
-				.get(&hash)
-				.unwrap()
-				.encode()
-				.into(),
-			..Default::default()
-		}))
+		let inner = self.inner.lock().unwrap();
+		let relay_to_header = match assumption {
+			OccupiedCoreAssumption::Included => &inner.relay_chain_hash_to_header_pending,
+			_ => &inner.relay_chain_hash_to_header,
+		};
+		let Some(parent_head) = relay_to_header.get(&hash).map(|head| head.encode().into()) else {
+			return Ok(None)
+		};
+		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
 	}
 
 	async fn candidate_pending_availability(
@@ -135,7 +145,7 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn session_index_for_child(&self, _: PHash) -> RelayChainResult<SessionIndex> {
-		unimplemented!("Not needed for test")
+		Ok(0)
 	}
 
 	async fn import_notification_stream(
@@ -210,8 +220,23 @@ impl RelayChainInterface for Relaychain {
 			.boxed())
 	}
 
-	async fn header(&self, _block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
-		unimplemented!("Not needed for test")
+	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		let number = match block_id {
+			BlockId::Hash(hash) => relay_block_num_from_hash(&hash),
+			BlockId::Number(block_number) => block_number,
+		};
+		let parent_hash = number
+			.checked_sub(1)
+			.map(relay_hash_from_block_num)
+			.unwrap_or_else(|| PHash::zero());
+
+		Ok(Some(PHeader {
+			parent_hash,
+			number,
+			digest: sp_runtime::Digest::default(),
+			state_root: PHash::zero(),
+			extrinsics_root: PHash::zero(),
+		}))
 	}
 }
 
@@ -238,6 +263,7 @@ fn build_block<B: InitBlockBuilder>(
 	sproof: RelayStateSproofBuilder,
 	at: Option<Hash>,
 	timestamp: Option<u64>,
+	relay_parent: Option<PHash>,
 ) -> Block {
 	let builder = match at {
 		Some(at) => match timestamp {
@@ -249,10 +275,17 @@ fn build_block<B: InitBlockBuilder>(
 
 	let mut block = builder.build().unwrap().block;
 
-	// Simulate some form of post activity (like a Seal or Other generic things).
-	// This is mostly used to exercise the `LevelMonitor` correct behavior.
-	// (in practice we want that header post-hash != pre-hash)
-	block.header.digest.push(sp_runtime::DigestItem::Other(vec![1, 2, 3]));
+	if let Some(relay_parent) = relay_parent {
+		block
+			.header
+			.digest
+			.push(CumulusDigestItem::RelayParent(relay_parent).to_digest_item());
+	} else {
+		// Simulate some form of post activity (like a Seal or Other generic things).
+		// This is mostly used to exercise the `LevelMonitor` correct behavior.
+		// (in practice we want that header post-hash != pre-hash)
+		block.header.digest.push(sp_runtime::DigestItem::Other(vec![1, 2, 3]));
+	}
 
 	block
 }
@@ -292,13 +325,14 @@ fn build_and_import_block_ext<I: BlockImport<Block>>(
 	importer: &mut I,
 	at: Option<Hash>,
 	timestamp: Option<u64>,
+	relay_parent: Option<PHash>,
 ) -> Block {
 	let sproof = match at {
 		None => sproof_with_best_parent(client),
 		Some(at) => sproof_with_parent_by_hash(client, at),
 	};
 
-	let block = build_block(client, sproof, at, timestamp);
+	let block = build_block(client, sproof, at, timestamp, relay_parent);
 	import_block_sync(importer, block.clone(), origin, import_as_best);
 	block
 }
@@ -309,6 +343,7 @@ fn build_and_import_block(mut client: Arc<Client>, import_as_best: bool) -> Bloc
 		BlockOrigin::Own,
 		import_as_best,
 		&mut client,
+		None,
 		None,
 		None,
 	)
@@ -372,7 +407,7 @@ fn follow_new_best_with_dummy_recovery_works() {
 		let header = client.header(best).ok().flatten().expect("No header for best");
 		sproof_with_parent(HeadData(header.encode()))
 	};
-	let block = build_block(&*client, sproof, None, None);
+	let block = build_block(&*client, sproof, None, None, None);
 	let block_clone = block.clone();
 	let client_clone = client.clone();
 
@@ -638,6 +673,7 @@ fn prune_blocks_on_level_overflow() {
 		&mut para_import,
 		None,
 		None,
+		None,
 	);
 	let id0 = block0.header.hash();
 
@@ -650,6 +686,7 @@ fn prune_blocks_on_level_overflow() {
 				&mut para_import,
 				Some(id0),
 				Some(i as u64 * TIMESTAMP_MULTIPLIER),
+				None,
 			)
 		})
 		.collect::<Vec<_>>();
@@ -664,6 +701,7 @@ fn prune_blocks_on_level_overflow() {
 				&mut para_import,
 				Some(id10),
 				Some(i as u64 * TIMESTAMP_MULTIPLIER),
+				None,
 			)
 		})
 		.collect::<Vec<_>>();
@@ -692,6 +730,7 @@ fn prune_blocks_on_level_overflow() {
 		&mut para_import,
 		Some(id0),
 		Some(LEVEL_LIMIT as u64 * TIMESTAMP_MULTIPLIER),
+		None,
 	);
 
 	// Expected scenario
@@ -711,6 +750,7 @@ fn prune_blocks_on_level_overflow() {
 		&mut para_import,
 		Some(id0),
 		Some(2 * LEVEL_LIMIT as u64 * TIMESTAMP_MULTIPLIER),
+		None,
 	);
 
 	// Expected scenario
@@ -749,6 +789,7 @@ fn restore_limit_monitor() {
 		&mut para_import,
 		None,
 		None,
+		None,
 	);
 	let id00 = block00.header.hash();
 
@@ -761,6 +802,7 @@ fn restore_limit_monitor() {
 				&mut para_import,
 				Some(id00),
 				Some(i as u64 * TIMESTAMP_MULTIPLIER),
+				None,
 			)
 		})
 		.collect::<Vec<_>>();
@@ -775,6 +817,7 @@ fn restore_limit_monitor() {
 				&mut para_import,
 				Some(id10),
 				Some(i as u64 * TIMESTAMP_MULTIPLIER),
+				None,
 			)
 		})
 		.collect::<Vec<_>>();
@@ -809,6 +852,7 @@ fn restore_limit_monitor() {
 		&mut para_import,
 		Some(id00),
 		Some(LEVEL_LIMIT as u64 * TIMESTAMP_MULTIPLIER),
+		None,
 	);
 
 	// Expected scenario
@@ -829,4 +873,488 @@ fn restore_limit_monitor() {
 			.all(|hash| *number == *monitor.freshness.get(hash).unwrap())
 	}));
 	assert_eq!(*monitor.freshness.get(&block13.header.hash()).unwrap(), monitor.import_counter);
+}
+
+#[test]
+fn find_potential_parents_in_allowed_ancestry() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	let block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
+		included_map.insert(relay_parent, block.header().clone());
+	}
+
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 0,
+			max_depth: 0,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+	assert_eq!(potential_parents.len(), 1);
+	let parent = &potential_parents[0];
+
+	assert_eq!(parent.hash, block.hash());
+	assert_eq!(&parent.header, block.header());
+	assert_eq!(parent.depth, 0);
+	assert!(parent.aligned_with_pending);
+
+	// New block is not pending or included.
+	let block_relay_parent = relay_hash_from_block_num(11);
+	let search_relay_parent = relay_hash_from_block_num(13);
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
+		included_map.insert(search_relay_parent, block.header().clone());
+	}
+	let block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(block.header().hash()),
+		None,
+		Some(block_relay_parent),
+	);
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 2,
+			max_depth: 1,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+
+	assert_eq!(potential_parents.len(), 2);
+	let parent = &potential_parents[1];
+
+	assert_eq!(parent.hash, block.hash());
+	assert_eq!(&parent.header, block.header());
+	assert_eq!(parent.depth, 1);
+	assert!(parent.aligned_with_pending);
+
+	// Reduce allowed ancestry.
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1,
+			max_depth: 1,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+	assert_eq!(potential_parents.len(), 1);
+	let parent = &potential_parents[0];
+	assert_ne!(parent.hash, block.hash());
+}
+
+/// Tests that pending availability block is always potential parent.
+#[test]
+fn find_potential_pending_parent() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+	let relay_parent = relay_hash_from_block_num(12);
+	let pending_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	let search_relay_parent = relay_hash_from_block_num(15);
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.relay_chain_hash_to_header_pending
+			.insert(search_relay_parent, pending_block.header().clone());
+	}
+
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 0,
+			max_depth: 1,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+	assert_eq!(potential_parents.len(), 2);
+	let included_parent = &potential_parents[0];
+
+	assert_eq!(included_parent.hash, included_block.hash());
+	assert_eq!(&included_parent.header, included_block.header());
+	assert_eq!(included_parent.depth, 0);
+	assert!(included_parent.aligned_with_pending);
+
+	let pending_parent = &potential_parents[1];
+
+	assert_eq!(pending_parent.hash, pending_block.hash());
+	assert_eq!(&pending_parent.header, pending_block.header());
+	assert_eq!(pending_parent.depth, 1);
+	assert!(pending_parent.aligned_with_pending);
+}
+
+#[test]
+fn find_potential_parents_with_max_depth() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
+		included_map.insert(relay_parent, included_block.header().clone());
+	}
+
+	let mut blocks = Vec::new();
+	let mut parent = included_block.header().hash();
+	for _ in 0..NON_INCLUDED_CHAIN_LEN {
+		let block = build_and_import_block_ext(
+			&client,
+			BlockOrigin::Own,
+			true,
+			&mut para_import,
+			Some(parent),
+			None,
+			Some(relay_parent),
+		);
+		parent = block.header().hash();
+		blocks.push(block);
+	}
+	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
+		let potential_parents = block_on(find_potential_parents(
+			ParentSearchParams {
+				relay_parent,
+				para_id: ParaId::from(100),
+				ancestry_lookback: 0,
+				max_depth,
+				ignore_alternative_branches: true,
+			},
+			&*backend,
+			&relay_chain,
+		))
+		.unwrap();
+		assert_eq!(potential_parents.len(), max_depth + 1);
+		let expected_parents: Vec<_> =
+			std::iter::once(&included_block).chain(blocks.iter().take(max_depth)).collect();
+
+		for i in 0..(max_depth + 1) {
+			let parent = &potential_parents[i];
+			let expected = &expected_parents[i];
+
+			assert_eq!(parent.hash, expected.hash());
+			assert_eq!(&parent.header, expected.header());
+			assert_eq!(parent.depth, i);
+			assert!(parent.aligned_with_pending);
+		}
+	}
+}
+
+#[test]
+fn find_potential_parents_aligned_with_pending() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::NetworkInitialSync,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+	let pending_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.relay_chain_hash_to_header_pending
+			.insert(search_relay_parent, pending_block.header().clone());
+	}
+
+	// Build two sibling chains from the included block.
+	let mut aligned_blocks = Vec::new();
+	let mut parent = pending_block.header().hash();
+	for _ in 1..NON_INCLUDED_CHAIN_LEN {
+		let block = build_and_import_block_ext(
+			&client,
+			BlockOrigin::Own,
+			true,
+			&mut para_import,
+			Some(parent),
+			None,
+			Some(relay_parent),
+		);
+		parent = block.header().hash();
+		aligned_blocks.push(block);
+	}
+
+	let mut alt_blocks = Vec::new();
+	let mut parent = included_block.header().hash();
+	for _ in 0..NON_INCLUDED_CHAIN_LEN {
+		let block = build_and_import_block_ext(
+			&client,
+			BlockOrigin::NetworkInitialSync,
+			true,
+			&mut para_import,
+			Some(parent),
+			None,
+			Some(search_relay_parent),
+		);
+		parent = block.header().hash();
+		alt_blocks.push(block);
+	}
+
+	// Ignore alternative branch:
+	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
+		let potential_parents = block_on(find_potential_parents(
+			ParentSearchParams {
+				relay_parent: search_relay_parent,
+				para_id: ParaId::from(100),
+				ancestry_lookback: 1, // aligned chain is in ancestry.
+				max_depth,
+				ignore_alternative_branches: true,
+			},
+			&*backend,
+			&relay_chain,
+		))
+		.unwrap();
+		assert_eq!(potential_parents.len(), max_depth + 1);
+		let expected_parents: Vec<_> = [&included_block, &pending_block]
+			.into_iter()
+			.chain(aligned_blocks.iter())
+			.take(max_depth + 1)
+			.collect();
+
+		for i in 0..(max_depth + 1) {
+			let parent = &potential_parents[i];
+			let expected = &expected_parents[i];
+
+			assert_eq!(parent.hash, expected.hash());
+			assert_eq!(&parent.header, expected.header());
+			assert_eq!(parent.depth, i);
+			assert!(parent.aligned_with_pending);
+		}
+	}
+
+	// Do not ignore:
+	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
+		let potential_parents = block_on(find_potential_parents(
+			ParentSearchParams {
+				relay_parent: search_relay_parent,
+				para_id: ParaId::from(100),
+				ancestry_lookback: 1, // aligned chain is in ancestry.
+				max_depth,
+				ignore_alternative_branches: false,
+			},
+			&*backend,
+			&relay_chain,
+		))
+		.unwrap();
+
+		let expected_len = 2 * max_depth + 1;
+		assert_eq!(potential_parents.len(), expected_len);
+		let expected_aligned: Vec<_> = [&included_block, &pending_block]
+			.into_iter()
+			.chain(aligned_blocks.iter())
+			.take(max_depth + 1)
+			.collect();
+		let expected_alt = alt_blocks.iter().take(max_depth);
+
+		let expected_parents: Vec<_> =
+			expected_aligned.clone().into_iter().chain(expected_alt).collect();
+		// Check correctness.
+		assert_eq!(expected_parents.len(), expected_len);
+
+		for i in 0..expected_len {
+			let parent = &potential_parents[i];
+			let expected = expected_parents
+				.iter()
+				.find(|block| block.header().hash() == parent.hash)
+				.expect("missing parent");
+
+			let is_aligned = expected_aligned.contains(&expected);
+
+			assert_eq!(parent.hash, expected.hash());
+			assert_eq!(&parent.header, expected.header());
+
+			assert_eq!(parent.aligned_with_pending, is_aligned);
+		}
+	}
+}
+
+/// Tests that no potential parent gets discarded if there's no pending availability block.
+#[test]
+fn find_potential_parents_aligned_no_pending() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
+		included_map.insert(search_relay_parent, included_block.header().clone());
+	}
+
+	// Build two sibling chains from the included block.
+	let mut parent = included_block.header().hash();
+	for _ in 0..NON_INCLUDED_CHAIN_LEN {
+		let block = build_and_import_block_ext(
+			&client,
+			BlockOrigin::Own,
+			true,
+			&mut para_import,
+			Some(parent),
+			None,
+			Some(relay_parent),
+		);
+		parent = block.header().hash();
+	}
+
+	let mut parent = included_block.header().hash();
+	for _ in 0..NON_INCLUDED_CHAIN_LEN {
+		let block = build_and_import_block_ext(
+			&client,
+			BlockOrigin::NetworkInitialSync,
+			true,
+			&mut para_import,
+			Some(parent),
+			None,
+			Some(search_relay_parent),
+		);
+		parent = block.header().hash();
+	}
+
+	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
+		let potential_parents_aligned = block_on(find_potential_parents(
+			ParentSearchParams {
+				relay_parent: search_relay_parent,
+				para_id: ParaId::from(100),
+				ancestry_lookback: 1, // aligned chain is in ancestry.
+				max_depth,
+				ignore_alternative_branches: true,
+			},
+			&*backend,
+			&relay_chain,
+		))
+		.unwrap();
+		let potential_parents = block_on(find_potential_parents(
+			ParentSearchParams {
+				relay_parent: search_relay_parent,
+				para_id: ParaId::from(100),
+				ancestry_lookback: 1,
+				max_depth,
+				ignore_alternative_branches: false,
+			},
+			&*backend,
+			&relay_chain,
+		))
+		.unwrap();
+		assert_eq!(potential_parents.len(), 2 * max_depth + 1);
+		assert_eq!(potential_parents, potential_parents_aligned);
+	}
 }

@@ -26,7 +26,7 @@ sp-staking = { path = "../../substrate/primitives/staking", default-features = f
 sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
 
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
-polkadot-parachain = { path = "../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../parachain", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -36,7 +36,7 @@ std = [
 	"inherents/std",
 	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"primitives/std",
 	"runtime_primitives/std",
 	"scale-info/std",
@@ -51,7 +51,7 @@ std = [
 	"sp-std/std",
 ]
 runtime-benchmarks = [
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"runtime_primitives/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

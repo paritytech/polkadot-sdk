@@ -20,7 +20,6 @@ use super::*;
 use frame_support::{
 	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
 };
-use primitives::vstaging::Assignment;
 
 mod v0 {
 	use super::*;

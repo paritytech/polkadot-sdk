@@ -23,7 +23,7 @@ sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 
 # Polkadot
 polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
-polkadot-parachain = { path = "../../../polkadot/parachain" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
 
 # Cumulus

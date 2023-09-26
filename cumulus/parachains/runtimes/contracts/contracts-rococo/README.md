@@ -33,8 +33,8 @@ There are also different user interfaces and command-line tools you can use to d
 or interact with contracts:
 
 * [Contracts UI](https://paritytech.github.io/contracts-ui/) ‒ a beginner-friendly UI for smart contract developers.
-* [polkadot-js](https://polkadot.js.org/apps/) ‒ the go-to expert UI for smart contract developers.
-* [cargo-contract](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal workflow.
+* [`polkadot-js`](https://polkadot.js.org/apps/) ‒ the go-to expert UI for smart contract developers.
+* [`cargo-contract`](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal workflow.
 
 If you are looking for a quickstart, we can recommend
 [ink!'s Guided Tutorial for Beginners](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/).

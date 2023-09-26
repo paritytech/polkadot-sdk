@@ -20,7 +20,7 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
-use futures::stream::BoxStream;
+use futures::stream::{BoxStream, StreamExt};
 use parity_scale_codec::{Decode, DecodeAll};
 
 use sc_network::Event as NetworkEvent;
@@ -246,6 +246,7 @@ where
 								NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 							],
 							&mut sender,
+							&metrics,
 						)
 						.await;
 
@@ -346,6 +347,7 @@ where
 							dispatch_validation_event_to_all(
 								NetworkBridgeEvent::PeerDisconnected(peer),
 								&mut sender,
+								&metrics,
 							)
 							.await,
 						PeerSet::Collation =>
@@ -492,7 +494,7 @@ where
 						network_service.report_peer(remote, report.into());
 					}
 
-					dispatch_validation_events_to_all(events, &mut sender).await;
+					dispatch_validation_events_to_all(events, &mut sender, &metrics).await;
 				}
 
 				if !c_messages.is_empty() {
@@ -922,8 +924,9 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 async fn dispatch_validation_event_to_all(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	ctx: &mut impl overseer::NetworkBridgeRxSenderTrait,
+	metrics: &Metrics,
 ) {
-	dispatch_validation_events_to_all(std::iter::once(event), ctx).await
+	dispatch_validation_events_to_all(std::iter::once(event), ctx, metrics).await
 }
 
 async fn dispatch_collation_event_to_all(
@@ -971,6 +974,7 @@ fn dispatch_collation_event_to_all_unbounded(
 async fn dispatch_validation_events_to_all<I>(
 	events: I,
 	sender: &mut impl overseer::NetworkBridgeRxSenderTrait,
+	_metrics: &Metrics,
 ) where
 	I: IntoIterator<Item = NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>>,
 	I::IntoIter: Send,

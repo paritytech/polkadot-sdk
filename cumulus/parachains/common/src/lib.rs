@@ -16,6 +16,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod impls;
+pub mod kusama;
+pub mod polkadot;
+pub mod rococo;
+pub mod westend;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;

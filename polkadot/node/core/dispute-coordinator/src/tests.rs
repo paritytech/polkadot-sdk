@@ -54,18 +54,17 @@ use sp_keystore::{Keystore, KeystorePtr};
 use ::test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_buffered_subsystem_context, TestSubsystemContextHandle,
+	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash, HeadData, Header, IndexedVec,
-	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
+	Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use crate::{
@@ -276,12 +275,7 @@ impl TestState {
 		gum::debug!(?block_number, "Activating block in activate_leaf_at_session.");
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: block_hash,
-					span: Arc::new(jaeger::Span::Disabled),
-					number: block_number,
-					status: LeafStatus::Fresh,
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(block_hash, block_number)),
 			)))
 			.await;
 
@@ -345,6 +339,17 @@ impl TestState {
 									assert_eq!(h, block_hash);
 									assert_eq!(session_index, i);
 									let _ = tx.send(Ok(Some(self.session_info())));
+								}
+							);
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+									h,
+									RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+								)) => {
+									assert_eq!(h, block_hash);
+									assert_eq!(session_index, i);
+									let _ = tx.send(Ok(Some(ExecutorParams::default())));
 								}
 							);
 						}
@@ -438,12 +443,7 @@ impl TestState {
 			);
 			virtual_overseer
 				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-					ActiveLeavesUpdate::start_work(ActivatedLeaf {
-						hash: *leaf,
-						number: n as u32,
-						span: Arc::new(jaeger::Span::Disabled),
-						status: LeafStatus::Fresh,
-					}),
+					ActiveLeavesUpdate::start_work(new_leaf(*leaf, n as u32)),
 				)))
 				.await;
 
@@ -3482,6 +3482,16 @@ fn session_info_is_requested_only_once() {
 					let _ = tx.send(Ok(Some(test_state.session_info())));
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+				)) => {
+					assert_eq!(session_index, 2);
+					let _ = tx.send(Ok(Some(ExecutorParams::default())));
+				}
+			);
 			test_state
 		})
 	});
@@ -3532,6 +3542,16 @@ fn session_info_big_jump_works() {
 						let _ = tx.send(Ok(Some(test_state.session_info())));
 					}
 				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+					)) => {
+						assert_eq!(session_index, expected_idx);
+						let _ = tx.send(Ok(Some(ExecutorParams::default())));
+					}
+				);
 			}
 			test_state
 		})
@@ -3580,6 +3600,16 @@ fn session_info_small_jump_works() {
 					)) => {
 						assert_eq!(session_index, expected_idx);
 						let _ = tx.send(Ok(Some(test_state.session_info())));
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
+					)) => {
+						assert_eq!(session_index, expected_idx);
+						let _ = tx.send(Ok(Some(ExecutorParams::default())));
 					}
 				);
 			}

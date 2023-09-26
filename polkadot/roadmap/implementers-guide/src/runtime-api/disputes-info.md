@@ -1,6 +1,9 @@
 # Disputes Info
 
-Get information about all disputes known by the chain as well as information about which validators the disputes subsystem will accept disputes from. These disputes may be either live or concluded. The [`DisputeState`](../types/disputes.md#disputestate) can be used to determine whether the dispute still accepts votes, as well as which validators' votes may be included.
+Get information about all disputes known by the chain as well as information about which validators the disputes
+subsystem will accept disputes from. These disputes may be either live or concluded. The
+[`DisputeState`](../types/disputes.md#disputestate) can be used to determine whether the dispute still accepts votes, as
+well as which validators' votes may be included.
 
 ```rust
 struct Dispute {
