@@ -79,7 +79,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
       #TODO: this step will be needed when automated triggering will work
         #this step runs only if the workflow is triggered automatically when new release is published
@@ -117,7 +117,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
       - name: Get artifacts from cache
         uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
@@ -239,7 +239,7 @@ jobs:
     needs: fetch-latest-debian-package-version
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
