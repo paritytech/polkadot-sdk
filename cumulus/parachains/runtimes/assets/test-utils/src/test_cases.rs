@@ -225,26 +225,6 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
-				// Build expected message sent by the `teleport_assets` extrinsic to calculate delivery fees
-				let context = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
-				let assets_to_teleport: MultiAsset = (native_asset_id, native_asset_to_teleport_away.into()).into();
-				let assets_to_teleport = assets_to_teleport
-					.reanchored(&dest, context).expect("We know location is invertible; qed");
-				let weight_limit = Limited(Weight::from_parts(161_592_000, 0));
-				let expected_message = Xcm::<()>(vec![
-					ReceiveTeleportedAsset(assets_to_teleport.clone().into()),
-					ClearOrigin,
-					BuyExecution { fees: assets_to_teleport.clone().into(), weight_limit },
-					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: dest_beneficiary },
-					SetTopic([0u8; 32]),
-				]);
-
-				// Make sure the target account has enough native asset to pay for delivery fees
-				let delivery_fees = <
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery as PriceForParachainDelivery
-				>::price_for_parachain_delivery(other_para_id.into(), &expected_message);
-				let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible; qed") };
-
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
@@ -254,6 +234,16 @@ pub fn teleports_for_native_asset_works<
 					included_head,
 					&alice,
 				));
+
+				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
+					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery
+				>(
+					(native_asset_id, native_asset_to_teleport_away.into()).into(),
+					0,
+					Unlimited,
+					dest_beneficiary,
+					dest,
+				);
 
 				// check balances
 				assert_eq!(
