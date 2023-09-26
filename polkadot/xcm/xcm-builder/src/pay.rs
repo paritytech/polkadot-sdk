@@ -20,7 +20,7 @@ use frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::TryConvert;
 use sp_std::{marker::PhantomData, vec};
 use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
@@ -71,7 +71,8 @@ impl<
 		Timeout: Get<Querier::BlockNumber>,
 		Beneficiary: Clone,
 		AssetKind,
-		AssetKindToLocatableAsset: Convert<AssetKind, LocatableAssetId>,
+		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
+		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, MultiLocation>,
 		BeneficiaryRefToLocation: for<'a> Convert<&'a Beneficiary, Location>,
 	> Pay
 	for PayOverXcm<
@@ -96,12 +97,14 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let locatable = AssetKindToLocatableAsset::convert(asset_kind);
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind)
+			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
 		let destination = Querier::UniversalLocation::get()
 			.invert_target(&asset_location)
 			.map_err(|()| Self::Error::LocationNotInvertible)?;
-		let beneficiary = BeneficiaryRefToLocation::convert(&who);
+		let beneficiary = BeneficiaryRefToLocation::try_convert(&who)
+			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
 
 		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
@@ -196,9 +199,9 @@ pub struct LocatableAssetId {
 /// value using a fixed `Location` for the `location` field.
 pub struct FixedLocation<FixedLocationValue>(sp_std::marker::PhantomData<FixedLocationValue>);
 impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>>
-	Convert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
+	TryConvert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
 {
-	fn convert(value: AssetKind) -> LocatableAssetId {
+	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
 		LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() }
 	}
 }

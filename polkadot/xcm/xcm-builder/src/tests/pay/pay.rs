@@ -29,9 +29,9 @@ pub struct AssetKind {
 }
 
 pub struct LocatableAssetKindConverter;
-impl sp_runtime::traits::Convert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
-	fn convert(value: AssetKind) -> LocatableAssetId {
-		LocatableAssetId { asset_id: value.asset_id, location: value.destination }
+impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
+	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
+		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
 	}
 }
 

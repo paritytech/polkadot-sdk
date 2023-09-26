@@ -199,6 +199,13 @@ impl Contains<Location> for FellowshipSalaryPallet {
 	}
 }
 
+pub struct AmbassadorSalaryPallet;
+impl Contains<Location> for FellowshipSalaryPallet {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(74)]))
+	}
+}
+
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
 /// account for proof size weights.
 ///
@@ -383,6 +390,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						FellowsPlurality,
 						FellowshipSalaryPallet,
+						AmbassadorSalaryPallet,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,

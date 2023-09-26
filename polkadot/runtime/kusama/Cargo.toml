@@ -77,7 +77,7 @@ pallet-recovery = { path = "../../../substrate/frame/recovery", default-features
 pallet-referenda = { path = "../../../substrate/frame/referenda", default-features = false }
 pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
-pallet-society = { path = "../../../substrate/frame/society", default-features = false, features = ["experimental"] }
+pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migration", default-features = false }
@@ -103,7 +103,7 @@ frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarki
 pallet-election-provider-support-benchmarking = { path = "../../../substrate/frame/election-provider-support/benchmarking", default-features = false, optional = true }
 hex-literal = "0.4.1"
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 
@@ -116,7 +116,7 @@ tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }

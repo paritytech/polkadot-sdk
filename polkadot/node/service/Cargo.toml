@@ -78,7 +78,7 @@ futures = "0.3.21"
 hex-literal = "0.4.1"
 gum = { package = "tracing-gum", path = "../gum" }
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 thiserror = "1.0.48"
 kvdb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
@@ -103,17 +103,12 @@ polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-runtime-common = { path = "../../runtime/common" }
 
 # Polkadot Runtime Constants
-polkadot-runtime-constants = { path = "../../runtime/polkadot/constants", optional = true }
-kusama-runtime-constants = { path = "../../runtime/kusama/constants", optional = true }
 rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
 
 # Polkadot Runtimes
-polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 
@@ -183,11 +178,7 @@ full-node = [
 	"polkadot-statement-distribution",
 ]
 
-# Configure the native runtimes to use. Polkadot is enabled by default.
-#
-# Validators require the native runtime currently
-polkadot-native = [ "polkadot-runtime", "polkadot-runtime-constants" ]
-kusama-native = [ "kusama-runtime", "kusama-runtime-constants" ]
+# Configure the native runtimes to use.
 westend-native = [ "westend-runtime", "westend-runtime-constants" ]
 rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
 
@@ -196,15 +187,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"kusama-runtime?/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime?/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
@@ -215,30 +203,23 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"kusama-runtime?/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
-	"polkadot-runtime?/try-runtime",
 	"rococo-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
 fast-runtime = [
-	"kusama-runtime?/fast-runtime",
-	"polkadot-runtime?/fast-runtime",
 	"rococo-runtime?/fast-runtime",
 	"westend-runtime?/fast-runtime",
 ]
 
 malus = [ "full-node" ]
 runtime-metrics = [
-	"kusama-runtime?/runtime-metrics",
 	"polkadot-runtime-parachains/runtime-metrics",
-	"polkadot-runtime?/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
