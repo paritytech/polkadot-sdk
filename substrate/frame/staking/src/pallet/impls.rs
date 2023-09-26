@@ -253,10 +253,10 @@ impl<T: Config> Pallet<T> {
 
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 		// We can now make total validator payout:
-		if let Some(imbalance) =
+		if let Some((imbalance, dest)) =
 			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
 		{
-			Self::deposit_event(Event::<T>::Rewarded { stash, amount: imbalance.peek() });
+			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: imbalance.peek() });
 			total_imbalance.subsume(imbalance);
 		}
 
@@ -273,11 +273,14 @@ impl<T: Config> Pallet<T> {
 			let nominator_reward: BalanceOf<T> =
 				nominator_exposure_part * validator_leftover_payout;
 			// We can now make nominator payout:
-			if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
+			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
 				// Note: this logic does not count payouts for `RewardDestination::None`.
 				nominator_payout_count += 1;
-				let e =
-					Event::<T>::Rewarded { stash: nominator.who.clone(), amount: imbalance.peek() };
+				let e = Event::<T>::Rewarded {
+					stash: nominator.who.clone(),
+					dest,
+					amount: imbalance.peek(),
+				};
 				Self::deposit_event(e);
 				total_imbalance.subsume(imbalance);
 			}
@@ -299,9 +302,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
-	fn make_payout(stash: &T::AccountId, amount: BalanceOf<T>) -> Option<PositiveImbalanceOf<T>> {
+	fn make_payout(
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
-		match dest {
+		let maybe_imbalance = match dest {
 			RewardDestination::Controller => Self::bonded(stash)
 				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
@@ -321,7 +327,9 @@ impl<T: Config> Pallet<T> {
 			RewardDestination::Account(dest_account) =>
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
-		}
+		};
+		maybe_imbalance
+			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
 	}
 
 	/// Plan a new session potentially trigger a new era.
