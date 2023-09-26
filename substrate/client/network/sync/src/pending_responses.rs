@@ -65,10 +65,14 @@ impl<B: BlockT> PendingResponses<B> {
 	) {
 		let request_type = request.get_type();
 
-		if self.pending_responses.insert(
-			peer_id,
-			Box::pin(async move { (request, response_future.await) }.into_stream()),
-		).is_some() {
+		if self
+			.pending_responses
+			.insert(
+				peer_id,
+				Box::pin(async move { (request, response_future.await) }.into_stream()),
+			)
+			.is_some()
+		{
 			error!(
 				target: crate::LOG_TARGET,
 				"Discarded pending response from peer {peer_id}, {request_type:?}.",
