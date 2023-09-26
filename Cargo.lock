@@ -795,7 +795,7 @@ dependencies = [
 name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-kusama-runtime",
+ "asset-hub-polkadot-runtime",
  "frame-support",
  "frame-system",
  "integration-tests-common",
