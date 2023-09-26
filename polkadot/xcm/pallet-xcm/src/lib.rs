@@ -1352,6 +1352,10 @@ impl<T: Config> Pallet<T> {
 					quarter_weight_limit,
 				)?;
 			} else {
+				if let TransferType::RemoteReserve(_fees_reserve) = fees_transfer_type {
+					// TODO: change beneficiary on `fee_reserve` to be SA-of-Here.
+					// But beneficiary on `dest` should stay unchanged...
+				}
 				Self::prefund_transfer_fees(
 					origin_location,
 					dest,
@@ -1380,14 +1384,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Fees are allowed to be either teleported or reserve transferred.
 	fn prefund_transfer_fees(
-		origin: impl Into<MultiLocation>,
-		dest: MultiLocation,
-		beneficiary: MultiLocation,
-		asset: MultiAsset,
-		weight_limit: WeightLimit,
+		_origin: impl Into<MultiLocation>,
+		_dest: MultiLocation,
+		_beneficiary: MultiLocation,
+		_asset: MultiAsset,
+		_weight_limit: WeightLimit,
 	) -> DispatchResult {
-		// TODO
-		Ok(())
+		todo!()
 	}
 
 	fn build_and_execute_xcm_transfer_type(
@@ -1431,11 +1434,11 @@ impl<T: Config> Pallet<T> {
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		fees: MultiAsset,
+		mut fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
-		let fees = fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let xcm_on_dest = Xcm(vec![
 			BuyExecution { fees, weight_limit },
@@ -1451,23 +1454,24 @@ impl<T: Config> Pallet<T> {
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		fees: MultiAsset,
+		mut fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
-		// let context = T::UniversalLocation::get();
-		// let fees = assets.get(fee_asset_item as usize).reanchored(&dest, context);
-		// Ok(Xcm(vec![
-		// 	WithdrawAsset(assets),
-		// 	InitiateReserveWithdraw {
-		// 		assets: Wild(AllCounted(max_assets)),
-		// 		reserve: dest,
-		// 		xcm: Xcm(vec![
-		// 			BuyExecution { fees, weight_limit },
-		// 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		// 		]),
-		// 	},
-		// ]))
-		todo!()
+		let context = T::UniversalLocation::get();
+		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let max_assets = assets.len() as u32;
+		let xcm_on_dest = Xcm(vec![
+			BuyExecution { fees, weight_limit },
+			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		]);
+		Ok(Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(max_assets)),
+				reserve: dest,
+				xcm: xcm_on_dest,
+			},
+		]))
 	}
 
 	fn remote_reserve_transfer_message(
@@ -1478,29 +1482,35 @@ impl<T: Config> Pallet<T> {
 		fees: MultiAsset,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
-		// let context = T::UniversalLocation::get();
-		// let reserve_fees = assets.get(fee_asset_item as usize).reanchored(&reserve, context);
-		// let dest_fees = assets.get(fee_asset_item as usize).reanchored(&dest, context);
-		// let dest = dest.reanchored(&reserve, context);
-		// Ok(Xcm(vec![
-		// 	WithdrawAsset(assets),
-		// 	InitiateReserveWithdraw {
-		// 		assets: Wild(AllCounted(max_assets)),
-		// 		reserve,
-		// 		xcm: Xcm(vec![
-		// 			BuyExecution { fees: reserve_fees, weight_limit },
-		// 			DepositReserveAsset {
-		// 				assets: Wild(AllCounted(max_assets)),
-		// 				dest,
-		// 				xcm: Xcm(vec![
-		// 					BuyExecution { fees: dest_fees, weight_limit },
-		// 					DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		// 				]),
-		// 			},
-		// 		]),
-		// 	},
-		// ]))
-		todo!()
+		let max_assets = assets.len() as u32;
+		let context = T::UniversalLocation::get();
+		// identifies fee item as seen by `reserve` - to be used at reserve chain
+		let reserve_fees = fees
+			.clone()
+			.reanchored(&reserve, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+		// identifies fee item as seen by `dest` - to be used at destination chain
+		let dest_fees = fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		// identifies `dest` as seen by `reserve`
+		let dest = dest.reanchored(&reserve, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		// xcm to be executed at dest
+		let xcm_on_dest = Xcm(vec![
+			BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() },
+			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		]);
+		// xcm to be executed on reserve
+		let xcm_on_reserve = Xcm(vec![
+			BuyExecution { fees: reserve_fees, weight_limit },
+			DepositReserveAsset { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+		]);
+		Ok(Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateReserveWithdraw {
+				assets: Wild(AllCounted(max_assets)),
+				reserve,
+				xcm: xcm_on_reserve,
+			},
+		]))
 	}
 
 	fn do_teleport_assets(
