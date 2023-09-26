@@ -576,7 +576,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
-					buy_limited_execution((Parent, SEND_AMOUNT), Weight::from_parts(4000, 4000)),
+					buy_execution((Parent, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
 				]),
 			)]
