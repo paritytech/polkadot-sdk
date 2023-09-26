@@ -75,7 +75,7 @@ fn report_outcome_notify_works() {
 		let querier: MultiLocation = Here.into();
 		let status = QueryStatus::Pending {
 			responder: MultiLocation::from(Parachain(PARA_ID)).into(),
-			maybe_notify: Some((4, 2)),
+			maybe_notify: Some((5, 2)),
 			timeout: 100,
 			maybe_match_querier: Some(querier.into()),
 		};
@@ -105,7 +105,7 @@ fn report_outcome_notify_works() {
 				)),
 				RuntimeEvent::XcmPallet(crate::Event::Notified {
 					query_id: 0,
-					pallet_index: 4,
+					pallet_index: 5,
 					call_index: 2
 				}),
 			]
