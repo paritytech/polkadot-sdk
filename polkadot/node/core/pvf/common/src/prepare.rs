@@ -29,7 +29,7 @@ pub struct PrepareStats {
 /// supported by the OS, `ru_maxrss`.
 #[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct MemoryStats {
-	/// Memory stats from `tikv_jemalloc_ctl`, polling-based and not vary precise.
+	/// Memory stats from `tikv_jemalloc_ctl`, polling-based and not very precise.
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	pub memory_tracker_stats: Option<MemoryAllocationStats>,
 	/// `ru_maxrss` from `getrusage`. `None` if an error occurred.
