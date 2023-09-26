@@ -2936,9 +2936,8 @@ async fn process_wakeup<Context>(
 						assignment_tranche: tranche,
 						relay_block_hash: relay_block,
 						session: block_entry.session(),
-						candidate: candidate_receipt,
 						executor_params: executor_params.clone(),
-
+						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
 					});
