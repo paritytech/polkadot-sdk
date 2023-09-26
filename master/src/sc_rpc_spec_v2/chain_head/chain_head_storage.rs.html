@@ -358,6 +358,23 @@
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -431,8 +448,10 @@
 
 <span class="doccomment">/// Query to iterate over storage.
 </span><span class="kw">struct </span>QueryIter {
-	<span class="doccomment">/// The next key from which the iteration should continue.
-	</span>next_key: StorageKey,
+	<span class="doccomment">/// The key from which the iteration was started.
+	</span>query_key: StorageKey,
+	<span class="doccomment">/// The key after which pagination should resume.
+	</span>pagination_start_key: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
 	<span class="doccomment">/// The type of the query (either value or hash).
 	</span>ty: IterQueryType,
 }
@@ -544,19 +563,26 @@
 		hash: Block::Hash,
 		child_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ChildInfo&gt;,
 	) -&gt; QueryIterResult {
-		<span class="kw">let </span>QueryIter { next_key, ty } = query;
+		<span class="kw">let </span>QueryIter { ty, query_key, pagination_start_key } = query;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>keys_iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(child_key) = child_key {
-			<span class="self">self</span>.client
-				.child_storage_keys(hash, child_key.to_owned(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>next_key), <span class="prelude-val">None</span>)
+			<span class="self">self</span>.client.child_storage_keys(
+				hash,
+				child_key.to_owned(),
+				<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>query_key),
+				pagination_start_key.as_ref(),
+			)
 		} <span class="kw">else </span>{
-			<span class="self">self</span>.client.storage_keys(hash, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>next_key), <span class="prelude-val">None</span>)
+			<span class="self">self</span>.client.storage_keys(hash, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>query_key), pagination_start_key.as_ref())
 		}
 		.map_err(|err| err.to_string())<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::with_capacity(<span class="self">self</span>.operation_max_storage_items);
+		<span class="kw">let </span><span class="kw-2">mut </span>next_pagination_key = <span class="prelude-val">None</span>;
 		<span class="kw">for _ in </span><span class="number">0</span>..<span class="self">self</span>.operation_max_storage_items {
 			<span class="kw">let </span><span class="prelude-val">Some</span>(key) = keys_iter.next() <span class="kw">else </span>{ <span class="kw">break </span>};
+
+			next_pagination_key = <span class="prelude-val">Some</span>(key.clone());
 
 			<span class="kw">let </span>result = <span class="kw">match </span>ty {
 				IterQueryType::Value =&gt; <span class="self">self</span>.query_storage_value(hash, <span class="kw-2">&amp;</span>key, child_key),
@@ -569,7 +595,11 @@
 		}
 
 		<span class="comment">// Save the next key if any to continue the iteration.
-		</span><span class="kw">let </span>maybe_next_query = keys_iter.next().map(|next_key| QueryIter { next_key, ty });
+		</span><span class="kw">let </span>maybe_next_query = keys_iter.next().map(|<span class="kw">_</span>| QueryIter {
+			ty,
+			query_key,
+			pagination_start_key: next_pagination_key,
+		});
 		<span class="prelude-val">Ok</span>((ret, maybe_next_query))
 	}
 
@@ -685,12 +715,16 @@
 							<span class="kw">return
 						</span>},
 					},
-				StorageQueryType::DescendantsValues =&gt; <span class="self">self
-					</span>.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Value }),
-				StorageQueryType::DescendantsHashes =&gt; <span class="self">self
-					</span>.iter_operations
-					.push_back(QueryIter { next_key: item.key, ty: IterQueryType::Hash }),
+				StorageQueryType::DescendantsValues =&gt; <span class="self">self</span>.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Value,
+					pagination_start_key: <span class="prelude-val">None</span>,
+				}),
+				StorageQueryType::DescendantsHashes =&gt; <span class="self">self</span>.iter_operations.push_back(QueryIter {
+					query_key: item.key,
+					ty: IterQueryType::Hash,
+					pagination_start_key: <span class="prelude-val">None</span>,
+				}),
 			};
 		}
 
