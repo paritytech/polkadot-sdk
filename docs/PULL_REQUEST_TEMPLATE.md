@@ -24,10 +24,6 @@ Fixes # (issue number, *if applicable*)
 
 Closes # (issue number, *if applicable*)
 
-Polkadot companion: (*if applicable*)
-
-Cumulus companion: (*if applicable*)
-
 # Checklist
 
 - [ ] My PR includes a detailed description as outlined in the "Description" section above
@@ -35,8 +31,6 @@ Cumulus companion: (*if applicable*)
   required)
 - [ ] I have made corresponding changes to the documentation (if applicable)
 - [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
-- [ ] If this PR alters any external APIs or interfaces used by Polkadot, the corresponding Polkadot PR is ready as well
-  as the corresponding Cumulus PR (optional)
 
 You can remove the "Checklist" section once all have been checked. Thank you for your contribution!
 
