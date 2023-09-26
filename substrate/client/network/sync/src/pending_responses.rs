@@ -32,7 +32,7 @@ use std::{
 use tokio_stream::StreamMap;
 
 /// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
+const LOG_TARGET: &str = "sync";
 
 /// Response result.
 type ResponseResult = Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
