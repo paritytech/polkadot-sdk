@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::{
-	storage::{with_transaction, TransactionOutcome},
-};
+use frame_support::storage::{with_transaction, TransactionOutcome};
 use sp_runtime::DispatchError;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ProcessTransaction;
@@ -30,25 +28,13 @@ impl ProcessTransaction for FrameTransactionalProcessor {
 	where
 		F: FnOnce() -> Result<(), XcmError>,
 	{
-		let transaction_outcome =
-			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let output = f();
-				match &output {
-					// If `f` was successful, we commit the transactional layer.
-					Ok(()) => TransactionOutcome::Commit(Ok(output)),
-					// Else we roll back the changes.
-					_ => TransactionOutcome::Rollback(Ok(output)),
-				}
-			});
-
-		let output = match transaction_outcome {
-			// `with_transactional` executed successfully, and we have the expected output.
-			Ok(output) => output,
-			// `with_transactional` returned an error because the `TRANSACTIONAL_LIMIT` was
-			// reached. We describe that error with `XcmError::ExceedsStackLimit`.
-			Err(_) => Err(XcmError::ExceedsStackLimit),
-		};
-
-		output
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let output = f();
+			match &output {
+				Ok(()) => TransactionOutcome::Commit(Ok(output)),
+				_ => TransactionOutcome::Rollback(Ok(output)),
+			}
+		})
+		.map_err(|_| XcmError::ExceedsStackLimit)?
 	}
 }
