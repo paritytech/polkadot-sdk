@@ -154,6 +154,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type TipReportDepositBase: Get<BalanceOf<Self, I>>;
 
+		/// The maximum amount for a single tip.
+		#[pallet::constant]
+		type MaxTipAmount: Get<BalanceOf<Self, I>>;
+
 		/// Origin from which tippers must come.
 		///
 		/// `ContainsLengthBound::max_len` must be cost free (i.e. no storage read or heavy
@@ -208,6 +212,8 @@ pub mod pallet {
 		AlreadyKnown,
 		/// The tip hash is unknown.
 		UnknownTip,
+		/// The tip given was too generous.
+		MaxTipAmountExceeded,
 		/// The account attempting to retract the tip is not the finder of the tip.
 		NotFinder,
 		/// The tip cannot be claimed/closed because there are not enough tippers yet.
@@ -336,10 +342,13 @@ pub mod pallet {
 			let tipper = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
+
 			let reason_hash = T::Hashing::hash(&reason[..]);
 			ensure!(!Reasons::<T, I>::contains_key(&reason_hash), Error::<T, I>::AlreadyKnown);
-			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 
+			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
+			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 			Reasons::<T, I>::insert(&reason_hash, &reason);
 			Self::deposit_event(Event::NewTip { tip_hash: hash });
 			let tips = vec![(tipper.clone(), tip_value)];
@@ -388,6 +397,9 @@ pub mod pallet {
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
 
 			let mut tip = Tips::<T, I>::get(hash).ok_or(Error::<T, I>::UnknownTip)?;
+
+			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
 			if Self::insert_tip_and_check_closing(&mut tip, tipper, tip_value) {
 				Self::deposit_event(Event::TipClosing { tip_hash: hash });
 			}
