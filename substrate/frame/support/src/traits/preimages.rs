@@ -40,7 +40,7 @@ where
 	Legacy { hash: H::Out, dummy: sp_std::marker::PhantomData<T> },
 	/// A an bounded `Call`. Its encoding must be at most 128 bytes.
 	Inline(BoundedInline),
-	/// A Blake2-256 hash of the call together with an upper limit for its size.
+	/// A hash of the call together with an upper limit for its size.
 	Lookup { hash: H::Out, len: u32 },
 }
 
