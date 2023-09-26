@@ -15,6 +15,7 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
+use super::xcm_helpers;
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -561,24 +562,17 @@ pub fn teleports_for_foreign_assets_works<
 						.into()
 				);
 
-				// Build expected message sent by the `teleport_assets` extrinsic to calculate delivery fees
-				let universal_location = <XcmConfig as xcm_executor::Config>::UniversalLocation::get();
-				let assets_to_teleport: MultiAsset = (foreign_asset_id_multilocation, asset_to_teleport_away).into();
-				let assets_to_teleport = assets_to_teleport
-					.reanchored(&dest, universal_location).expect("We know location is invertible; qed");
-				let mut expected_message = <pallet_xcm::Pallet<Runtime>>::get_teleport_assets_message(
-					assets_to_teleport.clone(),
-					assets_to_teleport.clone(),
-					dest_beneficiary,
-					None,
-				);
-
 				// Make sure the target account has enough native asset to pay for delivery fees
-				let delivery_fees = <
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery as PriceForParachainDelivery
-				>::price_for_parachain_delivery(foreign_para_id.into(), &expected_message);
-				let Fungible(amount_to_mint) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible; qed") };
-				<pallet_balances::Pallet<Runtime>>::mint_into(&target_account, amount_to_mint.into()).unwrap();
+				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
+					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery
+				>(
+					(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
+					0,
+					Unlimited,
+					dest_beneficiary,
+					dest,
+				);
+				<pallet_balances::Pallet<Runtime>>::mint_into(&target_account, delivery_fees.into()).unwrap();
 
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),

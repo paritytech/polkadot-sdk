@@ -698,6 +698,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-kusama-runtime",
+ "asset-test-utils",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -796,6 +797,7 @@ name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-polkadot-runtime",
+ "asset-test-utils",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -889,6 +891,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
+ "asset-test-utils",
  "frame-support",
  "frame-system",
  "integration-tests-common",

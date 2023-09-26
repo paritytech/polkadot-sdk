@@ -26,7 +26,13 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(631_531_000, 7_186)));
 
-	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(t.args.clone());
+	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		t.args.assets.clone(),
+		0,
+		t.args.weight_limit,
+		t.args.beneficiary,
+		t.args.dest,
+	);
 
 	assert_expected_events!(
 		Kusama,
@@ -194,7 +200,13 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(test.args.clone())
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
 	});
 
 	// Sender's balance is reduced
@@ -301,7 +313,13 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(test.args)
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
 	});
 
 	// Sender's balance is reduced

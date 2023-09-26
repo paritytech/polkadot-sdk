@@ -19,8 +19,6 @@ use xcm::{
 	prelude::*,
 	DoubleEncoded,
 };
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
-use xcm_emulator::TestArgs;
 
 /// Helper method to build a XCM with a `Transact` instruction and paying for its execution
 pub fn xcm_transact_paid_execution(
@@ -61,24 +59,4 @@ pub fn xcm_transact_unpaid_execution(
 		UnpaidExecution { weight_limit, check_origin },
 		Transact { require_weight_at_most, origin_kind, call },
 	]))
-}
-
-/// Returns the delivery fees amount for pallet xcm's `teleport_assets` and `reserve_transfer_assets` extrinsics.
-pub fn transfer_assets_delivery_fees<P: PriceForParachainDelivery>(
-	test_args: TestArgs,
-) -> u128 {
-	// Approximation of the actual message sent by the extrinsic.
-	// The assets are not reanchored and the topic is a dummy one.
-	// However, it should have the same encoded size, which is what matters for delivery fees.
-	let message = Xcm(vec![
-		ReceiveTeleportedAsset(test_args.assets.clone()), // Same encoded size as `ReserveAssetDeposited`
-		ClearOrigin,
-		BuyExecution { fees: test_args.assets.get(test_args.fee_asset_item as usize).unwrap().clone(), weight_limit: test_args.weight_limit },
-		DepositAsset { assets: Wild(AllCounted(test_args.assets.len() as u32)), beneficiary: test_args.beneficiary },
-		SetTopic([0u8; 32]), // Dummy topic
-	]);
-	let Parachain(para_id) = test_args.dest.interior().last().unwrap() else { unreachable!("Location is parachain") };
-	let delivery_fees = P::price_for_parachain_delivery((*para_id).into(), &message);
-	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
-	delivery_fees_amount
 }

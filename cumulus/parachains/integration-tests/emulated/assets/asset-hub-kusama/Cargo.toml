@@ -32,6 +32,7 @@ pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-featu
 # Cumulus
 parachains-common = { path = "../../../../common" }
 asset-hub-kusama-runtime = { path = "../../../../runtimes/assets/asset-hub-kusama" }
+asset-test-utils = { path = "../../../../runtimes/assets/test-utils" }
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}

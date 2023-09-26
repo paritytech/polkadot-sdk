@@ -25,11 +25,12 @@ pub use integration_tests_common::{
 		asset_hub_polkadot::ED as ASSET_HUB_POLKADOT_ED, polkadot::ED as POLKADOT_ED,
 		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution, self},
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubPolkadot, AssetHubPolkadotPallet, AssetHubPolkadotReceiver, AssetHubPolkadotSender,
 	PenpalPolkadotA, PenpalPolkadotAPallet, PenpalPolkadotAReceiver, PenpalPolkadotB,
 	PenpalPolkadotBPallet, Polkadot, PolkadotPallet, PolkadotReceiver, PolkadotSender,
 };
+pub use asset_test_utils::xcm_helpers;
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
