@@ -17,7 +17,8 @@
 use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use xcm::latest::prelude::*;
 
-/// Returns the delivery fees amount for pallet xcm's `teleport_assets` and `reserve_transfer_assets` extrinsics.
+/// Returns the delivery fees amount for pallet xcm's `teleport_assets` and
+/// `reserve_transfer_assets` extrinsics.
 pub fn transfer_assets_delivery_fees<P: PriceForParachainDelivery>(
 	assets: MultiAssets,
 	fee_asset_item: u32,

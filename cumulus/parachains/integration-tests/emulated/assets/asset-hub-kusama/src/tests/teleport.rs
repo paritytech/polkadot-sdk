@@ -17,8 +17,7 @@
 
 use crate::*;
 use kusama_runtime::xcm_config::{
-	TreasuryAccount as KusamaTreasuryAccount,
-	PriceForChildParachainDelivery,
+	PriceForChildParachainDelivery, TreasuryAccount as KusamaTreasuryAccount,
 };
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
@@ -26,13 +25,14 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(631_531_000, 7_186)));
 
-	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
-		t.args.assets.clone(),
-		0,
-		t.args.weight_limit,
-		t.args.beneficiary,
-		t.args.dest,
-	);
+	let delivery_fees_amount =
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			t.args.assets.clone(),
+			0,
+			t.args.weight_limit,
+			t.args.beneficiary,
+			t.args.dest,
+		);
 
 	assert_expected_events!(
 		Kusama,

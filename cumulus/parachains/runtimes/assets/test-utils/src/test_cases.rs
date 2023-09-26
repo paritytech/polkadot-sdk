@@ -564,7 +564,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery
+					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery,
 				>(
 					(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
 					0,
@@ -572,7 +572,11 @@ pub fn teleports_for_foreign_assets_works<
 					dest_beneficiary,
 					dest,
 				);
-				<pallet_balances::Pallet<Runtime>>::mint_into(&target_account, delivery_fees.into()).unwrap();
+				<pallet_balances::Pallet<Runtime>>::mint_into(
+					&target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
 
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use asset_test_utils::xcm_helpers;
 pub use codec::Encode;
 pub use frame_support::{
 	assert_err, assert_ok,
@@ -30,7 +31,6 @@ pub use integration_tests_common::{
 	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
 	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
 };
-pub use asset_test_utils::xcm_helpers;
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},

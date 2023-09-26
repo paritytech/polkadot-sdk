@@ -14,13 +14,11 @@
 // limitations under the License.
 
 use crate::*;
-use kusama_runtime::xcm_config::{
-	TreasuryAccount as KusamaTreasuryAccount,
-	PriceForChildParachainDelivery,
-};
 use asset_hub_kusama_runtime::{
-	PriceForSiblingParachainDelivery,
-	xcm_config::TreasuryAccount as AssetHubKusamaTreasuryAccount,
+	xcm_config::TreasuryAccount as AssetHubKusamaTreasuryAccount, PriceForSiblingParachainDelivery,
+};
+use kusama_runtime::xcm_config::{
+	PriceForChildParachainDelivery, TreasuryAccount as KusamaTreasuryAccount,
 };
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
@@ -28,13 +26,14 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(630_092_000, 6_196)));
 
-	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
-		t.args.assets.clone(),
-		0,
-		t.args.weight_limit,
-		t.args.beneficiary,
-		t.args.dest,
-	);
+	let delivery_fees_amount =
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+			t.args.assets.clone(),
+			0,
+			t.args.weight_limit,
+			t.args.beneficiary,
+			t.args.dest,
+		);
 
 	assert_expected_events!(
 		Kusama,
@@ -80,13 +79,14 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 		6_196,
 	)));
 
-	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
-		t.args.assets.clone(),
-		0,
-		t.args.weight_limit,
-		t.args.beneficiary,
-		t.args.dest,
-	);
+	let delivery_fees_amount =
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+			t.args.assets.clone(),
+			0,
+			t.args.weight_limit,
+			t.args.beneficiary,
+			t.args.dest,
+		);
 
 	assert_expected_events!(
 		AssetHubKusama,
@@ -123,13 +123,14 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 		6196,
 	)));
 
-	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
-		t.args.assets.clone(),
-		0,
-		t.args.weight_limit,
-		t.args.beneficiary,
-		t.args.dest,
-	);
+	let delivery_fees_amount =
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+			t.args.assets.clone(),
+			0,
+			t.args.weight_limit,
+			t.args.beneficiary,
+			t.args.dest,
+		);
 
 	assert_expected_events!(
 		AssetHubKusama,

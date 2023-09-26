@@ -15,10 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use parachains_common::AccountId;
-use xcm::{
-	prelude::*,
-	DoubleEncoded,
-};
+use xcm::{prelude::*, DoubleEncoded};
 
 /// Helper method to build a XCM with a `Transact` instruction and paying for its execution
 pub fn xcm_transact_paid_execution(

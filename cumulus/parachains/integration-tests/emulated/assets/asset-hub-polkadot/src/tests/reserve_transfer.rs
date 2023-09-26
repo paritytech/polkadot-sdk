@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::*;
-use polkadot_runtime::xcm_config::PriceForChildParachainDelivery;
 use asset_hub_polkadot_runtime::PriceForSiblingParachainDelivery;
+use polkadot_runtime::xcm_config::PriceForChildParachainDelivery;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;

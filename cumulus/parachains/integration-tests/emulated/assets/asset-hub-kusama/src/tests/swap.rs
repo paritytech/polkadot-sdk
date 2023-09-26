@@ -14,10 +14,10 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_kusama_runtime::AssetDeposit;
 use frame_support::{instances::Instance2, BoundedVec};
 use parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 use sp_runtime::{DispatchError, ModuleError};
-use asset_hub_kusama_runtime::AssetDeposit;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
