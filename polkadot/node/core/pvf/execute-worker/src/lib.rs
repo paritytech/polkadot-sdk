@@ -16,7 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::executor_intf::Executor;
+use polkadot_node_core_pvf_common::executor_intf::Executor;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.

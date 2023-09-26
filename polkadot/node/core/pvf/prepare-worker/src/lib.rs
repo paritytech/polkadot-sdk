@@ -16,10 +16,9 @@
 
 //! Contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary.
 
-mod executor_intf;
 mod memory_stats;
 
-pub use executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.

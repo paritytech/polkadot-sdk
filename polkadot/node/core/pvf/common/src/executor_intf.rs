@@ -120,6 +120,27 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 	Ok(sem)
 }
 
+/// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
+pub fn prevalidate(code: &[u8]) -> Result<RuntimeBlob, sc_executor_common::error::WasmError> {
+	let blob = RuntimeBlob::new(code)?;
+	// It's assumed this function will take care of any prevalidation logic
+	// that needs to be done.
+	//
+	// Do nothing for now.
+	Ok(blob)
+}
+
+/// Runs preparation on the given runtime blob. If successful, it returns a serialized compiled
+/// artifact which can then be used to pass into `Executor::execute` after writing it to the disk.
+pub fn prepare(
+	blob: RuntimeBlob,
+	executor_params: &ExecutorParams,
+) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
+	let semantics = params_to_wasmtime_semantics(executor_params)
+		.map_err(|e| sc_executor_common::error::WasmError::Other(e))?;
+	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
+}
+
 /// A WASM executor with a given configuration. It is instantiated once per execute worker and is
 /// specific to that worker.
 #[derive(Clone)]

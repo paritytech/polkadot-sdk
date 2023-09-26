@@ -12472,7 +12472,7 @@ dependencies = [
  "env_logger 0.9.3",
  "log",
  "polkadot-erasure-coding",
- "polkadot-node-core-pvf-prepare-worker",
+ "polkadot-node-core-pvf-common",
  "polkadot-node-primitives",
  "polkadot-primitives",
  "quote",
