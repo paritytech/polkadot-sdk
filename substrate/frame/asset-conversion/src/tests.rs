@@ -1394,12 +1394,13 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		create_tokens_with_ed(user2, vec![token_2, token_3], ed_assets);
 		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user2), token_1, token_2));
 		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user2), token_1, token_3));
+		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user2), token_2, token_3));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user2, 200 + ed_assets));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 3, user2, 10000 + ed_assets));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user2, 400 + ed_assets));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 3, user2, 20000 + ed_assets));
 
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user, 400 + ed_assets));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 3, user, 20000 + ed_assets));
@@ -1415,30 +1416,6 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 			user2,
 		));
 
-		assert_noop!(
-			AssetConversion::swap_tokens_for_exact_tokens(
-				RuntimeOrigin::signed(user),
-				bvec![token_1, token_2],
-				110,   // amount_out
-				20000, // amount_in_max
-				user,
-				true,
-			),
-			DispatchError::Token(TokenError::NotExpendable)
-		);
-
-		assert_noop!(
-			AssetConversion::swap_exact_tokens_for_tokens(
-				RuntimeOrigin::signed(user),
-				bvec![token_1, token_2],
-				15000, // amount_in
-				110,   // amount_out_min
-				user,
-				true,
-			),
-			DispatchError::Token(TokenError::NotExpendable)
-		);
-
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user2),
 			token_1,
@@ -1450,6 +1427,44 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 			user2,
 		));
 
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user2),
+			token_2,
+			token_3,
+			200,
+			10000,
+			1,
+			1,
+			user2,
+		));
+
+		// causes an account removal for asset token 2
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2],
+				110,   // amount_out
+				20000, // amount_in_max
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for asset token 2
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2],
+				15000, // amount_in
+				110,   // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for native token 1
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
@@ -1462,12 +1477,57 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 			DispatchError::Token(TokenError::NotExpendable)
 		);
 
+		// causes an account removal for native token 1
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
 				bvec![token_3, token_1],
 				15000, // amount_in
 				110,   // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for native token 1 locate in the middle of a swap path
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			110,
+			vec![token_3, token_1].try_into().unwrap(),
+		)
+		.unwrap()
+		.first()
+		.map(|(_, a)| a.clone())
+		.unwrap();
+
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_3, token_1, token_2],
+				amount_in, // amount_in
+				1,         // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for asset token 2 locate in the middle of a swap path
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			110,
+			vec![token_1, token_2].try_into().unwrap(),
+		)
+		.unwrap()
+		.first()
+		.map(|(_, a)| a.clone())
+		.unwrap();
+
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2, token_3],
+				amount_in, // amount_in
+				1,         // amount_out_min
 				user,
 				true,
 			),
