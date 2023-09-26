@@ -336,9 +336,7 @@ pub mod pallet {
 				*up = up.split_off(num as usize);
 
 				let threshold = Self::get_ump_threshold(host_config.max_upward_queue_size);
-				let remaining_total_size = up
-					.iter()
-					.fold(0, |size_so_far, current_message| size_so_far + current_message.len());
+				let remaining_total_size = up.iter().map(UpwardMessage::len).sum();
 				if remaining_total_size <= threshold as usize {
 					Self::decrement_ump_fee_factor();
 				}
