@@ -31,16 +31,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part = def.call.as_ref().map(|_| quote::quote!(Call,));
 
-	let task_part = def.item.content.as_ref().and_then(|(_, items)| {
-		items.iter().find_map(|item| {
-			if let syn::Item::Enum(item_enum) = item {
-				if item_enum.ident == "Task" {
-					return Some(quote::quote!(Task,))
-				}
-			}
-			None
-		})
-	});
+	let task_part = def.task_enum.as_ref().map(|_| quote::quote!(Task,));
 
 	let storage_part = (!def.storages.is_empty()).then(|| quote::quote!(Storage,));
 

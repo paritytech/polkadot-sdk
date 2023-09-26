@@ -104,7 +104,14 @@ impl Def {
 		for (index, item) in items.iter_mut().enumerate() {
 			// find manually specified `Task` enum, if present
 			if let syn::Item::Enum(item_enum) = item {
-				if item_enum.ident == "Task" {
+				if let Some(_) = item_enum.attrs.iter().find(|attr| {
+					let segs = attr.path().segments.iter().collect::<Vec<_>>();
+					let (Some(seg1), Some(seg2), None) = (segs.get(0), segs.get(1), segs.get(2))
+					else {
+						return false
+					};
+					seg1.ident == "pallet" && seg2.ident == "task"
+				}) {
 					task_enum = Some(item_enum.clone());
 				}
 			}

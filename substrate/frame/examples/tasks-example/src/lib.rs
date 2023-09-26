@@ -73,7 +73,7 @@ pub mod pallet {
 
 		const TASK_INDEX: Option<u64> = Some(0);
 
-		fn enumerate() -> Self::Enumeration {
+		fn iter() -> Self::Enumeration {
 			sp_std::vec![Task::Increment, Task::Decrement].into_iter()
 		}
 

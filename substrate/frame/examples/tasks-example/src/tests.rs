@@ -54,7 +54,7 @@ fn incrementing_and_decrementing_works() {
 #[test]
 fn task_enumerate_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(crate::pallet::Task::<Runtime>::enumerate().collect::<Vec<_>>().len(), 2);
+		assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 2);
 	});
 }
 
