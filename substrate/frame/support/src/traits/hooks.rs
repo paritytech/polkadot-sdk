@@ -327,7 +327,6 @@ pub trait Hooks<BlockNumber> {
 	/// Try to keep any arbitrary execution __deterministic__ and within __minimal__ time
 	/// complexity. For example, do not execute any unbounded iterations.
 	///
-	///
 	/// NOTE: This function is called BEFORE ANY extrinsic in a block is applied, including inherent
 	/// extrinsics. Hence for instance, if you runtime includes `pallet-timestamp`, the `timestamp`
 	/// is not yet up to date at this point.
