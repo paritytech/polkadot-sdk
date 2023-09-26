@@ -31,8 +31,8 @@ use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit,
+	FixedWeightBounds, IsConcrete, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
 
@@ -249,8 +249,8 @@ impl pallet_balances::Config for Test {
 impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u64;
-	type AssetId = u32;
-	type AssetIdParameter = u32;
+	type AssetId = MultiLocation;
+	type AssetIdParameter = MultiLocation;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -276,8 +276,11 @@ parameter_types! {
 	pub UnitWeightCost: u64 = 1_000;
 }
 
-pub type SovereignAccountOf =
-	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<AnyNetwork, AccountId>);
+pub type SovereignAccountOf = (
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	AccountId32Aliases<AnyNetwork, AccountId>,
+	SiblingParachainConvertsVia<ParaId, AccountId>,
+);
 
 pub type LocalAssetTransactor =
 	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>;
@@ -289,10 +292,19 @@ type LocalOriginConverter = (
 	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
+// This sibling parachain acts as trusted reserve for its assets in tests.
+pub const RESERVE_PARA_ID: u32 = 2001;
+// This sibling parachain is not configured as trusted reserve or teleport location for any assets.
+pub const OTHER_PARA_ID: u32 = 2009;
+
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
+	pub TrustedReserves: (MultiAssetFilter, MultiLocation) = (
+		All.into(),
+		MultiLocation { parents: 1, interior: X1(Parachain(RESERVE_PARA_ID)) }
+	);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -310,7 +322,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = TestSendXcm;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = ();
+	type IsReserve = Case<TrustedReserves>;
 	type IsTeleporter = Case<TrustedAssets>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
