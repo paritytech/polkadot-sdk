@@ -235,7 +235,7 @@ pub fn teleports_for_native_asset_works<
 				));
 
 				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery
+					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery,
 				>(
 					(native_asset_id, native_asset_to_teleport_away.into()).into(),
 					0,
@@ -247,7 +247,9 @@ pub fn teleports_for_native_asset_works<
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
-					target_account_balance_before_teleport - native_asset_to_teleport_away - delivery_fees.into()
+					target_account_balance_before_teleport -
+						native_asset_to_teleport_away -
+						delivery_fees.into()
 				);
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
