@@ -183,6 +183,7 @@ std = [
 	"serde/std",
 	"serde_derive",
 	"sp-api/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
