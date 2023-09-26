@@ -46,10 +46,6 @@
 //! is free of any floating point operations, which is a useful step towards making instances
 //! produced from such a module deterministic.
 
-mod data_segments_snapshot;
-mod globals_snapshot;
 mod runtime_blob;
 
-pub use data_segments_snapshot::DataSegmentsSnapshot;
-pub use globals_snapshot::{ExposedMutableGlobalsSet, GlobalsSnapshot, InstanceGlobals};
 pub use runtime_blob::RuntimeBlob;

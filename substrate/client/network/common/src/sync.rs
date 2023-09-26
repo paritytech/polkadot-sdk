@@ -22,12 +22,12 @@ pub mod message;
 pub mod metrics;
 pub mod warp;
 
-use crate::{role::Roles, sync::message::BlockAnnounce, types::ReputationChange};
+use crate::{role::Roles, types::ReputationChange};
 use futures::Stream;
 
 use libp2p_identity::PeerId;
 
-use message::{BlockData, BlockRequest, BlockResponse};
+use message::{BlockAnnounce, BlockRequest, BlockResponse};
 use sc_consensus::{import_queue::RuntimeOrigin, IncomingBlock};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -226,28 +226,6 @@ impl fmt::Debug for OpaqueStateResponse {
 	}
 }
 
-/// Wrapper for implementation-specific block request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockResponse").finish()
-	}
-}
-
 /// Provides high-level status of syncing.
 #[async_trait::async_trait]
 pub trait SyncStatusProvider<Block: BlockT>: Send + Sync {
@@ -391,13 +369,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
-
-	/// Access blocks from implementation-specific block response.
-	fn block_response_into_blocks(
-		&self,
-		request: &BlockRequest<Block>,
-		response: OpaqueBlockResponse,
-	) -> Result<Vec<BlockData<Block>>, String>;
 
 	/// Advance the state of `ChainSync`
 	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()>;

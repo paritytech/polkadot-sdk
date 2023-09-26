@@ -186,6 +186,9 @@ match_types! {
 	pub type FellowshipSalaryPallet: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) }
 	};
+	pub type AmbassadorSalaryPallet: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(74)) }
+	};
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -372,6 +375,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						FellowsPlurality,
 						FellowshipSalaryPallet,
+						AmbassadorSalaryPallet,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
