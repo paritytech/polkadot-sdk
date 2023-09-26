@@ -336,7 +336,7 @@ pub mod pallet {
 				*up = up.split_off(num as usize);
 
 				let threshold = Self::get_ump_threshold(host_config.max_upward_queue_size);
-				let remaining_total_size = up.iter().map(UpwardMessage::len).sum();
+				let remaining_total_size: usize = up.iter().map(UpwardMessage::len).sum();
 				if remaining_total_size <= threshold as usize {
 					Self::decrement_ump_fee_factor();
 				}
@@ -1551,7 +1551,7 @@ impl<T: Config> Pallet<T> {
 			// We check the threshold against total size and not number of messages since messages
 			// could be big or small
 			let pending_messages = PendingUpwardMessages::<T>::get();
-			let total_size = pending_messages.iter().map(UpwardMessage::len).sum();
+			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				let message_size_factor =
 					FixedU128::from_u32(message_len.saturating_div(1024) as u32)
