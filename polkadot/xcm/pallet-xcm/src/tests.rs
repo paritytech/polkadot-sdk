@@ -348,7 +348,7 @@ fn send_fails_when_xcm_router_blocks() {
 
 // Helper function to deduplicate testing different teleport types.
 fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
-	dest: MultiLocation,
+	expected_beneficiary: MultiLocation,
 	call: Call,
 	expected_weight_limit: WeightLimit,
 ) {
@@ -370,7 +370,10 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 					ReceiveTeleportedAsset((Here, SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_limited_execution((Here, SEND_AMOUNT), expected_weight_limit),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+					DepositAsset {
+						assets: AllCounted(1).into(),
+						beneficiary: expected_beneficiary
+					},
 				]),
 			)]
 		);
@@ -389,14 +392,14 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 /// local effects.
 #[test]
 fn teleport_assets_works() {
-	let dest: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
 	do_test_and_verify_teleport_assets(
-		dest,
+		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::teleport_assets(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(RelayLocation::get().into()),
-				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
 				Box::new((Here, SEND_AMOUNT).into()),
 				0,
 			));
@@ -411,16 +414,16 @@ fn teleport_assets_works() {
 /// local effects.
 #[test]
 fn limited_teleport_assets_works() {
-	let dest: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
 	let expected_weight_limit = weight_limit.clone();
 	do_test_and_verify_teleport_assets(
-		dest,
+		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::limited_teleport_assets(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(RelayLocation::get().into()),
-				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
 				Box::new((Here, SEND_AMOUNT).into()),
 				0,
 				weight_limit,
@@ -430,9 +433,27 @@ fn limited_teleport_assets_works() {
 	);
 }
 
+// For reserve-based transfers, we want to support:
+// - non-fee assets reserve:
+//   - local reserve
+//   - destination reserve
+//   - remote reserve
+// - fee assests:
+//   - reserve-transferred with reserve:
+//     - local reserve
+//     - destination reserve
+//     - remote reserve
+//   - teleported
+//
+// Bringing unique scenarios total to 3*4 = 12. So, following reserve-transfer tests try to cover
+// the happy-case for each of these 12 scenarios.
+//
+// TODO: also add negative tests for testing various error conditions.
+
 // Helper function to deduplicate testing different reserve-transfer types.
-fn do_test_and_verify_reserve_transfer_assets<Call: FnOnce()>(
-	dest: MultiLocation,
+// Currently hardcoded for AssetsReserve=Local and FeeReserve=Local.
+fn do_test_and_verify_reserve_transfer_assets_local_ar_local_fr<Call: FnOnce()>(
+	expected_beneficiary: MultiLocation,
 	call: Call,
 	expected_weight_limit: WeightLimit,
 ) {
@@ -458,7 +479,10 @@ fn do_test_and_verify_reserve_transfer_assets<Call: FnOnce()>(
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
 					buy_limited_execution((Parent, SEND_AMOUNT), expected_weight_limit),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+					DepositAsset {
+						assets: AllCounted(1).into(),
+						beneficiary: expected_beneficiary
+					},
 				]),
 			)]
 		);
@@ -471,20 +495,21 @@ fn do_test_and_verify_reserve_transfer_assets<Call: FnOnce()>(
 	});
 }
 
-/// Test `reserve_transfer_assets`
+/// Test `reserve_transfer_assets` with local asset reserve and local fee reserve.
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
-fn reserve_transfer_assets_works() {
-	let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-	do_test_and_verify_reserve_transfer_assets(
-		dest,
+fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	do_test_and_verify_reserve_transfer_assets_local_ar_local_fr(
+		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::reserve_transfer_assets(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Parachain(PARA_ID).into()),
-				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
 				Box::new((Here, SEND_AMOUNT).into()),
 				0,
 			));
@@ -493,22 +518,23 @@ fn reserve_transfer_assets_works() {
 	);
 }
 
-/// Test `limited_reserve_transfer_assets`
+/// Test `limited_reserve_transfer_assets` with local asset reserve and local fee reserve.
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
-fn limited_reserve_transfer_assets_works() {
-	let dest: MultiLocation = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
 	let expected_weight_limit = weight_limit.clone();
-	do_test_and_verify_reserve_transfer_assets(
-		dest,
+	do_test_and_verify_reserve_transfer_assets_local_ar_local_fr(
+		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Parachain(PARA_ID).into()),
-				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
 				Box::new((Here, SEND_AMOUNT).into()),
 				0,
 				weight_limit,
@@ -516,6 +542,105 @@ fn limited_reserve_transfer_assets_works() {
 		},
 		expected_weight_limit,
 	);
+}
+
+/// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with local asset reserve and destination fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with destination asset reserve and destination fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with remote asset reserve and destination fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with local asset reserve and remote fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with local asset reserve and teleported fee.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with destination asset reserve and teleported fee.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
+	todo!()
+}
+
+/// Test `reserve_transfer_assets` with remote asset reserve and teleported fee.
+///
+/// Asserts that the sender's balance is decreased and the beneficiary's balance
+/// is increased. Verifies the correct message is sent and event is emitted.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() {
+	todo!()
 }
 
 /// Test local execution of XCM

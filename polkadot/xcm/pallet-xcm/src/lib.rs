@@ -1299,7 +1299,7 @@ impl<T: Config> Pallet<T> {
 		let fees_transfer_type = TransferType::determine_for::<T>(&fees, &dest)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (also used for fees).
-			fees_transfer_type.clone()
+			fees_transfer_type
 		} else {
 			// Find reserve for non-fee assets.
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
@@ -1334,7 +1334,6 @@ impl<T: Config> Pallet<T> {
 				let context = T::UniversalLocation::get();
 				// Send half the `fees` to the Sovereign Account of `dest` on assets-reserve chain.
 				let assets_reserve_beneficiary = dest
-					.clone()
 					.reanchored(&assets_reserve, context)
 					.map_err(|_| Error::<T>::CannotReanchor)?;
 				Self::prefund_transfer_fees(
