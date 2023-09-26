@@ -17,6 +17,7 @@ use crate::*;
 use frame_support::{instances::Instance2, BoundedVec};
 use parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 use sp_runtime::{DispatchError, ModuleError};
+use asset_hub_kusama_runtime::AssetDeposit;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
@@ -28,6 +29,13 @@ fn swap_locally_on_chain_using_local_assets() {
 
 	AssetHubKusama::execute_with(|| {
 		type RuntimeEvent = <AssetHubKusama as Chain>::RuntimeEvent;
+
+		// Make sure account has enough to create an asset in `pallet_assets`
+		assert_ok!(<AssetHubKusama as AssetHubKusamaPallet>::Balances::force_set_balance(
+			<AssetHubKusama as Chain>::RuntimeOrigin::root(),
+			AssetHubKusamaSender::get().into(),
+			EXISTENTIAL_DEPOSIT + AssetDeposit::get(),
+		));
 
 		assert_ok!(<AssetHubKusama as AssetHubKusamaPallet>::Assets::create(
 			<AssetHubKusama as Chain>::RuntimeOrigin::signed(AssetHubKusamaSender::get()),

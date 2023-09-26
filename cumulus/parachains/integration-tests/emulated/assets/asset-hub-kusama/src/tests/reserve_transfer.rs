@@ -14,11 +14,21 @@
 // limitations under the License.
 
 use crate::*;
+use kusama_runtime::xcm_config::{
+	TreasuryAccount as KusamaTreasuryAccount,
+	PriceForChildParachainDelivery,
+};
+use asset_hub_kusama_runtime::{
+	PriceForSiblingParachainDelivery,
+	xcm_config::TreasuryAccount as AssetHubKusamaTreasuryAccount,
+};
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Kusama as Chain>::RuntimeEvent;
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(630_092_000, 6_196)));
+
+	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(t.args.clone());
 
 	assert_expected_events!(
 		Kusama,
@@ -30,6 +40,16 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 					t.args.dest
 				),
 				amount:  *amount == t.args.amount,
+			},
+			// Delivery fees are withdrawn from Sender
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == delivery_fees_amount,
+			},
+			// Delivery fees are deposited to Treasury account
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+				who: *who == KusamaTreasuryAccount::get().unwrap(),
+				amount: *amount == delivery_fees_amount,
 			},
 		]
 	);
@@ -54,6 +74,8 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 		6_196,
 	)));
 
+	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(t.args.clone());
+
 	assert_expected_events!(
 		AssetHubKusama,
 		vec![
@@ -67,6 +89,16 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
+			// Delivery fees are withdrawn from Sender
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == delivery_fees_amount,
+			},
+			// Delivery fees are deposited to Treasury account
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+				who: *who == AssetHubKusamaTreasuryAccount::get().unwrap(),
+				amount: *amount == delivery_fees_amount,
+			},
 		]
 	);
 }
@@ -78,6 +110,8 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 		676_119_000,
 		6196,
 	)));
+
+	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(t.args.clone());
 
 	assert_expected_events!(
 		AssetHubKusama,
@@ -92,6 +126,16 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 					t.args.dest
 				),
 				amount: *amount == t.args.amount,
+			},
+			// Delivery fees are withdrawn from Sender
+			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+				who: *who == t.sender.account_id,
+				amount: *amount == delivery_fees_amount,
+			},
+			// Delivery fees are deposited to Treasury account
+			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+				who: *who == KusamaTreasuryAccount::get().unwrap(),
+				amount: *amount == delivery_fees_amount,
 			},
 		]
 	);
@@ -185,7 +229,11 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = Kusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(test.args)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
@@ -244,7 +292,11 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = Kusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(test.args)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
@@ -306,7 +358,11 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubKusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(test.args)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }
@@ -338,7 +394,11 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubKusama::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(test.args.clone())
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }

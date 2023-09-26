@@ -29,8 +29,9 @@ use parachains_common::{
 	xcm_config::{ConcreteNativeAssetFrom, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
+use sp_runtime::traits::AccountIdConversion;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::xcm::body::FELLOWSHIP_ADMIN_INDEX;
+use polkadot_runtime_constants::{system_parachain::SystemParachains, xcm::body::FELLOWSHIP_ADMIN_INDEX};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,

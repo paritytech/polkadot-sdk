@@ -1332,10 +1332,10 @@ pub struct TestContext<T> {
 	pub args: T,
 }
 
-/// Struct that help with tests where either dispatchables or assertions need
+/// Struct that helps with tests where either dispatchables or assertions need
 /// to be reused. The struct keeps the test's arguments of your choice in the generic `Args`.
-/// These arguments can be easily reused and shared between the assertions functions
-/// and dispatchables functions, which are also stored in `Test`.
+/// These arguments can be easily reused and shared between the assertion functions
+/// and dispatchable functions, which are also stored in `Test`.
 /// `Origin` corresponds to the chain where the XCM interaction starts with an initial execution.
 /// `Destination` corresponds to the last chain where an effect of the intial execution is expected
 /// happen. `Hops` refer all the ordered intermediary chains an initial XCM execution can provoke

@@ -710,8 +710,10 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "sp-runtime",
+ "staging-kusama-runtime",
  "staging-xcm",
  "xcm-emulator",
 ]
@@ -6386,6 +6388,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime",
+ "polkadot-runtime-common",
  "polkadot-runtime-constants",
  "polkadot-runtime-parachains",
  "polkadot-service",

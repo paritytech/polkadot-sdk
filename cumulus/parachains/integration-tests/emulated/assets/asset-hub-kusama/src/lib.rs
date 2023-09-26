@@ -25,7 +25,7 @@ pub use integration_tests_common::{
 		asset_hub_kusama::ED as ASSET_HUB_KUSAMA_ED, kusama::ED as KUSAMA_ED, PROOF_SIZE_THRESHOLD,
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	xcm_helpers::{self, xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
 	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
 	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
