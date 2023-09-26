@@ -2350,7 +2350,8 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		assert_eq!(StorageVersion::exists::<Example>(), false);
 		assert_ne!(on_chain_version_before, current_version);
 
-		// OnRuntimeUpgrade calls pallet `before_all` hook which initializes the storage version.
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] hook should initialize the storage
+		// version.
 		Executive::execute_on_runtime_upgrade();
 
 		// Check that the storage version was initialized to the current version
@@ -2367,7 +2368,7 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		assert_eq!(StorageVersion::exists::<Example4>(), false);
 		assert_eq!(on_chain_version_before, StorageVersion::new(0));
 
-		// OnRuntimeUpgrade calls pallet `before_all` hook which initializes the storage version.
+		// [`frame_support::traits::BeforeAllRuntimeMigrations`] initializes the storage version.
 		Executive::execute_on_runtime_upgrade();
 
 		// Check that the storage version now exists and was initialized to 0.

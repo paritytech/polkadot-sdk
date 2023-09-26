@@ -202,10 +202,10 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		impl<#type_impl_gen>
-			#frame_support::traits::OnRuntimeUpgrade
+			#frame_support::traits::BeforeAllRuntimeMigrations
 			for #pallet_ident<#type_use_gen> #where_clause
 		{
-			fn before_all() -> #frame_support::weights::Weight {
+			fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
 				use #frame_support::traits::Get;
 				#frame_support::__private::sp_tracing::enter_span!(
 					#frame_support::__private::sp_tracing::trace_span!("before_all")
@@ -220,7 +220,12 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 					<T as #frame_system::Config>::DbWeight::get().reads(1)
 				}
 			}
+		}
 
+		impl<#type_impl_gen>
+			#frame_support::traits::OnRuntimeUpgrade
+			for #pallet_ident<#type_use_gen> #where_clause
+		{
 			fn on_runtime_upgrade() -> #frame_support::weights::Weight {
 				#frame_support::__private::sp_tracing::enter_span!(
 					#frame_support::__private::sp_tracing::trace_span!("on_runtime_update")

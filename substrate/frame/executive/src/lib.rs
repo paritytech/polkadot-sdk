@@ -121,8 +121,8 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
-		OnRuntimeUpgrade,
+		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 };
@@ -188,6 +188,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -225,6 +226,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -367,7 +369,7 @@ where
 		}
 
 		let before_all_weight =
-			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::before_all();
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		let try_on_runtime_upgrade_weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
@@ -396,6 +398,7 @@ impl<
 		Context: Default,
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
+			+ BeforeAllRuntimeMigrations
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
@@ -413,7 +416,7 @@ where
 	/// Execute all `OnRuntimeUpgrade` of this runtime, and return the aggregate weight.
 	pub fn execute_on_runtime_upgrade() -> Weight {
 		let before_all_weight =
-			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::before_all();
+			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
 		<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::on_runtime_upgrade()
 			.saturating_add(before_all_weight)
 	}
