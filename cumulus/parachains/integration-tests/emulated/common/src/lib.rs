@@ -33,7 +33,7 @@ use xcm_emulator::{
 };
 
 decl_test_relay_chains! {
-	#[api_version(6)]
+	#[api_version(7)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),
