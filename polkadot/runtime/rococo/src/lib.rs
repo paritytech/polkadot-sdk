@@ -1375,6 +1375,8 @@ pub mod migrations {
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
+		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
+		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, FellowshipReferenda>,
 	);
 }
 
