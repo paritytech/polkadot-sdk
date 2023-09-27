@@ -43,6 +43,7 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
+sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }

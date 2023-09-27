@@ -270,6 +270,15 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			#[cfg(feature = "construct-dummy-ring-context")]
+			{
+				// TODO @davxy : this is a temporary solution for node-sassafras development.
+				// Should be called before `initialize_genesis_authorities`
+				// (load a pre-constructed one from chain-spec?)
+				debug!(target: LOG_TARGET, "Constructing dummy ring context");
+				let ring_ctx = vrf::RingContext::new_testing();
+				RingContext::<T>::put(ring_ctx);
+			}
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
 			EpochConfig::<T>::put(self.epoch_config.clone());
 		}
