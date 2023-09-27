@@ -690,9 +690,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn proposal_of(proposal_hash: &T::Hash) -> Option<<T as Config<I>>::Proposal> {
 		match Voting::<T, I>::contains_key(proposal_hash) {
 			false => None,
-			true => T::Preimages::fetch(proposal_hash, None)
-				.ok()
-				.and_then(|x| <T as Config<I>>::Proposal::decode(&mut &x[..]).ok()),
+			true => {
+				let Ok(encoded) = T::Preimages::fetch(proposal_hash, None) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to fetch preimage for proposal hash {:?} contained in Voting.",
+						proposal_hash,
+					);
+					return None
+				};
+				let Ok(proposal) = <T as Config<I>>::Proposal::decode(&mut &encoded[..]) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to decode stored Proposal with preimage hash {:?}",
+						proposal_hash,
+					);
+					return None
+				};
+				Some(proposal)
+			},
 		}
 	}
 
