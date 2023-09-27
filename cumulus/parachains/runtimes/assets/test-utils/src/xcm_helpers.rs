@@ -29,7 +29,7 @@ pub fn transfer_assets_delivery_fees<S: SendXcm>(
 	destination: MultiLocation,
 ) -> u128 {
 	let message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
-	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else { unreachable!("message can be sent; qed") };
+	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else { unreachable!("message can be validated; qed") };
 	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed") };
 	delivery_fees_amount
 }
