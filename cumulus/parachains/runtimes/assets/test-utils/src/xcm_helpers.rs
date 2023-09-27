@@ -38,7 +38,6 @@ pub fn transfer_assets_delivery_fees<P: PriceForParachainDelivery>(
 	]);
 	let Parachain(para_id) = destination.interior().last().unwrap() else { unreachable!("Location is parachain") };
 	let delivery_fees = P::price_for_parachain_delivery((*para_id).into(), &message);
-	dbg!(&delivery_fees);
 	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
 	delivery_fees_amount
 }
