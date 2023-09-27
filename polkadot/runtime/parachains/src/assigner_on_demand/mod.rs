@@ -34,7 +34,7 @@ mod tests;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment, AssignmentVersion},
 };
 
 use frame_support::{
@@ -79,7 +79,7 @@ impl WeightInfo for TestWeightInfo {
 /// Keeps track of how many assignments a scheduler currently has at a specific `CoreIndex` for a
 /// specific `ParaId`.
 #[derive(Encode, Decode, Default, Clone, Copy, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 pub struct CoreAffinityCount {
 	core_idx: CoreIndex,
 	count: u32,
@@ -108,6 +108,7 @@ pub enum SpotTrafficCalculationErr {
 }
 
 /// Assignments as provided by the on-demand `AssignmentProvider`.
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
 struct OnDemandAssignment {
 	/// The assigned para id.
 	para_id: ParaId,
@@ -122,6 +123,7 @@ impl Assignment for OnDemandAssignment {
 }
 
 /// Internal representation of an order after it has been enqueued already.
+#[derive(Encode, Decode, TypeInfo)]
 struct EnqueuedOrder {
 	pub para_id: ParaId,
 }
@@ -472,7 +474,7 @@ where
 		location: QueuePushDirection,
 	) -> Result<(), DispatchError> {
 		// Only parathreads are valid paraids for on the go parachains.
-		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id()), Error::<T>::InvalidParaId);
+		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id), Error::<T>::InvalidParaId);
 
 		let config = <configuration::Pallet<T>>::config();
 
@@ -559,7 +561,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	type OldAssignmentType = V0Assignment;
 
-	const ASSIGNMENT_STORAGE_VERSION: crate::scheduler::common::AssignmentVersion = 7;
+	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
 
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
@@ -620,7 +622,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		// Write changes to storage.
 		OnDemandQueue::<T>::set(queue);
 
-		popped
+        popped.map(|p|
+            OnDemandAssignment {
+                para_id: p.para_id,
+                core_index: core_idx,
+            }
+        )
 	}
 
 	fn report_processed(assignment: Self::AssignmentType) {

@@ -16,10 +16,9 @@
 
 //! Common traits and types used by the scheduler and assignment providers.
 
-use core::fmt::Debug;
-
 use scale_info::TypeInfo;
-use sp_runtime::codec::{Decode, Encode};
+use sp_runtime::{codec::{Decode, Encode}, RuntimeDebug};
+use sp_std::fmt::Debug;
 
 use primitives::{CoreIndex, Id as ParaId};
 
@@ -40,6 +39,7 @@ pub trait Assignment {
 ///
 /// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
 /// assignment providers. This can be removed once storage has been migrated.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct V0Assignment {
 	pub para_id: ParaId,
 }
@@ -51,11 +51,16 @@ impl Assignment for V0Assignment {
 }
 
 /// `Assignment` binary format version.
+#[derive(PartialEq, PartialOrd)]
 pub struct AssignmentVersion(u16);
 
 impl AssignmentVersion {
 	pub const fn new(n: u16) -> AssignmentVersion {
 		Self(n)
+	}
+
+	pub const fn saturating_add(&self, other: AssignmentVersion) -> AssignmentVersion {
+		AssignmentVersion(self.0.saturating_add(other.0))
 	}
 }
 
@@ -96,8 +101,8 @@ pub trait AssignmentProvider<BlockNumber> {
 
 	/// Migrate an old Assignment to the current format.
 	///
-	/// In addition to the old assignment the core this assignment has been scheduled to needs to be
-	/// provided.
+	/// In addition to the old assignment the core this assignment has been scheduled to, needs to
+	/// be provided.
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
 		core: CoreIndex,
