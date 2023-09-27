@@ -18,8 +18,7 @@
 
 use crate::shared;
 use primitives::ValidatorIndex;
-use sp_std::prelude::Vec;
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 /// Implementation for `DisabledValidators`
 // CAVEAT: this should only be called on the node side
