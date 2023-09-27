@@ -81,7 +81,8 @@ struct MetricsInner {
 
 	/// Number of full recoveries that have been finished one way or the other.
 	///
-	/// Split by recovery `strategy_type` (`full_from_backers, systematic_chunks, regular_chunks`)
+	/// Split by recovery `strategy_type` (`full_from_backers, systematic_chunks, regular_chunks,
+	/// all`). `all` is used for failed recoveries that tried all available strategies.
 	/// Also split by `result` type.
 	full_recoveries_finished: CounterVec<U64>,
 
@@ -194,9 +195,12 @@ impl Metrics {
 	}
 
 	/// A full recovery failed (data not available).
-	pub fn on_recovery_failed(&self) {
+	pub fn on_recovery_failed(&self, strategy_type: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.full_recoveries_finished.with_label_values(&["failure"]).inc()
+			metrics
+				.full_recoveries_finished
+				.with_label_values(&["failure", strategy_type])
+				.inc()
 		}
 	}
 

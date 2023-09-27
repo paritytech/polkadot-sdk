@@ -147,7 +147,7 @@ impl State {
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?params.candidate_hash,
-							validator_index = ?chunk.index,
+							chunk_index = ?chunk.index,
 							"Found valid chunk on disk"
 						);
 						self.insert_chunk(chunk.index, chunk);
@@ -459,7 +459,7 @@ where
 					match &err {
 						RecoveryError::Invalid =>
 							self.params.metrics.on_recovery_invalid(strategy_type),
-						_ => self.params.metrics.on_recovery_failed(),
+						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
 					return Err(err)
 				},
@@ -476,7 +476,8 @@ where
 			candidate_hash = ?self.params.candidate_hash,
 			"Recovery of available data failed.",
 		);
-		self.params.metrics.on_recovery_failed();
+
+		self.params.metrics.on_recovery_failed("all");
 
 		Err(RecoveryError::Unavailable)
 	}
@@ -666,7 +667,7 @@ impl FetchSystematicChunks {
 				ValidatorIndex(0)..
 					ValidatorIndex(
 						u32::try_from(self.threshold)
-							.expect("validator numbers should not exceed u32"),
+							.expect("validator count should not exceed u32"),
 					),
 			)
 			.map(|(_, chunk)| &chunk.chunk[..])
