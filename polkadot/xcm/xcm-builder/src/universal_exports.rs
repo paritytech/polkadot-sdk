@@ -468,10 +468,10 @@ mod tests {
 		type Ticket = ();
 
 		fn validate(
-			_destination: &mut Option<MultiLocation>,
+			_destination: &mut Option<Location>,
 			_message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
-			Ok(((), MultiAssets::new()))
+			Ok(((), Assets::new()))
 		}
 
 		fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
@@ -482,7 +482,7 @@ mod tests {
 	/// Generic test case asserting that dest and msg is not consumed by `validate` implementation
 	/// of `SendXcm` in case of expected result.
 	fn ensure_validate_does_not_consume_dest_or_msg<S: SendXcm>(
-		dest: MultiLocation,
+		dest: Location,
 		assert_result: impl Fn(SendResult<S::Ticket>),
 	) {
 		let mut dest_wrapper = Some(dest);
@@ -500,10 +500,10 @@ mod tests {
 	fn remote_exporters_does_not_consume_dest_or_msg_on_not_applicable() {
 		frame_support::parameter_types! {
 			pub Local: NetworkId = ByGenesis([0; 32]);
-			pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Local::get()), Parachain(1234));
+			pub UniversalLocation: InteriorLocation = [GlobalConsensus(Local::get()), Parachain(1234)].into();
 			pub DifferentRemote: NetworkId = ByGenesis([22; 32]);
 			// no routers
-			pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)> = vec![];
+			pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)> = Vec::new();
 		}
 
 		// check with local destination (should be remote)
