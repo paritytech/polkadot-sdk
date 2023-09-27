@@ -52,7 +52,7 @@ use sp_std::prelude::*;
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example
-///
+/// 
 /// ```
 /// #[frame_support::pallet]
 /// mod pallet {
@@ -74,6 +74,11 @@ use sp_std::prelude::*;
 /// 	>;
 /// }
 /// ```
+/// 
+/// The total number of items currently stored in the map can be retrieved with the
+/// [`count()`](#method.count) method.
+/// 
+#[doc = docify::embed!("src/storage/types/counted_map.rs", test_simple_count_works)]
 pub struct CountedStorageMap<
 	Prefix,
 	Hasher,
@@ -1199,5 +1204,16 @@ mod test {
 				},
 			]
 		);
+	}
+
+	#[docify::export]
+	#[test]
+	fn test_simple_count_works() {
+		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32>;
+		TestExternalities::default().execute_with(|| {
+			A::insert(1, 1);
+			A::insert(2, 2);
+			assert_eq!(A::count(), 2);
+		});
 	}
 }
