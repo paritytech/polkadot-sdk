@@ -44,8 +44,6 @@ use beefy_primitives::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefyS
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, generate_solution_type, onchain, SequentialPhragmen,
 };
-#[cfg(not(feature = "disable-genesis-builder"))]
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
 use frame_support::{
 	construct_runtime,
 	genesis_builder_helper::{build_config, create_default_config},
