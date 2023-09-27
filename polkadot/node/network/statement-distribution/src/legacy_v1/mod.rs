@@ -21,8 +21,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RequiredRouting, SessionBoundGridTopologyStorage},
 	peer_set::{IsAuthority, PeerSet, ValidationVersion},
 	v1::{self as protocol_v1, StatementMetadata},
-	vstaging as protocol_vstaging, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v2 as protocol_v2, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatement, Statement, StatementWithPVD, UncheckedSignedFullStatement,
@@ -1062,7 +1061,7 @@ async fn circulate_statement<'a, Context>(
 		"We filter out duplicates above. qed.",
 	);
 
-	let (v1_peers_to_send, vstaging_peers_to_send) = peers_to_send
+	let (v1_peers_to_send, v2_peers_to_send) = peers_to_send
 		.into_iter()
 		.map(|peer_id| {
 			let peer_data =
@@ -1074,7 +1073,7 @@ async fn circulate_statement<'a, Context>(
 		})
 		.partition::<Vec<_>, _>(|(_, _, version)| match version {
 			ValidationVersion::V1 => true,
-			ValidationVersion::VStaging => false,
+			ValidationVersion::V2 => false,
 		}); // partition is handy here but not if we add more protocol versions
 
 	let payload = v1_statement_message(relay_parent, stored.statement.clone(), metrics);
@@ -1094,24 +1093,24 @@ async fn circulate_statement<'a, Context>(
 		))
 		.await;
 	}
-	if !vstaging_peers_to_send.is_empty() {
+	if !v2_peers_to_send.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
-			?vstaging_peers_to_send,
+			?v2_peers_to_send,
 			?relay_parent,
 			statement = ?stored.statement,
-			"Sending statement to vstaging peers",
+			"Sending statement to v2 peers",
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			vstaging_peers_to_send.iter().map(|(p, _, _)| *p).collect(),
-			compatible_v1_message(ValidationVersion::VStaging, payload.clone()).into(),
+			v2_peers_to_send.iter().map(|(p, _, _)| *p).collect(),
+			compatible_v1_message(ValidationVersion::V2, payload.clone()).into(),
 		))
 		.await;
 	}
 
 	v1_peers_to_send
 		.into_iter()
-		.chain(vstaging_peers_to_send)
+		.chain(v2_peers_to_send)
 		.filter_map(|(peer, needs_dependent, _)| if needs_dependent { Some(peer) } else { None })
 		.collect()
 }
@@ -1443,10 +1442,8 @@ async fn handle_incoming_message<'a, Context>(
 
 	let message = match message {
 		Versioned::V1(m) => m,
-		Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::V1Compatibility(
-			m,
-		)) => m,
-		Versioned::VStaging(_) => {
+		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) => m,
+		Versioned::V2(_) => {
 			// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
 			gum::debug!(
@@ -2170,8 +2167,7 @@ fn compatible_v1_message(
 ) -> net_protocol::StatementDistributionMessage {
 	match version {
 		ValidationVersion::V1 => Versioned::V1(message),
-		ValidationVersion::VStaging => Versioned::VStaging(
-			protocol_vstaging::StatementDistributionMessage::V1Compatibility(message),
-		),
+		ValidationVersion::V2 =>
+			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
 	}
 }

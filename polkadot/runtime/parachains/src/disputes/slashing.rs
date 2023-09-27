@@ -51,7 +51,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 
 use primitives::{
-	vstaging::slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
+	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use scale_info::TypeInfo;

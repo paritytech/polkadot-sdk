@@ -31,8 +31,8 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_subsystem::{
 	jaeger, messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -96,8 +96,8 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			Some(ValidationVersion::VStaging) =>
-				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+			Some(ValidationVersion::V2) =>
+				Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
@@ -131,9 +131,9 @@ pub struct PeerData {
 
 /// Data used to track information of peers and relay parents the
 /// overseer ordered us to work on.
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct ProtocolState {
-	/// Track all active peers and their views
+	/// Track all active peer views and protocol versions
 	/// to determine what is relevant to them.
 	peer_data: HashMap<PeerId, PeerData>,
 
@@ -502,8 +502,7 @@ async fn relay_message<Context>(
 		};
 
 		let v1_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V1);
-		let vstaging_interested_peers =
-			filter_by_version(&interested_peers, ValidationVersion::VStaging);
+		let v2_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V2);
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -513,10 +512,10 @@ async fn relay_message<Context>(
 			.await;
 		}
 
-		if !vstaging_interested_peers.is_empty() {
+		if !v2_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_interested_peers,
-				message.into_validation_protocol(ValidationVersion::VStaging.into()),
+				v2_interested_peers,
+				message.into_validation_protocol(ValidationVersion::V2.into()),
 			))
 			.await
 		}
@@ -538,7 +537,7 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
-		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
@@ -775,9 +774,11 @@ async fn handle_network_msg<Context>(
 				handle_peer_view_change(ctx, state, new_peer, old_view, rng).await;
 			}
 		},
-		NetworkBridgeEvent::PeerViewChange(peerid, new_view) => {
-			gum::trace!(target: LOG_TARGET, ?peerid, ?new_view, "Peer view change");
-			handle_peer_view_change(ctx, state, peerid, new_view, rng).await;
+		NetworkBridgeEvent::PeerViewChange(peer_id, new_view) => {
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?new_view, "Peer view change");
+			if state.peer_data.get(&peer_id).is_some() {
+				handle_peer_view_change(ctx, state, peer_id, new_view, rng).await;
+			}
 		},
 		NetworkBridgeEvent::OurViewChange(new_view) => {
 			gum::trace!(target: LOG_TARGET, ?new_view, "Our view change");

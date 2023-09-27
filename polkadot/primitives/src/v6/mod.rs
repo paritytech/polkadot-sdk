@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! `V2` Primitives.
+//! `V6` Primitives.
 
 use bitvec::vec::BitVec;
 use parity_scale_codec::{Decode, Encode};
@@ -57,7 +57,12 @@ pub use sp_staking::SessionIndex;
 mod signed;
 pub use signed::{EncodeAs, Signed, UncheckedSigned};
 
+pub mod async_backing;
+pub mod executor_params;
 pub mod slashing;
+
+pub use async_backing::AsyncBackingParams;
+pub use executor_params::{ExecutorParam, ExecutorParams, ExecutorParamsHash};
 
 mod metrics;
 pub use metrics::{
@@ -1065,6 +1070,26 @@ impl ApprovalVote {
 	}
 }
 
+/// A vote of approvalf for multiple candidates.
+#[derive(Clone, RuntimeDebug)]
+pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a Vec<CandidateHash>);
+
+impl<'a> ApprovalVoteMultipleCandidates<'a> {
+	/// Yields the signing payload for this approval vote.
+	pub fn signing_payload(&self, session_index: SessionIndex) -> Vec<u8> {
+		const MAGIC: [u8; 4] = *b"APPR";
+		// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the
+		// signature will look the same.
+		// This gives us the nice benefit that old nodes can still check signatures when len is 1
+		// and the new node can check the signature coming from old nodes.
+		if self.0.len() == 1 {
+			(MAGIC, self.0.first().expect("QED: we just checked"), session_index).encode()
+		} else {
+			(MAGIC, &self.0, session_index).encode()
+		}
+	}
+}
+
 /// Custom validity errors used in Polkadot while validating transactions.
 #[repr(u8)]
 pub enum ValidityError {
@@ -1116,7 +1141,7 @@ pub struct AbridgedHostConfiguration {
 	/// The delay, in blocks, before a validation upgrade is applied.
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
-	pub async_backing_params: super::vstaging::AsyncBackingParams,
+	pub async_backing_params: AsyncBackingParams,
 }
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
@@ -1241,25 +1266,39 @@ pub enum DisputeStatement {
 
 impl DisputeStatement {
 	/// Get the payload data for this type of dispute statement.
-	pub fn payload_data(&self, candidate_hash: CandidateHash, session: SessionIndex) -> Vec<u8> {
-		match *self {
+	pub fn payload_data(
+		&self,
+		candidate_hash: CandidateHash,
+		session: SessionIndex,
+	) -> Result<Vec<u8>, ()> {
+		match self {
 			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
-				ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload(),
+				Ok(ExplicitDisputeStatement { valid: true, candidate_hash, session }
+					.signing_payload()),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
-			)) => CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
+			)) => Ok(CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
-			}),
+				parent_hash: *inclusion_parent,
+			})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
-				CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
+				Ok(CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 					session_index: session,
-					parent_hash: inclusion_parent,
-				}),
+					parent_hash: *inclusion_parent,
+				})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-				ApprovalVote(candidate_hash).signing_payload(session),
+				Ok(ApprovalVote(candidate_hash).signing_payload(session)),
+			DisputeStatement::Valid(
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
+			) =>
+				if candidate_hashes.contains(&candidate_hash) {
+					Ok(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
+				} else {
+					Err(())
+				},
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
-				ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),
+				Ok(ExplicitDisputeStatement { valid: false, candidate_hash, session }
+					.signing_payload()),
 		}
 	}
 
@@ -1271,7 +1310,7 @@ impl DisputeStatement {
 		session: SessionIndex,
 		validator_signature: &ValidatorSignature,
 	) -> Result<(), ()> {
-		let payload = self.payload_data(candidate_hash, session);
+		let payload = self.payload_data(candidate_hash, session)?;
 
 		if validator_signature.verify(&payload[..], &validator_public) {
 			Ok(())
@@ -1303,13 +1342,14 @@ impl DisputeStatement {
 			Self::Valid(ValidDisputeStatementKind::BackingValid(_)) => true,
 			Self::Valid(ValidDisputeStatementKind::Explicit) |
 			Self::Valid(ValidDisputeStatementKind::ApprovalChecking) |
+			Self::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_)) |
 			Self::Invalid(_) => false,
 		}
 	}
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1323,6 +1363,11 @@ pub enum ValidDisputeStatementKind {
 	/// An approval vote from the approval checking phase.
 	#[codec(index = 3)]
 	ApprovalChecking,
+	/// An approval vote from the new version.
+	/// TODO: Fixme this probably means we can't create this version
+	/// untill all nodes have been updated to support it.
+	#[codec(index = 4)]
+	ApprovalCheckingMultipleCandidates(Vec<CandidateHash>),
 }
 
 /// Different kinds of statements of invalidity on a candidate.
@@ -1802,9 +1847,6 @@ pub enum PvfExecTimeoutKind {
 	/// considered executable by approval checkers or dispute participants.
 	Approval,
 }
-
-pub mod executor_params;
-pub use executor_params::{ExecutorParam, ExecutorParams, ExecutorParamsHash};
 
 #[cfg(test)]
 mod tests {

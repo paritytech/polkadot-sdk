@@ -17,7 +17,7 @@
 //! Staging Primitives.
 
 // Put any primitives used by staging APIs functions here
-pub use crate::v5::*;
+pub use crate::v6::*;
 use sp_std::prelude::*;
 
 use parity_scale_codec::{Decode, Encode};
@@ -52,6 +52,26 @@ pub struct AsyncBackingParams {
 	///
 	/// When async backing is disabled, the only valid value is 0.
 	pub allowed_ancestry_len: u32,
+}
+
+/// Approval voting configuration parameters
+#[derive(
+	RuntimeDebug,
+	Copy,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct ApprovalVotingParams {
+	/// The maximum number of candidates `approval-voting` can vote for with
+	/// a single signatures.
+	///
+	/// Setting it to 1, means we send the approval as soon as we have it available.
+	pub max_approval_coalesce_count: u32,
 }
 
 /// Constraints on inbound HRMP channels.

@@ -16,16 +16,22 @@
 
 //! Put implementations of functions from staging APIs here.
 
+use primitives::vstaging::ApprovalVotingParams;
+
 use crate::{configuration, dmp, hrmp, inclusion, initializer, paras, shared};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::{
+	v6::async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
 	Id as ParaId,
 };
 use sp_std::prelude::*;
+
+pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
+	ApprovalVotingParams { max_approval_coalesce_count: 6 }
+}
 
 /// Implementation for `StagingParaBackingState` function from the runtime API
 pub fn backing_state<T: initializer::Config>(

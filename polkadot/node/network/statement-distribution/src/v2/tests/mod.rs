@@ -31,7 +31,7 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
 	GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore,
 	SessionIndex, SessionInfo, ValidatorPair,
@@ -380,7 +380,7 @@ async fn handle_leaf_activation(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == *hash => {
 			tx.send(Ok(test_state.config.async_backing_params.unwrap_or(DEFAULT_ASYNC_BACKING_PARAMETERS))).unwrap();
 		}
@@ -479,7 +479,7 @@ async fn handle_sent_request(
 			assert_eq!(requests.len(), 1);
 			assert_matches!(
 				requests.pop().unwrap(),
-				Requests::AttestedCandidateVStaging(outgoing) => {
+				Requests::AttestedCandidateV2(outgoing) => {
 					assert_eq!(outgoing.peer, Recipient::Peer(peer));
 					assert_eq!(outgoing.payload.candidate_hash, candidate_hash);
 					assert_eq!(outgoing.payload.mask, mask);
@@ -537,7 +537,7 @@ async fn connect_peer(
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Authority,
-					ValidationVersion::VStaging.into(),
+					ValidationVersion::V2.into(),
 					authority_ids,
 				),
 			),
@@ -570,12 +570,12 @@ async fn send_peer_view_change(virtual_overseer: &mut VirtualOverseer, peer: Pee
 async fn send_peer_message(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	message: protocol_vstaging::StatementDistributionMessage,
+	message: protocol_v2::StatementDistributionMessage,
 ) {
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::PeerMessage(peer, Versioned::VStaging(message)),
+				NetworkBridgeEvent::PeerMessage(peer, Versioned::V2(message)),
 			),
 		})
 		.await;

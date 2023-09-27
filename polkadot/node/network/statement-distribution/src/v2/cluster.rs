@@ -55,7 +55,7 @@
 //! and to keep track of what we have sent to other validators in the group and what we may
 //! continue to send them.
 
-use polkadot_primitives::vstaging::{CandidateHash, CompactStatement, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
 
 use std::collections::{HashMap, HashSet};
 
@@ -331,6 +331,13 @@ impl ClusterTracker {
 			self.validator_seconded(validator, candidate_hash)
 	}
 
+	/// Whether a validator can request a candidate from us.
+	pub fn can_request(&self, target: ValidatorIndex, candidate_hash: CandidateHash) -> bool {
+		self.validators.contains(&target) &&
+			self.we_sent_seconded(target, candidate_hash) &&
+			!self.they_sent_seconded(target, candidate_hash)
+	}
+
 	/// Returns a Vec of pending statements to be sent to a particular validator
 	/// index. `Seconded` statements are sorted to the front of the vector.
 	///
@@ -459,7 +466,7 @@ pub enum RejectOutgoing {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::vstaging::Hash;
+	use polkadot_primitives::Hash;
 
 	#[test]
 	fn rejects_incoming_outside_of_group() {

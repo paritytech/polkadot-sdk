@@ -26,8 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	vstaging::ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -431,6 +432,8 @@ where
 		if self.minimum_backing_votes.is_zero() {
 			return Err(ZeroMinimumBackingVotes)
 		}
+
+		// TODO: add consistency check for approval-voting-params
 
 		Ok(())
 	}
@@ -1175,6 +1178,7 @@ pub mod pallet {
 				config.on_demand_ttl = new;
 			})
 		}
+
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]
 		#[pallet::weight((
@@ -1186,6 +1190,20 @@ pub mod pallet {
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
 			})
+		}
+
+		/// Set approval-voting-params.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_executor_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_approval_voting_params(
+			origin: OriginFor<T>,
+			_new: ApprovalVotingParams,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Ok(())
 		}
 	}
 

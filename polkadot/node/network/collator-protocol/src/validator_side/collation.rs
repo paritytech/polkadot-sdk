@@ -119,7 +119,7 @@ impl PendingCollation {
 	}
 }
 
-/// vstaging advertisement that was rejected by the backing
+/// v2 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 #[derive(Debug, Clone)]

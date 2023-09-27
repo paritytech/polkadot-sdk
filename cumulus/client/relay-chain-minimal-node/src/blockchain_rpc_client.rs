@@ -22,8 +22,8 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::RuntimeApiSubsystemClient;
 use polkadot_primitives::{
+	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::{AsyncBackingParams, BackingState},
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sp_api::{ApiError, RuntimeApiInfo};
@@ -346,16 +346,21 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
-	async fn staging_async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
-		Ok(self.rpc_client.parachain_host_staging_async_backing_params(at).await?)
+	async fn async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
+		Ok(self.rpc_client.parachain_host_async_backing_params(at).await?)
 	}
 
-	async fn staging_para_backing_state(
+	async fn para_backing_state(
 		&self,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
-		Ok(self.rpc_client.parachain_host_staging_para_backing_state(at, para_id).await?)
+		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(&self, _at: Hash) -> Result<polkadot_primitives::vstaging::ApprovalVotingParams, ApiError> {
+		todo!("Unimplemented")
 	}
 }
 

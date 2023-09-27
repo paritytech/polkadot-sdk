@@ -103,8 +103,8 @@ fn share_seconded_circulated_to_cluster() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-					protocol_vstaging::StatementDistributionMessage::Statement(
+				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+					protocol_v2::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -173,7 +173,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 		send_peer_message(
 			&mut overseer,
 			peer_a.clone(),
-			protocol_vstaging::StatementDistributionMessage::Statement(
+			protocol_v2::StatementDistributionMessage::Statement(
 				relay_parent,
 				signed_valid.as_unchecked().clone(),
 			),
@@ -252,7 +252,7 @@ fn cluster_statement_bad_signature() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
+				protocol_v2::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.clone(),
 				),
@@ -327,7 +327,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		send_peer_message(
 			&mut overseer,
 			peer_a.clone(),
-			protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 		)
 		.await;
 
@@ -388,7 +388,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		send_peer_message(
 			&mut overseer,
 			peer_a.clone(),
-			protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 		)
 		.await;
 
@@ -465,7 +465,7 @@ fn seconded_statement_leads_to_request() {
 		send_peer_message(
 			&mut overseer,
 			peer_a.clone(),
-			protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 		)
 		.await;
 
@@ -593,8 +593,8 @@ fn cluster_statements_shared_seconded_first() {
 
 				assert_matches!(
 					&messages[0].1,
-					Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-						protocol_vstaging::StatementDistributionMessage::Statement(
+					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+						protocol_v2::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -604,8 +604,8 @@ fn cluster_statements_shared_seconded_first() {
 
 				assert_matches!(
 					&messages[1].1,
-					Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-						protocol_vstaging::StatementDistributionMessage::Statement(
+					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+						protocol_v2::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -699,8 +699,8 @@ fn cluster_accounts_for_implicit_view() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-					protocol_vstaging::StatementDistributionMessage::Statement(
+				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+					protocol_v2::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -749,8 +749,8 @@ fn cluster_accounts_for_implicit_view() {
 					&messages[0],
 					(
 						peers,
-						Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-							protocol_vstaging::StatementDistributionMessage::Statement(
+						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+							protocol_v2::StatementDistributionMessage::Statement(
 								r,
 								s,
 							)
@@ -836,10 +836,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -971,10 +968,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(
-					relay_parent,
-					a_seconded,
-				),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1191,7 +1185,7 @@ fn ensure_seconding_limit_is_respected() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1216,7 +1210,7 @@ fn ensure_seconding_limit_is_respected() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1241,7 +1235,7 @@ fn ensure_seconding_limit_is_respected() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 

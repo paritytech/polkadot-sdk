@@ -63,7 +63,7 @@ impl Default for RelayStateSproofBuilder {
 				hrmp_max_message_num_per_candidate: 5,
 				validation_upgrade_cooldown: 6,
 				validation_upgrade_delay: 6,
-				async_backing_params: relay_chain::vstaging::AsyncBackingParams {
+				async_backing_params: relay_chain::AsyncBackingParams {
 					allowed_ancestry_len: 0,
 					max_candidate_depth: 0,
 				},

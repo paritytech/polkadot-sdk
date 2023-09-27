@@ -23,7 +23,7 @@ use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1, vstaging, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
+		v1, v2, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
 	},
 };
 
@@ -182,7 +182,7 @@ async fn new_minimal_relay_chain(
 	}
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (collation_req_receiver_v1, collation_req_receiver_vstaging, available_data_req_receiver) =
+	let (collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
 	let best_header = relay_chain_rpc_client
@@ -212,7 +212,7 @@ async fn new_minimal_relay_chain(
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
-		collation_req_receiver_vstaging,
+		collation_req_receiver_v2,
 		available_data_req_receiver,
 		registry: prometheus_registry.as_ref(),
 		spawner: task_manager.spawn_handle(),
@@ -234,13 +234,13 @@ fn build_request_response_protocol_receivers(
 	config: &mut FullNetworkConfiguration,
 ) -> (
 	IncomingRequestReceiver<v1::CollationFetchingRequest>,
-	IncomingRequestReceiver<vstaging::CollationFetchingRequest>,
+	IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	IncomingRequestReceiver<v1::AvailableDataFetchingRequest>,
 ) {
 	let (collation_req_receiver_v1, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	let (collation_req_receiver_vstaging, cfg) =
+	let (collation_req_receiver_v2, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -248,5 +248,5 @@ fn build_request_response_protocol_receivers(
 	config.add_request_response_protocol(cfg);
 	let cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	(collation_req_receiver_v1, collation_req_receiver_vstaging, available_data_req_receiver)
+	(collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver)
 }

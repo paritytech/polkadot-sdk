@@ -34,10 +34,10 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		outgoing::{Recipient, RequestError},
-		v1 as request_v1, vstaging as request_vstaging, OutgoingRequest, Requests,
+		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -624,13 +624,9 @@ async fn notify_collation_seconded(
 		CollationVersion::V1 => Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
 		)),
-		CollationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				protocol_vstaging::CollatorProtocolMessage::CollationSeconded(
-					relay_parent,
-					statement,
-				),
-			)),
+		CollationVersion::V2 => Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+			protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+		)),
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -694,16 +690,12 @@ async fn request_collation(
 			let requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
 		},
-		(CollationVersion::VStaging, Some(ProspectiveCandidate { candidate_hash, .. })) => {
+		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
-				request_vstaging::CollationFetchingRequest {
-					relay_parent,
-					para_id,
-					candidate_hash,
-				},
+				request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
 			);
-			let requests = Requests::CollationFetchingVStaging(req);
+			let requests = Requests::CollationFetchingV2(req);
 			(requests, response_recv.boxed())
 		},
 		_ => return Err(FetchError::ProtocolMismatch),
@@ -758,18 +750,15 @@ async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
-	>,
+	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
-	use protocol_vstaging::CollatorProtocolMessage as VStaging;
+	use protocol_v2::CollatorProtocolMessage as V2;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::VStaging(VStaging::Declare(collator_id, para_id, signature)) => {
+		Versioned::V2(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -881,7 +870,7 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::VStaging(VStaging::AdvertiseCollation {
+		Versioned::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -901,15 +890,14 @@ async fn process_incoming_peer_message<Context>(
 					?relay_parent,
 					?candidate_hash,
 					error = ?err,
-					"Rejected vstaging advertisement",
+					"Rejected v2 advertisement",
 				);
 
 				if let Some(rep) = err.reputation_changes() {
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::VStaging(VStaging::CollationSeconded(..)) => {
+		Versioned::V1(V1::CollationSeconded(..)) | Versioned::V2(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -1074,7 +1062,7 @@ where
 	};
 
 	if relay_parent_mode.is_enabled() && prospective_candidate.is_none() {
-		// Expected vstaging advertisement.
+		// Expected v2 advertisement.
 		return Err(AdvertisementError::ProtocolMismatch)
 	}
 
