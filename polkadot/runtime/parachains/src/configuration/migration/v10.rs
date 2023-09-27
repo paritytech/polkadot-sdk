@@ -23,8 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ClientFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES};
-use sp_runtime::Perbill;
+use primitives::{vstaging::ClientFeatures, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
@@ -180,6 +179,7 @@ client_features                          : ClientFeatures::empty()
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
+	use primitives::LEGACY_MIN_BACKING_VOTES;
 
 	#[test]
 	fn v10_deserialized_from_actual_data() {

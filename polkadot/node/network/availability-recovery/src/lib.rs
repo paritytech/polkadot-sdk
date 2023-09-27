@@ -47,6 +47,7 @@ use polkadot_erasure_coding::{
 };
 use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
 
+use error::{Error, Result};
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, IncomingRequestReceiver},
 	UnifiedReputationChange as Rep,
@@ -60,7 +61,7 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunk_indices, request_session_info, runtime::request_client_features,
+	request_session_info, runtime::request_client_features, ChunkIndexCacheRegistry,
 };
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HashT,
@@ -75,6 +76,8 @@ use metrics::Metrics;
 
 #[cfg(test)]
 mod tests;
+
+type RecoveryResult = std::result::Result<AvailableData, RecoveryError>;
 
 const LOG_TARGET: &str = "parachain::availability-recovery";
 
@@ -123,7 +126,7 @@ pub enum ErasureTask {
 	Reconstruct(
 		usize,
 		BTreeMap<ChunkIndex, ErasureChunk>,
-		oneshot::Sender<Result<AvailableData, ErasureEncodingError>>,
+		oneshot::Sender<std::result::Result<AvailableData, ErasureEncodingError>>,
 	),
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
 	/// the Merkle tree.
@@ -148,7 +151,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
-					validator_index = ?chunk.index,
+					chunk_index = ?chunk.index,
 					error = ?e,
 					"Invalid Merkle proof",
 				);
@@ -160,7 +163,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 		gum::debug!(
 			target: LOG_TARGET,
 			candidate_hash = ?params.candidate_hash,
-			validator_index = ?chunk.index,
+			chunk_index = ?chunk.index,
 			"Merkle proof mismatch"
 		);
 		return false
@@ -211,12 +214,12 @@ fn reconstructed_data_matches_root(
 /// Accumulate all awaiting sides for some particular `AvailableData`.
 struct RecoveryHandle {
 	candidate_hash: CandidateHash,
-	remote: RemoteHandle<Result<AvailableData, RecoveryError>>,
-	awaiting: Vec<oneshot::Sender<Result<AvailableData, RecoveryError>>>,
+	remote: RemoteHandle<RecoveryResult>,
+	awaiting: Vec<oneshot::Sender<RecoveryResult>>,
 }
 
 impl Future for RecoveryHandle {
-	type Output = Option<(CandidateHash, Result<AvailableData, RecoveryError>)>;
+	type Output = Option<(CandidateHash, RecoveryResult)>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let mut indices_to_remove = Vec::new();
@@ -270,7 +273,7 @@ enum CachedRecovery {
 
 impl CachedRecovery {
 	/// Convert back to	`Result` to deliver responses.
-	fn into_result(self) -> Result<AvailableData, RecoveryError> {
+	fn into_result(self) -> RecoveryResult {
 		match self {
 			Self::Valid(d) => Ok(d),
 			Self::Invalid => Err(RecoveryError::Invalid),
@@ -278,9 +281,9 @@ impl CachedRecovery {
 	}
 }
 
-impl TryFrom<Result<AvailableData, RecoveryError>> for CachedRecovery {
+impl TryFrom<RecoveryResult> for CachedRecovery {
 	type Error = ();
-	fn try_from(o: Result<AvailableData, RecoveryError>) -> Result<CachedRecovery, Self::Error> {
+	fn try_from(o: RecoveryResult) -> std::result::Result<CachedRecovery, Self::Error> {
 		match o {
 			Ok(d) => Ok(Self::Valid(d)),
 			Err(RecoveryError::Invalid) => Ok(Self::Invalid),
@@ -304,7 +307,7 @@ struct State {
 	availability_lru: LruMap<CandidateHash, CachedRecovery>,
 
 	/// Cache of the chunk indices shuffle based on the relay parent block.
-	chunk_indices_cache: LruMap<BlockNumber, VecDeque<(ChunkIndex, ValidatorIndex)>>,
+	chunk_indices: ChunkIndexCacheRegistry,
 }
 
 impl Default for State {
@@ -313,7 +316,7 @@ impl Default for State {
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (0, Hash::default()),
 			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
-			chunk_indices_cache: LruMap::new(ByLength::new(LRU_SIZE)),
+			chunk_indices: ChunkIndexCacheRegistry::new(LRU_SIZE),
 		}
 	}
 }
@@ -354,11 +357,11 @@ async fn launch_recovery_task<Context>(
 	ctx: &mut Context,
 	session_info: SessionInfo,
 	receipt: CandidateReceipt,
-	response_sender: oneshot::Sender<Result<AvailableData, RecoveryError>>,
+	response_sender: oneshot::Sender<RecoveryResult>,
 	metrics: &Metrics,
 	recovery_strategies: VecDeque<Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>>,
 	bypass_availability_store: bool,
-) -> error::Result<()> {
+) -> Result<()> {
 	let candidate_hash = receipt.hash();
 	let params = RecoveryParams {
 		validator_authority_keys: session_info.discovery_keys.clone(),
@@ -399,12 +402,12 @@ async fn handle_recover<Context>(
 	receipt: CandidateReceipt,
 	session_index: SessionIndex,
 	backing_group: Option<GroupIndex>,
-	response_sender: oneshot::Sender<Result<AvailableData, RecoveryError>>,
+	response_sender: oneshot::Sender<RecoveryResult>,
 	metrics: &Metrics,
 	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
-) -> error::Result<()> {
+) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
 	let span = jaeger::Span::new(candidate_hash, "availbility-recovery")
@@ -434,7 +437,7 @@ async fn handle_recover<Context>(
 	let session_info = request_session_info(state.live_block.1, session_index, ctx.sender())
 		.await
 		.await
-		.map_err(error::Error::CanceledSessionInfo)??;
+		.map_err(Error::CanceledSessionInfo)??;
 
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
@@ -442,36 +445,39 @@ async fn handle_recover<Context>(
 			let block_number =
 				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
 
-			if state.chunk_indices_cache.peek(&block_number).is_none() {
+			let chunk_indices = if let Some(chunk_indices) = state
+				.chunk_indices
+				.query_cache_for_para(block_number, session_index, receipt.descriptor.para_id)
+			{
+				chunk_indices
+			} else {
 				let maybe_client_features =
 					request_client_features(receipt.descriptor.relay_parent, ctx.sender())
 						.await
-						.map_err(error::Error::RequestClientFeatures)?;
+						.map_err(Error::RequestClientFeatures)?;
 
-				let chunk_indices = availability_chunk_indices(
+				state.chunk_indices.populate_for_para(
 					maybe_client_features,
-					block_number,
+					session_info.random_seed,
 					session_info.validators.len(),
+					block_number,
+					session_index,
+					receipt.descriptor.para_id,
 				)
+			};
+
+			let chunk_indices: VecDeque<_> = chunk_indices
 				.iter()
 				.enumerate()
 				.map(|(v_index, c_index)| {
 					(
 						*c_index,
 						ValidatorIndex(
-							u32::try_from(v_index)
-								.expect("validator numbers should not exceed u32"),
+							u32::try_from(v_index).expect("validator count should not exceed u32"),
 						),
 					)
 				})
 				.collect();
-				state.chunk_indices_cache.insert(block_number, chunk_indices);
-			}
-
-			let chunk_indices = state
-				.chunk_indices_cache
-				.get(&block_number)
-				.expect("The shuffling was just inserted");
 
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
@@ -485,7 +491,7 @@ async fn handle_recover<Context>(
 						recovery_strategy_kind
 					{
 						// Get our own chunk size to get an estimate of the PoV size.
-						let chunk_size: Result<Option<usize>, error::Error> =
+						let chunk_size: Result<Option<usize>> =
 							query_chunk_size(ctx, candidate_hash).await;
 						if let Ok(Some(chunk_size)) = chunk_size {
 							let pov_size_estimate =
@@ -569,7 +575,7 @@ async fn handle_recover<Context>(
 			gum::warn!(target: LOG_TARGET, "SessionInfo is `None` at {:?}", state.live_block);
 			response_sender
 				.send(Err(RecoveryError::Unavailable))
-				.map_err(|_| error::Error::CanceledResponseSender)?;
+				.map_err(|_| Error::CanceledResponseSender)?;
 			Ok(())
 		},
 	}
@@ -580,12 +586,12 @@ async fn handle_recover<Context>(
 async fn query_full_data<Context>(
 	ctx: &mut Context,
 	candidate_hash: CandidateHash,
-) -> error::Result<Option<AvailableData>> {
+) -> Result<Option<AvailableData>> {
 	let (tx, rx) = oneshot::channel();
 	ctx.send_message(AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx))
 		.await;
 
-	rx.await.map_err(error::Error::CanceledQueryFullData)
+	rx.await.map_err(Error::CanceledQueryFullData)
 }
 
 /// Queries a chunk from av-store.
@@ -593,12 +599,12 @@ async fn query_full_data<Context>(
 async fn query_chunk_size<Context>(
 	ctx: &mut Context,
 	candidate_hash: CandidateHash,
-) -> error::Result<Option<usize>> {
+) -> Result<Option<usize>> {
 	let (tx, rx) = oneshot::channel();
 	ctx.send_message(AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx))
 		.await;
 
-	rx.await.map_err(error::Error::CanceledQueryFullData)
+	rx.await.map_err(Error::CanceledQueryFullData)
 }
 
 #[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
@@ -762,8 +768,6 @@ impl AvailabilityRecoverySubsystem {
 							return Ok(());
 						}
 						FromOrchestra::Communication { msg } => {
-							gum::debug!(target: LOG_TARGET,
-								"Received message to recover available data");
 							match msg {
 								AvailabilityRecoveryMessage::RecoverAvailableData(
 									receipt,
@@ -939,24 +943,18 @@ async fn erasure_task_thread(
 	}
 }
 
-async fn get_block_number<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> error::Result<BlockNumber>
+async fn get_block_number<Sender>(sender: &mut Sender, relay_parent: Hash) -> Result<BlockNumber>
 where
 	Sender: overseer::SubsystemSender<ChainApiMessage>,
 {
 	let (tx, rx) = oneshot::channel();
 	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
 
-	let block_number = rx
-		.await
-		.map_err(error::Error::ChainApiSenderDropped)?
-		.map_err(error::Error::ChainApi)?;
+	let block_number = rx.await.map_err(Error::ChainApiSenderDropped)?.map_err(Error::ChainApi)?;
 
 	if let Some(number) = block_number {
 		Ok(number)
 	} else {
-		Err(error::Error::BlockNumberNotFound)
+		Err(Error::BlockNumberNotFound)
 	}
 }

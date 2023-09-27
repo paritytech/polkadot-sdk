@@ -37,6 +37,7 @@ use polkadot_primitives::{
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
+	Randomness as BabeRandomness,
 };
 
 pub use polkadot_parachain_primitives::primitives::{

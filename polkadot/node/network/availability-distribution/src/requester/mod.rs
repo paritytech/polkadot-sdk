@@ -35,13 +35,10 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunk_indices,
 	runtime::{get_occupied_cores, request_client_features, RuntimeInfo},
+	ChunkIndexCacheRegistry,
 };
-use polkadot_primitives::{
-	BlockNumber, CandidateHash, ChunkIndex, Hash, OccupiedCore, SessionIndex,
-};
-use schnellru::{ByLength, LruMap};
+use polkadot_primitives::{BlockNumber, CandidateHash, Hash, OccupiedCore, SessionIndex};
 
 use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
 
@@ -81,8 +78,8 @@ pub struct Requester {
 	/// Prometheus Metrics
 	metrics: Metrics,
 
-	/// Cache of our chunk indices based on the relay parent block.
-	chunk_index_cache: LruMap<BlockNumber, ChunkIndex>,
+	/// Cache of our chunk indices based on the relay parent block and core index.
+	chunk_indices: ChunkIndexCacheRegistry,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -102,9 +99,9 @@ impl Requester {
 			tx,
 			rx,
 			metrics,
-			// Candidates shouldn't be pending avilability for many blocks, so keep our index for
+			// Candidates shouldn't be pending availability for many blocks, so keep our index for
 			// the last two relay parents.
-			chunk_index_cache: LruMap::new(ByLength::new(2)),
+			chunk_indices: ChunkIndexCacheRegistry::new(2),
 		}
 	}
 
@@ -265,29 +262,31 @@ impl Requester {
 							acc
 						});
 
-					if self.chunk_index_cache.peek(&block_number).is_none() {
+					let chunk_index = if let Some(chunk_index) =
+						self.chunk_indices.query_cache_for_validator(
+							block_number,
+							session_info.session_index,
+							core.para_id(),
+							session_info.our_index,
+						) {
+						chunk_index
+					} else {
 						let maybe_client_features = request_client_features(
 							core.candidate_descriptor.relay_parent,
 							context.sender(),
 						)
 						.await?;
 
-						let chunk_indices = availability_chunk_indices(
+						self.chunk_indices.populate_for_validator(
 							maybe_client_features,
-							block_number,
+							session_info.random_seed,
 							n_validators,
-						);
-						self.chunk_index_cache.insert(
 							block_number,
-							chunk_indices[usize::try_from(session_info.our_index.0)
-								.expect("usize is at least u32 bytes on all modern targets.")],
-						);
-					}
-
-					let chunk_index = self
-						.chunk_index_cache
-						.get(&block_number)
-						.expect("The index was just inserted");
+							session_info.session_index,
+							core.para_id(),
+							session_info.our_index,
+						)
+					};
 
 					let task_cfg = FetchTaskConfig::new(
 						leaf,
@@ -295,7 +294,7 @@ impl Requester {
 						tx,
 						metrics,
 						session_info,
-						*chunk_index,
+						chunk_index,
 						span,
 					);
 

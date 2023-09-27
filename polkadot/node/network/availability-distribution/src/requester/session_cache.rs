@@ -62,6 +62,9 @@ pub struct SessionInfo {
 	///
 	/// `None`, if we are not in fact part of any group.
 	pub our_group: Option<GroupIndex>,
+
+	/// Per-session randomness gathered from BABE.
+	pub random_seed: [u8; 32],
 }
 
 /// Report of bad validators.
@@ -197,7 +200,13 @@ impl SessionCache {
 				})
 				.collect();
 
-			let info = SessionInfo { validator_groups, our_index, session_index, our_group };
+			let info = SessionInfo {
+				validator_groups,
+				our_index,
+				session_index,
+				our_group,
+				random_seed: info.session_info.random_seed,
+			};
 			return Ok(Some(info))
 		}
 		return Ok(None)

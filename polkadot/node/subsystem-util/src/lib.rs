@@ -29,13 +29,14 @@ pub use overseer::{
 	gen::{OrchestraError as OverseerError, Timeout},
 	Subsystem, TimeoutExt,
 };
+use polkadot_node_primitives::BabeRandomness;
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
 use polkadot_primitives::{slashing, vstaging::ClientFeatures, BlockNumber, ExecutorParams};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 use rand_chacha::ChaCha8Rng;
 
 pub use polkadot_node_metrics::{metrics, Metronome};
@@ -52,6 +53,7 @@ use polkadot_primitives::{
 };
 pub use rand;
 use rand::SeedableRng;
+use schnellru::{ByLength, LruMap};
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
@@ -440,33 +442,199 @@ impl Validator {
 	}
 }
 
-/// Return a mapping of the availability chunk indices(`ValidatorIndex -> ChunkIndex`).
-///
-/// The vector indices represent validator indices.
-/// If it's enabled, shuffle the indices using the `BlockNumber` as a randomness seed, so that other
-/// validators have a common view of the shuffle at a given block height.
-/// Otherwise, return the identity vector.
-pub fn availability_chunk_indices(
-	maybe_client_features: Option<ClientFeatures>,
-	block_number: BlockNumber,
-	n_validators: usize,
-) -> Vec<ChunkIndex> {
-	let mut indices: Vec<_> = (0..n_validators)
-		.map(|i| ValidatorIndex(u32::try_from(i).expect("validator numbers should not exceed u32")))
-		.collect();
+/// Object used for holding and computing assigned chunk indices for validators.
+pub struct ChunkIndexCacheRegistry(
+	LruMap<(BlockNumber, SessionIndex), (Vec<ChunkIndex>, Option<ClientFeatures>)>,
+);
 
-	if let Some(features) = maybe_client_features {
-		if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
-			let seed = block_number.to_be_bytes();
-			let mut rng: ChaCha8Rng = SeedableRng::from_seed(
-				seed.repeat(8)
-					.try_into()
-					.expect("vector of 32 bytes is safe to cast to array of 32 bytes. qed."),
-			);
+impl ChunkIndexCacheRegistry {
+	/// Initialize with the cache capacity.
+	pub fn new(capacity: u32) -> Self {
+		Self(LruMap::new(ByLength::new(capacity)))
+	}
 
-			indices.shuffle(&mut rng);
+	/// Return the per-validator chunk index if present in the cache.
+	pub fn query_cache_for_validator(
+		&mut self,
+		block_number: BlockNumber,
+		session_index: SessionIndex,
+		para_id: ParaId,
+		validator_index: ValidatorIndex,
+	) -> Option<ChunkIndex> {
+		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
+			Some(Self::compute_chunk_index_for_validator(
+				maybe_client_features.as_ref(),
+				shuffle,
+				para_id,
+				validator_index,
+			))
+		} else {
+			None
 		}
 	}
 
-	indices
+	/// Return the per-para chunk index vector if present in the cache.
+	pub fn query_cache_for_para(
+		&mut self,
+		block_number: BlockNumber,
+		session_index: SessionIndex,
+		para_id: ParaId,
+	) -> Option<Vec<ChunkIndex>> {
+		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
+			let core_start_index = Self::compute_para_start_index(
+				maybe_client_features.as_ref(),
+				shuffle.len(),
+				para_id,
+			);
+
+			let chunk_indices = shuffle
+				.clone()
+				.into_iter()
+				.cycle()
+				.skip(core_start_index)
+				.take(shuffle.len())
+				.collect();
+
+			Some(chunk_indices)
+		} else {
+			None
+		}
+	}
+
+	/// Return and populate the cache with the per-validator chunk index.
+	/// Should only be called if `query_cache_for_validator` returns `None`.
+	pub fn populate_for_validator(
+		&mut self,
+		maybe_client_features: Option<ClientFeatures>,
+		babe_randomness: BabeRandomness,
+		n_validators: usize,
+		block_number: BlockNumber,
+		session_index: SessionIndex,
+		para_id: ParaId,
+		validator_index: ValidatorIndex,
+	) -> ChunkIndex {
+		let shuffle = Self::get_shuffle(
+			maybe_client_features.as_ref(),
+			block_number,
+			babe_randomness,
+			n_validators,
+		);
+		self.0.insert((block_number, session_index), (shuffle, maybe_client_features));
+
+		self.query_cache_for_validator(block_number, session_index, para_id, validator_index)
+			.expect("We just inserted the entry.")
+	}
+
+	/// Return and populate the cache with the per-para chunk index vector.
+	/// Should only be called if `query_cache_for_para` returns `None`.
+	pub fn populate_for_para(
+		&mut self,
+		maybe_client_features: Option<ClientFeatures>,
+		babe_randomness: BabeRandomness,
+		n_validators: usize,
+		block_number: BlockNumber,
+		session_index: SessionIndex,
+		para_id: ParaId,
+	) -> Vec<ChunkIndex> {
+		let shuffle = Self::get_shuffle(
+			maybe_client_features.as_ref(),
+			block_number,
+			babe_randomness,
+			n_validators,
+		);
+		self.0.insert((block_number, session_index), (shuffle, maybe_client_features));
+
+		self.query_cache_for_para(block_number, session_index, para_id)
+			.expect("We just inserted the entry.")
+	}
+
+	fn get_shuffle(
+		maybe_client_features: Option<&ClientFeatures>,
+		block_number: BlockNumber,
+		mut babe_randomness: BabeRandomness,
+		n_validators: usize,
+	) -> Vec<ChunkIndex> {
+		let mut indices: Vec<_> = (0..n_validators)
+			.map(|i| {
+				ValidatorIndex(u32::try_from(i).expect("validator count should not exceed u32"))
+			})
+			.collect();
+
+		if let Some(features) = maybe_client_features {
+			if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
+				let block_number_bytes = block_number.to_be_bytes();
+				for i in 0..32 {
+					babe_randomness[i] ^= block_number_bytes[i % block_number_bytes.len()];
+				}
+
+				let mut rng: ChaCha8Rng = SeedableRng::from_seed(babe_randomness);
+
+				indices.shuffle(&mut rng);
+			}
+		}
+
+		indices
+	}
+
+	/// Return the availability chunk start index for this para.
+	fn compute_para_start_index(
+		maybe_client_features: Option<&ClientFeatures>,
+		n_validators: usize,
+		para_id: ParaId,
+	) -> usize {
+		if let Some(features) = maybe_client_features {
+			if features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
+				let mut rng: ChaCha8Rng =
+					SeedableRng::from_seed(
+						u32::from(para_id).to_be_bytes().repeat(8).try_into().expect(
+							"vector of 32 bytes is safe to cast to array of 32 bytes. qed.",
+						),
+					);
+				return rng.gen_range(0..n_validators)
+			}
+		}
+
+		0
+	}
+
+	fn compute_chunk_index_for_validator(
+		maybe_client_features: Option<&ClientFeatures>,
+		shuffle: &Vec<ChunkIndex>,
+		para_id: ParaId,
+		validator_index: ValidatorIndex,
+	) -> ChunkIndex {
+		let core_start_index =
+			Self::compute_para_start_index(maybe_client_features, shuffle.len(), para_id);
+
+		let chunk_index = shuffle[(core_start_index +
+			usize::try_from(validator_index.0)
+				.expect("usize is at least u32 bytes on all modern targets.")) %
+			shuffle.len()];
+		chunk_index
+	}
+}
+
+/// Compute the per-validator availability chunk index.
+/// It's preferred to use the `ChunkIndexCacheRegistry` if you also need a cache.
+pub fn availability_chunk_index(
+	maybe_client_features: Option<&ClientFeatures>,
+	babe_randomness: BabeRandomness,
+	n_validators: usize,
+	block_number: BlockNumber,
+	para_id: ParaId,
+	validator_index: ValidatorIndex,
+) -> ChunkIndex {
+	let shuffle = ChunkIndexCacheRegistry::get_shuffle(
+		maybe_client_features,
+		block_number,
+		babe_randomness,
+		n_validators,
+	);
+
+	ChunkIndexCacheRegistry::compute_chunk_index_for_validator(
+		maybe_client_features,
+		&shuffle,
+		para_id,
+		validator_index,
+	)
 }

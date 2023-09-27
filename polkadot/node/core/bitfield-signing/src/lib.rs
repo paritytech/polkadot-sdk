@@ -28,20 +28,21 @@ use futures::{
 };
 use polkadot_node_subsystem::{
 	jaeger,
-	messages::{
-		AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage, RuntimeApiMessage,
-		RuntimeApiRequest,
-	},
+	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage},
 	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
-	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
+	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	self as util, availability_chunk_indices, request_validators, runtime::request_client_features,
+	self as util, availability_chunk_index, request_validators, runtime::request_client_features,
 	Validator,
 };
 use polkadot_primitives::{AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
+use util::{
+	request_availability_cores, request_session_index_for_child, request_session_info,
+	runtime::recv_runtime,
+};
 use wasm_timer::{Delay, Instant};
 
 mod metrics;
@@ -90,25 +91,61 @@ pub enum Error {
 /// If there is a candidate pending availability, query the Availability Store
 /// for whether we have the availability chunk for our validator index.
 async fn get_core_availability(
-	relay_parent: Hash,
 	core: &CoreState,
 	n_validators: usize,
-	validator_idx: ValidatorIndex,
+	validator_index: ValidatorIndex,
 	sender: &Mutex<&mut impl overseer::BitfieldSigningSenderTrait>,
 	span: &jaeger::Span,
 ) -> Result<bool, Error> {
 	if let CoreState::Occupied(core) = core {
 		let _span = span.child("query-chunk-availability");
+		let relay_parent = core.candidate_descriptor.relay_parent;
 
-		let block_number =
-			get_block_number(*sender.lock().await, core.candidate_descriptor.relay_parent).await?;
+		let Ok(block_number) = get_block_number(*sender.lock().await, relay_parent).await else {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?core.candidate_hash,
+				para_id = %core.para_id(),
+				"Failed to get block number."
+			);
+
+			return Ok(false)
+		};
+
+		let session_index =
+			recv_runtime(request_session_index_for_child(relay_parent, *sender.lock().await).await)
+				.await?;
+
+		let Some(session_info) = recv_runtime(
+			request_session_info(relay_parent, session_index, *sender.lock().await).await,
+		)
+		.await?
+		else {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				session_index,
+				?core.candidate_hash,
+				para_id = %core.para_id(),
+				"Failed to get session info."
+			);
+
+			return Ok(false)
+		};
+
 		let maybe_client_features = request_client_features(relay_parent, *sender.lock().await)
 			.await
 			.map_err(Error::from)?;
-		let chunk_indices =
-			availability_chunk_indices(maybe_client_features, block_number, n_validators);
-		let chunk_index = chunk_indices[usize::try_from(validator_idx.0)
-			.expect("usize is at least u32 bytes on all modern targets.")];
+
+		let chunk_index = availability_chunk_index(
+			maybe_client_features.as_ref(),
+			session_info.random_seed,
+			n_validators,
+			block_number,
+			core.para_id(),
+			validator_index,
+		);
 
 		let (tx, rx) = oneshot::channel();
 		sender
@@ -137,25 +174,6 @@ async fn get_core_availability(
 	}
 }
 
-/// delegates to the v1 runtime API
-async fn get_availability_cores(
-	relay_parent: Hash,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
-) -> Result<Vec<CoreState>, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(
-			RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::AvailabilityCores(tx))
-				.into(),
-		)
-		.await;
-	match rx.await {
-		Ok(Ok(out)) => Ok(out),
-		Ok(Err(runtime_err)) => Err(Error::Runtime(runtime_err.into())),
-		Err(err) => Err(err.into()),
-	}
-}
-
 /// - get the list of core states from the runtime
 /// - for each core, concurrently determine chunk availability (see `get_core_availability`)
 /// - return the bitfield if there were no errors at any point in this process (otherwise, it's
@@ -170,7 +188,7 @@ async fn construct_availability_bitfield(
 	// get the set of availability cores from the runtime
 	let availability_cores = {
 		let _span = span.child("get-availability-cores");
-		get_availability_cores(relay_parent, sender).await?
+		recv_runtime(request_availability_cores(relay_parent, sender).await).await?
 	};
 
 	// Wrap the sender in a Mutex to share it between the futures.
@@ -182,9 +200,11 @@ async fn construct_availability_bitfield(
 
 	// Handle all cores concurrently
 	// `try_join_all` returns all results in the same order as the input futures.
-	let results = future::try_join_all(availability_cores.iter().map(|core| {
-		get_core_availability(relay_parent, core, n_validators, validator_idx, &sender, span)
-	}))
+	let results = future::try_join_all(
+		availability_cores
+			.iter()
+			.map(|core| get_core_availability(core, n_validators, validator_idx, &sender, span)),
+	)
 	.await?;
 
 	let core_bits = FromIterator::from_iter(results.into_iter());
