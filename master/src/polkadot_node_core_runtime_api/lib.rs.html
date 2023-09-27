@@ -1154,7 +1154,7 @@
 			<span class="macro">query!</span>(
 				ParaBackingState,
 				para_backing_state(para),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
@@ -1162,7 +1162,7 @@
 			<span class="macro">query!</span>(
 				AsyncBackingParams,
 				async_backing_params(),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},

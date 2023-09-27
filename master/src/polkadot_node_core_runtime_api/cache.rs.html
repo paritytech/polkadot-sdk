@@ -523,7 +523,6 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -622,7 +621,6 @@
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
