@@ -17,3 +17,4 @@
 pub mod cumulus_pallet_parachain_system;
 pub mod pallet_glutton;
 pub mod pallet_message_queue;
+pub mod pallet_timestamp;

@@ -121,9 +121,9 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "209b47e8954a928e1d72e86eca7000ebb6655fe1436d33eefc2201cad027e237"
+checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
 dependencies = [
  "aead 0.5.2",
  "aes 0.8.3",
@@ -698,15 +698,12 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-kusama-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
- "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -750,7 +747,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -778,6 +774,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -798,15 +795,12 @@ name = "asset-hub-polkadot-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-kusama-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
- "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -848,7 +842,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-nfts-runtime-api",
@@ -874,6 +867,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -895,15 +889,12 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "frame-support",
  "frame-system",
  "integration-tests-common",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
- "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -946,7 +937,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
@@ -973,6 +963,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -994,6 +985,7 @@ name = "asset-test-utils"
 version = "1.0.0"
 dependencies = [
  "assets-common",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -1149,7 +1141,7 @@ checksum = "0e97ce7de6cf12de5d7226c73f5ba9811622f4db3a5b91b55c53e987e5f91cba"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -1171,7 +1163,7 @@ checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -1188,7 +1180,7 @@ checksum = "bc00ceb34980c03614e35a3a4e218276a0a824e911d07651cd0d858a51e8c0f0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -1362,7 +1354,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -1849,7 +1841,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -1871,6 +1862,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -1912,7 +1904,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -1935,6 +1926,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -1958,12 +1950,8 @@ dependencies = [
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
- "frame-system",
  "integration-tests-common",
- "pallet-assets",
- "pallet-balances",
  "pallet-bridge-messages",
- "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
@@ -1971,8 +1959,6 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime",
  "polkadot-runtime-parachains",
- "sp-core",
- "sp-weights",
  "staging-xcm",
  "xcm-emulator",
 ]
@@ -2018,7 +2004,6 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -2041,6 +2026,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -2074,6 +2060,7 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "bridge-runtime-common",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "frame-benchmarking",
@@ -2352,7 +2339,7 @@ name = "chain-spec-builder"
 version = "2.0.0"
 dependencies = [
  "ansi_term",
- "clap 4.4.3",
+ "clap 4.4.4",
  "node-cli",
  "rand 0.8.5",
  "sc-chain-spec",
@@ -2482,9 +2469,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.3"
+version = "4.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84ed82781cea27b43c9b106a979fe450a13a31aab0500595fb3fc06616de08e6"
+checksum = "b1d7b8d5ec32af0fadc644bf1fd509a688c2103b185644bb1e29d164e0703136"
 dependencies = [
  "clap_builder",
  "clap_derive 4.4.2",
@@ -2492,9 +2479,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.2"
+version = "4.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bb9faaa7c2ef94b2743a21f5a29e6f0010dff4caa69ac8e9d6cf8b6fa74da08"
+checksum = "5179bb514e4d7c2051749d8fcefa2ed6d06a9f4e6d69faf3805f5d80b8cf8d56"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2508,7 +2495,7 @@ version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "586a385f7ef2f8b4d86bddaa0c094794e7ccbfe5ffef1f434fe928143fc783a5"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
 ]
 
 [[package]]
@@ -2533,7 +2520,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -2583,8 +2570,8 @@ dependencies = [
  "frame-support",
  "integration-tests-common",
  "pallet-assets",
+ "pallet-balances",
  "pallet-core-fellowship",
- "pallet-message-queue",
  "pallet-salary",
  "pallet-xcm",
  "parachains-common",
@@ -2626,8 +2613,8 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-collective",
+ "pallet-collective-content",
  "pallet-core-fellowship",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
  "pallet-proxy",
@@ -2655,6 +2642,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -2845,7 +2833,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-insecure-randomness-collective-flip",
- "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
  "pallet-sudo",
@@ -2866,6 +2853,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -3107,7 +3095,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.4.3",
+ "clap 4.4.4",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -3272,7 +3260,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -3539,7 +3527,6 @@ name = "cumulus-pallet-dmp-queue"
 version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -3549,7 +3536,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "sp-tracing",
+ "sp-version",
  "staging-xcm",
 ]
 
@@ -3565,17 +3552,14 @@ dependencies = [
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "environmental",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
  "impl-trait-for-tuples",
  "lazy_static",
  "log",
- "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
- "rand 0.8.5",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3600,7 +3584,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -3650,7 +3634,6 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 dependencies = [
- "bounded-collections",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "frame-benchmarking",
@@ -3658,9 +3641,9 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-runtime-common",
+ "rand_chacha 0.3.1",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -3938,7 +3921,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "pallet-balances",
  "pallet-glutton",
- "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -3963,7 +3945,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.4.3",
+ "clap 4.4.4",
  "criterion 0.5.1",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -4085,7 +4067,7 @@ checksum = "83fdaf97f4804dcebfa5862639bc9ce4121e82140bec2a987ac5140294865b5b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4125,7 +4107,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4142,7 +4124,7 @@ checksum = "50c49547d73ba8dcfd4ad7325d64c6d5391ff4224d498fc39a6f3f49825a530d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4393,9 +4375,9 @@ dependencies = [
 
 [[package]]
 name = "directories"
-version = "4.0.1"
+version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f51c5d4ddabd36886dd3e1438cb358cdcb0d7c499cb99cb4ac2e38e18b5cb210"
+checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
 dependencies = [
  "dirs-sys",
 ]
@@ -4412,13 +4394,14 @@ dependencies = [
 
 [[package]]
 name = "dirs-sys"
-version = "0.3.7"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
 dependencies = [
  "libc",
+ "option-ext",
  "redox_users",
- "winapi",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4440,7 +4423,7 @@ checksum = "487585f4d0c6655fe74905e2504d8ad6908e4db67f744eb140876906c2f3175d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4483,18 +4466,18 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "docify"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff509d6aa8e7ca86b36eb3d593132e64204597de3ccb763ffd8bfd2264d54cf3"
+checksum = "76ee528c501ddd15d5181997e9518e59024844eac44fd1e40cb20ddb2a8562fa"
 dependencies = [
  "docify_macros",
 ]
 
 [[package]]
 name = "docify_macros"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b135598b950330937f3a0ddfbe908106ee2ecd5fa95d8ae7952a3c3863efe8da"
+checksum = "0ca01728ab2679c464242eca99f94e2ce0514b52ac9ad950e2ed03fca991231c"
 dependencies = [
  "common-path",
  "derive-syn-parse",
@@ -4502,7 +4485,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.33",
+ "syn 2.0.37",
  "termcolor",
  "toml 0.7.6",
  "walkdir",
@@ -4723,7 +4706,7 @@ checksum = "5e9a1f9f7d83e59740248a6e14ecf93929ade55027844dfcea78beafccc15745"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4734,7 +4717,7 @@ checksum = "c2ad8cef1d801a4686bfd8919f0b30eac4c8e48968c437a6405ded4fb5272d2b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -4879,7 +4862,7 @@ dependencies = [
  "fs-err",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -5169,7 +5152,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.4.3",
+ "clap 4.4.4",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -5235,7 +5218,7 @@ dependencies = [
  "quote",
  "scale-info",
  "sp-arithmetic",
- "syn 2.0.33",
+ "syn 2.0.37",
  "trybuild",
 ]
 
@@ -5261,7 +5244,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
@@ -5387,7 +5370,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -5398,7 +5381,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -5407,7 +5390,7 @@ version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -5630,7 +5613,7 @@ checksum = "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -5816,9 +5799,11 @@ dependencies = [
 name = "glutton-runtime"
 version = "1.0.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -5826,16 +5811,19 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-aura",
  "pallet-glutton",
- "pallet-message-queue",
  "pallet-sudo",
+ "pallet-timestamp",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -6386,6 +6374,7 @@ dependencies = [
  "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
  "collectives-polkadot-runtime",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -6831,6 +6820,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -7640,7 +7630,7 @@ dependencies = [
  "macro_magic_core",
  "macro_magic_macros",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -7654,7 +7644,7 @@ dependencies = [
  "macro_magic_core_macros",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -7665,7 +7655,7 @@ checksum = "c12469fc165526520dff2807c2975310ab47cf7190a45b99b49a7dc8befab17b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -7676,7 +7666,7 @@ checksum = "b8fb85ec1620619edf2984a7693497d4ec88a9665d8b87e942856884c92dbf2a"
 dependencies = [
  "macro_magic_core",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -8163,7 +8153,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
- "clap 4.4.3",
+ "clap 4.4.4",
  "derive_more",
  "fs_extra",
  "futures",
@@ -8200,7 +8190,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
- "clap 4.4.3",
+ "clap 4.4.4",
  "clap_complete",
  "criterion 0.4.0",
  "frame-benchmarking-cli",
@@ -8326,7 +8316,7 @@ dependencies = [
 name = "node-inspect"
 version = "0.9.0-dev"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -8380,7 +8370,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -8389,7 +8379,7 @@ dependencies = [
 name = "node-template"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -8432,7 +8422,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "flate2",
  "fs_extra",
  "glob",
@@ -8468,6 +8458,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -8714,6 +8705,12 @@ name = "openssl-probe"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
+
+[[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
@@ -9306,6 +9303,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-collective-content"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "4.0.0-dev"
 dependencies = [
@@ -9362,7 +9374,7 @@ version = "4.0.0-dev"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -10433,7 +10445,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sp-runtime",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -10823,7 +10835,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -10901,7 +10913,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-parachain-template",
  "pallet-session",
  "pallet-sudo",
@@ -10910,7 +10921,6 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-xcm",
  "parachain-info",
- "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -10920,6 +10930,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -10949,7 +10960,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",
@@ -10974,6 +10984,7 @@ name = "parachains-runtimes-test-utils"
 version = "1.0.0"
 dependencies = [
  "assets-common",
+ "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
@@ -11234,7 +11245,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -11253,6 +11263,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -11303,7 +11314,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -11344,7 +11355,7 @@ checksum = "4359fd9c9171ec6e8c62926d6faaf553a8dc3f64e1507e76da7911b4f6a04405"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -11534,6 +11545,7 @@ name = "polkadot-availability-recovery"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "env_logger 0.9.3",
  "fatality",
  "futures",
@@ -11562,7 +11574,7 @@ dependencies = [
 name = "polkadot-cli"
 version = "1.1.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -12382,7 +12394,7 @@ dependencies = [
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
- "clap 4.4.3",
+ "clap 4.4.4",
  "collectives-polkadot-runtime",
  "color-print",
  "contracts-rococo-runtime",
@@ -12634,6 +12646,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -12805,7 +12818,6 @@ dependencies = [
  "futures",
  "hex-literal",
  "is_executable",
- "kusama-runtime-constants",
  "kvdb",
  "kvdb-rocksdb",
  "log",
@@ -12851,9 +12863,6 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",
- "polkadot-runtime",
- "polkadot-runtime-common",
- "polkadot-runtime-constants",
  "polkadot-runtime-parachains",
  "polkadot-statement-distribution",
  "polkadot-test-client",
@@ -12909,7 +12918,6 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
- "staging-kusama-runtime",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
@@ -12997,7 +13005,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.3",
+ "clap 4.4.4",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -13067,6 +13075,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -13143,7 +13152,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "generate-bags",
  "polkadot-runtime",
  "sp-io",
@@ -13323,7 +13332,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c64d9ba0963cdcea2e1b2230fbae2bab30eb25a174be395c41e764bfb65dd62"
 dependencies = [
  "proc-macro2",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -13405,7 +13414,7 @@ checksum = "3d1eaa7fa0aa1929ffdf7eeb6eac234dde6268914a14ad44d23521ab6a9b258e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -13451,7 +13460,7 @@ checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -13609,9 +13618,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f31999cfc7927c4e212e60fd50934ab40e8e8bfd2d493d6095d2d306bc0764d9"
+checksum = "c956be1b23f4261676aed05a0046e204e8a6836e50203902683a718af0797989"
 dependencies = [
  "bytes",
  "rand 0.8.5",
@@ -13842,7 +13851,7 @@ checksum = "7f7473c2cfcf90008193dd0e3e16599455cb601a9fce322b5bb55de799664925"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -13905,7 +13914,7 @@ checksum = "e5ea92a5b6195c6ef2a0295ea818b312502c6fc94dde986c5553242e18fd4ce2"
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-system",
  "kusama-runtime-constants",
  "log",
@@ -14067,7 +14076,6 @@ dependencies = [
  "pallet-assets",
  "pallet-aura",
  "pallet-balances",
- "pallet-message-queue",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14082,6 +14090,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -14167,6 +14176,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -14606,7 +14616,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -14615,7 +14625,7 @@ version = "0.10.0-dev"
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.4.3",
+ "clap 4.4.4",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -14673,6 +14683,7 @@ dependencies = [
  "sp-statement-store",
  "sp-storage",
  "sp-test-primitives",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "thiserror",
@@ -15716,7 +15727,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "fs4",
  "log",
  "sc-client-db",
@@ -15816,7 +15827,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -16089,21 +16100,27 @@ dependencies = [
 name = "seedling-runtime"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-solo-to-para",
  "cumulus-primitives-core",
+ "cumulus-primitives-timestamp",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "pallet-aura",
  "pallet-balances",
  "pallet-sudo",
+ "pallet-timestamp",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -16170,7 +16187,7 @@ checksum = "4eca7ac642d82aa35b60049a6eccb4be6be75e599bd2e9adb5f875a737654af2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -16236,7 +16253,7 @@ checksum = "91d129178576168c589c9ec973feedf7d3126c01ac2bf08795109aa35b69fb8f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -16333,6 +16350,7 @@ dependencies = [
 name = "shell-runtime"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
  "cumulus-primitives-core",
@@ -16340,14 +16358,17 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-try-runtime",
- "pallet-message-queue",
+ "pallet-aura",
+ "pallet-timestamp",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -16665,7 +16686,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -17065,7 +17086,7 @@ version = "9.0.0"
 dependencies = [
  "quote",
  "sp-core-hashing",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -17109,7 +17130,7 @@ version = "8.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -17247,7 +17268,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "honggfuzz",
  "rand 0.8.5",
  "sp-npos-elections",
@@ -17340,7 +17361,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -17436,7 +17457,7 @@ dependencies = [
 name = "sp-statement-store"
 version = "4.0.0-dev"
 dependencies = [
- "aes-gcm 0.10.2",
+ "aes-gcm 0.10.3",
  "curve25519-dalek 4.0.0",
  "ed25519-dalek",
  "hkdf",
@@ -17580,7 +17601,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sp-version",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -17762,6 +17783,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -17964,7 +17986,7 @@ dependencies = [
 name = "subkey"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "sc-cli",
 ]
 
@@ -18006,7 +18028,7 @@ dependencies = [
 name = "substrate-frame-cli"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-support",
  "frame-system",
  "sc-cli",
@@ -18355,9 +18377,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.33"
+version = "2.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9caece70c63bfba29ec2fed841a09851b14a235c60010fa4de58089b6c025668"
+checksum = "7303ef2c05cd654186cb250d29049a24840ca25d2747c25c0381c8d9e2f582e8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -18465,7 +18487,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "futures",
  "futures-timer",
  "log",
@@ -18513,7 +18535,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.3",
+ "clap 4.4.4",
  "futures",
  "futures-timer",
  "log",
@@ -18602,7 +18624,7 @@ checksum = "49922ecae66cc8a249b77e68d1d0623c1b2c514f0060c27cdc68bd62a1219d35"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -18782,7 +18804,7 @@ checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -18963,7 +18985,7 @@ checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -19006,7 +19028,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -19159,7 +19181,7 @@ version = "0.10.0-dev"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.4.3",
+ "clap 4.4.4",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
@@ -19555,7 +19577,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
  "wasm-bindgen-shared",
 ]
 
@@ -19589,7 +19611,7 @@ checksum = "54681b18a46765f095758388f2d0cf16eb8d4169b639ab575a8f5693af210c7b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -20065,7 +20087,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a00f4242f2db33307347bd5be53263c52a0331c96c14292118c9a6bb48d267"
 dependencies = [
  "aes 0.6.0",
- "aes-gcm 0.10.2",
+ "aes-gcm 0.10.3",
  "async-trait",
  "bincode",
  "block-modes",
@@ -20291,6 +20313,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -20671,7 +20694,6 @@ name = "xcm-emulator"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-test-relay-sproof-builder",
@@ -20726,7 +20748,7 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
@@ -20845,7 +20867,7 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.33",
+ "syn 2.0.37",
 ]
 
 [[package]]
