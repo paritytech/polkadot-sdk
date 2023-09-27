@@ -314,8 +314,8 @@ node-bench-regression-guard:
       --compare-with artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA"
   after_script: [""]
 
-# if this fails (especially after rust version upgrade) run
-# ./substrate/.maintain/update-rust-stable.sh <rust_version>
+# if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
+# see ./docs/CONTRIBUTING.md#ui-tests
 test-frame-ui:
   stage: test
   extends:
