@@ -1337,8 +1337,11 @@ where
 
 			// handle peers that were in other states.
 			match self.new_peer(peer_id, p.best_hash, p.best_number) {
+				// since the request is not a justification, remove it from pending responses
 				Ok(None) => Some(Ok(BlockRequestEvent::RemoveStale { peer_id })),
+				// update the request if the new one is available
 				Ok(Some(request)) => Some(Ok(BlockRequestEvent::SendRequest { peer_id, request })),
+				// this implies that we need to drop pending response from the peer
 				Err(e) => Some(Err(e)),
 			}
 		})
@@ -1919,7 +1922,8 @@ where
 	/// A batch of blocks have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks have been processed by the import
-	/// queue, with or without errors.
+	/// queue, with or without errors. If an error is returned, the pending response
+	/// from the peer must be dropped.
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,

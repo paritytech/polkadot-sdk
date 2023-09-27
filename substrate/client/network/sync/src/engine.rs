@@ -738,10 +738,13 @@ where
 									self.pending_responses.remove(&peer_id);
 								},
 							},
-							Err(BadPeer(id, repu)) => {
-								self.network_service
-									.disconnect_peer(id, self.block_announce_protocol_name.clone());
-								self.network_service.report_peer(id, repu)
+							Err(BadPeer(peer_id, repu)) => {
+								self.pending_responses.remove(&peer_id);
+								self.network_service.disconnect_peer(
+									peer_id,
+									self.block_announce_protocol_name.clone(),
+								);
+								self.network_service.report_peer(peer_id, repu)
 							},
 						}
 					}
