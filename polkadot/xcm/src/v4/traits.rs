@@ -149,7 +149,7 @@ pub trait ExecuteXcm<Call> {
 	fn execute_xcm(
 		origin: impl Into<Location>,
 		message: Xcm<Call>,
-		hash: XcmHash,
+		mut hash: XcmHash,
 		weight_limit: Weight,
 	) -> Outcome {
 		let origin = origin.into();
@@ -160,7 +160,7 @@ pub trait ExecuteXcm<Call> {
 			message,
 			weight_limit,
 		);
-		Self::execute_xcm_in_credit(origin, message, hash, weight_limit, Weight::zero())
+		Self::prepare_and_execute(origin, message, &mut hash, weight_limit, Weight::zero())
 	}
 
 	/// Execute some XCM `message` with the message `hash` from `origin` using no more than

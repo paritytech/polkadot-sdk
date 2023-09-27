@@ -198,7 +198,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	) -> Outcome {
 		let origin = origin.into();
 		log::trace!(
-			target: "xcm::execute_xcm_in_credit",
+			target: "xcm::execute",
 			"origin: {:?}, message: {:?}, weight_credit: {:?}",
 			origin,
 			message,
@@ -212,7 +212,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			&mut properties,
 		) {
 			log::trace!(
-				target: "xcm::execute_xcm_in_credit",
+				target: "xcm::execute",
 				"Barrier blocked execution! Error: {:?}. (origin: {:?}, message: {:?}, properties: {:?})",
 				e,
 				origin,
@@ -228,7 +228,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
-			log::trace!(target: "xcm::execute_xcm_in_credit", "result: {:?}", result);
+			log::trace!(target: "xcm::execute", "result: {:?}", result);
 			message = if let Err(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
 				vm.error = Some((error.index, error.xcm_error));
@@ -368,7 +368,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		if !self.holding.is_empty() {
 			log::trace!(
-				target: "xcm::execute_xcm_in_credit",
+				target: "xcm::post_process",
 				"Trapping assets in holding register: {:?}, context: {:?} (original_origin: {:?})",
 				self.holding, self.context, self.original_origin,
 			);
@@ -383,7 +383,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
 			Some((_i, e)) => {
-				log::trace!(target: "xcm::execute_xcm_in_credit", "Execution errored at {:?}: {:?} (original_origin: {:?})", _i, e, self.original_origin);
+				log::trace!(target: "xcm::post_process", "Execution errored at {:?}: {:?} (original_origin: {:?})", _i, e, self.original_origin);
 				Outcome::Incomplete(weight_used, e)
 			},
 		}

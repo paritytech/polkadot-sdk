@@ -886,15 +886,15 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let value = (origin_location, message);
 			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
 			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+			let outcome = T::XcmExecutor::prepare_and_execute(
 				origin_location,
 				message,
-				hash,
+				&mut hash,
 				max_weight,
 				max_weight,
 			);
@@ -1208,9 +1208,9 @@ impl<T: Config> Pallet<T> {
 		]);
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
+			T::XcmExecutor::prepare_and_execute(origin_location, message, &mut hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome });
 		Ok(())
 	}
@@ -1253,9 +1253,9 @@ impl<T: Config> Pallet<T> {
 		]);
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
 		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
+			T::XcmExecutor::prepare_and_execute(origin_location, message, &mut hash, weight, weight);
 		Self::deposit_event(Event::Attempted { outcome });
 		Ok(())
 	}

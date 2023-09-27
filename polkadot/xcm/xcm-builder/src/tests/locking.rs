@@ -34,9 +34,9 @@ fn lock_roundtrip_should_work() {
 		),
 		LockAsset { asset: (Parent, 100u128).into(), unlocker: (Parent, Parachain(1)).into() },
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 
@@ -58,12 +58,13 @@ fn lock_roundtrip_should_work() {
 	// Now we'll unlock it.
 	let message =
 		Xcm(vec![UnlockAsset { asset: (Parent, 100u128).into(), target: (3u64,).into() }]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }
@@ -82,9 +83,9 @@ fn auto_fee_paying_should_work() {
 		SetFeesMode { jit_withdraw: true },
 		LockAsset { asset: (Parent, 100u128).into(), unlocker: (Parent, Parachain(1)).into() },
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 }
@@ -100,9 +101,9 @@ fn lock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::LockError));
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
@@ -118,9 +119,9 @@ fn lock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		unlocker: (Parent, Parachain(1)).into(),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NotHoldingFees));
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
@@ -140,12 +141,13 @@ fn remote_unlock_roundtrip_should_work() {
 	// This caused Parachain #1 to send us the NoteUnlockable instruction.
 	let message =
 		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 	assert_eq!(
@@ -165,9 +167,9 @@ fn remote_unlock_roundtrip_should_work() {
 		),
 		RequestUnlock { asset: (Parent, 100u128).into(), locker: (Parent, Parachain(1)).into() },
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
 	assert_eq!(asset_list((3u64,)), vec![(Parent, 990u128).into()]);
 
@@ -201,9 +203,9 @@ fn remote_unlock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::LockError));
 	assert_eq!(sent_xcm(), vec![]);
 	assert_eq!(take_lock_trace(), vec![]);
@@ -211,12 +213,13 @@ fn remote_unlock_should_fail_correctly() {
 	// We have been told by Parachain #1 that Account #3 has locked funds which we can unlock.
 	let message =
 		Xcm(vec![NoteUnlockable { asset: (Parent, 100u128).into(), owner: (3u64,).into() }]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		(Parent, Parachain(1)),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 	let _discard = take_lock_trace();
@@ -228,9 +231,9 @@ fn remote_unlock_should_fail_correctly() {
 		asset: (Parent, 100u128).into(),
 		locker: (Parent, Parachain(1)).into(),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let r =
-		XcmExecutor::<TestConfig>::execute_xcm((3u64,), message, hash, Weight::from_parts(50, 50));
+		XcmExecutor::<TestConfig>::prepare_and_execute((3u64,), message, &mut hash, Weight::from_parts(50, 50), Weight::zero());
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NotHoldingFees));
 
 	assert_eq!(sent_xcm(), vec![]);

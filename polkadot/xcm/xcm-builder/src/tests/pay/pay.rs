@@ -88,13 +88,13 @@ fn pay_over_xcm_works() {
 			vec![((Parent, Parachain(2)).into(), expected_message, expected_hash)]
 		);
 
-		let (_, message, hash) = sent_xcm()[0].clone();
+		let (_, message, mut hash) = sent_xcm()[0].clone();
 		let message =
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
+		XcmExecutor::<XcmConfig>::prepare_and_execute(origin, message, &mut hash, Weight::MAX, Weight::zero());
 		assert_eq!(mock::Assets::balance(0, &recipient), amount);
 	});
 }
@@ -146,13 +146,13 @@ fn pay_over_xcm_governance_body() {
 			vec![((Parent, Parachain(2)).into(), expected_message, expected_hash)]
 		);
 
-		let (_, message, hash) = sent_xcm()[0].clone();
+		let (_, message, mut hash) = sent_xcm()[0].clone();
 		let message =
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
+		XcmExecutor::<XcmConfig>::prepare_and_execute(origin, message, &mut hash, Weight::MAX, Weight::zero());
 		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), amount);
 	});
 }

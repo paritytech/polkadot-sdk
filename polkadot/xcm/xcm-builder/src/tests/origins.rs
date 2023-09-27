@@ -29,12 +29,13 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::InvalidLocation));
 
@@ -42,12 +43,13 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::NotWithdrawable));
 
@@ -56,12 +58,13 @@ fn universal_origin_should_work() {
 		UniversalOrigin(GlobalConsensus(Kusama)),
 		TransferAsset { assets: (Parent, 100u128).into(), beneficiary: Here.into() },
 	]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
 	assert_eq!(asset_list((Ancestor(2), GlobalConsensus(Kusama))), vec![]);
@@ -83,12 +86,13 @@ fn export_message_should_work() {
 		destination: Here,
 		xcm: expected_message.clone(),
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 	let uni_src = (ByGenesis([0; 32]), Parachain(42), Parachain(1)).into();
@@ -110,19 +114,21 @@ fn unpaid_execution_should_work() {
 		weight_limit: Limited(Weight::from_parts(9, 9)),
 		check_origin: Some(Parachain(2).into()),
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message.clone(),
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::BadOrigin));
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
 		message.clone(),
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Error(XcmError::Barrier));
 
@@ -130,11 +136,12 @@ fn unpaid_execution_should_work() {
 		weight_limit: Limited(Weight::from_parts(10, 10)),
 		check_origin: Some(Parachain(2).into()),
 	}]);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(2),
 		message.clone(),
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }

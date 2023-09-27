@@ -29,12 +29,13 @@ fn pallet_query_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 
@@ -61,12 +62,13 @@ fn pallet_query_with_results_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 
@@ -106,15 +108,15 @@ fn prepaid_result_of_query_should_get_free_execution() {
 		max_weight: Weight::from_parts(10, 10),
 		querier: Some(Here.into()),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(10, 10);
 
 	// First time the response gets through since we're expecting it...
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message.clone(), hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 	assert_eq!(response(query_id).unwrap(), the_response);
 
 	// Second time it doesn't, since we're not.
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message.clone(), hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(Parent, message.clone(), &mut hash, weight_limit, Weight::zero());
 	assert_eq!(r, Outcome::Error(XcmError::Barrier));
 }
