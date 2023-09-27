@@ -284,7 +284,7 @@ impl State {
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?params.candidate_hash,
-							chunk_index = ?chunk_index,
+							?chunk_index,
 							?validator_index,
 							"Received valid chunk",
 						);
@@ -298,7 +298,7 @@ impl State {
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?params.candidate_hash,
-						chunk_index = ?chunk_index,
+						?chunk_index,
 						?validator_index,
 						"Validator did not have the requested chunk",
 					);
@@ -311,7 +311,7 @@ impl State {
 						target: LOG_TARGET,
 						candidate_hash= ?params.candidate_hash,
 						?err,
-						chunk_index = ?chunk_index,
+						?chunk_index,
 						?validator_index,
 						"Failure requesting chunk",
 					);
@@ -324,7 +324,7 @@ impl State {
 								target: LOG_TARGET,
 								candidate_hash = ?params.candidate_hash,
 								?err,
-								chunk_index = ?chunk_index,
+								?chunk_index,
 								?validator_index,
 								"Chunk fetching response was invalid",
 							);
@@ -362,7 +362,7 @@ impl State {
 					received_chunks_count = ?self.chunk_count(),
 					requested_chunks_count = ?requesting_chunks.len(),
 					threshold = ?params.threshold,
-					"Can conclude availability recovery for a candidate",
+					"Can conclude availability recovery strategy",
 				);
 				break
 			}
@@ -664,8 +664,8 @@ impl FetchSystematicChunks {
 		let chunks = state
 			.received_chunks
 			.range(
-				ValidatorIndex(0)..
-					ValidatorIndex(
+				ChunkIndex(0)..
+					ChunkIndex(
 						u32::try_from(self.threshold)
 							.expect("validator count should not exceed u32"),
 					),
@@ -1172,7 +1172,7 @@ mod tests {
 		let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
 
 		let mut fetch_chunks_task = FetchChunks::new(FetchChunksParams {
-			validators: (0..100u32).map(|i| (ValidatorIndex(i), ValidatorIndex(i))).collect(),
+			validators: (0..100u32).map(|i| (ChunkIndex(i), ValidatorIndex(i))).collect(),
 			erasure_task_tx,
 		});
 		assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);

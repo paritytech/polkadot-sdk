@@ -30,10 +30,10 @@ use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
 	CommittedCandidateReceipt, CompactStatement, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
 	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
+	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
@@ -631,7 +631,7 @@ pub struct ErasureChunk {
 	/// The erasure-encoded chunk of data belonging to the candidate block.
 	pub chunk: Vec<u8>,
 	/// The index of this erasure-encoded chunk of data.
-	pub index: ValidatorIndex,
+	pub index: ChunkIndex,
 	/// Proof for this chunk's branch in the Merkle tree.
 	pub proof: Proof,
 }

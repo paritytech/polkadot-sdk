@@ -555,9 +555,7 @@ impl ChunkIndexCacheRegistry {
 		n_validators: usize,
 	) -> Vec<ChunkIndex> {
 		let mut indices: Vec<_> = (0..n_validators)
-			.map(|i| {
-				ValidatorIndex(u32::try_from(i).expect("validator count should not exceed u32"))
-			})
+			.map(|i| ChunkIndex(u32::try_from(i).expect("validator count should not exceed u32")))
 			.collect();
 
 		if let Some(features) = maybe_client_features {

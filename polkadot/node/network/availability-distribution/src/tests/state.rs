@@ -46,8 +46,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
-	SessionInfo, ValidatorIndex,
+	CandidateHash, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	ScheduledCore, SessionInfo,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -75,9 +75,9 @@ pub struct TestState {
 	/// Whenever the subsystem tries to fetch an erasure chunk one item of the given vec will be
 	/// popped. So you can experiment with serving invalid chunks or no chunks on request and see
 	/// whether the subsystem still succeeds with its goal.
-	pub chunks: HashMap<(CandidateHash, ValidatorIndex), Vec<Option<ErasureChunk>>>,
+	pub chunks: HashMap<(CandidateHash, ChunkIndex), Vec<Option<ErasureChunk>>>,
 	/// All chunks that are valid and should be accepted.
-	pub valid_chunks: HashSet<(CandidateHash, ValidatorIndex)>,
+	pub valid_chunks: HashSet<(CandidateHash, ChunkIndex)>,
 	pub session_info: SessionInfo,
 	/// Cores per relay chain block.
 	pub cores: HashMap<Hash, Vec<CoreState>>,
@@ -131,8 +131,8 @@ impl Default for TestState {
 				// Skip chunks for our own group (won't get fetched):
 				let mut chunks_other_groups = p_chunks.into_iter();
 				chunks_other_groups.next();
-				for (validator_index, chunk) in chunks_other_groups {
-					chunks.insert((validator_index, chunk.index), vec![Some(chunk)]);
+				for (candidate, chunk) in chunks_other_groups {
+					chunks.insert((candidate, chunk.index), vec![Some(chunk)]);
 				}
 			}
 			(cores, chunks)

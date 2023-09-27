@@ -48,7 +48,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, Hash, Header, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, Hash, Header,
 };
 
 mod metrics;
@@ -208,7 +208,7 @@ fn load_chunk(
 	db: &Arc<dyn Database>,
 	config: &Config,
 	candidate_hash: &CandidateHash,
-	chunk_index: ValidatorIndex,
+	chunk_index: ChunkIndex,
 ) -> Result<Option<ErasureChunk>, Error> {
 	let key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
 
@@ -219,7 +219,7 @@ fn write_chunk(
 	tx: &mut DBTransaction,
 	config: &Config,
 	candidate_hash: &CandidateHash,
-	chunk_index: ValidatorIndex,
+	chunk_index: ChunkIndex,
 	erasure_chunk: &ErasureChunk,
 ) {
 	let key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
@@ -231,7 +231,7 @@ fn delete_chunk(
 	tx: &mut DBTransaction,
 	config: &Config,
 	candidate_hash: &CandidateHash,
-	chunk_index: ValidatorIndex,
+	chunk_index: ChunkIndex,
 ) {
 	let key = (CHUNK_PREFIX, candidate_hash, chunk_index).encode();
 
@@ -1107,22 +1107,21 @@ fn process_message(
 				.map_or(false, |m| m.data_available);
 			let _ = tx.send(a);
 		},
-		AvailabilityStoreMessage::QueryChunk(candidate, validator_index, tx) => {
+		AvailabilityStoreMessage::QueryChunk(candidate, chunk_index, tx) => {
 			let _timer = subsystem.metrics.time_get_chunk();
-			let _ =
-				tx.send(load_chunk(&subsystem.db, &subsystem.config, &candidate, validator_index)?);
+			let _ = tx.send(load_chunk(&subsystem.db, &subsystem.config, &candidate, chunk_index)?);
 		},
 		AvailabilityStoreMessage::QueryChunkSize(candidate, tx) => {
 			let meta = load_meta(&subsystem.db, &subsystem.config, &candidate)?;
 
-			let validator_index = meta.map_or(None, |meta| meta.chunks_stored.first_one());
+			let chunk_index = meta.map_or(None, |meta| meta.chunks_stored.first_one());
 
-			let maybe_chunk_size = if let Some(validator_index) = validator_index {
+			let maybe_chunk_size = if let Some(chunk_index) = chunk_index {
 				load_chunk(
 					&subsystem.db,
 					&subsystem.config,
 					&candidate,
-					ValidatorIndex(validator_index as u32),
+					ChunkIndex(chunk_index as u32),
 				)?
 				.map(|erasure_chunk| erasure_chunk.chunk.len())
 			} else {
@@ -1145,7 +1144,7 @@ fn process_message(
 							&subsystem.db,
 							&subsystem.config,
 							&candidate,
-							ValidatorIndex(index as _),
+							ChunkIndex(index as _),
 						)? {
 							Some(c) => chunks.push(c),
 							None => {
@@ -1163,9 +1162,9 @@ fn process_message(
 				},
 			}
 		},
-		AvailabilityStoreMessage::QueryChunkAvailability(candidate, validator_index, tx) => {
+		AvailabilityStoreMessage::QueryChunkAvailability(candidate, chunk_index, tx) => {
 			let a = load_meta(&subsystem.db, &subsystem.config, &candidate)?.map_or(false, |m| {
-				*m.chunks_stored.get(validator_index.0 as usize).as_deref().unwrap_or(&false)
+				*m.chunks_stored.get(chunk_index.0 as usize).as_deref().unwrap_or(&false)
 			});
 			let _ = tx.send(a);
 		},
@@ -1316,7 +1315,7 @@ fn store_available_data(
 		|(index, (chunk, proof))| ErasureChunk {
 			chunk: chunk.clone(),
 			proof,
-			index: ValidatorIndex(index as u32),
+			index: ChunkIndex(index as u32),
 		},
 	);
 
@@ -1366,7 +1365,7 @@ fn prune_all(db: &Arc<dyn Database>, config: &Config, now: Duration) -> Result<(
 			// delete chunks.
 			for (i, b) in meta.chunks_stored.iter().enumerate() {
 				if *b {
-					delete_chunk(&mut tx, config, &candidate_hash, ValidatorIndex(i as _));
+					delete_chunk(&mut tx, config, &candidate_hash, ChunkIndex(i as _));
 				}
 			}
 

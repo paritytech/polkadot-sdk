@@ -77,7 +77,7 @@ fn task_stores_valid_chunk() {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
 	let (root_hash, chunk) = get_valid_chunk_data(pov);
 	task.erasure_root = root_hash;
-	task.request.index = chunk.index;
+	task.request.index = chunk.index.into();
 
 	let validators = vec![Sr25519Keyring::Alice.public().into()];
 	task.group = validators;
@@ -138,7 +138,7 @@ fn task_stores_valid_chunk_if_there_is_one() {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
 	let (root_hash, chunk) = get_valid_chunk_data(pov);
 	task.erasure_root = root_hash;
-	task.request.index = chunk.index;
+	task.request.index = chunk.index.into();
 
 	let validators = [
 		// Only Alice has valid chunk - should succeed, even though she is tried last.
