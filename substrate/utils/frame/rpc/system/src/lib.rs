@@ -219,7 +219,6 @@ mod tests {
 	use jsonrpsee::{core::Error as JsonRpseeError, types::error::CallError};
 	use sc_transaction_pool::BasicPool;
 	use sp_runtime::{
-		generic::BlockId,
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
@@ -245,7 +244,7 @@ mod tests {
 			};
 			t.into_unchecked_extrinsic()
 		};
-		let hash_of_block0 = client.expect_block_hash_from_id(&BlockId::number(0)).unwrap();
+		let hash_of_block0 = client.info().genesis_hash;
 		// Populate the pool
 		let ext0 = new_transaction(0);
 		block_on(pool.submit_one(hash_of_block0, source, ext0)).unwrap();

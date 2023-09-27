@@ -642,7 +642,7 @@ mod tests {
 			client.clone(),
 		);
 
-		let hashof0 = client.expect_block_hash_from_id(&BlockId::Number(0)).unwrap();
+		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
 
 		block_on(
@@ -658,7 +658,7 @@ mod tests {
 
 		let cell = Mutex::new((false, time::Instant::now()));
 		let proposer = proposer_factory.init_with_now(
-			&client.expect_header(client.info().genesis_hash).unwrap(),
+			&client.expect_header(hashof0).unwrap(),
 			Box::new(move || {
 				let mut value = cell.lock();
 				if !value.0 {
