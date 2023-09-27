@@ -376,6 +376,14 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -414,7 +422,7 @@
 };
 <span class="kw">use </span>warp::WarpSyncProgress;
 
-<span class="kw">use </span>std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc, task::Poll};
+<span class="kw">use </span>std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 <span class="doccomment">/// The sync status of a peer we are trying to sync with
 </span><span class="attr">#[derive(Debug)]
@@ -582,6 +590,23 @@
 	WarpProof,
 }
 
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>PeerRequestType {
+	Block,
+	State,
+	WarpProof,
+}
+
+<span class="kw">impl</span>&lt;B: BlockT&gt; PeerRequest&lt;B&gt; {
+	<span class="kw">pub fn </span>get_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerRequestType {
+		<span class="kw">match </span><span class="self">self </span>{
+			PeerRequest::Block(<span class="kw">_</span>) =&gt; PeerRequestType::Block,
+			PeerRequest::State =&gt; PeerRequestType::State,
+			PeerRequest::WarpProof =&gt; PeerRequestType::WarpProof,
+		}
+	}
+}
+
 <span class="doccomment">/// Wrapper for implementation-specific state request.
 ///
 /// NOTE: Implementation must be able to encode and decode it for network purposes.
@@ -667,9 +692,6 @@
 	<span class="doccomment">/// Returns the current number of peers stored within this state machine.
 	</span><span class="kw">fn </span>num_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-	<span class="doccomment">/// Returns the number of peers we&#39;re connected to and that are being queried.
-	</span><span class="kw">fn </span>num_active_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
-
 	<span class="doccomment">/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
@@ -747,11 +769,5 @@
 
 	<span class="doccomment">/// Return some key metrics.
 	</span><span class="kw">fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Metrics;
-
-	<span class="doccomment">/// Advance the state of `ChainSync`
-	</span><span class="kw">fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>std::task::Context) -&gt; Poll&lt;()&gt;;
-
-	<span class="doccomment">/// Send block request to peer
-	</span><span class="kw">fn </span>send_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, request: BlockRequest&lt;Block&gt;);
 }
 </code></pre></div></section></main></body></html>
