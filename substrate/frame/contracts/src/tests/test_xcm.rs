@@ -28,7 +28,6 @@ use crate::{
 		},
 		RuntimeReturnCode,
 	},
-	xcm::Xcm,
 	CollectEvents, DebugInfo, Determinism,
 };
 use codec::{Decode, Encode};
@@ -45,7 +44,7 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = crate::Pallet<parachain::Runtime>;
-type QueryId = <<parachain::Runtime as crate::Config>::Xcm as Xcm<parachain::Runtime>>::QueryId;
+type QueryId = <<parachain::Runtime as crate::Config>::Xcm as crate::Xcm<parachain::Runtime>>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
