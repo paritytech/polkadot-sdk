@@ -57,12 +57,12 @@ impl StorageNoopGuard {
 		Self::default()
 	}
 
-	/// Creates a new `StorageNoopGuard` with a custom error message.
+	/// Creates a new [`StorageNoopGuard`] with a custom error message.
 	pub fn from_error_message(error_message: &'static str) -> Self {
 		Self { storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1), error_message }
 	}
 
-	/// Sets a custom error message for a `StorageNoopGuard`.
+	/// Sets a custom error message for a [`StorageNoopGuard`].
 	pub fn set_error_message(&mut self, error_message: &'static str) {
 		self.error_message = error_message;
 	}
