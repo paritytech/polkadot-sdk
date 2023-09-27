@@ -66,7 +66,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		// XCMP
 		/// Some XCM was executed OK.
 		Success(Option<T::Hash>),
 		/// Some XCM failed.

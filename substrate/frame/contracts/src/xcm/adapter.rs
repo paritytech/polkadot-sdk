@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Adapter exposes an implementation of the [`XCM`] trait using pallet-xcm.
+//! Adapter exposes an implementation of the [`Xcm`] trait using pallet-xcm.
 
 use crate::{
 	xcm::{CallOf, WeightInfo, Xcm},
@@ -27,7 +27,7 @@ use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
-/// An implementation of the [`XCM`] trait using pallet-xcm.
+/// An implementation of the [`Xcm`] trait using pallet-xcm.
 pub struct XcmAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
 
 impl<T> WeightInfo for XcmAdapter<T>

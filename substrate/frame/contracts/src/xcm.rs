@@ -110,15 +110,15 @@ impl<T: Config> Xcm<T> for () {
 	}
 }
 
-/// Weight info trait for methods exposed by the [`XCM`] trait.
+/// Weight info trait for methods exposed by the [`Xcm`] trait.
 pub trait WeightInfo {
-	/// Weight of the [`XCM::execute`] function.
+	/// Weight of the [`Xcm::execute`] function.
 	fn execute() -> Weight;
-	/// Weight of the [`XCM::send`] function.
+	/// Weight of the [`Xcm::send`] function.
 	fn send() -> Weight;
-	/// Weight of the [`XCM::query`] function.
+	/// Weight of the [`Xcm::query`] function.
 	fn query() -> Weight;
-	/// Weight of the [`XCM::take_response`] function.
+	/// Weight of the [`Xcm::take_response`] function.
 	fn take_response() -> Weight;
 }
 

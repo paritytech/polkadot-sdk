@@ -40,8 +40,6 @@ use sp_runtime::{
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 
-// type XcmOf<E> = <<E::T as Config>::Xcm as XCM<E::T>>;
-
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
