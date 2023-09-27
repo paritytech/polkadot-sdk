@@ -51,6 +51,12 @@ impl Default for StorageNoopGuard {
 	}
 }
 
+impl From<&'static str> for StorageNoopGuard {
+	fn from(error_message: &'static str) -> Self {
+		StorageNoopGuard { storage_root: sp_std::vec::Vec::new(), error_message }
+	}
+}
+
 impl StorageNoopGuard {
 	/// Alias to `default()`.
 	pub fn new() -> Self {
@@ -89,7 +95,7 @@ mod tests {
 	use sp_io::TestExternalities;
 
 	#[test]
-	#[should_panic(expected = "StorageNoopGuard detected wrongful storage changes.")]
+	#[should_panic(expected = "`StorageNoopGuard` detected an attempted storage change.")]
 	fn storage_noop_guard_panics_on_changed() {
 		TestExternalities::default().execute_with(|| {
 			let _guard = StorageNoopGuard::default();
@@ -107,7 +113,7 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "StorageNoopGuard detected wrongful storage changes.")]
+	#[should_panic(expected = "`StorageNoopGuard` detected an attempted storage change.")]
 	fn storage_noop_guard_panics_on_early_drop() {
 		TestExternalities::default().execute_with(|| {
 			let guard = StorageNoopGuard::default();
@@ -137,28 +143,38 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "StorageNoopGuard found unexpected storage changes.")]
+	#[should_panic(expected = "`StorageNoopGuard` found unexpected storage changes.")]
 	fn storage_noop_guard_panics_created_from_error_message() {
 		TestExternalities::default().execute_with(|| {
 			let _guard = StorageNoopGuard::from_error_message(
-				"StorageNoopGuard found unexpected storage changes.",
+				"`StorageNoopGuard` found unexpected storage changes.",
 			);
 			frame_support::storage::unhashed::put(b"key", b"value");
 		});
 	}
 
 	#[test]
-	#[should_panic(expected = "StorageNoopGuard found unexpected storage changes.")]
-	fn storage_noop_guard_panics_with_set_error_message() {
+	#[should_panic(expected = "`StorageNoopGuard` found unexpected storage changes.")]
+	fn storage_noop_guard_panics_created_from() {
 		TestExternalities::default().execute_with(|| {
-			let mut guard = StorageNoopGuard::default();
-			guard.set_error_message("StorageNoopGuard found unexpected storage changes.");
+			let _guard =
+				StorageNoopGuard::from("`StorageNoopGuard` found unexpected storage changes.");
 			frame_support::storage::unhashed::put(b"key", b"value");
 		});
 	}
 
 	#[test]
-	#[should_panic(expected = "StorageNoopGuard detected wrongful storage changes.")]
+	#[should_panic(expected = "`StorageNoopGuard` found unexpected storage changes.")]
+	fn storage_noop_guard_panics_with_set_error_message() {
+		TestExternalities::default().execute_with(|| {
+			let mut guard = StorageNoopGuard::default();
+			guard.set_error_message("`StorageNoopGuard` found unexpected storage changes.");
+			frame_support::storage::unhashed::put(b"key", b"value");
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "`StorageNoopGuard` detected an attempted storage change.")]
 	fn storage_noop_guard_panics_new_alias() {
 		TestExternalities::default().execute_with(|| {
 			let _guard = StorageNoopGuard::new();
