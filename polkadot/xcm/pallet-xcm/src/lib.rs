@@ -197,7 +197,7 @@ pub mod pallet {
 		type ExecuteXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
-		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as SysConfig>::RuntimeCall>)>;
+		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
 		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
