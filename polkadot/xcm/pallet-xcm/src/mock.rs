@@ -277,6 +277,8 @@ impl pallet_assets::Config for Test {
 
 // This child parachain acts as trusted reserve for its assets in tests.
 pub const RESERVE_PARA_ID: u32 = 2001;
+// Inner junction of reserve asset on `RESERVE_PARA_ID`.
+pub const RESERVE_ASSET_INNER_JUNCTION: Junction = GeneralIndex(1234567);
 // This child parachain is not configured as trusted reserve or teleport location for any assets.
 pub const OTHER_PARA_ID: u32 = 2009;
 
@@ -333,14 +335,21 @@ type LocalOriginConverter = (
 	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
+pub const RESERVE_LOCATION: MultiLocation =
+	MultiLocation { parents: 0, interior: X1(Parachain(RESERVE_PARA_ID)) };
+pub const RESERVE_ASSET: MultiAsset = MultiAsset {
+	fun: Fungible(10),
+	id: Concrete(MultiLocation {
+		parents: 0,
+		interior: X2(Parachain(RESERVE_PARA_ID), RESERVE_ASSET_INNER_JUNCTION),
+	}),
+};
+
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedReserves: (MultiAssetFilter, MultiLocation) = (
-		All.into(),
-		MultiLocation { parents: 0, interior: X1(Parachain(RESERVE_PARA_ID)) }
-	);
+	pub TrustedReserves: (MultiAssetFilter, MultiLocation) = (vec![RESERVE_ASSET].into(), RESERVE_LOCATION);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }

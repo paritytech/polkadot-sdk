@@ -1354,19 +1354,24 @@ impl<T: Config> Pallet<T> {
 				if let TransferType::RemoteReserve(_fees_reserve) = fees_transfer_type {
 					// TODO: change beneficiary on `fee_reserve` to be SA-of-Here.
 					// But beneficiary on `dest` should stay unchanged...
+					// Or maybe not required, fees can be used from Holding register, we'll see :D
 				}
-				Self::prefund_transfer_fees(
+				// execute fees transfer - have to do it separately than assets because of the
+				// different transfer type (different XCM program required)
+				Self::build_and_execute_xcm_transfer_type(
 					origin_location,
 					dest,
 					beneficiary,
+					vec![fees.clone()],
+					fees_transfer_type,
 					fees.clone(),
 					weight_limit.clone(),
 				)?;
 			}
 		}
 
-		// Fees have been prefunded/transferred (or batched together with assets), now do
-		// reserve-transfer assets.
+		// Fees have been prefunded/transferred (or batched together with assets to be transferred
+		// here), now do reserve-transfer assets.
 		Self::build_and_execute_xcm_transfer_type(
 			origin_location,
 			dest,
@@ -1389,6 +1394,8 @@ impl<T: Config> Pallet<T> {
 		_asset: MultiAsset,
 		_weight_limit: WeightLimit,
 	) -> DispatchResult {
+		// let fee_transfer_type = TransferType::determine_for::<T>(&fee_asset, &dest)?;
+		// Ok(())
 		todo!()
 	}
 
