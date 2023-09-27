@@ -37,12 +37,12 @@
 /// });
 /// ```
 #[must_use]
-pub struct StorageNoopGuard {
+pub struct StorageNoopGuard<'a> {
 	storage_root: sp_std::vec::Vec<u8>,
-	error_message: &'static str,
+	error_message: &'a str,
 }
 
-impl Default for StorageNoopGuard {
+impl<'a> Default for StorageNoopGuard<'a> {
 	fn default() -> Self {
 		Self {
 			storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1),
@@ -51,24 +51,24 @@ impl Default for StorageNoopGuard {
 	}
 }
 
-impl StorageNoopGuard {
+impl<'a> StorageNoopGuard<'a> {
 	/// Alias to `default()`.
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	/// Creates a new [`StorageNoopGuard`] with a custom error message.
-	pub fn from_error_message(error_message: &'static str) -> Self {
+	pub fn from_error_message(error_message: &'a str) -> Self {
 		Self { storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1), error_message }
 	}
 
 	/// Sets a custom error message for a [`StorageNoopGuard`].
-	pub fn set_error_message(&mut self, error_message: &'static str) {
+	pub fn set_error_message(&mut self, error_message: &'a str) {
 		self.error_message = error_message;
 	}
 }
 
-impl Drop for StorageNoopGuard {
+impl<'a> Drop for StorageNoopGuard<'a> {
 	fn drop(&mut self) {
 		// No need to double panic, eg. inside a test assertion failure.
 		if sp_std::thread::panicking() {
