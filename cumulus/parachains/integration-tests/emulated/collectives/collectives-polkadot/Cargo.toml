@@ -23,6 +23,7 @@ pallet-salary = { path = "../../../../../../substrate/frame/salary", default-fea
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
+polkadot-runtime-common = { path = "../../../../../../polkadot/runtime/common" }
 polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
@@ -32,6 +33,7 @@ parachains-common = { path = "../../../../common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system" }
 collectives-polkadot-runtime = { path = "../../../../runtimes/collectives/collectives-polkadot" }
+asset-hub-polkadot-runtime = { path = "../../../../runtimes/assets/asset-hub-polkadot" }
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
