@@ -41,7 +41,7 @@ pub trait Extension: Send + 'static {
 	/// This is a trick to make the trait type castable into an `Any`.
 	fn as_mut_any(&mut self) -> &mut dyn Any;
 
-	/// Get the [`std::any::TypeId`] of this `Extension`.
+	/// Get the [`TypeId`] of this `Extension`.
 	fn type_id(&self) -> TypeId;
 }
 
