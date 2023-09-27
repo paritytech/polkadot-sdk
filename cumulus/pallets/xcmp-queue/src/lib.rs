@@ -737,12 +737,6 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							break
 						}
 					}
-					if !data.is_empty() {
-						defensive!(
-							"Not all XCMP message data could be parsed. Bytes left: ",
-							data.len()
-						);
-					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
 					defensive!("Blob messages are unhandled - dropping");
