@@ -716,6 +716,7 @@ dependencies = [
  "sp-runtime",
  "staging-kusama-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -814,6 +815,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -909,6 +911,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
