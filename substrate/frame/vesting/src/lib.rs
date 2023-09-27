@@ -169,13 +169,10 @@ pub mod pallet {
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// The currency trait.
-		type Currency: fungible::freeze::Inspect<Self::AccountId> +
+		type Currency: fungible::InspectFreeze<Self::AccountId> +
 		fungible::freeze::Mutate<Self::AccountId> + 
 		fungible::Inspect<Self::AccountId, Balance = Self::Balance> +
 		fungible::Mutate<Self::AccountId>
-//		where <Self::Currency as fungible::Inspect<Self::AccountId>>::Balance:  MaybeSerializeDeserialize
-	//	+ MaybeSerializeDeserialize //TODO not sure this does much
-	//	+ frame_support::Serialize + for<'a> frame_support::Deserialize<'a>
 		;
 
 		type Balance: frame_support::traits::tokens::Balance + //fungible::Inspect<Self::AccountId>>::Balance +
@@ -200,7 +197,7 @@ pub mod pallet {
 
 		/// The maximum number of freezes that should exist on a given account
 		/// (across all pallets).
-		/// Typically this might be set to pallet_balence::MaxFreezes.
+		/// Typically this might be set to pallet_balance::MaxFreezes.
 		type MaxFreezes: Get<u32>;
 
 		/// Freeze identifier to use for vesting locks.
@@ -219,6 +216,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must ge greater than 0");
+			assert!(T::MaxFreezes::get() > 0, "`MaxFreezes` must ge greater than 0");
 		}
 	}
 
@@ -241,6 +239,13 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Initial vesting configuration is a vec of tuples:
+	/// `(who, begin, length, liquid)`
+	/// where:
+	/// * who - Account which we are generating vesting configuration for
+	/// * begin - Block when the account will start to vest
+	/// * length - Number of blocks from `begin` until fully vested
+	/// * liquid - Number of units which can be spent before vesting begins
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -257,14 +262,8 @@ pub mod pallet {
 			// Genesis uses the latest storage version.
 			StorageVersion::<T>::put(Releases::V1);
 
-			// Generate initial vesting configuration
-			// * who - Account which we are generating vesting configuration for
-			// * begin - Block when the account will start to vest
-			// * length - Number of blocks from `begin` until fully vested
-			// * liquid - Number of units which can be spent before vesting begins
 			for &(ref who, begin, length, liquid) in self.vesting.iter() {
-				// let balance = T::Currency::free_balance(who);
-				let balance = T::Currency::reducible_balance(who, Preservation::Expendable, Fortitude::Polite);
+				let balance = T::Currency::balance(who);
 				assert!(!balance.is_zero(), "Currencies must be init'd before vesting");
 				// Total genesis `balance` minus `liquid` equals funds locked for vesting
 				let locked = balance.saturating_sub(liquid);
@@ -281,6 +280,7 @@ pub mod pallet {
 				// let reasons =
 				// 	WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
 
+				//TODO: this was before recording the T::UnvestedFundsAllowedWithdrawReasons::get()
 				T::Currency::set_freeze(&T::VestingId::get(), who, locked).expect("Can't freeze at genesis");
 			}
 		}
@@ -699,7 +699,7 @@ impl<T: Config> fungible::freeze::VestingSchedule<T::AccountId> for Pallet<T>
 			let total_locked_now = v.iter().fold(Zero::zero(), |total, schedule| {
 				schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
 			});
-			Some(T::Currency::reducible_balance(who, Preservation::Expendable, Fortitude::Polite).min(total_locked_now))
+			Some(T::Currency::balance(who).min(total_locked_now))
 		} else {
 			None
 		}
