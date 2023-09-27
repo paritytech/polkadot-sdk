@@ -642,8 +642,8 @@ mod tests {
 			client.clone(),
 		);
 
-		block_on(txpool.submit_at(&BlockId::number(0), SOURCE, vec![extrinsic(0), extrinsic(1)]))
-			.unwrap();
+		let hashof0 = client.info().genesis_hash;
+		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
@@ -658,7 +658,7 @@ mod tests {
 
 		let cell = Mutex::new((false, time::Instant::now()));
 		let proposer = proposer_factory.init_with_now(
-			&client.expect_header(client.info().genesis_hash).unwrap(),
+			&client.expect_header(hashof0).unwrap(),
 			Box::new(move || {
 				let mut value = cell.lock();
 				if !value.0 {
@@ -736,7 +736,7 @@ mod tests {
 
 		let genesis_hash = client.info().best_hash;
 
-		block_on(txpool.submit_at(&BlockId::number(0), SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
@@ -800,7 +800,7 @@ mod tests {
 		};
 
 		block_on(txpool.submit_at(
-			&BlockId::number(0),
+			client.info().genesis_hash,
 			SOURCE,
 			vec![medium(0), medium(1), huge(2), medium(3), huge(4), medium(5), medium(6)],
 		))
@@ -897,9 +897,8 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		);
-		let genesis_header = client
-			.expect_header(client.info().genesis_hash)
-			.expect("there should be header");
+		let genesis_hash = client.info().genesis_hash;
+		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
 		let extrinsics_num = 5;
 		let extrinsics = std::iter::once(
@@ -922,7 +921,7 @@ mod tests {
 				.sum::<usize>() +
 			Vec::<Extrinsic>::new().encoded_size();
 
-		block_on(txpool.submit_at(&BlockId::number(0), SOURCE, extrinsics.clone())).unwrap();
+		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
 		block_on(txpool.maintain(chain_event(genesis_header.clone())));
 
@@ -999,6 +998,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		);
+		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY)).nonce(nonce).build()
@@ -1011,7 +1011,7 @@ mod tests {
 
 		block_on(
 			txpool.submit_at(
-				&BlockId::number(0),
+				genesis_hash,
 				SOURCE,
 				// add 2 * MAX_SKIPPED_TRANSACTIONS that exhaust resources
 				(0..MAX_SKIPPED_TRANSACTIONS * 2)
@@ -1024,13 +1024,9 @@ mod tests {
 		)
 		.unwrap();
 
-		block_on(
-			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect("there should be header"),
-			)),
-		);
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
 		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 3);
 
 		let mut proposer_factory =
@@ -1038,7 +1034,7 @@ mod tests {
 
 		let cell = Mutex::new(time::Instant::now());
 		let proposer = proposer_factory.init_with_now(
-			&client.expect_header(client.info().genesis_hash).unwrap(),
+			&client.expect_header(genesis_hash).unwrap(),
 			Box::new(move || {
 				let mut value = cell.lock();
 				let old = *value;
@@ -1071,6 +1067,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		);
+		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY))
@@ -1086,7 +1083,7 @@ mod tests {
 
 		block_on(
 			txpool.submit_at(
-				&BlockId::number(0),
+				genesis_hash,
 				SOURCE,
 				(0..MAX_SKIPPED_TRANSACTIONS + 2)
 					.into_iter()
@@ -1098,13 +1095,9 @@ mod tests {
 		)
 		.unwrap();
 
-		block_on(
-			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect("there should be header"),
-			)),
-		);
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
 		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 2 + 4);
 
 		let mut proposer_factory =
@@ -1114,7 +1107,7 @@ mod tests {
 		let cell = Arc::new(Mutex::new((0, time::Instant::now())));
 		let cell2 = cell.clone();
 		let proposer = proposer_factory.init_with_now(
-			&client.expect_header(client.info().genesis_hash).unwrap(),
+			&client.expect_header(genesis_hash).unwrap(),
 			Box::new(move || {
 				let mut value = cell.lock();
 				let (called, old) = *value;
