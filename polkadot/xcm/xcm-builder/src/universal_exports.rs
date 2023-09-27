@@ -485,7 +485,7 @@ mod tests {
 		dest: Location,
 		assert_result: impl Fn(SendResult<S::Ticket>),
 	) {
-		let mut dest_wrapper = Some(dest);
+		let mut dest_wrapper = Some(dest.clone());
 		let msg = Xcm::<()>::new();
 		let mut msg_wrapper = Some(msg.clone());
 
@@ -507,12 +507,12 @@ mod tests {
 		}
 
 		// check with local destination (should be remote)
-		let local_dest = (Parent, Parachain(5678)).into();
-		assert!(ensure_is_remote(UniversalLocation::get(), local_dest).is_err());
+		let local_dest: Location = (Parent, Parachain(5678)).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), local_dest.clone()).is_err());
 
 		ensure_validate_does_not_consume_dest_or_msg::<
 			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
-		>(local_dest, |result| assert_eq!(Err(NotApplicable), result));
+		>(local_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
 
 		ensure_validate_does_not_consume_dest_or_msg::<
 			SovereignPaidRemoteExporter<
@@ -523,12 +523,12 @@ mod tests {
 		>(local_dest, |result| assert_eq!(Err(NotApplicable), result));
 
 		// check with not applicable destination
-		let remote_dest = (Parent, Parent, DifferentRemote::get()).into();
-		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest).is_ok());
+		let remote_dest: Location = (Parent, Parent, DifferentRemote::get()).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
 
 		ensure_validate_does_not_consume_dest_or_msg::<
 			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
-		>(remote_dest, |result| assert_eq!(Err(NotApplicable), result));
+		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
 
 		ensure_validate_does_not_consume_dest_or_msg::<
 			SovereignPaidRemoteExporter<
