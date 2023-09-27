@@ -30,6 +30,7 @@ mod keyword {
 	syn::custom_keyword!(compact);
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
+	syn::custom_keyword!(feeless_if);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -89,6 +90,7 @@ pub struct CallVariantDef {
 pub enum FunctionAttr {
 	CallIndex(u8),
 	Weight(syn::Expr),
+	FeelessIf(syn::ExprClosure)
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -115,6 +117,11 @@ impl syn::parse::Parse for FunctionAttr {
 				return Err(syn::Error::new(index.span(), msg))
 			}
 			Ok(FunctionAttr::CallIndex(index.base10_parse()?))
+		} else if lookahead.peek(keyword::feeless_if) { 
+			content.parse::<keyword::feeless_if>()?;
+			let closure_content;
+			syn::parenthesized!(closure_content in content);
+			Ok(FunctionAttr::FeelessIf(closure_content.parse::<syn::ExprClosure>()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -227,16 +234,22 @@ impl CallDef {
 					return Err(syn::Error::new(method.sig.span(), msg))
 				}
 
-				let (mut weight_attrs, mut call_idx_attrs): (Vec<FunctionAttr>, Vec<FunctionAttr>) =
-					helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter().partition(
-						|attr| {
-							if let FunctionAttr::Weight(_) = attr {
-								true
-							} else {
-								false
-							}
-						},
-					);
+				let mut call_idx_attrs = vec![];
+				let mut weight_attrs = vec![];
+				let mut feeless_if_attrs = vec![];
+				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
+					match attr {
+						FunctionAttr::CallIndex(_) => {
+							call_idx_attrs.push(attr);
+						}
+						FunctionAttr::Weight(_) => {
+							weight_attrs.push(attr);
+						}
+						FunctionAttr::FeelessIf(_) => {
+							feeless_if_attrs.push(attr);
+						}
+					}
+				}
 
 				if weight_attrs.is_empty() && dev_mode {
 					// inject a default O(1) weight when dev mode is enabled and no weight has

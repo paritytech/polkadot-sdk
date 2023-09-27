@@ -423,5 +423,45 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
 			}
 		}
+
+		// /// RuntimeSignedExtension
+		// #[derive(
+		// 	#frame_support::RuntimeDebugNoBound,
+		// 	#frame_support::CloneNoBound,
+		// 	#frame_support::EqNoBound,
+		// 	#frame_support::PartialEqNoBound,
+		// 	#frame_support::__private::codec::Encode,
+		// 	#frame_support::__private::codec::Decode,
+		// 	#frame_support::__private::scale_info::TypeInfo,
+		// )]
+		// #[codec(encode_bound())]
+		// #[codec(decode_bound())]
+		// #[scale_info(skip_type_params(T))]
+		// pub struct RuntimeSignedExtension<T: Config + Send + Sync>(#frame_support::__private::sp_std::marker::PhantomData<T>);
+
+		// impl<T: Config + Send + Sync> #frame_support::sp_runtime::traits::SignedExtension for RuntimeSignedExtension<T> 
+		// // where
+		// // 	T::RuntimeCall: #frame_support::sp_runtime::traits::Dispatchable<Info = #frame_support::dispatch::DispatchInfo> 
+		// {
+		// 	type AccountId = T::AccountId;
+		// 	type Call = RuntimeCall;
+		// 	type AdditionalSigned = ();
+		// 	type Pre = ();
+		// 	const IDENTIFIER: &'static str = "RuntimeSignedExtension";
+
+		// 	fn additional_signed(&self) -> #frame_support::__private::sp_std::result::Result<(), TransactionValidityError> {
+		// 		Ok(())
+		// 	}
+
+		// 	fn pre_dispatch(
+		// 		self,
+		// 		_who: &Self::AccountId,
+		// 		_call: &Self::Call,
+		// 		_info: &#frame_support::sp_runtime::traits::DispatchInfoOf<Self::Call>,
+		// 		_len: usize,
+		// 	) -> Result<(), TransactionValidityError> {
+		// 		Ok(())
+		// 	}
+		// }
 	)
 }

@@ -207,5 +207,54 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		)*
+
+		/// RuntimeSignedExtension
+		#[derive(
+			#scrate::RuntimeDebugNoBound,
+			#scrate::CloneNoBound,
+			#scrate::EqNoBound,
+			#scrate::PartialEqNoBound,
+			#scrate::__private::codec::Encode,
+			#scrate::__private::codec::Decode,
+			#scrate::__private::scale_info::TypeInfo,
+		)]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		pub struct RuntimeSignedExtension;
+
+		impl #scrate::sp_runtime::traits::SignedExtension for RuntimeSignedExtension
+		// where
+		// 	T::RuntimeCall: #scrate::sp_runtime::traits::Dispatchable<Info = #scrate::dispatch::DispatchInfo> 
+		{
+			type AccountId = <#runtime as #system_path::Config>::AccountId;
+			type Call = RuntimeCall;
+			type AdditionalSigned = ();
+			type Pre = ();
+			const IDENTIFIER: &'static str = "RuntimeSignedExtension";
+
+			fn additional_signed(&self) -> #scrate::__private::sp_std::result::Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
+				Ok(())
+			}
+
+			fn pre_dispatch(
+				self,
+				_who: &Self::AccountId,
+				_call: &Self::Call,
+				_info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				_len: usize,
+			) -> Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
+				Ok(())
+			}
+
+			fn post_dispatch(
+				_pre: Option<Self::Pre>,
+				_info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				_post_info: &#scrate::sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+				_len: usize,
+				_result: &#scrate::dispatch::DispatchResult,
+			) -> Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
+				Ok(())
+			}
+		}
 	}
 }
