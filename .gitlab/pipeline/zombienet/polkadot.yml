@@ -111,7 +111,7 @@ zombienet-polkadot-functional-0006-parachains-max-tranche0:
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
-      --test="0006-parachains-0006-parachains-max-tranche0.zndsl"
+      --test="0006-parachains-max-tranche0.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
