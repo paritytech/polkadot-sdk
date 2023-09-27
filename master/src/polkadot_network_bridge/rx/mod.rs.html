@@ -1070,8 +1070,6 @@
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1107,7 +1105,7 @@
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging, ObservedRole, OurView, PeerId,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, ObservedRole, OurView, PeerId,
 	UnifiedReputationChange <span class="kw">as </span>Rep, View,
 };
 
@@ -1336,13 +1334,13 @@
 								),
 								<span class="kw-2">&amp;</span>metrics,
 							),
-							ValidationVersion::VStaging =&gt; send_message(
+							ValidationVersion::V2 =&gt; send_message(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
 								PeerSet::Validation,
 								version,
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
-								WireMessage::&lt;protocol_vstaging::ValidationProtocol&gt;::ViewUpdate(
+								WireMessage::&lt;protocol_v2::ValidationProtocol&gt;::ViewUpdate(
 									local_view,
 								),
 								<span class="kw-2">&amp;</span>metrics,
@@ -1378,13 +1376,13 @@
 								),
 								<span class="kw-2">&amp;</span>metrics,
 							),
-							CollationVersion::VStaging =&gt; send_message(
+							CollationVersion::V2 =&gt; send_message(
 								<span class="kw-2">&amp;mut </span>network_service,
 								<span class="macro">vec!</span>[peer],
 								PeerSet::Collation,
 								version,
 								<span class="kw-2">&amp;</span>peerset_protocol_names,
-								WireMessage::&lt;protocol_vstaging::CollationProtocol&gt;::ViewUpdate(
+								WireMessage::&lt;protocol_v2::CollationProtocol&gt;::ViewUpdate(
 									local_view,
 								),
 								<span class="kw-2">&amp;</span>metrics,
@@ -1539,9 +1537,9 @@
 							<span class="kw-2">&amp;</span>metrics,
 						)
 					} <span class="kw">else if </span>expected_versions[PeerSet::Validation] ==
-						<span class="prelude-val">Some</span>(ValidationVersion::VStaging.into())
+						<span class="prelude-val">Some</span>(ValidationVersion::V2.into())
 					{
-						handle_peer_messages::&lt;protocol_vstaging::ValidationProtocol, <span class="kw">_</span>&gt;(
+						handle_peer_messages::&lt;protocol_v2::ValidationProtocol, <span class="kw">_</span>&gt;(
 							remote,
 							PeerSet::Validation,
 							<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
@@ -1581,9 +1579,9 @@
 							<span class="kw-2">&amp;</span>metrics,
 						)
 					} <span class="kw">else if </span>expected_versions[PeerSet::Collation] ==
-						<span class="prelude-val">Some</span>(CollationVersion::VStaging.into())
+						<span class="prelude-val">Some</span>(CollationVersion::V2.into())
 					{
-						handle_peer_messages::&lt;protocol_vstaging::CollationProtocol, <span class="kw">_</span>&gt;(
+						handle_peer_messages::&lt;protocol_v2::CollationProtocol, <span class="kw">_</span>&gt;(
 							remote,
 							PeerSet::Collation,
 							<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().collation_peers,
@@ -1887,10 +1885,8 @@
 	<span class="kw">let </span>v1_validation_peers = filter_by_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V1.into());
 	<span class="kw">let </span>v1_collation_peers = filter_by_version(<span class="kw-2">&amp;</span>collation_peers, CollationVersion::V1.into());
 
-	<span class="kw">let </span>vstaging_validation_peers =
-		filter_by_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::VStaging.into());
-	<span class="kw">let </span>vstaging_collation_peers =
-		filter_by_version(<span class="kw-2">&amp;</span>collation_peers, ValidationVersion::VStaging.into());
+	<span class="kw">let </span>v2_validation_peers = filter_by_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V2.into());
+	<span class="kw">let </span>v2_collation_peers = filter_by_version(<span class="kw-2">&amp;</span>collation_peers, ValidationVersion::V2.into());
 
 	send_validation_message_v1(
 		net,
@@ -1908,17 +1904,17 @@
 		metrics,
 	);
 
-	send_validation_message_vstaging(
+	send_validation_message_v2(
 		net,
-		vstaging_validation_peers,
+		v2_validation_peers,
 		peerset_protocol_names,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 	);
 
-	send_collation_message_vstaging(
+	send_collation_message_v2(
 		net,
-		vstaging_collation_peers,
+		v2_collation_peers,
 		peerset_protocol_names,
 		WireMessage::ViewUpdate(new_view),
 		metrics,
@@ -2029,36 +2025,36 @@
 	);
 }
 
-<span class="kw">fn </span>send_validation_message_vstaging(
+<span class="kw">fn </span>send_validation_message_v2(
 	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
 	peers: Vec&lt;PeerId&gt;,
 	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_vstaging::ValidationProtocol&gt;,
+	message: WireMessage&lt;protocol_v2::ValidationProtocol&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	send_message(
 		net,
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V2.into(),
 		protocol_names,
 		message,
 		metrics,
 	);
 }
 
-<span class="kw">fn </span>send_collation_message_vstaging(
+<span class="kw">fn </span>send_collation_message_v2(
 	net: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Network,
 	peers: Vec&lt;PeerId&gt;,
 	protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	message: WireMessage&lt;protocol_vstaging::CollationProtocol&gt;,
+	message: WireMessage&lt;protocol_v2::CollationProtocol&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
 	send_message(
 		net,
 		peers,
 		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
+		CollationVersion::V2.into(),
 		protocol_names,
 		message,
 		metrics,

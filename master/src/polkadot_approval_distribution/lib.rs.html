@@ -2121,10 +2121,6 @@
 <a href="#2121" id="2121">2121</a>
 <a href="#2122" id="2122">2122</a>
 <a href="#2123" id="2123">2123</a>
-<a href="#2124" id="2124">2124</a>
-<a href="#2125" id="2125">2125</a>
-<a href="#2126" id="2126">2126</a>
-<a href="#2127" id="2127">2127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2153,8 +2149,8 @@
 	<span class="self">self </span><span class="kw">as </span>net_protocol,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::{ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
-	Versioned, VersionedValidationProtocol, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep, Versioned,
+	VersionedValidationProtocol, View,
 };
 <span class="kw">use </span>polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -2729,9 +2725,7 @@
 	{
 		<span class="kw">match </span>msg {
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Assignments(
-				assignments,
-			)) =&gt; {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) =&gt; {
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -2771,9 +2765,7 @@
 				}
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Approvals(
-				approvals,
-			)) =&gt; {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =&gt; {
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -3187,7 +3179,7 @@
 			route_random
 		};
 
-		<span class="kw">let </span>(v1_peers, vstaging_peers) = {
+		<span class="kw">let </span>(v1_peers, v2_peers) = {
 			<span class="kw">let </span>peer_data = <span class="kw-2">&amp;</span><span class="self">self</span>.peer_data;
 			<span class="kw">let </span>peers = entry
 				.known_by
@@ -3217,9 +3209,9 @@
 			}
 
 			<span class="kw">let </span>v1_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::V1);
-			<span class="kw">let </span>vstaging_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::VStaging);
+			<span class="kw">let </span>v2_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::V2);
 
-			(v1_peers, vstaging_peers)
+			(v1_peers, v2_peers)
 		};
 
 		<span class="kw">if </span>!v1_peers.is_empty() {
@@ -3230,10 +3222,10 @@
 			.<span class="kw">await</span>;
 		}
 
-		<span class="kw">if </span>!vstaging_peers.is_empty() {
+		<span class="kw">if </span>!v2_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_peers,
-				versioned_assignments_packet(ValidationVersion::VStaging, assignments.clone()),
+				v2_peers,
+				versioned_assignments_packet(ValidationVersion::V2, assignments.clone()),
 			))
 			.<span class="kw">await</span>;
 		}
@@ -3522,7 +3514,7 @@
 			in_topology || knowledge.sent.contains(message_subject, MessageKind::Assignment)
 		};
 
-		<span class="kw">let </span>(v1_peers, vstaging_peers) = {
+		<span class="kw">let </span>(v1_peers, v2_peers) = {
 			<span class="kw">let </span>peer_data = <span class="kw-2">&amp;</span><span class="self">self</span>.peer_data;
 			<span class="kw">let </span>peers = entry
 				.known_by
@@ -3552,9 +3544,9 @@
 			}
 
 			<span class="kw">let </span>v1_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::V1);
-			<span class="kw">let </span>vstaging_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::VStaging);
+			<span class="kw">let </span>v2_peers = filter_peers_by_version(<span class="kw-2">&amp;</span>peers, ValidationVersion::V2);
 
-			(v1_peers, vstaging_peers)
+			(v1_peers, v2_peers)
 		};
 
 		<span class="kw">let </span>approvals = <span class="macro">vec!</span>[vote];
@@ -3567,10 +3559,10 @@
 			.<span class="kw">await</span>;
 		}
 
-		<span class="kw">if </span>!vstaging_peers.is_empty() {
+		<span class="kw">if </span>!v2_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_peers,
-				versioned_approvals_packet(ValidationVersion::VStaging, approvals),
+				v2_peers,
+				versioned_approvals_packet(ValidationVersion::V2, approvals),
 			))
 			.<span class="kw">await</span>;
 		}
@@ -4144,9 +4136,9 @@
 			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 				protocol_v1::ApprovalDistributionMessage::Approvals(approvals),
 			)),
-		ValidationVersion::VStaging =&gt;
-			Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-				protocol_vstaging::ApprovalDistributionMessage::Approvals(approvals),
+		ValidationVersion::V2 =&gt;
+			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+				protocol_v2::ApprovalDistributionMessage::Approvals(approvals),
 			)),
 	}
 }
@@ -4160,9 +4152,9 @@
 			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 				protocol_v1::ApprovalDistributionMessage::Assignments(assignments),
 			)),
-		ValidationVersion::VStaging =&gt;
-			Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-				protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments),
+		ValidationVersion::V2 =&gt;
+			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+				protocol_v2::ApprovalDistributionMessage::Assignments(assignments),
 			)),
 	}
 }

@@ -1134,10 +1134,6 @@
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1179,12 +1175,12 @@
 	ValidationResult,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	slashing, vstaging <span class="kw">as </span>vstaging_primitives, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
-	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	async_backing, slashing, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent,
+	CandidateHash, CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt,
+	CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
@@ -1835,14 +1831,12 @@
 	),
 	<span class="doccomment">/// Get the minimum required backing votes.
 	</span>MinimumBackingVotes(SessionIndex, RuntimeApiSender&lt;u32&gt;),
-
 	<span class="doccomment">/// Get the backing state of the given para.
-	/// This is a staging API that will not be available on production runtimes.
-	</span>StagingParaBackingState(ParaId, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;vstaging_primitives::BackingState&gt;&gt;),
+	</span>ParaBackingState(ParaId, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt;),
 	<span class="doccomment">/// Get candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
 	///
 	/// If it&#39;s not supported by the Runtime, the async backing is said to be disabled.
-	</span>StagingAsyncBackingParams(RuntimeApiSender&lt;vstaging_primitives::AsyncBackingParams&gt;),
+	</span>AsyncBackingParams(RuntimeApiSender&lt;async_backing::AsyncBackingParams&gt;),
 }
 
 <span class="kw">impl </span>RuntimeApiRequest {
@@ -1866,10 +1860,8 @@
 	<span class="doccomment">/// `MinimumBackingVotes`
 	</span><span class="kw">pub const </span>MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = <span class="number">6</span>;
 
-	<span class="doccomment">/// Minimum version for backing state, required for async backing.
-	///
-	/// 99 for now, should be adjusted to VSTAGING/actual runtime version once released.
-	</span><span class="kw">pub const </span>STAGING_BACKING_STATE: u32 = <span class="number">99</span>;
+	<span class="doccomment">/// Minimum version to enable asynchronous backing: `AsyncBackingParams` and `ParaBackingState`.
+	</span><span class="kw">pub const </span>STAGING_BACKING_STATE: u32 = <span class="number">7</span>;
 }
 
 <span class="doccomment">/// A message to the Runtime API subsystem.

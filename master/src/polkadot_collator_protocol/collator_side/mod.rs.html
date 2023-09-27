@@ -1474,14 +1474,6 @@
 <a href="#1474" id="1474">1474</a>
 <a href="#1475" id="1475">1475</a>
 <a href="#1476" id="1476">1476</a>
-<a href="#1477" id="1477">1477</a>
-<a href="#1478" id="1478">1478</a>
-<a href="#1479" id="1479">1479</a>
-<a href="#1480" id="1480">1480</a>
-<a href="#1481" id="1481">1481</a>
-<a href="#1482" id="1482">1482</a>
-<a href="#1483" id="1483">1483</a>
-<a href="#1484" id="1484">1484</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1515,10 +1507,10 @@
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		incoming::{<span class="self">self</span>, OutgoingResponse},
-		v1 <span class="kw">as </span>request_v1, vstaging <span class="kw">as </span>request_vstaging, IncomingRequestReceiver,
+		v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>request_v2, IncomingRequestReceiver,
 	},
-	v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, OurView, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
+	Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -2061,7 +2053,7 @@
 </span><span class="kw">fn </span>declare_message(
 	state: <span class="kw-2">&amp;mut </span>State,
 	version: CollationVersion,
-) -&gt; <span class="prelude-ty">Option</span>&lt;Versioned&lt;protocol_v1::CollationProtocol, protocol_vstaging::CollationProtocol&gt;&gt; {
+) -&gt; <span class="prelude-ty">Option</span>&lt;Versioned&lt;protocol_v1::CollationProtocol, protocol_v2::CollationProtocol&gt;&gt; {
 	<span class="kw">let </span>para_id = state.collating_on<span class="question-mark">?</span>;
 	<span class="prelude-val">Some</span>(<span class="kw">match </span>version {
 		CollationVersion::V1 =&gt; {
@@ -2074,17 +2066,15 @@
 			);
 			Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
 		},
-		CollationVersion::VStaging =&gt; {
+		CollationVersion::V2 =&gt; {
 			<span class="kw">let </span>declare_signature_payload =
-				protocol_vstaging::declare_signature_payload(<span class="kw-2">&amp;</span>state.local_peer_id);
-			<span class="kw">let </span>wire_message = protocol_vstaging::CollatorProtocolMessage::Declare(
+				protocol_v2::declare_signature_payload(<span class="kw-2">&amp;</span>state.local_peer_id);
+			<span class="kw">let </span>wire_message = protocol_v2::CollatorProtocolMessage::Declare(
 				state.collator_pair.public(),
 				para_id,
 				state.collator_pair.sign(<span class="kw-2">&amp;</span>declare_signature_payload),
 			);
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				wire_message,
-			))
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -2190,15 +2180,13 @@
 		collation.status.advance_to_advertised();
 
 		<span class="kw">let </span>collation_message = <span class="kw">match </span>protocol_version {
-			CollationVersion::VStaging =&gt; {
-				<span class="kw">let </span>wire_message = protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+			CollationVersion::V2 =&gt; {
+				<span class="kw">let </span>wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: <span class="kw-2">*</span>candidate_hash,
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
-				Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-					wire_message,
-				))
+				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
 			CollationVersion::V1 =&gt; {
 				<span class="kw">let </span>wire_message =
@@ -2321,7 +2309,7 @@
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
 	<span class="comment">// The response payload is the same for both versions of protocol
-	// and doesn&#39;t have vstaging alias for simplicity.
+	// and doesn&#39;t have v2 alias for simplicity.
 	</span><span class="kw">let </span>response = OutgoingResponse {
 		result: <span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 		reputation_changes: Vec::new(),
@@ -2352,16 +2340,13 @@
 	runtime: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 	state: <span class="kw-2">&amp;mut </span>State,
 	origin: PeerId,
-	msg: Versioned&lt;
-		protocol_v1::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
-	&gt;,
+	msg: Versioned&lt;protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">use </span>protocol_v1::CollatorProtocolMessage <span class="kw">as </span>V1;
-	<span class="kw">use </span>protocol_vstaging::CollatorProtocolMessage <span class="kw">as </span>VStaging;
+	<span class="kw">use </span>protocol_v2::CollatorProtocolMessage <span class="kw">as </span>V2;
 
 	<span class="kw">match </span>msg {
-		Versioned::V1(V1::Declare(..)) | Versioned::VStaging(VStaging::Declare(..)) =&gt; {
+		Versioned::V1(V1::Declare(..)) | Versioned::V2(V2::Declare(..)) =&gt; {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
@@ -2372,8 +2357,7 @@
 			</span>ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.<span class="kw">await</span>;
 		},
-		Versioned::V1(V1::AdvertiseCollation(<span class="kw">_</span>)) |
-		Versioned::VStaging(VStaging::AdvertiseCollation { .. }) =&gt; {
+		Versioned::V1(V1::AdvertiseCollation(<span class="kw">_</span>)) | Versioned::V2(V2::AdvertiseCollation { .. }) =&gt; {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
@@ -2388,7 +2372,7 @@
 				.<span class="kw">await</span>;
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
-		Versioned::VStaging(VStaging::CollationSeconded(relay_parent, statement)) =&gt; {
+		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) =&gt; {
 			<span class="kw">if </span>!<span class="macro">matches!</span>(statement.unchecked_payload(), Statement::Seconded(<span class="kw">_</span>)) {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
@@ -2490,7 +2474,7 @@
 			<span class="kw">let </span>collation = <span class="kw">match </span><span class="kw-2">&amp;</span>req {
 				VersionedCollationRequest::V1(<span class="kw">_</span>) <span class="kw">if </span>!mode.is_enabled() =&gt;
 					per_relay_parent.collations.values_mut().next(),
-				VersionedCollationRequest::VStaging(req) =&gt;
+				VersionedCollationRequest::V2(req) =&gt;
 					per_relay_parent.collations.get_mut(<span class="kw-2">&amp;</span>req.payload.candidate_hash),
 				<span class="kw">_ </span>=&gt; {
 					<span class="macro">gum::warn!</span>(
@@ -2806,7 +2790,7 @@
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	req_v1_receiver: IncomingRequestReceiver&lt;request_v1::CollationFetchingRequest&gt;,
-	req_v2_receiver: IncomingRequestReceiver&lt;request_vstaging::CollationFetchingRequest&gt;,
+	req_v2_receiver: IncomingRequestReceiver&lt;request_v2::CollationFetchingRequest&gt;,
 	metrics: Metrics,
 ) -&gt; std::result::Result&lt;(), FatalError&gt; {
 	run_inner(
@@ -2828,7 +2812,7 @@
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	<span class="kw-2">mut </span>req_v1_receiver: IncomingRequestReceiver&lt;request_v1::CollationFetchingRequest&gt;,
-	<span class="kw-2">mut </span>req_v2_receiver: IncomingRequestReceiver&lt;request_vstaging::CollationFetchingRequest&gt;,
+	<span class="kw-2">mut </span>req_v2_receiver: IncomingRequestReceiver&lt;request_v2::CollationFetchingRequest&gt;,
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
@@ -2909,7 +2893,7 @@
 						(ProspectiveParachainsMode::Disabled, VersionedCollationRequest::V1(<span class="kw">_</span>)) =&gt; {
 							per_relay_parent.collations.values().next()
 						},
-						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::VStaging(req)) =&gt; {
+						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::V2(req)) =&gt; {
 							per_relay_parent.collations.get(<span class="kw-2">&amp;</span>req.payload.candidate_hash)
 						},
 						<span class="kw">_ </span>=&gt; {
@@ -2960,7 +2944,7 @@
 
 				log_error(
 					handle_incoming_request(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, request).<span class="kw">await</span>,
-					<span class="string">&quot;Handling incoming collation fetch request VStaging&quot;
+					<span class="string">&quot;Handling incoming collation fetch request V2&quot;
 				</span>)<span class="question-mark">?</span>;
 			}
 		}

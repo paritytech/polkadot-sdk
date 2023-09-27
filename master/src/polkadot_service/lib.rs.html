@@ -2291,7 +2291,7 @@
 	<span class="kw">let </span>(collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(collation_req_vstaging_receiver, cfg) =
+	<span class="kw">let </span>(collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(available_data_req_receiver, cfg) =
@@ -2299,7 +2299,7 @@
 	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(candidate_req_vstaging_receiver, cfg) =
+	<span class="kw">let </span>(candidate_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
@@ -2488,10 +2488,10 @@
 					pov_req_receiver,
 					chunk_req_receiver,
 					collation_req_v1_receiver,
-					collation_req_vstaging_receiver,
+					collation_req_v2_receiver,
 					available_data_req_receiver,
 					statement_req_receiver,
-					candidate_req_vstaging_receiver,
+					candidate_req_v2_receiver,
 					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,

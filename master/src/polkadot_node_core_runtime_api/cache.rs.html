@@ -524,10 +524,6 @@
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -550,12 +546,12 @@
 <span class="kw">use </span>sp_consensus_babe::Epoch;
 
 <span class="kw">use </span>polkadot_primitives::{
-	vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 <span class="doccomment">/// For consistency we have the same capacity for all caches. We use 128 as we&#39;ll only need that
@@ -591,14 +587,11 @@
 		LruMap&lt;(Hash, ParaId, OccupiedCoreAssumption), <span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;&gt;,
 	version: LruMap&lt;Hash, u32&gt;,
 	disputes: LruMap&lt;Hash, Vec&lt;(SessionIndex, CandidateHash, DisputeState&lt;BlockNumber&gt;)&gt;&gt;,
-	unapplied_slashes:
-		LruMap&lt;Hash, Vec&lt;(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)&gt;&gt;,
-	key_ownership_proof:
-		LruMap&lt;(Hash, ValidatorId), <span class="prelude-ty">Option</span>&lt;vstaging::slashing::OpaqueKeyOwnershipProof&gt;&gt;,
+	unapplied_slashes: LruMap&lt;Hash, Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;&gt;,
+	key_ownership_proof: LruMap&lt;(Hash, ValidatorId), <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;&gt;,
 	minimum_backing_votes: LruMap&lt;SessionIndex, u32&gt;,
-
-	staging_para_backing_state: LruMap&lt;(Hash, ParaId), <span class="prelude-ty">Option</span>&lt;vstaging::BackingState&gt;&gt;,
-	staging_async_backing_params: LruMap&lt;Hash, vstaging::AsyncBackingParams&gt;,
+	para_backing_state: LruMap&lt;(Hash, ParaId), <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt;,
+	async_backing_params: LruMap&lt;Hash, async_backing::AsyncBackingParams&gt;,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>RequestResultCache {
@@ -630,8 +623,8 @@
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 
-			staging_para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			staging_async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -931,14 +924,14 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>unapplied_slashes(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		relay_parent: <span class="kw-2">&amp;</span>Hash,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;&gt; {
 		<span class="self">self</span>.unapplied_slashes.get(relay_parent).map(|v| <span class="kw-2">&amp;*</span>v)
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_unapplied_slashes(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		relay_parent: Hash,
-		value: Vec&lt;(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)&gt;,
+		value: Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;,
 	) {
 		<span class="self">self</span>.unapplied_slashes.insert(relay_parent, value);
 	}
@@ -946,14 +939,14 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>key_ownership_proof(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: (Hash, ValidatorId),
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;vstaging::slashing::OpaqueKeyOwnershipProof&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;&gt; {
 		<span class="self">self</span>.key_ownership_proof.get(<span class="kw-2">&amp;</span>key).map(|v| <span class="kw-2">&amp;*</span>v)
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_key_ownership_proof(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: (Hash, ValidatorId),
-		value: <span class="prelude-ty">Option</span>&lt;vstaging::slashing::OpaqueKeyOwnershipProof&gt;,
+		value: <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;,
 	) {
 		<span class="self">self</span>.key_ownership_proof.insert(key, value);
 	}
@@ -961,7 +954,7 @@
 	<span class="comment">// This request is never cached, hence always returns `None`.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>submit_report_dispute_lost(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		_key: (Hash, vstaging::slashing::DisputeProof, vstaging::slashing::OpaqueKeyOwnershipProof),
+		_key: (Hash, slashing::DisputeProof, slashing::OpaqueKeyOwnershipProof),
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;()&gt;&gt; {
 		<span class="prelude-val">None
 	</span>}
@@ -978,34 +971,34 @@
 		<span class="self">self</span>.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>staging_para_backing_state(
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>para_backing_state(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: (Hash, ParaId),
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;vstaging::BackingState&gt;&gt; {
-		<span class="self">self</span>.staging_para_backing_state.get(<span class="kw-2">&amp;</span>key).map(|v| <span class="kw-2">&amp;*</span>v)
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt; {
+		<span class="self">self</span>.para_backing_state.get(<span class="kw-2">&amp;</span>key).map(|v| <span class="kw-2">&amp;*</span>v)
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_staging_para_backing_state(
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_para_backing_state(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: (Hash, ParaId),
-		value: <span class="prelude-ty">Option</span>&lt;vstaging::BackingState&gt;,
+		value: <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;,
 	) {
-		<span class="self">self</span>.staging_para_backing_state.insert(key, value);
+		<span class="self">self</span>.para_backing_state.insert(key, value);
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>staging_async_backing_params(
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>async_backing_params(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: <span class="kw-2">&amp;</span>Hash,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>vstaging::AsyncBackingParams&gt; {
-		<span class="self">self</span>.staging_async_backing_params.get(key).map(|v| <span class="kw-2">&amp;*</span>v)
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>async_backing::AsyncBackingParams&gt; {
+		<span class="self">self</span>.async_backing_params.get(key).map(|v| <span class="kw-2">&amp;*</span>v)
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_staging_async_backing_params(
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_async_backing_params(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: Hash,
-		value: vstaging::AsyncBackingParams,
+		value: async_backing::AsyncBackingParams,
 	) {
-		<span class="self">self</span>.staging_async_backing_params.insert(key, value);
+		<span class="self">self</span>.async_backing_params.insert(key, value);
 	}
 }
 
@@ -1045,17 +1038,16 @@
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, <span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;),
 	Version(Hash, u32),
 	Disputes(Hash, Vec&lt;(SessionIndex, CandidateHash, DisputeState&lt;BlockNumber&gt;)&gt;),
-	UnappliedSlashes(Hash, Vec&lt;(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)&gt;),
-	KeyOwnershipProof(Hash, ValidatorId, <span class="prelude-ty">Option</span>&lt;vstaging::slashing::OpaqueKeyOwnershipProof&gt;),
+	UnappliedSlashes(Hash, Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;),
+	KeyOwnershipProof(Hash, ValidatorId, <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;),
 	<span class="comment">// This is a request with side-effects.
 	</span>SubmitReportDisputeLost(
 		Hash,
-		vstaging::slashing::DisputeProof,
-		vstaging::slashing::OpaqueKeyOwnershipProof,
+		slashing::DisputeProof,
+		slashing::OpaqueKeyOwnershipProof,
 		<span class="prelude-ty">Option</span>&lt;()&gt;,
 	),
-
-	StagingParaBackingState(Hash, ParaId, <span class="prelude-ty">Option</span>&lt;vstaging::BackingState&gt;),
-	StagingAsyncBackingParams(Hash, vstaging::AsyncBackingParams),
+	ParaBackingState(Hash, ParaId, <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;),
+	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 }
 </code></pre></div></section></main></body></html>

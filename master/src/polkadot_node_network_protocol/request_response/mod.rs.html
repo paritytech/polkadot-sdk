@@ -466,7 +466,7 @@
 </span><span class="kw">pub mod </span>v1;
 
 <span class="doccomment">/// Actual versioned requests and responses that are sent over the wire.
-</span><span class="kw">pub mod </span>vstaging;
+</span><span class="kw">pub mod </span>v2;
 
 <span class="doccomment">/// A protocol per subsystem seems to make the most sense, this way we don&#39;t need any dispatching
 /// within protocols.
@@ -477,7 +477,7 @@
 	<span class="doccomment">/// Protocol for fetching collations from collators.
 	</span>CollationFetchingV1,
 	<span class="doccomment">/// Protocol for fetching collations from collators when async backing is enabled.
-	</span>CollationFetchingVStaging,
+	</span>CollationFetchingV2,
 	<span class="doccomment">/// Protocol for fetching seconded PoVs from validators of the same group.
 	</span>PoVFetchingV1,
 	<span class="doccomment">/// Protocol for fetching available data.
@@ -489,7 +489,7 @@
 
 	<span class="doccomment">/// Protocol for requesting candidates with attestations in statement distribution
 	/// when async backing is enabled.
-	</span>AttestedCandidateVStaging,
+	</span>AttestedCandidateV2,
 }
 
 <span class="doccomment">/// Minimum bandwidth we expect for validators - 500Mbit/s is the recommendation, so approximately
@@ -558,7 +558,7 @@
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead.
 </span><span class="kw">const </span>STATEMENT_RESPONSE_SIZE: u64 = MAX_CODE_SIZE <span class="kw">as </span>u64 + <span class="number">10_000</span>;
 
-<span class="doccomment">/// Maximum response sizes for `AttestedCandidateVStaging`.
+<span class="doccomment">/// Maximum response sizes for `AttestedCandidateV2`.
 ///
 /// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead and
 /// additional backing statements.
@@ -610,7 +610,7 @@
 				</span>request_timeout: CHUNK_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging =&gt;
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =&gt;
 				RequestResponseConfig {
 					name,
 					fallback_names,
@@ -665,7 +665,7 @@
 				request_timeout: DISPUTE_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
-			Protocol::AttestedCandidateVStaging =&gt; RequestResponseConfig {
+			Protocol::AttestedCandidateV2 =&gt; RequestResponseConfig {
 				name,
 				fallback_names,
 				max_request_size: <span class="number">1_000</span>,
@@ -686,7 +686,7 @@
 			// as well.
 			</span>Protocol::ChunkFetchingV1 =&gt; <span class="number">100</span>,
 			<span class="comment">// 10 seems reasonable, considering group sizes of max 10 validators.
-			</span>Protocol::CollationFetchingV1 | Protocol::CollationFetchingVStaging =&gt; <span class="number">10</span>,
+			</span>Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =&gt; <span class="number">10</span>,
 			<span class="comment">// 10 seems reasonable, considering group sizes of max 10 validators.
 			</span>Protocol::PoVFetchingV1 =&gt; <span class="number">10</span>,
 			<span class="comment">// Validators are constantly self-selecting to request available data which may lead
@@ -718,7 +718,7 @@
 			// failure, so having a good value here is mostly about performance tuning.
 			</span>Protocol::DisputeSendingV1 =&gt; <span class="number">100</span>,
 
-			Protocol::AttestedCandidateVStaging =&gt; {
+			Protocol::AttestedCandidateV2 =&gt; {
 				<span class="comment">// We assume we can utilize up to 70% of the available bandwidth for statements.
 				// This is just a guess/estimate, with the following considerations: If we are
 				// faster than that, queue size will stay low anyway, even if not - requesters will
@@ -755,8 +755,8 @@
 			Protocol::DisputeSendingV1 =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;/polkadot/send_dispute/1&quot;</span>),
 
 			<span class="comment">// Introduced after legacy names became legacy.
-			</span>Protocol::AttestedCandidateVStaging =&gt; <span class="prelude-val">None</span>,
-			Protocol::CollationFetchingVStaging =&gt; <span class="prelude-val">None</span>,
+			</span>Protocol::AttestedCandidateV2 =&gt; <span class="prelude-val">None</span>,
+			Protocol::CollationFetchingV2 =&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
@@ -813,8 +813,8 @@
 			Protocol::StatementFetchingV1 =&gt; <span class="string">&quot;/req_statement/1&quot;</span>,
 			Protocol::DisputeSendingV1 =&gt; <span class="string">&quot;/send_dispute/1&quot;</span>,
 
-			Protocol::CollationFetchingVStaging =&gt; <span class="string">&quot;/req_collation/2&quot;</span>,
-			Protocol::AttestedCandidateVStaging =&gt; <span class="string">&quot;/req_attested_candidate/2&quot;</span>,
+			Protocol::CollationFetchingV2 =&gt; <span class="string">&quot;/req_collation/2&quot;</span>,
+			Protocol::AttestedCandidateV2 =&gt; <span class="string">&quot;/req_attested_candidate/2&quot;</span>,
 		};
 
 		<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, prefix, short_name).into()

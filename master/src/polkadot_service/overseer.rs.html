@@ -404,8 +404,6 @@
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -436,7 +434,7 @@
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1 <span class="kw">as </span>request_v1, vstaging <span class="kw">as </span>request_vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>request_v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;malus&quot;</span>, test))]
@@ -512,17 +510,15 @@
 	</span><span class="kw">pub </span>chunk_req_receiver: IncomingRequestReceiver&lt;request_v1::ChunkFetchingRequest&gt;,
 	<span class="doccomment">/// Collations request receiver for network protocol v1.
 	</span><span class="kw">pub </span>collation_req_v1_receiver: IncomingRequestReceiver&lt;request_v1::CollationFetchingRequest&gt;,
-	<span class="doccomment">/// Collations request receiver for network protocol vstaging.
-	</span><span class="kw">pub </span>collation_req_vstaging_receiver:
-		IncomingRequestReceiver&lt;request_vstaging::CollationFetchingRequest&gt;,
+	<span class="doccomment">/// Collations request receiver for network protocol v2.
+	</span><span class="kw">pub </span>collation_req_v2_receiver: IncomingRequestReceiver&lt;request_v2::CollationFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for available data requests.
 	</span><span class="kw">pub </span>available_data_req_receiver:
 		IncomingRequestReceiver&lt;request_v1::AvailableDataFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for incoming large statement requests.
 	</span><span class="kw">pub </span>statement_req_receiver: IncomingRequestReceiver&lt;request_v1::StatementFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for incoming candidate requests.
-	</span><span class="kw">pub </span>candidate_req_vstaging_receiver:
-		IncomingRequestReceiver&lt;request_vstaging::AttestedCandidateRequest&gt;,
+	</span><span class="kw">pub </span>candidate_req_v2_receiver: IncomingRequestReceiver&lt;request_v2::AttestedCandidateRequest&gt;,
 	<span class="doccomment">/// Receiver for incoming disputes.
 	</span><span class="kw">pub </span>dispute_req_receiver: IncomingRequestReceiver&lt;request_v1::DisputeRequest&gt;,
 	<span class="doccomment">/// Prometheus registry, commonly used for production systems, less so for test.
@@ -566,10 +562,10 @@
 		pov_req_receiver,
 		chunk_req_receiver,
 		collation_req_v1_receiver,
-		collation_req_vstaging_receiver,
+		collation_req_v2_receiver,
 		available_data_req_receiver,
 		statement_req_receiver,
-		candidate_req_vstaging_receiver,
+		candidate_req_v2_receiver,
 		dispute_req_receiver,
 		registry,
 		spawner,
@@ -696,7 +692,7 @@
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
 					request_receiver_v1: collation_req_v1_receiver,
-					request_receiver_vstaging: collation_req_vstaging_receiver,
+					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)<span class="question-mark">?</span>,
 				},
 				IsParachainNode::FullNode =&gt; ProtocolSide::None,
@@ -717,7 +713,7 @@
 		.statement_distribution(StatementDistributionSubsystem::new(
 			keystore.clone(),
 			statement_req_receiver,
-			candidate_req_vstaging_receiver,
+			candidate_req_v2_receiver,
 			Metrics::register(registry)<span class="question-mark">?</span>,
 			rand::rngs::StdRng::from_entropy(),
 		))

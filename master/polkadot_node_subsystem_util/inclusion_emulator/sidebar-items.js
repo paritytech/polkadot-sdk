@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["staging"]};
+window.SIDEBAR_ITEMS = {"enum":["FragmentValidityError","HrmpWatermarkUpdate","ModificationError"],"struct":["ConstraintModifications","Constraints","Fragment","InboundHrmpLimitations","OutboundHrmpChannelLimitations","OutboundHrmpChannelModification","ProspectiveCandidate","RelayChainBlockInfo"]};

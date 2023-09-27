@@ -962,7 +962,6 @@
 <a href="#962" id="962">962</a>
 <a href="#963" id="963">963</a>
 <a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -996,8 +995,8 @@
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, OurView, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
+	Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
 	jaeger, messages::<span class="kw-2">*</span>, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -1061,8 +1060,8 @@
 					<span class="self">self</span>.relay_parent,
 					<span class="self">self</span>.signed_availability.into(),
 				)),
-			<span class="prelude-val">Some</span>(ValidationVersion::VStaging) =&gt;
-				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+			<span class="prelude-val">Some</span>(ValidationVersion::V2) =&gt;
+				Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
 					<span class="self">self</span>.relay_parent,
 					<span class="self">self</span>.signed_availability.into(),
 				)),
@@ -1467,8 +1466,7 @@
 		};
 
 		<span class="kw">let </span>v1_interested_peers = filter_by_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V1);
-		<span class="kw">let </span>vstaging_interested_peers =
-			filter_by_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::VStaging);
+		<span class="kw">let </span>v2_interested_peers = filter_by_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V2);
 
 		<span class="kw">if </span>!v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -1478,10 +1476,10 @@
 			.<span class="kw">await</span>;
 		}
 
-		<span class="kw">if </span>!vstaging_interested_peers.is_empty() {
+		<span class="kw">if </span>!v2_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_interested_peers,
-				message.into_validation_protocol(ValidationVersion::VStaging.into()),
+				v2_interested_peers,
+				message.into_validation_protocol(ValidationVersion::V2.into()),
 			))
 			.<span class="kw">await
 		</span>}
@@ -1503,7 +1501,7 @@
 			relay_parent,
 			bitfield,
 		)) =&gt; (relay_parent, bitfield),
-		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) =&gt; (relay_parent, bitfield),

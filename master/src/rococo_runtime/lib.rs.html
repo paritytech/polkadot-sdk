@@ -2340,6 +2340,19 @@
 <a href="#2340" id="2340">2340</a>
 <a href="#2341" id="2341">2341</a>
 <a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
+<a href="#2345" id="2345">2345</a>
+<a href="#2346" id="2346">2346</a>
+<a href="#2347" id="2347">2347</a>
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
+<a href="#2353" id="2353">2353</a>
+<a href="#2354" id="2354">2354</a>
+<a href="#2355" id="2355">2355</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2388,7 +2401,7 @@
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
 	paras_inherent <span class="kw">as </span>parachains_paras_inherent,
-	runtime_api_impl::v5 <span class="kw">as </span>parachains_runtime_api_impl,
+	runtime_api_impl::v7 <span class="kw">as </span>parachains_runtime_api_impl,
 	scheduler <span class="kw">as </span>parachains_scheduler, session_info <span class="kw">as </span>parachains_session_info,
 	shared <span class="kw">as </span>parachains_shared,
 };
@@ -4066,7 +4079,8 @@
 		}
 	}
 
-	<span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block, Hash, BlockNumber&gt; <span class="kw">for </span>Runtime {
+	<span class="attr">#[api_version(<span class="number">7</span>)]
+	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block, Hash, BlockNumber&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
 		}
@@ -4195,6 +4209,18 @@
 				dispute_proof,
 				key_ownership_proof,
 			)
+		}
+
+		<span class="kw">fn </span>minimum_backing_votes() -&gt; u32 {
+			parachains_runtime_api_impl::minimum_backing_votes::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;primitives::async_backing::BackingState&gt; {
+			parachains_runtime_api_impl::backing_state::&lt;Runtime&gt;(para_id)
+		}
+
+		<span class="kw">fn </span>async_backing_params() -&gt; primitives::AsyncBackingParams {
+			parachains_runtime_api_impl::async_backing_params::&lt;Runtime&gt;()
 		}
 	}
 

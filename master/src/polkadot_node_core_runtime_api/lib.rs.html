@@ -583,11 +583,6 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -756,12 +751,11 @@
 				</span>.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			SubmitReportDisputeLost(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {},
-
-			StagingParaBackingState(relay_parent, para_id, constraints) =&gt; <span class="self">self
+			ParaBackingState(relay_parent, para_id, constraints) =&gt; <span class="self">self
 				</span>.requests_cache
-				.cache_staging_para_backing_state((relay_parent, para_id), constraints),
-			StagingAsyncBackingParams(relay_parent, params) =&gt;
-				<span class="self">self</span>.requests_cache.cache_staging_async_backing_params(relay_parent, params),
+				.cache_para_backing_state((relay_parent, para_id), constraints),
+			AsyncBackingParams(relay_parent, params) =&gt;
+				<span class="self">self</span>.requests_cache.cache_async_backing_params(relay_parent, params),
 		}
 	}
 
@@ -887,13 +881,10 @@
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
-
-			Request::StagingParaBackingState(para, sender) =&gt;
-				<span class="macro">query!</span>(staging_para_backing_state(para), sender)
-					.map(|sender| Request::StagingParaBackingState(para, sender)),
-			Request::StagingAsyncBackingParams(sender) =&gt;
-				<span class="macro">query!</span>(staging_async_backing_params(), sender)
-					.map(|sender| Request::StagingAsyncBackingParams(sender)),
+			Request::ParaBackingState(para, sender) =&gt; <span class="macro">query!</span>(para_backing_state(para), sender)
+				.map(|sender| Request::ParaBackingState(para, sender)),
+			Request::AsyncBackingParams(sender) =&gt; <span class="macro">query!</span>(async_backing_params(), sender)
+				.map(|sender| Request::AsyncBackingParams(sender)),
 			Request::MinimumBackingVotes(index, sender) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = <span class="self">self</span>.requests_cache.minimum_backing_votes(index) {
 					<span class="self">self</span>.metrics.on_cached_request();
@@ -1159,19 +1150,18 @@
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
 			sender
 		),
-
-		Request::StagingParaBackingState(para, sender) =&gt; {
+		Request::ParaBackingState(para, sender) =&gt; {
 			<span class="macro">query!</span>(
-				StagingParaBackingState,
-				staging_para_backing_state(para),
+				ParaBackingState,
+				para_backing_state(para),
 				ver = Request::STAGING_BACKING_STATE,
 				sender
 			)
 		},
-		Request::StagingAsyncBackingParams(sender) =&gt; {
+		Request::AsyncBackingParams(sender) =&gt; {
 			<span class="macro">query!</span>(
-				StagingAsyncBackingParams,
-				staging_async_backing_params(),
+				AsyncBackingParams,
+				async_backing_params(),
 				ver = Request::STAGING_BACKING_STATE,
 				sender
 			)

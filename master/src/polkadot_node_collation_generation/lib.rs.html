@@ -588,7 +588,6 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -634,9 +633,8 @@
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
-	request_availability_cores, request_persisted_validation_data,
-	request_staging_async_backing_params, request_validation_code, request_validation_code_hash,
-	request_validators,
+	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
+	request_validation_code, request_validation_code_hash, request_validators,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -799,7 +797,7 @@
 		<span class="kw">let </span>(availability_cores, validators, async_backing_params) = <span class="macro">join!</span>(
 			request_availability_cores(relay_parent, ctx.sender()).<span class="kw">await</span>,
 			request_validators(relay_parent, ctx.sender()).<span class="kw">await</span>,
-			request_staging_async_backing_params(relay_parent, ctx.sender()).<span class="kw">await</span>,
+			request_async_backing_params(relay_parent, ctx.sender()).<span class="kw">await</span>,
 		);
 
 		<span class="kw">let </span>availability_cores = availability_cores<span class="question-mark">??</span>;

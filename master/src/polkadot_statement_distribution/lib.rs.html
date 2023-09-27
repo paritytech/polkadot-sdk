@@ -431,11 +431,6 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -464,10 +459,8 @@
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::{
-		v1 <span class="kw">as </span>request_v1, vstaging::AttestedCandidateRequest, IncomingRequestReceiver,
-	},
-	vstaging <span class="kw">as </span>protocol_vstaging, Versioned,
+	request_response::{v1 <span class="kw">as </span>request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
+	v2 <span class="kw">as </span>protocol_v2, Versioned,
 };
 <span class="kw">use </span>polkadot_node_primitives::StatementWithPVD;
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -498,7 +491,7 @@
 	ResponderMessage <span class="kw">as </span>V1ResponderMessage,
 };
 
-<span class="kw">mod </span>vstaging;
+<span class="kw">mod </span>v2;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::statement-distribution&quot;</span>;
 
@@ -542,9 +535,9 @@
 	<span class="doccomment">/// Messages from spawned v1 (legacy) responder background task.
 	</span>V1Responder(<span class="prelude-ty">Option</span>&lt;V1ResponderMessage&gt;),
 	<span class="doccomment">/// Messages from candidate responder background task.
-	</span>Responder(<span class="prelude-ty">Option</span>&lt;vstaging::ResponderMessage&gt;),
+	</span>Responder(<span class="prelude-ty">Option</span>&lt;v2::ResponderMessage&gt;),
 	<span class="doccomment">/// Messages from answered requests.
-	</span>Response(vstaging::UnhandledResponse),
+	</span>Response(v2::UnhandledResponse),
 	<span class="doccomment">/// Message that a request is ready to be retried. This just acts as a signal that we should
 	/// dispatch all pending requests again.
 	</span>RetryRequest(()),
@@ -554,10 +547,10 @@
 </span><span class="kw">impl </span>MuxedMessage {
 	<span class="kw">async fn </span>receive&lt;Context&gt;(
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		state: <span class="kw-2">&amp;mut </span>vstaging::State,
+		state: <span class="kw-2">&amp;mut </span>v2::State,
 		from_v1_requester: <span class="kw-2">&amp;mut </span>mpsc::Receiver&lt;V1RequesterMessage&gt;,
 		from_v1_responder: <span class="kw-2">&amp;mut </span>mpsc::Receiver&lt;V1ResponderMessage&gt;,
-		from_responder: <span class="kw-2">&amp;mut </span>mpsc::Receiver&lt;vstaging::ResponderMessage&gt;,
+		from_responder: <span class="kw-2">&amp;mut </span>mpsc::Receiver&lt;v2::ResponderMessage&gt;,
 	) -&gt; MuxedMessage {
 		<span class="kw">let </span>(request_manager, response_manager) = state.request_and_response_managers();
 		<span class="comment">// We are only fusing here to make `select` happy, in reality we will quit if one of those
@@ -566,8 +559,8 @@
 		<span class="kw">let </span>from_v1_requester = from_v1_requester.next();
 		<span class="kw">let </span>from_v1_responder = from_v1_responder.next();
 		<span class="kw">let </span>from_responder = from_responder.next();
-		<span class="kw">let </span>receive_response = vstaging::receive_response(response_manager).fuse();
-		<span class="kw">let </span>retry_request = vstaging::next_retry(request_manager).fuse();
+		<span class="kw">let </span>receive_response = v2::receive_response(response_manager).fuse();
+		<span class="kw">let </span>retry_request = v2::next_retry(request_manager).fuse();
 		<span class="macro">futures::pin_mut!</span>(
 			from_orchestra,
 			from_v1_requester,
@@ -620,7 +613,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>reputation_delay = new_reputation_delay();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>legacy_v1_state = <span class="kw">crate</span>::legacy_v1::State::new(<span class="self">self</span>.keystore.clone());
-		<span class="kw">let </span><span class="kw-2">mut </span>state = <span class="kw">crate</span>::vstaging::State::new(<span class="self">self</span>.keystore.clone());
+		<span class="kw">let </span><span class="kw-2">mut </span>state = <span class="kw">crate</span>::v2::State::new(<span class="self">self</span>.keystore.clone());
 
 		<span class="comment">// Sender/Receiver for getting news from our statement fetching tasks.
 		</span><span class="kw">let </span>(v1_req_sender, <span class="kw-2">mut </span>v1_req_receiver) = mpsc::channel(<span class="number">1</span>);
@@ -644,7 +637,7 @@
 
 		ctx.spawn(
 			<span class="string">&quot;candidate-responder&quot;</span>,
-			vstaging::respond_task(
+			v2::respond_task(
 				<span class="self">self</span>.req_receiver.take().expect(<span class="string">&quot;Mandatory argument to new. qed&quot;</span>),
 				res_sender.clone(),
 			)
@@ -718,14 +711,13 @@
 					)<span class="question-mark">?</span>;
 				},
 				MuxedMessage::Responder(result) =&gt; {
-					vstaging::answer_request(
+					v2::answer_request(
 						<span class="kw-2">&amp;mut </span>state,
 						result.ok_or(FatalError::RequesterReceiverFinished)<span class="question-mark">?</span>,
 					);
 				},
 				MuxedMessage::Response(result) =&gt; {
-					vstaging::handle_response(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, result, <span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation)
-						.<span class="kw">await</span>;
+					v2::handle_response(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, result, <span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation).<span class="kw">await</span>;
 				},
 				MuxedMessage::RetryRequest(()) =&gt; {
 					<span class="comment">// A pending request is ready to retry. This is only a signal to call
@@ -734,7 +726,7 @@
 				},
 			};
 
-			vstaging::dispatch_requests(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state).<span class="kw">await</span>;
+			v2::dispatch_requests(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state).<span class="kw">await</span>;
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -742,7 +734,7 @@
 	<span class="kw">async fn </span>handle_subsystem_message&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		state: <span class="kw-2">&amp;mut </span>vstaging::State,
+		state: <span class="kw-2">&amp;mut </span>v2::State,
 		legacy_v1_state: <span class="kw-2">&amp;mut </span>legacy_v1::State,
 		v1_req_sender: <span class="kw-2">&amp;</span>mpsc::Sender&lt;V1RequesterMessage&gt;,
 		message: FromOrchestra&lt;StatementDistributionMessage&gt;,
@@ -756,11 +748,11 @@
 			})) =&gt; {
 				<span class="kw">let </span>_timer = metrics.time_active_leaves_update();
 
-				<span class="comment">// vstaging should handle activated first because of implicit view.
+				<span class="comment">// v2 should handle activated first because of implicit view.
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>activated) = activated {
 					<span class="kw">let </span>mode = prospective_parachains_mode(ctx.sender(), activated.hash).<span class="kw">await</span><span class="question-mark">?</span>;
 					<span class="kw">if let </span>ProspectiveParachainsMode::Enabled { .. } = mode {
-						vstaging::handle_active_leaves_update(ctx, state, activated, mode).<span class="kw">await</span><span class="question-mark">?</span>;
+						v2::handle_active_leaves_update(ctx, state, activated, mode).<span class="kw">await</span><span class="question-mark">?</span>;
 					} <span class="kw">else if let </span>ProspectiveParachainsMode::Disabled = mode {
 						<span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>deactivated {
 							<span class="kw">crate</span>::legacy_v1::handle_deactivate_leaf(legacy_v1_state, <span class="kw-2">*</span>deactivated);
@@ -777,7 +769,7 @@
 					<span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>deactivated {
 						<span class="kw">crate</span>::legacy_v1::handle_deactivate_leaf(legacy_v1_state, <span class="kw-2">*</span>deactivated);
 					}
-					vstaging::handle_deactivate_leaves(state, <span class="kw-2">&amp;</span>deactivated);
+					v2::handle_deactivate_leaves(state, <span class="kw-2">&amp;</span>deactivated);
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {
@@ -800,7 +792,7 @@
 						)
 						.<span class="kw">await</span><span class="question-mark">?</span>;
 					} <span class="kw">else </span>{
-						vstaging::share_local_statement(
+						v2::share_local_statement(
 							ctx,
 							state,
 							relay_parent,
@@ -837,11 +829,11 @@
 
 					<span class="kw">let </span>target = <span class="kw">match </span><span class="kw-2">&amp;</span>event {
 						NetworkBridgeEvent::PeerMessage(<span class="kw">_</span>, message) =&gt; <span class="kw">match </span>message {
-							Versioned::VStaging(
-								protocol_vstaging::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
+							Versioned::V2(
+								protocol_v2::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
 							) =&gt; VersionTarget::Legacy,
 							Versioned::V1(<span class="kw">_</span>) =&gt; VersionTarget::Legacy,
-							Versioned::VStaging(<span class="kw">_</span>) =&gt; VersionTarget::Current,
+							Versioned::V2(<span class="kw">_</span>) =&gt; VersionTarget::Current,
 						},
 						<span class="kw">_ </span>=&gt; VersionTarget::Both,
 					};
@@ -860,14 +852,12 @@
 					}
 
 					<span class="kw">if </span>target.targets_current() {
-						<span class="comment">// pass to vstaging.
-						</span>vstaging::handle_network_update(ctx, state, event, <span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation)
-							.<span class="kw">await</span>;
+						<span class="comment">// pass to v2.
+						</span>v2::handle_network_update(ctx, state, event, <span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation).<span class="kw">await</span>;
 					}
 				},
 				StatementDistributionMessage::Backed(candidate_hash) =&gt; {
-					<span class="kw">crate</span>::vstaging::handle_backed_candidate_message(ctx, state, candidate_hash)
-						.<span class="kw">await</span>;
+					<span class="kw">crate</span>::v2::handle_backed_candidate_message(ctx, state, candidate_hash).<span class="kw">await</span>;
 				},
 			},
 		}

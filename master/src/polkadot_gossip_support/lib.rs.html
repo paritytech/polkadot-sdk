@@ -1092,7 +1092,7 @@
 				<span class="comment">// match void -&gt; LLVM unreachable
 				</span><span class="kw">match </span>message {
 					Versioned::V1(m) =&gt; <span class="kw">match </span>m {},
-					Versioned::VStaging(m) =&gt; <span class="kw">match </span>m {},
+					Versioned::V2(m) =&gt; <span class="kw">match </span>m {},
 				}
 			},
 		}

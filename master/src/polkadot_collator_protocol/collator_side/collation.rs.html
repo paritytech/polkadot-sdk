@@ -157,9 +157,6 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -184,8 +181,7 @@
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{
-		incoming::OutgoingResponse, v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging,
-		IncomingRequest,
+		incoming::OutgoingResponse, v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, IncomingRequest,
 	},
 	PeerId,
 };
@@ -251,7 +247,7 @@
 <span class="doccomment">/// Backwards-compatible wrapper for incoming collations requests.
 </span><span class="kw">pub enum </span>VersionedCollationRequest {
 	V1(IncomingRequest&lt;protocol_v1::CollationFetchingRequest&gt;),
-	VStaging(IncomingRequest&lt;protocol_vstaging::CollationFetchingRequest&gt;),
+	V2(IncomingRequest&lt;protocol_v2::CollationFetchingRequest&gt;),
 }
 
 <span class="kw">impl </span>From&lt;IncomingRequest&lt;protocol_v1::CollationFetchingRequest&gt;&gt; <span class="kw">for </span>VersionedCollationRequest {
@@ -260,11 +256,9 @@
 	}
 }
 
-<span class="kw">impl </span>From&lt;IncomingRequest&lt;protocol_vstaging::CollationFetchingRequest&gt;&gt;
-	<span class="kw">for </span>VersionedCollationRequest
-{
-	<span class="kw">fn </span>from(req: IncomingRequest&lt;protocol_vstaging::CollationFetchingRequest&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::VStaging(req)
+<span class="kw">impl </span>From&lt;IncomingRequest&lt;protocol_v2::CollationFetchingRequest&gt;&gt; <span class="kw">for </span>VersionedCollationRequest {
+	<span class="kw">fn </span>from(req: IncomingRequest&lt;protocol_v2::CollationFetchingRequest&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::V2(req)
 	}
 }
 
@@ -273,7 +267,7 @@
 	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
 		<span class="kw">match </span><span class="self">self </span>{
 			VersionedCollationRequest::V1(req) =&gt; req.payload.para_id,
-			VersionedCollationRequest::VStaging(req) =&gt; req.payload.para_id,
+			VersionedCollationRequest::V2(req) =&gt; req.payload.para_id,
 		}
 	}
 
@@ -281,7 +275,7 @@
 	</span><span class="kw">pub fn </span>relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
 		<span class="kw">match </span><span class="self">self </span>{
 			VersionedCollationRequest::V1(req) =&gt; req.payload.relay_parent,
-			VersionedCollationRequest::VStaging(req) =&gt; req.payload.relay_parent,
+			VersionedCollationRequest::V2(req) =&gt; req.payload.relay_parent,
 		}
 	}
 
@@ -289,7 +283,7 @@
 	</span><span class="kw">pub fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerId {
 		<span class="kw">match </span><span class="self">self </span>{
 			VersionedCollationRequest::V1(req) =&gt; req.peer,
-			VersionedCollationRequest::VStaging(req) =&gt; req.peer,
+			VersionedCollationRequest::V2(req) =&gt; req.peer,
 		}
 	}
 
@@ -300,7 +294,7 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			VersionedCollationRequest::V1(req) =&gt; req.send_outgoing_response(response),
-			VersionedCollationRequest::VStaging(req) =&gt; req.send_outgoing_response(response),
+			VersionedCollationRequest::V2(req) =&gt; req.send_outgoing_response(response),
 		}
 	}
 }

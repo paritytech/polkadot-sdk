@@ -266,7 +266,6 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -299,7 +298,7 @@
 	peer_set::PeerSetProtocolNames,
 	request_response::{
 		v1::{<span class="self">self</span>, AvailableDataFetchingRequest},
-		vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
@@ -332,9 +331,8 @@
 	</span><span class="kw">pub </span>authority_discovery_service: AuthorityDiscoveryService,
 	<span class="doccomment">/// Receiver for collation request protocol v1.
 	</span><span class="kw">pub </span>collation_req_receiver_v1: IncomingRequestReceiver&lt;v1::CollationFetchingRequest&gt;,
-	<span class="doccomment">/// Receiver for collation request protocol vstaging.
-	</span><span class="kw">pub </span>collation_req_receiver_vstaging:
-		IncomingRequestReceiver&lt;vstaging::CollationFetchingRequest&gt;,
+	<span class="doccomment">/// Receiver for collation request protocol v2.
+	</span><span class="kw">pub </span>collation_req_receiver_v2: IncomingRequestReceiver&lt;v2::CollationFetchingRequest&gt;,
 	<span class="doccomment">/// Receiver for availability request protocol
 	</span><span class="kw">pub </span>available_data_req_receiver: IncomingRequestReceiver&lt;AvailableDataFetchingRequest&gt;,
 	<span class="doccomment">/// Prometheus registry, commonly used for production systems, less so for test.
@@ -357,7 +355,7 @@
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
-		collation_req_receiver_vstaging,
+		collation_req_receiver_v2,
 		available_data_req_receiver,
 		registry,
 		spawner,
@@ -390,7 +388,7 @@
 				peer_id: network_service.local_peer_id(),
 				collator_pair,
 				request_receiver_v1: collation_req_receiver_v1,
-				request_receiver_vstaging: collation_req_receiver_vstaging,
+				request_receiver_v2: collation_req_receiver_v2,
 				metrics: Metrics::register(registry)<span class="question-mark">?</span>,
 			};
 			CollatorProtocolSubsystem::new(side)

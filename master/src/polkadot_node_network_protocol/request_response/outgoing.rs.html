@@ -214,7 +214,7 @@
 
 <span class="kw">use </span>polkadot_primitives::AuthorityDiscoveryId;
 
-<span class="kw">use super</span>::{v1, vstaging, IsRequest, Protocol};
+<span class="kw">use super</span>::{v1, v2, IsRequest, Protocol};
 
 <span class="doccomment">/// All requests that can be sent to the network bridge via `NetworkBridgeTxMessage::SendRequest`.
 </span><span class="attr">#[derive(Debug)]
@@ -233,10 +233,10 @@
 	</span>DisputeSendingV1(OutgoingRequest&lt;v1::DisputeRequest&gt;),
 
 	<span class="doccomment">/// Request a candidate and attestations.
-	</span>AttestedCandidateVStaging(OutgoingRequest&lt;vstaging::AttestedCandidateRequest&gt;),
+	</span>AttestedCandidateV2(OutgoingRequest&lt;v2::AttestedCandidateRequest&gt;),
 	<span class="doccomment">/// Fetch a collation from a collator which previously announced it.
 	/// Compared to V1 it requires specifying which candidate is requested by its hash.
-	</span>CollationFetchingVStaging(OutgoingRequest&lt;vstaging::CollationFetchingRequest&gt;),
+	</span>CollationFetchingV2(OutgoingRequest&lt;v2::CollationFetchingRequest&gt;),
 }
 
 <span class="kw">impl </span>Requests {
@@ -245,12 +245,12 @@
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::ChunkFetchingV1(<span class="kw">_</span>) =&gt; Protocol::ChunkFetchingV1,
 			<span class="self">Self</span>::CollationFetchingV1(<span class="kw">_</span>) =&gt; Protocol::CollationFetchingV1,
-			<span class="self">Self</span>::CollationFetchingVStaging(<span class="kw">_</span>) =&gt; Protocol::CollationFetchingVStaging,
+			<span class="self">Self</span>::CollationFetchingV2(<span class="kw">_</span>) =&gt; Protocol::CollationFetchingV2,
 			<span class="self">Self</span>::PoVFetchingV1(<span class="kw">_</span>) =&gt; Protocol::PoVFetchingV1,
 			<span class="self">Self</span>::AvailableDataFetchingV1(<span class="kw">_</span>) =&gt; Protocol::AvailableDataFetchingV1,
 			<span class="self">Self</span>::StatementFetchingV1(<span class="kw">_</span>) =&gt; Protocol::StatementFetchingV1,
 			<span class="self">Self</span>::DisputeSendingV1(<span class="kw">_</span>) =&gt; Protocol::DisputeSendingV1,
-			<span class="self">Self</span>::AttestedCandidateVStaging(<span class="kw">_</span>) =&gt; Protocol::AttestedCandidateVStaging,
+			<span class="self">Self</span>::AttestedCandidateV2(<span class="kw">_</span>) =&gt; Protocol::AttestedCandidateV2,
 		}
 	}
 
@@ -265,12 +265,12 @@
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::ChunkFetchingV1(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::CollationFetchingV1(r) =&gt; r.encode_request(),
-			<span class="self">Self</span>::CollationFetchingVStaging(r) =&gt; r.encode_request(),
+			<span class="self">Self</span>::CollationFetchingV2(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::PoVFetchingV1(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::AvailableDataFetchingV1(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::StatementFetchingV1(r) =&gt; r.encode_request(),
 			<span class="self">Self</span>::DisputeSendingV1(r) =&gt; r.encode_request(),
-			<span class="self">Self</span>::AttestedCandidateVStaging(r) =&gt; r.encode_request(),
+			<span class="self">Self</span>::AttestedCandidateV2(r) =&gt; r.encode_request(),
 		}
 	}
 }

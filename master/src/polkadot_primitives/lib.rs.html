@@ -62,6 +62,7 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -83,8 +84,8 @@
 </span><span class="attr">#![warn(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="comment">// `v5` is currently the latest stable version of the runtime API.
-</span><span class="kw">pub mod </span>v5;
+</span><span class="comment">// `v6` is currently the latest stable version of the runtime API.
+</span><span class="kw">pub mod </span>v6;
 
 <span class="comment">// The &#39;staging&#39; version is special - it contains primitives which are
 // still in development. Once they are considered stable, they will be
@@ -97,20 +98,21 @@
 
 <span class="comment">// Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
-</span><span class="kw">pub use </span>v5::{
-	byzantine_threshold, check_candidate_backing, collator_signature_payload,
+</span><span class="kw">pub use </span>v6::{
+	async_backing, byzantine_threshold, check_candidate_backing, collator_signature_payload,
 	effective_minimum_backing_votes, metric_definitions, slashing, supermajority_threshold,
 	well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel, AccountId, AccountIndex,
-	AccountPublic, ApprovalVote, AssignmentId, AuthorityDiscoveryId, AvailabilityBitfield,
-	BackedCandidate, Balance, BlakeTwo256, Block, BlockId, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt,
-	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, CompactStatement, ConsensusLog, CoreIndex, CoreState, DisputeState,
-	DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs, ExecutorParam,
-	ExecutorParams, ExecutorParamsHash, ExplicitDisputeStatement, GroupIndex, GroupRotationInfo,
-	Hash, HashT, HeadData, Header, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage,
-	IndexedVec, InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce,
-	OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim, ParathreadEntry,
+	AccountPublic, ApprovalVote, AssignmentId, AsyncBackingParams, AuthorityDiscoveryId,
+	AvailabilityBitfield, BackedCandidate, Balance, BlakeTwo256, Block, BlockId, BlockNumber,
+	CandidateCommitments, CandidateDescriptor, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CollatorId,
+	CollatorSignature, CommittedCandidateReceipt, CompactStatement, ConsensusLog, CoreIndex,
+	CoreState, DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs,
+	ExecutorParam, ExecutorParams, ExecutorParamsHash, ExplicitDisputeStatement, GroupIndex,
+	GroupRotationInfo, Hash, HashT, HeadData, Header, HorizontalMessages, HrmpChannelId, Id,
+	InboundDownwardMessage, InboundHrmpMessage, IndexedVec, InherentData,
+	InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce, OccupiedCore,
+	OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim, ParathreadEntry,
 	PersistedValidationData, PvfCheckStatement, PvfExecTimeoutKind, PvfPrepTimeoutKind,
 	RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels,
 	RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
@@ -125,5 +127,5 @@
 };
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>v5::{AssignmentPair, CollatorPair, ValidatorPair};
+</span><span class="kw">pub use </span>v6::{AssignmentPair, CollatorPair, ValidatorPair};
 </code></pre></div></section></main></body></html>

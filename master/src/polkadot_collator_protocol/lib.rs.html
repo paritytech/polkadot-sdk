@@ -175,7 +175,6 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -210,7 +209,7 @@
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	request_response::{v1 <span class="kw">as </span>request_v1, vstaging <span class="kw">as </span>protocol_vstaging, IncomingRequestReceiver},
+	request_response::{v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
 };
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
@@ -261,9 +260,8 @@
 		</span>collator_pair: CollatorPair,
 		<span class="doccomment">/// Receiver for v1 collation fetching requests.
 		</span>request_receiver_v1: IncomingRequestReceiver&lt;request_v1::CollationFetchingRequest&gt;,
-		<span class="doccomment">/// Receiver for vstaging collation fetching requests.
-		</span>request_receiver_vstaging:
-			IncomingRequestReceiver&lt;protocol_vstaging::CollationFetchingRequest&gt;,
+		<span class="doccomment">/// Receiver for v2 collation fetching requests.
+		</span>request_receiver_v2: IncomingRequestReceiver&lt;protocol_v2::CollationFetchingRequest&gt;,
 		<span class="doccomment">/// Metrics.
 		</span>metrics: collator_side::Metrics,
 	},
@@ -299,14 +297,14 @@
 				peer_id,
 				collator_pair,
 				request_receiver_v1,
-				request_receiver_vstaging,
+				request_receiver_v2,
 				metrics,
 			} =&gt; collator_side::run(
 				ctx,
 				peer_id,
 				collator_pair,
 				request_receiver_v1,
-				request_receiver_vstaging,
+				request_receiver_v2,
 				metrics,
 			)
 			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;collator-protocol&quot;</span>, e))

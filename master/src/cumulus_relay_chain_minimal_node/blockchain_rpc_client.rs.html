@@ -415,8 +415,8 @@
 <span class="kw">use </span>polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 <span class="kw">use </span>polkadot_overseer::RuntimeApiSubsystemClient;
 <span class="kw">use </span>polkadot_primitives::{
+	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::{AsyncBackingParams, BackingState},
 };
 <span class="kw">use </span>sc_authority_discovery::{AuthorityDiscovery, Error <span class="kw">as </span>AuthorityDiscoveryError};
 <span class="kw">use </span>sp_api::{ApiError, RuntimeApiInfo};
@@ -739,16 +739,16 @@
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_minimum_backing_votes(at, session_index).<span class="kw">await</span><span class="question-mark">?</span>)
 	}
 
-	<span class="kw">async fn </span>staging_async_backing_params(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncBackingParams, ApiError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_staging_async_backing_params(at).<span class="kw">await</span><span class="question-mark">?</span>)
+	<span class="kw">async fn </span>async_backing_params(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncBackingParams, ApiError&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_async_backing_params(at).<span class="kw">await</span><span class="question-mark">?</span>)
 	}
 
-	<span class="kw">async fn </span>staging_para_backing_state(
+	<span class="kw">async fn </span>para_backing_state(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BackingState&gt;, ApiError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_staging_para_backing_state(at, para_id).<span class="kw">await</span><span class="question-mark">?</span>)
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_para_backing_state(at, para_id).<span class="kw">await</span><span class="question-mark">?</span>)
 	}
 }
 

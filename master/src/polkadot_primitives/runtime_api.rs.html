@@ -375,10 +375,11 @@
 //! separated from the stable primitives.
 
 </span><span class="kw">use crate</span>::{
-	vstaging, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_core_primitives <span class="kw">as </span>pcp;
@@ -485,39 +486,38 @@
 
 		<span class="doccomment">/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		/// NOTE: This function is only available since parachain host version 5.
-		</span><span class="kw">fn </span>unapplied_slashes() -&gt; Vec&lt;(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)&gt;;
+		</span><span class="kw">fn </span>unapplied_slashes() -&gt; Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;;
 
 		<span class="doccomment">/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
 		</span><span class="kw">fn </span>key_ownership_proof(
 			validator_id: ValidatorId,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;vstaging::slashing::OpaqueKeyOwnershipProof&gt;;
+		) -&gt; <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;;
 
 		<span class="doccomment">/// Submit an unsigned extrinsic to slash validators who lost a dispute about
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		</span><span class="kw">fn </span>submit_report_dispute_lost(
-			dispute_proof: vstaging::slashing::DisputeProof,
-			key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+			dispute_proof: slashing::DisputeProof,
+			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;;
 
-		<span class="comment">/***** Staging *****/
+		<span class="comment">/***** Added in v6 *****/
 
 		</span><span class="doccomment">/// Get the minimum number of backing votes for a parachain candidate.
 		/// This is a staging method! Do not use on production runtimes!
 		</span><span class="attr">#[api_version(<span class="number">6</span>)]
 		</span><span class="kw">fn </span>minimum_backing_votes() -&gt; u32;
 
-		<span class="comment">/***** Asynchronous backing *****/
+		<span class="comment">/***** Added in v7: Asynchronous backing *****/
 
 		</span><span class="doccomment">/// Returns the state of parachain backing for a given para.
-		/// This is a staging method! Do not use on production runtimes!
-		</span><span class="attr">#[api_version(<span class="number">99</span>)]
-		</span><span class="kw">fn </span>staging_para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;vstaging::BackingState&lt;H, N&gt;&gt;;
+		</span><span class="attr">#[api_version(<span class="number">7</span>)]
+		</span><span class="kw">fn </span>para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&lt;H, N&gt;&gt;;
 
 		<span class="doccomment">/// Returns candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
-		</span><span class="attr">#[api_version(<span class="number">99</span>)]
-		</span><span class="kw">fn </span>staging_async_backing_params() -&gt; vstaging::AsyncBackingParams;
+		</span><span class="attr">#[api_version(<span class="number">7</span>)]
+		</span><span class="kw">fn </span>async_backing_params() -&gt; AsyncBackingParams;
 	}
 }
 </code></pre></div></section></main></body></html>

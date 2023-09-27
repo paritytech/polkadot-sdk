@@ -839,8 +839,6 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1096,26 +1094,25 @@
 
 <span class="doccomment">/// A protocol-versioned type.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>Versioned&lt;V1, VStaging&gt; {
+</span><span class="kw">pub enum </span>Versioned&lt;V1, V2&gt; {
 	<span class="doccomment">/// V1 type.
 	</span>V1(V1),
-	<span class="doccomment">/// VStaging type.
-	</span>VStaging(VStaging),
+	<span class="doccomment">/// V2 type.
+	</span>V2(V2),
 }
 
-<span class="kw">impl</span>&lt;V1: Clone, VStaging: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>VStaging&gt; {
+<span class="kw">impl</span>&lt;V1: Clone, V2: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V2&gt; {
 	<span class="doccomment">/// Convert to a fully-owned version of the message.
-	</span><span class="kw">pub fn </span>clone_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Versioned&lt;V1, VStaging&gt; {
+	</span><span class="kw">pub fn </span>clone_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Versioned&lt;V1, V2&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			Versioned::V1(inner) =&gt; Versioned::V1(inner.clone()),
-			Versioned::VStaging(inner) =&gt; Versioned::VStaging(inner.clone()),
+			Versioned::V2(inner) =&gt; Versioned::V2(inner.clone()),
 		}
 	}
 }
 
 <span class="doccomment">/// All supported versions of the validation protocol message.
-</span><span class="kw">pub type </span>VersionedValidationProtocol =
-	Versioned&lt;v1::ValidationProtocol, vstaging::ValidationProtocol&gt;;
+</span><span class="kw">pub type </span>VersionedValidationProtocol = Versioned&lt;v1::ValidationProtocol, v2::ValidationProtocol&gt;;
 
 <span class="kw">impl </span>From&lt;v1::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
 	<span class="kw">fn </span>from(v1: v1::ValidationProtocol) -&gt; <span class="self">Self </span>{
@@ -1123,14 +1120,14 @@
 	}
 }
 
-<span class="kw">impl </span>From&lt;vstaging::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
-	<span class="kw">fn </span>from(vstaging: vstaging::ValidationProtocol) -&gt; <span class="self">Self </span>{
-		VersionedValidationProtocol::VStaging(vstaging)
+<span class="kw">impl </span>From&lt;v2::ValidationProtocol&gt; <span class="kw">for </span>VersionedValidationProtocol {
+	<span class="kw">fn </span>from(v2: v2::ValidationProtocol) -&gt; <span class="self">Self </span>{
+		VersionedValidationProtocol::V2(v2)
 	}
 }
 
 <span class="doccomment">/// All supported versions of the collation protocol message.
-</span><span class="kw">pub type </span>VersionedCollationProtocol = Versioned&lt;v1::CollationProtocol, vstaging::CollationProtocol&gt;;
+</span><span class="kw">pub type </span>VersionedCollationProtocol = Versioned&lt;v1::CollationProtocol, v2::CollationProtocol&gt;;
 
 <span class="kw">impl </span>From&lt;v1::CollationProtocol&gt; <span class="kw">for </span>VersionedCollationProtocol {
 	<span class="kw">fn </span>from(v1: v1::CollationProtocol) -&gt; <span class="self">Self </span>{
@@ -1138,9 +1135,9 @@
 	}
 }
 
-<span class="kw">impl </span>From&lt;vstaging::CollationProtocol&gt; <span class="kw">for </span>VersionedCollationProtocol {
-	<span class="kw">fn </span>from(vstaging: vstaging::CollationProtocol) -&gt; <span class="self">Self </span>{
-		VersionedCollationProtocol::VStaging(vstaging)
+<span class="kw">impl </span>From&lt;v2::CollationProtocol&gt; <span class="kw">for </span>VersionedCollationProtocol {
+	<span class="kw">fn </span>from(v2: v2::CollationProtocol) -&gt; <span class="self">Self </span>{
+		VersionedCollationProtocol::V2(v2)
 	}
 }
 
@@ -1150,7 +1147,7 @@
 			<span class="kw">fn </span>from(versioned_from: <span class="macro-nonterminal">$from</span>) -&gt; <span class="macro-nonterminal">$out </span>{
 				<span class="kw">match </span>versioned_from {
 					Versioned::V1(x) =&gt; Versioned::V1(x.into()),
-					Versioned::VStaging(x) =&gt; Versioned::VStaging(x.into()),
+					Versioned::V2(x) =&gt; Versioned::V2(x.into()),
 				}
 			}
 		}
@@ -1164,7 +1161,7 @@
 		<span class="macro-nonterminal">$from</span>:ty,
 		<span class="macro-nonterminal">$out</span>:ty,
 		<span class="macro-nonterminal">$v1_pat</span>:pat =&gt; <span class="macro-nonterminal">$v1_out</span>:expr,
-		<span class="macro-nonterminal">$vstaging_pat</span>:pat =&gt; <span class="macro-nonterminal">$vstaging_out</span>:expr
+		<span class="macro-nonterminal">$v2_pat</span>:pat =&gt; <span class="macro-nonterminal">$v2_out</span>:expr
 	) =&gt; {
 		<span class="kw">impl </span>TryFrom&lt;<span class="macro-nonterminal">$from</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$out </span>{
 			<span class="kw">type </span>Error = <span class="kw">crate</span>::WrongVariant;
@@ -1173,7 +1170,7 @@
 				<span class="attr">#[allow(unreachable_patterns)] </span><span class="comment">// when there is only one variant
 				</span><span class="kw">match </span>x {
 					Versioned::V1(<span class="macro-nonterminal">$v1_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V1(<span class="macro-nonterminal">$v1_out</span>)),
-					Versioned::VStaging(<span class="macro-nonterminal">$vstaging_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::VStaging(<span class="macro-nonterminal">$vstaging_out</span>)),
+					Versioned::V2(<span class="macro-nonterminal">$v2_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V2(<span class="macro-nonterminal">$v2_out</span>)),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="kw">crate</span>::WrongVariant),
 				}
 			}
@@ -1186,8 +1183,7 @@
 				<span class="attr">#[allow(unreachable_patterns)] </span><span class="comment">// when there is only one variant
 				</span><span class="kw">match </span>x {
 					Versioned::V1(<span class="macro-nonterminal">$v1_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V1(<span class="macro-nonterminal">$v1_out</span>.clone())),
-					Versioned::VStaging(<span class="macro-nonterminal">$vstaging_pat</span>) =&gt;
-						<span class="prelude-val">Ok</span>(Versioned::VStaging(<span class="macro-nonterminal">$vstaging_out</span>.clone())),
+					Versioned::V2(<span class="macro-nonterminal">$v2_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V2(<span class="macro-nonterminal">$v2_out</span>.clone())),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="kw">crate</span>::WrongVariant),
 				}
 			}
@@ -1197,7 +1193,7 @@
 
 <span class="doccomment">/// Version-annotated messages used by the bitfield distribution subsystem.
 </span><span class="kw">pub type </span>BitfieldDistributionMessage =
-	Versioned&lt;v1::BitfieldDistributionMessage, vstaging::BitfieldDistributionMessage&gt;;
+	Versioned&lt;v1::BitfieldDistributionMessage, v2::BitfieldDistributionMessage&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
@@ -1207,12 +1203,12 @@
 	VersionedValidationProtocol,
 	BitfieldDistributionMessage,
 	v1::ValidationProtocol::BitfieldDistribution(x) =&gt; x,
-	vstaging::ValidationProtocol::BitfieldDistribution(x) =&gt; x
+	v2::ValidationProtocol::BitfieldDistribution(x) =&gt; x
 );
 
 <span class="doccomment">/// Version-annotated messages used by the statement distribution subsystem.
 </span><span class="kw">pub type </span>StatementDistributionMessage =
-	Versioned&lt;v1::StatementDistributionMessage, vstaging::StatementDistributionMessage&gt;;
+	Versioned&lt;v1::StatementDistributionMessage, v2::StatementDistributionMessage&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
@@ -1222,12 +1218,12 @@
 	VersionedValidationProtocol,
 	StatementDistributionMessage,
 	v1::ValidationProtocol::StatementDistribution(x) =&gt; x,
-	vstaging::ValidationProtocol::StatementDistribution(x) =&gt; x
+	v2::ValidationProtocol::StatementDistribution(x) =&gt; x
 );
 
 <span class="doccomment">/// Version-annotated messages used by the approval distribution subsystem.
 </span><span class="kw">pub type </span>ApprovalDistributionMessage =
-	Versioned&lt;v1::ApprovalDistributionMessage, vstaging::ApprovalDistributionMessage&gt;;
+	Versioned&lt;v1::ApprovalDistributionMessage, v2::ApprovalDistributionMessage&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
@@ -1237,13 +1233,13 @@
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
 	v1::ValidationProtocol::ApprovalDistribution(x) =&gt; x,
-	vstaging::ValidationProtocol::ApprovalDistribution(x) =&gt; x
+	v2::ValidationProtocol::ApprovalDistribution(x) =&gt; x
 
 );
 
 <span class="doccomment">/// Version-annotated messages used by the gossip-support subsystem (this is void).
 </span><span class="kw">pub type </span>GossipSupportNetworkMessage =
-	Versioned&lt;v1::GossipSupportNetworkMessage, vstaging::GossipSupportNetworkMessage&gt;;
+	Versioned&lt;v1::GossipSupportNetworkMessage, v2::GossipSupportNetworkMessage&gt;;
 <span class="comment">// This is a void enum placeholder, so never gets sent over the wire.
 </span><span class="kw">impl </span>TryFrom&lt;VersionedValidationProtocol&gt; <span class="kw">for </span>GossipSupportNetworkMessage {
 	<span class="kw">type </span>Error = WrongVariant;
@@ -1261,7 +1257,7 @@
 
 <span class="doccomment">/// Version-annotated messages used by the bitfield distribution subsystem.
 </span><span class="kw">pub type </span>CollatorProtocolMessage =
-	Versioned&lt;v1::CollatorProtocolMessage, vstaging::CollatorProtocolMessage&gt;;
+	Versioned&lt;v1::CollatorProtocolMessage, v2::CollatorProtocolMessage&gt;;
 <span class="macro">impl_versioned_full_protocol_from!</span>(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,
@@ -1271,7 +1267,7 @@
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) =&gt; x,
-	vstaging::CollationProtocol::CollatorProtocol(x) =&gt; x
+	v2::CollationProtocol::CollatorProtocol(x) =&gt; x
 );
 
 <span class="doccomment">/// v1 notification protocol types.
@@ -1432,12 +1428,12 @@
 	}
 }
 
-<span class="doccomment">/// vstaging network protocol types.
-</span><span class="kw">pub mod </span>vstaging {
+<span class="doccomment">/// v2 network protocol types.
+</span><span class="kw">pub mod </span>v2 {
 	<span class="kw">use </span>bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
 	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 
-	<span class="kw">use </span>polkadot_primitives::vstaging::{
+	<span class="kw">use </span>polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
 		Id <span class="kw">as </span>ParaId, UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
 	};

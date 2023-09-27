@@ -485,7 +485,7 @@
 <span class="kw">use </span>parity_scale_codec::Encode;
 
 <span class="kw">use </span>polkadot_primitives::{
-	vstaging <span class="kw">as </span>vstaging_primitives, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
 	Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
@@ -669,7 +669,7 @@
 	<span class="kw">fn </span>request_key_ownership_proof(validator_id: ValidatorId) -&gt; <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;; KeyOwnershipProof;
 	<span class="kw">fn </span>request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;; SubmitReportDisputeLost;
 
-	<span class="kw">fn </span>request_staging_async_backing_params() -&gt; vstaging_primitives::AsyncBackingParams; StagingAsyncBackingParams;
+	<span class="kw">fn </span>request_async_backing_params() -&gt; AsyncBackingParams; AsyncBackingParams;
 }
 
 <span class="doccomment">/// Requests executor parameters from the runtime effective at given relay-parent. First obtains

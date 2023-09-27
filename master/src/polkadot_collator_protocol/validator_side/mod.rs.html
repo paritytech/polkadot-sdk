@@ -1979,18 +1979,6 @@
 <a href="#1979" id="1979">1979</a>
 <a href="#1980" id="1980">1980</a>
 <a href="#1981" id="1981">1981</a>
-<a href="#1982" id="1982">1982</a>
-<a href="#1983" id="1983">1983</a>
-<a href="#1984" id="1984">1984</a>
-<a href="#1985" id="1985">1985</a>
-<a href="#1986" id="1986">1986</a>
-<a href="#1987" id="1987">1987</a>
-<a href="#1988" id="1988">1988</a>
-<a href="#1989" id="1989">1989</a>
-<a href="#1990" id="1990">1990</a>
-<a href="#1991" id="1991">1991</a>
-<a href="#1992" id="1992">1992</a>
-<a href="#1993" id="1993">1993</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2027,10 +2015,10 @@
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		outgoing::{Recipient, RequestError},
-		v1 <span class="kw">as </span>request_v1, vstaging <span class="kw">as </span>request_vstaging, OutgoingRequest, Requests,
+		v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>request_v2, OutgoingRequest, Requests,
 	},
-	v1 <span class="kw">as </span>protocol_v1, vstaging <span class="kw">as </span>protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, OurView, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
+	Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_primitives::{SignedFullStatement, Statement};
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -2617,13 +2605,9 @@
 		CollationVersion::V1 =&gt; Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
 		)),
-		CollationVersion::VStaging =&gt;
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				protocol_vstaging::CollatorProtocolMessage::CollationSeconded(
-					relay_parent,
-					statement,
-				),
-			)),
+		CollationVersion::V2 =&gt; Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+			protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+		)),
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(<span class="macro">vec!</span>[peer_id], wire_message))
@@ -2687,16 +2671,12 @@
 			<span class="kw">let </span>requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
 		},
-		(CollationVersion::VStaging, <span class="prelude-val">Some</span>(ProspectiveCandidate { candidate_hash, .. })) =&gt; {
+		(CollationVersion::V2, <span class="prelude-val">Some</span>(ProspectiveCandidate { candidate_hash, .. })) =&gt; {
 			<span class="kw">let </span>(req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
-				request_vstaging::CollationFetchingRequest {
-					relay_parent,
-					para_id,
-					candidate_hash,
-				},
+				request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
 			);
-			<span class="kw">let </span>requests = Requests::CollationFetchingVStaging(req);
+			<span class="kw">let </span>requests = Requests::CollationFetchingV2(req);
 			(requests, response_recv.boxed())
 		},
 		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FetchError::ProtocolMismatch),
@@ -2751,18 +2731,15 @@
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;mut </span>State,
 	origin: PeerId,
-	msg: Versioned&lt;
-		protocol_v1::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
-	&gt;,
+	msg: Versioned&lt;protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage&gt;,
 ) {
 	<span class="kw">use </span>protocol_v1::CollatorProtocolMessage <span class="kw">as </span>V1;
-	<span class="kw">use </span>protocol_vstaging::CollatorProtocolMessage <span class="kw">as </span>VStaging;
+	<span class="kw">use </span>protocol_v2::CollatorProtocolMessage <span class="kw">as </span>V2;
 	<span class="kw">use </span>sp_runtime::traits::AppVerify;
 
 	<span class="kw">match </span>msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::VStaging(VStaging::Declare(collator_id, para_id, signature)) =&gt; {
+		Versioned::V2(V2::Declare(collator_id, para_id, signature)) =&gt; {
 			<span class="kw">if </span>collator_peer_id(<span class="kw-2">&amp;</span>state.peer_data, <span class="kw-2">&amp;</span>collator_id).is_some() {
 				modify_reputation(
 					<span class="kw-2">&amp;mut </span>state.reputation,
@@ -2874,7 +2851,7 @@
 					modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), origin, rep).<span class="kw">await</span>;
 				}
 			},
-		Versioned::VStaging(VStaging::AdvertiseCollation {
+		Versioned::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -2894,15 +2871,14 @@
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>candidate_hash,
 					error = <span class="question-mark">?</span>err,
-					<span class="string">&quot;Rejected vstaging advertisement&quot;</span>,
+					<span class="string">&quot;Rejected v2 advertisement&quot;</span>,
 				);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(rep) = err.reputation_changes() {
 					modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), origin, rep).<span class="kw">await</span>;
 				}
 			},
-		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::VStaging(VStaging::CollationSeconded(..)) =&gt; {
+		Versioned::V1(V1::CollationSeconded(..)) | Versioned::V2(V2::CollationSeconded(..)) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				peer_id = <span class="question-mark">?</span>origin,
@@ -3067,7 +3043,7 @@
 	};
 
 	<span class="kw">if </span>relay_parent_mode.is_enabled() &amp;&amp; prospective_candidate.is_none() {
-		<span class="comment">// Expected vstaging advertisement.
+		<span class="comment">// Expected v2 advertisement.
 		</span><span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::ProtocolMismatch)
 	}
 
