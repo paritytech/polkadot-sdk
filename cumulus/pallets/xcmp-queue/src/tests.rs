@@ -559,14 +559,14 @@ fn maybe_double_encoded_versioned_xcm_decode_page_works() {
 	assert_eq!(input.remaining_len(), Ok(Some(0)), "All data consumed");
 }
 
-/// Check that `split_concatenated_xcm` correctly splits a page into its XCMs.
+/// Check that `take_first_concatenated_xcm` correctly splits a page into its XCMs.
 #[test]
-fn split_concatenated_xcm_works() {
+fn take_first_concatenated_xcm_works() {
 	let page = mk_page();
 	let input = &mut &page[..];
 
 	for i in 0..100 {
-		let xcm = XcmpQueue::split_concatenated_xcm(input, &mut WeightMeter::new()).unwrap();
+		let xcm = XcmpQueue::take_first_concatenated_xcm(input, &mut WeightMeter::new()).unwrap();
 		match (i % 2, xcm) {
 			(0, data) | (2, data) => {
 				assert_eq!(data, v2_xcm().encode());
@@ -580,9 +580,9 @@ fn split_concatenated_xcm_works() {
 	assert_eq!(input.remaining_len(), Ok(Some(0)), "All data consumed");
 }
 
-/// A message that is not too deeply nested will be accepted by `split_concatenated_xcm`.
+/// A message that is not too deeply nested will be accepted by `take_first_concatenated_xcm`.
 #[test]
-fn split_concatenated_xcm_good_recursion_depth_works() {
+fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	let mut good = Xcm::<()>(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 		good = Xcm(vec![SetAppendix(good)]);
@@ -590,12 +590,12 @@ fn split_concatenated_xcm_good_recursion_depth_works() {
 	let good = VersionedXcm::V3(good);
 
 	let page = good.encode();
-	assert_ok!(XcmpQueue::split_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
+	assert_ok!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
 }
 
-/// A message that is too deeply nested will be rejected by `split_concatenated_xcm`.
+/// A message that is too deeply nested will be rejected by `take_first_concatenated_xcm`.
 #[test]
-fn split_concatenated_xcm_good_bad_depth_errors() {
+fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	let mut bad = Xcm::<()>(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
@@ -603,7 +603,7 @@ fn split_concatenated_xcm_good_bad_depth_errors() {
 	let bad = VersionedXcm::V3(bad);
 
 	let page = bad.encode();
-	assert_err!(XcmpQueue::split_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()), ());
+	assert_err!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()), ());
 }
 
 #[test]

@@ -36,7 +36,7 @@ pub trait WeightInfo {
 	fn enqueue_xcmp_message() -> Weight;
 	fn suspend_channel() -> Weight;
 	fn resume_channel() -> Weight;
-	fn split_concatenated_xcm() -> Weight;
+	fn take_first_concatenated_xcm() -> Weight;
 	fn on_idle_good_msg() -> Weight;
 	fn on_idle_large_msg() -> Weight;
 }
@@ -96,7 +96,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn split_concatenated_xcm() -> Weight {
+	fn take_first_concatenated_xcm() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -195,7 +195,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	fn split_concatenated_xcm() -> Weight {
+	fn take_first_concatenated_xcm() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

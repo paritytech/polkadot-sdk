@@ -607,7 +607,7 @@ impl<T: Config> Pallet<T> {
 	/// individual items.
 	///
 	/// We directly encode them again since that is needed later on.
-	pub(crate) fn split_concatenated_xcm(
+	pub(crate) fn take_first_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
 	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
@@ -615,7 +615,7 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		if meter.try_consume(T::WeightInfo::split_concatenated_xcm()).is_err() {
+		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
 			defensive!("Out of weight; could not decode all; dropping");
 			return Err(())
 		}
@@ -716,7 +716,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
 					while !data.is_empty() {
-						let Ok(xcm) = Self::split_concatenated_xcm(&mut data, &mut meter) else {
+						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter) else {
 							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
 							break
 						};

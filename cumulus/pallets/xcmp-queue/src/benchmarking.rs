@@ -91,7 +91,7 @@ mod benchmarks {
 
 	/// Split a singular XCM.
 	#[benchmark]
-	fn split_concatenated_xcm() {
+	fn take_first_concatenated_xcm() {
 		let max_downward_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
 
 		// Assumes `xcm::MAX_INSTRUCTIONS_TO_DECODE`: 100
@@ -118,7 +118,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::split_concatenated_xcm(&mut &data[..], &mut WeightMeter::new()).unwrap();
+			Pallet::<T>::take_first_concatenated_xcm(&mut &data[..], &mut WeightMeter::new()).unwrap();
 		}
 	}
 
