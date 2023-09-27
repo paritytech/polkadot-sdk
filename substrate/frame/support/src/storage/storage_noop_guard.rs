@@ -52,6 +52,11 @@ impl Default for StorageNoopGuard {
 }
 
 impl StorageNoopGuard {
+	/// Alias to default()
+	pub fn new() -> Self {
+		Self::default()
+	}
+
 	/// Creates a new `StorageNoopGuard` with a custom error message
 	pub fn from_error_message(error_message: &'static str) -> Self {
 		Self { storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1), error_message }
@@ -148,6 +153,15 @@ mod tests {
 		TestExternalities::default().execute_with(|| {
 			let mut guard = StorageNoopGuard::default();
 			guard.set_error_message("StorageNoopGuard found unexpected storage changes.");
+			frame_support::storage::unhashed::put(b"key", b"value");
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "StorageNoopGuard detected wrongful storage changes.")]
+	fn storage_noop_guard_panics_new_alias() {
+		TestExternalities::default().execute_with(|| {
+			let _guard = StorageNoopGuard::new();
 			frame_support::storage::unhashed::put(b"key", b"value");
 		});
 	}
