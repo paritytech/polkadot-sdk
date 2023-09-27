@@ -534,7 +534,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Sends a signal to the `dest` chain over XCMP. This is guaranteed to be dispatched on this
 	/// block.
-	fn send_signal(dest: ParaId, signal: ChannelSignal) -> Result<(), ()> {
+	fn send_signal(dest: ParaId, signal: ChannelSignal) {
 		let mut s = <OutboundXcmpStatus<T>>::get();
 		if let Some(details) = s.iter_mut().find(|item| item.recipient == dest) {
 			details.signals_exist = true;
@@ -545,8 +545,6 @@ impl<T: Config> Pallet<T> {
 			*page = (XcmpMessageFormat::Signals, signal).encode();
 		});
 		<OutboundXcmpStatus<T>>::put(s);
-
-		Ok(())
 	}
 
 	fn suspend_channel(target: ParaId) {
@@ -643,24 +641,18 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let suspended = suspended_channels.contains(&para);
 
 		if suspended && fp.pages <= resume_threshold {
-			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
-				log::error!("Cannot resume channel from sibling {:?}: {:?}", para, err);
-			} else {
-				suspended_channels.remove(&para);
-				<InboundXcmpSuspended<T>>::put(suspended_channels);
-			}
+			Self::send_signal(para, ChannelSignal::Resume);
+			
+			suspended_channels.remove(&para);
+			<InboundXcmpSuspended<T>>::put(suspended_channels);
 		} else if !suspended && fp.pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
+			Self::send_signal(para, ChannelSignal::Suspend);
 
-			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {
-				// This is an edge-case, but we will not regard the channel as `Suspended` without
-				// confirmation. It will just re-try to suspend in the next block.
-				log::error!("Cannot suspend channel from sibling {:?}: {:?}; further messages may be dropped.", para, err);
-			} else if let Err(err) = suspended_channels.try_insert(para) {
+			if let Err(err) = suspended_channels.try_insert(para) {
 				log::error!("Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.", para, err);
-			} else {
-				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
+			<InboundXcmpSuspended<T>>::put(suspended_channels);
 		}
 	}
 }
