@@ -28,6 +28,7 @@ polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
 kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../../polkadot/runtime/kusama" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
@@ -55,4 +56,5 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]

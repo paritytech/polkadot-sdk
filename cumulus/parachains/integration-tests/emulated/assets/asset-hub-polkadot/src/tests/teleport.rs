@@ -179,7 +179,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Polkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -292,7 +292,7 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Polkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
