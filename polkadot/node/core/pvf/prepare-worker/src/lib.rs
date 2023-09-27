@@ -239,8 +239,8 @@ pub fn worker_entrypoint(
 						// Try to enable landlock.
 						#[cfg(target_os = "linux")]
 						let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
+							.map(LandlockStatus::from_ruleset_status)
+							.map_err(|e| e.to_string());
 						#[cfg(not(target_os = "linux"))]
 						let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
 

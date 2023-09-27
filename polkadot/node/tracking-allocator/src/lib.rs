@@ -115,16 +115,14 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 
 	/// Start tracking
 	/// SAFETY: Failure handler is called with the allocator being in the locked state. Thus, no
-	/// allocations or deallocations are possible inside the failure handler; otherwise, a
+	/// allocations or deallocations are allowed inside the failure handler; otherwise, a
 	/// deadlock will occur.
 	pub unsafe fn start_tracking(
 		&self,
 		limit: Option<isize>,
 		failure_handler: Option<Box<dyn Fn()>>,
 	) {
-		unsafe {
-			ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
-		}
+		ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
 	}
 
 	/// End tracking and return the peak allocation value in bytes (as `isize`). Peak allocation
