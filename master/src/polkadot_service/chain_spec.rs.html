@@ -1330,20 +1330,6 @@
 <a href="#1330" id="1330">1330</a>
 <a href="#1331" id="1331">1331</a>
 <a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1771,6 +1757,7 @@
 		vesting: westend::VestingConfig { vesting: <span class="macro">vec!</span>[] },
 		sudo: westend::SudoConfig { key: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
 		hrmp: Default::default(),
+		treasury: Default::default(),
 		configuration: westend::ConfigurationConfig {
 			config: default_parachains_host_configuration(),
 		},
@@ -2062,7 +2049,6 @@
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		phragmen_election: Default::default(),
 		babe: rococo_runtime::BabeConfig {
 			authorities: Default::default(),
 			epoch_config: <span class="prelude-val">Some</span>(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
@@ -2070,13 +2056,6 @@
 		},
 		grandpa: Default::default(),
 		im_online: Default::default(),
-		democracy: rococo_runtime::DemocracyConfig::default(),
-		council: rococo::CouncilConfig { members: <span class="macro">vec!</span>[], phantom: Default::default() },
-		technical_committee: rococo::TechnicalCommitteeConfig {
-			members: <span class="macro">vec!</span>[],
-			phantom: Default::default(),
-		},
-		technical_membership: Default::default(),
 		treasury: Default::default(),
 		authority_discovery: rococo_runtime::AuthorityDiscoveryConfig {
 			keys: <span class="macro">vec!</span>[],
@@ -2338,6 +2317,7 @@
 		vesting: westend::VestingConfig { vesting: <span class="macro">vec!</span>[] },
 		sudo: westend::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
 		hrmp: Default::default(),
+		treasury: Default::default(),
 		configuration: westend::ConfigurationConfig {
 			config: default_parachains_host_configuration(),
 		},
@@ -2408,14 +2388,6 @@
 		},
 		grandpa: Default::default(),
 		im_online: Default::default(),
-		phragmen_election: Default::default(),
-		democracy: rococo::DemocracyConfig::default(),
-		council: rococo::CouncilConfig { members: <span class="macro">vec!</span>[], phantom: Default::default() },
-		technical_committee: rococo::TechnicalCommitteeConfig {
-			members: <span class="macro">vec!</span>[],
-			phantom: Default::default(),
-		},
-		technical_membership: Default::default(),
 		treasury: Default::default(),
 		claims: rococo::ClaimsConfig { claims: <span class="macro">vec!</span>[], vesting: <span class="macro">vec!</span>[] },
 		vesting: rococo::VestingConfig { vesting: <span class="macro">vec!</span>[] },

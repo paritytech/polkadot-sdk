@@ -198,6 +198,68 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -217,26 +279,31 @@
 </span><span class="doccomment">//! XCM configurations for Westend.
 
 </span><span class="kw">use super</span>::{
-	parachains_origin, weights, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
+	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
+	TransactionByteFee, WeightToFee, XcmPallet,
 };
+
 <span class="kw">use </span>frame_support::{
-	parameter_types,
+	match_types, parameter_types,
 	traits::{Everything, Nothing},
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
 <span class="kw">use </span>sp_core::ConstU32;
-<span class="kw">use </span>westend_runtime_constants::currency::CENTS;
+<span class="kw">use </span>westend_runtime_constants::{
+	currency::CENTS, system_parachain::<span class="kw-2">*</span>, xcm::body::FELLOWSHIP_ADMIN_INDEX,
+};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, DescribeBodyTerminal,
-	DescribeFamily, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
+	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
@@ -245,7 +312,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>TokenLocation: MultiLocation = Here.into_location();
 	<span class="kw">pub const </span>ThisNetwork: NetworkId = Westend;
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	<span class="kw">pub const </span>UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
 	<span class="kw">pub </span>CheckAccount: AccountId = XcmPallet::check_account();
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
@@ -277,9 +344,17 @@
 &gt;;
 
 <span class="kw">type </span>LocalOriginConverter = (
-	SovereignSignedViaLocation&lt;LocationConverter, RuntimeOrigin&gt;,
-	ChildParachainAsNative&lt;parachains_origin::Origin, RuntimeOrigin&gt;,
-	SignedAccountId32AsNative&lt;ThisNetwork, RuntimeOrigin&gt;,
+	<span class="comment">// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
+	// by the `LocationConverter` converter.
+	</span>SovereignSignedViaLocation&lt;LocationConverter, RuntimeOrigin&gt;,
+	<span class="comment">// If the origin kind is `Native` and the XCM origin is a child parachain, then we can express
+	// it with the special `parachains_origin::Origin` origin variant.
+	</span>ChildParachainAsNative&lt;parachains_origin::Origin, RuntimeOrigin&gt;,
+	<span class="comment">// If the origin kind is `Native` and the XCM origin is the `AccountId32` location, then it can
+	// be expressed using the `Signed` origin variant.
+	</span>SignedAccountId32AsNative&lt;ThisNetwork, RuntimeOrigin&gt;,
+	<span class="comment">// Xcm origins can be represented natively under the Xcm pallet&#39;s Xcm origin.
+	</span>XcmPassthrough&lt;RuntimeOrigin&gt;,
 );
 
 <span class="doccomment">/// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
@@ -294,22 +369,27 @@
 )&gt;;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>Westmint: MultiLocation = Parachain(<span class="number">1000</span>).into_location();
-	<span class="kw">pub const </span>Collectives: MultiLocation = Parachain(<span class="number">1001</span>).into_location();
 	<span class="kw">pub const </span>Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	<span class="kw">pub const </span>WndForWestmint: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Westmint::get());
+	<span class="kw">pub const </span>AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
+	<span class="kw">pub const </span>WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
+	<span class="kw">pub const </span>Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	<span class="kw">pub const </span>WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parachain(<span class="number">1000</span>).into());
-}
-
 <span class="kw">pub type </span>TrustedTeleporters =
-	(xcm_builder::Case&lt;WndForWestmint&gt;, xcm_builder::Case&lt;WndForCollectives&gt;);
+	(xcm_builder::Case&lt;WndForAssetHub&gt;, xcm_builder::Case&lt;WndForCollectives&gt;);
+
+<span class="macro">match_types! </span>{
+	<span class="kw">pub type </span>OnlyParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(<span class="kw">_</span>)) }
+	};
+	<span class="kw">pub type </span>CollectivesOrFellows: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(COLLECTIVES_ID)) } |
+		MultiLocation { parents: <span class="number">0</span>, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
+	};
+}
 
 <span class="doccomment">/// The barriers one of which must be passed for an XCM message to be executed.
 </span><span class="kw">pub type </span>Barrier = TrailingSetTopicAsId&lt;(
@@ -321,10 +401,10 @@
 		(
 			<span class="comment">// If the message is one that immediately attemps to pay for execution, then allow it.
 			</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
-			<span class="comment">// Messages coming from system parachains need not pay for execution.
-			</span>AllowExplicitUnpaidExecutionFrom&lt;IsChildSystemParachain&lt;ParaId&gt;&gt;,
 			<span class="comment">// Subscriptions for version tracking are OK.
-			</span>AllowSubscriptionsFrom&lt;Everything&gt;,
+			</span>AllowSubscriptionsFrom&lt;OnlyParachains&gt;,
+			<span class="comment">// Collectives and Fellows plurality get free execution.
+			</span>AllowExplicitUnpaidExecutionFrom&lt;CollectivesOrFellows&gt;,
 		),
 		UniversalLocation,
 		ConstU32&lt;<span class="number">8</span>&gt;,
@@ -341,8 +421,11 @@
 	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
-	<span class="kw">type </span>Weigher =
-		WeightInfoBounds&lt;weights::xcm::WestendXcmWeight&lt;RuntimeCall&gt;, RuntimeCall, MaxInstructions&gt;;
+	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
+		<span class="kw">crate</span>::weights::xcm::WestendXcmWeight&lt;RuntimeCall&gt;,
+		RuntimeCall,
+		MaxInstructions,
+	&gt;;
 	<span class="kw">type </span>Trader =
 		UsingComponents&lt;WeightToFee, TokenLocation, AccountId, Balances, ToAuthor&lt;Runtime&gt;&gt;;
 	<span class="kw">type </span>ResponseHandler = XcmPallet;
@@ -361,16 +444,54 @@
 	<span class="kw">type </span>Aliasers = Nothing;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="comment">// `GeneralAdmin` pluralistic body.
+	</span><span class="kw">pub const </span>GeneralAdminBodyId: BodyId = BodyId::Administration;
+	<span class="comment">// StakingAdmin pluralistic body.
+	</span><span class="kw">pub const </span>StakingAdminBodyId: BodyId = BodyId::Defense;
+	<span class="comment">// FellowshipAdmin pluralistic body.
+	</span><span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parachain(<span class="number">1000</span>).into());
+}
+
+<span class="doccomment">/// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.
+</span><span class="kw">pub type </span>GeneralAdminToPlurality =
+	OriginToPluralityVoice&lt;RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId&gt;;
+
 <span class="doccomment">/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
 /// location of this chain.
 </span><span class="kw">pub type </span>LocalOriginToLocation = (
+	GeneralAdminToPlurality,
 	<span class="comment">// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	</span>SignedToAccountId32&lt;RuntimeOrigin, AccountId, ThisNetwork&gt;,
 );
 
+<span class="doccomment">/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+</span><span class="kw">pub type </span>StakingAdminToPlurality =
+	OriginToPluralityVoice&lt;RuntimeOrigin, StakingAdmin, StakingAdminBodyId&gt;;
+
+<span class="doccomment">/// Type to convert the `FellowshipAdmin` origin to a Plurality `MultiLocation` value.
+</span><span class="kw">pub type </span>FellowshipAdminToPlurality =
+	OriginToPluralityVoice&lt;RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId&gt;;
+
+<span class="doccomment">/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+/// interior location of this chain for a destination chain.
+</span><span class="kw">pub type </span>LocalPalletOriginToLocation = (
+	<span class="comment">// GeneralAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	</span>GeneralAdminToPlurality,
+	<span class="comment">// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	</span>StakingAdminToPlurality,
+	<span class="comment">// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	</span>FellowshipAdminToPlurality,
+);
+
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>SendXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
+	<span class="kw">type </span>SendXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalPalletOriginToLocation&gt;;
 	<span class="kw">type </span>XcmRouter = XcmRouter;
 	<span class="comment">// Anyone can execute XCM messages locally...
 	</span><span class="kw">type </span>ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
@@ -379,8 +500,11 @@
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;
 	<span class="kw">type </span>XcmReserveTransferFilter = Everything;
-	<span class="kw">type </span>Weigher =
-		WeightInfoBounds&lt;weights::xcm::WestendXcmWeight&lt;RuntimeCall&gt;, RuntimeCall, MaxInstructions&gt;;
+	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
+		<span class="kw">crate</span>::weights::xcm::WestendXcmWeight&lt;RuntimeCall&gt;,
+		RuntimeCall,
+		MaxInstructions,
+	&gt;;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
