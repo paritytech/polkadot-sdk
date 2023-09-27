@@ -27,7 +27,7 @@ use std::path::PathBuf;
 ///
 /// The worker binaries associated to the node binary should ensure that they are using the same
 /// version as the main node that started them.
-pub const NODE_VERSION: &'static str = "1.1.0";
+pub const NODE_VERSION: &'static str = "1.2.0";
 
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
