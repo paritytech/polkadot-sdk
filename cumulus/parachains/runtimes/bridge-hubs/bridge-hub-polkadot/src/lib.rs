@@ -74,7 +74,7 @@ use parachains_common::{
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 // XCM Imports
-use xcm::latest::prelude::BodyId;
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 /// The address format for describing accounts.
@@ -304,6 +304,20 @@ pub type RootOrFellows = EitherOfDiverse<
 	EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
 >;
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(xcm_config::DotRelayLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+}
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+>;
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -313,7 +327,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {

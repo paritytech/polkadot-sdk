@@ -2564,6 +2564,7 @@ dependencies = [
 name = "collectives-polkadot-integration-tests"
 version = "0.1.0"
 dependencies = [
+ "asset-hub-polkadot-runtime",
  "collectives-polkadot-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -2579,6 +2580,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime",
+ "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "sp-core",
  "sp-runtime",

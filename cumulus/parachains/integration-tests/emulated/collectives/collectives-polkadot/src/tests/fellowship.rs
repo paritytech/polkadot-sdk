@@ -17,8 +17,13 @@
 
 use crate::*;
 use collectives_polkadot_runtime::fellowship::FellowshipSalaryPaymaster;
+use integration_tests_common::constants::{collectives, asset_hub_polkadot};
+use asset_hub_polkadot_runtime::{
+	PriceForSiblingParachainDelivery as AssetHubPolkadotPriceForParachainDelivery,
+};
 use frame_support::traits::{
 	fungibles::{Create, Mutate},
+	fungible,
 	tokens::Pay,
 };
 use sp_core::crypto::Ss58Codec;
@@ -34,6 +39,7 @@ fn pay_salary() {
 	let pay_amount = 9000;
 
 	AssetHubPolkadot::execute_with(|| {
+		type AssetHubBalances = <AssetHubPolkadot as AssetHubPolkadotPallet>::Balances;
 		type AssetHubAssets = <AssetHubPolkadot as AssetHubPolkadotPallet>::Assets;
 
 		assert_ok!(<AssetHubAssets as Create<_>>::create(
@@ -42,6 +48,10 @@ fn pay_salary() {
 			true,
 			pay_amount / 2
 		));
+		// Make sure we have enough assets for delivery
+		let querier = (Parent, Parachain(collectives::PARA_ID)).into();
+		let delivery_fees = xcm_helpers::query_response_delivery_fees::<AssetHubPolkadotPriceForParachainDelivery>(querier);
+		assert_ok!(<AssetHubBalances as fungible::Mutate<_>>::mint_into(&pay_from, delivery_fees + asset_hub_polkadot::ED));
 		assert_ok!(<AssetHubAssets as Mutate<_>>::mint_into(asset_id, &pay_from, pay_amount * 2));
 	});
 
@@ -59,17 +69,19 @@ fn pay_salary() {
 
 	AssetHubPolkadot::execute_with(|| {
 		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
+
 		assert_expected_events!(
 			AssetHubPolkadot,
 			vec![
-						RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) =>
-			{ 				asset_id: id == &asset_id,
-							from: from == &pay_from,
-							to: to == &pay_to,
-							amount: amount == &pay_amount,
-						},
-						RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
-					]
+				RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) =>
+				{
+					asset_id: id == &asset_id,
+					from: from == &pay_from,
+					to: to == &pay_to,
+					amount: amount == &pay_amount,
+				},
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+			]
 		);
 	});
 }

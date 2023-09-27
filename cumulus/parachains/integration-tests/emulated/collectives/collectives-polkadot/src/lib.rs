@@ -34,6 +34,8 @@ pub use xcm_emulator::{
 	RelayChain as Relay, Test, TestArgs, TestContext, TestExt, TestExternalities,
 };
 
+pub mod xcm_helpers;
+
 pub const ASSET_ID: u32 = 1;
 pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
