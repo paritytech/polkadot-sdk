@@ -603,7 +603,10 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	let bad = VersionedXcm::V3(bad);
 
 	let page = bad.encode();
-	assert_err!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()), ());
+	assert_err!(
+		XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()),
+		()
+	);
 }
 
 #[test]

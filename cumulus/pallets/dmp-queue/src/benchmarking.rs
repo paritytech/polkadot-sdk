@@ -67,7 +67,9 @@ mod benchmarks {
 
 		Pages::<T>::insert(0, vec![(123, msg.clone())]);
 		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 1 });
-		MigrationStatus::<T>::set(MigrationState::StartedOverweightExport { next_overweight_index: 0 });
+		MigrationStatus::<T>::set(MigrationState::StartedOverweightExport {
+			next_overweight_index: 0,
+		});
 
 		#[block]
 		{

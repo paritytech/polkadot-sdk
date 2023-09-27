@@ -642,7 +642,7 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 
 		if suspended && fp.pages <= resume_threshold {
 			Self::send_signal(para, ChannelSignal::Resume);
-			
+
 			suspended_channels.remove(&para);
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
 		} else if !suspended && fp.pages >= suspend_threshold {
@@ -714,7 +714,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 						}
 					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm => {
+				XcmpMessageFormat::ConcatenatedVersionedXcm =>
 					while !data.is_empty() {
 						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter) else {
 							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
@@ -728,8 +728,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							);
 							break
 						}
-					}
-				},
+					},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
 					defensive!("Blob messages are unhandled - dropping");
 					continue
