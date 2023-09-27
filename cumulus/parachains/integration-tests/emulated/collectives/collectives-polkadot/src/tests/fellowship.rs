@@ -16,14 +16,14 @@
 //! Integration tests concerning the Fellowship.
 
 use crate::*;
-use collectives_polkadot_runtime::fellowship::FellowshipSalaryPaymaster;
-use integration_tests_common::constants::{collectives, asset_hub_polkadot};
 use asset_hub_polkadot_runtime::xcm_config::XcmConfig as AssetHubPolkadotXcmConfig;
+use collectives_polkadot_runtime::fellowship::FellowshipSalaryPaymaster;
 use frame_support::traits::{
-	fungibles::{Create, Mutate},
 	fungible,
+	fungibles::{Create, Mutate},
 	tokens::Pay,
 };
+use integration_tests_common::constants::{asset_hub_polkadot, collectives};
 use sp_core::crypto::Ss58Codec;
 use xcm_emulator::TestExt;
 
@@ -48,8 +48,13 @@ fn pay_salary() {
 		));
 		// Make sure we have enough assets for delivery
 		let querier = (Parent, Parachain(collectives::PARA_ID)).into();
-		let delivery_fees = xcm_helpers::query_response_delivery_fees::<<AssetHubPolkadotXcmConfig as xcm_executor::Config>::XcmSender>(querier);
-		assert_ok!(<AssetHubBalances as fungible::Mutate<_>>::mint_into(&pay_from, delivery_fees + asset_hub_polkadot::ED));
+		let delivery_fees = xcm_helpers::query_response_delivery_fees::<
+			<AssetHubPolkadotXcmConfig as xcm_executor::Config>::XcmSender,
+		>(querier);
+		assert_ok!(<AssetHubBalances as fungible::Mutate<_>>::mint_into(
+			&pay_from,
+			delivery_fees + asset_hub_polkadot::ED
+		));
 		assert_ok!(<AssetHubAssets as Mutate<_>>::mint_into(asset_id, &pay_from, pay_amount * 2));
 	});
 
