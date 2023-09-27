@@ -3740,7 +3740,7 @@ async fn handle_approval_on_max_coalesce_count(
 	for _ in &candidate_indicies {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
 				tx.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
@@ -3804,7 +3804,7 @@ async fn handle_approval_on_max_wait_time(
 	for _ in &candidate_indicies {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(_, _, _, _, _, timeout, tx)) if timeout == PvfExecTimeoutKind::Approval => {
 				tx.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
