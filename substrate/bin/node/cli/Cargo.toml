@@ -57,7 +57,6 @@ sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-keystore = { path = "../../../primitives/keystore" }
-sp-externalities = { path = "../../../primitives/externalities" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
 sp-io = { path = "../../../primitives/io" }

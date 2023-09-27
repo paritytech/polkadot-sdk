@@ -8243,7 +8243,6 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-grandpa",
  "sp-core",
- "sp-externalities",
  "sp-inherents",
  "sp-io",
  "sp-keyring",

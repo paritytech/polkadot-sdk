@@ -620,9 +620,6 @@ pub trait ApiExt<Block: BlockT> {
 
 	/// Register an [`Extension`] that will be accessible while executing a runtime api call.
 	fn register_extension<E: Extension>(&mut self, extension: E);
-
-	/// Register a set of [`Extensions`] that will be accessible while executing a runtime api call.
-	fn register_extensions(&mut self, extensions: Extensions);
 }
 
 /// Parameters for [`CallApiAt::call_api_at`].

@@ -127,10 +127,6 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 			fn register_extension<E: #crate_::Extension>(&mut self, _: E) {
 				unimplemented!("`register_extension` not implemented for runtime api mocks")
 			}
-
-			fn register_extensions(&mut self, _: #crate_::Extensions) {
-				unimplemented!("`register_extensions` not implemented for runtime api mocks")
-			}
 		}
 
 		impl #crate_::Core<#block_type> for #self_ty {

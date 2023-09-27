@@ -200,7 +200,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 				)),
 				network_provider: network.clone(),
 				enable_http_requests: true,
-				custom_extensions: |_| Default::default(),
+				custom_extensions: |_| vec![],
 			})
 			.run(client.clone(), task_manager.spawn_handle())
 			.boxed(),
