@@ -61,16 +61,11 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	storage::bounded_vec::BoundedVec,
-	traits::{
-		Get,
-		WithdrawReasons, fungible,
-	},
+	traits::{fungible, fungible::Inspect, tokens::Preservation, Get, WithdrawReasons},
 	weights::Weight,
 };
-use frame_support::traits::fungible::Inspect;
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
-use frame_support::traits::tokens::{Fortitude, Preservation};
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, Bounded, Convert, MaybeSerializeDeserialize, One, Saturating,
@@ -90,7 +85,7 @@ type BalanceOf<T> =
 type MaxLocksOf<T> = <T as Config>::MaxFreezes;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-
+pub const VESTING_ID: [u8; 8] = *b"vesting ";
 
 // A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.
@@ -131,10 +126,7 @@ impl VestingAction {
 	fn pick_schedules<T: Config>(
 		&self,
 		schedules: Vec<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>>,
-	) -> impl Iterator<Item = VestingInfo<BalanceOf<T>, BlockNumberFor<T>>> + '_ 
-	
-	//where <T::Currency as fungible::Inspect<T::AccountId>>::Balance : MaybeSerializeDeserialize
-	{
+	) -> impl Iterator<Item = VestingInfo<BalanceOf<T>, BlockNumberFor<T>>> + '_ {
 		schedules.into_iter().enumerate().filter_map(move |(index, schedule)| {
 			if self.should_remove(index) {
 				None
@@ -157,7 +149,6 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::tokens::{Fortitude, Preservation};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -169,14 +160,12 @@ pub mod pallet {
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// The currency trait.
-		type Currency: fungible::InspectFreeze<Self::AccountId> +
-		fungible::freeze::Mutate<Self::AccountId> + 
-		fungible::Inspect<Self::AccountId, Balance = Self::Balance> +
-		fungible::Mutate<Self::AccountId>
-		;
+		type Currency: fungible::InspectFreeze<Self::AccountId>
+			+ fungible::freeze::Mutate<Self::AccountId>
+			+ fungible::Inspect<Self::AccountId, Balance = Self::Balance>
+			+ fungible::Mutate<Self::AccountId>;
 
-		type Balance: frame_support::traits::tokens::Balance + //fungible::Inspect<Self::AccountId>>::Balance +
-		 MaybeSerializeDeserialize;
+		type Balance: frame_support::traits::tokens::Balance + MaybeSerializeDeserialize;
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;
@@ -255,9 +244,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			use frame_support::traits::fungible::{Inspect, MutateFreeze};
 			use sp_runtime::traits::Saturating;
-			use frame_support::traits::fungible::Inspect;
-			use frame_support::traits::fungible::MutateFreeze;
 
 			// Genesis uses the latest storage version.
 			StorageVersion::<T>::put(Releases::V1);
@@ -281,7 +269,8 @@ pub mod pallet {
 				// 	WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
 
 				//TODO: this was before recording the T::UnvestedFundsAllowedWithdrawReasons::get()
-				T::Currency::set_freeze(&T::VestingId::get(), who, locked).expect("Can't freeze at genesis");
+				T::Currency::set_freeze(&T::VestingId::get(), who, locked)
+					.expect("Can't freeze at genesis");
 			}
 		}
 	}
@@ -517,8 +506,7 @@ impl<T: Config> Pallet<T> {
 		target: AccountIdLookupOf<T>,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
-		use frame_support::traits::fungible::Mutate;
-		use frame_support::traits::fungible::freeze::VestingSchedule;
+		use frame_support::traits::fungible::{freeze::VestingSchedule, Mutate};
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
@@ -535,12 +523,7 @@ impl<T: Config> Pallet<T> {
 			schedule.starting_block(),
 		)?;
 
-		T::Currency::transfer(
-			&source,
-			&target,
-			schedule.locked(),
-			Preservation::Expendable,
-		)?;
+		T::Currency::transfer(&source, &target, schedule.locked(), Preservation::Expendable)?;
 
 		// We can't let this fail because the currency transfer has already happened.
 		let res = Self::add_vesting_schedule(
@@ -587,8 +570,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Write an accounts updated vesting lock to storage.
-	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) 
-	-> Result<(), DispatchError> {
+	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) -> Result<(), DispatchError> {
 		use frame_support::traits::fungible::MutateFreeze;
 
 		if total_locked_now.is_zero() {

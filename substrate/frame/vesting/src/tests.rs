@@ -16,8 +16,9 @@
 // limitations under the License.
 
 use codec::EncodeLike;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
-use frame_support::traits::fungible::freeze::VestingSchedule;
+use frame_support::{
+	assert_noop, assert_ok, assert_storage_noop, traits::fungible::freeze::VestingSchedule,
+};
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{BadOrigin, Identity},

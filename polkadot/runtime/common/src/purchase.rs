@@ -18,7 +18,10 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
+	traits::{
+		tokens::{fungible, fungible::freeze::VestingSchedule, Preservation},
+		EnsureOrigin, Get,
+	},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -32,7 +35,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The kind of statement an account needs to make for a claim to be valid.
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -101,13 +104,15 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Balances Pallet
-		type Currency: Currency<Self::AccountId>;
+		type Currency: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId>;
 
 		/// Vesting Pallet
 		type VestingSchedule: VestingSchedule<
 			Self::AccountId,
 			Moment = BlockNumberFor<Self>,
-			Currency = Self::Currency,
+			Fungible = Self::Currency,
 		>;
 
 		/// The origin allowed to set account status.
@@ -317,6 +322,7 @@ pub mod pallet {
 			Accounts::<T>::try_mutate(
 				&who,
 				|status: &mut AccountStatus<BalanceOf<T>>| -> DispatchResult {
+					use frame_support::traits::fungible::Mutate;
 					// Account has a valid status (not Invalid, Pending, or Completed)...
 					ensure!(status.validity.is_valid(), Error::<T>::InvalidAccount);
 
@@ -329,7 +335,7 @@ pub mod pallet {
 						&payment_account,
 						&who,
 						total_balance,
-						ExistenceRequirement::AllowDeath,
+						Preservation::Expendable,
 					)?;
 
 					if !status.locked_balance.is_zero() {

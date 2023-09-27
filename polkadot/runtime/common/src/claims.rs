@@ -18,7 +18,10 @@
 
 use frame_support::{
 	ensure,
-	traits::{Currency, Get, IsSubType, VestingSchedule},
+	traits::{
+		tokens::{fungible, fungible::freeze::VestingSchedule, Balance},
+		Get, IsSubType,
+	},
 	weights::Weight,
 	DefaultNoBound,
 };
@@ -41,8 +44,9 @@ use sp_std::{fmt::Debug, prelude::*};
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,
->>::Currency;
-type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+>>::Fungible;
+type BalanceOf<T> =
+	<CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
 	fn claim() -> Weight;
@@ -161,6 +165,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::MaybeSerializeDeserialize;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -171,7 +176,14 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		type VestingSchedule: VestingSchedule<
+			Self::AccountId,
+			Moment = BlockNumberFor<Self>,
+			Fungible = Self::Fungible,
+		>;
+		type Fungible: fungible::Inspect<Self::AccountId, Balance = Self::Balance>
+			+ fungible::Mutate<Self::AccountId>;
+		type Balance: Balance + MaybeSerializeDeserialize;
 		#[pallet::constant]
 		type Prefix: Get<&'static [u8]>;
 		type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -551,6 +563,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn process_claim(signer: EthereumAddress, dest: T::AccountId) -> sp_runtime::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
 		let balance_due = <Claims<T>>::get(&signer).ok_or(Error::<T>::SignerHasNoClaim)?;
 
 		let new_total = Self::total().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
@@ -561,7 +575,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
-		CurrencyOf::<T>::deposit_creating(&dest, balance_due);
+		//TODO: we need to ensure that this creates the account if it does not already exist
+		// was: CurrencyOf::<T>::deposit_creating(&dest, balance_due);
+		CurrencyOf::<T>::mint_into(&dest, balance_due)?;
 
 		// Check if this claim should have a vesting schedule.
 		if let Some(vs) = vesting {

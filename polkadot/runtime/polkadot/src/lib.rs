@@ -288,6 +288,7 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
 	pub const MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
+	pub const MaxFreezes: u32 = 1;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -301,9 +302,9 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = [u8; 8];
 	type MaxHolds = ConstU32<1>;
-	type MaxFreezes = ConstU32<0>;
+	type MaxFreezes = MaxFreezes;
 }
 
 parameter_types! {
@@ -836,6 +837,8 @@ parameter_types! {
 impl claims::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
+	type Fungible = Balances;
+	type Balance = Balance;
 	type Prefix = Prefix;
 	/// Only Root can move a claim.
 	type MoveClaimOrigin = EnsureRoot<AccountId>;
@@ -846,13 +849,19 @@ parameter_types! {
 	pub const MinVestedTransfer: Balance = 1 * DOLLARS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+	pub const VestingId: [u8; 8] = pallet_vesting::VESTING_ID;
 }
 
 impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
+	type Balance = Balance;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
+	type MaxFreezes = MaxFreezes;
+
+	type VestingId = VestingId;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	const MAX_VESTING_SCHEDULES: u32 = 28;

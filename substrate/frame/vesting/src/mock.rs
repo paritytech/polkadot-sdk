@@ -17,7 +17,7 @@
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, ConstU64, WithdrawReasons, tokens::Balance},
+	traits::{tokens::Balance, ConstU32, ConstU64, WithdrawReasons},
 };
 use sp_core::H256;
 use sp_runtime::{

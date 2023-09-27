@@ -122,10 +122,9 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 	}
 }
 
-
 /// A vesting schedule over a fungible. This allows a particular fungible to have vesting limits
 /// applied to it.
-pub trait VestingSchedule<AccountId> {
+pub trait VestingSchedule<AccountId>: Sized {
 	/// The quantity used to denote time; usually just a `BlockNumber`.
 	type Moment;
 
@@ -134,8 +133,9 @@ pub trait VestingSchedule<AccountId> {
 
 	/// Get the amount that is currently being vested and cannot be transferred out of this account.
 	/// Returns `None` if the account has no vesting schedule.
-	fn vesting_balance(who: &AccountId)
-		-> Option<<Self::Fungible as super::Inspect<AccountId>>::Balance>;
+	fn vesting_balance(
+		who: &AccountId,
+	) -> Option<<Self::Fungible as super::Inspect<AccountId>>::Balance>;
 
 	/// Adds a vesting schedule to a given account.
 	///
