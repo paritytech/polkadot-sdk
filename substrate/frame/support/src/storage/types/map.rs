@@ -47,7 +47,7 @@ use sp_std::prelude::*;
 ///     # pub trait Config: frame_system::Config {}
 ///     # #[pallet::pallet]
 ///     # pub struct Pallet<T>(_);
-/// 	/// A kitchen-sink storage map, with all possible additional attributes.
+/// 	/// A kitchen-sink StorageMap, with all possible additional attributes.
 ///     #[pallet::storage]
 /// 	#[pallet::getter(fn foo)]
 /// 	#[pallet::storage_prefix = "OtherFoo"]
