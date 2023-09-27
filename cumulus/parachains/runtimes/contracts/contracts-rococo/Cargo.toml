@@ -52,7 +52,6 @@ pallet-contracts = { path = "../../../../../substrate/frame/contracts", default-
 pallet-contracts-primitives = { path = "../../../../../substrate/frame/contracts/primitives", default-features = false}
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
@@ -93,7 +92,6 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
-	"kusama-runtime-constants/std",
 	"log/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
