@@ -22,6 +22,8 @@ use sp_std::prelude::Vec;
 use sp_std::collections::btree_map::BTreeMap;
 
 /// Implementation for `DisabledValidators`
+// CAVEAT: this should only be called on the node side
+// as it might produce incorrect results on session boundaries
 pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
 where
 	T: pallet_session::Config + shared::Config,
