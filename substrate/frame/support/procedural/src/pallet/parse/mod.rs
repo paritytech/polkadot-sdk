@@ -37,6 +37,9 @@ pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
 
+#[cfg(test)]
+pub mod tests;
+
 use composite::{keyword::CompositeKeyword, CompositeDef};
 use frame_support_procedural_tools::generate_crate_access_2018;
 use quote::ToTokens;
