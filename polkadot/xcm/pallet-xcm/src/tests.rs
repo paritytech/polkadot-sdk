@@ -714,12 +714,12 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 
 	new_test_ext_with_balances(balances).execute_with(|| {
-		// create non-sufficient foreign asset (0 total issuance)
+		// create sufficient foreign asset (0 total issuance)
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			foreign_asset_id_multilocation,
 			BOB,
-			false,
+			true,
 			1
 		));
 		// this asset should have been teleported/reserve-transferred in, but for this test we just
@@ -786,11 +786,11 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 					])
 				),
 				(
-					// second message is to transfer/deposit foreign assets on `dest` while paying
+					// second message is to transfer/deposit (native) asset on `dest` while paying
 					// using prefunded (transferred above) fees
+					dest,
 					// transfer is through local-reserve transfer because `assets` (native asset)
 					// have local reserve
-					dest,
 					Xcm(vec![
 						ReserveAssetDeposited(expected_asset.into()),
 						ClearOrigin,
@@ -914,7 +914,135 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works() {
-	// TODO
+	// foreign creator in this case child parachain acting as reserve
+	let fee_reserve_location =
+		RelayLocation::get().pushed_with_interior(Parachain(RESERVE_PARA_ID)).unwrap();
+	let foreign_creator_as_account_id =
+		SovereignAccountOf::convert_location(&fee_reserve_location).unwrap();
+
+	// foreign parachain with the same consensus currency as asset
+	let foreign_asset_id_multilocation =
+		fee_reserve_location.pushed_with_interior(RESERVE_ASSET_INNER_JUNCTION).unwrap();
+	let foreign_asset_amount = 142;
+
+	// transfer destination is other parachain than fee reserve location (no teleport trust)
+	let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
+	let dest_as_account_id = SovereignAccountOf::convert_location(&dest).unwrap();
+	let assets: MultiAssets = vec![
+		// native asset to transfer (not used for fees) - local reserve
+		(MultiLocation::here(), SEND_AMOUNT).into(),
+		// foreign asset for fees (is sufficient on local chain too) - remote reserve
+		(foreign_asset_id_multilocation, FEE_AMOUNT).into(),
+	]
+	.into();
+	let fee_index = 1;
+	let asset_index = 0;
+
+	let balances =
+		vec![(ALICE, INITIAL_BALANCE), (foreign_creator_as_account_id.clone(), INITIAL_BALANCE)];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			foreign_asset_id_multilocation,
+			BOB,
+			true,
+			1
+		));
+		// this asset should have been teleported/reserve-transferred in, but for this test we just
+		// mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			foreign_asset_id_multilocation,
+			ALICE,
+			foreign_asset_amount
+		));
+		assert_eq!(Assets::balance(foreign_asset_id_multilocation, ALICE), foreign_asset_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		let context = UniversalLocation::get();
+		let mut expected_fee_on_reserve = assets.get(fee_index).unwrap().clone();
+		expected_fee_on_reserve.reanchor(&fee_reserve_location, context).unwrap();
+		let expected_dest_on_reserve = dest.reanchored(&fee_reserve_location, context).unwrap();
+		let mut expected_asset = assets.get(asset_index).unwrap().clone();
+		expected_asset.reanchor(&dest, context).unwrap();
+		let mut expected_fee = assets.get(fee_index).unwrap().clone();
+		expected_fee.reanchor(&dest, context).unwrap();
+
+		// do the transfer
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		));
+		assert!(matches!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+		));
+		// Alice spent (fees) amount
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, ALICE),
+			foreign_asset_amount - FEE_AMOUNT
+		);
+		// Alice used native asset for transfer
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+		// Sovereign account of reserve parachain is unchanged
+		assert_eq!(Balances::free_balance(foreign_creator_as_account_id.clone()), INITIAL_BALANCE);
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, foreign_creator_as_account_id),
+			0
+		);
+		// Sovereign account of destination parachain holds `SEND_AMOUNT` in local reserve
+		assert_eq!(Balances::free_balance(dest_as_account_id), SEND_AMOUNT);
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![
+				(
+					// first message is to prefund (foreign-asset) fees on `dest` (by going through
+					// fee remote reserve)
+					fee_reserve_location,
+					Xcm(vec![
+						WithdrawAsset(expected_fee_on_reserve.clone().into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee_on_reserve, Unlimited),
+						DepositReserveAsset {
+							assets: Wild(AllCounted(1)),
+							// final destination is `dest` as seen by `reserve`
+							dest: expected_dest_on_reserve,
+							// message sent onward to final `dest` to deposit/prefund fees
+							xcm: Xcm(vec![
+								buy_limited_execution(expected_fee.clone(), Unlimited),
+								DepositAsset { assets: AllCounted(1).into(), beneficiary }
+							])
+						}
+					])
+				),
+				(
+					// second message is to transfer/deposit (native) asset on `dest` while paying
+					// using prefunded (transferred above) fees
+					dest,
+					// transfer is through local-reserve transfer because `assets` (native asset)
+					// have local reserve
+					Xcm(vec![
+						ReserveAssetDeposited(expected_asset.into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee, Unlimited),
+						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+					])
+				)
+			]
+		);
+		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
+		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
@@ -973,15 +1101,11 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		let context = UniversalLocation::get();
-		println!("assets to transfer: {:?}", assets);
 		let mut expected_fee_on_reserve = assets.get(fee_index).unwrap().clone();
 		expected_fee_on_reserve.reanchor(&reserve_location, context).unwrap();
-		println!("expected fees on reserve (reanchored): {:?}", expected_fee_on_reserve);
 		let mut expected_assets = assets.clone();
 		expected_assets.reanchor(&dest, context).unwrap();
-		println!("assets expected to be received on dest (reanchored): {:?}", expected_assets);
-		let expected_dest = dest.reanchored(&reserve_location, context).unwrap();
-		println!("dest location as seen by reserve (reanchored): {:?}", expected_dest);
+		let expected_dest_on_reserve = dest.reanchored(&reserve_location, context).unwrap();
 
 		// do the transfer
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
@@ -1023,7 +1147,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 					DepositReserveAsset {
 						assets: Wild(AllCounted(1)),
 						// final destination is `dest` as seen by `reserve`
-						dest: expected_dest,
+						dest: expected_dest_on_reserve,
 						// message sent onward to `dest`
 						xcm: Xcm(vec![
 							buy_limited_execution(
