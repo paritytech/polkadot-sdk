@@ -16359,6 +16359,7 @@ dependencies = [
  "frame-system",
  "frame-try-runtime",
  "pallet-aura",
+ "pallet-message-queue",
  "pallet-timestamp",
  "parachain-info",
  "parachains-common",

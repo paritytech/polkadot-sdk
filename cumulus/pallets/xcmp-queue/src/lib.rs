@@ -622,7 +622,8 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data).map_err(|_| ())?;
+		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
+			.map_err(|_| ())?;
 		xcm.encode().try_into().map_err(|_| ())
 	}
 
