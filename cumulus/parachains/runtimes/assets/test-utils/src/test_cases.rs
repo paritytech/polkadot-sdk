@@ -235,15 +235,14 @@ pub fn teleports_for_native_asset_works<
 					&alice,
 				));
 
-				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					XcmConfig::XcmSender,
-				>(
-					(native_asset_id, native_asset_to_teleport_away.into()).into(),
-					0,
-					Unlimited,
-					dest_beneficiary,
-					dest,
-				);
+				let delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+						(native_asset_id, native_asset_to_teleport_away.into()).into(),
+						0,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
 
 				// check balances
 				assert_eq!(
@@ -555,15 +554,14 @@ pub fn teleports_for_foreign_assets_works<
 				);
 
 				// Make sure the target account has enough native asset to pay for delivery fees
-				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					XcmConfig::XcmSender,
-				>(
-					(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
-					0,
-					Unlimited,
-					dest_beneficiary,
-					dest,
-				);
+				let delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+						(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
+						0,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
 				<pallet_balances::Pallet<Runtime>>::mint_into(
 					&target_account,
 					delivery_fees.into(),

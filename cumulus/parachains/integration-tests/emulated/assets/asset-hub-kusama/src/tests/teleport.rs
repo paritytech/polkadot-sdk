@@ -16,23 +16,22 @@
 #![allow(dead_code)] // <https://github.com/paritytech/cumulus/issues/3027>
 
 use crate::*;
-use kusama_runtime::xcm_config::{
-	XcmConfig, TreasuryAccount as KusamaTreasuryAccount,
-};
+use kusama_runtime::xcm_config::{TreasuryAccount as KusamaTreasuryAccount, XcmConfig};
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Kusama as Chain>::RuntimeEvent;
 
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(631_531_000, 7_186)));
 
-	let delivery_fees_amount =
-		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
-			t.args.assets.clone(),
-			0,
-			t.args.weight_limit,
-			t.args.beneficiary,
-			t.args.dest,
-		);
+	let delivery_fees_amount = xcm_helpers::transfer_assets_delivery_fees::<
+		<XcmConfig as xcm_executor::Config>::XcmSender,
+	>(
+		t.args.assets.clone(),
+		0,
+		t.args.weight_limit,
+		t.args.beneficiary,
+		t.args.dest,
+	);
 
 	assert_expected_events!(
 		Kusama,
