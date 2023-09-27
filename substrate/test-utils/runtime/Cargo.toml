@@ -107,6 +107,3 @@ std = [
 ]
 # Special feature to disable logging
 disable-logging = [ "sp-api/disable-logging" ]
-
-#Enabling this flag will disable GenesisBuilder API implementation in runtime.
-disable-genesis-builder = []
