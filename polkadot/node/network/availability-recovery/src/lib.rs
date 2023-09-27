@@ -78,7 +78,6 @@ const LRU_SIZE: u32 = 16;
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 
 /// PoV size limit in bytes for which prefer fetching from backers.
-//TODO: Cleanup increased for versi testing
 const SMALL_POV_LIMIT: usize = 128 * 1024;
 
 #[derive(Clone, PartialEq)]
