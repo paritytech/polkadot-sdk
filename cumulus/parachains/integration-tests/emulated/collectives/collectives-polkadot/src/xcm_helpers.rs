@@ -16,10 +16,9 @@
 
 //! XCM helpers for getting delivery fees for tests
 
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
 use xcm::latest::prelude::*;
 
-pub fn query_response_delivery_fees<P: PriceForParachainDelivery>(querier: MultiLocation) -> u128 {
+pub fn query_response_delivery_fees<S: SendXcm>(querier: MultiLocation) -> u128 {
 	// Message to calculate delivery fees, it's encoded size is what's important.
     // This message reports that there was no error, if an error is reported, the encoded size would be different.
     let message = Xcm(vec![
@@ -31,8 +30,7 @@ pub fn query_response_delivery_fees<P: PriceForParachainDelivery>(querier: Multi
         },
         SetTopic([0u8; 32]), // Dummy topic
     ]);
-    let Parachain(para_id) = querier.interior().last().unwrap() else { unreachable!("Location is parachain") };
-    let delivery_fees = P::price_for_parachain_delivery((*para_id).into(), &message);
+	let Ok((_, delivery_fees)) = validate_send::<S>(querier, message) else { unreachable!("message can be sent; qed") };
 	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
     delivery_fees_amount
 }

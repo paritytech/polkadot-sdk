@@ -14,30 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
+//! Helpers for calculating XCM delivery fees.
+
 use xcm::latest::prelude::*;
 
 /// Returns the delivery fees amount for pallet xcm's `teleport_assets` and
 /// `reserve_transfer_assets` extrinsics.
-pub fn transfer_assets_delivery_fees<P: PriceForParachainDelivery>(
+/// It assumes delivery fees are only paid in one asset and that asset is known.
+pub fn transfer_assets_parent_delivery_fees<S: SendXcm>(
 	assets: MultiAssets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,
 	beneficiary: MultiLocation,
 	destination: MultiLocation,
 ) -> u128 {
-	// Approximation of the actual message sent by the extrinsic.
-	// The assets are not reanchored and the topic is a dummy one.
-	// However, it should have the same encoded size, which is what matters for delivery fees.
-	let message = Xcm(vec![
+	let message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
+	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else { unreachable!("message can be sent; qed") };
+	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed") };
+	delivery_fees_amount
+}
+
+/// Approximates the actual message sent by the teleport extrinsic.
+/// The assets are not reanchored and the topic is a dummy one.
+/// However, it should have the same encoded size, which is what matters for delivery fees.
+/// Also has same encoded size as the one created by the reserve transfer assets extrinsic.
+fn teleport_assets_dummy_message(
+	assets: MultiAssets,
+	fee_asset_item: u32,
+	weight_limit: WeightLimit,
+	beneficiary: MultiLocation,
+) -> Xcm<()> {
+	Xcm(vec![
 		ReceiveTeleportedAsset(assets.clone()), // Same encoded size as `ReserveAssetDeposited`
 		ClearOrigin,
 		BuyExecution { fees: assets.get(fee_asset_item as usize).unwrap().clone(), weight_limit },
 		DepositAsset { assets: Wild(AllCounted(assets.len() as u32)), beneficiary },
 		SetTopic([0u8; 32]), // Dummy topic
-	]);
-	let Parachain(para_id) = destination.interior().last().unwrap() else { unreachable!("Location is parachain") };
-	let delivery_fees = P::price_for_parachain_delivery((*para_id).into(), &message);
-	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("Asset is fungible") };
-	delivery_fees_amount
+	])
 }

@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::*;
-use asset_hub_westend_runtime::PriceForSiblingParachainDelivery;
+use asset_hub_westend_runtime::xcm_config::XcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -308,7 +308,7 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -350,7 +350,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
