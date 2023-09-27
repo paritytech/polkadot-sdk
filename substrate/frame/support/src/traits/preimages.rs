@@ -19,8 +19,11 @@
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{Hasher, RuntimeDebug};
-use sp_runtime::{traits::ConstU32, DispatchError};
+use sp_core::RuntimeDebug;
+use sp_runtime::{
+	traits::{ConstU32, Hash},
+	DispatchError,
+};
 use sp_std::borrow::Cow;
 
 pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
@@ -30,24 +33,18 @@ const MAX_LEGACY_LEN: u32 = 1_000_000;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, RuntimeDebug)]
 #[codec(mel_bound())]
-pub enum Bounded<T, H: Hasher>
-where
-	H::Out: MaxEncodedLen,
-{
+pub enum Bounded<T, H: Hash> {
 	/// A hash with no preimage length. We do not support creation of this except
 	/// for transitioning from legacy state. In the future we will make this a pure
 	/// `Dummy` item storing only the final `dummy` field.
-	Legacy { hash: H::Out, dummy: sp_std::marker::PhantomData<T> },
+	Legacy { hash: H::Output, dummy: sp_std::marker::PhantomData<T> },
 	/// A an bounded `Call`. Its encoding must be at most 128 bytes.
 	Inline(BoundedInline),
-	/// A hash of the call together with an upper limit for its size.
-	Lookup { hash: H::Out, len: u32 },
+	/// A hash of the call together with an upper limit for its size.`
+	Lookup { hash: H::Output, len: u32 },
 }
 
-impl<T, H: Hasher> Bounded<T, H>
-where
-	H::Out: MaxEncodedLen,
-{
+impl<T, H: Hash> Bounded<T, H> {
 	/// Casts the wrapped type into something that encodes alike.
 	///
 	/// # Examples
@@ -73,18 +70,18 @@ where
 	/// Returns the hash of the preimage.
 	///
 	/// The hash is re-calculated every time if the preimage is inlined.
-	pub fn hash(&self) -> H::Out {
+	pub fn hash(&self) -> H::Output {
 		use Bounded::*;
 		match self {
 			Lookup { hash, .. } | Legacy { hash, .. } => *hash,
-			Inline(x) => H::hash(x.as_ref()).into(),
+			Inline(x) => <H as Hash>::hash(x.as_ref()),
 		}
 	}
 
 	/// Returns the hash to lookup the preimage.
 	///
 	/// If this is a `Bounded::Inline`, `None` is returned as no lookup is required.
-	pub fn lookup_hash(&self) -> Option<H::Out> {
+	pub fn lookup_hash(&self) -> Option<H::Output> {
 		use Bounded::*;
 		match self {
 			Lookup { hash, .. } | Legacy { hash, .. } => Some(*hash),
@@ -119,13 +116,13 @@ where
 	}
 
 	/// Constructs a `Lookup` bounded item.
-	pub fn unrequested(hash: H::Out, len: u32) -> Self {
+	pub fn unrequested(hash: H::Output, len: u32) -> Self {
 		Self::Lookup { hash, len }
 	}
 
 	/// Constructs a `Legacy` bounded item.
 	#[deprecated = "This API is only for transitioning to Scheduler v3 API"]
-	pub fn from_legacy_hash(hash: impl Into<H::Out>) -> Self {
+	pub fn from_legacy_hash(hash: impl Into<H::Output>) -> Self {
 		Self::Legacy { hash: hash.into(), dummy: sp_std::marker::PhantomData }
 	}
 }
@@ -133,12 +130,9 @@ where
 pub type FetchResult = Result<Cow<'static, [u8]>, DispatchError>;
 
 /// A interface for looking up preimages from their hash on chain.
-pub trait QueryPreimage
-where
-	<Self::H as sp_core::Hasher>::Out: MaxEncodedLen,
-{
+pub trait QueryPreimage {
 	/// The hasher used in the runtime.
-	type H: sp_core::Hasher;
+	type H: Hash;
 
 	/// Returns whether a preimage exists for a given hash and if so its length.
 	fn len(hash: &<Self::H as sp_core::Hasher>::Out) -> Option<u32>;
@@ -233,10 +227,7 @@ where
 /// Note that this API does not assume any underlying user is calling, and thus
 /// does not handle any preimage ownership or fees. Other system level logic that
 /// uses this API should implement that on their own side.
-pub trait StorePreimage: QueryPreimage
-where
-	<Self::H as sp_core::Hasher>::Out: MaxEncodedLen,
-{
+pub trait StorePreimage: QueryPreimage {
 	/// The maximum length of preimage we can store.
 	///
 	/// This is the maximum length of the *encoded* value that can be passed to `bound`.
@@ -272,22 +263,22 @@ where
 impl QueryPreimage for () {
 	type H = sp_runtime::traits::BlakeTwo256;
 
-	fn len(_: &<Self::H as sp_core::Hasher>::Out) -> Option<u32> {
+	fn len(_: &sp_core::H256) -> Option<u32> {
 		None
 	}
-	fn fetch(_: &<Self::H as sp_core::Hasher>::Out, _: Option<u32>) -> FetchResult {
+	fn fetch(_: &sp_core::H256, _: Option<u32>) -> FetchResult {
 		Err(DispatchError::Unavailable)
 	}
-	fn is_requested(_: &<Self::H as sp_core::Hasher>::Out) -> bool {
+	fn is_requested(_: &sp_core::H256) -> bool {
 		false
 	}
-	fn request(_: &<Self::H as sp_core::Hasher>::Out) {}
-	fn unrequest(_: &<Self::H as sp_core::Hasher>::Out) {}
+	fn request(_: &sp_core::H256) {}
+	fn unrequest(_: &sp_core::H256) {}
 }
 
 impl StorePreimage for () {
 	const MAX_LENGTH: usize = 0;
-	fn note(_: Cow<[u8]>) -> Result<<Self::H as sp_core::Hasher>::Out, DispatchError> {
+	fn note(_: Cow<[u8]>) -> Result<sp_core::H256, DispatchError> {
 		Err(DispatchError::Exhausted)
 	}
 }

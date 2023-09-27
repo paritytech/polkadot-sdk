@@ -1275,7 +1275,7 @@ impl<T: Config> schedule::v3::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
-	type Hasher = T::Hashing;
+	type Hash = T::Hashing;
 
 	fn schedule(
 		when: DispatchTime<BlockNumberFor<T>>,
@@ -1314,7 +1314,7 @@ impl<T: Config> schedule::v3::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
-	type Hasher = T::Hashing;
+	type Hash = T::Hashing;
 
 	fn schedule_named(
 		id: TaskName,

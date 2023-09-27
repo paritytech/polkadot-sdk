@@ -228,7 +228,7 @@ pub mod pallet {
 			BlockNumberFor<Self>,
 			CallOf<Self>,
 			Self::PalletsOrigin,
-			Hasher = Self::Hashing,
+			Hash = Self::Hashing,
 		>;
 
 		/// The Preimage provider.
