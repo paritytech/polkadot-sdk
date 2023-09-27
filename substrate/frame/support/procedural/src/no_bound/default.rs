@@ -66,14 +66,12 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 				.collect::<Vec<_>>();
 
 			match &*default_variants {
-				[] => {
-					return syn::Error::new(
-						name.clone().span(),
-						"no default declared, make a variant default by placing `#[default]` above it",
-					)
-					.into_compile_error()
-					.into()
-				},
+				[] => return syn::Error::new(
+					name.clone().span(),
+					"no default declared, make a variant default by placing `#[default]` above it",
+				)
+				.into_compile_error()
+				.into(),
 				// only one variant with the #[default] attribute set
 				[default_variant] => {
 					let variant_attrs = default_variant
