@@ -809,6 +809,9 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1162,7 +1165,7 @@
 	<span class="kw">use </span>sc_transaction_pool::{BasicPool, FullChainApi, Options, RevalidationType};
 	<span class="kw">use </span>sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionSource};
 	<span class="kw">use </span>sp_inherents::InherentData;
-	<span class="kw">use </span>sp_runtime::generic::{BlockId, Digest, DigestItem};
+	<span class="kw">use </span>sp_runtime::generic::{Digest, DigestItem};
 	<span class="kw">use </span>substrate_test_runtime_client::{
 		AccountKeyring::<span class="kw-2">*</span>, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
@@ -1211,10 +1214,11 @@
 		<span class="kw">let </span>client = Arc::new(client);
 		<span class="kw">let </span>spawner = sp_core::testing::TaskExecutor::new();
 		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
+		<span class="kw">let </span>pool_api = Arc::new(FullChainApi::new(client.clone(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>spawner.clone()));
 		<span class="kw">let </span>pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			<span class="bool-val">true</span>.into(),
-			api(),
+			pool_api,
 			<span class="prelude-val">None</span>,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -1255,7 +1259,7 @@
 			</span>rt.block_on(future);
 		});
 		<span class="comment">// submit a transaction to pool.
-		</span><span class="kw">let </span>result = pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
+		</span><span class="kw">let </span>result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
 		<span class="comment">// assert that it was successfully imported
 		</span><span class="macro">assert!</span>(result.is_ok());
 		<span class="comment">// assert that the background task returns ok
@@ -1286,10 +1290,11 @@
 		<span class="kw">let </span>client = Arc::new(client);
 		<span class="kw">let </span>spawner = sp_core::testing::TaskExecutor::new();
 		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
+		<span class="kw">let </span>pool_api = Arc::new(FullChainApi::new(client.clone(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>spawner.clone()));
 		<span class="kw">let </span>pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			<span class="bool-val">true</span>.into(),
-			api(),
+			pool_api,
 			<span class="prelude-val">None</span>,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -1346,7 +1351,7 @@
 
 		<span class="kw">let </span><span class="kw-2">mut </span>finality_stream = client.finality_notification_stream();
 		<span class="comment">// submit a transaction to pool.
-		</span><span class="kw">let </span>result = pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
+		</span><span class="kw">let </span>result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
 		<span class="comment">// assert that it was successfully imported
 		</span><span class="macro">assert!</span>(result.is_ok());
 		<span class="comment">// assert that the background task returns ok
@@ -1382,10 +1387,11 @@
 		<span class="kw">let </span>client = Arc::new(client);
 		<span class="kw">let </span>spawner = sp_core::testing::TaskExecutor::new();
 		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
+		<span class="kw">let </span>pool_api = Arc::new(FullChainApi::new(client.clone(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>spawner.clone()));
 		<span class="kw">let </span>pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			<span class="bool-val">true</span>.into(),
-			api(),
+			pool_api,
 			<span class="prelude-val">None</span>,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -1413,7 +1419,7 @@
 			</span>rt.block_on(future);
 		});
 		<span class="comment">// submit a transaction to pool.
-		</span><span class="kw">let </span>result = pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
+		</span><span class="kw">let </span>result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
 		<span class="comment">// assert that it was successfully imported
 		</span><span class="macro">assert!</span>(result.is_ok());
 		<span class="kw">let </span>(tx, rx) = futures::channel::oneshot::channel();
@@ -1499,7 +1505,7 @@
 			</span>rt.block_on(future);
 		});
 		<span class="comment">// submit a transaction to pool.
-		</span><span class="kw">let </span>result = pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
+		</span><span class="kw">let </span>result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, <span class="number">0</span>)).<span class="kw">await</span>;
 		<span class="comment">// assert that it was successfully imported
 		</span><span class="macro">assert!</span>(result.is_ok());
 
@@ -1530,7 +1536,7 @@
 			</span>}
 		);
 
-		<span class="macro">assert!</span>(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), SOURCE, uxt(Alice, <span class="number">1</span>)).<span class="kw">await</span>.is_ok());
+		<span class="macro">assert!</span>(pool.submit_one(created_block.hash, SOURCE, uxt(Alice, <span class="number">1</span>)).<span class="kw">await</span>.is_ok());
 
 		<span class="kw">let </span>header = client.header(created_block.hash).expect(<span class="string">&quot;db error&quot;</span>).expect(<span class="string">&quot;imported above&quot;</span>);
 		<span class="macro">assert_eq!</span>(header.number, <span class="number">1</span>);
@@ -1552,7 +1558,7 @@
 			</span>.is_ok());
 		<span class="macro">assert_matches::assert_matches!</span>(rx1.<span class="kw">await</span>.expect(<span class="string">&quot;should be no error receiving&quot;</span>), <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
 
-		<span class="macro">assert!</span>(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), SOURCE, uxt(Bob, <span class="number">0</span>)).<span class="kw">await</span>.is_ok());
+		<span class="macro">assert!</span>(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, <span class="number">0</span>)).<span class="kw">await</span>.is_ok());
 		<span class="kw">let </span>(tx2, rx2) = futures::channel::oneshot::channel();
 		<span class="macro">assert!</span>(sink
 			.send(EngineCommand::SealNewBlock {

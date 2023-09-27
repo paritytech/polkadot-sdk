@@ -572,6 +572,17 @@
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -597,6 +608,7 @@
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
+<span class="kw">use </span>frame_support::genesis_builder_helper::{build_config, create_default_config};
 <span class="comment">// A few exports that help ease life for downstream crates.
 </span><span class="kw">pub use </span>frame_support::{
 	construct_runtime, parameter_types,
@@ -1143,6 +1155,16 @@
 			<span class="comment">// NOTE: intentional unwrap: we don&#39;t want to propagate the error backwards, and want to
 			// have a backtrace here.
 			</span>Executive::try_execute_block(block, state_root_check, signature_check, select).expect(<span class="string">&quot;execute-block failed&quot;</span>)
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }

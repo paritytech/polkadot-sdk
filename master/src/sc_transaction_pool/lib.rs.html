@@ -794,10 +794,6 @@
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
 <a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -966,8 +962,11 @@
 		finalized_hash: Block::Hash,
 	) -&gt; (<span class="self">Self</span>, Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
 		<span class="kw">let </span>pool = Arc::new(graph::Pool::new(Default::default(), <span class="bool-val">true</span>.into(), pool_api.clone()));
-		<span class="kw">let </span>(revalidation_queue, background_task) =
-			revalidation::RevalidationQueue::new_background(pool_api.clone(), pool.clone());
+		<span class="kw">let </span>(revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
+			pool_api.clone(),
+			pool.clone(),
+			finalized_hash,
+		);
 		(
 			<span class="self">Self </span>{
 				api: pool_api,
@@ -1003,8 +1002,11 @@
 			RevalidationType::Light =&gt;
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), <span class="prelude-val">None</span>),
 			RevalidationType::Full =&gt; {
-				<span class="kw">let </span>(queue, background) =
-					revalidation::RevalidationQueue::new_background(pool_api.clone(), pool.clone());
+				<span class="kw">let </span>(queue, background) = revalidation::RevalidationQueue::new_background(
+					pool_api.clone(),
+					pool.clone(),
+					finalized_hash,
+				);
 				(queue, <span class="prelude-val">Some</span>(background))
 			},
 		};
@@ -1054,46 +1056,43 @@
 
 	<span class="kw">fn </span>submit_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xts: Vec&lt;TransactionFor&lt;<span class="self">Self</span>&gt;&gt;,
 	) -&gt; PoolFuture&lt;Vec&lt;<span class="prelude-ty">Result</span>&lt;TxHash&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Error&gt;&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
-		<span class="kw">let </span>at = <span class="kw-2">*</span>at;
 
 		<span class="self">self</span>.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() <span class="kw">as </span>u64));
 
-		<span class="kw">async move </span>{ pool.submit_at(<span class="kw-2">&amp;</span>at, source, xts).<span class="kw">await </span>}.boxed()
+		<span class="kw">async move </span>{ pool.submit_at(at, source, xts).<span class="kw">await </span>}.boxed()
 	}
 
 	<span class="kw">fn </span>submit_one(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;TxHash&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
-		<span class="kw">let </span>at = <span class="kw-2">*</span>at;
 
 		<span class="self">self</span>.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		<span class="kw">async move </span>{ pool.submit_one(<span class="kw-2">&amp;</span>at, source, xt).<span class="kw">await </span>}.boxed()
+		<span class="kw">async move </span>{ pool.submit_one(at, source, xt).<span class="kw">await </span>}.boxed()
 	}
 
 	<span class="kw">fn </span>submit_and_watch(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;Pin&lt;Box&lt;TransactionStatusStreamFor&lt;<span class="self">Self</span>&gt;&gt;&gt;, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">let </span>at = <span class="kw-2">*</span>at;
 		<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
 
 		<span class="self">self</span>.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		<span class="kw">async move </span>{
-			<span class="kw">let </span>watcher = pool.submit_and_watch(<span class="kw-2">&amp;</span>at, source, xt).<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="kw">let </span>watcher = pool.submit_and_watch(at, source, xt).<span class="kw">await</span><span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(watcher.into_stream().boxed())
 		}
@@ -1233,11 +1232,7 @@
 
 		<span class="kw">let </span>validity = <span class="self">self
 			</span>.api
-			.validate_transaction_blocking(
-				<span class="kw-2">&amp;</span>BlockId::hash(at),
-				TransactionSource::Local,
-				xt.clone(),
-			)<span class="question-mark">?
+			.validate_transaction_blocking(at, TransactionSource::Local, xt.clone())<span class="question-mark">?
 			</span>.map_err(|e| {
 				<span class="self">Self</span>::Error::Pool(<span class="kw">match </span>e {
 					TransactionValidityError::Invalid(i) =&gt; TxPoolError::InvalidTransaction(i),
@@ -1377,10 +1372,7 @@
 		},
 	};
 
-	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = pool
-		.prune(<span class="kw-2">&amp;</span>BlockId::Hash(block_hash), <span class="kw-2">&amp;</span>BlockId::hash(<span class="kw-2">*</span>header.parent_hash()), <span class="kw-2">&amp;</span>extrinsics)
-		.<span class="kw">await
-	</span>{
+	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = pool.prune(block_hash, <span class="kw-2">*</span>header.parent_hash(), <span class="kw-2">&amp;</span>extrinsics).<span class="kw">await </span>{
 		<span class="macro">log::error!</span>(<span class="string">&quot;Cannot prune known in the pool: {}&quot;</span>, e);
 	}
 
@@ -1491,7 +1483,7 @@
 
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = pool
 				.resubmit_at(
-					<span class="kw-2">&amp;</span>BlockId::Hash(<span class="kw-2">*</span>hash),
+					<span class="kw-2">*</span>hash,
 					<span class="comment">// These transactions are coming from retracted blocks, we should
 					// simply consider them external.
 					</span>TransactionSource::External,
@@ -1517,7 +1509,7 @@
 
 		<span class="kw">if </span>next_action.revalidate {
 			<span class="kw">let </span>hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect();
-			<span class="self">self</span>.revalidation_queue.revalidate_later(<span class="kw-2">*</span>block_number, hashes).<span class="kw">await</span>;
+			<span class="self">self</span>.revalidation_queue.revalidate_later(<span class="kw-2">*</span>hash, hashes).<span class="kw">await</span>;
 
 			<span class="self">self</span>.revalidation_strategy.lock().clear();
 		}

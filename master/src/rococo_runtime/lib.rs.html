@@ -2328,6 +2328,18 @@
 <a href="#2328" id="2328">2328</a>
 <a href="#2329" id="2329">2329</a>
 <a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2388,7 +2400,9 @@
 };
 
 <span class="kw">use </span>frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOfDiverse, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, PrivilegeCmp, ProcessMessage,
@@ -4560,6 +4574,16 @@
 			<span class="macro">add_benchmarks!</span>(params, batches);
 
 			<span class="prelude-val">Ok</span>(batches)
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }

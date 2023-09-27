@@ -391,6 +391,65 @@
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -418,14 +477,12 @@
 };
 
 <span class="kw">use crate</span>::{
-	graph::{ChainApi, ExtrinsicHash, NumberFor, Pool, ValidatedTransaction},
+	graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction},
 	LOG_TARGET,
 };
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::{
-	generic::BlockId,
-	traits::{SaturatedConversion, Zero},
-	transaction_validity::TransactionValidityError,
+	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
 };
 
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
@@ -437,7 +494,7 @@
 
 <span class="doccomment">/// Payload from queue to worker.
 </span><span class="kw">struct </span>WorkerPayload&lt;Api: ChainApi&gt; {
-	at: NumberFor&lt;Api&gt;,
+	at: BlockHash&lt;Api&gt;,
 	transactions: Vec&lt;ExtrinsicHash&lt;Api&gt;&gt;,
 }
 
@@ -447,9 +504,9 @@
 </span><span class="kw">struct </span>RevalidationWorker&lt;Api: ChainApi&gt; {
 	api: Arc&lt;Api&gt;,
 	pool: Arc&lt;Pool&lt;Api&gt;&gt;,
-	best_block: NumberFor&lt;Api&gt;,
-	block_ordered: BTreeMap&lt;NumberFor&lt;Api&gt;, HashSet&lt;ExtrinsicHash&lt;Api&gt;&gt;&gt;,
-	members: HashMap&lt;ExtrinsicHash&lt;Api&gt;, NumberFor&lt;Api&gt;&gt;,
+	best_block: BlockHash&lt;Api&gt;,
+	block_ordered: BTreeMap&lt;BlockHash&lt;Api&gt;, HashSet&lt;ExtrinsicHash&lt;Api&gt;&gt;&gt;,
+	members: HashMap&lt;ExtrinsicHash&lt;Api&gt;, BlockHash&lt;Api&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;Api: ChainApi&gt; Unpin <span class="kw">for </span>RevalidationWorker&lt;Api&gt; {}
@@ -461,15 +518,30 @@
 </span><span class="kw">async fn </span>batch_revalidate&lt;Api: ChainApi&gt;(
 	pool: Arc&lt;Pool&lt;Api&gt;&gt;,
 	api: Arc&lt;Api&gt;,
-	at: NumberFor&lt;Api&gt;,
+	at: BlockHash&lt;Api&gt;,
 	batch: <span class="kw">impl </span>IntoIterator&lt;Item = ExtrinsicHash&lt;Api&gt;&gt;,
 ) {
+	<span class="comment">// This conversion should work. Otherwise, for unknown block the revalidation shall be skipped,
+	// all the transactions will be kept in the validated pool, and can be scheduled for
+	// revalidation with the next request.
+	</span><span class="kw">let </span>block_number = <span class="kw">match </span>api.block_id_to_number(<span class="kw-2">&amp;</span>BlockId::Hash(at)) {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(n)) =&gt; n,
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;revalidation skipped at block {at:?}, could not get block number.&quot;</span>);
+			<span class="kw">return
+		</span>},
+		<span class="prelude-val">Err</span>(e) =&gt; {
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;revalidation skipped at block {at:?}: {e:?}.&quot;</span>);
+			<span class="kw">return
+		</span>},
+	};
+
 	<span class="kw">let </span><span class="kw-2">mut </span>invalid_hashes = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>revalidated = HashMap::new();
 
 	<span class="kw">let </span>validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(<span class="kw-2">&amp;</span>ext_hash).map(|ext| {
-			api.validate_transaction(<span class="kw-2">&amp;</span>BlockId::Number(at), ext.source, ext.data.clone())
+			api.validate_transaction(at, ext.source, ext.data.clone())
 				.map(<span class="kw">move </span>|validation_result| (validation_result, ext_hash, ext))
 		})
 	}))
@@ -500,7 +572,7 @@
 				revalidated.insert(
 					ext_hash,
 					ValidatedTransaction::valid_at(
-						at.saturated_into::&lt;u64&gt;(),
+						block_number.saturated_into::&lt;u64&gt;(),
 						ext_hash,
 						ext.source,
 						ext.data.clone(),
@@ -528,13 +600,13 @@
 }
 
 <span class="kw">impl</span>&lt;Api: ChainApi&gt; RevalidationWorker&lt;Api&gt; {
-	<span class="kw">fn </span>new(api: Arc&lt;Api&gt;, pool: Arc&lt;Pool&lt;Api&gt;&gt;) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>new(api: Arc&lt;Api&gt;, pool: Arc&lt;Pool&lt;Api&gt;&gt;, best_block: BlockHash&lt;Api&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			api,
 			pool,
+			best_block,
 			block_ordered: Default::default(),
 			members: Default::default(),
-			best_block: Zero::zero(),
 		}
 	}
 
@@ -696,10 +768,11 @@
 		api: Arc&lt;Api&gt;,
 		pool: Arc&lt;Pool&lt;Api&gt;&gt;,
 		interval: Duration,
+		best_block: BlockHash&lt;Api&gt;,
 	) -&gt; (<span class="self">Self</span>, Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
 		<span class="kw">let </span>(to_worker, from_queue) = tracing_unbounded(<span class="string">&quot;mpsc_revalidation_queue&quot;</span>, <span class="number">100_000</span>);
 
-		<span class="kw">let </span>worker = RevalidationWorker::new(api.clone(), pool.clone());
+		<span class="kw">let </span>worker = RevalidationWorker::new(api.clone(), pool.clone(), best_block);
 
 		<span class="kw">let </span>queue = <span class="self">Self </span>{ api, pool, background: <span class="prelude-val">Some</span>(to_worker) };
 
@@ -710,8 +783,9 @@
 	</span><span class="kw">pub fn </span>new_background(
 		api: Arc&lt;Api&gt;,
 		pool: Arc&lt;Pool&lt;Api&gt;&gt;,
+		best_block: BlockHash&lt;Api&gt;,
 	) -&gt; (<span class="self">Self</span>, Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
-		<span class="self">Self</span>::new_with_interval(api, pool, BACKGROUND_REVALIDATION_INTERVAL)
+		<span class="self">Self</span>::new_with_interval(api, pool, BACKGROUND_REVALIDATION_INTERVAL, best_block)
 	}
 
 	<span class="doccomment">/// Queue some transaction for later revalidation.
@@ -721,7 +795,7 @@
 	/// revalidation is actually done.
 	</span><span class="kw">pub async fn </span>revalidate_later(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: NumberFor&lt;Api&gt;,
+		at: BlockHash&lt;Api&gt;,
 		transactions: Vec&lt;ExtrinsicHash&lt;Api&gt;&gt;,
 	) {
 		<span class="kw">if </span>transactions.len() &gt; <span class="number">0 </span>{
@@ -753,9 +827,8 @@
 	};
 	<span class="kw">use </span>futures::executor::block_on;
 	<span class="kw">use </span>sc_transaction_pool_api::TransactionSource;
-	<span class="kw">use </span>sp_runtime::generic::BlockId;
 	<span class="kw">use </span>substrate_test_runtime::{AccountId, Transfer, H256};
-	<span class="kw">use </span>substrate_test_runtime_client::AccountKeyring::Alice;
+	<span class="kw">use </span>substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>revalidation_queue_works() {
@@ -769,19 +842,64 @@
 			amount: <span class="number">5</span>,
 			nonce: <span class="number">0</span>,
 		});
-		<span class="kw">let </span>uxt_hash = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>),
-			TransactionSource::External,
-			uxt.clone(),
-		))
-		.expect(<span class="string">&quot;Should be valid&quot;</span>);
 
-		block_on(queue.revalidate_later(<span class="number">0</span>, <span class="macro">vec!</span>[uxt_hash]));
+		<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
+
+		<span class="kw">let </span>uxt_hash =
+			block_on(pool.submit_one(hash_of_block0, TransactionSource::External, uxt.clone()))
+				.expect(<span class="string">&quot;Should be valid&quot;</span>);
+
+		block_on(queue.revalidate_later(hash_of_block0, <span class="macro">vec!</span>[uxt_hash]));
 
 		<span class="comment">// revalidated in sync offload 2nd time
 		</span><span class="macro">assert_eq!</span>(api.validation_requests().len(), <span class="number">2</span>);
 		<span class="comment">// number of ready
 		</span><span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>revalidation_queue_skips_revalidation_for_unknown_block_hash() {
+		<span class="kw">let </span>api = Arc::new(TestApi::default());
+		<span class="kw">let </span>pool = Arc::new(Pool::new(Default::default(), <span class="bool-val">true</span>.into(), api.clone()));
+		<span class="kw">let </span>queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
+
+		<span class="kw">let </span>uxt0 = uxt(Transfer {
+			from: Alice.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(<span class="number">2</span>)),
+			amount: <span class="number">5</span>,
+			nonce: <span class="number">0</span>,
+		});
+		<span class="kw">let </span>uxt1 = uxt(Transfer {
+			from: Bob.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(<span class="number">2</span>)),
+			amount: <span class="number">4</span>,
+			nonce: <span class="number">1</span>,
+		});
+
+		<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
+		<span class="kw">let </span>unknown_block = H256::repeat_byte(<span class="number">0x13</span>);
+
+		<span class="kw">let </span>uxt_hashes =
+			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, <span class="macro">vec!</span>[uxt0, uxt1]))
+				.expect(<span class="string">&quot;Should be valid&quot;</span>)
+				.into_iter()
+				.map(|r| r.expect(<span class="string">&quot;Should be valid&quot;</span>))
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+		<span class="macro">assert_eq!</span>(api.validation_requests().len(), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">2</span>);
+
+		<span class="comment">// revalidation works fine for block 0:
+		</span>block_on(queue.revalidate_later(hash_of_block0, uxt_hashes.clone()));
+		<span class="macro">assert_eq!</span>(api.validation_requests().len(), <span class="number">4</span>);
+		<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">2</span>);
+
+		<span class="comment">// revalidation shall be skipped for unknown block:
+		</span>block_on(queue.revalidate_later(unknown_block, uxt_hashes));
+		<span class="comment">// no revalidation shall be done
+		</span><span class="macro">assert_eq!</span>(api.validation_requests().len(), <span class="number">4</span>);
+		<span class="comment">// number of ready shall not change
+		</span><span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">2</span>);
 	}
 }
 </code></pre></div></section></main></body></html>

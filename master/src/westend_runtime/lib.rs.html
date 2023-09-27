@@ -2240,6 +2240,18 @@
 <a href="#2240" id="2240">2240</a>
 <a href="#2241" id="2241">2241</a>
 <a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2269,7 +2281,9 @@
 };
 <span class="kw">use </span>frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 <span class="kw">use </span>frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
@@ -4393,6 +4407,16 @@
 			<span class="macro">add_benchmarks!</span>(params, batches);
 
 			<span class="prelude-val">Ok</span>(batches)
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }

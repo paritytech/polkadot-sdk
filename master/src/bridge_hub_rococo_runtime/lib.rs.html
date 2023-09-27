@@ -1307,6 +1307,17 @@
 <a href="#1307" id="1307">1307</a>
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1354,6 +1365,7 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -2540,6 +2552,16 @@
 			<span class="macro">add_benchmarks!</span>(params, batches);
 
 			<span class="prelude-val">Ok</span>(batches)
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }

@@ -296,11 +296,6 @@
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -436,13 +431,12 @@
 
 	<span class="kw">fn </span>validate_transaction(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; <span class="self">Self</span>::ValidationFuture {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
-		<span class="kw">let </span>at = <span class="kw-2">*</span>at;
 		<span class="kw">let </span>validation_pool = <span class="self">self</span>.validation_pool.clone();
 		<span class="kw">let </span>metrics = <span class="self">self</span>.metrics.clone();
 
@@ -454,7 +448,7 @@
 				.<span class="kw">await
 				</span>.send(
 					<span class="kw">async move </span>{
-						<span class="kw">let </span>res = validate_transaction_blocking(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>at, source, uxt);
+						<span class="kw">let </span>res = validate_transaction_blocking(<span class="kw-2">&amp;*</span>client, at, source, uxt);
 						<span class="kw">let _ </span>= tx.send(res);
 						metrics.report(|m| m.validations_finished.inc());
 					}
@@ -512,7 +506,7 @@
 /// This method will call into the runtime to perform the validation.
 </span><span class="kw">fn </span>validate_transaction_blocking&lt;Client, Block&gt;(
 	client: <span class="kw-2">&amp;</span>Client,
-	at: <span class="kw-2">&amp;</span>BlockId&lt;Block&gt;,
+	at: Block::Hash,
 	source: TransactionSource,
 	uxt: graph::ExtrinsicFor&lt;FullChainApi&lt;Client, Block&gt;&gt;,
 ) -&gt; error::Result&lt;TransactionValidity&gt;
@@ -528,14 +522,10 @@
 {
 	<span class="macro">sp_tracing::within_span!</span>(sp_tracing::Level::TRACE, <span class="string">&quot;validate_transaction&quot;</span>;
 	{
-		<span class="kw">let </span>block_hash = client.to_hash(at)
-			.map_err(|e| Error::RuntimeApi(e.to_string()))<span class="question-mark">?
-			</span>.ok_or_else(|| Error::RuntimeApi(<span class="macro">format!</span>(<span class="string">&quot;Could not get hash for block `{:?}`.&quot;</span>, at)))<span class="question-mark">?</span>;
-
 		<span class="kw">let </span>runtime_api = client.runtime_api();
 		<span class="kw">let </span>api_version = <span class="macro">sp_tracing::within_span! </span>{ sp_tracing::Level::TRACE, <span class="string">&quot;check_version&quot;</span>;
 			runtime_api
-				.api_version::&lt;<span class="kw">dyn </span>TaggedTransactionQueue&lt;Block&gt;&gt;(block_hash)
+				.api_version::&lt;<span class="kw">dyn </span>TaggedTransactionQueue&lt;Block&gt;&gt;(at)
 				.map_err(|e| Error::RuntimeApi(e.to_string()))<span class="question-mark">?
 				</span>.ok_or_else(|| Error::RuntimeApi(
 					<span class="macro">format!</span>(<span class="string">&quot;Could not find `TaggedTransactionQueue` api for block `{:?}`.&quot;</span>, at)
@@ -548,31 +538,31 @@
 			sp_tracing::Level::TRACE, <span class="string">&quot;runtime::validate_transaction&quot;</span>;
 		{
 			<span class="kw">if </span>api_version &gt;= <span class="number">3 </span>{
-				runtime_api.validate_transaction(block_hash, source, uxt, block_hash)
+				runtime_api.validate_transaction(at, source, uxt, at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>block_number = client.to_number(at)
+				<span class="kw">let </span>block_number = client.to_number(<span class="kw-2">&amp;</span>BlockId::Hash(at))
 					.map_err(|e| Error::RuntimeApi(e.to_string()))<span class="question-mark">?
 					</span>.ok_or_else(||
 						Error::RuntimeApi(<span class="macro">format!</span>(<span class="string">&quot;Could not get number for block `{:?}`.&quot;</span>, at))
 					)<span class="question-mark">?</span>;
 
 				<span class="comment">// The old versions require us to call `initialize_block` before.
-				</span>runtime_api.initialize_block(block_hash, <span class="kw-2">&amp;</span>sp_runtime::traits::Header::new(
+				</span>runtime_api.initialize_block(at, <span class="kw-2">&amp;</span>sp_runtime::traits::Header::new(
 					block_number + sp_runtime::traits::One::one(),
 					Default::default(),
 					Default::default(),
-					block_hash,
+					at,
 					Default::default()),
 				).map_err(|e| Error::RuntimeApi(e.to_string()))<span class="question-mark">?</span>;
 
 				<span class="kw">if </span>api_version == <span class="number">2 </span>{
 					<span class="attr">#[allow(deprecated)] </span><span class="comment">// old validate_transaction
-					</span>runtime_api.validate_transaction_before_version_3(block_hash, source, uxt)
+					</span>runtime_api.validate_transaction_before_version_3(at, source, uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} <span class="kw">else </span>{
 					<span class="attr">#[allow(deprecated)] </span><span class="comment">// old validate_transaction
-					</span>runtime_api.validate_transaction_before_version_2(block_hash, uxt)
+					</span>runtime_api.validate_transaction_before_version_2(at, uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}
@@ -597,7 +587,7 @@
 	/// the runtime locally.
 	</span><span class="kw">pub fn </span>validate_transaction_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;Block&gt;,
+		at: Block::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; error::Result&lt;TransactionValidity&gt; {

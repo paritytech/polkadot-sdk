@@ -1142,13 +1142,6 @@
 <a href="#1142" id="1142">1142</a>
 <a href="#1143" id="1143">1143</a>
 <a href="#1144" id="1144">1144</a>
-<a href="#1145" id="1145">1145</a>
-<a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
-<a href="#1150" id="1150">1150</a>
-<a href="#1151" id="1151">1151</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1793,8 +1786,8 @@
 			client.clone(),
 		);
 
-		block_on(txpool.submit_at(<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>), SOURCE, <span class="macro">vec!</span>[extrinsic(<span class="number">0</span>), extrinsic(<span class="number">1</span>)]))
-			.unwrap();
+		<span class="kw">let </span>hashof0 = client.info().genesis_hash;
+		block_on(txpool.submit_at(hashof0, SOURCE, <span class="macro">vec!</span>[extrinsic(<span class="number">0</span>), extrinsic(<span class="number">1</span>)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
@@ -1809,7 +1802,7 @@
 
 		<span class="kw">let </span>cell = Mutex::new((<span class="bool-val">false</span>, time::Instant::now()));
 		<span class="kw">let </span>proposer = proposer_factory.init_with_now(
-			<span class="kw-2">&amp;</span>client.expect_header(client.info().genesis_hash).unwrap(),
+			<span class="kw-2">&amp;</span>client.expect_header(hashof0).unwrap(),
 			Box::new(<span class="kw">move </span>|| {
 				<span class="kw">let </span><span class="kw-2">mut </span>value = cell.lock();
 				<span class="kw">if </span>!value.<span class="number">0 </span>{
@@ -1887,7 +1880,7 @@
 
 		<span class="kw">let </span>genesis_hash = client.info().best_hash;
 
-		block_on(txpool.submit_at(<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>), SOURCE, <span class="macro">vec!</span>[extrinsic(<span class="number">0</span>)])).unwrap();
+		block_on(txpool.submit_at(genesis_hash, SOURCE, <span class="macro">vec!</span>[extrinsic(<span class="number">0</span>)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
@@ -1951,7 +1944,7 @@
 		};
 
 		block_on(txpool.submit_at(
-			<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>),
+			client.info().genesis_hash,
 			SOURCE,
 			<span class="macro">vec!</span>[medium(<span class="number">0</span>), medium(<span class="number">1</span>), huge(<span class="number">2</span>), medium(<span class="number">3</span>), huge(<span class="number">4</span>), medium(<span class="number">5</span>), medium(<span class="number">6</span>)],
 		))
@@ -2048,9 +2041,8 @@
 			spawner.clone(),
 			client.clone(),
 		);
-		<span class="kw">let </span>genesis_header = client
-			.expect_header(client.info().genesis_hash)
-			.expect(<span class="string">&quot;there should be header&quot;</span>);
+		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
+		<span class="kw">let </span>genesis_header = client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>);
 
 		<span class="kw">let </span>extrinsics_num = <span class="number">5</span>;
 		<span class="kw">let </span>extrinsics = std::iter::once(
@@ -2073,7 +2065,7 @@
 				.sum::&lt;usize&gt;() +
 			Vec::&lt;Extrinsic&gt;::new().encoded_size();
 
-		block_on(txpool.submit_at(<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>), SOURCE, extrinsics.clone())).unwrap();
+		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
 		block_on(txpool.maintain(chain_event(genesis_header.clone())));
 
@@ -2150,6 +2142,7 @@
 			spawner.clone(),
 			client.clone(),
 		);
+		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
 
 		<span class="kw">let </span>tiny = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY)).nonce(nonce).build()
@@ -2162,7 +2155,7 @@
 
 		block_on(
 			txpool.submit_at(
-				<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>),
+				genesis_hash,
 				SOURCE,
 				<span class="comment">// add 2 * MAX_SKIPPED_TRANSACTIONS that exhaust resources
 				</span>(<span class="number">0</span>..MAX_SKIPPED_TRANSACTIONS * <span class="number">2</span>)
@@ -2175,13 +2168,9 @@
 		)
 		.unwrap();
 
-		block_on(
-			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect(<span class="string">&quot;there should be header&quot;</span>),
-			)),
-		);
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>),
+		)));
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * <span class="number">3</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>proposer_factory =
@@ -2189,7 +2178,7 @@
 
 		<span class="kw">let </span>cell = Mutex::new(time::Instant::now());
 		<span class="kw">let </span>proposer = proposer_factory.init_with_now(
-			<span class="kw-2">&amp;</span>client.expect_header(client.info().genesis_hash).unwrap(),
+			<span class="kw-2">&amp;</span>client.expect_header(genesis_hash).unwrap(),
 			Box::new(<span class="kw">move </span>|| {
 				<span class="kw">let </span><span class="kw-2">mut </span>value = cell.lock();
 				<span class="kw">let </span>old = <span class="kw-2">*</span>value;
@@ -2222,6 +2211,7 @@
 			spawner.clone(),
 			client.clone(),
 		);
+		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
 
 		<span class="kw">let </span>tiny = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY))
@@ -2237,7 +2227,7 @@
 
 		block_on(
 			txpool.submit_at(
-				<span class="kw-2">&amp;</span>BlockId::number(<span class="number">0</span>),
+				genesis_hash,
 				SOURCE,
 				(<span class="number">0</span>..MAX_SKIPPED_TRANSACTIONS + <span class="number">2</span>)
 					.into_iter()
@@ -2249,13 +2239,9 @@
 		)
 		.unwrap();
 
-		block_on(
-			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect(<span class="string">&quot;there should be header&quot;</span>),
-			)),
-		);
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>),
+		)));
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * <span class="number">2 </span>+ <span class="number">4</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>proposer_factory =
@@ -2265,7 +2251,7 @@
 		<span class="kw">let </span>cell = Arc::new(Mutex::new((<span class="number">0</span>, time::Instant::now())));
 		<span class="kw">let </span>cell2 = cell.clone();
 		<span class="kw">let </span>proposer = proposer_factory.init_with_now(
-			<span class="kw-2">&amp;</span>client.expect_header(client.info().genesis_hash).unwrap(),
+			<span class="kw-2">&amp;</span>client.expect_header(genesis_hash).unwrap(),
 			Box::new(<span class="kw">move </span>|| {
 				<span class="kw">let </span><span class="kw-2">mut </span>value = cell.lock();
 				<span class="kw">let </span>(called, old) = <span class="kw-2">*</span>value;

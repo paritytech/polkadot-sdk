@@ -521,9 +521,6 @@
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -552,10 +549,7 @@
 <span class="kw">use </span>futures::{Future, Stream};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>sp_core::offchain::TransactionPoolExt;
-<span class="kw">use </span>sp_runtime::{
-	generic::BlockId,
-	traits::{Block <span class="kw">as </span>BlockT, Member, NumberFor},
-};
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Member, NumberFor};
 <span class="kw">use </span>std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;txpool::api&quot;</span>;
@@ -728,7 +722,7 @@
 	</span><span class="doccomment">/// Returns a future that imports a bunch of unverified transactions to the pool.
 	</span><span class="kw">fn </span>submit_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xts: Vec&lt;TransactionFor&lt;<span class="self">Self</span>&gt;&gt;,
 	) -&gt; PoolFuture&lt;Vec&lt;<span class="prelude-ty">Result</span>&lt;TxHash&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Error&gt;&gt;, <span class="self">Self</span>::Error&gt;;
@@ -736,7 +730,7 @@
 	<span class="doccomment">/// Returns a future that imports one unverified transaction to the pool.
 	</span><span class="kw">fn </span>submit_one(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;TxHash&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Error&gt;;
@@ -745,7 +739,7 @@
 	/// pool.
 	</span><span class="kw">fn </span>submit_and_watch(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;Pin&lt;Box&lt;TransactionStatusStreamFor&lt;<span class="self">Self</span>&gt;&gt;&gt;, <span class="self">Self</span>::Error&gt;;

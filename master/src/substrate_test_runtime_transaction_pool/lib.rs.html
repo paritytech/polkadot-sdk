@@ -382,6 +382,12 @@
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -406,6 +412,7 @@
 </span><span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::future::ready;
 <span class="kw">use </span>parking_lot::RwLock;
+<span class="kw">use </span>sc_transaction_pool::ChainApi;
 <span class="kw">use </span>sp_blockchain::{CachedHeaderMetadata, TreeRoute};
 <span class="kw">use </span>sp_runtime::{
 	generic::{<span class="self">self</span>, BlockId},
@@ -621,9 +628,14 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_blockchain::TreeRoute&lt;Block&gt;, Error&gt; {
 		sp_blockchain::tree_route(<span class="self">self</span>, from, to)
 	}
+
+	<span class="doccomment">/// Helper function for mapping block number to hash. Use if mapping shall not fail.
+	</span><span class="kw">pub fn </span>expect_hash_from_number(<span class="kw-2">&amp;</span><span class="self">self</span>, n: BlockNumber) -&gt; Hash {
+		<span class="self">self</span>.block_id_to_hash(<span class="kw-2">&amp;</span>BlockId::Number(n)).unwrap().unwrap()
+	}
 }
 
-<span class="kw">impl </span>sc_transaction_pool::ChainApi <span class="kw">for </span>TestApi {
+<span class="kw">impl </span>ChainApi <span class="kw">for </span>TestApi {
 	<span class="kw">type </span>Block = Block;
 	<span class="kw">type </span>Error = Error;
 	<span class="kw">type </span>ValidationFuture = futures::future::Ready&lt;<span class="prelude-ty">Result</span>&lt;TransactionValidity, Error&gt;&gt;;
@@ -631,13 +643,13 @@
 
 	<span class="kw">fn </span>validate_transaction(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		_source: TransactionSource,
 		uxt: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
 	) -&gt; <span class="self">Self</span>::ValidationFuture {
 		<span class="self">self</span>.validation_requests.write().push(uxt.clone());
 
-		<span class="kw">match </span><span class="self">self</span>.block_id_to_number(at) {
+		<span class="kw">match </span><span class="self">self</span>.block_id_to_number(<span class="kw-2">&amp;</span>BlockId::Hash(at)) {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(number)) =&gt; {
 				<span class="kw">let </span>found_best = <span class="self">self
 					</span>.chain

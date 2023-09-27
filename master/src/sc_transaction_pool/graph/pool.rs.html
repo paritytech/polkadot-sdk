@@ -1068,6 +1068,24 @@
 <a href="#1068" id="1068">1068</a>
 <a href="#1069" id="1069">1069</a>
 <a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1141,7 +1159,7 @@
 	<span class="doccomment">/// Verify extrinsic at given block.
 	</span><span class="kw">fn </span>validate_transaction(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		uxt: ExtrinsicFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; <span class="self">Self</span>::ValidationFuture;
@@ -1224,7 +1242,7 @@
 	<span class="doccomment">/// Imports a bunch of unverified extrinsics to the pool
 	</span><span class="kw">pub async fn </span>submit_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xts: <span class="kw">impl </span>IntoIterator&lt;Item = ExtrinsicFor&lt;B&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="prelude-ty">Result</span>&lt;ExtrinsicHash&lt;B&gt;, B::Error&gt;&gt;, B::Error&gt; {
@@ -1238,7 +1256,7 @@
 	/// This does not check if a transaction is banned, before we verify it again.
 	</span><span class="kw">pub async fn </span>resubmit_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xts: <span class="kw">impl </span>IntoIterator&lt;Item = ExtrinsicFor&lt;B&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="prelude-ty">Result</span>&lt;ExtrinsicHash&lt;B&gt;, B::Error&gt;&gt;, B::Error&gt; {
@@ -1250,7 +1268,7 @@
 	<span class="doccomment">/// Imports one unverified extrinsic to the pool
 	</span><span class="kw">pub async fn </span>submit_one(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: ExtrinsicFor&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExtrinsicHash&lt;B&gt;, B::Error&gt; {
@@ -1261,11 +1279,11 @@
 	<span class="doccomment">/// Import a single extrinsic and starts to watch its progress in the pool.
 	</span><span class="kw">pub async fn </span>submit_and_watch(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		source: TransactionSource,
 		xt: ExtrinsicFor&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Watcher&lt;ExtrinsicHash&lt;B&gt;, ExtrinsicHash&lt;B&gt;&gt;, B::Error&gt; {
-		<span class="kw">let </span>block_number = <span class="self">self</span>.resolve_block_number(at)<span class="question-mark">?</span>;
+		<span class="kw">let </span>block_number = <span class="self">self</span>.resolve_block_number(<span class="kw-2">&amp;</span>BlockId::Hash(at))<span class="question-mark">?</span>;
 		<span class="kw">let </span>(<span class="kw">_</span>, tx) = <span class="self">self
 			</span>.verify_one(at, block_number, source, xt, CheckBannedBeforeVerify::Yes)
 			.<span class="kw">await</span>;
@@ -1316,8 +1334,8 @@
 	/// their provided tags from there. Otherwise we query the runtime at the `parent` block.
 	</span><span class="kw">pub async fn </span>prune(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
-		parent: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
+		parent: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		extrinsics: <span class="kw-2">&amp;</span>[ExtrinsicFor&lt;B&gt;],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
 		<span class="macro">log::debug!</span>(
@@ -1394,7 +1412,7 @@
 	/// prevent importing them in the (near) future.
 	</span><span class="kw">pub async fn </span>prune_tags(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		tags: <span class="kw">impl </span>IntoIterator&lt;Item = Tag&gt;,
 		known_imported_hashes: <span class="kw">impl </span>IntoIterator&lt;Item = ExtrinsicHash&lt;B&gt;&gt; + Clone,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
@@ -1421,7 +1439,7 @@
 		<span class="comment">// And finally - submit reverified transactions back to the pool
 
 		</span><span class="self">self</span>.validated_pool.resubmit_pruned(
-			at,
+			<span class="kw-2">&amp;</span>BlockId::Hash(at),
 			known_imported_hashes,
 			pruned_hashes,
 			reverified_transactions.into_values().collect(),
@@ -1443,12 +1461,12 @@
 	<span class="doccomment">/// Returns future that validates a bunch of transactions at given block.
 	</span><span class="kw">async fn </span>verify(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		at: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		xts: <span class="kw">impl </span>IntoIterator&lt;Item = (TransactionSource, ExtrinsicFor&lt;B&gt;)&gt;,
 		check: CheckBannedBeforeVerify,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ExtrinsicHash&lt;B&gt;, ValidatedTransactionFor&lt;B&gt;&gt;, B::Error&gt; {
 		<span class="comment">// we need a block number to compute tx validity
-		</span><span class="kw">let </span>block_number = <span class="self">self</span>.resolve_block_number(at)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>block_number = <span class="self">self</span>.resolve_block_number(<span class="kw-2">&amp;</span>BlockId::Hash(at))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>res = futures::future::join_all(
 			xts.into_iter()
@@ -1464,7 +1482,7 @@
 	<span class="doccomment">/// Returns future that validates single transaction at given block.
 	</span><span class="kw">async fn </span>verify_one(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_id: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;,
+		block_hash: &lt;B::Block <span class="kw">as </span>BlockT&gt;::Hash,
 		block_number: NumberFor&lt;B&gt;,
 		source: TransactionSource,
 		xt: ExtrinsicFor&lt;B&gt;,
@@ -1480,7 +1498,7 @@
 		<span class="kw">let </span>validation_result = <span class="self">self
 			</span>.validated_pool
 			.api()
-			.validate_transaction(block_id, source, xt.clone())
+			.validate_transaction(block_hash, source, xt.clone())
 			.<span class="kw">await</span>;
 
 		<span class="kw">let </span>status = <span class="kw">match </span>validation_result {
@@ -1528,6 +1546,7 @@
 	<span class="kw">use super</span>::{<span class="kw">super</span>::base_pool::Limit, <span class="kw-2">*</span>};
 	<span class="kw">use </span><span class="kw">crate</span>::tests::{pool, uxt, TestApi, INVALID_NONCE};
 	<span class="kw">use </span>assert_matches::assert_matches;
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>futures::executor::block_on;
 	<span class="kw">use </span>parking_lot::Mutex;
 	<span class="kw">use </span>sc_transaction_pool_api::TransactionStatus;
@@ -1541,11 +1560,11 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_validate_and_import_transaction() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = pool();
+		</span><span class="kw">let </span>(pool, api) = pool();
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>hash = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			api.expect_hash_from_number(<span class="number">0</span>),
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1563,7 +1582,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_reject_if_temporarily_banned() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = pool();
+		</span><span class="kw">let </span>(pool, api) = pool();
 		<span class="kw">let </span>uxt = uxt(Transfer {
 			from: Alice.into(),
 			to: AccountId::from_h256(H256::from_low_u64_be(<span class="number">2</span>)),
@@ -1573,7 +1592,7 @@
 
 		<span class="comment">// when
 		</span>pool.validated_pool.ban(<span class="kw-2">&amp;</span>Instant::now(), <span class="macro">vec!</span>[pool.hash_of(<span class="kw-2">&amp;</span>uxt)]);
-		<span class="kw">let </span>res = block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt));
+		<span class="kw">let </span>res = block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, uxt));
 		<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">0</span>);
 
@@ -1584,18 +1603,19 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_reject_unactionable_transactions() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = Pool::new(
+		</span><span class="kw">let </span>api = Arc::new(TestApi::default());
+		<span class="kw">let </span>pool = Pool::new(
 			Default::default(),
 			<span class="comment">// the node does not author blocks
 			</span><span class="bool-val">false</span>.into(),
-			TestApi::default().into(),
+			api.clone(),
 		);
 
 		<span class="comment">// after validation `IncludeData` will be set to non-propagable (validate_transaction mock)
 		</span><span class="kw">let </span>uxt = ExtrinsicBuilder::new_include_data(<span class="macro">vec!</span>[<span class="number">42</span>]).build();
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>res = block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt));
+		</span><span class="kw">let </span>res = block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, uxt));
 
 		<span class="comment">// then
 		</span><span class="macro">assert_matches!</span>(res.unwrap_err(), error::Error::Unactionable);
@@ -1605,12 +1625,13 @@
 	</span><span class="kw">fn </span>should_notify_about_pool_events() {
 		<span class="kw">let </span>(stream, hash0, hash1) = {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
+			<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
 			<span class="kw">let </span>stream = pool.validated_pool().import_notification_stream();
 
 			<span class="comment">// when
 			</span><span class="kw">let </span>hash0 = block_on(pool.submit_one(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				hash_of_block0,
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1621,7 +1642,7 @@
 			))
 			.unwrap();
 			<span class="kw">let </span>hash1 = block_on(pool.submit_one(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				hash_of_block0,
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1633,7 +1654,7 @@
 			.unwrap();
 			<span class="comment">// future doesn&#39;t count
 			</span><span class="kw">let </span>_hash = block_on(pool.submit_one(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				hash_of_block0,
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1660,9 +1681,10 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_clear_stale_transactions() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = pool();
+		</span><span class="kw">let </span>(pool, api) = pool();
+		<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
 		<span class="kw">let </span>hash1 = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			hash_of_block0,
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1673,7 +1695,7 @@
 		))
 		.unwrap();
 		<span class="kw">let </span>hash2 = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			hash_of_block0,
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1684,7 +1706,7 @@
 		))
 		.unwrap();
 		<span class="kw">let </span>hash3 = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			hash_of_block0,
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1711,9 +1733,9 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_ban_mined_transactions() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = pool();
+		</span><span class="kw">let </span>(pool, api) = pool();
 		<span class="kw">let </span>hash1 = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			api.expect_hash_from_number(<span class="number">0</span>),
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1725,12 +1747,12 @@
 		.unwrap();
 
 		<span class="comment">// when
-		</span>block_on(pool.prune_tags(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0</span>]], <span class="macro">vec!</span>[hash1])).unwrap();
+		</span>block_on(pool.prune_tags(api.expect_hash_from_number(<span class="number">1</span>), <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0</span>]], <span class="macro">vec!</span>[hash1]))
+			.unwrap();
 
 		<span class="comment">// then
 		</span><span class="macro">assert!</span>(pool.validated_pool.is_banned(<span class="kw-2">&amp;</span>hash1));
 	}
-	<span class="kw">use </span>codec::Encode;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_limit_futures() {
@@ -1748,14 +1770,15 @@
 
 		<span class="kw">let </span>options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
-		<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), TestApi::default().into());
+		<span class="kw">let </span>api = Arc::new(TestApi::default());
+		<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), api.clone());
 
-		<span class="kw">let </span>hash1 = block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+		<span class="kw">let </span>hash1 = block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, xt)).unwrap();
 		<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">1</span>);
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>hash2 = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			api.expect_hash_from_number(<span class="number">0</span>),
 			SOURCE,
 			uxt(Transfer {
 				from: Bob.into(),
@@ -1779,11 +1802,12 @@
 
 		<span class="kw">let </span>options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
-		<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), TestApi::default().into());
+		<span class="kw">let </span>api = Arc::new(TestApi::default());
+		<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), api.clone());
 
 		<span class="comment">// when
 		</span>block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			api.expect_hash_from_number(<span class="number">0</span>),
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1802,11 +1826,11 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_reject_transactions_with_no_provides() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>pool = pool();
+		</span><span class="kw">let </span>(pool, api) = pool();
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>err = block_on(pool.submit_one(
-			<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+			api.expect_hash_from_number(<span class="number">0</span>),
 			SOURCE,
 			uxt(Transfer {
 				from: Alice.into(),
@@ -1829,9 +1853,9 @@
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>should_trigger_ready_and_finalized() {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
 			<span class="kw">let </span>watcher = block_on(pool.submit_and_watch(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				api.expect_hash_from_number(<span class="number">0</span>),
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1844,26 +1868,25 @@
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">0</span>);
 
+			<span class="kw">let </span>hash_of_block2 = api.expect_hash_from_number(<span class="number">2</span>);
+
 			<span class="comment">// when
-			</span>block_on(pool.prune_tags(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0u8</span>]], <span class="macro">vec!</span>[])).unwrap();
+			</span>block_on(pool.prune_tags(hash_of_block2, <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0u8</span>]], <span class="macro">vec!</span>[])).unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">0</span>);
 
 			<span class="comment">// then
 			</span><span class="kw">let </span><span class="kw-2">mut </span>stream = futures::executor::block_on_stream(watcher.into_stream());
 			<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(TransactionStatus::Ready));
-			<span class="macro">assert_eq!</span>(
-				stream.next(),
-				<span class="prelude-val">Some</span>(TransactionStatus::InBlock((H256::from_low_u64_be(<span class="number">2</span>).into(), <span class="number">0</span>))),
-			);
+			<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(TransactionStatus::InBlock((hash_of_block2.into(), <span class="number">0</span>))),);
 		}
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>should_trigger_ready_and_finalized_when_pruning_via_hash() {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
 			<span class="kw">let </span>watcher = block_on(pool.submit_and_watch(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				api.expect_hash_from_number(<span class="number">0</span>),
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1876,8 +1899,10 @@
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">0</span>);
 
+			<span class="kw">let </span>hash_of_block2 = api.expect_hash_from_number(<span class="number">2</span>);
+
 			<span class="comment">// when
-			</span>block_on(pool.prune_tags(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0u8</span>]], <span class="macro">vec!</span>[<span class="kw-2">*</span>watcher.hash()]))
+			</span>block_on(pool.prune_tags(hash_of_block2, <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0u8</span>]], <span class="macro">vec!</span>[<span class="kw-2">*</span>watcher.hash()]))
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().future, <span class="number">0</span>);
@@ -1885,18 +1910,17 @@
 			<span class="comment">// then
 			</span><span class="kw">let </span><span class="kw-2">mut </span>stream = futures::executor::block_on_stream(watcher.into_stream());
 			<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(TransactionStatus::Ready));
-			<span class="macro">assert_eq!</span>(
-				stream.next(),
-				<span class="prelude-val">Some</span>(TransactionStatus::InBlock((H256::from_low_u64_be(<span class="number">2</span>).into(), <span class="number">0</span>))),
-			);
+			<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(TransactionStatus::InBlock((hash_of_block2.into(), <span class="number">0</span>))),);
 		}
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>should_trigger_future_and_ready_after_promoted() {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
+			<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
+
 			<span class="kw">let </span>watcher = block_on(pool.submit_and_watch(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				hash_of_block0,
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1911,7 +1935,7 @@
 
 			<span class="comment">// when
 			</span>block_on(pool.submit_one(
-				<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>),
+				hash_of_block0,
 				SOURCE,
 				uxt(Transfer {
 					from: Alice.into(),
@@ -1932,7 +1956,7 @@
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>should_trigger_invalid_and_ban() {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
 			<span class="kw">let </span>uxt = uxt(Transfer {
 				from: Alice.into(),
 				to: AccountId::from_h256(H256::from_low_u64_be(<span class="number">2</span>)),
@@ -1940,7 +1964,8 @@
 				nonce: <span class="number">0</span>,
 			});
 			<span class="kw">let </span>watcher =
-				block_on(pool.submit_and_watch(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt)).unwrap();
+				block_on(pool.submit_and_watch(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, uxt))
+					.unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 			<span class="comment">// when
@@ -1956,7 +1981,7 @@
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>should_trigger_broadcasted() {
 			<span class="comment">// given
-			</span><span class="kw">let </span>pool = pool();
+			</span><span class="kw">let </span>(pool, api) = pool();
 			<span class="kw">let </span>uxt = uxt(Transfer {
 				from: Alice.into(),
 				to: AccountId::from_h256(H256::from_low_u64_be(<span class="number">2</span>)),
@@ -1964,7 +1989,8 @@
 				nonce: <span class="number">0</span>,
 			});
 			<span class="kw">let </span>watcher =
-				block_on(pool.submit_and_watch(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, uxt)).unwrap();
+				block_on(pool.submit_and_watch(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, uxt))
+					.unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 			<span class="comment">// when
@@ -1986,7 +2012,8 @@
 			<span class="kw">let </span>options =
 				Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
-			<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), TestApi::default().into());
+			<span class="kw">let </span>api = Arc::new(TestApi::default());
+			<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), api.clone());
 
 			<span class="kw">let </span>xt = uxt(Transfer {
 				from: Alice.into(),
@@ -1994,7 +2021,9 @@
 				amount: <span class="number">5</span>,
 				nonce: <span class="number">0</span>,
 			});
-			<span class="kw">let </span>watcher = block_on(pool.submit_and_watch(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+			<span class="kw">let </span>watcher =
+				block_on(pool.submit_and_watch(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, xt))
+					.unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 			<span class="comment">// when
@@ -2004,7 +2033,7 @@
 				amount: <span class="number">4</span>,
 				nonce: <span class="number">1</span>,
 			});
-			block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), SOURCE, xt)).unwrap();
+			block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">1</span>), SOURCE, xt)).unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 			<span class="comment">// then
@@ -2021,12 +2050,13 @@
 				<span class="kw">let </span>options =
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
-				<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), TestApi::default().into());
+				<span class="kw">let </span>api = Arc::new(TestApi::default());
+				<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), api.clone());
 
 				<span class="comment">// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				</span><span class="kw">let </span>xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+				block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">0</span>), SOURCE, xt)).unwrap();
 				<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 				<span class="comment">// then
@@ -2038,7 +2068,7 @@
 					amount: <span class="number">4</span>,
 					nonce: <span class="number">1</span>,
 				});
-				<span class="kw">let </span>result = block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), SOURCE, xt));
+				<span class="kw">let </span>result = block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">1</span>), SOURCE, xt));
 				<span class="macro">assert!</span>(<span class="macro">matches!</span>(
 					result,
 					<span class="prelude-val">Err</span>(sc_transaction_pool_api::error::Error::ImmediatelyDropped)
@@ -2050,12 +2080,15 @@
 				<span class="kw">let </span>options =
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
-				<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), TestApi::default().into());
+				<span class="kw">let </span>api = Arc::new(TestApi::default());
+				<span class="kw">let </span>pool = Pool::new(options, <span class="bool-val">true</span>.into(), api.clone());
+
+				<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
 
 				<span class="comment">// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				</span><span class="kw">let </span>xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_and_watch(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+				block_on(pool.submit_and_watch(hash_of_block0, SOURCE, xt)).unwrap();
 				<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 				<span class="comment">// after validation `Transfer` will have priority set to 4 (validate_transaction
@@ -2066,15 +2099,14 @@
 					amount: <span class="number">5</span>,
 					nonce: <span class="number">0</span>,
 				});
-				<span class="kw">let </span>watcher =
-					block_on(pool.submit_and_watch(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+				<span class="kw">let </span>watcher = block_on(pool.submit_and_watch(hash_of_block0, SOURCE, xt)).unwrap();
 				<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">2</span>);
 
 				<span class="comment">// when
 				// after validation `Store` will have priority set to 9001 (validate_transaction
 				// mock)
 				</span><span class="kw">let </span>xt = ExtrinsicBuilder::new_indexed_call(Vec::new()).build();
-				block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), SOURCE, xt)).unwrap();
+				block_on(pool.submit_one(api.expect_hash_from_number(<span class="number">1</span>), SOURCE, xt)).unwrap();
 				<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">2</span>);
 
 				<span class="comment">// then
@@ -2091,7 +2123,10 @@
 			<span class="kw">let </span>(tx, rx) = std::sync::mpsc::sync_channel(<span class="number">1</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>api = TestApi::default();
 			api.delay = Arc::new(Mutex::new(rx.into()));
-			<span class="kw">let </span>pool = Arc::new(Pool::new(Default::default(), <span class="bool-val">true</span>.into(), api.into()));
+			<span class="kw">let </span>api = Arc::new(api);
+			<span class="kw">let </span>pool = Arc::new(Pool::new(Default::default(), <span class="bool-val">true</span>.into(), api.clone()));
+
+			<span class="kw">let </span>hash_of_block0 = api.expect_hash_from_number(<span class="number">0</span>);
 
 			<span class="comment">// when
 			</span><span class="kw">let </span>xt = uxt(Transfer {
@@ -2104,7 +2139,7 @@
 			<span class="comment">// This transaction should go to future, since we use `nonce: 1`
 			</span><span class="kw">let </span>pool2 = pool.clone();
 			std::thread::spawn(<span class="kw">move </span>|| {
-				block_on(pool2.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+				block_on(pool2.submit_one(hash_of_block0, SOURCE, xt)).unwrap();
 				ready.send(()).unwrap();
 			});
 
@@ -2118,12 +2153,13 @@
 			});
 			<span class="comment">// The tag the above transaction provides (TestApi is using just nonce as u8)
 			</span><span class="kw">let </span>provides = <span class="macro">vec!</span>[<span class="number">0_u8</span>];
-			block_on(pool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), SOURCE, xt)).unwrap();
+			block_on(pool.submit_one(hash_of_block0, SOURCE, xt)).unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">1</span>);
 
 			<span class="comment">// Now block import happens before the second transaction is able to finish
 			// verification.
-			</span>block_on(pool.prune_tags(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="macro">vec!</span>[provides], <span class="macro">vec!</span>[])).unwrap();
+			</span>block_on(pool.prune_tags(api.expect_hash_from_number(<span class="number">1</span>), <span class="macro">vec!</span>[provides], <span class="macro">vec!</span>[]))
+				.unwrap();
 			<span class="macro">assert_eq!</span>(pool.validated_pool().status().ready, <span class="number">0</span>);
 
 			<span class="comment">// so when we release the verification of the previous one it will have

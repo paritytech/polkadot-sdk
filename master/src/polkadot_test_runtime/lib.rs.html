@@ -1138,6 +1138,18 @@
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1182,7 +1194,9 @@
 	onchain, SequentialPhragmen,
 };
 <span class="kw">use </span>frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
 };
 <span class="kw">use </span>pallet_grandpa::{fg_primitives, AuthorityId <span class="kw">as </span>GrandpaId};
@@ -2275,6 +2289,16 @@
 	<span class="kw">impl </span><span class="kw">crate</span>::GetLastTimestamp&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>get_last_timestamp() -&gt; u64 {
 			Timestamp::now()
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }

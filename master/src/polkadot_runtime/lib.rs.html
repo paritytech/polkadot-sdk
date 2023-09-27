@@ -2618,6 +2618,19 @@
 <a href="#2618" id="2618">2618</a>
 <a href="#2619" id="2619">2619</a>
 <a href="#2620" id="2620">2620</a>
+<a href="#2621" id="2621">2621</a>
+<a href="#2622" id="2622">2622</a>
+<a href="#2623" id="2623">2623</a>
+<a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
+<a href="#2626" id="2626">2626</a>
+<a href="#2627" id="2627">2627</a>
+<a href="#2628" id="2628">2628</a>
+<a href="#2629" id="2629">2629</a>
+<a href="#2630" id="2630">2630</a>
+<a href="#2631" id="2631">2631</a>
+<a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2665,7 +2678,9 @@
 	bounds::ElectionBoundsBuilder, generate_solution_type, onchain, SequentialPhragmen,
 };
 <span class="kw">use </span>frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
@@ -4848,6 +4863,17 @@
 			<span class="prelude-val">Ok</span>(batches)
 		}
 	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
+		}
+	}
+
 }
 
 <span class="attr">#[cfg(test)]

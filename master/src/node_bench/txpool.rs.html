@@ -129,7 +129,6 @@
 
 <span class="kw">use </span>sc_transaction_pool::BasicPool;
 <span class="kw">use </span>sc_transaction_pool_api::{TransactionPool, TransactionSource};
-<span class="kw">use </span>sp_runtime::generic::BlockId;
 
 <span class="kw">use </span><span class="kw">crate</span>::core::{<span class="self">self</span>, Mode, Path};
 
@@ -160,10 +159,11 @@
 <span class="kw">impl </span>core::Benchmark <span class="kw">for </span>PoolBenchmark {
 	<span class="kw">fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>, mode: Mode) -&gt; std::time::Duration {
 		<span class="kw">let </span>context = <span class="self">self</span>.database.create_context();
+		<span class="kw">let </span>genesis_hash = context.client.chain_info().genesis_hash;
 
 		<span class="kw">let _ </span>= context
 			.client
-			.runtime_version_at(context.client.chain_info().genesis_hash)
+			.runtime_version_at(genesis_hash)
 			.expect(<span class="string">&quot;Failed to get runtime version&quot;</span>)
 			.spec_version;
 
@@ -192,7 +192,7 @@
 		<span class="kw">let </span>start = std::time::Instant::now();
 		<span class="kw">let </span>submissions = generated_transactions
 			.into_iter()
-			.map(|tx| txpool.submit_one(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), TransactionSource::External, tx));
+			.map(|tx| txpool.submit_one(genesis_hash, TransactionSource::External, tx));
 		futures::executor::block_on(futures::future::join_all(submissions));
 		<span class="kw">let </span>elapsed = start.elapsed();
 

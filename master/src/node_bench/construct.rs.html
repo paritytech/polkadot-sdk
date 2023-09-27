@@ -343,7 +343,7 @@
 };
 <span class="kw">use </span>sp_consensus::{Environment, Proposer};
 <span class="kw">use </span>sp_inherents::InherentDataProvider;
-<span class="kw">use </span>sp_runtime::{generic::BlockId, traits::NumberFor, OpaqueExtrinsic};
+<span class="kw">use </span>sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
 
 <span class="kw">use crate</span>::{
 	common::SizeType,
@@ -541,7 +541,7 @@
 	<span class="doccomment">/// Returns a future that imports a bunch of unverified transactions to the pool.
 	</span><span class="kw">fn </span>submit_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		_at: <span class="self">Self</span>::Hash,
 		_source: TransactionSource,
 		_xts: Vec&lt;TransactionFor&lt;<span class="self">Self</span>&gt;&gt;,
 	) -&gt; PoolFuture&lt;Vec&lt;<span class="prelude-ty">Result</span>&lt;node_primitives::Hash, <span class="self">Self</span>::Error&gt;&gt;, <span class="self">Self</span>::Error&gt; {
@@ -551,7 +551,7 @@
 	<span class="doccomment">/// Returns a future that imports one unverified transaction to the pool.
 	</span><span class="kw">fn </span>submit_one(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		_at: <span class="self">Self</span>::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;TxHash&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Error&gt; {
@@ -560,7 +560,7 @@
 
 	<span class="kw">fn </span>submit_and_watch(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_at: <span class="kw-2">&amp;</span>BlockId&lt;<span class="self">Self</span>::Block&gt;,
+		_at: <span class="self">Self</span>::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor&lt;<span class="self">Self</span>&gt;,
 	) -&gt; PoolFuture&lt;Pin&lt;Box&lt;TransactionStatusStreamFor&lt;<span class="self">Self</span>&gt;&gt;&gt;, <span class="self">Self</span>::Error&gt; {

@@ -700,6 +700,17 @@
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
 <a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -749,6 +760,7 @@
 <span class="kw">use </span>frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -1394,6 +1406,16 @@
 
 			<span class="kw">if </span>batches.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Benchmark not found for this pallet.&quot;</span>.into()) }
 			<span class="prelude-val">Ok</span>(batches)
+		}
+	}
+
+	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
+			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		}
+
+		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_config::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 	}
 }
