@@ -97,56 +97,6 @@ pub use weights::*;
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
-/// A way to calculate transaction fees for our custom weight calculator.
-const MILLICENTS: u32 = 1_000_000_000;
-
-// A custom weight calculator tailored for the dispatch call `set_dummy()`. This actually examines
-// the arguments and makes a decision based upon them.
-//
-// The `WeightData<T>` trait has access to the arguments of the dispatch that it wants to assign a
-// weight to. Nonetheless, the trait itself cannot make any assumptions about what the generic type
-// of the arguments (`T`) is. Based on our needs, we could replace `T` with a more concrete type
-// while implementing the trait. The `pallet::weight` expects whatever implements `WeighData<T>` to
-// replace `T` with a tuple of the dispatch arguments. This is exactly how we will craft the
-// implementation below.
-//
-// The rules of `WeightForSetDummy` are as follows:
-// - The final weight of each dispatch is calculated as the argument of the call multiplied by the
-//   parameter given to the `WeightForSetDummy`'s constructor.
-// - assigns a dispatch class `operational` if the argument of the call is more than 1000.
-//
-// More information can be read at:
-//   - https://docs.substrate.io/main-docs/build/tx-weights-fees/
-//
-// Manually configuring weight is an advanced operation and what you really need may well be
-//   fulfilled by running the benchmarking toolchain. Refer to `benchmarking.rs` file.
-struct WeightForSetDummy<T: pallet_balances::Config>(BalanceOf<T>);
-
-impl<T: pallet_balances::Config> WeighData<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn weigh_data(&self, target: (&BalanceOf<T>,)) -> Weight {
-		let multiplier = self.0;
-		// *target.0 is the amount passed into the extrinsic
-		let cents = *target.0 / <BalanceOf<T>>::from(MILLICENTS);
-		Weight::from_parts((cents * multiplier).saturated_into::<u64>(), 0)
-	}
-}
-
-impl<T: pallet_balances::Config> ClassifyDispatch<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn classify_dispatch(&self, target: (&BalanceOf<T>,)) -> DispatchClass {
-		if *target.0 > BalanceOf::<T>::from(1000u32) {
-			DispatchClass::Operational
-		} else {
-			DispatchClass::Normal
-		}
-	}
-}
-
-impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn pays_fee(&self, _target: (&BalanceOf<T>,)) -> Pays {
-		Pays::Yes
-	}
-}
-
 // Definition of the pallet logic, to be aggregated in a chain's runtime definition.
 #[frame_support::pallet]
 pub mod pallet {
@@ -323,12 +273,7 @@ pub mod pallet {
 		/// privileged calls to be executed - we don't need to care why. Because it's privileged, we
 		/// can assume it's a one-off operation and substantial processing/storage/memory can be
 		/// used without worrying about gameability or attack scenarios.
-		///
-		/// In this call example, we use our own weight object `WeightForSetDummy` to determine the
-		/// weight of this call. This overrides the `WeightInfo` type used to derive weights for
-		/// other calls in this block.
 		#[pallet::call_index(1)]
-		#[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u32)))]
 		pub fn set_dummy(
 			origin: OriginFor<T>,
 			#[pallet::compact] new_value: T::Balance,

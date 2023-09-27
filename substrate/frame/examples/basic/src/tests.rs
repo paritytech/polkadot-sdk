@@ -188,24 +188,6 @@ fn signed_ext_watch_set_dummy_works() {
 }
 
 #[test]
-fn weights_work() {
-	// must have a defined weight
-	let default_call = pallet_example_basic::Call::<Test>::accumulate_dummy { increase_by: 10 };
-	let info1 = default_call.get_dispatch_info();
-	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
-	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > 0);
-	assert_eq!(info1.weight, <Test as Config>::WeightInfo::accumulate_dummy());
-
-	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
-	//   should be less.
-	let custom_call = pallet_example_basic::Call::<Test>::set_dummy { new_value: 20 };
-	let info2 = custom_call.get_dispatch_info();
-	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > info2.weight.ref_time());
-}
-
-#[test]
 fn events_work() {
 	new_test_ext().execute_with(|| {
 		let amount = 42;
