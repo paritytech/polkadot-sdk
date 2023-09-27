@@ -1,13 +1,14 @@
 - [Bridge-hub Parachains](#bridge-hub-parachains)
   - [Requirements for local run/testing](#requirements-for-local-runtesting)
   - [How to test local Rococo <-> Wococo bridge](#how-to-test-local-rococo---wococo-bridge)
-    - [Run chains (Rococo + BridgeHub, Wococo + BridgeHub) with
-      zombienet](#run-chains-rococo--bridgehub--assethub-wococo--bridgehub--assethub-with-zombienet)
-    - [Run relayer (BridgeHubRococo, BridgeHubWococo)](#run-relayer-bridgehubrococo-bridgehubwococo)
-      - [Run with script (alternative 1)](#run-with-script-alternative-1)
-      - [Run with binary (alternative 2)](#run-with-binary-alternative-2)
-    - [Send messages - transfer asset over bridge](#send-messages---transfer-asset-over-bridge)
-  - [How to test live BridgeHubRococo/BridgeHubWococo](#how-to-test-live-bridgehubrococobridgehubwococo)
+    - [Run Rococo/Wococo chains with zombienet](#run-rococowococo-chains-with-zombienet)
+    - [Init bridge and run relayer between BridgeHubRococo and
+      BridgeHubWococo](#init-bridge-and-run-relayer-between-bridgehubrococo-and-bridgehubwococo)
+    - [Initialize configuration for transfer asset over bridge
+      (ROCs/WOCs)](#initialize-configuration-for-transfer-asset-over-bridge-rocswocs)
+    - [Send messages - transfer asset over bridge (ROCs/WOCs)](#send-messages---transfer-asset-over-bridge-rocswocs)
+    - [Claim relayer's rewards on BridgeHubRococo and
+      BridgeHubWococo](#claim-relayers-rewards-on-bridgehubrococo-and-bridgehubwococo)
   - [How to test local BridgeHubKusama/BridgeHubPolkadot](#how-to-test-local-bridgehubkusamabridgehubpolkadot)
 
 # Bridge-hub Parachains
@@ -93,7 +94,7 @@ cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-paracha
 
 ## How to test local Rococo <-> Wococo bridge
 
-### 1. Run chains (Rococo + BridgeHub + AssetHub, Wococo + BridgeHub + AssetHub) with zombienet
+### Run Rococo/Wococo chains with zombienet
 
 ```
 cd <polkadot-sdk-git-repo-dir>
@@ -115,7 +116,7 @@ POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WOCOCO=~/local_bridge_testing/bin/p
 	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_wococo_local_network.toml
 ```
 
-### 2. Init bridge and run relayer (BridgeHubRococo, BridgeHubWococo)
+### Init bridge and run relayer between BridgeHubRococo and BridgeHubWococo
 
 **Accounts of BridgeHub parachains:**
 - `Bob` is pallet owner of all bridge pallets
@@ -139,7 +140,7 @@ cd <polkadot-sdk-git-repo-dir>
 - Wococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate - Pallet:
 	**bridgeRococoParachain** - Keys: **parasInfo(None)**
 
-### 3. Initialize transfer asset over bridge (DOTs/KSMs)
+### Initialize configuration for transfer asset over bridge (ROCs/WOCs)
 
 This initialization does several things:
 - creates `ForeignAssets` for wrappedROCs/wrappedWOCs
@@ -153,7 +154,7 @@ cd <polkadot-sdk-git-repo-dir>
 ./cumulus/scripts/bridges_rococo_wococo.sh init-bridge-hub-wococo-local
 ```
 
-### 4. Send messages - transfer asset over bridge (DOTs/KSMs)
+### Send messages - transfer asset over bridge (ROCs/WOCs)
 
 Do (asset) transfers:
 ```
@@ -176,6 +177,25 @@ cd <polkadot-sdk-git-repo-dir>
 	- AssetHubWococo (see `foreignAssets.Issued`, `xcmpQueue.Success`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:9010#/explorer
 	- BridgeHubRocococ (see `bridgeWococoMessages.MessagesDelivered`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
 
+### Claim relayer's rewards on BridgeHubRococo and BridgeHubWococo
+
+**Accounts of BridgeHub parachains:**
+- `//Charlie` is relayer account on BridgeHubRococo
+- `//Charlie` is relayer account on BridgeHubWococo
+
+```
+cd <polkadot-sdk-git-repo-dir>
+
+# Claim rewards on BridgeHubWococo:
+./cumulus/scripts/bridges_rococo_wococo.sh claim-rewards-bridge-hub-rococo-local
+
+# Claim rewards on BridgeHubWococo:
+./cumulus/scripts/bridges_rococo_wococo.sh claim-rewards-bridge-hub-wococo-local
+```
+
+- open explorers: (see zombienets)
+	- BridgeHubRococo (see 2x `bridgeRelayers.RewardPaid`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8943#/explorer
+	- BridgeHubWococo (see 2x `bridgeRelayers.RewardPaid`) https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:8945#/explorer
 
 ## How to test local BridgeHubKusama/BridgeHubPolkadot
 
