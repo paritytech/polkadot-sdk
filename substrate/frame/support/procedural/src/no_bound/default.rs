@@ -69,8 +69,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 				[] => {
 					return syn::Error::new(
 						name.clone().span(),
-						// writing this as a regular string breaks rustfmt for some reason
-						r#"no default declared, make a variant default by placing `#[default]` above it"#,
+						"no default declared, make a variant default by placing `#[default]` above it",
 					)
 					.into_compile_error()
 					.into()
