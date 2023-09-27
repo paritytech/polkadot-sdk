@@ -177,22 +177,6 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
-				// Make sure account can pay delivery fees
-				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					XcmConfig::XcmSender,
-				>(
-					(native_asset_id, native_asset_to_teleport_away.into()).into(),
-					0,
-					Unlimited,
-					dest_beneficiary,
-					dest,
-				);
-				<pallet_balances::Pallet<Runtime>>::mint_into(
-					&target_account,
-					delivery_fees.into(),
-				)
-				.unwrap();
-
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
