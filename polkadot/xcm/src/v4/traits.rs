@@ -145,8 +145,7 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// The weight limit is a basic hard-limit and the implementation may place further
 	/// restrictions or requirements on weight and other aspects.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
+	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm(
 		origin: impl Into<Location>,
 		message: Xcm<Call>,
@@ -169,8 +168,7 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// Some amount of `weight_credit` may be provided which, depending on the implementation, may
 	/// allow execution without associated payment.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
+	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm_in_credit(
 		origin: impl Into<Location>,
 		message: Xcm<Call>,
