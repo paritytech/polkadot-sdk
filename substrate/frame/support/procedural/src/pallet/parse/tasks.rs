@@ -17,6 +17,9 @@
 
 use std::collections::HashSet;
 
+#[cfg(test)]
+use crate::assert_error_matches;
+
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -25,27 +28,8 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItemFn, Item, ItemEnum, ItemImpl, LitInt, Result, Token,
+	Attribute, Error, Expr, Ident, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
 };
-
-#[cfg(test)]
-macro_rules! assert_error_matches {
-	($expr:expr, $reg:literal) => {
-		match $expr {
-			Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
-			Err(e) => {
-				let error_message = e.to_string();
-				let re = regex::Regex::new($reg).expect("Invalid regex pattern");
-				assert!(
-					re.is_match(&error_message),
-					"Error message \"{}\" does not match the pattern \"{}\"",
-					error_message,
-					$reg
-				);
-			},
-		}
-	};
-}
 
 pub mod keywords {
 	use syn::custom_keyword;
