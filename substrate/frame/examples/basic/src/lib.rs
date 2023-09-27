@@ -38,16 +38,16 @@
 //!
 //! This pallet provides basic examples of using:
 //!
-//! - Pallet hooks to implement some logic that's executed before and after a block is imported
+//! - Pallet hooks to implement some logic to be executed at the start and end of block execution
 //!   (see: [`frame_support::traits::Hooks`])
 //! - The [`StorageValue`](frame_support::storage::types::StorageValue) API to demonstrate it's use
 //!   of `mutate` on:
 //! 	- A storage value that stores some `Balance` and uses the default
-//!    [`OptionQuery`](frame_support::storage::types::OptionQuery) which will always return the
-//!    value in storage when queried
+//!    [`OptionQuery`](frame_support::storage::types::OptionQuery) which will always either return
+//!    `Option<T>` or `None` when queried
 //! 	- A storage value that stores a `u32` and uses
-//!    [`ValueQuery`](frame_support::storage::types::ValueQuery) which will return the default for
-//!    the stored type if its value is removed, in this case `u32::default()`
+//!    [`ValueQuery`](frame_support::storage::types::ValueQuery) which will always either return `T`
+//!    or `Default::default` in the case that the stored value is removed, which in this case will be `0` (`u32::default()`)
 //! - A storage map of AccountIds and Balances
 //! - A custom weight calculator able to classify a call's dispatch class (see:
 //!   [`frame_support::dispatch::DispatchClass`])
