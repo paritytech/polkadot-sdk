@@ -58,6 +58,10 @@ fn assert_powerless(user: RuntimeOrigin, user_is_member: bool) {
 	);
 }
 
+fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
+	EventRecord::<RuntimeEvent, H256> { phase: Phase::Initialization, event, topics: vec![] }
+}
+
 #[test]
 fn init_members_works() {
 	new_test_ext().execute_with(|| {
@@ -190,17 +194,17 @@ fn propose_works() {
 		assert_eq!(*AllianceMotion::proposals(), vec![hash]);
 		assert_eq!(AllianceMotion::proposal_of(&hash), Some(proposal));
 		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: mock::RuntimeEvent::AllianceMotion(AllianceMotionEvent::Proposed {
-					account: 1,
-					proposal_index: 0,
-					proposal_hash: hash,
-					threshold: 3,
-				}),
-				topics: vec![],
-			}]
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
+			vec![record(mock::RuntimeEvent::AllianceMotion(AllianceMotionEvent::Proposed {
+				account: 1,
+				proposal_index: 0,
+				proposal_hash: hash,
+				threshold: 3,
+			}))]
 		);
 	});
 }
@@ -217,9 +221,12 @@ fn vote_works() {
 		));
 		assert_ok!(Alliance::vote(RuntimeOrigin::signed(2), hash, 0, true));
 
-		let record = |event| EventRecord { phase: Phase::Initialization, event, topics: vec![] };
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(mock::RuntimeEvent::AllianceMotion(AllianceMotionEvent::Proposed {
 					account: 1,
@@ -261,9 +268,12 @@ fn close_works() {
 			proposal_len
 		));
 
-		let record = |event| EventRecord { phase: Phase::Initialization, event, topics: vec![] };
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(mock::RuntimeEvent::AllianceMotion(AllianceMotionEvent::Proposed {
 					account: 1,

@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::{OptionQuery, StorageVersion, TypeInfo, ValueQuery},
 	sp_runtime::{RuntimeDebug, Saturating},
-	traits::Get,
+	traits::{Get, QueryPreimage, StorePreimage},
 	weights::Weight,
 	BoundedVec, Identity,
 };
@@ -82,6 +82,15 @@ pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
 	if storage_version <= 4 {
 		let mut count = 0u64;
 
+		for (hash, proposal) in ProposalOf::<T, I>::drain() {
+			let new_hash = <T as Config<I>>::Preimages::note(proposal.encode().into()).unwrap();
+			assert_eq!(new_hash, hash);
+			count.saturating_inc();
+			assert!(<T as Config<I>>::Preimages::is_requested(&new_hash));
+		}
+
+		Proposals::<T, I>::kill();
+
 		crate::Voting::<T, I>::translate::<OldVotes<T::AccountId, BlockNumberFor<T>>, _>(
 			|_, vote| {
 				count.saturating_inc();
@@ -104,7 +113,7 @@ pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
 		);
 
 		StorageVersion::new(5).put::<Pallet<T, I>>();
-		T::DbWeight::get().reads_writes(count, count + 1)
+		T::DbWeight::get().reads_writes(count, count + 2)
 	} else {
 		log::warn!(
 			target: "runtime::collective",

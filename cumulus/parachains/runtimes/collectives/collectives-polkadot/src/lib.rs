@@ -544,6 +544,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type SetMembersOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_collective::WeightInfo<Runtime>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
 }
 
 pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;

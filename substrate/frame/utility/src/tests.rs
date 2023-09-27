@@ -137,6 +137,7 @@ frame_support::construct_runtime!(
 		Utility: utility::{Pallet, Call, Event},
 		Example: example::{Pallet, Call},
 		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		Preimage: pallet_preimage,
 	}
 );
 
@@ -221,6 +222,15 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
+}
+
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = ();
+	type ManagerOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 impl example::Config for Test {}

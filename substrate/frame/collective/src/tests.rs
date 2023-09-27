@@ -43,6 +43,7 @@ frame_support::construct_runtime!(
 		CollectiveMajority: pallet_collective::<Instance2>::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
 		DefaultCollective: pallet_collective::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
 		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		Preimage: pallet_preimage,
 	}
 );
 
@@ -126,6 +127,7 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
 }
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -138,6 +140,7 @@ impl Config<Instance2> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -154,6 +157,14 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type Preimages = Preimage;
+}
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = ();
+	type ManagerOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 pub struct ExtBuilder {
@@ -317,7 +328,11 @@ fn close_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -457,7 +472,11 @@ fn close_with_prime_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -525,7 +544,11 @@ fn close_with_voting_prime_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -596,7 +619,11 @@ fn close_with_no_prime_but_majority_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 1,
@@ -817,7 +844,11 @@ fn propose_works() {
 		);
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 				account: 1,
 				proposal_index: 0,
@@ -896,7 +927,7 @@ fn correct_validate_and_get_proposal() {
 		let res = Collective::validate_and_get_proposal(&hash, length, weight);
 		assert_ok!(res.clone());
 		let (retrieved_proposal, len) = res.unwrap();
-		assert_eq!(length as usize, len);
+		assert_eq!(length, len);
 		assert_eq!(proposal, retrieved_proposal);
 	})
 }
@@ -1011,7 +1042,11 @@ fn motions_vote_after_works() {
 		);
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1156,7 +1191,11 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 			proposal_len
 		));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1211,7 +1250,11 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 			proposal_len
 		));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1282,7 +1325,11 @@ fn motions_disapproval_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1341,7 +1388,11 @@ fn motions_approval_works() {
 		));
 
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
@@ -1392,7 +1443,11 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			proposal_len
 		));
 		assert_eq!(
-			System::events()[0],
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>()[0],
 			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 				account: 1,
 				proposal_index: 0,
@@ -1422,7 +1477,11 @@ fn motion_with_no_votes_closes_with_disapproval() {
 
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
-			System::events()[1],
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>()[1],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1430,7 +1489,11 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()[2],
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>()[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1489,7 +1552,11 @@ fn disapprove_proposal_works() {
 		// But Root can disapprove and remove it anyway
 		assert_ok!(Collective::disapprove_proposal(RuntimeOrigin::root(), hash));
 		assert_eq!(
-			System::events(),
+			System::events()
+				.iter()
+				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.cloned()
+				.collect::<Vec<_>>(),
 			vec![
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
