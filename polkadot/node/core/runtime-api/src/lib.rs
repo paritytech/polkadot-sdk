@@ -168,12 +168,11 @@ where
 			SubmitReportDisputeLost(_, _, _, _) => {},
 			DisabledValidators(relay_parent, disabled_validators) =>
 				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
-
-			StagingParaBackingState(relay_parent, para_id, constraints) => self
+			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
-				.cache_staging_para_backing_state((relay_parent, para_id), constraints),
-			StagingAsyncBackingParams(relay_parent, params) =>
-				self.requests_cache.cache_staging_async_backing_params(relay_parent, params),
+				.cache_para_backing_state((relay_parent, para_id), constraints),
+			AsyncBackingParams(relay_parent, params) =>
+				self.requests_cache.cache_async_backing_params(relay_parent, params),
 		}
 	}
 
@@ -301,13 +300,10 @@ where
 				),
 			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
 				.map(|sender| Request::DisabledValidators(sender)),
-
-			Request::StagingParaBackingState(para, sender) =>
-				query!(staging_para_backing_state(para), sender)
-					.map(|sender| Request::StagingParaBackingState(para, sender)),
-			Request::StagingAsyncBackingParams(sender) =>
-				query!(staging_async_backing_params(), sender)
-					.map(|sender| Request::StagingAsyncBackingParams(sender)),
+			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
+				.map(|sender| Request::ParaBackingState(para, sender)),
+			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
+				.map(|sender| Request::AsyncBackingParams(sender)),
 			Request::MinimumBackingVotes(index, sender) => {
 				if let Some(value) = self.requests_cache.minimum_backing_votes(index) {
 					self.metrics.on_cached_request();
@@ -579,19 +575,18 @@ where
 			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
 			sender
 		),
-
-		Request::StagingParaBackingState(para, sender) => {
+		Request::ParaBackingState(para, sender) => {
 			query!(
-				StagingParaBackingState,
-				staging_para_backing_state(para),
+				ParaBackingState,
+				para_backing_state(para),
 				ver = Request::STAGING_BACKING_STATE,
 				sender
 			)
 		},
-		Request::StagingAsyncBackingParams(sender) => {
+		Request::AsyncBackingParams(sender) => {
 			query!(
-				StagingAsyncBackingParams,
-				staging_async_backing_params(),
+				AsyncBackingParams,
+				async_backing_params(),
 				ver = Request::STAGING_BACKING_STATE,
 				sender
 			)

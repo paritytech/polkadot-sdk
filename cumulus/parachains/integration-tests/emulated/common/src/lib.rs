@@ -23,7 +23,6 @@ use constants::{
 	bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal, polkadot, rococo, westend,
 };
 use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
-use polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::ParachainHostV6;
 
 // Substrate
 use frame_support::traits::OnInitialize;
@@ -65,7 +64,7 @@ decl_test_relay_chains! {
 			Hrmp: kusama_runtime::Hrmp,
 		}
 	},
-	#[api_version(6)]
+	#[api_version(8)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),
@@ -80,7 +79,7 @@ decl_test_relay_chains! {
 			Balances: westend_runtime::Balances,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(8)]
 	pub struct Rococo {
 		genesis = rococo::genesis(),
 		on_init = (),
@@ -95,7 +94,7 @@ decl_test_relay_chains! {
 			Balances: rococo_runtime::Balances,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(8)]
 	pub struct Wococo {
 		genesis = rococo::genesis(),
 		on_init = (),
