@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! `V2` Primitives.
+//! `V6` Primitives.
 
 use bitvec::vec::BitVec;
 use parity_scale_codec::{Decode, Encode};
@@ -57,7 +57,12 @@ pub use sp_staking::SessionIndex;
 mod signed;
 pub use signed::{EncodeAs, Signed, UncheckedSigned};
 
+pub mod async_backing;
+pub mod executor_params;
 pub mod slashing;
+
+pub use async_backing::AsyncBackingParams;
+pub use executor_params::{ExecutorParam, ExecutorParams, ExecutorParamsHash};
 
 mod metrics;
 pub use metrics::{
@@ -1116,7 +1121,7 @@ pub struct AbridgedHostConfiguration {
 	/// The delay, in blocks, before a validation upgrade is applied.
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
-	pub async_backing_params: super::vstaging::AsyncBackingParams,
+	pub async_backing_params: AsyncBackingParams,
 }
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
@@ -1802,9 +1807,6 @@ pub enum PvfExecTimeoutKind {
 	/// considered executable by approval checkers or dispute participants.
 	Approval,
 }
-
-pub mod executor_params;
-pub use executor_params::{ExecutorParam, ExecutorParams, ExecutorParamsHash};
 
 #[cfg(test)]
 mod tests {
