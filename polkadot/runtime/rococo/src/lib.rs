@@ -48,7 +48,7 @@ use runtime_parachains::{
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
 	runtime_api_impl::{
-		v5 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
+		v7 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
@@ -61,7 +61,9 @@ use beefy_primitives::{
 };
 
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOfDiverse, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, PrivilegeCmp, ProcessMessage,
@@ -1726,7 +1728,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(7)]
+	#[api_version(8)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1859,7 +1861,15 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn minimum_backing_votes() -> u32 {
-			parachains_staging_runtime_api_impl::minimum_backing_votes::<Runtime>()
+			parachains_runtime_api_impl::minimum_backing_votes::<Runtime>()
+		}
+
+		fn para_backing_state(para_id: ParaId) -> Option<primitives::async_backing::BackingState> {
+			parachains_runtime_api_impl::backing_state::<Runtime>(para_id)
+		}
+
+		fn async_backing_params() -> primitives::AsyncBackingParams {
+			parachains_runtime_api_impl::async_backing_params::<Runtime>()
 		}
 
 		fn client_features() -> ClientFeatures {
@@ -2243,6 +2253,16 @@ sp_api::impl_runtime_apis! {
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

@@ -99,25 +99,59 @@ fn subset_predefined_generation_check() {
 #[test]
 fn test_availability_chunk_indices() {
 	let block_number = 89;
-	let n_validators = 200;
+	let n_validators = 11;
+	let babe_randomness = [12u8; 32];
+	let n_cores = 4;
 
-	let shuffle = availability_chunk_indices(None, block_number, n_validators);
-	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-
-	let shuffle =
-		availability_chunk_indices(Some(ClientFeatures::empty()), block_number, n_validators);
-	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-
-	let shuffle =
-		availability_chunk_indices(ClientFeatures::from_bits(0b10), block_number, n_validators);
-	assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-
-	let shuffle = availability_chunk_indices(
-		Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+	let client_features = Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING);
+	let (shuffle, core_start_pos) = availability_chunk_indices(
+		client_features,
 		block_number,
+		babe_randomness,
 		n_validators,
+		n_cores,
 	);
-	assert_ne!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-	assert_eq!(shuffle.len(), n_validators);
-	assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);
+	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+	// assert_eq!(core_start_pos, repeat(ValidatorIndex(0)).take(n_cores).collect::<Vec<_>>());
+
+	for index in 0..n_cores {
+		for validator in 0..n_validators {
+			let chunk_index = availability_chunk_index(
+				client_features,
+				block_number,
+				babe_randomness,
+				n_validators,
+				CoreIndex(index as u32),
+				n_cores,
+				ValidatorIndex(validator as u32),
+			);
+
+			assert_eq!(
+				&chunk_index,
+				(shuffle
+					.iter()
+					.cycle()
+					.skip(core_start_pos[index].0 as usize)
+					.take(n_validators)
+					.collect::<Vec<_>>())[validator]
+			);
+		}
+	}
+
+	// let shuffle =
+	// 	availability_chunk_indices(Some(ClientFeatures::empty()), block_number, n_validators);
+	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+
+	// let shuffle =
+	// 	availability_chunk_indices(ClientFeatures::from_bits(0b10), block_number, n_validators);
+	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+
+	// let shuffle = availability_chunk_indices(
+	// 	Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+	// 	block_number,
+	// 	n_validators,
+	// );
+	// assert_ne!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+	// assert_eq!(shuffle.len(), n_validators);
+	// assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);
 }

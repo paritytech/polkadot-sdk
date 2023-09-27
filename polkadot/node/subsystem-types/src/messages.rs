@@ -39,15 +39,14 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	slashing,
-	vstaging::{self as vstaging_primitives, ClientFeatures},
-	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateIndex, CandidateReceipt, ChunkIndex, CollatorId, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecTimeoutKind,
-	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, vstaging::ClientFeatures, AuthorityDiscoveryId, BackedCandidate,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, ChunkIndex,
+	CollatorId, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, PvfExecTimeoutKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -696,16 +695,14 @@ pub enum RuntimeApiRequest {
 	),
 	/// Get the minimum required backing votes.
 	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
-	/// Get the client features.
-	ClientFeatures(RuntimeApiSender<ClientFeatures>),
-
 	/// Get the backing state of the given para.
-	/// This is a staging API that will not be available on production runtimes.
-	StagingParaBackingState(ParaId, RuntimeApiSender<Option<vstaging_primitives::BackingState>>),
+	ParaBackingState(ParaId, RuntimeApiSender<Option<async_backing::BackingState>>),
 	/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
-	StagingAsyncBackingParams(RuntimeApiSender<vstaging_primitives::AsyncBackingParams>),
+	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
+	/// Get the client features.
+	ClientFeatures(RuntimeApiSender<ClientFeatures>),
 }
 
 impl RuntimeApiRequest {
@@ -729,13 +726,11 @@ impl RuntimeApiRequest {
 	/// `MinimumBackingVotes`
 	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
 
-	/// `Client features`
-	pub const CLIENT_FEATURES_RUNTIME_REQUIREMENT: u32 = 7;
+	/// Minimum version to enable asynchronous backing: `AsyncBackingParams` and `ParaBackingState`.
+	pub const STAGING_BACKING_STATE: u32 = 7;
 
-	/// Minimum version for backing state, required for async backing.
-	///
-	/// 99 for now, should be adjusted to VSTAGING/actual runtime version once released.
-	pub const STAGING_BACKING_STATE: u32 = 99;
+	/// `Client features`
+	pub const CLIENT_FEATURES_RUNTIME_REQUIREMENT: u32 = 8;
 }
 
 /// A message to the Runtime API subsystem.

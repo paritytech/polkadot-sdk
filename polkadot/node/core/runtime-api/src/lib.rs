@@ -166,14 +166,13 @@ where
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			SubmitReportDisputeLost(_, _, _, _) => {},
+			ParaBackingState(relay_parent, para_id, constraints) => self
+				.requests_cache
+				.cache_para_backing_state((relay_parent, para_id), constraints),
+			AsyncBackingParams(relay_parent, params) =>
+				self.requests_cache.cache_async_backing_params(relay_parent, params),
 			ClientFeatures(relay_parent, params) =>
 				self.requests_cache.cache_client_features(relay_parent, params),
-
-			StagingParaBackingState(relay_parent, para_id, constraints) => self
-				.requests_cache
-				.cache_staging_para_backing_state((relay_parent, para_id), constraints),
-			StagingAsyncBackingParams(relay_parent, params) =>
-				self.requests_cache.cache_staging_async_backing_params(relay_parent, params),
 		}
 	}
 
@@ -299,13 +298,10 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
-
-			Request::StagingParaBackingState(para, sender) =>
-				query!(staging_para_backing_state(para), sender)
-					.map(|sender| Request::StagingParaBackingState(para, sender)),
-			Request::StagingAsyncBackingParams(sender) =>
-				query!(staging_async_backing_params(), sender)
-					.map(|sender| Request::StagingAsyncBackingParams(sender)),
+			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
+				.map(|sender| Request::ParaBackingState(para, sender)),
+			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
+				.map(|sender| Request::AsyncBackingParams(sender)),
 			Request::MinimumBackingVotes(index, sender) => {
 				if let Some(value) = self.requests_cache.minimum_backing_votes(index) {
 					self.metrics.on_cached_request();
@@ -573,28 +569,27 @@ where
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
 			sender
 		),
+		Request::ParaBackingState(para, sender) => {
+			query!(
+				ParaBackingState,
+				para_backing_state(para),
+				ver = Request::STAGING_BACKING_STATE,
+				sender
+			)
+		},
+		Request::AsyncBackingParams(sender) => {
+			query!(
+				AsyncBackingParams,
+				async_backing_params(),
+				ver = Request::STAGING_BACKING_STATE,
+				sender
+			)
+		},
 		Request::ClientFeatures(sender) => query!(
 			ClientFeatures,
 			client_features(),
 			ver = Request::CLIENT_FEATURES_RUNTIME_REQUIREMENT,
 			sender
 		),
-
-		Request::StagingParaBackingState(para, sender) => {
-			query!(
-				StagingParaBackingState,
-				staging_para_backing_state(para),
-				ver = Request::STAGING_BACKING_STATE,
-				sender
-			)
-		},
-		Request::StagingAsyncBackingParams(sender) => {
-			query!(
-				StagingAsyncBackingParams,
-				staging_async_backing_params(),
-				ver = Request::STAGING_BACKING_STATE,
-				sender
-			)
-		},
 	}
 }
