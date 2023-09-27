@@ -37,11 +37,29 @@
 /// });
 /// ```
 #[must_use]
-pub struct StorageNoopGuard(sp_std::vec::Vec<u8>);
+pub struct StorageNoopGuard {
+	storage_root: sp_std::vec::Vec<u8>,
+	error_message: &'static str,
+}
 
 impl Default for StorageNoopGuard {
 	fn default() -> Self {
-		Self(sp_io::storage::root(sp_runtime::StateVersion::V1))
+		Self {
+			storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1),
+			error_message: "StorageNoopGuard detected wrongful storage changes.",
+		}
+	}
+}
+
+impl StorageNoopGuard {
+	/// Creates a new `StorageNoopGuard` with a custom error message
+	pub fn from_error_message(error_message: &'static str) -> Self {
+		Self { storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1), error_message }
+	}
+
+	/// Sets a custom error message for a `StorageNoopGuard`
+	pub fn set_error_message(&mut self, error_message: &'static str) {
+		self.error_message = error_message;
 	}
 }
 
@@ -53,8 +71,9 @@ impl Drop for StorageNoopGuard {
 		}
 		assert_eq!(
 			sp_io::storage::root(sp_runtime::StateVersion::V1),
-			self.0,
-			"StorageNoopGuard detected wrongful storage changes.",
+			self.storage_root,
+			"{}",
+			self.error_message,
 		);
 	}
 }
@@ -109,6 +128,27 @@ mod tests {
 			let _guard = StorageNoopGuard::default();
 			frame_support::storage::unhashed::put(b"key", b"value");
 			panic!("Something else");
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "StorageNoopGuard found unexpected storage changes.")]
+	fn storage_noop_guard_panics_created_from_error_message() {
+		TestExternalities::default().execute_with(|| {
+			let _guard = StorageNoopGuard::from_error_message(
+				"StorageNoopGuard found unexpected storage changes.",
+			);
+			frame_support::storage::unhashed::put(b"key", b"value");
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "StorageNoopGuard found unexpected storage changes.")]
+	fn storage_noop_guard_panics_with_set_error_message() {
+		TestExternalities::default().execute_with(|| {
+			let mut guard = StorageNoopGuard::default();
+			guard.set_error_message("StorageNoopGuard found unexpected storage changes.");
+			frame_support::storage::unhashed::put(b"key", b"value");
 		});
 	}
 }
