@@ -46,7 +46,7 @@ impl Default for StorageNoopGuard {
 	fn default() -> Self {
 		Self {
 			storage_root: sp_io::storage::root(sp_runtime::StateVersion::V1),
-			error_message: "StorageNoopGuard detected wrongful storage changes.",
+			error_message: "`StorageNoopGuard` detected an attempted storage change.",
 		}
 	}
 }
