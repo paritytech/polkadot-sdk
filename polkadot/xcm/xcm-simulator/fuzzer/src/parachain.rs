@@ -237,7 +237,7 @@ pub mod mock_msg_queue {
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = Location::new(1, [Parachain(sender.into())]);
-					match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight) {
+					match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, Weight::zero()) {
 						Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
 						Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
@@ -294,7 +294,7 @@ pub mod mock_msg_queue {
 						Self::deposit_event(Event::UnsupportedVersion(id));
 					},
 					Ok(Ok(x)) => {
-						let outcome = T::XcmExecutor::prepare_and_execute(Parent, x.clone(), &mut id, limit);
+						let outcome = T::XcmExecutor::prepare_and_execute(Parent, x.clone(), &mut id, limit, Weight::zero());
 						<ReceivedDmp<T>>::append(x);
 						Self::deposit_event(Event::ExecutedDownward(id, outcome));
 					},

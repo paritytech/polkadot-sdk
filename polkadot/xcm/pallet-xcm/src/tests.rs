@@ -94,6 +94,7 @@ fn report_outcome_notify_works() {
 			message,
 			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
@@ -160,6 +161,7 @@ fn report_outcome_works() {
 			message,
 			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
@@ -260,6 +262,7 @@ fn custom_querier_works() {
 			message,
 			&mut hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
@@ -891,7 +894,7 @@ fn subscription_side_works() {
 		let message =
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
 		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
 		assert_eq!(r, Outcome::Complete(weight));
 
 		let instr = QueryResponse {
@@ -1026,7 +1029,7 @@ fn subscriber_side_subscription_works() {
 			},
 		]);
 		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
 		assert_eq!(r, Outcome::Complete(weight));
 		assert_eq!(take_sent_xcm(), vec![]);
 
@@ -1044,7 +1047,7 @@ fn subscriber_side_subscription_works() {
 			},
 		]);
 		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote.clone(), message, &mut hash, weight, Weight::zero());
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// This message can now be sent to remote as it's v2.
@@ -1107,7 +1110,7 @@ fn auto_subscription_works() {
 			},
 		]);
 		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v4.clone(), message, &mut hash, weight);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v4.clone(), message, &mut hash, weight, Weight::zero());
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// V2 messages can be sent to remote_v4 under XCM v4.
@@ -1143,7 +1146,7 @@ fn auto_subscription_works() {
 			},
 		]);
 		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v2.clone(), message, &mut hash, weight);
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(remote_v2.clone(), message, &mut hash, weight, Weight::zero());
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// v4 messages cannot be sent to remote_v2...
