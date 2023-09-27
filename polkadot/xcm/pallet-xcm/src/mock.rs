@@ -17,7 +17,9 @@
 use codec::Encode;
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, Everything, Nothing},
+	traits::{
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Everything, EverythingBut, Nothing,
+	},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -31,12 +33,16 @@ use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	FixedWeightBounds, FungiblesAdapter, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{
+	traits::{Identity, JustTry},
+	XcmExecutor,
+};
 
-use crate::{self as pallet_xcm, TestWeightInfo};
+use crate::{self as pallet_xcm, Get, TestWeightInfo};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -248,7 +254,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Balance = u64;
+	type Balance = Balance;
 	type AssetId = MultiLocation;
 	type AssetIdParameter = MultiLocation;
 	type Currency = Balances;
@@ -269,11 +275,21 @@ impl pallet_assets::Config for Test {
 	type BenchmarkHelper = ();
 }
 
+// This child parachain acts as trusted reserve for its assets in tests.
+pub const RESERVE_PARA_ID: u32 = 2001;
+// This child parachain is not configured as trusted reserve or teleport location for any assets.
+pub const OTHER_PARA_ID: u32 = 2009;
+
 parameter_types! {
 	pub const RelayLocation: MultiLocation = Here.into_location();
+	pub const ForeignReserveLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(RESERVE_PARA_ID))
+	};
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorMultiLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
+	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
 
 pub type SovereignAccountOf = (
@@ -282,8 +298,33 @@ pub type SovereignAccountOf = (
 	SiblingParachainConvertsVia<ParaId, AccountId>,
 );
 
-pub type LocalAssetTransactor =
-	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>;
+pub struct Equals<T>(PhantomData<T>);
+impl<Location: Get<MultiLocation>> Contains<MultiLocation> for Equals<Location> {
+	fn contains(t: &MultiLocation) -> bool {
+		t == &Location::get()
+	}
+}
+
+pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
+	MultiLocation,
+	Balance,
+	// Excludes relay/parent chain currency
+	EverythingBut<(Equals<RelayLocation>,)>,
+	Identity,
+	JustTry,
+>;
+
+pub type AssetTransactors = (
+	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
+	FungiblesAdapter<
+		Assets,
+		ForeignAssetsConvertedConcreteId,
+		SovereignAccountOf,
+		AccountId,
+		NoChecking,
+		CheckingAccount,
+	>,
+);
 
 type LocalOriginConverter = (
 	SovereignSignedViaLocation<SovereignAccountOf, RuntimeOrigin>,
@@ -292,18 +333,13 @@ type LocalOriginConverter = (
 	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
-// This sibling parachain acts as trusted reserve for its assets in tests.
-pub const RESERVE_PARA_ID: u32 = 2001;
-// This sibling parachain is not configured as trusted reserve or teleport location for any assets.
-pub const OTHER_PARA_ID: u32 = 2009;
-
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
 	pub TrustedReserves: (MultiAssetFilter, MultiLocation) = (
 		All.into(),
-		MultiLocation { parents: 1, interior: X1(Parachain(RESERVE_PARA_ID)) }
+		MultiLocation { parents: 0, interior: X1(Parachain(RESERVE_PARA_ID)) }
 	);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -320,7 +356,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = TestSendXcm;
-	type AssetTransactor = LocalAssetTransactor;
+	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = Case<TrustedReserves>;
 	type IsTeleporter = Case<TrustedAssets>;

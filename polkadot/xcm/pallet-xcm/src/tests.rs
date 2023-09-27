@@ -29,7 +29,7 @@ use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
-	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
+	traits::{ConvertLocation, Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
 
@@ -550,7 +550,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
@@ -559,7 +559,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with local asset reserve and destination fee reserve.
@@ -568,7 +568,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and destination fee reserve.
@@ -577,7 +577,94 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
-	todo!()
+	// foreign creator in this case sibling parachain acting as reserve
+	let foreign_creator_location =
+		RelayLocation::get().pushed_with_interior(Parachain(RESERVE_PARA_ID)).unwrap();
+	let foreign_creator_as_account_id =
+		SovereignAccountOf::convert_location(&foreign_creator_location).unwrap();
+
+	// foreign parachain with the same consensus currency as asset
+	let foreign_asset_id_multilocation =
+		foreign_creator_location.pushed_with_interior(GeneralIndex(1234567)).unwrap();
+	let foreign_asset_amount = 142;
+
+	// transfer destination is reserve location
+	let dest = foreign_creator_location;
+	let assets: MultiAssets = vec![(foreign_asset_id_multilocation, SEND_AMOUNT).into()].into();
+
+	let balances =
+		vec![(ALICE, INITIAL_BALANCE), (foreign_creator_as_account_id.clone(), INITIAL_BALANCE)];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient (to be used as fees as well) foreign asset (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			foreign_asset_id_multilocation,
+			BOB,
+			true,
+			1
+		));
+		// this asset should have been teleported/reserve-transferred in, but for this test we just
+		// mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			foreign_asset_id_multilocation,
+			ALICE,
+			foreign_asset_amount
+		));
+		assert_eq!(Assets::balance(foreign_asset_id_multilocation, ALICE), foreign_asset_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		let expected_weight = BaseXcmWeight::get() * 2;
+		let mut expected_assets = assets.clone();
+		expected_assets.reanchor(&dest, UniversalLocation::get()).unwrap();
+
+		// do the transfer
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			0,
+			Unlimited,
+		));
+		assert_eq!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted {
+				outcome: Outcome::Complete(expected_weight)
+			})
+		);
+		// Alice spent (transferred) amount
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, ALICE),
+			foreign_asset_amount - SEND_AMOUNT
+		);
+		// Alice's native asset balance is untouched
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+		// Destination account (parachain account) has expected (same) balances
+		assert_eq!(Balances::free_balance(foreign_creator_as_account_id.clone()), INITIAL_BALANCE);
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, foreign_creator_as_account_id),
+			0
+		);
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![(
+				Parachain(RESERVE_PARA_ID).into(),
+				Xcm(vec![
+					WithdrawAsset(expected_assets.clone()),
+					ClearOrigin,
+					buy_limited_execution(expected_assets.get(0).unwrap().clone(), Unlimited),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary },
+				]),
+			)]
+		);
+		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
+		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
 }
 
 /// Test `reserve_transfer_assets` with remote asset reserve and destination fee reserve.
@@ -586,7 +673,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with local asset reserve and remote fee reserve.
@@ -595,7 +682,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
@@ -604,7 +691,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
@@ -613,7 +700,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with local asset reserve and teleported fee.
@@ -622,7 +709,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and teleported fee.
@@ -631,7 +718,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
-	todo!()
+	// TODO
 }
 
 /// Test `reserve_transfer_assets` with remote asset reserve and teleported fee.
@@ -640,7 +727,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() {
-	todo!()
+	// TODO
 }
 
 /// Test local execution of XCM
