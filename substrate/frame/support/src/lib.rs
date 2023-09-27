@@ -2313,7 +2313,7 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::call]
 	/// 	impl<T: Config> Pallet<T> {
-	/// 		fn do_stuff(_origin: OriginFor<T>, arg: u32) {
+	/// 		pub fn do_stuff(_origin: OriginFor<T>, arg: u32) -> DispatchResult {
 	/// 			unimplemented!()
 	/// 		}
 	/// 	}
@@ -2410,7 +2410,7 @@ pub mod pallet_macros {
 	///
 	/// 	/// Named syntax.
 	///     #[pallet::storage]
-	///     pub type Baz<T> = StorageMap<_, Hasher = Blake2_128Concat, Key = u32, Value = u32>;
+	///     pub type Baz<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
 	/// }
 	/// ```
 	///
