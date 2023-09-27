@@ -167,12 +167,12 @@ pub mod pallet {
 				BlockNumberFor<Self>,
 				CallOf<Self, I>,
 				PalletsOriginOf<Self>,
-				Hash = Self::Hashing,
+				Hasher = Self::Hashing,
 			> + ScheduleNamed<
 				BlockNumberFor<Self>,
 				CallOf<Self, I>,
 				PalletsOriginOf<Self>,
-				Hash = Self::Hashing,
+				Hasher = Self::Hashing,
 			>;
 		/// Currency type for this pallet.
 		type Currency: ReservableCurrency<Self::AccountId>;

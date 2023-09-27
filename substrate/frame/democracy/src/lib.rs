@@ -228,7 +228,7 @@ pub mod pallet {
 			BlockNumberFor<Self>,
 			CallOf<Self>,
 			Self::PalletsOrigin,
-			Hash = Self::Hashing,
+			Hasher = Self::Hashing,
 		>;
 
 		/// The Preimage provider.
@@ -1614,7 +1614,7 @@ impl<T: Config> Pallet<T> {
 			// Earliest it can be scheduled for is next block.
 			let when = now.saturating_add(status.delay.max(One::one()));
 			if T::Scheduler::schedule_named(
-				(DEMOCRACY_ID, index).encode_into::<[u8; 32], T::Hashing>(),
+				(DEMOCRACY_ID, index).encode_into::<_, T::Hashing>(),
 				DispatchTime::At(when),
 				None,
 				63,

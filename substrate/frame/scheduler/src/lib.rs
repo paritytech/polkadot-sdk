@@ -207,9 +207,7 @@ pub mod pallet {
 
 	/// `system::Config` should always be included in our implied traits.
 	#[pallet::config]
-	pub trait Config: frame_system::Config
-	// where <<Self::Preimages as QueryPreimage>::H as sp_core::Hasher>::Out: MaxEncodedLen
-	{
+	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
