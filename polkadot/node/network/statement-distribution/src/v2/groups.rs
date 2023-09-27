@@ -17,8 +17,7 @@
 //! A utility for tracking groups and their members within a session.
 
 use polkadot_primitives::{
-	effective_minimum_backing_votes,
-	vstaging::{GroupIndex, IndexedVec, ValidatorIndex},
+	effective_minimum_backing_votes, GroupIndex, IndexedVec, ValidatorIndex,
 };
 
 use std::collections::HashMap;
