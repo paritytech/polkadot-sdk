@@ -475,6 +475,10 @@
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -864,6 +868,8 @@
 	</span><span class="kw">pub trait </span>Anon&lt;BlockNumber, Call, Origin&gt; {
 		<span class="doccomment">/// An address which can be used for removing a scheduled task.
 		</span><span class="kw">type </span>Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug + TypeInfo;
+		<span class="doccomment">/// The hasher used in the runtime.
+		</span><span class="kw">type </span>Hasher: sp_runtime::traits::Hash;
 
 		<span class="doccomment">/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -873,7 +879,7 @@
 			maybe_periodic: <span class="prelude-ty">Option</span>&lt;Period&lt;BlockNumber&gt;&gt;,
 			priority: Priority,
 			origin: Origin,
-			call: Bounded&lt;Call&gt;,
+			call: Bounded&lt;Call, <span class="self">Self</span>::Hasher&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt;;
 
 		<span class="doccomment">/// Cancel a scheduled task. If periodic, then it will cancel all further instances of that,
@@ -911,6 +917,8 @@
 	</span><span class="kw">pub trait </span>Named&lt;BlockNumber, Call, Origin&gt; {
 		<span class="doccomment">/// An address which can be used for removing a scheduled task.
 		</span><span class="kw">type </span>Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + sp_std::fmt::Debug;
+		<span class="doccomment">/// The hasher used in the runtime.
+		</span><span class="kw">type </span>Hasher: sp_runtime::traits::Hash;
 
 		<span class="doccomment">/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -923,7 +931,7 @@
 			maybe_periodic: <span class="prelude-ty">Option</span>&lt;Period&lt;BlockNumber&gt;&gt;,
 			priority: Priority,
 			origin: Origin,
-			call: Bounded&lt;Call&gt;,
+			call: Bounded&lt;Call, <span class="self">Self</span>::Hasher&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt;;
 
 		<span class="doccomment">/// Cancel a scheduled, named task. If periodic, then it will cancel all further instances

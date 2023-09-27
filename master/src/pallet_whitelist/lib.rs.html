@@ -239,14 +239,6 @@
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
 <a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -293,12 +285,11 @@
 <span class="kw">use </span>frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
 	ensure,
-	traits::{Hash <span class="kw">as </span>PreimageHash, QueryPreimage, StorePreimage},
+	traits::{QueryPreimage, StorePreimage},
 	weights::Weight,
-	Hashable,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_runtime::traits::Dispatchable;
+<span class="kw">use </span>sp_runtime::traits::{Dispatchable, Hash};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -330,7 +321,7 @@
 		</span><span class="kw">type </span>DispatchWhitelistedOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// The handler of pre-images.
-		</span><span class="kw">type </span>Preimages: QueryPreimage + StorePreimage;
+		</span><span class="kw">type </span>Preimages: QueryPreimage&lt;H = <span class="self">Self</span>::Hashing&gt; + StorePreimage;
 
 		<span class="doccomment">/// The weight information for this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
@@ -342,9 +333,9 @@
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
-		CallWhitelisted { call_hash: PreimageHash },
-		WhitelistedCallRemoved { call_hash: PreimageHash },
-		WhitelistedCallDispatched { call_hash: PreimageHash, result: DispatchResultWithPostInfo },
+		CallWhitelisted { call_hash: T::Hash },
+		WhitelistedCallRemoved { call_hash: T::Hash },
+		WhitelistedCallDispatched { call_hash: T::Hash, result: DispatchResultWithPostInfo },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -362,14 +353,13 @@
 	}
 
 	<span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>WhitelistedCall&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, PreimageHash, (), OptionQuery&gt;;
+	</span><span class="kw">pub type </span>WhitelistedCall&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::Hash, (), OptionQuery&gt;;
 
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::whitelist_call())]
-		</span><span class="kw">pub fn </span>whitelist_call(origin: OriginFor&lt;T&gt;, call_hash: PreimageHash) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>whitelist_call(origin: OriginFor&lt;T&gt;, call_hash: T::Hash) -&gt; DispatchResult {
 			T::WhitelistOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(
@@ -387,10 +377,7 @@
 
 		<span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight(T::WeightInfo::remove_whitelisted_call())]
-		</span><span class="kw">pub fn </span>remove_whitelisted_call(
-			origin: OriginFor&lt;T&gt;,
-			call_hash: PreimageHash,
-		) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>remove_whitelisted_call(origin: OriginFor&lt;T&gt;, call_hash: T::Hash) -&gt; DispatchResult {
 			T::WhitelistOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			WhitelistedCall::&lt;T&gt;::take(call_hash).ok_or(Error::&lt;T&gt;::CallIsNotWhitelisted)<span class="question-mark">?</span>;
@@ -409,7 +396,7 @@
 		)]
 		</span><span class="kw">pub fn </span>dispatch_whitelisted_call(
 			origin: OriginFor&lt;T&gt;,
-			call_hash: PreimageHash,
+			call_hash: T::Hash,
 			call_encoded_len: u32,
 			call_weight_witness: Weight,
 		) -&gt; DispatchResultWithPostInfo {
@@ -455,7 +442,7 @@
 		) -&gt; DispatchResultWithPostInfo {
 			T::DispatchWhitelistedOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>call_hash = call.blake2_256().into();
+			<span class="kw">let </span>call_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>call).into();
 
 			<span class="macro">ensure!</span>(
 				WhitelistedCall::&lt;T&gt;::contains_key(call_hash),
@@ -476,10 +463,7 @@
 	<span class="doccomment">/// Clean whitelisting/preimage and dispatch call.
 	///
 	/// Return the call actual weight of the dispatched call if there is some.
-	</span><span class="kw">fn </span>clean_and_dispatch(
-		call_hash: PreimageHash,
-		call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
+	</span><span class="kw">fn </span>clean_and_dispatch(call_hash: T::Hash, call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
 		WhitelistedCall::&lt;T&gt;::remove(call_hash);
 
 		T::Preimages::unrequest(<span class="kw-2">&amp;</span>call_hash);

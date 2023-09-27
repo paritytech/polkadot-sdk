@@ -670,6 +670,7 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -706,7 +707,8 @@
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 &gt;&gt;::NegativeImbalance;
 <span class="kw">pub type </span>CallOf&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeCall;
-<span class="kw">pub type </span>BoundedCallOf&lt;T, I&gt; = Bounded&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeCall&gt;;
+<span class="kw">pub type </span>BoundedCallOf&lt;T, I&gt; =
+	Bounded&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeCall, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hashing&gt;;
 <span class="kw">pub type </span>VotesOf&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Votes;
 <span class="kw">pub type </span>TallyOf&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Tally;
 <span class="kw">pub type </span>PalletsOriginOf&lt;T&gt; =

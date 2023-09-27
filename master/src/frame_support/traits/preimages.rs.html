@@ -328,6 +328,16 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -345,16 +355,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Stuff for dealing with 32-byte hashed preimages.
+</span><span class="doccomment">//! Stuff for dealing with hashed preimages.
 
 </span><span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_core::{RuntimeDebug, H256};
-<span class="kw">use </span>sp_io::hashing::blake2_256;
-<span class="kw">use </span>sp_runtime::{traits::ConstU32, DispatchError};
+<span class="kw">use </span>sp_core::RuntimeDebug;
+<span class="kw">use </span>sp_runtime::{
+	traits::{ConstU32, Hash},
+	DispatchError,
+};
 <span class="kw">use </span>sp_std::borrow::Cow;
 
-<span class="kw">pub type </span>Hash = H256;
 <span class="kw">pub type </span>BoundedInline = <span class="kw">crate</span>::BoundedVec&lt;u8, ConstU32&lt;<span class="number">128</span>&gt;&gt;;
 
 <span class="doccomment">/// The maximum we expect a single legacy hash lookup to be.
@@ -362,29 +373,29 @@
 
 <span class="attr">#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, RuntimeDebug)]
 #[codec(mel_bound())]
-</span><span class="kw">pub enum </span>Bounded&lt;T&gt; {
-	<span class="doccomment">/// A Blake2 256 hash with no preimage length. We
-	/// do not support creation of this except for transitioning from legacy state.
-	/// In the future we will make this a pure `Dummy` item storing only the final `dummy` field.
-	</span>Legacy { hash: Hash, dummy: sp_std::marker::PhantomData&lt;T&gt; },
+</span><span class="kw">pub enum </span>Bounded&lt;T, H: Hash&gt; {
+	<span class="doccomment">/// A hash with no preimage length. We do not support creation of this except
+	/// for transitioning from legacy state. In the future we will make this a pure
+	/// `Dummy` item storing only the final `dummy` field.
+	</span>Legacy { hash: H::Output, dummy: sp_std::marker::PhantomData&lt;T&gt; },
 	<span class="doccomment">/// A an bounded `Call`. Its encoding must be at most 128 bytes.
 	</span>Inline(BoundedInline),
-	<span class="doccomment">/// A Blake2-256 hash of the call together with an upper limit for its size.
-	</span>Lookup { hash: Hash, len: u32 },
+	<span class="doccomment">/// A hash of the call together with an upper limit for its size.`
+	</span>Lookup { hash: H::Output, len: u32 },
 }
 
-<span class="kw">impl</span>&lt;T&gt; Bounded&lt;T&gt; {
+<span class="kw">impl</span>&lt;T, H: Hash&gt; Bounded&lt;T, H&gt; {
 	<span class="doccomment">/// Casts the wrapped type into something that encodes alike.
 	///
 	/// # Examples
 	/// ```
-	/// use frame_support::traits::Bounded;
+	/// use frame_support::{traits::Bounded, sp_runtime::traits::BlakeTwo256};
 	///
 	/// // Transmute from `String` to `&amp;str`.
-	/// let x: Bounded&lt;String&gt; = Bounded::Inline(Default::default());
-	/// let _: Bounded&lt;&amp;str&gt; = x.transmute();
+	/// let x: Bounded&lt;String, BlakeTwo256&gt; = Bounded::Inline(Default::default());
+	/// let _: Bounded&lt;&amp;str, BlakeTwo256&gt; = x.transmute();
 	/// ```
-	</span><span class="kw">pub fn </span>transmute&lt;S: Encode&gt;(<span class="self">self</span>) -&gt; Bounded&lt;S&gt;
+	</span><span class="kw">pub fn </span>transmute&lt;S: Encode&gt;(<span class="self">self</span>) -&gt; Bounded&lt;S, H&gt;
 	<span class="kw">where
 		</span>T: Encode + EncodeLike&lt;S&gt;,
 	{
@@ -399,18 +410,18 @@
 	<span class="doccomment">/// Returns the hash of the preimage.
 	///
 	/// The hash is re-calculated every time if the preimage is inlined.
-	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
+	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H::Output {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
 			Lookup { hash, .. } | Legacy { hash, .. } =&gt; <span class="kw-2">*</span>hash,
-			Inline(x) =&gt; blake2_256(x.as_ref()).into(),
+			Inline(x) =&gt; &lt;H <span class="kw">as </span>Hash&gt;::hash(x.as_ref()),
 		}
 	}
 
 	<span class="doccomment">/// Returns the hash to lookup the preimage.
 	///
 	/// If this is a `Bounded::Inline`, `None` is returned as no lookup is required.
-	</span><span class="kw">pub fn </span>lookup_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Hash&gt; {
+	</span><span class="kw">pub fn </span>lookup_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;H::Output&gt; {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
 			Lookup { hash, .. } | Legacy { hash, .. } =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>hash),
@@ -445,13 +456,13 @@
 	}
 
 	<span class="doccomment">/// Constructs a `Lookup` bounded item.
-	</span><span class="kw">pub fn </span>unrequested(hash: Hash, len: u32) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>unrequested(hash: H::Output, len: u32) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::Lookup { hash, len }
 	}
 
 	<span class="doccomment">/// Constructs a `Legacy` bounded item.
 	</span><span class="attr">#[deprecated = <span class="string">&quot;This API is only for transitioning to Scheduler v3 API&quot;</span>]
-	</span><span class="kw">pub fn </span>from_legacy_hash(hash: <span class="kw">impl </span>Into&lt;Hash&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>from_legacy_hash(hash: <span class="kw">impl </span>Into&lt;H::Output&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::Legacy { hash: hash.into(), dummy: sp_std::marker::PhantomData }
 	}
 }
@@ -460,24 +471,27 @@
 
 <span class="doccomment">/// A interface for looking up preimages from their hash on chain.
 </span><span class="kw">pub trait </span>QueryPreimage {
+	<span class="doccomment">/// The hasher used in the runtime.
+	</span><span class="kw">type </span>H: Hash;
+
 	<span class="doccomment">/// Returns whether a preimage exists for a given hash and if so its length.
-	</span><span class="kw">fn </span>len(hash: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt;;
+	</span><span class="kw">fn </span>len(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt;;
 
 	<span class="doccomment">/// Returns the preimage for a given hash. If given, `len` must be the size of the preimage.
-	</span><span class="kw">fn </span>fetch(hash: <span class="kw-2">&amp;</span>Hash, len: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; FetchResult;
+	</span><span class="kw">fn </span>fetch(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out, len: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; FetchResult;
 
 	<span class="doccomment">/// Returns whether a preimage request exists for a given hash.
-	</span><span class="kw">fn </span>is_requested(hash: <span class="kw-2">&amp;</span>Hash) -&gt; bool;
+	</span><span class="kw">fn </span>is_requested(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out) -&gt; bool;
 
 	<span class="doccomment">/// Request that someone report a preimage. Providers use this to optimise the economics for
 	/// preimage reporting.
-	</span><span class="kw">fn </span>request(hash: <span class="kw-2">&amp;</span>Hash);
+	</span><span class="kw">fn </span>request(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out);
 
 	<span class="doccomment">/// Cancel a previous preimage request.
-	</span><span class="kw">fn </span>unrequest(hash: <span class="kw-2">&amp;</span>Hash);
+	</span><span class="kw">fn </span>unrequest(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out);
 
 	<span class="doccomment">/// Request that the data required for decoding the given `bounded` value is made available.
-	</span><span class="kw">fn </span>hold&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T&gt;) {
+	</span><span class="kw">fn </span>hold&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T, <span class="self">Self</span>::H&gt;) {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span>bounded {
 			Inline(..) =&gt; {},
@@ -487,7 +501,7 @@
 
 	<span class="doccomment">/// No longer request that the data required for decoding the given `bounded` value is made
 	/// available.
-	</span><span class="kw">fn </span>drop&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T&gt;) {
+	</span><span class="kw">fn </span>drop&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T, <span class="self">Self</span>::H&gt;) {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span>bounded {
 			Inline(..) =&gt; {},
@@ -497,7 +511,7 @@
 
 	<span class="doccomment">/// Check to see if all data required for the given `bounded` value is available for its
 	/// decoding.
-	</span><span class="kw">fn </span>have&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T&gt;) -&gt; bool {
+	</span><span class="kw">fn </span>have&lt;T&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T, <span class="self">Self</span>::H&gt;) -&gt; bool {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span>bounded {
 			Inline(..) =&gt; <span class="bool-val">true</span>,
@@ -510,7 +524,7 @@
 	/// It also directly requests the given `hash` using [`Self::request`].
 	///
 	/// This may not be `peek`-able or `realize`-able.
-	</span><span class="kw">fn </span>pick&lt;T&gt;(hash: Hash, len: u32) -&gt; Bounded&lt;T&gt; {
+	</span><span class="kw">fn </span>pick&lt;T&gt;(hash: &lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out, len: u32) -&gt; Bounded&lt;T, <span class="self">Self</span>::H&gt; {
 		<span class="self">Self</span>::request(<span class="kw-2">&amp;</span>hash);
 		Bounded::Lookup { hash, len }
 	}
@@ -520,7 +534,7 @@
 	///
 	/// NOTE: This does not remove any data needed for realization. If you will no longer use the
 	/// `bounded`, call `realize` instead or call `drop` afterwards.
-	</span><span class="kw">fn </span>peek&lt;T: Decode&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(T, <span class="prelude-ty">Option</span>&lt;u32&gt;), DispatchError&gt; {
+	</span><span class="kw">fn </span>peek&lt;T: Decode&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T, <span class="self">Self</span>::H&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(T, <span class="prelude-ty">Option</span>&lt;u32&gt;), DispatchError&gt; {
 		<span class="kw">use </span>Bounded::<span class="kw-2">*</span>;
 		<span class="kw">match </span>bounded {
 			Inline(data) =&gt; T::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).ok().map(|x| (x, <span class="prelude-val">None</span>)),
@@ -539,7 +553,9 @@
 	<span class="doccomment">/// Convert the given `bounded` value back into its original instance. If successful,
 	/// `drop` any data backing it. This will not break the realisability of independently
 	/// created instances of `Bounded` which happen to have identical data.
-	</span><span class="kw">fn </span>realize&lt;T: Decode&gt;(bounded: <span class="kw-2">&amp;</span>Bounded&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(T, <span class="prelude-ty">Option</span>&lt;u32&gt;), DispatchError&gt; {
+	</span><span class="kw">fn </span>realize&lt;T: Decode&gt;(
+		bounded: <span class="kw-2">&amp;</span>Bounded&lt;T, <span class="self">Self</span>::H&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(T, <span class="prelude-ty">Option</span>&lt;u32&gt;), DispatchError&gt; {
 		<span class="kw">let </span>r = <span class="self">Self</span>::peek(bounded)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::drop(bounded);
 		<span class="prelude-val">Ok</span>(r)
@@ -560,11 +576,11 @@
 	<span class="doccomment">/// Request and attempt to store the bytes of a preimage on chain.
 	///
 	/// May return `DispatchError::Exhausted` if the preimage is just too big.
-	</span><span class="kw">fn </span>note(bytes: Cow&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, DispatchError&gt;;
+	</span><span class="kw">fn </span>note(bytes: Cow&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out, DispatchError&gt;;
 
 	<span class="doccomment">/// Attempt to clear a previously noted preimage. Exactly the same as `unrequest` but is
 	/// provided for symmetry.
-	</span><span class="kw">fn </span>unnote(hash: <span class="kw-2">&amp;</span>Hash) {
+	</span><span class="kw">fn </span>unnote(hash: <span class="kw-2">&amp;</span>&lt;<span class="self">Self</span>::H <span class="kw">as </span>sp_core::Hasher&gt;::Out) {
 		<span class="self">Self</span>::unrequest(hash)
 	}
 
@@ -574,7 +590,7 @@
 	///
 	/// NOTE: Once this API is used, you should use either `drop` or `realize`.
 	/// The value is also noted using [`Self::note`].
-	</span><span class="kw">fn </span>bound&lt;T: Encode&gt;(t: T) -&gt; <span class="prelude-ty">Result</span>&lt;Bounded&lt;T&gt;, DispatchError&gt; {
+	</span><span class="kw">fn </span>bound&lt;T: Encode&gt;(t: T) -&gt; <span class="prelude-ty">Result</span>&lt;Bounded&lt;T, <span class="self">Self</span>::H&gt;, DispatchError&gt; {
 		<span class="kw">let </span>data = t.encode();
 		<span class="kw">let </span>len = data.len() <span class="kw">as </span>u32;
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>BoundedInline::try_from(data) {
@@ -585,22 +601,24 @@
 }
 
 <span class="kw">impl </span>QueryPreimage <span class="kw">for </span>() {
-	<span class="kw">fn </span>len(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+	<span class="kw">type </span>H = sp_runtime::traits::BlakeTwo256;
+
+	<span class="kw">fn </span>len(<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_core::H256) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		<span class="prelude-val">None
 	</span>}
-	<span class="kw">fn </span>fetch(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; FetchResult {
+	<span class="kw">fn </span>fetch(<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_core::H256, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; FetchResult {
 		<span class="prelude-val">Err</span>(DispatchError::Unavailable)
 	}
-	<span class="kw">fn </span>is_requested(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash) -&gt; bool {
+	<span class="kw">fn </span>is_requested(<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_core::H256) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
-	<span class="kw">fn </span>request(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash) {}
-	<span class="kw">fn </span>unrequest(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash) {}
+	<span class="kw">fn </span>request(<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_core::H256) {}
+	<span class="kw">fn </span>unrequest(<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_core::H256) {}
 }
 
 <span class="kw">impl </span>StorePreimage <span class="kw">for </span>() {
 	<span class="kw">const </span>MAX_LENGTH: usize = <span class="number">0</span>;
-	<span class="kw">fn </span>note(<span class="kw">_</span>: Cow&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, DispatchError&gt; {
+	<span class="kw">fn </span>note(<span class="kw">_</span>: Cow&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;sp_core::H256, DispatchError&gt; {
 		<span class="prelude-val">Err</span>(DispatchError::Exhausted)
 	}
 }
@@ -609,22 +627,22 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::BoundedVec;
-	<span class="kw">use </span>sp_runtime::bounded_vec;
+	<span class="kw">use </span>sp_runtime::{bounded_vec, traits::BlakeTwo256};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>bounded_size_is_correct() {
-		<span class="macro">assert_eq!</span>(&lt;Bounded&lt;Vec&lt;u8&gt;&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len(), <span class="number">131</span>);
+		<span class="macro">assert_eq!</span>(&lt;Bounded&lt;Vec&lt;u8&gt;, BlakeTwo256&gt; <span class="kw">as </span>MaxEncodedLen&gt;::max_encoded_len(), <span class="number">131</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>bounded_basic_works() {
 		<span class="kw">let </span>data: BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">bounded_vec!</span>[<span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;c&#39;</span>];
 		<span class="kw">let </span>len = data.len() <span class="kw">as </span>u32;
-		<span class="kw">let </span>hash = blake2_256(<span class="kw-2">&amp;</span>data).into();
+		<span class="kw">let </span>hash = BlakeTwo256::hash(<span class="kw-2">&amp;</span>data).into();
 
 		<span class="comment">// Inline works
 		</span>{
-			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;&gt; = Bounded::Inline(data.clone());
+			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;, BlakeTwo256&gt; = Bounded::Inline(data.clone());
 			<span class="macro">assert_eq!</span>(bound.hash(), hash);
 			<span class="macro">assert_eq!</span>(bound.len(), <span class="prelude-val">Some</span>(len));
 			<span class="macro">assert!</span>(!bound.lookup_needed());
@@ -632,7 +650,8 @@
 		}
 		<span class="comment">// Legacy works
 		</span>{
-			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;&gt; = Bounded::Legacy { hash, dummy: Default::default() };
+			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;, BlakeTwo256&gt; =
+				Bounded::Legacy { hash, dummy: Default::default() };
 			<span class="macro">assert_eq!</span>(bound.hash(), hash);
 			<span class="macro">assert_eq!</span>(bound.len(), <span class="prelude-val">None</span>);
 			<span class="macro">assert!</span>(bound.lookup_needed());
@@ -640,7 +659,8 @@
 		}
 		<span class="comment">// Lookup works
 		</span>{
-			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;&gt; = Bounded::Lookup { hash, len: data.len() <span class="kw">as </span>u32 };
+			<span class="kw">let </span>bound: Bounded&lt;Vec&lt;u8&gt;, BlakeTwo256&gt; =
+				Bounded::Lookup { hash, len: data.len() <span class="kw">as </span>u32 };
 			<span class="macro">assert_eq!</span>(bound.hash(), hash);
 			<span class="macro">assert_eq!</span>(bound.len(), <span class="prelude-val">Some</span>(len));
 			<span class="macro">assert!</span>(bound.lookup_needed());
@@ -653,8 +673,8 @@
 		<span class="kw">let </span>data: BoundedVec&lt;u8, <span class="kw">_</span>&gt; = <span class="macro">bounded_vec!</span>[<span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;c&#39;</span>];
 
 		<span class="comment">// Transmute a `String` into a `&amp;str`.
-		</span><span class="kw">let </span>x: Bounded&lt;String&gt; = Bounded::Inline(data.clone());
-		<span class="kw">let </span>y: Bounded&lt;<span class="kw-2">&amp;</span>str&gt; = x.transmute();
+		</span><span class="kw">let </span>x: Bounded&lt;String, BlakeTwo256&gt; = Bounded::Inline(data.clone());
+		<span class="kw">let </span>y: Bounded&lt;<span class="kw-2">&amp;</span>str, BlakeTwo256&gt; = x.transmute();
 		<span class="macro">assert_eq!</span>(y, Bounded::Inline(data));
 	}
 }

@@ -1346,6 +1346,11 @@
 <a href="#1346" id="1346">1346</a>
 <a href="#1347" id="1347">1347</a>
 <a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1439,8 +1444,8 @@
 	ensure,
 	traits::{
 		schedule::{<span class="self">self</span>, DispatchTime, MaybeHashed},
-		Bounded, CallerTrait, EnsureOrigin, Get, Hash <span class="kw">as </span>PreimageHash, IsType, OriginTrait,
-		PalletInfoAccess, PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
+		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PalletInfoAccess,
+		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -1466,6 +1471,9 @@
 
 <span class="kw">pub type </span>CallOrHashOf&lt;T&gt; =
 	MaybeHashed&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;;
+
+<span class="kw">pub type </span>BoundedCallOf&lt;T&gt; =
+	Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hashing&gt;;
 
 <span class="attr">#[cfg_attr(any(feature = <span class="string">&quot;std&quot;</span>, test), derive(PartialEq, Eq))]
 #[derive(Clone, RuntimeDebug, Encode, Decode)]
@@ -1513,7 +1521,7 @@
 
 <span class="kw">pub type </span>ScheduledOf&lt;T&gt; = Scheduled&lt;
 	TaskName,
-	Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+	BoundedCallOf&lt;T&gt;,
 	BlockNumberFor&lt;T&gt;,
 	&lt;T <span class="kw">as </span>Config&gt;::PalletsOrigin,
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
@@ -1602,7 +1610,7 @@
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// The preimage provider with which we look up call hashes to get the call.
-		</span><span class="kw">type </span>Preimages: QueryPreimage + StorePreimage;
+		</span><span class="kw">type </span>Preimages: QueryPreimage&lt;H = <span class="self">Self</span>::Hashing&gt; + StorePreimage;
 	}
 
 	<span class="attr">#[pallet::storage]
@@ -1788,7 +1796,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;Hash = PreimageHash&gt;&gt; Pallet&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Migrate storage format from V1 to V4.
 	///
 	/// Returns the weight consumed by this migration.
@@ -1975,7 +1983,7 @@
 										&gt;(<span class="kw-2">&amp;</span>bounded)
 										{
 											<span class="macro">log::error!</span>(
-												<span class="string">&quot;Dropping undecodable call {}: {:?}&quot;</span>,
+												<span class="string">&quot;Dropping undecodable call {:?}: {:?}&quot;</span>,
 												<span class="kw-2">&amp;</span>h,
 												<span class="kw-2">&amp;</span>err
 											);
@@ -2043,7 +2051,7 @@
 				<span class="prelude-ty">Option</span>&lt;
 					Scheduled&lt;
 						TaskName,
-						Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+						BoundedCallOf&lt;T&gt;,
 						BlockNumberFor&lt;T&gt;,
 						OldOrigin,
 						T::AccountId,
@@ -2145,7 +2153,7 @@
 		maybe_periodic: <span class="prelude-ty">Option</span>&lt;schedule::Period&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+		call: BoundedCallOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;, DispatchError&gt; {
 		<span class="kw">let </span>when = <span class="self">Self</span>::resolve_time(when)<span class="question-mark">?</span>;
 
@@ -2234,7 +2242,7 @@
 		maybe_periodic: <span class="prelude-ty">Option</span>&lt;schedule::Period&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+		call: BoundedCallOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;, DispatchError&gt; {
 		<span class="comment">// ensure id it is unique
 		</span><span class="kw">if </span>Lookup::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>id) {
@@ -2539,8 +2547,8 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;Hash = PreimageHash&gt;&gt;
-	schedule::v2::Anon&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt; <span class="kw">for </span>Pallet&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Anon&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
+	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;
 	<span class="kw">type </span>Hash = T::Hash;
@@ -2573,8 +2581,8 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;Hash = PreimageHash&gt;&gt;
-	schedule::v2::Named&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt; <span class="kw">for </span>Pallet&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Named&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
+	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;
 	<span class="kw">type </span>Hash = T::Hash;
@@ -2618,13 +2626,14 @@
 	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;
+	<span class="kw">type </span>Hasher = T::Hashing;
 
 	<span class="kw">fn </span>schedule(
 		when: DispatchTime&lt;BlockNumberFor&lt;T&gt;&gt;,
 		maybe_periodic: <span class="prelude-ty">Option</span>&lt;schedule::Period&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+		call: BoundedCallOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt; {
 		<span class="self">Self</span>::do_schedule(when, maybe_periodic, priority, origin, call)
 	}
@@ -2656,6 +2665,7 @@
 	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;
+	<span class="kw">type </span>Hasher = T::Hashing;
 
 	<span class="kw">fn </span>schedule_named(
 		id: TaskName,
@@ -2663,7 +2673,7 @@
 		maybe_periodic: <span class="prelude-ty">Option</span>&lt;schedule::Period&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
+		call: BoundedCallOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt; {
 		<span class="self">Self</span>::do_schedule_named(id, when, maybe_periodic, priority, origin, call)
 	}

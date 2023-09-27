@@ -1754,6 +1754,10 @@
 <a href="#1754" id="1754">1754</a>
 <a href="#1755" id="1755">1755</a>
 <a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1915,9 +1919,8 @@
 	traits::{
 		defensive_prelude::<span class="kw-2">*</span>,
 		schedule::{v3::Named <span class="kw">as </span>ScheduleNamed, DispatchTime},
-		Bounded, Currency, EnsureOrigin, Get, Hash <span class="kw">as </span>PreimageHash, LockIdentifier,
-		LockableCurrency, OnUnbalanced, QueryPreimage, ReservableCurrency, StorePreimage,
-		WithdrawReasons,
+		Bounded, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
+		QueryPreimage, ReservableCurrency, StorePreimage, WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -1959,7 +1962,7 @@
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 &gt;&gt;::NegativeImbalance;
 <span class="kw">pub type </span>CallOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
-<span class="kw">pub type </span>BoundedCallOf&lt;T&gt; = Bounded&lt;CallOf&lt;T&gt;&gt;;
+<span class="kw">pub type </span>BoundedCallOf&lt;T&gt; = Bounded&lt;CallOf&lt;T&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hashing&gt;;
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
 <span class="attr">#[frame_support::pallet]
@@ -1967,7 +1970,6 @@
 	<span class="kw">use super</span>::{DispatchResult, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>sp_core::H256;
 
 	<span class="doccomment">/// The current storage version.
 	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
@@ -1982,10 +1984,15 @@
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// The Scheduler.
-		</span><span class="kw">type </span>Scheduler: ScheduleNamed&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;, CallOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::PalletsOrigin&gt;;
+		</span><span class="kw">type </span>Scheduler: ScheduleNamed&lt;
+			BlockNumberFor&lt;<span class="self">Self</span>&gt;,
+			CallOf&lt;<span class="self">Self</span>&gt;,
+			<span class="self">Self</span>::PalletsOrigin,
+			Hasher = <span class="self">Self</span>::Hashing,
+		&gt;;
 
 		<span class="doccomment">/// The Preimage provider.
-		</span><span class="kw">type </span>Preimages: QueryPreimage + StorePreimage;
+		</span><span class="kw">type </span>Preimages: QueryPreimage&lt;H = <span class="self">Self</span>::Hashing&gt; + StorePreimage;
 
 		<span class="doccomment">/// Currency type for this pallet.
 		</span><span class="kw">type </span>Currency: ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;
@@ -2177,22 +2184,22 @@
 	</span><span class="kw">pub type </span>Blacklist&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Identity,
-		H256,
+		T::Hash,
 		(BlockNumberFor&lt;T&gt;, BoundedVec&lt;T::AccountId, T::MaxBlacklisted&gt;),
 	&gt;;
 
 	<span class="doccomment">/// Record of all proposals that have been subject to emergency cancellation.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Cancellations&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, H256, bool, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>Cancellations&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, bool, ValueQuery&gt;;
 
 	<span class="doccomment">/// General information concerning any proposal or referendum.
-	/// The `PreimageHash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	///
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>MetadataOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, MetadataOwner, PreimageHash&gt;;
+	</span><span class="kw">pub type </span>MetadataOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, MetadataOwner, T::Hash&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -2232,9 +2239,9 @@
 		<span class="doccomment">/// An account has cancelled a previous delegation operation.
 		</span>Undelegated { account: T::AccountId },
 		<span class="doccomment">/// An external proposal has been vetoed.
-		</span>Vetoed { who: T::AccountId, proposal_hash: H256, until: BlockNumberFor&lt;T&gt; },
+		</span>Vetoed { who: T::AccountId, proposal_hash: T::Hash, until: BlockNumberFor&lt;T&gt; },
 		<span class="doccomment">/// A proposal_hash has been blacklisted permanently.
-		</span>Blacklisted { proposal_hash: H256 },
+		</span>Blacklisted { proposal_hash: T::Hash },
 		<span class="doccomment">/// An account has voted in a referendum
 		</span>Voted { voter: T::AccountId, ref_index: ReferendumIndex, vote: AccountVote&lt;BalanceOf&lt;T&gt;&gt; },
 		<span class="doccomment">/// An account has secconded a proposal
@@ -2246,14 +2253,14 @@
 			<span class="doccomment">/// Metadata owner.
 			</span>owner: MetadataOwner,
 			<span class="doccomment">/// Preimage hash.
-			</span>hash: PreimageHash,
+			</span>hash: T::Hash,
 		},
 		<span class="doccomment">/// Metadata for a proposal or a referendum has been cleared.
 		</span>MetadataCleared {
 			<span class="doccomment">/// Metadata owner.
 			</span>owner: MetadataOwner,
 			<span class="doccomment">/// Preimage hash.
-			</span>hash: PreimageHash,
+			</span>hash: T::Hash,
 		},
 		<span class="doccomment">/// Metadata has been transferred to new owner.
 		</span>MetadataTransferred {
@@ -2262,7 +2269,7 @@
 			<span class="doccomment">/// New metadata owner.
 			</span>owner: MetadataOwner,
 			<span class="doccomment">/// Preimage hash.
-			</span>hash: PreimageHash,
+			</span>hash: T::Hash,
 		},
 	}
 
@@ -2531,7 +2538,7 @@
 		#[pallet::weight(T::WeightInfo::fast_track())]
 		</span><span class="kw">pub fn </span>fast_track(
 			origin: OriginFor&lt;T&gt;,
-			proposal_hash: H256,
+			proposal_hash: T::Hash,
 			voting_period: BlockNumberFor&lt;T&gt;,
 			delay: BlockNumberFor&lt;T&gt;,
 		) -&gt; DispatchResult {
@@ -2583,7 +2590,7 @@
 		/// Weight: `O(V + log(V))` where V is number of `existing vetoers`
 		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(T::WeightInfo::veto_external())]
-		</span><span class="kw">pub fn </span>veto_external(origin: OriginFor&lt;T&gt;, proposal_hash: H256) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>veto_external(origin: OriginFor&lt;T&gt;, proposal_hash: T::Hash) -&gt; DispatchResult {
 			<span class="kw">let </span>who = T::VetoOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((ext_proposal, <span class="kw">_</span>)) = NextExternal::&lt;T&gt;::get() {
@@ -2798,7 +2805,7 @@
 		#[pallet::weight((T::WeightInfo::blacklist(), DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>blacklist(
 			origin: OriginFor&lt;T&gt;,
-			proposal_hash: H256,
+			proposal_hash: T::Hash,
 			maybe_ref_index: <span class="prelude-ty">Option</span>&lt;ReferendumIndex&gt;,
 		) -&gt; DispatchResult {
 			T::BlacklistOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
@@ -2895,7 +2902,7 @@
 		</span><span class="kw">pub fn </span>set_metadata(
 			origin: OriginFor&lt;T&gt;,
 			owner: MetadataOwner,
-			maybe_hash: <span class="prelude-ty">Option</span>&lt;PreimageHash&gt;,
+			maybe_hash: <span class="prelude-ty">Option</span>&lt;T::Hash&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">match </span>owner {
 				MetadataOwner::External =&gt; {
@@ -2929,15 +2936,16 @@
 }
 
 <span class="kw">pub trait </span>EncodeInto: Encode {
-	<span class="kw">fn </span>encode_into&lt;T: AsMut&lt;[u8]&gt; + Default&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T {
+	<span class="kw">fn </span>encode_into&lt;T: AsMut&lt;[u8]&gt; + Default, H: sp_core::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = T::default();
 		<span class="self">self</span>.using_encoded(|data| {
 			<span class="kw">if </span>data.len() &lt;= t.as_mut().len() {
 				t.as_mut()[<span class="number">0</span>..data.len()].copy_from_slice(data);
 			} <span class="kw">else </span>{
-				<span class="comment">// encoded self is too big to fit into a T. hash it and use the first bytes of that
-				// instead.
-				</span><span class="kw">let </span>hash = sp_io::hashing::blake2_256(data);
+				<span class="comment">// encoded self is too big to fit into a T.
+				// hash it and use the first bytes of that instead.
+				</span><span class="kw">let </span>hash = H::hash(<span class="kw-2">&amp;</span>data);
+				<span class="kw">let </span>hash = hash.as_ref();
 				<span class="kw">let </span>l = t.as_mut().len().min(hash.len());
 				t.as_mut()[<span class="number">0</span>..l].copy_from_slice(<span class="kw-2">&amp;</span>hash[<span class="number">0</span>..l]);
 			}
@@ -3366,7 +3374,7 @@
 			<span class="comment">// Earliest it can be scheduled for is next block.
 			</span><span class="kw">let </span>when = now.saturating_add(status.delay.max(One::one()));
 			<span class="kw">if </span>T::Scheduler::schedule_named(
-				(DEMOCRACY_ID, index).encode_into(),
+				(DEMOCRACY_ID, index).encode_into::&lt;<span class="kw">_</span>, T::Hashing&gt;(),
 				DispatchTime::At(when),
 				<span class="prelude-val">None</span>,
 				<span class="number">63</span>,

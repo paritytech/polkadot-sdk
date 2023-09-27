@@ -1378,6 +1378,15 @@
 <a href="#1378" id="1378">1378</a>
 <a href="#1379" id="1379">1379</a>
 <a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1453,8 +1462,8 @@
 			v3::{Anon <span class="kw">as </span>ScheduleAnon, Named <span class="kw">as </span>ScheduleNamed},
 			DispatchTime,
 		},
-		Currency, Hash <span class="kw">as </span>PreimageHash, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus,
-		Polling, QueryPreimage, ReservableCurrency, StorePreimage, VoteTally,
+		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+		ReservableCurrency, StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -1543,8 +1552,17 @@
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 		<span class="doccomment">/// The Scheduler.
-		</span><span class="kw">type </span>Scheduler: ScheduleAnon&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;, CallOf&lt;<span class="self">Self</span>, I&gt;, PalletsOriginOf&lt;<span class="self">Self</span>&gt;&gt;
-			+ ScheduleNamed&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;, CallOf&lt;<span class="self">Self</span>, I&gt;, PalletsOriginOf&lt;<span class="self">Self</span>&gt;&gt;;
+		</span><span class="kw">type </span>Scheduler: ScheduleAnon&lt;
+				BlockNumberFor&lt;<span class="self">Self</span>&gt;,
+				CallOf&lt;<span class="self">Self</span>, I&gt;,
+				PalletsOriginOf&lt;<span class="self">Self</span>&gt;,
+				Hasher = <span class="self">Self</span>::Hashing,
+			&gt; + ScheduleNamed&lt;
+				BlockNumberFor&lt;<span class="self">Self</span>&gt;,
+				CallOf&lt;<span class="self">Self</span>, I&gt;,
+				PalletsOriginOf&lt;<span class="self">Self</span>&gt;,
+				Hasher = <span class="self">Self</span>::Hashing,
+			&gt;;
 		<span class="doccomment">/// Currency type for this pallet.
 		</span><span class="kw">type </span>Currency: ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="comment">// Origins and unbalances.
@@ -1606,7 +1624,7 @@
 			&gt;;
 
 		<span class="doccomment">/// The preimage provider.
-		</span><span class="kw">type </span>Preimages: QueryPreimage + StorePreimage;
+		</span><span class="kw">type </span>Preimages: QueryPreimage&lt;H = <span class="self">Self</span>::Hashing&gt; + StorePreimage;
 	}
 
 	<span class="doccomment">/// The next free referendum index, aka the number of referenda started so far.
@@ -1637,14 +1655,14 @@
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, TrackIdOf&lt;T, I&gt;, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// The metadata is a general information concerning the referendum.
-	/// The `PreimageHash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	///
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>MetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ReferendumIndex, PreimageHash&gt;;
+		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ReferendumIndex, T::Hash&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -1756,14 +1774,14 @@
 			<span class="doccomment">/// Index of the referendum.
 			</span>index: ReferendumIndex,
 			<span class="doccomment">/// Preimage hash.
-			</span>hash: PreimageHash,
+			</span>hash: T::Hash,
 		},
 		<span class="doccomment">/// Metadata for a referendum has been cleared.
 		</span>MetadataCleared {
 			<span class="doccomment">/// Index of the referendum.
 			</span>index: ReferendumIndex,
 			<span class="doccomment">/// Preimage hash.
-			</span>hash: PreimageHash,
+			</span>hash: T::Hash,
 		},
 	}
 
@@ -2071,7 +2089,7 @@
 		</span><span class="kw">pub fn </span>set_metadata(
 			origin: OriginFor&lt;T&gt;,
 			index: ReferendumIndex,
-			maybe_hash: <span class="prelude-ty">Option</span>&lt;PreimageHash&gt;,
+			maybe_hash: <span class="prelude-ty">Option</span>&lt;T::Hash&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = maybe_hash {
