@@ -265,8 +265,7 @@ pub trait Parachain: Chain {
 	}
 
 	fn sibling_location_of(para_id: ParaId) -> Location {
-		let junctions: Junctions = [ParachainJunction(para_id.into())].into();
-		(Parent, junctions).into()
+		(Parent, ParachainJunction(para_id.into())).into()
 	}
 
 	fn sovereign_account_id_of(location: Location) -> AccountId {

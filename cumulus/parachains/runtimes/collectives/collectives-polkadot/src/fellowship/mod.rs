@@ -40,7 +40,7 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{polkadot::account, HOURS};
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{AccountIdConversion, ConstU16, ConvertToValue, Replace, TakeFirst};
-use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
+use xcm_builder::{AliasesIntoAccountId32, PayOverXcm, LocatableAssetId};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};

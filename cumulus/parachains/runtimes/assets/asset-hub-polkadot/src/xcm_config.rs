@@ -200,7 +200,7 @@ impl Contains<Location> for FellowshipSalaryPallet {
 }
 
 pub struct AmbassadorSalaryPallet;
-impl Contains<Location> for FellowshipSalaryPallet {
+impl Contains<Location> for AmbassadorSalaryPallet {
 	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(74)]))
 	}

@@ -321,9 +321,8 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	let message = Xcm(vec![Trap(5)]);
 
 	// XcmpQueue - check dest/msg is valid
-	let junctions: Junctions = [Parachain(5555)].into();
-	let dest = (Parent, junctions);
-	let mut dest_wrapper = Some(dest.clone().into());
+	let dest: Location = (Parent, Parachain(5555)).into();
+	let mut dest_wrapper = Some(dest.clone());
 	let mut msg_wrapper = Some(message.clone());
 	assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
 
@@ -347,12 +346,12 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 fn xcmp_queue_send_xcm_works() {
 	new_test_ext().execute_with(|| {
 		let sibling_para_id = ParaId::from(12345);
-		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+		let dest: Location = (Parent, Parachain(sibling_para_id.into())).into();
 		let msg = Xcm(vec![ClearOrigin]);
 
 		// try to send without opened HRMP channel to the sibling_para_id
 		assert_eq!(
-			send_xcm::<XcmpQueue>(dest, msg.clone()),
+			send_xcm::<XcmpQueue>(dest.clone(), msg.clone()),
 			Err(SendError::Transport("NoChannel")),
 		);
 
