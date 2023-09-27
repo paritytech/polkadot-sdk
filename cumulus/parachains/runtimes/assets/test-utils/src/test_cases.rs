@@ -177,6 +177,22 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
+				// Make sure account can pay delivery fees
+				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
+					XcmConfig::XcmSender,
+				>(
+					(native_asset_id, native_asset_to_teleport_away.into()).into(),
+					0,
+					Unlimited,
+					dest_beneficiary,
+					dest,
+				);
+				<pallet_balances::Pallet<Runtime>>::mint_into(
+					&target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
+
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
@@ -186,6 +202,7 @@ pub fn teleports_for_native_asset_works<
 					included_head.clone(),
 					&alice,
 				));
+
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
@@ -235,7 +252,7 @@ pub fn teleports_for_native_asset_works<
 				));
 
 				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery,
+					XcmConfig::XcmSender,
 				>(
 					(native_asset_id, native_asset_to_teleport_away.into()).into(),
 					0,
@@ -555,7 +572,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
-					<Runtime as cumulus_pallet_xcmp_queue::Config>::PriceForSiblingDelivery,
+					XcmConfig::XcmSender,
 				>(
 					(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
 					0,

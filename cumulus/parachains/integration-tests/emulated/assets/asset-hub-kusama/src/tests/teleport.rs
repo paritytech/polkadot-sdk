@@ -17,7 +17,7 @@
 
 use crate::*;
 use kusama_runtime::xcm_config::{
-	PriceForChildParachainDelivery, TreasuryAccount as KusamaTreasuryAccount,
+	XcmConfig, TreasuryAccount as KusamaTreasuryAccount,
 };
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
@@ -26,7 +26,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(631_531_000, 7_186)));
 
 	let delivery_fees_amount =
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
 			t.args.assets.clone(),
 			0,
 			t.args.weight_limit,
@@ -200,7 +200,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -313,7 +313,7 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,

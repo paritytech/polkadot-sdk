@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::*;
-use asset_hub_polkadot_runtime::PriceForSiblingParachainDelivery;
-use polkadot_runtime::xcm_config::PriceForChildParachainDelivery;
+use asset_hub_polkadot_runtime::xcm_config::XcmConfig as AssetHubPolkadotXcmConfig;
+use polkadot_runtime::xcm_config::XcmConfig as PolkadotXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
@@ -188,7 +188,7 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Polkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<PolkadotXcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -257,7 +257,7 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Polkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForChildParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<PolkadotXcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -329,7 +329,7 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubPolkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<AssetHubPolkadotXcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -371,7 +371,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubPolkadot::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<PriceForSiblingParachainDelivery>(
+		xcm_helpers::transfer_assets_delivery_fees::<AssetHubPolkadotXcmConfig::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,

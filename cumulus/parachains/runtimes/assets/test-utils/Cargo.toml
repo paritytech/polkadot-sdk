@@ -38,7 +38,6 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -67,7 +66,6 @@ std = [
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain-primitives/std",
-	"polkadot-runtime-common/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
