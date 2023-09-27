@@ -261,7 +261,7 @@ sp_api::decl_runtime_apis! {
 
 		/***** Added in v8 *****/
 
-		/// Returns a sorted Vec with the `ValidatorIndex` of all disabled validators.
+		/// Returns a list of all disabled validators at the given block.
 		#[api_version(8)]
 		fn disabled_validators() -> Vec<ValidatorIndex>;
 	}
