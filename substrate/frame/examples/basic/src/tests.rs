@@ -115,40 +115,38 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn accumulate_dummy_works() {
 	new_test_ext().execute_with(|| {
-		// check that GenesisBuilder works properly
+		// 42 is the value we have from building genesis for our tests
 		let val1 = 42;
-		let val2 = 27;
 		assert_eq!(Example::dummy(), Some(val1));
 
-		// check that accumulate works when we have `Some` value in Dummy already
-		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val2));
-		assert_eq!(Example::dummy(), Some(val1 + val2));
+		// accumulate the value in Dummy by 1
+		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), 1));
+		assert_eq!(Example::dummy(), Some(val1 + 1));
 
-		// use our private helper to reset storage
+		// when we reset the storage, the value in state will be `None`
 		let _ = Example::do_reset_dummy(RuntimeOrigin::signed(1));
 		assert_eq!(Example::dummy(), None);
 
-		// putting in a new value should work
+		// inserting a new value again should work
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val1));
 		assert_eq!(Example::dummy(), Some(val1));
 	});
 }
 
-#[test]
 #[docify::export]
+#[test]
 fn accumulate_dummy_value_query_works() {
 	new_test_ext().execute_with(|| {
-		// check that GenesisBuilder works properly
-		let val1 = 24;
-		assert_eq!(Example::dummy_value_query(), val1);
+		// 24 is the value we have from building genesis for our tests
+		let genesis_val = 24;
+		assert_eq!(Example::dummy_value_query(), genesis_val);
 
-		// use our private helper to accumulate the value
+		// accumulate the value in DummyValueQuery by 1
 		let _ = Example::accumulate_foo(RuntimeOrigin::signed(1), 1);
 		assert_eq!(Example::dummy_value_query(), val1 + 1);
 
-		// use our private helper to reset storage
+		// when we reset the storage, the value in state will be `u32::default()`
 		let _ = Example::do_reset_dummy(RuntimeOrigin::signed(1));
-		// we expect the stored value is `u32::default()`
 		assert_eq!(Example::dummy_value_query(), 0);
 	});
 }

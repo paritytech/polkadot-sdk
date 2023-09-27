@@ -46,8 +46,9 @@
 //!    [`OptionQuery`](frame_support::storage::types::OptionQuery) which will always either return
 //!    `Option<T>` or `None` when queried
 //! 	- A storage value that stores a `u32` and uses
-//!    [`ValueQuery`](frame_support::storage::types::ValueQuery) which will always either return `T`
-//!    or `Default::default` in the case that the stored value is removed, which in this case will be `0` (`u32::default()`)
+//!    [`ValueQuery`](frame_support::storage::types::ValueQuery) to always return `T` or
+//!    `Default::default` if the stored value is removed, which in this case will be `0`
+//!    (`u32::default()`)
 //! - A storage map of AccountIds and Balances
 //! - A custom weight calculator able to classify a call's dispatch class (see:
 //!   [`frame_support::dispatch::DispatchClass`])
@@ -145,21 +146,23 @@ pub mod pallet {
 	}
 
 	/// An example storage item to store a single value, in our case, some Balance.
-	/// This storage item uses [`OptionQuery`] by default which will return what is in the actual DB
-	/// state. If this is `None`, then the resulting query will be `None`.
+	/// This storage item uses [`OptionQuery`] by default which will return what is in actual state
+	/// provided by [`sp_io::storage`]. If a value `v` exists in state, it returns `Some(v)`,
+	/// otherwise it returns `None`.
 	///
 	/// The getter attribute generates a function on the `Pallet` struct that we can use to
 	/// conveniently retrieve the current value stored.
+	/// For example: 
+	#[doc = docify::embed!("src/tests.rs", accumulate_dummy_works)]
 	#[pallet::storage]
 	#[pallet::getter(fn dummy)]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
 	/// An example storage item that stores a `u32` value.
-	/// Here, we demonstrate using [`ValueQuery`] instead of the default query which will always
-	/// return a value.
-	///
-	/// In our example, if ever the stored value is removed, the value stored will be `0` which is
-	/// `u32::default()`.
+	/// Here, we're using [`ValueQuery`] instead of the default [`OptionQuery`]. If a value exists
+	/// in state, it will return that raw `u32` value, otherwise it will return `u32::default()`.
+	/// For example:
+	#[doc = docify::embed!("src/tests.rs", accumulate_dummy_value_query_works)]
 	#[pallet::storage]
 	#[pallet::getter(fn dummy_value_query)]
 	pub(super) type DummyValueQuery<T: Config> = StorageValue<_, u32, ValueQuery>;
