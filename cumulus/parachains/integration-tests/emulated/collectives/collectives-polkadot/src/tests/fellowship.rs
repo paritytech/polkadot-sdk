@@ -48,7 +48,7 @@ fn pay_salary() {
 		));
 		// Make sure we have enough assets for delivery
 		let querier = (Parent, Parachain(collectives::PARA_ID)).into();
-		let delivery_fees = xcm_helpers::query_response_delivery_fees::<AssetHubPolkadotXcmConfig::XcmSender>(querier);
+		let delivery_fees = xcm_helpers::query_response_delivery_fees::<<AssetHubPolkadotXcmConfig as xcm_executor::Config>::XcmSender>(querier);
 		assert_ok!(<AssetHubBalances as fungible::Mutate<_>>::mint_into(&pay_from, delivery_fees + asset_hub_polkadot::ED));
 		assert_ok!(<AssetHubAssets as Mutate<_>>::mint_into(asset_id, &pay_from, pay_amount * 2));
 	});

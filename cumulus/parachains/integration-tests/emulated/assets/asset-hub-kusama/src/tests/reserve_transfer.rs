@@ -27,7 +27,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	Kusama::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(630_092_000, 6_196)));
 
 	let delivery_fees_amount =
-		xcm_helpers::transfer_assets_delivery_fees::<KusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<KusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			t.args.assets.clone(),
 			0,
 			t.args.weight_limit,
@@ -80,7 +80,7 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	)));
 
 	let delivery_fees_amount =
-		xcm_helpers::transfer_assets_delivery_fees::<AssetHubKusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubKusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			t.args.assets.clone(),
 			0,
 			t.args.weight_limit,
@@ -124,7 +124,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	)));
 
 	let delivery_fees_amount =
-		xcm_helpers::transfer_assets_delivery_fees::<AssetHubKusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubKusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			t.args.assets.clone(),
 			0,
 			t.args.weight_limit,
@@ -249,7 +249,7 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<KusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<KusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -318,7 +318,7 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = Kusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<KusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<KusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -390,7 +390,7 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubKusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<AssetHubKusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubKusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
@@ -432,7 +432,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubKusama::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<AssetHubKusamaXcmConfig::XcmSender>(
+		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubKusamaXcmConfig as xcm_executor::Config>::XcmSender>(
 			test.args.assets.clone(),
 			0,
 			test.args.weight_limit,
