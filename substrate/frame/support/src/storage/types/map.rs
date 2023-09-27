@@ -31,10 +31,10 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a given
-/// type stored on-chain.
+/// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a
+/// given type stored on-chain.
 ///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example

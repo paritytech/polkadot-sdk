@@ -33,13 +33,13 @@ use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
-/// A type representing an *NMap* in storage. This structure associates an arbitrary number of 
-/// keys with a value of a specified type stored on-chain.
+/// A type representing an *NMap* in storage. This structure associates an arbitrary number of keys
+/// with a value of a specified type stored on-chain.
 ///
-/// For example, [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) is a special case of
-/// an *NMap* with N = 2.
+/// For example, [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) is a special
+/// case of an *NMap* with N = 2.
 ///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example

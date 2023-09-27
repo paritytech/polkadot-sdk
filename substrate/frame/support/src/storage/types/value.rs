@@ -33,7 +33,7 @@ use sp_std::prelude::*;
 /// A type representing a *value* in storage. A *storage value* is a single value of a given type
 /// stored on-chain.
 ///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 /// 
 /// # Example

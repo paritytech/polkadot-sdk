@@ -48,7 +48,7 @@ use sp_std::prelude::*;
 /// Whenever the counter needs to be updated, an additional read and write occurs to update that
 /// counter.
 ///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example

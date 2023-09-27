@@ -31,16 +31,18 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type representing a *double map* in storage. This structure associates a pair of keys 
-/// with a value of a specified type stored on-chain.
+/// A type representing a *double map* in storage. This structure associates a pair of keys with a
+/// value of a specified type stored on-chain.
 ///
-/// A double map with keys `k1` and `k2` can be likened to a [`StorageMap`](frame_support::storage::types::StorageMap) with a key of type `(k1, k2)`. 
-/// However, a double map offers functions specific to each key, enabling partial iteration 
-/// and deletion based on one key alone.
+/// A double map with keys `k1` and `k2` can be likened to a
+/// [`StorageMap`](frame_support::storage::types::StorageMap) with a key of type `(k1, k2)`.
+/// However, a double map offers functions specific to each key, enabling partial iteration and
+/// deletion based on one key alone.
 ///
-/// Additionally, a double map is an alias for [`StorageNMap`](frame_support::storage::types::StorageNMap) using two keys.
+/// Additionally, a double map is an alias for
+/// [`StorageNMap`](frame_support::storage::types::StorageNMap) using two keys.
 ///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to 
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example
