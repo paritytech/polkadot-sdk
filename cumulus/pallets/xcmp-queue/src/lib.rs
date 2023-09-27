@@ -599,7 +599,7 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		T::XcmpQueue::enqueue_messages(sp_std::iter::once(xcm.as_bounded_slice()), sender);
+		T::XcmpQueue::enqueue_message(xcm.as_bounded_slice(), sender);
 		Ok(())
 	}
 
