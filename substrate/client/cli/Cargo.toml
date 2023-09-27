@@ -46,6 +46,7 @@ sp-keystore = { path = "../../primitives/keystore" }
 sp-panic-handler = { path = "../../primitives/panic-handler" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
+sp-storage = { path = "../../primitives/storage" }
 sp-version = { path = "../../primitives/version" }
 
 [dev-dependencies]

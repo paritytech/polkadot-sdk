@@ -14630,6 +14630,7 @@ dependencies = [
  "sp-panic-handler",
  "sp-runtime",
  "sp-state-machine",
+ "sp-storage",
  "sp-tracing",
  "sp-version",
  "tempfile",

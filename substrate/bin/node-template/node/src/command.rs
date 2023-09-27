@@ -183,7 +183,7 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.async_run(|config| {
 				let PartialComponents { task_manager, backend, .. } =
 					service::new_partial(&config)?;
-				Ok((cmd.run(backend), task_manager))
+				Ok((cmd.run(backend, config.chain_spec), task_manager))
 			})
 		},
 		None => {
