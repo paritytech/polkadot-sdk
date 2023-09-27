@@ -28,7 +28,7 @@ use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(MaxEncodedLen, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 pub enum IdentityField {
 	Display = 1u64 << 0,
 	Legal = 1u64 << 1,
@@ -55,38 +55,6 @@ impl TypeInfo for IdentityField {
 				.variant("Image", |v| v.index(6))
 				.variant("Twitter", |v| v.index(7)),
 		)
-	}
-}
-
-impl Encode for IdentityField {
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let x: u8 = match self {
-			IdentityField::Display => 0,
-			IdentityField::Legal => 1,
-			IdentityField::Web => 2,
-			IdentityField::Riot => 3,
-			IdentityField::Email => 4,
-			IdentityField::PgpFingerprint => 5,
-			IdentityField::Image => 6,
-			IdentityField::Twitter => 7,
-		};
-		f(&x.encode())
-	}
-}
-
-impl Decode for IdentityField {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		match u8::decode(input) {
-			Ok(0) => Ok(IdentityField::Display),
-			Ok(1) => Ok(IdentityField::Legal),
-			Ok(2) => Ok(IdentityField::Web),
-			Ok(3) => Ok(IdentityField::Riot),
-			Ok(4) => Ok(IdentityField::Email),
-			Ok(5) => Ok(IdentityField::PgpFingerprint),
-			Ok(6) => Ok(IdentityField::Image),
-			Ok(7) => Ok(IdentityField::Twitter),
-			_ => Err("Invalid IdentityField representation".into()),
-		}
 	}
 }
 

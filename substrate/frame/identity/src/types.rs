@@ -236,15 +236,7 @@ pub trait IdentityInformationProvider:
 {
 	/// Type capable of representing all of the fields present in the identity information as bit
 	/// flags in `u64` format.
-	type IdentityField: Encode
-		+ Decode
-		+ MaxEncodedLen
-		+ Clone
-		+ Debug
-		+ Eq
-		+ PartialEq
-		+ TypeInfo
-		+ U64BitFlag;
+	type IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
 
 	fn has_identity(&self, fields: u64) -> bool;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -292,7 +284,7 @@ impl<
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-	IdField: Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
+	IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
 > {
 	/// The account of the registrar.
 	pub account: AccountId,
@@ -325,21 +317,20 @@ where
 }
 
 impl<IdField: U64BitFlag + PartialEq> Eq for IdentityFields<IdField> {}
-impl<IdField: Encode + Decode + U64BitFlag> Encode for IdentityFields<IdField> {
+impl<IdField: U64BitFlag> Encode for IdentityFields<IdField> {
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		let bits: u64 = self.0.bits();
 		bits.using_encoded(f)
 	}
 }
-impl<IdField: Encode + Decode + U64BitFlag> Decode for IdentityFields<IdField> {
+impl<IdField: U64BitFlag> Decode for IdentityFields<IdField> {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
 		let field = u64::decode(input)?;
 		Ok(Self(<BitFlags<IdField>>::from_bits(field).map_err(|_| "invalid value")?))
 	}
 }
-impl<
-		IdField: Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag,
-	> TypeInfo for IdentityFields<IdField>
+impl<IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag> TypeInfo
+	for IdentityFields<IdField>
 {
 	type Identity = Self;
 
