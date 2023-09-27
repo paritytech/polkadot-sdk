@@ -49,8 +49,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Get,
 	traits::{
-		Consideration, Currency, Defensive, FetchResult, Footprint, Hash as PreimageHash,
-		PreimageProvider, PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
+		Consideration, Currency, Defensive, FetchResult, Footprint, PreimageProvider,
+		PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
 	},
 	BoundedSlice, BoundedVec,
 };
@@ -156,6 +156,8 @@ pub mod pallet {
 		NotRequested,
 		/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
 		TooMany,
+		/// Too few hashes were requested to be upgraded (i.e. zero).
+		TooFew,
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -242,6 +244,7 @@ pub mod pallet {
 			hashes: Vec<T::Hash>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+			ensure!(hashes.len() > 0, Error::<T>::TooFew);
 			ensure!(hashes.len() <= MAX_HASH_UPGRADE_BULK_COUNT as usize, Error::<T>::TooMany);
 
 			let updated = hashes.iter().map(Self::do_ensure_updated).filter(|b| *b).count() as u32;
@@ -528,7 +531,9 @@ impl<T: Config> PreimageRecipient<T::Hash> for Pallet<T> {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>> QueryPreimage for Pallet<T> {
+impl<T: Config> QueryPreimage for Pallet<T> {
+	type H = T::Hashing;
+
 	fn len(hash: &T::Hash) -> Option<u32> {
 		Pallet::<T>::len(hash)
 	}
@@ -552,7 +557,7 @@ impl<T: Config<Hash = PreimageHash>> QueryPreimage for Pallet<T> {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>> StorePreimage for Pallet<T> {
+impl<T: Config> StorePreimage for Pallet<T> {
 	const MAX_LENGTH: usize = MAX_SIZE as usize;
 
 	fn note(bytes: Cow<[u8]>) -> Result<T::Hash, DispatchError> {
