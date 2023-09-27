@@ -25,6 +25,7 @@ offchain-primitives = { package = "sp-offchain", path = "../../../substrate/prim
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
@@ -83,7 +84,7 @@ pallet-nomination-pools-runtime-api = { path = "../../../substrate/frame/nominat
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -95,7 +96,7 @@ pallet-offences-benchmarking = { path = "../../../substrate/frame/offences/bench
 pallet-session-benchmarking = { path = "../../../substrate/frame/session/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1", optional = true }
 
-runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, features = ["experimental"] }
+runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
@@ -108,7 +109,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder",
 hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
@@ -195,6 +196,7 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-npos-elections/std",
