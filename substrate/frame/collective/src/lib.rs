@@ -54,7 +54,7 @@ use frame_support::{
 	dispatch::{
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	ensure, fail, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
 		InitializeMembers, QueryPreimage, StorageVersion, StorePreimage,
@@ -357,7 +357,7 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
-		/// There can only be a maximum of `MaxMembers` votes per proposal.
+		/// There can only be a maximum of [`MaxMembers`] votes per proposal.
 		TooManyVotes,
 		/// Decode of a proposal failed, probably due to state corruption.
 		DecodeFailed,
@@ -784,24 +784,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		if approve {
 			if position_yes.is_none() {
-				voting
-					.ayes
-					.try_push(who.clone())
-					.expect("Proposal voting ayes can't overflow; qed");
+				voting.ayes.try_push(who.clone()).map_err(|_| Error::<T, I>::TooManyVotes)?;
 			} else {
-				return Err(Error::<T, I>::DuplicateVote.into())
+				fail!(Error::<T, I>::DuplicateVote)
 			}
 			if let Some(pos) = position_no {
 				voting.nays.swap_remove(pos);
 			}
 		} else {
 			if position_no.is_none() {
-				voting
-					.nays
-					.try_push(who.clone())
-					.expect("Proposal voting nays can't overflow; qed");
+				voting.nays.try_push(who.clone()).map_err(|_| Error::<T, I>::TooManyVotes)?;
 			} else {
-				return Err(Error::<T, I>::DuplicateVote.into())
+				fail!(Error::<T, I>::DuplicateVote)
 			}
 			if let Some(pos) = position_yes {
 				voting.ayes.swap_remove(pos);
@@ -960,7 +954,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
 		// remove proposal and vote
 		Voting::<T, I>::remove(&proposal_hash);
-		Voting::<T, I>::count() + 1
+		Voting::<T, I>::count().saturating_add(1)
 	}
 
 	/// Ensure the correctness of the state of this pallet.

@@ -1653,10 +1653,12 @@ fn migration_v4() {
 	});
 }
 
+#[cfg(all(feature = "try-runtime", test))]
 #[test]
 fn migration_v5() {
 	ExtBuilder::default().build_and_execute(|| {
-		StorageVersion::new(4).put::<Collective>();
+		use frame_support::traits::OnRuntimeUpgrade;
+		StorageVersion::new(4).put::<Pallet<Test, ()>>();
 
 		// Setup the members.
 		let members: Vec<<Test as frame_system::Config>::AccountId> =
@@ -1671,6 +1673,7 @@ fn migration_v5() {
 			proposal_hash
 		]);
 		crate::migrations::v5::ProposalOf::<Test, ()>::insert(proposal_hash, proposal);
+		ProposalCount::<Test, ()>::put(1);
 
 		let vote = crate::migrations::v5::OldVotes {
 			index: 0,
@@ -1684,9 +1687,11 @@ fn migration_v5() {
 		crate::migrations::v5::Voting::<Test, ()>::insert(proposal_hash, vote.clone());
 
 		// Run migration.
-		crate::migrations::v5::migrate::<Test, ()>();
-		// Check that the storage version is updated.
-		assert_eq!(StorageVersion::get::<Pallet<Test, ()>>(), 5);
+		assert_ok!(
+			crate::migrations::v5::VersionCheckedMigrateToV5::<Test, ()>::try_on_runtime_upgrade(
+				true
+			)
+		);
 
 		// Check that the vote is present and bounded
 		assert_eq!(

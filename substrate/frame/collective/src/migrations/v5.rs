@@ -19,8 +19,8 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::{OptionQuery, StorageVersion, TypeInfo, ValueQuery},
-	sp_runtime::{RuntimeDebug, Saturating},
-	traits::{Get, QueryPreimage, StorePreimage},
+	sp_runtime::RuntimeDebug,
+	traits::{Get, OnRuntimeUpgrade, QueryPreimage, StorePreimage},
 	weights::Weight,
 	BoundedVec, Identity,
 };
@@ -71,55 +71,116 @@ pub struct OldVotes<AccountId, BlockNumber> {
 	pub end: BlockNumber,
 }
 
-pub fn migrate<T: Config<I>, I: 'static>() -> Weight {
-	let storage_version = StorageVersion::get::<Pallet<T, I>>();
-	log::info!(
-		target: "runtime::collective",
-		"Running migration for collective with storage version {:?}",
-		storage_version,
-	);
-
-	if storage_version <= 4 {
-		let mut count = 0u64;
-
-		for (hash, proposal) in ProposalOf::<T, I>::drain() {
-			let new_hash = <T as Config<I>>::Preimages::note(proposal.encode().into()).unwrap();
-			assert_eq!(new_hash, hash);
-			count.saturating_inc();
-			assert!(<T as Config<I>>::Preimages::is_requested(&new_hash));
+/// This migration moves all the state to v5 of Collective
+pub struct VersionUncheckedMigrateToV5<T, I>(sp_std::marker::PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<T, I> {
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		log::info!("pre-migration collective v5");
+		let count = ProposalOf::<T, I>::iter().count();
+		if Proposals::<T, I>::get().len() != count {
+			log::info!("collective proposals count inconsistency");
+		}
+		if Members::<T, I>::get().len() > <T as Config<I>>::MaxMembers::get() as usize {
+			log::info!("collective members exceeds MaxMembers");
 		}
 
+		Ok((count as u32).encode())
+	}
+
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight = Weight::zero();
+
+		// ProposalOf
+		for (hash, proposal) in ProposalOf::<T, I>::drain() {
+			weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+			let Ok(new_hash) = <T as Config<I>>::Preimages::note(proposal.encode().into()) else {
+				log::info!(
+					target: "runtime::collective",
+					"Failed to note preimage for proposal {:?}",
+					hash,
+				);
+				continue
+			};
+			weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			if new_hash != hash {
+				log::info!(
+					target: "runtime::collective",
+					"Preimage hash mismatch for proposal, expected {:?}, got {:?}",
+					hash,
+					new_hash,
+				);
+			}
+			if !<T as Config<I>>::Preimages::is_requested(&new_hash) {
+				log::info!(
+					target: "runtime::collective",
+					"Preimage for proposal {:?} was not requested",
+					hash,
+				);
+			}
+		}
+
+		// Proposals
 		Proposals::<T, I>::kill();
+		weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-		crate::Voting::<T, I>::translate::<OldVotes<T::AccountId, BlockNumberFor<T>>, _>(
-			|_, vote| {
-				count.saturating_inc();
-				Some(
-					crate::Votes::<T::AccountId, BlockNumberFor<T>, <T as Config<I>>::MaxMembers> {
-						index: vote.index,
-						threshold: vote.threshold,
-						ayes: vote
-							.ayes
-							.try_into()
-							.expect("runtime::collective migration failed, ayes overflow"),
-						nays: vote
-							.nays
-							.try_into()
-							.expect("runtime::collective migration failed, nays overflow"),
-						end: vote.end,
-					},
-				)
-			},
-		);
+		// Voting
+		for (hash, vote) in Voting::<T, I>::drain() {
+			weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
+			crate::Voting::<T, I>::insert(
+				hash,
+				crate::Votes::<T::AccountId, BlockNumberFor<T>, <T as Config<I>>::MaxMembers> {
+					index: vote.index,
+					threshold: vote.threshold,
+					// the following operations are safe since the bound was previously enforced
+					// by runtime code
+					ayes: BoundedVec::truncate_from(vote.ayes),
+					nays: BoundedVec::truncate_from(vote.nays),
+					end: vote.end,
+				},
+			);
+		}
 
+		// Members
+		crate::Members::<T, I>::put(BoundedVec::truncate_from(Members::<T, I>::get()));
+		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
+		// StorageVersion
 		StorageVersion::new(5).put::<Pallet<T, I>>();
-		T::DbWeight::get().reads_writes(count, count + 2)
-	} else {
-		log::warn!(
-			target: "runtime::collective",
-			"Attempted to apply migration to V5 but failed because storage version is {:?}",
-			storage_version,
+		weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+		weight
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+		log::info!("post-migration collective v5");
+
+		match u32::decode(&mut state.as_slice()) {
+			Ok(count) => ensure!(
+				crate::Voting::<T, I>::count() == count,
+				"collective new proposal count should equal the old count",
+			),
+			Err(_) => return Err("the state parameter is not correct".into()),
+		}
+
+		ensure!(
+			ProposalOf::<T, I>::iter().count() == 0,
+			"collective v4 ProposalOf should be empty"
 		);
-		Weight::zero()
+		ensure!(Proposals::<T, I>::get().len() == 0, "collective v4 Proposal should be empty");
+
+		Pallet::<T, I>::do_try_state()
 	}
 }
+
+/// [`VersionUncheckedMigrateToV5`] wrapped in a [`frame_support::migrations::VersionedMigration`],
+/// ensuring the migration is only performed when on-chain version is 4.
+pub type VersionCheckedMigrateToV5<T, I> = frame_support::migrations::VersionedMigration<
+	4,
+	5,
+	VersionUncheckedMigrateToV5<T, I>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;
