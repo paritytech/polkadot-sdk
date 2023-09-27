@@ -170,6 +170,8 @@ pub trait OnRuntimeUpgrade {
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 impl BeforeAllRuntimeMigrations for Tuple {
+	/// Implements the default behavior of
+	/// [`BeforeAllRuntimeMigrations::before_all_runtime_migrations`] for tuples.
 	fn before_all_runtime_migrations() -> Weight {
 		let mut weight = Weight::zero();
 		for_tuples!( #( weight = weight.saturating_add(Tuple::before_all_runtime_migrations()); )* );
@@ -181,6 +183,13 @@ impl BeforeAllRuntimeMigrations for Tuple {
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 impl OnRuntimeUpgrade for Tuple {
+	/// Implements the default behavior of [`OnRuntimeUpgrade::on_runtime_upgrade`] for tuples.
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight = weight.saturating_add(Tuple::on_runtime_upgrade()); )* );
+		weight
+	}
+
 	/// Implements the default behavior of `try_on_runtime_upgrade` for tuples, logging any errors
 	/// that occur.
 	#[cfg(feature = "try-runtime")]
