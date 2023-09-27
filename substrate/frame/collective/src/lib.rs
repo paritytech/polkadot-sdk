@@ -357,7 +357,7 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
-		/// There can only be a maximum of [`MaxMembers`] votes per proposal.
+		/// There can only be a maximum of `MaxMembers` votes per proposal.
 		TooManyVotes,
 		/// Decode of a proposal failed, probably due to state corruption.
 		DecodeFailed,
