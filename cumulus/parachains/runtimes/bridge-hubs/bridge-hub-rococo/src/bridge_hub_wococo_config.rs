@@ -62,27 +62,24 @@ parameter_types! {
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,
 	);
 
-	pub CongestedMessage: Xcm<()> = sp_std::vec![Transact {
-		origin_kind: OriginKind::Xcm,
-		require_weight_at_most: bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-		call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-			bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-				bridge_id: Default::default(),
-				is_congested: true,
-			}
-		).encode().into(),
-	}].into();
+	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 
-	pub UncongestedMessage: Xcm<()> = sp_std::vec![Transact {
+	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+}
+
+fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
+	sp_std::vec![Transact {
 		origin_kind: OriginKind::Xcm,
 		require_weight_at_most: bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
 		call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
 			bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
 				bridge_id: Default::default(),
-				is_congested: false,
+				is_congested,
 			}
-		).encode().into(),
-	}].into();
+		)
+		.encode()
+		.into(),
+	}]
 }
 
 /// Proof of messages, coming from Rococo.
