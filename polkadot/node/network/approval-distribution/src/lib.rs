@@ -26,8 +26,8 @@ use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::{ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId, UnifiedReputationChange as Rep,
-	Versioned, VersionedValidationProtocol, View,
+	v1 as protocol_v1, v2 as protocol_v2, PeerId, UnifiedReputationChange as Rep, Versioned,
+	VersionedValidationProtocol, View,
 };
 use polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -602,9 +602,7 @@ impl State {
 	{
 		match msg {
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Assignments(
-				assignments,
-			)) => {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -644,9 +642,7 @@ impl State {
 				}
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Approvals(
-				approvals,
-			)) => {
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -1060,7 +1056,7 @@ impl State {
 			route_random
 		};
 
-		let (v1_peers, vstaging_peers) = {
+		let (v1_peers, v2_peers) = {
 			let peer_data = &self.peer_data;
 			let peers = entry
 				.known_by
@@ -1090,9 +1086,9 @@ impl State {
 			}
 
 			let v1_peers = filter_peers_by_version(&peers, ValidationVersion::V1);
-			let vstaging_peers = filter_peers_by_version(&peers, ValidationVersion::VStaging);
+			let v2_peers = filter_peers_by_version(&peers, ValidationVersion::V2);
 
-			(v1_peers, vstaging_peers)
+			(v1_peers, v2_peers)
 		};
 
 		if !v1_peers.is_empty() {
@@ -1103,10 +1099,10 @@ impl State {
 			.await;
 		}
 
-		if !vstaging_peers.is_empty() {
+		if !v2_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_peers,
-				versioned_assignments_packet(ValidationVersion::VStaging, assignments.clone()),
+				v2_peers,
+				versioned_assignments_packet(ValidationVersion::V2, assignments.clone()),
 			))
 			.await;
 		}
@@ -1395,7 +1391,7 @@ impl State {
 			in_topology || knowledge.sent.contains(message_subject, MessageKind::Assignment)
 		};
 
-		let (v1_peers, vstaging_peers) = {
+		let (v1_peers, v2_peers) = {
 			let peer_data = &self.peer_data;
 			let peers = entry
 				.known_by
@@ -1425,9 +1421,9 @@ impl State {
 			}
 
 			let v1_peers = filter_peers_by_version(&peers, ValidationVersion::V1);
-			let vstaging_peers = filter_peers_by_version(&peers, ValidationVersion::VStaging);
+			let v2_peers = filter_peers_by_version(&peers, ValidationVersion::V2);
 
-			(v1_peers, vstaging_peers)
+			(v1_peers, v2_peers)
 		};
 
 		let approvals = vec![vote];
@@ -1440,10 +1436,10 @@ impl State {
 			.await;
 		}
 
-		if !vstaging_peers.is_empty() {
+		if !v2_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_peers,
-				versioned_approvals_packet(ValidationVersion::VStaging, approvals),
+				v2_peers,
+				versioned_approvals_packet(ValidationVersion::V2, approvals),
 			))
 			.await;
 		}
@@ -2017,9 +2013,9 @@ fn versioned_approvals_packet(
 			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 				protocol_v1::ApprovalDistributionMessage::Approvals(approvals),
 			)),
-		ValidationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-				protocol_vstaging::ApprovalDistributionMessage::Approvals(approvals),
+		ValidationVersion::V2 =>
+			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+				protocol_v2::ApprovalDistributionMessage::Approvals(approvals),
 			)),
 	}
 }
@@ -2033,9 +2029,9 @@ fn versioned_assignments_packet(
 			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
 				protocol_v1::ApprovalDistributionMessage::Assignments(assignments),
 			)),
-		ValidationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-				protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments),
+		ValidationVersion::V2 =>
+			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+				protocol_v2::ApprovalDistributionMessage::Assignments(assignments),
 			)),
 	}
 }
