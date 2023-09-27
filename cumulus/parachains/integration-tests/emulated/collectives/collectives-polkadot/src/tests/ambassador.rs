@@ -58,7 +58,7 @@ fn pay_salary() {
 					to: to == &pay_to,
 					amount: amount == &pay_amount,
 				},
-				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::Success { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
 			]
 		);
 	});
