@@ -34,6 +34,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_idle_good_msg() -> Weight;
 	fn on_idle_large_msg() -> Weight;
+	fn on_idle_large_overweight_msg() -> Weight;
 }
 
 /// Weights for `cumulus_pallet_dmp_queue` using the Substrate node and recommended hardware.
@@ -66,6 +67,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca754904d6d8c6fe06c4e5965f9b8397421` (r:1 w:0)
 	/// Storage: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca7d95d3e948effbeccff2de2c182672836` (r:1 w:1)
 	/// Proof: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca7d95d3e948effbeccff2de2c182672836` (r:1 w:1)
+	fn on_idle_large_overweight_msg() -> Weight {
+		Weight::MAX
+	}
 	fn on_idle_large_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65659`
@@ -106,6 +110,9 @@ impl WeightInfo for () {
 	/// Proof: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca754904d6d8c6fe06c4e5965f9b8397421` (r:1 w:0)
 	/// Storage: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca7d95d3e948effbeccff2de2c182672836` (r:1 w:1)
 	/// Proof: UNKNOWN KEY `0xcd5c1f6df63bc97f4a8ce37f14a50ca7d95d3e948effbeccff2de2c182672836` (r:1 w:1)
+	fn on_idle_large_overweight_msg() -> Weight {
+		Weight::MAX
+	}
 	fn on_idle_large_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65659`

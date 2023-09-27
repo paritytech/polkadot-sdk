@@ -60,6 +60,22 @@ mod benchmarks {
 
 		assert_last_event::<T>(Event::Exported { page: 0 }.into());
 	}
+
+	#[benchmark]
+	fn on_idle_large_overweight_msg() {
+		let msg = vec![123; 1 << 16];
+
+		Pages::<T>::insert(0, vec![(123, msg.clone())]);
+		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 1 });
+		MigrationStatus::<T>::set(MigrationState::StartedOverweightExport { next_overweight_index: 0 });
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
+		}
+
+		assert_last_event::<T>(Event::ExportedOverweight { index: 0 }.into());
+	}
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {

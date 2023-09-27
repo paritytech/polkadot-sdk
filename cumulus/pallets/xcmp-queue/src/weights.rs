@@ -130,6 +130,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: UNKNOWN KEY `0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20` (r:1 w:1)
 	/// Storage: `XcmpQueue::InboundXcmpMessages` (r:1 w:1)
 	/// Proof: `XcmpQueue::InboundXcmpMessages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn on_idle_large_overweight_msg() -> Weight {
+		Weight::MAX
+	}
 	fn on_idle_large_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65710`
@@ -229,6 +232,9 @@ impl WeightInfo for () {
 	/// Proof: UNKNOWN KEY `0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20` (r:1 w:1)
 	/// Storage: `XcmpQueue::InboundXcmpMessages` (r:1 w:1)
 	/// Proof: `XcmpQueue::InboundXcmpMessages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn on_idle_large_overweight_msg() -> Weight {
+		Weight::MAX
+	}
 	fn on_idle_large_msg() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `65710`
