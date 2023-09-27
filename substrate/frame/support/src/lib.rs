@@ -2263,8 +2263,9 @@ pub mod pallet_macros {
 	/// ```
 	pub use frame_support_procedural::genesis_build;
 
-	/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by `Get`
-	/// from [`pallet::config`](`macro@config`) into metadata.
+	/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by
+	/// [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`) into
+	/// metadata.
 	///
 	/// ## Example:
 	///
@@ -2293,8 +2294,8 @@ pub mod pallet_macros {
 	/// each function in the implementation block of this section is an extrinsic that can be called
 	/// externally.
 	///
-	/// Other than the `fn` attached to `Pallet`, this block will also generate an `enum Call`
-	/// which encapsulates the different functions, alongside their arguments, except for `origin`.
+	/// Other than the `fn` attached to `Pallet`, this block will also generate an `enum Call` which
+	/// encapsulates the different functions, alongside their arguments, except for `origin`.
 	/// [`sp_runtime::traits::Dispatchable`] is then implemented for `enum Call`.
 	///
 	/// ## Example:
@@ -2319,16 +2320,17 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// TODO: Once we have default pallet config, it would also be easy to create types in the example
-	/// that implement `Config`.
+	/// TODO: Once we have default pallet config, it would also be easy to create types in the
+	/// example that implement `Config`.
 	pub use frame_support_procedural::call;
 
-	/// Declares a type alias as a storage item. Storage items are pointers to data stored on-chain (the
-	/// *blockchain state*), under a specific key. The exact key is dependent on the type of the
-	/// storage.
+	/// Declares a type alias as a storage item. Storage items are pointers to data stored on-chain
+	/// (the *blockchain state*), under a specific key. The exact key is dependent on the type of
+	/// the storage.
 	/// 
-	/// > Hypothetically, one can directly manipulate the state via [`sp_io::storage`](sp_io::storage). However, this is
-	/// > an advance usage and is not recommended.
+	/// > Hypothetically, one can directly manipulate the state via
+	/// > [`sp_io::storage`](sp_io::storage). However, this is an advance usage and is not
+	/// > recommended.
 	/// 
 	/// ## Storage Types
 	/// 
@@ -2341,9 +2343,9 @@ pub mod pallet_macros {
 	/// * [`StorageNMap`](frame_support::storage::types::StorageNMap)
 	/// * [`CountedStorageNMap`](frame_support::storage::types::CountedStorageNMap)
 	///
-	/// The FRAME macros always generate a type alias for one of these types, as indicated by the syntax,
-	/// for example: `type Foo = StorageValue<..>`. For specific information about each storage type, refer to
-	/// the documentation of the respective type.
+	/// The FRAME macros always generate a type alias for one of these types, as indicated by the
+	/// syntax, for example: `type Foo = StorageValue<..>`. For specific information about each
+	/// storage type, refer to the documentation of the respective type.
 	///
 	/// ### Example:
 	/// 
@@ -2374,7 +2376,7 @@ pub mod pallet_macros {
 	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
 	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
 	///
-	/// ## Common Details to All Storage Types.
+	/// ## Common Details to All Storage Types
 	///
 	/// The following details are relevant to all of the aforementioned storage types.
 	///
@@ -2385,8 +2387,8 @@ pub mod pallet_macros {
 	/// 1. Named generics, e.g., `type Foo<T> = StorageValue<Value = u32>`.
 	/// 2. Unnamed generics, e.g., `type Foo<T> = StorageValue<_, u32>`.
 	///
-	/// In both instances, declaring `<T>` is mandatory. While it can optionally
-	/// be written as `<T: Config>`, in the generated code, it is always `<T: Config>`.
+	/// In both instances, declaring `<T>` is mandatory. While it can optionally be written as `<T:
+	/// Config>`, in the generated code, it is always `<T: Config>`.
 	///
 	/// #### Example:
 	/// 
@@ -2414,68 +2416,79 @@ pub mod pallet_macros {
 	///
 	/// ### Query Type
 	///
-	/// Every storage type mentioned above has a generic type called `QueryKind` that determines its "query" type. 
-	/// This refers to the kind of value returned when querying the storage, for instance, through a `::get()` method. 
+	/// Every storage type mentioned above has a generic type called `QueryKind` that determines its
+	/// "query" type. This refers to the kind of value returned when querying the storage, for
+	/// instance, through a `::get()` method. 
 	///
 	/// There are three types of queries:
 	///
-	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type. It returns `Some(V)` if the value is present, or 
-	/// `None` if it isn't, where `V` is the value type.
-	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself if present; otherwise, it returns 
-	/// `Default::default()`. This behavior can be adjusted with the `OnEmpty` generic parameter, which defaults to `OnEmpty = GetDefault`.
-	/// 3. [`ResultQuery`](frame_support::storage::types::ResultQuery): Returns `Result<V, E>`, where `V` is the value type, and `E` is the pallet error type defined by the [`#[pallet::error]`](frame_support::pallet_macros::error) attribute.
+	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type. It
+	/// returns `Some(V)` if the value is present, or `None` if it isn't, where `V` is the value
+	/// type.
+	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself if
+	/// present; otherwise, it returns `Default::default()`. This behavior can be adjusted with the
+	/// `OnEmpty` generic parameter, which defaults to `OnEmpty = GetDefault`.
+	/// 3. [`ResultQuery`](frame_support::storage::types::ResultQuery): Returns `Result<V, E>`,
+	///    where `V` is the value type, and `E` is the pallet error type defined by the
+	///    [`#[pallet::error]`](frame_support::pallet_macros::error) attribute.
 	///
 	/// ### Appending
 	///
-	/// All storage items — such as `StorageValue`, `StorageMap`, and their variants—offer an `::append()` method 
-	/// optimized for collections. Using this method avoids the inefficiency of decoding and re-encoding 
-	/// entire collections when adding items. For instance, consider the storage declaration 
-	/// `type MyVal<T> = StorageValue<_, Vec<u8>, ValueQuery>`. With `MyVal` storing a large list of bytes, 
-	/// `::append()` lets you directly add bytes to the end in storage without processing the full list. 
-	/// Depending on the storage type, additional key specifications may be needed.
+	/// All storage items — such as [`StorageValue`](frame_support::storage::types::StorageValue),
+	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their variants—offer an
+	/// `::append()` method optimized for collections. Using this method avoids the inefficiency of
+	/// decoding and re-encoding entire collections when adding items. For instance, consider the
+	/// storage declaration `type MyVal<T> = StorageValue<_, Vec<u8>, ValueQuery>`. With `MyVal`
+	/// storing a large list of bytes, `::append()` lets you directly add bytes to the end in
+	/// storage without processing the full list. Depending on the storage type, additional key
+	/// specifications may be needed.
 	///
 	/// ### Optimized Length Decoding
 	///
-	/// All storage items — such as `StorageValue`, `StorageMap`, and their counterparts — 
-	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval 
-	/// of a collection's length without the necessity of decoding the entire dataset.
+	/// All storage items — such as [`StorageValue`](frame_support::storage::types::StorageValue),
+	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
+	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of a
+	/// collection's length without the necessity of decoding the entire dataset.
 	///
 	/// ### Hashers
 	///
-	/// For all storage types, except `StorageValue`, a set of hashers needs to be specified. The choice
-	/// of hashers is crucial, especially in production chains. The purpose of
-	/// storage hashers in maps is to ensure the keys of a map are uniformly distributed. An
-	/// unbalanced map/trie can lead to inefficient performance.
+	/// For all storage types, except [`StorageValue`](frame_support::storage::types::StorageValue),
+	/// a set of hashers needs to be specified. The choice of hashers is crucial, especially in
+	/// production chains. The purpose of storage hashers in maps is to ensure the keys of a map are
+	/// uniformly distributed. An unbalanced map/trie can lead to inefficient performance.
 	///
-	/// In general, hashers are categorized as either cryptographically secure or not. The former is slower than the
-	/// latter. `Blake2` and `Twox` serve as examples of each, respectively.
+	/// In general, hashers are categorized as either cryptographically secure or not. The former is
+	/// slower than the latter. `Blake2` and `Twox` serve as examples of each, respectively.
 	///
 	/// As a rule of thumb:
 	///
 	/// 1. If the map keys are not controlled by end users, or are cryptographically secure by
-	/// definition (e.g., `AccountId`), then the use of cryptographically secure hashers is NOT required.
-	/// 2. If the map keys are controllable by the end users, cryptographically secure hashers should
-	/// be used.
+	/// definition (e.g., `AccountId`), then the use of cryptographically secure hashers is NOT
+	/// required.
+	/// 2. If the map keys are controllable by the end users, cryptographically secure hashers
+	/// should be used.
 	///
 	/// For more information, look at the types that implement
 	/// [`frame_support::StorageHasher`](frame_support::StorageHasher).
 	///
 	/// Lastly, it's recommended for hashers with "concat" to have reversible hashes. Refer to the
-	/// implementors section of [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
+	/// implementors section of
+	/// [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
 	///
 	/// ### Prefixes
 	///
-	/// Internally, every storage type generates a "prefix". This prefix serves as the initial segment of
-	/// the key utilized to store values in the on-chain state (i.e., the final key used in 
-	/// [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule applies:
+	/// Internally, every storage type generates a "prefix". This prefix serves as the initial
+	/// segment of the key utilized to store values in the on-chain state (i.e., the final key used
+	/// in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule applies:
 	///
 	/// > The storage prefix begins with `twox128(pallet_prefix) ++ twox128(storage_prefix)`, where
-	/// > `pallet_prefix` is the name assigned to the pallet instance in 
-	/// > [`frame_support::construct_runtime`](frame_support::construct_runtime), and `storage_prefix` is the name of the `type` aliased to
-	/// > a particular storage type, such as `Foo` in `type Foo<T> = StorageValue<..>`.
+	/// > `pallet_prefix` is the name assigned to the pallet instance in
+	/// > [`frame_support::construct_runtime`](frame_support::construct_runtime), and
+	/// > `storage_prefix` is the name of the `type` aliased to a particular storage type, such as
+	/// > `Foo` in `type Foo<T> = StorageValue<..>`.
 	///
-	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is required.
-	/// For map types, the prefix is extended with one or more keys defined by the map.
+	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
+	/// required. For map types, the prefix is extended with one or more keys defined by the map.
 	pub use frame_support_procedural::storage;
 }
 
