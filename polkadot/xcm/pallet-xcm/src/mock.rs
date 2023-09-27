@@ -276,9 +276,15 @@ impl pallet_assets::Config for Test {
 }
 
 // This child parachain acts as trusted reserve for its assets in tests.
-pub const RESERVE_PARA_ID: u32 = 2001;
-// Inner junction of reserve asset on `RESERVE_PARA_ID`.
-pub const RESERVE_ASSET_INNER_JUNCTION: Junction = GeneralIndex(1234567);
+pub const FOREIGN_ASSET_RESERVE_PARA_ID: u32 = 2001;
+// Inner junction of reserve asset on `FOREIGN_ASSET_RESERVE_PARA_ID`.
+pub const FOREIGN_ASSET_INNER_JUNCTION: Junction = GeneralIndex(1234567);
+
+// This child parachain acts as trusted reserve for say.. USDC that can be used for fees.
+pub const USDC_RESERVE_PARA_ID: u32 = 2002;
+// Inner junction of reserve asset on `USDC_RESERVE_PARA_ID`.
+pub const USDC_INNER_JUNCTION: Junction = PalletInstance(42);
+
 // This child parachain is not configured as trusted reserve or teleport location for any assets.
 pub const OTHER_PARA_ID: u32 = 2009;
 
@@ -286,7 +292,25 @@ parameter_types! {
 	pub const RelayLocation: MultiLocation = Here.into_location();
 	pub const ForeignReserveLocation: MultiLocation = MultiLocation {
 		parents: 0,
-		interior: X1(Parachain(RESERVE_PARA_ID))
+		interior: X1(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
+	};
+	pub const ForeignAsset: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(MultiLocation {
+			parents: 0,
+			interior: X2(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION),
+		}),
+	};
+	pub const UsdcReserveLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(USDC_RESERVE_PARA_ID))
+	};
+	pub const Usdc: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(MultiLocation {
+			parents: 0,
+			interior: X2(Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION),
+		}),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorMultiLocation = Here;
@@ -335,21 +359,12 @@ type LocalOriginConverter = (
 	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
-pub const RESERVE_LOCATION: MultiLocation =
-	MultiLocation { parents: 0, interior: X1(Parachain(RESERVE_PARA_ID)) };
-pub const RESERVE_ASSET: MultiAsset = MultiAsset {
-	fun: Fungible(10),
-	id: Concrete(MultiLocation {
-		parents: 0,
-		interior: X2(Parachain(RESERVE_PARA_ID), RESERVE_ASSET_INNER_JUNCTION),
-	}),
-};
-
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedReserves: (MultiAssetFilter, MultiLocation) = (vec![RESERVE_ASSET].into(), RESERVE_LOCATION);
+	pub TrustedReserve1: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
+	pub TrustedReserve2: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -367,7 +382,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = TestSendXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = Case<TrustedReserves>;
+	type IsReserve = (Case<TrustedReserve1>, Case<TrustedReserve2>);
 	type IsTeleporter = Case<TrustedAssets>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
