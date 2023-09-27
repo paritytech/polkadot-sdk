@@ -55,7 +55,7 @@
 //! and to keep track of what we have sent to other validators in the group and what we may
 //! continue to send them.
 
-use polkadot_primitives::vstaging::{CandidateHash, CompactStatement, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
 
 use std::collections::{HashMap, HashSet};
 
@@ -459,7 +459,7 @@ pub enum RejectOutgoing {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::vstaging::Hash;
+	use polkadot_primitives::Hash;
 
 	#[test]
 	fn rejects_incoming_outside_of_group() {

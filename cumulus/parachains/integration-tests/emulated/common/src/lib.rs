@@ -65,7 +65,7 @@ decl_test_relay_chains! {
 			Hrmp: kusama_runtime::Hrmp,
 		}
 	},
-	#[api_version(6)]
+	#[api_version(7)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),
@@ -80,7 +80,7 @@ decl_test_relay_chains! {
 			Balances: westend_runtime::Balances,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(7)]
 	pub struct Rococo {
 		genesis = rococo::genesis(),
 		on_init = (),
@@ -96,7 +96,7 @@ decl_test_relay_chains! {
 			Hrmp: rococo_runtime::Hrmp,
 		}
 	},
-	#[api_version(5)]
+	#[api_version(7)]
 	pub struct Wococo {
 		genesis = rococo::genesis(),
 		on_init = (),
