@@ -426,7 +426,7 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 			RewardDestination::Staked => Self::Stake,
 			RewardDestination::Stash => Self::Deposit(stash),
 			RewardDestination::Controller => Self::Deposit(controller),
-			RewardDestination::Account(a) => Self::Deposit(a.clone()),
+			RewardDestination::Account(a) => Self::Deposit(a),
 			RewardDestination::None => Self::Forgo,
 		}
 	}
