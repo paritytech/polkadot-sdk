@@ -1,5 +1,5 @@
 [package]
-name = "glutton-runtime"
+name = "glutton-westend-runtime"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
