@@ -283,7 +283,7 @@ pub mod pallet {
 			amount_in: T::AssetBalance,
 			/// The amount of the second asset that was received.
 			amount_out: T::AssetBalance,
-			/// The route of asset ids with amounts that the swap went through.
+			/// The route of asset IDs with amounts that the swap went through.
 			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
 			path: BalancePath<T>,
 		},
@@ -293,7 +293,7 @@ pub mod pallet {
 			amount_in: T::AssetBalance,
 			/// The amount of the second asset that was received.
 			amount_out: T::AssetBalance,
-			/// The route of asset ids with amounts that the swap went through.
+			/// The route of asset IDs with amounts that the swap went through.
 			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
 			path: BalancePath<T>,
 		},

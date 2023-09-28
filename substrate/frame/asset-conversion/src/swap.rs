@@ -24,7 +24,7 @@ pub trait Swap<AccountId, Balance, MultiAssetId> {
 	/// Returns the upper limit on the length of the swap path.
 	fn max_path_len() -> u32;
 
-	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
+	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[last]`.
 	/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
 	/// the amount desired.
 	///
