@@ -1011,7 +1011,7 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Reduce the delivery fee factor by a multiplicative factor and stores the resulting value.
+	/// Reduces the delivery fee factor by a multiplicative factor and stores the resulting value.
 	///
 	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
 	///
