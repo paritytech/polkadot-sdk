@@ -140,13 +140,14 @@ pub fn teleports_for_native_asset_works<
 				ExpectTransactStatus(MaybeErrorCode::Success),
 			]);
 
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				Parent,
-				xcm,
+				&mut xcm,
 				hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Parent),
+				Weight::zero(),
 			);
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 
@@ -471,13 +472,14 @@ pub fn teleports_for_foreign_assets_works<
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
 			]);
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				foreign_creator,
-				xcm,
+				&mut xcm,
 				hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 
@@ -1163,14 +1165,15 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 			]);
 
 			// messages with different consensus should go through the local bridge-hub
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 			// execute xcm as XcmpQueue would do
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				foreign_creator.clone(),
 				xcm,
-				hash,
+				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 
@@ -1271,14 +1274,15 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 			]);
 
 			// messages with different consensus should go through the local bridge-hub
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 			// execute xcm as XcmpQueue would do
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				foreign_creator,
 				xcm,
-				hash,
+				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 

@@ -662,7 +662,7 @@ fn plain_receive_teleported_asset_works() {
 		.build()
 		.execute_with(|| {
 			let data = hex_literal::hex!("02100204000100000b00a0724e18090a13000100000b00a0724e180901e20f5e480d010004000101001299557001f55815d3fcb53c74463acb0cf6d14d4639b340982c60877f384609").to_vec();
-			let message_id = sp_io::hashing::blake2_256(&data);
+			let mut message_id = sp_io::hashing::blake2_256(&data);
 
 			let maybe_msg = VersionedXcm::<RuntimeCall>::decode_all_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
@@ -671,7 +671,7 @@ fn plain_receive_teleported_asset_works() {
 				.map(xcm::v4::Xcm::<RuntimeCall>::try_from).expect("failed").expect("failed");
 
 			let outcome =
-				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent));
+				XcmExecutor::<XcmConfig>::prepare_and_execute(Parent, maybe_msg, &mut message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent), Weight::zero());
 			assert_eq!(outcome.ensure_complete(), Ok(()));
 		})
 }

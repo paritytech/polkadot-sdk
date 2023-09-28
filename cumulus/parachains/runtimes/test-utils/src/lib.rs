@@ -341,12 +341,13 @@ impl<
 		]);
 
 		// execute xcm as parent origin
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::execute_xcm(
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::prepare_and_execute(
 			Location::parent(),
 			xcm,
-			hash,
+			&mut hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
 		)
 	}
 }
