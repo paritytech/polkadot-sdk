@@ -111,9 +111,9 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
-			// TODO: Not implemented yet; <https://github.com/paritytech/polkadot/issues/6472>.
-			ExecutorParam::PrecheckingMaxMemory(_) => (),
-			ExecutorParam::PvfPrepTimeout(_, _) | ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
+			ExecutorParam::PrecheckingMaxMemory(_) |
+			ExecutorParam::PvfPrepTimeout(_, _) |
+			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit);
