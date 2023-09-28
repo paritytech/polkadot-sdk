@@ -20,10 +20,8 @@
 use scale_info::TypeInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{
-	codec::{Decode, Encode},
-};
 use primitives::{CoreIndex, Id as ParaId};
+use sp_runtime::codec::{Decode, Encode};
 
 use crate::{
 	configuration, paras,

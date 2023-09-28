@@ -115,7 +115,7 @@ pub mod pallet {
 	}
 
 	/// Conveninece type alias for `CoreOccupied`.
-	pub type CoreOccupiedType<T: Config> = CoreOccupied<BlockNumberFor<T>, AssignmentType<T>>;
+	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>, AssignmentType<T>>;
 
 	impl<N, A> CoreOccupied<N, A> {
 		/// Is core free?
@@ -155,8 +155,9 @@ pub mod pallet {
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<Option<ParasEntryType<T>>>>, ValueQuery>;
 
 	/// Opaque `AssignmentType` used in this module.
-	pub(crate) type AssignmentType<T: Config> =
-		<T::AssignmentProvider as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType;
+	pub(crate) type AssignmentType<T> = <<T as Config>::AssignmentProvider as AssignmentProvider<
+		BlockNumberFor<T>,
+	>>::AssignmentType;
 
 	/// Assignments as tracked in the claim queue.
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
@@ -173,7 +174,7 @@ pub mod pallet {
 	}
 
 	/// Convenience type declaration for `ParasEntry`.
-	pub type ParasEntryType<T: Config> = ParasEntry<BlockNumberFor<T>, AssignmentType<T>>;
+	pub type ParasEntryType<T> = ParasEntry<BlockNumberFor<T>, AssignmentType<T>>;
 
 	impl<N, A: Assignment> ParasEntry<N, A> {
 		/// Create a new `ParasEntry`.
@@ -291,7 +292,8 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match std::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free) {
+					match std::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
+					{
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
 							match freed_reason {
@@ -361,7 +363,6 @@ impl<T: Config> Pallet<T> {
 				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
 					let mut i = 0;
 					while i < core_claimqueue.len() {
-
 						i += 1;
 
 						let dropped = if let Some(Some(entry)) = core_claimqueue.get(i) {
@@ -371,10 +372,9 @@ impl<T: Config> Pallet<T> {
 									Some(None) => {
 										i -= 1;
 										continue
-									}
-									_ => continue
+									},
+									_ => continue,
 								}
-
 							} else {
 								continue
 							}
@@ -396,7 +396,7 @@ impl<T: Config> Pallet<T> {
 							},
 							None => (),
 						}
-					};
+					}
 				}
 			}
 		});
@@ -544,11 +544,10 @@ impl<T: Config> Pallet<T> {
 	/// Pushes occupied cores to the assignment provider.
 	fn push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::<T>::mutate(|cores| {
-			for (core_idx, core) in cores.iter_mut().enumerate() {
+			for core in cores.iter_mut() {
 				match std::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free => continue,
 					CoreOccupied::Paras(entry) => {
-						let core_idx = CoreIndex::from(core_idx as u32);
 						Self::maybe_push_assignment(entry);
 					},
 				}
@@ -558,10 +557,10 @@ impl<T: Config> Pallet<T> {
 
 	// on new session
 	fn push_claimqueue_items_to_assignment_provider() {
-		for (core_idx, core_claimqueue) in ClaimQueue::<T>::take() {
+		for (_, claim_queue) in ClaimQueue::<T>::take() {
 			// Push back in reverse order so that when we pop from the provider again,
 			// the entries in the claimqueue are in the same order as they are right now.
-			for para_entry in core_claimqueue.into_iter().flatten().rev() {
+			for para_entry in claim_queue.into_iter().flatten().rev() {
 				Self::maybe_push_assignment(para_entry);
 			}
 		}
@@ -706,7 +705,12 @@ impl<T: Config> Pallet<T> {
 	/// Paras scheduled next in the claim queue.
 	pub(crate) fn scheduled_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		let claimqueue = ClaimQueue::<T>::get();
-		claimqueue.into_iter().filter_map(|(core_idx, v)| v.front().map(|x| x.as_ref()).flatten().map(|e| (core_idx, e.assignment.para_id())))
+		claimqueue.into_iter().filter_map(|(core_idx, v)| {
+			v.front()
+				.map(|x| x.as_ref())
+				.flatten()
+				.map(|e| (core_idx, e.assignment.para_id()))
+		})
 	}
 
 	/// Internal access to entries at the top of the claim queue.

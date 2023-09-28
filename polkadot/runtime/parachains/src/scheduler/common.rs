@@ -17,7 +17,10 @@
 //! Common traits and types used by the scheduler and assignment providers.
 
 use scale_info::TypeInfo;
-use sp_runtime::{codec::{Decode, Encode}, RuntimeDebug};
+use sp_runtime::{
+	codec::{Decode, Encode},
+	RuntimeDebug,
+};
 use sp_std::fmt::Debug;
 
 use primitives::{CoreIndex, Id as ParaId};

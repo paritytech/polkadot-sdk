@@ -34,7 +34,9 @@ mod tests;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment, AssignmentVersion},
+	scheduler::common::{
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+	},
 };
 
 use frame_support::{
@@ -109,7 +111,7 @@ pub enum SpotTrafficCalculationErr {
 
 /// Assignments as provided by the on-demand `AssignmentProvider`.
 #[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
-struct OnDemandAssignment {
+pub struct OnDemandAssignment {
 	/// The assigned para id.
 	para_id: ParaId,
 	/// The core index the para got assigned to.
@@ -124,7 +126,7 @@ impl Assignment for OnDemandAssignment {
 
 /// Internal representation of an order after it has been enqueued already.
 #[derive(Encode, Decode, TypeInfo)]
-struct EnqueuedOrder {
+pub(super) struct EnqueuedOrder {
 	pub para_id: ParaId,
 }
 
@@ -173,7 +175,7 @@ pub mod pallet {
 
 	/// Creates an empty on demand queue if one isn't present in storage already.
 	#[pallet::type_value]
-	pub fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
+	pub(super) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
 		VecDeque::new()
 	}
 
@@ -186,7 +188,7 @@ pub mod pallet {
 	/// The order storage entry. Uses a VecDeque to be able to push to the front of the
 	/// queue from the scheduler on session boundaries.
 	#[pallet::storage]
-	pub type OnDemandQueue<T: Config> =
+	pub(super) type OnDemandQueue<T: Config> =
 		StorageValue<_, VecDeque<EnqueuedOrder>, ValueQuery, OnDemandQueueOnEmpty<T>>;
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
@@ -508,7 +510,8 @@ where
 	}
 
 	/// Getter for the order queue.
-	pub fn get_queue() -> VecDeque<EnqueuedOrder> {
+	#[cfg(test)]
+	fn get_queue() -> VecDeque<EnqueuedOrder> {
 		OnDemandQueue::<T>::get()
 	}
 
@@ -622,12 +625,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		// Write changes to storage.
 		OnDemandQueue::<T>::set(queue);
 
-        popped.map(|p|
-            OnDemandAssignment {
-                para_id: p.para_id,
-                core_index: core_idx,
-            }
-        )
+		popped.map(|p| OnDemandAssignment { para_id: p.para_id, core_index: core_idx })
 	}
 
 	fn report_processed(assignment: Self::AssignmentType) {
