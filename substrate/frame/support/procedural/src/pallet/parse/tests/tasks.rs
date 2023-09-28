@@ -18,22 +18,20 @@
 use super::*;
 use syn::parse_quote;
 
-const MANIFEST_DIR: &'static str = "../../examples/basic";
-
 #[test]
-fn test_pallet_with_task_enum_missing_tasks_impl() {
-	simulate_manifest_dir(MANIFEST_DIR, || {
+fn test_pallet_with_task_enum_missing_impl() {
+	simulate_manifest_dir("../../examples/basic", || {
 		assert_error_matches!(
 			Def::try_from(
 				parse_quote! {
 					#[frame_support::pallet]
 					pub mod pallet {
-						#[pallet::task]
+						#[pallet::task_enum]
 						pub enum Task<T: Config> {
 							Something,
 						}
 
-						#[pallet::tasks]
+						#[pallet::task_list]
 						impl<T: Config> frame_support::traits::Task for Task<T>
 						where
 							T: TypeInfo,
@@ -48,7 +46,40 @@ fn test_pallet_with_task_enum_missing_tasks_impl() {
 				},
 				true
 			),
-			"expected `#`"
+			"Missing `\\#\\[pallet::tasks\\]` impl"
+		);
+	});
+}
+
+#[test]
+fn test_pallet_with_task_enum_wrong_attribute() {
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			Def::try_from(
+				parse_quote! {
+					#[frame_support::pallet]
+					pub mod pallet {
+						#[pallet::wrong_attribute]
+						pub enum Task<T: Config> {
+							Something,
+						}
+
+						#[pallet::task_list]
+						impl<T: Config> frame_support::traits::Task for Task<T>
+						where
+							T: TypeInfo,
+						{}
+
+						#[pallet::config]
+						pub trait Config: frame_system::Config {}
+
+						#[pallet::pallet]
+						pub struct Pallet<T>(_);
+					}
+				},
+				true
+			),
+			"expected one of"
 		);
 	});
 }

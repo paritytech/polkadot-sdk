@@ -136,6 +136,11 @@ impl Def {
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
 				Some(PalletAttr::Tasks(_)) if tasks.is_none() =>
 					tasks = Some(syn::parse2::<tasks::TasksDef>(get_tokens(item))?),
+				Some(
+					PalletAttr::TaskCondition(_) |
+					PalletAttr::TaskIndex(_) |
+					PalletAttr::TaskList(_),
+				) => (),
 				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
 					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(get_tokens(item))?),
 				Some(PalletAttr::Error(span)) if error.is_none() =>
@@ -440,7 +445,10 @@ mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(call);
 	syn::custom_keyword!(tasks);
-	syn::custom_keyword!(task);
+	syn::custom_keyword!(task_enum);
+	syn::custom_keyword!(task_list);
+	syn::custom_keyword!(task_condition);
+	syn::custom_keyword!(task_index);
 	syn::custom_keyword!(weight);
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
@@ -506,6 +514,9 @@ enum PalletAttr {
 	RuntimeCall(Option<InheritedCallWeightAttr>, proc_macro2::Span),
 	Error(proc_macro2::Span),
 	Tasks(proc_macro2::Span),
+	TaskList(proc_macro2::Span),
+	TaskCondition(proc_macro2::Span),
+	TaskIndex(proc_macro2::Span),
 	RuntimeTask(proc_macro2::Span),
 	RuntimeEvent(proc_macro2::Span),
 	RuntimeOrigin(proc_macro2::Span),
@@ -526,6 +537,9 @@ impl PalletAttr {
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
+			Self::TaskCondition(span) => *span,
+			Self::TaskIndex(span) => *span,
+			Self::TaskList(span) => *span,
 			Self::Error(span) => *span,
 			Self::RuntimeTask(span) => *span,
 			Self::RuntimeCall(_, span) => *span,
@@ -574,8 +588,14 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::RuntimeCall(attr, span))
 		} else if lookahead.peek(keyword::tasks) {
 			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks>()?.span()))
-		} else if lookahead.peek(keyword::task) {
-			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task>()?.span()))
+		} else if lookahead.peek(keyword::task_enum) {
+			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task_enum>()?.span()))
+		} else if lookahead.peek(keyword::task_condition) {
+			Ok(PalletAttr::TaskCondition(content.parse::<keyword::task_condition>()?.span()))
+		} else if lookahead.peek(keyword::task_index) {
+			Ok(PalletAttr::TaskIndex(content.parse::<keyword::task_index>()?.span()))
+		} else if lookahead.peek(keyword::task_list) {
+			Ok(PalletAttr::TaskList(content.parse::<keyword::task_list>()?.span()))
 		} else if lookahead.peek(keyword::error) {
 			Ok(PalletAttr::Error(content.parse::<keyword::error>()?.span()))
 		} else if lookahead.peek(keyword::event) {

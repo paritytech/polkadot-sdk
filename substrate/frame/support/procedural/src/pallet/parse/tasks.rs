@@ -35,7 +35,7 @@ pub mod keywords {
 	use syn::custom_keyword;
 
 	custom_keyword!(tasks);
-	custom_keyword!(task);
+	custom_keyword!(task_enum);
 	custom_keyword!(task_list);
 	custom_keyword!(task_condition);
 	custom_keyword!(task_index);
@@ -96,12 +96,41 @@ pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
 pub type TaskIndexAttr = PalletTaskAttr<TaskIndexAttrMeta>;
 pub type TaskConditionAttr = PalletTaskAttr<TaskConditionAttrMeta>;
 pub type TaskListAttr = PalletTaskAttr<TaskListAttrMeta>;
-pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task>;
+pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
-#[derive(Parse, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct TaskEnumDef {
-	attr: PalletTaskEnumAttr,
+	attr: Option<PalletTaskEnumAttr>,
 	item_enum: ItemEnum,
+}
+
+impl syn::parse::Parse for TaskEnumDef {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let item_enum = input.parse::<ItemEnum>()?;
+		let mut attr = None;
+		for found_attr in &item_enum.attrs {
+			let segs = found_attr
+				.path()
+				.segments
+				.iter()
+				.map(|seg| seg.ident.clone())
+				.collect::<Vec<_>>();
+			let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
+				continue
+			};
+			if seg1 != "pallet" {
+				continue
+			}
+			if attr.is_some() {
+				return Err(Error::new(
+					found_attr.span(),
+					"only one `#[pallet::_]` attribute is supported on this item",
+				))
+			}
+			attr = Some(parse2(found_attr.to_token_stream())?);
+		}
+		Ok(TaskEnumDef { attr, item_enum })
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -598,7 +627,7 @@ fn test_parse_tasks_def_extra_tasks_attribute() {
 #[test]
 fn test_parse_task_enum_def_basic() {
 	parse2::<TaskEnumDef>(quote! {
-		#[pallet::task]
+		#[pallet::task_enum]
 		pub enum Task<T: Config> {
 			Increment,
 			Decrement,
@@ -610,7 +639,7 @@ fn test_parse_task_enum_def_basic() {
 #[test]
 fn test_parse_task_enum_def_non_task_name() {
 	parse2::<TaskEnumDef>(quote! {
-		#[pallet::task]
+		#[pallet::task_enum]
 		pub enum Something {
 			Foo
 		}
@@ -619,16 +648,24 @@ fn test_parse_task_enum_def_non_task_name() {
 }
 
 #[test]
-fn test_parse_task_enum_def_missing_attr() {
-	assert_error_matches!(
-		parse2::<TaskEnumDef>(quote! {
-			pub enum Task<T: Config> {
-				Increment,
-				Decrement,
-			}
-		}),
-		"expected `#`"
-	)
+fn test_parse_task_enum_def_missing_attr_allowed() {
+	parse2::<TaskEnumDef>(quote! {
+		pub enum Task<T: Config> {
+			Increment,
+			Decrement,
+		}
+	})
+	.unwrap();
+}
+
+#[test]
+fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
+	parse2::<TaskEnumDef>(quote! {
+		pub enum Foo {
+			Red,
+		}
+	})
+	.unwrap();
 }
 
 #[test]
@@ -641,7 +678,7 @@ fn test_parse_task_enum_def_wrong_attr() {
 				Decrement,
 			}
 		}),
-		"expected `task`"
+		"expected `task_enum`"
 	)
 }
 
@@ -649,7 +686,7 @@ fn test_parse_task_enum_def_wrong_attr() {
 fn test_parse_task_enum_def_wrong_item() {
 	assert_error_matches!(
 		parse2::<TaskEnumDef>(quote! {
-			#[pallet::task]
+			#[pallet::task_enum]
 			pub struct Something;
 		}),
 		"expected `enum`"
