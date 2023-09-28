@@ -276,6 +276,7 @@ impl pallet_assets::Config for Test {
 }
 
 // This child parachain acts as trusted reserve for its assets in tests.
+// USDT allowed to teleport to/from here.
 pub const FOREIGN_ASSET_RESERVE_PARA_ID: u32 = 2001;
 // Inner junction of reserve asset on `FOREIGN_ASSET_RESERVE_PARA_ID`.
 pub const FOREIGN_ASSET_INNER_JUNCTION: Junction = GeneralIndex(1234567);
@@ -379,6 +380,7 @@ parameter_types! {
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedLocal: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
 	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), UsdtTeleportLocation::get());
+	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), ForeignReserveLocation::get());
 	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
 	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
@@ -399,7 +401,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
-	type IsTeleporter = (Case<TrustedLocal>, Case<TrustedUsdt>);
+	type IsTeleporter = (Case<TrustedLocal>, Case<TrustedUsdt>, Case<TeleportUsdtToForeign>);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
