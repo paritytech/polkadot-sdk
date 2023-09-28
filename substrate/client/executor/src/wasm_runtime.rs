@@ -321,25 +321,22 @@ where
 					return Err(WasmError::Instantiation(format!(
 						"--wasmtime-precompiled is not a directory: {}",
 						wasmtime_precompiled_dir.display()
-					)))
+					)));
 				}
 				let handle_err = |e: std::io::Error| -> WasmError {
 					return WasmError::Instantiation(format!(
 						"Io error when loading wasmtime precompiled folder ({}): {}",
 						wasmtime_precompiled_dir.display(),
 						e
-					))
+					));
 				};
 				let mut maybe_compiled_artifact = None;
-				
-				let artifact_version = compute_artifact_version(
-					allow_missing_func_imports,
-					code_hash,
-					&semantics,
-				);
+
+				let artifact_version =
+					compute_artifact_version(allow_missing_func_imports, code_hash, &semantics);
 				log::debug!(
-					target: "wasmtime-runtime", 
-					"Searching for wasm hash: {}", 
+					target: "wasmtime-runtime",
+					"Searching for wasm hash: {}",
 					artifact_version.clone()
 				);
 
@@ -350,8 +347,8 @@ where
 						// version and with the same wasm interface version and configuration.
 						if file_name.contains(&artifact_version.clone()) {
 							log::info!(
-								target: "wasmtime-runtime", 
-								"Found precompiled wasm: {}", 
+								target: "wasmtime-runtime",
+								"Found precompiled wasm: {}",
 								file_name
 							);
 							// We change the version check strategy to make sure that the file
@@ -367,7 +364,7 @@ where
 						return Err(WasmError::Instantiation(
 							"wasmtime precompiled folder contain a file with invalid utf8 name"
 								.to_owned(),
-						))
+						));
 					}
 				}
 
@@ -427,7 +424,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	wasmtime_precompiled_path: &Path,
 ) -> Result<(), WasmError> {
 	let semantics = match wasm_method {
-		WasmExecutionMethod::Compiled { instantiation_strategy } =>
+		WasmExecutionMethod::Compiled { instantiation_strategy } => {
 			sc_executor_wasmtime::Semantics {
 				heap_alloc_strategy,
 				instantiation_strategy,
@@ -438,16 +435,16 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
-			},
+			}
+		},
 	};
 
 	let code_hash = &runtime_code.hash;
 
-	let artifact_version =
-		compute_artifact_version(false, code_hash, &semantics);
+	let artifact_version = compute_artifact_version(false, code_hash, &semantics);
 	log::debug!(
-		target: "wasmtime-runtime", 
-		"Generated precompiled wasm hash: {}", 
+		target: "wasmtime-runtime",
+		"Generated precompiled wasm hash: {}",
 		artifact_version.clone()
 	);
 
@@ -488,9 +485,9 @@ fn compute_artifact_version(
 	semantics: &sc_executor_wasmtime::Semantics,
 ) -> String {
 	log::trace!(
-		target: "wasmtime-runtime", 
-		"Computing wasm runtime hash [allow_missing_func_imports: {}, code_hash: {:?}, semantics: {:?}]", 
-		allow_missing_func_imports, code_hash, semantics
+		target: "wasmtime-runtime",
+		"Computing wasm runtime hash [allow_missing_func_imports: {}, code_hash: {}, semantics: {:?}]",
+		allow_missing_func_imports, sp_core::bytes::to_hex(&code_hash, false), semantics
 	);
 	let mut buffer = Vec::new();
 	buffer.extend_from_slice(code_hash);

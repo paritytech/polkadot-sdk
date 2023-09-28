@@ -23,10 +23,8 @@ use std::{marker::PhantomData, sync::Arc};
 use sc_client_api::{backend::Backend, BlockImportOperation};
 use sc_executor::RuntimeVersionOf;
 use sp_core::{
-	storage::{
-		well_known_keys, StateVersion, Storage
-	},
-	Blake2Hasher
+	storage::{well_known_keys, StateVersion, Storage},
+	Blake2Hasher,
 };
 
 use sp_runtime::{
