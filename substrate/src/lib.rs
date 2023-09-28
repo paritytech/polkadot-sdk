@@ -157,7 +157,7 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/cumulus/), the
+//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the
 //! library on top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?

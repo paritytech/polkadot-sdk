@@ -80,7 +80,7 @@ current and new runtimes and ensure that the `module index, call index` tuples m
 checks if there have been any changes in `storage`. In case of a breaking change, increase `transaction_version`.
 
 To verify the order has not changed, manually start the following [Github
-Action](https://github.com/paritytech/cumulus/actions/workflows/extrinsic-ordering-check-from-bin.yml). It takes around
+Action](https://github.com/paritytech/polkadot-sdk/cumulus/.github/workflows/release-20_extrinsic-ordering-check-from-bin.yml). It takes around
 a minute to run and will produce the report as artifact you need to manually check.
 
 To run it, in the _Run Workflow_ dropdown:

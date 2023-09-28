@@ -408,7 +408,7 @@ decl_test_networks! {
 			PenpalPolkadotA,
 			PenpalPolkadotB,
 		],
-		// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
+		// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
 		// bridge = PolkadotKusamaMockBridge
 		bridge = ()
 	},
@@ -420,7 +420,7 @@ decl_test_networks! {
 			BridgeHubKusama,
 			PenpalKusamaB,
 		],
-		// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
+		// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
 		// bridge = KusamaPolkadotMockBridge
 		bridge = ()
 	},
@@ -462,7 +462,7 @@ decl_test_bridges! {
 		target = BridgeHubRococo,
 		handler = WococoRococoMessageHandler
 	}
-	// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
+	// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
 	// pub struct PolkadotKusamaMockBridge {
 	// 	source = BridgeHubPolkadot,
 	// 	target = BridgeHubKusama,
