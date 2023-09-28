@@ -55,7 +55,7 @@ pub(crate) struct PendingResponses<B: BlockT> {
 
 impl<B: BlockT> PendingResponses<B> {
 	pub fn new() -> Self {
-		Self { pending_responses: StreamMap::new() }
+		Self { pending_responses: StreamMap::new(), waker: None }
 	}
 
 	pub fn insert(
