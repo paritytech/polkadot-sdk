@@ -1295,7 +1295,7 @@ impl<T: Config> Pallet<T> {
 		if fee_asset_item as usize >= assets.len() {
 			return Err(Error::<T>::Empty.into())
 		}
-		let fees = assets.swap_remove(fee_asset_item as usize);
+		let mut fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type = TransferType::determine_for::<T>(&fees, &dest)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (also used for fees).
@@ -1328,34 +1328,31 @@ impl<T: Config> Pallet<T> {
 			// BuyExecution on both chains. Split fees, and deposit half at assets-reserve chain
 			// and half at destination.
 			if let TransferType::RemoteReserve(assets_reserve) = assets_transfer_type {
-				let (fees_for_reserve, fees_for_dest) = Self::equal_split_asset(&fees)?;
+				// Halve amount of fees, each half will be sent to one chain.
+				Self::halve_fungible_asset(&mut fees)?;
 				// Halve weight limit again to be used for the two fees transfers.
 				let quarter_weight_limit = Self::halve_weight_limit(&weight_limit);
-				let context = T::UniversalLocation::get();
-				// Send half the `fees` to the Sovereign Account of `dest` on assets-reserve chain.
-				let assets_reserve_beneficiary = dest
-					.reanchored(&assets_reserve, context)
-					.map_err(|_| Error::<T>::CannotReanchor)?;
-				Self::prefund_transfer_fees(
+				// Send half the `fees` to `beneficiary` on assets-reserve chain.
+				Self::build_and_execute_xcm_transfer_type(
 					origin_location,
 					assets_reserve,
-					assets_reserve_beneficiary,
-					fees_for_reserve,
+					beneficiary,
+					vec![fees.clone()],
+					TransferType::determine_for::<T>(&fees, &assets_reserve)?,
+					fees.clone(),
 					quarter_weight_limit.clone(),
 				)?;
-				Self::prefund_transfer_fees(
+				// Send the other half of the `fees` to `beneficiary` on dest chain.
+				Self::build_and_execute_xcm_transfer_type(
 					origin_location,
 					dest,
 					beneficiary,
-					fees_for_dest,
+					vec![fees.clone()],
+					fees_transfer_type,
+					fees.clone(),
 					quarter_weight_limit,
 				)?;
 			} else {
-				if let TransferType::RemoteReserve(_fees_reserve) = fees_transfer_type {
-					// TODO: change beneficiary on `fee_reserve` to be SA-of-Here.
-					// But beneficiary on `dest` should stay unchanged...
-					// Or maybe not required, fees can be used from Holding register, we'll see :D
-				}
 				// execute fees transfer - have to do it separately than assets because of the
 				// different transfer type (different XCM program required)
 				Self::build_and_execute_xcm_transfer_type(
@@ -1416,22 +1413,6 @@ impl<T: Config> Pallet<T> {
 			fees,
 			weight_limit,
 		)
-	}
-
-	/// Teleport or reserve transfer `fees` - not to be used by itself, it is a helper function for
-	/// prefunding fees for subsequent assets transfer.
-	///
-	/// Fees are allowed to be either teleported or reserve transferred.
-	fn prefund_transfer_fees(
-		_origin: impl Into<MultiLocation>,
-		_dest: MultiLocation,
-		_beneficiary: MultiLocation,
-		_asset: MultiAsset,
-		_weight_limit: WeightLimit,
-	) -> DispatchResult {
-		// let fee_transfer_type = TransferType::determine_for::<T>(&fee_asset, &dest)?;
-		// Ok(())
-		todo!()
 	}
 
 	fn build_and_execute_xcm_transfer_type(
@@ -1919,14 +1900,15 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Split fungible `asset` in two equal `MultiAsset`s.
-	fn equal_split_asset(asset: &MultiAsset) -> Result<(MultiAsset, MultiAsset), Error<T>> {
-		let half_amount = match &asset.fun {
-			Fungible(amount) => amount.saturating_div(2),
-			NonFungible(_) => return Err(Error::<T>::InvalidAsset),
-		};
-		let half = MultiAsset { fun: Fungible(half_amount), id: asset.id };
-		Ok((half.clone(), half))
+	/// Halve `asset`s fungible amount.
+	pub(crate) fn halve_fungible_asset(asset: &mut MultiAsset) -> Result<(), Error<T>> {
+		match &mut asset.fun {
+			Fungible(amount) => {
+				*amount = amount.saturating_div(2);
+				Ok(())
+			},
+			NonFungible(_) => Err(Error::<T>::InvalidAsset),
+		}
 	}
 }
 
