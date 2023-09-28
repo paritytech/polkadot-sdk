@@ -1104,7 +1104,162 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works
 ///    |     --------------------------------------------------> `DepositAsset(assets)`
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_works() {
-	// TODO
+	// foreign creator in this case child parachain acting as reserve
+	let fee_reserve_location = RelayLocation::get()
+		.pushed_with_interior(Parachain(USDC_RESERVE_PARA_ID))
+		.unwrap();
+	let usdc_chain_sovereign_account =
+		SovereignAccountOf::convert_location(&fee_reserve_location).unwrap();
+	let usdc_id_multilocation =
+		fee_reserve_location.pushed_with_interior(USDC_INNER_JUNCTION).unwrap();
+	let usdc_initial_local_amount = 42;
+
+	let reserve_location = RelayLocation::get()
+		.pushed_with_interior(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
+		.unwrap();
+	let foreign_asset_id_multilocation =
+		reserve_location.pushed_with_interior(FOREIGN_ASSET_INNER_JUNCTION).unwrap();
+	let foreign_asset_initial_amount = 142;
+
+	// transfer destination is asset reserve location
+	let dest = reserve_location;
+	let dest_sovereign_account = SovereignAccountOf::convert_location(&dest).unwrap();
+	let assets: MultiAssets = vec![
+		// native asset to transfer (not used for fees) - destination reserve
+		(foreign_asset_id_multilocation, SEND_AMOUNT).into(),
+		// USDC for fees (is sufficient on local chain too) - remote reserve
+		(usdc_id_multilocation, FEE_AMOUNT).into(),
+	]
+	.into();
+	let fee_index = 1;
+	let asset_index = 0;
+
+	let balances = vec![
+		(ALICE, INITIAL_BALANCE),
+		(usdc_chain_sovereign_account.clone(), INITIAL_BALANCE),
+		(dest_sovereign_account.clone(), INITIAL_BALANCE),
+	];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset USDC (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			usdc_id_multilocation,
+			BOB,
+			true,
+			1
+		));
+		// USDC should have been teleported/reserve-transferred in, but for this test we just
+		// mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			usdc_id_multilocation,
+			ALICE,
+			usdc_initial_local_amount
+		));
+		// create non-sufficient foreign asset BLA (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			foreign_asset_id_multilocation,
+			BOB,
+			false,
+			1
+		));
+		// foreign asset BLA should have been teleported/reserve-transferred in, but for this test
+		// we just mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			foreign_asset_id_multilocation,
+			ALICE,
+			foreign_asset_initial_amount
+		));
+		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		let context = UniversalLocation::get();
+		let mut expected_fee_on_reserve = assets.get(fee_index).unwrap().clone();
+		expected_fee_on_reserve.reanchor(&fee_reserve_location, context).unwrap();
+		let expected_dest_on_reserve = dest.reanchored(&fee_reserve_location, context).unwrap();
+		let mut expected_asset = assets.get(asset_index).unwrap().clone();
+		expected_asset.reanchor(&dest, context).unwrap();
+		let mut expected_fee = assets.get(fee_index).unwrap().clone();
+		expected_fee.reanchor(&dest, context).unwrap();
+
+		// do the transfer
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		));
+		assert!(matches!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+		));
+		// Alice native asset untouched
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+		// Alice spent USDC for fees
+		assert_eq!(
+			Assets::balance(usdc_id_multilocation, ALICE),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
+		// Alice transferred BLA
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, ALICE),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
+		// Verify balances of USDC reserve parachain
+		assert_eq!(Balances::free_balance(usdc_chain_sovereign_account.clone()), INITIAL_BALANCE);
+		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
+		// Verify balances of transferred-asset reserve parachain
+		assert_eq!(Balances::free_balance(dest_sovereign_account.clone()), INITIAL_BALANCE);
+		assert_eq!(Assets::balance(foreign_asset_id_multilocation, dest_sovereign_account), 0);
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![
+				(
+					// first message is to prefund (USDC) fees on `dest` (by going through
+					// fee remote (USDC) reserve)
+					fee_reserve_location,
+					Xcm(vec![
+						WithdrawAsset(expected_fee_on_reserve.clone().into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee_on_reserve, Unlimited),
+						DepositReserveAsset {
+							assets: Wild(AllCounted(1)),
+							// final destination is `dest` as seen by `reserve`
+							dest: expected_dest_on_reserve,
+							// message sent onward to final `dest` to deposit/prefund fees
+							xcm: Xcm(vec![
+								buy_limited_execution(expected_fee.clone(), Unlimited),
+								DepositAsset { assets: AllCounted(1).into(), beneficiary }
+							])
+						}
+					])
+				),
+				(
+					// second message is to transfer/deposit foreign assets on `dest` while paying
+					// using prefunded (transferred above) fees (USDC)
+					// (dest is reserve location for `expected_asset`)
+					dest,
+					Xcm(vec![
+						WithdrawAsset(expected_asset.into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee, Unlimited),
+						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+					])
+				)
+			]
+		);
+		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
+		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
 }
 
 /// Test `reserve_transfer_assets` with remote asset reserve and (same) remote fee reserve.
