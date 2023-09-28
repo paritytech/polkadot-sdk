@@ -38,7 +38,6 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(Eq, PartialEq)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,
@@ -158,6 +157,27 @@ impl<
 	}
 }
 
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> PartialEq for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn eq(&self, other: &Self) -> bool {
+		self.amount.eq(&other.amount) && self.asset.eq(&other.asset)
+	}
+}
+
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> Eq for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+}
+
 #[cfg(any(feature = "std", feature = "force-debug"))]
 impl<
 		A: AssetId,
@@ -170,6 +190,8 @@ impl<
 		fmt.debug_struct("Imbalance")
 			.field("asset", &self.asset)
 			.field("amount", &self.amount)
+			.field("OnDrop", &sp_std::any::type_name::<OnDrop>())
+			.field("OppositeOnDrop", &sp_std::any::type_name::<OppositeOnDrop>())
 			.finish()
 	}
 }
