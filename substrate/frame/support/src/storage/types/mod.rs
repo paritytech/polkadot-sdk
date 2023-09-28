@@ -114,13 +114,13 @@ where
 	}
 }
 
-/// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query`
-/// type being `Value`.
+/// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query` type
+/// being `Value`.
 /// 
 /// ## Example
 /// 
-/// The `ValueQuery` implementation exposes two generic type parameters: `Value` and `OnEmpty`. By
-/// default, all FRAME storage items set `OnEmpty` to
+/// The `ValueQuery` implementation accommodates two generic type parameters defined by
+/// [`QueryKindTrait`]: `Value` and `OnEmpty`. By default, all FRAME storage items set `OnEmpty` to
 /// [`GetDefault`](frame_support::traits::GetDefault). This returns `Default::default()` for `Value`
 /// types implementing [`Default`](core::default::Default) when the queried value is absent.
 /// However, the behavior for missing values can be altered with a custom `OnEmpty` implementation.
