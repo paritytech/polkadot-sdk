@@ -688,9 +688,9 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 				(
 					// first message is to prefund fees on `dest`
 					dest,
+					// fees are being sent through local-reserve transfer because fee reserve is
+					// local chain
 					Xcm(vec![
-						// fees are being sent through local-reserve transfer because fee reserve
-						// is local chain
 						ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
 						ClearOrigin,
 						buy_limited_execution((Parent, FEE_AMOUNT), Unlimited),
@@ -718,11 +718,201 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 
 /// Test `reserve_transfer_assets` with remote asset reserve and local fee reserve.
 ///
-/// Asserts that the sender's balance is decreased and the beneficiary's balance
-/// is increased. Verifies the correct message is sent and event is emitted.
+/// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `OTHER_PARA_ID`.
+/// Using native (local reserve) as fee.
+///
+/// ```nocompile
+///    | chain `A`       |  chain `C`                      |  chain `B`
+///    | Here (source)   |  FOREIGN_ASSET_RESERVE_PARA_ID  |  OTHER_PARA_ID (destination)
+///    | `fees` reserve  |  `assets` reserve               |  no trust
+///    |
+///    |  1. `A` executes `TransferReserveAsset(fees)` dest `C`
+///    |     \---------->  `C` executes `WithdrawAsset(fees), .., DepositAsset(fees)`
+///    |
+///    |  2. `A` executes `TransferReserveAsset(fees)` dest `B`
+///    |     \------------------------------------------------->  `B` executes:
+///    |                                  `WithdrawAsset(fees), .., DepositAsset(fees)`
+///    |
+///    |  3. `A` executes `InitiateReserveWithdraw(assets)` dest `C`
+///    |     -----------------> `C` executes `DepositReserveAsset(assets)` dest `B`
+///    |                             --------------------------> `DepositAsset(assets)`
+///    |  all of which at step 3. being paid with fees prefunded in steps 1 & 2
+/// ```
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works() {
-	// TODO
+	let reserve_location = RelayLocation::get()
+		.pushed_with_interior(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
+		.unwrap();
+	let foreign_asset_id_multilocation =
+		reserve_location.pushed_with_interior(FOREIGN_ASSET_INNER_JUNCTION).unwrap();
+	let foreign_asset_initial_amount = 142;
+	let reserve_sovereign_account =
+		SovereignAccountOf::convert_location(&reserve_location).unwrap();
+
+	// transfer destination is OTHER_PARA_ID (foreign asset needs to go through its reserve chain)
+	let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
+	let dest_sovereign_account = SovereignAccountOf::convert_location(&dest).unwrap();
+
+	let assets: MultiAssets = vec![
+		// native asset for fees
+		(MultiLocation::here(), FEE_AMOUNT).into(),
+		// foreign asset to transfer (not used for fees) - remote reserve
+		(foreign_asset_id_multilocation, SEND_AMOUNT).into(),
+	]
+	.into();
+	let fee_index = 0;
+	let asset_index = 1;
+
+	let context = UniversalLocation::get();
+	let mut expected_fee = assets.get(fee_index).unwrap().clone();
+	let mut expected_asset = assets.get(asset_index).unwrap().clone();
+
+	// sanity check indices are still ok after sort() done by `vec![MultiAsset].into()`.
+	assert_eq!(expected_fee.id, MultiLocation::here().into());
+	assert_eq!(expected_asset.id, foreign_asset_id_multilocation.into());
+
+	// reanchor according to test-case.
+	let expected_dest_on_reserve = dest.reanchored(&reserve_location, context).unwrap();
+	let mut expected_fee_on_reserve = expected_fee.clone();
+	let mut expected_asset_on_reserve = expected_asset.clone();
+	expected_fee_on_reserve.reanchor(&reserve_location, context).unwrap();
+	expected_asset_on_reserve.reanchor(&reserve_location, context).unwrap();
+	expected_fee.reanchor(&dest, context).unwrap();
+	expected_asset.reanchor(&dest, context).unwrap();
+
+	// fees are split between the asset-reserve chain and the destination chain
+	crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee_on_reserve).unwrap();
+	crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee).unwrap();
+
+	let balances = vec![
+		(ALICE, INITIAL_BALANCE),
+		(dest_sovereign_account.clone(), INITIAL_BALANCE),
+		(reserve_sovereign_account.clone(), INITIAL_BALANCE),
+	];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let expected_beneficiary_on_reserve = beneficiary;
+
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create non-sufficient foreign asset BLA (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			foreign_asset_id_multilocation,
+			BOB,
+			false,
+			1
+		));
+		// foreign asset BLA should have been teleported/reserve-transferred in, but for this test
+		// we just mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			foreign_asset_id_multilocation,
+			ALICE,
+			foreign_asset_initial_amount
+		));
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, ALICE),
+			foreign_asset_initial_amount
+		);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		// do the transfer
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		));
+		assert!(matches!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+		));
+		// Alice transferred BLA
+		assert_eq!(
+			Assets::balance(foreign_asset_id_multilocation, ALICE),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
+		// Alice spent native asset for fees
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - FEE_AMOUNT);
+		// Half the fee went to reserve chain
+		assert_eq!(
+			Balances::free_balance(reserve_sovereign_account.clone()),
+			INITIAL_BALANCE + FEE_AMOUNT / 2
+		);
+		// Other half went to dest chain
+		assert_eq!(
+			Balances::free_balance(dest_sovereign_account.clone()),
+			INITIAL_BALANCE + FEE_AMOUNT / 2
+		);
+		// Verify total and active issuance of foreign BLA asset have decreased (reserve-based
+		// (local-instance) asset was burned)
+		assert_eq!(
+			Assets::total_issuance(foreign_asset_id_multilocation),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(foreign_asset_id_multilocation),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![
+				(
+					// first message is to prefund fees on `reserve`
+					reserve_location,
+					// fees are being sent through local-reserve transfer because fee reserve is
+					// local chain
+					Xcm(vec![
+						ReserveAssetDeposited(expected_fee_on_reserve.clone().into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee_on_reserve.clone(), Unlimited),
+						DepositAsset {
+							assets: AllCounted(1).into(),
+							beneficiary: expected_beneficiary_on_reserve
+						},
+					])
+				),
+				(
+					// second message is to prefund fees on `dest`
+					dest,
+					// fees are being sent through local-reserve transfer because fee reserve
+					// is local chain
+					Xcm(vec![
+						ReserveAssetDeposited(expected_fee.clone().into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee.clone(), Unlimited),
+						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+					])
+				),
+				(
+					// third message is to transfer/deposit foreign assets on `dest` by going
+					// through `reserve` while paying using prefunded (teleported above) fees
+					reserve_location,
+					Xcm(vec![
+						WithdrawAsset(expected_asset_on_reserve.into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee_on_reserve, Unlimited),
+						DepositReserveAsset {
+							assets: Wild(AllCounted(1)),
+							// final destination is `dest` as seen by `reserve`
+							dest: expected_dest_on_reserve,
+							// message sent onward to final `dest` to deposit/prefund fees
+							xcm: Xcm(vec![
+								buy_limited_execution(expected_fee, Unlimited),
+								DepositAsset { assets: AllCounted(1).into(), beneficiary }
+							])
+						}
+					])
+				)
+			]
+		);
+		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
+		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
 }
 
 /// Test `reserve_transfer_assets` with local asset reserve and destination fee reserve.
@@ -1005,7 +1195,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 ///    | `assets` reserve    |  `fees` reserve                 |
 ///    |
 ///    |  1. `A` executes `InitiateReserveWithdraw(fees)` dest `C`
-///    |     -----------------> `DepositReserveAsset(fees)` dest `B`
+///    |     -----------------> `C` executes `DepositReserveAsset(fees)` dest `B`
 ///    |                             --------------------------> `DepositAsset(fees)`
 ///    |  2. `A` executes `TransferReserveAsset(assets)` dest `B`
 ///    |     --------------------------------------------------> `ReserveAssetDeposited(assets)`
@@ -1167,7 +1357,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works
 ///    |                     |  `fees` reserve            |  `assets` reserve
 ///    |
 ///    |  1. `A` executes `InitiateReserveWithdraw(fees)` dest `C`
-///    |     -----------------> `DepositReserveAsset(fees)` dest `B`
+///    |     -----------------> `C` executes `DepositReserveAsset(fees)` dest `B`
 ///    |                             --------------------------> `DepositAsset(fees)`
 ///    |  2. `A` executes `InitiateReserveWithdraw(assets)` dest `B`
 ///    |     --------------------------------------------------> `DepositAsset(assets)`
@@ -1370,7 +1560,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 ///    |                     |  `assets` reserve               |
 ///    |
 ///    |  1. `A` executes `InitiateReserveWithdraw(both)` dest `C`
-///    |     -----------------> `DepositReserveAsset(both)` dest `B`
+///    |     -----------------> `C` executes `DepositReserveAsset(both)` dest `B`
 ///    |                             --------------------------> `DepositAsset(both)`
 /// ```
 #[test]
@@ -1831,8 +2021,10 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 ///    |     \------------------------------------------------->  `B` executes:
 ///    |                                `ReceiveTeleportedAsset(fees), .., DepositAsset(fees)`
 ///    |
-///    |  3. `A` executes `InitiateReserveWithdraw(assets)` dest `B`
-///    |     --------------------------------------------------> `DepositAsset(assets)`
+///    |  3. `A` executes `InitiateReserveWithdraw(assets)` dest `C`
+///    |     -----------------> `C` executes `DepositReserveAsset(assets)` dest `B`
+///    |                             --------------------------> `DepositAsset(assets)`
+///    |  all of which at step 3. being paid with fees prefunded in steps 1 & 2
 /// ```
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() {
