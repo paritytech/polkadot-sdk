@@ -125,9 +125,10 @@ where
 /// types implementing [`Default`](core::default::Default) when the queried value is absent.
 /// However, the behavior for missing values can be altered with a custom `OnEmpty` implementation.
 #[doc = docify::embed!("src/storage/types/mod.rs", custom_onempty_implementation)]
-/// Using `OnEmpty = ADefault` causes storage items to return `42` when values are absent. This is
-/// demonstrated in the following example with a [`StorageValue`]. For an overview of FRAME storage
-/// items and their use, refer to [crate::pallet_macros::storage].
+/// Using `QueryKind = ValueQuery` in conjunction with `OnEmpty = ADefault` causes storage items to
+/// return `42` when values are absent. This is demonstrated in the following example with a
+/// [`StorageValue`]. For an overview of FRAME storage items and their use, refer to
+/// [crate::pallet_macros::storage].
 #[doc = docify::embed!("src/storage/types/mod.rs", test_valuequery_with_custom_onempty)]
 pub struct ValueQuery;
 impl<Value, OnEmpty> QueryKindTrait<Value, OnEmpty> for ValueQuery
