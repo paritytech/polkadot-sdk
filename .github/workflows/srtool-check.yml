@@ -39,14 +39,12 @@ jobs:
 
           jq --version
 
-      - name: Find runtimes
+      - name: Scan runtimes
         id: scan-runtimes
         run: |
           . ./.github/scripts/common/lib.sh
           MATRIX=$(find_runtimes)
           echo $MATRIX
-
-          SKIP=(kitchensink sp bp)
           echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
 
   srtool:
@@ -58,9 +56,10 @@ jobs:
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-        with:
-          fetch-depth: 0
+      - name: Checkout
+		uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+		with:
+		  fetch-depth: 0
 
       - name: Srtool build
         id: srtool_build
