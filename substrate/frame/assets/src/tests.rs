@@ -22,6 +22,7 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
+	pallet_prelude::StorageVersion,
 	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
 };
 use pallet_balances::Error as BalancesError;
@@ -1773,5 +1774,67 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account2), 0);
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
+	});
+}
+
+#[test]
+fn migrate_to_v2_works() {
+	new_test_ext().execute_with(|| {
+		use crate::migration::v2::old as v1;
+		use frame_support::traits::OnRuntimeUpgrade;
+		StorageVersion::new(1).put::<Pallet<Test, ()>>();
+
+		v1::Asset::<Test, ()>::insert(
+			1,
+			v1::AssetDetails::<
+				<Test as Config>::Balance,
+				<Test as frame_system::Config>::AccountId,
+				DepositBalanceOf<Test>,
+			> {
+				owner: 1,
+				issuer: 1,
+				admin: 1,
+				freezer: 1,
+				supply: 102,
+				deposit: 0,
+				min_balance: 1,
+				is_sufficient: false,
+				accounts: 0,
+				sufficients: 0,
+				approvals: 0,
+				status: AssetStatus::Live,
+			},
+		);
+
+		Account::<Test, ()>::insert(
+			1,
+			1,
+			AssetAccountOf::<Test, ()> {
+				balance: 100,
+				status: AccountStatus::Liquid,
+				reason: ExistenceReason::<_, _>::Sufficient,
+				extra: Default::default(),
+			},
+		);
+		Account::<Test, ()>::insert(
+			1,
+			2,
+			AssetAccountOf::<Test, ()> {
+				balance: 2,
+				status: AccountStatus::Liquid,
+				reason: ExistenceReason::<_, _>::Sufficient,
+				extra: Default::default(),
+			},
+		);
+
+		// Run migration.
+		assert_ok!(
+			crate::migration::v2::VersionCheckedMigrateToV2::<Test, (), ()>::try_on_runtime_upgrade(
+				true
+			)
+		);
+
+		// TODO check with 2 after setting account 2's balance as inactive
+		assert_eq!(Asset::<Test, ()>::get(1).unwrap().inactive, 0);
 	});
 }

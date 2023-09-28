@@ -15,50 +15,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use crate::{Asset, AssetDetails, AssetStatus, Config, DepositBalanceOf, Pallet};
+use frame_support::{
+	pallet_prelude::*,
+	sp_runtime::traits::{Saturating, Zero},
+	traits::OnRuntimeUpgrade,
+	weights::Weight,
+};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-use frame_support::{pallet_prelude::*, weights::Weight};
+pub mod old {
+	use super::*;
 
-#[derive(Decode)]
-pub struct V1AssetDetails<Balance, AccountId, DepositBalance> {
-	pub owner: AccountId,
-	pub issuer: AccountId,
-	pub admin: AccountId,
-	pub freezer: AccountId,
-	pub supply: Balance,
-	pub deposit: DepositBalance,
-	pub min_balance: Balance,
-	pub is_sufficient: bool,
-	pub accounts: u32,
-	pub sufficients: u32,
-	pub approvals: u32,
-	pub status: AssetStatus,
-}
+	#[frame_support::storage_alias]
+	/// Details of an asset.
+	pub type Asset<T: Config<I>, I: 'static> = StorageMap<
+		Pallet<T, I>,
+		Blake2_128Concat,
+		<T as Config<I>>::AssetId,
+		AssetDetails<
+			<T as Config<I>>::Balance,
+			<T as frame_system::Config>::AccountId,
+			DepositBalanceOf<T, I>,
+		>,
+	>;
 
-impl<Balance, AccountId, DepositBalance> V1AssetDetails<Balance, AccountId, DepositBalance> {
-	fn migrate_to_v2(self, inactive: Balance) -> AssetDetails<Balance, AccountId, DepositBalance> {
-		AssetDetails {
-			owner: self.owner,
-			issuer: self.issuer,
-			admin: self.admin,
-			freezer: self.freezer,
-			supply: self.supply,
-			inactive,
-			deposit: self.deposit,
-			min_balance: self.min_balance,
-			is_sufficient: self.is_sufficient,
-			accounts: self.accounts,
-			sufficients: self.sufficients,
-			approvals: self.approvals,
-			status: self.status,
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub(crate) struct AssetDetails<Balance, AccountId, DepositBalance> {
+		pub owner: AccountId,
+		pub issuer: AccountId,
+		pub admin: AccountId,
+		pub freezer: AccountId,
+		pub supply: Balance,
+		pub deposit: DepositBalance,
+		pub min_balance: Balance,
+		pub is_sufficient: bool,
+		pub accounts: u32,
+		pub sufficients: u32,
+		pub approvals: u32,
+		pub status: AssetStatus,
+	}
+
+	impl<Balance, AccountId, DepositBalance> AssetDetails<Balance, AccountId, DepositBalance> {
+		pub(super) fn migrate_to_v2(
+			self,
+			inactive: Balance,
+		) -> super::AssetDetails<Balance, AccountId, DepositBalance> {
+			super::AssetDetails {
+				owner: self.owner,
+				issuer: self.issuer,
+				admin: self.admin,
+				freezer: self.freezer,
+				supply: self.supply,
+				inactive,
+				deposit: self.deposit,
+				min_balance: self.min_balance,
+				is_sufficient: self.is_sufficient,
+				accounts: self.accounts,
+				sufficients: self.sufficients,
+				approvals: self.approvals,
+				status: self.status,
+			}
 		}
 	}
 }
-
 /// This migration moves all the state to v2 of Assets
 pub struct VersionUncheckedMigrateToV2<T: Config<I>, I: 'static, A>(
 	sp_std::marker::PhantomData<(T, I, A)>,
@@ -68,7 +90,7 @@ impl<T: Config<I>, I: 'static, A> OnRuntimeUpgrade for VersionUncheckedMigrateTo
 	fn on_runtime_upgrade() -> Weight {
 		let mut translated = 0u64;
 		Asset::<T, I>::translate::<
-			V1AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+			old::AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 			_,
 		>(|_asset_id, old_value| {
 			translated.saturating_inc();
@@ -83,7 +105,7 @@ impl<T: Config<I>, I: 'static, A> OnRuntimeUpgrade for VersionUncheckedMigrateTo
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		log::info!("pre-migration assets v2");
-		let prev_count = Asset::<T, I>::iter().count();
+		let prev_count = old::Asset::<T, I>::iter().count();
 		Ok((prev_count as u32).encode())
 	}
 
