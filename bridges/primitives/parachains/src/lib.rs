@@ -20,11 +20,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_header_chain::StoredHeaderData;
+pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHead, ParaId},
-	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
-};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
@@ -36,7 +34,12 @@ use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
 
-pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
+/// Block hash of the bridged relay chain.
+pub type RelayBlockHash = bp_polkadot_core::Hash;
+/// Block number of the bridged relay chain.
+pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
+/// Hasher of the bridged relay chain.
+pub type RelayBlockHasher = bp_polkadot_core::Hasher;
 
 mod call_info;
 

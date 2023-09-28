@@ -1937,11 +1937,15 @@ dependencies = [
 name = "bp-relayers"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
  "bp-runtime",
  "frame-support",
+ "frame-system",
  "hex",
  "hex-literal",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -10168,18 +10172,27 @@ dependencies = [
 name = "pallet-bridge-relayers"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
+ "bp-parachains",
+ "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
+ "bp-test-utils",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-bridge-grandpa",
  "pallet-bridge-messages",
+ "pallet-bridge-parachains",
+ "pallet-transaction-payment",
+ "pallet-utility",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",

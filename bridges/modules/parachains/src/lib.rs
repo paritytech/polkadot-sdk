@@ -29,7 +29,8 @@ pub use weights_ext::WeightInfoExt;
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_parachains::{
-	parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData, SubmitParachainHeadsInfo,
+	parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData, RelayBlockHash,
+	RelayBlockHasher, RelayBlockNumber, SubmitParachainHeadsInfo,
 };
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
@@ -60,13 +61,6 @@ mod mock;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-parachains";
-
-/// Block hash of the bridged relay chain.
-pub type RelayBlockHash = bp_polkadot_core::Hash;
-/// Block number of the bridged relay chain.
-pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
-/// Hasher of the bridged relay chain.
-pub type RelayBlockHasher = bp_polkadot_core::Hasher;
 
 /// Artifacts of the parachains head update.
 struct UpdateParachainHeadArtifacts {

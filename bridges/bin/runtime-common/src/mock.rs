@@ -84,6 +84,7 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 >;
 
 /// Message lane used in tests.
+#[allow(unused)]
 pub fn test_lane_id() -> LaneId {
 	LaneId::new(1, 2)
 }
