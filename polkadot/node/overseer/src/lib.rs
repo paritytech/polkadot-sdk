@@ -68,7 +68,6 @@ use std::{
 };
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
-use schnellru::LruMap;
 
 use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
@@ -86,8 +85,8 @@ use polkadot_node_subsystem_types::messages::{
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
-	RuntimeApiSubsystemClient, UnpinHandle,
+	jaeger, ActivatedLeaf, ActiveLeavesUpdate, OverseerSignal, RuntimeApiSubsystemClient,
+	UnpinHandle,
 };
 
 pub mod metrics;
@@ -109,10 +108,6 @@ pub use orchestra::{
 	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
 	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
-
-/// Store 2 days worth of blocks, not accounting for forks,
-/// in the LRU cache. Assumes a 6-second block time.
-pub const KNOWN_LEAVES_CACHE_SIZE: u32 = 2 * 24 * 3600 / 6;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 mod memory_stats;
@@ -639,9 +634,6 @@ pub struct Overseer<SupportsParachains> {
 	/// An implementation for checking whether a header supports parachain consensus.
 	pub supports_parachains: SupportsParachains,
 
-	/// An LRU cache for keeping track of relay-chain heads that have already been seen.
-	pub known_leaves: LruMap<Hash, ()>,
-
 	/// Various Prometheus metrics.
 	pub metrics: OverseerMetrics,
 }
@@ -800,10 +792,9 @@ where
 		};
 
 		let mut update = match self.on_head_activated(&block.hash, Some(block.parent_hash)).await {
-			Some((span, status)) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
+			Some(span) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
 				hash: block.hash,
 				number: block.number,
-				status,
 				unpin_handle: block.unpin_handle,
 				span,
 			}),
@@ -862,7 +853,7 @@ where
 		&mut self,
 		hash: &Hash,
 		parent_hash: Option<Hash>,
-	) -> Option<(Arc<jaeger::Span>, LeafStatus)> {
+	) -> Option<Arc<jaeger::Span>> {
 		if !self.supports_parachains.head_supports_parachains(hash).await {
 			return None
 		}
@@ -889,14 +880,7 @@ where
 		let span = Arc::new(span);
 		self.span_per_active_leaf.insert(*hash, span.clone());
 
-		let status = if self.known_leaves.get(hash).is_some() {
-			LeafStatus::Stale
-		} else {
-			self.known_leaves.insert(*hash, ());
-			LeafStatus::Fresh
-		};
-
-		Some((span, status))
+		Some(span)
 	}
 
 	fn on_head_deactivated(&mut self, hash: &Hash) {
