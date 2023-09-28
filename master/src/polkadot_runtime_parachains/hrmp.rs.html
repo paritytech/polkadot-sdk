@@ -1787,6 +1787,16 @@
 <a href="#1787" id="1787">1787</a>
 <a href="#1788" id="1788">1788</a>
 <a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2067,24 +2077,34 @@
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// Open HRMP channel requested.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		</span>OpenChannelRequested(ParaId, ParaId, u32, u32),
+		</span>OpenChannelRequested {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		<span class="doccomment">/// An HRMP channel request sent by the receiver was canceled by either party.
-		/// `[by_parachain, channel_id]`
-		</span>OpenChannelCanceled(ParaId, HrmpChannelId),
-		<span class="doccomment">/// Open HRMP channel accepted. `[sender, recipient]`
-		</span>OpenChannelAccepted(ParaId, ParaId),
-		<span class="doccomment">/// HRMP channel closed. `[by_parachain, channel_id]`
-		</span>ChannelClosed(ParaId, HrmpChannelId),
+		</span>OpenChannelCanceled { by_parachain: ParaId, channel_id: HrmpChannelId },
+		<span class="doccomment">/// Open HRMP channel accepted.
+		</span>OpenChannelAccepted { sender: ParaId, recipient: ParaId },
+		<span class="doccomment">/// HRMP channel closed.
+		</span>ChannelClosed { by_parachain: ParaId, channel_id: HrmpChannelId },
 		<span class="doccomment">/// An HRMP channel was opened via Root origin.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		</span>HrmpChannelForceOpened(ParaId, ParaId, u32, u32),
+		</span>HrmpChannelForceOpened {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		<span class="doccomment">/// An HRMP channel was opened between two system chains.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		</span>HrmpSystemChannelOpened(ParaId, ParaId, u32, u32),
+		</span>HrmpSystemChannelOpened {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		<span class="doccomment">/// An HRMP channel&#39;s deposits were updated.
-		/// `[sender, recipient]`
-		</span>OpenChannelDepositsUpdated(ParaId, ParaId),
+		</span>OpenChannelDepositsUpdated { sender: ParaId, recipient: ParaId },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -2288,12 +2308,12 @@
 				proposed_max_capacity,
 				proposed_max_message_size,
 			)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::deposit_event(Event::OpenChannelRequested(
-				origin,
+			<span class="self">Self</span>::deposit_event(Event::OpenChannelRequested {
+				sender: origin,
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
-			));
+			});
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2305,7 +2325,7 @@
 		</span><span class="kw">pub fn </span>hrmp_accept_open_channel(origin: OriginFor&lt;T&gt;, sender: ParaId) -&gt; DispatchResult {
 			<span class="kw">let </span>origin = ensure_parachain(&lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin::from(origin))<span class="question-mark">?</span>;
 			<span class="self">Self</span>::accept_open_channel(origin, sender)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::deposit_event(Event::OpenChannelAccepted(sender, origin));
+			<span class="self">Self</span>::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2321,7 +2341,7 @@
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>origin = ensure_parachain(&lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin::from(origin))<span class="question-mark">?</span>;
 			<span class="self">Self</span>::close_channel(origin, channel_id.clone())<span class="question-mark">?</span>;
-			<span class="self">Self</span>::deposit_event(Event::ChannelClosed(origin, channel_id));
+			<span class="self">Self</span>::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2400,7 +2420,7 @@
 				Error::&lt;T&gt;::WrongWitness
 			);
 			<span class="self">Self</span>::cancel_open_request(origin, channel_id.clone())<span class="question-mark">?</span>;
-			<span class="self">Self</span>::deposit_event(Event::OpenChannelCanceled(origin, channel_id));
+			<span class="self">Self</span>::deposit_event(Event::OpenChannelCanceled { by_parachain: origin, channel_id });
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2440,12 +2460,12 @@
 			// that it will not require deposits from either member.
 			</span><span class="self">Self</span>::init_open_channel(sender, recipient, max_capacity, max_message_size)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::deposit_event(Event::HrmpChannelForceOpened(
+			<span class="self">Self</span>::deposit_event(Event::HrmpChannelForceOpened {
 				sender,
 				recipient,
-				max_capacity,
-				max_message_size,
-			));
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
 
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_open_hrmp_channel(cancel_request)).into())
 		}
@@ -2484,12 +2504,12 @@
 			<span class="self">Self</span>::init_open_channel(sender, recipient, max_capacity, max_message_size)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
 
-			<span class="self">Self</span>::deposit_event(Event::HrmpSystemChannelOpened(
+			<span class="self">Self</span>::deposit_event(Event::HrmpSystemChannelOpened {
 				sender,
 				recipient,
-				max_capacity,
-				max_message_size,
-			));
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
 
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
@@ -2585,7 +2605,7 @@
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
 
-			<span class="self">Self</span>::deposit_event(Event::OpenChannelDepositsUpdated(sender, recipient));
+			<span class="self">Self</span>::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
 
 			<span class="prelude-val">Ok</span>(())
 		}
