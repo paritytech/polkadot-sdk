@@ -20,14 +20,11 @@ use crate::{justification, InitializationData};
 
 use bp_runtime::HeaderOf;
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
+use frame_support::{weights::Weight, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::SetId;
-use sp_runtime::{
-	traits::{Header as HeaderT, Zero},
-	RuntimeDebug,
-};
-use sp_std::boxed::Box;
+use sp_runtime::traits::{Header as HeaderT, Zero};
+use sp_std::{boxed::Box, fmt::Debug};
 
 /// A minimized version of `pallet-bridge-grandpa::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -63,8 +60,8 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 pub type BridgeGrandpaCallOf<C> = BridgeGrandpaCall<HeaderOf<C>>;
 
 /// A digest information on the `BridgeGrandpaCall::submit_finality_proof` call.
-#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-pub struct SubmitFinalityProofInfo<N> {
+#[derive(Copy, Clone, PartialEq, RuntimeDebugNoBound)]
+pub struct SubmitFinalityProofInfo<N: Debug> {
 	/// Number of the finality target.
 	pub block_number: N,
 	/// An identifier of the validators set that has signed the submitted justification.
@@ -89,7 +86,7 @@ pub struct SubmitFinalityProofInfo<N> {
 	pub extra_size: u32,
 }
 
-impl<N> SubmitFinalityProofInfo<N> {
+impl<N: Debug> SubmitFinalityProofInfo<N> {
 	/// Returns `true` if call size/weight is below our estimations for regular calls.
 	pub fn fits_limits(&self) -> bool {
 		self.extra_weight.is_zero() && self.extra_size.is_zero()

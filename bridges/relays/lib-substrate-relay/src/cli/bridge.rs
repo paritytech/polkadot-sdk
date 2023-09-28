@@ -22,7 +22,7 @@ use crate::{
 	messages::{MessagesRelayLimits, SubstrateMessageLane},
 	parachains::SubstrateParachainsPipeline,
 };
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
 	Chain, ChainWithRuntimeVersion, ChainWithTransactions, Parachain, RelayChain,
 };
