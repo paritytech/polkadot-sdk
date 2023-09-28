@@ -1001,7 +1001,7 @@ impl<T: Config> Pallet<T> {
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
 	}
 
-	/// Raise the delivery fee factor by a multiplicative factor and stores the resulting value.
+	/// Raises the delivery fee factor by a multiplicative factor and stores the resulting value.
 	///
 	/// Returns the new delivery fee factor after the increment.
 	pub(crate) fn increment_ump_fee_factor(message_size_factor: FixedU128) -> FixedU128 {
