@@ -175,6 +175,8 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 					Self::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min);
 				match &res {
 					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
+					// `From<DispatchError>` bound of the `with_transaction` function.
 					Err(_) => TransactionOutcome::Rollback(Ok(res)),
 				}
 			});
@@ -199,6 +201,8 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 				let res = Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);
 				match &res {
 					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
+					// `From<DispatchError>` bound of the `with_transaction` function.
 					Err(_) => TransactionOutcome::Rollback(Ok(res)),
 				}
 			});
