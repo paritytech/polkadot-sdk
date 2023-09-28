@@ -426,10 +426,10 @@ mod tests {
 	use bp_header_chain::{StoredHeaderDataBuilder, SubmitFinalityProofInfo};
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
-		target_chain::FromBridgedChainMessagesProof, BaseMessagesProofInfo, InboundLaneData,
-		LaneId, MessageNonce, MessagesCallInfo, MessagesOperatingMode, OutboundLaneData,
-		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
-		UnrewardedRelayersState,
+		target_chain::FromBridgedChainMessagesProof, BaseMessagesProofInfo, DeliveredMessages,
+		InboundLaneData, LaneId, MessageNonce, MessagesCallInfo, MessagesOperatingMode,
+		OutboundLaneData, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
+		UnrewardedRelayer, UnrewardedRelayerOccupation, UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo, SubmitParachainHeadsInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -2299,6 +2299,42 @@ mod tests {
 				run_grandpa_validate(message_confirmation_call(200)),
 				Ok(Default::default()),
 			);
+		});
+	}
+
+	#[test]
+	fn does_not_panic_on_boosting_priority_of_empty_message_delivery_transaction() {
+		run_test(|| {
+			let best_delivered_message =
+				BridgedUnderlyingParachain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+			initialize_environment(100, 100, best_delivered_message);
+
+			// register relayer so it gets priority boost
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
+
+			// allow empty message delivery transactions
+			let lane_id = TestLaneId::get();
+			let in_lane_data = InboundLaneData {
+				last_confirmed_nonce: 0,
+				relayers: vec![UnrewardedRelayer {
+					relayer: relayer_account_at_bridged_chain(),
+					messages: DeliveredMessages { begin: 1, end: best_delivered_message },
+				}]
+				.into(),
+				..Default::default()
+			};
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(lane_id, in_lane_data);
+
+			// now check that the priority of empty tx is the same as priority of 1-message tx
+			let priority_of_zero_messages_delivery =
+				run_validate(message_delivery_call(best_delivered_message)).unwrap().priority;
+			let priority_of_one_messages_delivery =
+				run_validate(message_delivery_call(best_delivered_message + 1))
+					.unwrap()
+					.priority;
+
+			assert_eq!(priority_of_zero_messages_delivery, priority_of_one_messages_delivery);
 		});
 	}
 }
