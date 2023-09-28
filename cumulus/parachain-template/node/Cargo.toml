@@ -11,7 +11,7 @@ build = "build.rs"
 publish = false
 
 [dependencies]
-clap = { version = "4.4.3", features = ["derive"] }
+clap = { version = "4.4.4", features = ["derive"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -89,7 +89,4 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-network-protocol-staging = [
-	"cumulus-client-service/network-protocol-staging",
-	"polkadot-cli/network-protocol-staging",
-]
+
