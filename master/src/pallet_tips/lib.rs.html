@@ -600,6 +600,18 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -756,6 +768,10 @@
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>TipReportDepositBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
+		<span class="doccomment">/// The maximum amount for a single tip.
+		</span><span class="attr">#[pallet::constant]
+		</span><span class="kw">type </span>MaxTipAmount: Get&lt;BalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
+
 		<span class="doccomment">/// Origin from which tippers must come.
 		///
 		/// `ContainsLengthBound::max_len` must be cost free (i.e. no storage read or heavy
@@ -810,6 +826,8 @@
 		</span>AlreadyKnown,
 		<span class="doccomment">/// The tip hash is unknown.
 		</span>UnknownTip,
+		<span class="doccomment">/// The tip given was too generous.
+		</span>MaxTipAmountExceeded,
 		<span class="doccomment">/// The account attempting to retract the tip is not the finder of the tip.
 		</span>NotFinder,
 		<span class="doccomment">/// The tip cannot be claimed/closed because there are not enough tippers yet.
@@ -938,10 +956,13 @@
 			<span class="kw">let </span>tipper = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(T::Tippers::contains(<span class="kw-2">&amp;</span>tipper), BadOrigin);
+
+			<span class="macro">ensure!</span>(T::MaxTipAmount::get() &gt;= tip_value, Error::&lt;T, I&gt;::MaxTipAmountExceeded);
+
 			<span class="kw">let </span>reason_hash = T::Hashing::hash(<span class="kw-2">&amp;</span>reason[..]);
 			<span class="macro">ensure!</span>(!Reasons::&lt;T, I&gt;::contains_key(<span class="kw-2">&amp;</span>reason_hash), Error::&lt;T, I&gt;::AlreadyKnown);
-			<span class="kw">let </span>hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>(<span class="kw-2">&amp;</span>reason_hash, <span class="kw-2">&amp;</span>who));
 
+			<span class="kw">let </span>hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>(<span class="kw-2">&amp;</span>reason_hash, <span class="kw-2">&amp;</span>who));
 			Reasons::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>reason_hash, <span class="kw-2">&amp;</span>reason);
 			<span class="self">Self</span>::deposit_event(Event::NewTip { tip_hash: hash });
 			<span class="kw">let </span>tips = <span class="macro">vec!</span>[(tipper.clone(), tip_value)];
@@ -989,7 +1010,10 @@
 			<span class="kw">let </span>tipper = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(T::Tippers::contains(<span class="kw-2">&amp;</span>tipper), BadOrigin);
 
+			<span class="macro">ensure!</span>(T::MaxTipAmount::get() &gt;= tip_value, Error::&lt;T, I&gt;::MaxTipAmountExceeded);
+
 			<span class="kw">let </span><span class="kw-2">mut </span>tip = Tips::&lt;T, I&gt;::get(hash).ok_or(Error::&lt;T, I&gt;::UnknownTip)<span class="question-mark">?</span>;
+
 			<span class="kw">if </span><span class="self">Self</span>::insert_tip_and_check_closing(<span class="kw-2">&amp;mut </span>tip, tipper, tip_value) {
 				<span class="self">Self</span>::deposit_event(Event::TipClosing { tip_hash: hash });
 			}
