@@ -16,7 +16,7 @@ parachain finality works and how to build a light client for a parachain.
 The main thing there is that the parachain generates blocks on its own, but it can't achieve finality without
 help of its relay chain. Instead, the parachain collators create a block and hand it over to the relay chain
 validators. Validators validate the block and register the new parachain head in the
-[`Heads` map](https://github.com/davxy/polkadot-sdk/blob/bc5005217a8c2e7c95b9011c96d7e619879b1200/polkadot/runtime/parachains/src/paras/mod.rs#L683-L686)
+[`Heads` map](https://github.com/paritytech/polkadot-sdk/blob/bc5005217a8c2e7c95b9011c96d7e619879b1200/polkadot/runtime/parachains/src/paras/mod.rs#L683-L686)
 of the [`paras`](https://github.com/paritytech/polkadot-sdk/tree/master/polkadot/runtime/parachains/src/paras) pallet,
 deployed at the relay chain. Keep in mind that this pallet, deployed at a relay chain, is **NOT** a bridge pallet,
 even though the names are similar.
