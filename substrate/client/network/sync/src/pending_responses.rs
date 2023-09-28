@@ -30,7 +30,7 @@ use log::error;
 use sc_network::request_responses::RequestFailure;
 use sc_network_common::sync::PeerRequest;
 use sp_runtime::traits::Block as BlockT;
-use std::task::{Context, Poll};
+use std::task::{Context, Poll, Waker};
 use tokio_stream::StreamMap;
 
 /// Response result.
