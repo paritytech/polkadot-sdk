@@ -43,27 +43,25 @@ pub mod keywords {
 }
 
 pub struct TasksDef {
-	normal_attrs: Vec<Attribute>,
-	tasks_attr: PalletTasksAttr,
+	tasks_attr: Option<PalletTasksAttr>,
 	tasks: Vec<TaskDef>,
+	item_impl: ItemImpl,
 }
 
 impl syn::parse::Parse for TasksDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_impl: ItemImpl = input.parse()?;
 		let (tasks_attrs, normal_attrs): (Vec<_>, Vec<_>) =
-			item_impl.attrs.into_iter().partition(|attr| {
+			item_impl.attrs.clone().into_iter().partition(|attr| {
 				let mut path_segs = attr.path().segments.iter();
 				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
 					return false
 				};
 				prefix.ident == "pallet" && suffix.ident == "tasks"
 			});
-		let Some(tasks_attr) = tasks_attrs.first() else {
-			return Err(Error::new(
-				item_impl.impl_token.span(),
-				"expected `#[pallet::tasks]` attribute",
-			))
+		let tasks_attr = match tasks_attrs.first() {
+			Some(attr) => Some(parse2::<PalletTasksAttr>(attr.to_token_stream())?),
+			None => None,
 		};
 		if let Some(extra_tasks_attr) = tasks_attrs.get(1) {
 			return Err(Error::new(
@@ -71,9 +69,9 @@ impl syn::parse::Parse for TasksDef {
 				"unexpected extra `#[pallet::tasks]` attribute",
 			))
 		}
-		let tasks_attr = parse2::<PalletTasksAttr>(tasks_attr.to_token_stream())?;
 		let tasks: Vec<TaskDef> = item_impl
 			.items
+			.clone()
 			.into_iter()
 			.map(|item| parse2::<TaskDef>(item.to_token_stream()))
 			.collect::<Result<_>>()?;
@@ -87,7 +85,9 @@ impl syn::parse::Parse for TasksDef {
 				))
 			}
 		}
-		Ok(TasksDef { normal_attrs, tasks_attr, tasks })
+		let mut item_impl = item_impl;
+		item_impl.attrs = normal_attrs;
+		Ok(TasksDef { tasks_attr, item_impl, tasks })
 	}
 }
 
