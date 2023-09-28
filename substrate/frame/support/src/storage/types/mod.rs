@@ -44,12 +44,12 @@ pub use value::StorageValue;
 /// Trait implementing how the storage optional value is converted into the queried type.
 ///
 /// It is implemented by:
-/// * `OptionQuery` which converts an optional value to an optional value, used when querying
+/// * [`OptionQuery`] which converts an optional value to an optional value, used when querying
 ///   storage returns an optional value.
-/// * `ResultQuery` which converts an optional value to a result value, used when querying storage
+/// * [`ResultQuery`] which converts an optional value to a result value, used when querying storage
 ///   returns a result value.
-/// * `ValueQuery` which converts an optional value to a value, used when querying storage returns a
-///   value.
+/// * [`ValueQuery`] which converts an optional value to a value, used when querying storage returns
+///   a value.
 pub trait QueryKindTrait<Value, OnEmpty> {
 	/// Metadata for the storage kind.
 	const METADATA: StorageEntryModifierIR;
@@ -65,11 +65,11 @@ pub trait QueryKindTrait<Value, OnEmpty> {
 	fn from_query_to_optional_value(v: Self::Query) -> Option<Value>;
 }
 
-/// Implement QueryKindTrait with query being `Option<Value>`
+/// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query`
+/// type being `Option<Value>`.
 ///
-/// NOTE: it doesn't support a generic `OnEmpty`. This means only `None` can be
-/// returned when no value is found. To use another `OnEmpty` implementation, `ValueQuery` can be
-/// used instead.
+/// NOTE: it doesn't support a generic `OnEmpty`. This means only `None` can be returned when no
+/// value is found. To use another `OnEmpty` implementation, `ValueQuery` can be used instead.
 pub struct OptionQuery;
 impl<Value> QueryKindTrait<Value, crate::traits::GetDefault> for OptionQuery
 where
@@ -89,7 +89,8 @@ where
 	}
 }
 
-/// Implement QueryKindTrait with query being `Result<Value, PalletError>`
+/// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query`
+/// type being `Result<Value, PalletError>`.
 pub struct ResultQuery<Error>(sp_std::marker::PhantomData<Error>);
 impl<Value, Error, OnEmpty> QueryKindTrait<Value, OnEmpty> for ResultQuery<Error>
 where
@@ -113,7 +114,8 @@ where
 	}
 }
 
-/// Implement [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with query being `Value`
+/// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query`
+/// type being `Value`.
 /// 
 /// ## Example
 /// 
@@ -123,8 +125,9 @@ where
 /// types implementing [`Default`](core::default::Default) when the queried value is absent.
 /// However, the behavior for missing values can be altered with a custom `OnEmpty` implementation.
 #[doc = docify::embed!("src/storage/types/mod.rs", custom_onempty_implementation)]
-/// Using `OnEmpty = ADefault` causes storage items to return `42` when values are absent. For an
-/// overview of FRAME storage items and their use, refer to [crate::pallet_macros::storage].
+/// Using `OnEmpty = ADefault` causes storage items to return `42` when values are absent. This is
+/// demonstrated in the following example with a [`StorageValue`]. For an overview of FRAME storage
+/// items and their use, refer to [crate::pallet_macros::storage].
 #[doc = docify::embed!("src/storage/types/mod.rs", test_valuequery_with_custom_onempty)]
 pub struct ValueQuery;
 impl<Value, OnEmpty> QueryKindTrait<Value, OnEmpty> for ValueQuery
