@@ -424,7 +424,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	wasmtime_precompiled_path: &Path,
 ) -> Result<(), WasmError> {
 	let semantics = match wasm_method {
-		WasmExecutionMethod::Compiled { instantiation_strategy } => 
+		WasmExecutionMethod::Compiled { instantiation_strategy } =>
 			sc_executor_wasmtime::Semantics {
 				heap_alloc_strategy,
 				instantiation_strategy,
