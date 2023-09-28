@@ -715,10 +715,7 @@ impl FetchSystematicChunks {
 						"Systematic data recovery error - root mismatch",
 					);
 
-					// Return a non-fatal error, because we may have gotten a non-systematic chunk
-					// from a validator by mistake. We may have enough chunks for the next strategy
-					// to pass.
-					Err(RecoveryError::Unavailable)
+					Err(RecoveryError::Invalid)
 				}
 			},
 			Err(err) => {
@@ -733,9 +730,7 @@ impl FetchSystematicChunks {
 					"Systematic data recovery error ",
 				);
 
-				// Return a non-fatal error, because we may have gotten a non-systematic chunk from
-				// a validator by mistake. We may have enough chunks for the next strategy to pass.
-				Err(RecoveryError::Unavailable)
+				Err(RecoveryError::Invalid)
 			},
 		}
 	}
