@@ -79,9 +79,12 @@ fn open_hrmp_channel_between_paras_works() {
 				},
 				// Open channel requested from Para A to Para B
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::OpenChannelRequested(
-						sender, recipient, max_capacity, max_message_size
-					)
+					polkadot_runtime_parachains::hrmp::Event::OpenChannelRequested {
+						sender,
+						recipient,
+						proposed_max_capacity: max_capacity,
+						proposed_max_message_size: max_message_size
+					}
 				) => {
 					sender: *sender == para_a_id.into(),
 					recipient: *recipient == para_b_id.into(),
@@ -133,9 +136,9 @@ fn open_hrmp_channel_between_paras_works() {
 				},
 				// Open channel accepted for Para A to Para B
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::OpenChannelAccepted(
+					polkadot_runtime_parachains::hrmp::Event::OpenChannelAccepted {
 						sender, recipient
-					)
+					}
 				) => {
 					sender: *sender == para_a_id.into(),
 					recipient: *recipient == para_b_id.into(),
@@ -175,9 +178,12 @@ fn force_open_hrmp_channel_for_system_para_works() {
 			vec![
 				// HRMP channel forced opened
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::HrmpChannelForceOpened(
-						sender, recipient, max_capacity, max_message_size
-					)
+					polkadot_runtime_parachains::hrmp::Event::HrmpChannelForceOpened{
+						sender,
+						recipient,
+						proposed_max_capacity: max_capacity,
+						proposed_max_message_size: max_message_size
+					}
 				) => {
 					sender: *sender == system_para_id.into(),
 					recipient: *recipient == para_a_id.into(),

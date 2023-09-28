@@ -20,7 +20,7 @@ use super::*;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames, ValidationVersion},
 	request_response::ReqProtocolNames,
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId, Versioned,
+	v1 as protocol_v1, v2 as protocol_v2, PeerId, Versioned,
 };
 
 use polkadot_node_subsystem::{
@@ -203,7 +203,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::VStaging(msg) => send_validation_message_vstaging(
+				Versioned::V2(msg) => send_validation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -226,7 +226,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::VStaging(msg) => send_validation_message_vstaging(
+					Versioned::V2(msg) => send_validation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -249,7 +249,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::VStaging(msg) => send_collation_message_vstaging(
+				Versioned::V2(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -272,7 +272,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::VStaging(msg) => send_collation_message_vstaging(
+					Versioned::V2(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -294,13 +294,11 @@ where
 					Requests::AvailableDataFetchingV1(_) =>
 						metrics.on_message("available_data_fetching_v1"),
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
-					Requests::CollationFetchingVStaging(_) =>
-						metrics.on_message("collation_fetching_vstaging"),
+					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
 					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
-					Requests::AttestedCandidateVStaging(_) =>
-						metrics.on_message("attested_candidate_vstaging"),
+					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
 				}
 
 				network_service
@@ -421,32 +419,32 @@ fn send_collation_message_v1(
 	);
 }
 
-fn send_validation_message_vstaging(
+fn send_validation_message_v2(
 	peers: Vec<PeerId>,
-	message: WireMessage<protocol_vstaging::ValidationProtocol>,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
 	metrics: &Metrics,
 	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) {
 	send_message(
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V2.into(),
 		message,
 		metrics,
 		notification_sinks,
 	);
 }
 
-fn send_collation_message_vstaging(
+fn send_collation_message_v2(
 	peers: Vec<PeerId>,
-	message: WireMessage<protocol_vstaging::CollationProtocol>,
+	message: WireMessage<protocol_v2::CollationProtocol>,
 	metrics: &Metrics,
 	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) {
 	send_message(
 		peers,
 		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
+		CollationVersion::V2.into(),
 		message,
 		metrics,
 		notification_sinks,

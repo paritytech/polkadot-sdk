@@ -377,10 +377,10 @@ fn network_protocol_versioning_send() {
 
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::VStaging),
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
 			(peer_ids[1], PeerSet::Collation, ValidationVersion::V1),
 			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::VStaging),
+			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
 		];
 
 		for &(peer_id, peer_set, version) in &peers {
@@ -395,9 +395,9 @@ fn network_protocol_versioning_send() {
 
 		{
 			let approval_distribution_message =
-				protocol_vstaging::ApprovalDistributionMessage::Approvals(Vec::new());
+				protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
 
-			let msg = protocol_vstaging::ValidationProtocol::ApprovalDistribution(
+			let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
 				approval_distribution_message.clone(),
 			);
 
@@ -408,7 +408,7 @@ fn network_protocol_versioning_send() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendValidationMessage(
 						receivers.clone(),
-						Versioned::VStaging(msg.clone()),
+						Versioned::V2(msg.clone()),
 					),
 				})
 				.timeout(TIMEOUT)
@@ -434,15 +434,14 @@ fn network_protocol_versioning_send() {
 		// send a collation protocol message.
 
 		{
-			let collator_protocol_message = protocol_vstaging::CollatorProtocolMessage::Declare(
+			let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
 				Sr25519Keyring::Alice.public().into(),
 				0_u32.into(),
 				dummy_collator_signature(),
 			);
 
-			let msg = protocol_vstaging::CollationProtocol::CollatorProtocol(
-				collator_protocol_message.clone(),
-			);
+			let msg =
+				protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 			let receivers = vec![peer_ids[1], peer_ids[2]];
 
@@ -450,7 +449,7 @@ fn network_protocol_versioning_send() {
 				.send(FromOrchestra::Communication {
 					msg: NetworkBridgeTxMessage::SendCollationMessages(vec![(
 						receivers.clone(),
-						Versioned::VStaging(msg.clone()),
+						Versioned::V2(msg.clone()),
 					)]),
 				})
 				.await;
