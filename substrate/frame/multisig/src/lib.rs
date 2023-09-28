@@ -614,7 +614,7 @@ pub mod pallet {
 		/// - I/O: 2 reads `O(S)`, up to two removes.
 		/// - Storage: removes up to two items.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::cancel_as_multi(signatories.len() as u32))]
+		#[pallet::weight(T::WeightInfo::clear_expired_multi(signatories.len() as u32))]
 		pub fn clear_expired_multi(
 			origin: OriginFor<T>,
 			threshold: u16,
