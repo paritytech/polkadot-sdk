@@ -226,7 +226,7 @@ struct ImportJustificationsAction<B: BlockT> {
 enum OnBlockResponse<B: BlockT> {
 	/// Nothing to do
 	Nothing,
-	/// Perform block request or drop stale block request.
+	/// Perform block request.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
 	/// Import blocks.
 	ImportBlocks(ImportBlocksAction<B>),
@@ -1465,6 +1465,7 @@ where
 	}
 
 	/// Process blocks received in a response.
+	#[must_use]
 	pub(crate) fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
@@ -1526,6 +1527,8 @@ where
 		}
 	}
 
+	/// Process state received in a response.
+	#[must_use]
 	pub fn on_state_response(
 		&mut self,
 		peer_id: PeerId,

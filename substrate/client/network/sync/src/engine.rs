@@ -1207,7 +1207,8 @@ where
 							match self.chain_sync.on_block_response(peer_id, req, blocks) {
 								OnBlockResponse::SendBlockRequest { peer_id, request } =>
 									self.send_block_request(peer_id, request),
-								OnBlockResponse::ImportBlocks(action) => self.import_blocks(action),
+								OnBlockResponse::ImportBlocks(import_blocks_action) =>
+									self.import_blocks(import_blocks_action),
 								OnBlockResponse::ImportJustifications(action) =>
 									self.import_justifications(action),
 								OnBlockResponse::Nothing => {},
@@ -1256,7 +1257,11 @@ where
 						},
 					};
 
-					self.chain_sync.on_state_response(peer_id, response);
+					if let Some(import_blocks_action) =
+						self.chain_sync.on_state_response(peer_id, response)
+					{
+						self.import_blocks(import_blocks_action);
+					}
 				},
 				PeerRequest::WarpProof => {
 					self.chain_sync.on_warp_sync_response(peer_id, EncodedProof(resp));
