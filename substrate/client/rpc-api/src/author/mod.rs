@@ -25,20 +25,6 @@ use sp_core::Bytes;
 pub mod error;
 pub mod hash;
 
-/// Output of [`AuthorApi::rotate_keys_with_owner`].
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct GeneratedSessionKeys {
-	/// The public session keys for registering them on chain.
-	pub keys: Bytes,
-
-	/// The `proof` for verifying ownership of the generated session keys.
-	///
-	/// This will be `None` iff the chain doesn't support generating the `proof`.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(default)]
-	pub proof: Option<Bytes>,
-}
-
 /// Substrate authoring RPC API
 #[rpc(client, server)]
 pub trait AuthorApi<Hash, BlockHash> {
