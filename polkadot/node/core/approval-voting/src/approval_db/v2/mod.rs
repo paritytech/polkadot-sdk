@@ -62,9 +62,10 @@ impl V1ReadBackend for DbBackend {
 	fn load_candidate_entry_v1(
 		&self,
 		candidate_hash: &CandidateHash,
+		candidate_index: CandidateIndex,
 	) -> SubsystemResult<Option<persisted_entries::CandidateEntry>> {
 		load_candidate_entry_v1(&*self.inner, &self.config, candidate_hash)
-			.map(|e| e.map(Into::into))
+			.map(|e| e.map(|e| persisted_entries::CandidateEntry::from_v1(e, candidate_index)))
 	}
 
 	fn load_block_entry_v1(
@@ -205,9 +206,8 @@ pub struct TrancheEntry {
 pub struct OurApproval {
 	/// The signature for the candidates hashes pointed by indices.
 	pub signature: ValidatorSignature,
-	/// The indices of the candidates signed in this approval, an empty value means only
-	/// the candidate referred by this approval entry was signed.
-	pub signed_candidates_indices: Option<CandidateBitfield>,
+	/// The indices of the candidates signed in this approval.
+	pub signed_candidates_indices: CandidateBitfield,
 }
 
 /// Metadata regarding approval of a particular candidate within the context of some
@@ -270,7 +270,7 @@ pub struct CandidateSigningContext {
 	/// The candidate hash, to be included in the signature.
 	pub candidate_hash: CandidateHash,
 	/// The latest tick we have to create and send the approval.
-	pub send_no_later_than_tick: Tick,
+	pub sign_no_later_than_tick: Tick,
 }
 
 impl From<crate::Tick> for Tick {

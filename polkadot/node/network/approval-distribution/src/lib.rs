@@ -134,7 +134,7 @@ enum ApprovalEntryError {
 	CandidateIndexOutOfBounds,
 	InvalidCandidateIndex,
 	DuplicateApproval,
-	CouldNotFindAssignment,
+	UnknownAssignment,
 	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
@@ -580,7 +580,7 @@ impl BlockEntry {
 		if let Some(required_routing) = required_routing {
 			Ok(required_routing)
 		} else {
-			Err(ApprovalEntryError::CouldNotFindAssignment)
+			Err(ApprovalEntryError::UnknownAssignment)
 		}
 	}
 

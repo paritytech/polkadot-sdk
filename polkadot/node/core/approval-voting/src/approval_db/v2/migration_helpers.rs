@@ -86,11 +86,13 @@ pub fn v1_to_v2(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	let mut counter = 0;
 	// Get all candidate entries, approval entries and convert each of them.
 	for block in all_blocks {
-		for (_core_index, candidate_hash) in block.candidates() {
+		for (candidate_index, (_core_index, candidate_hash)) in
+			block.candidates().iter().enumerate()
+		{
 			// Loading the candidate will also perform the conversion to the updated format and
 			// return that represantation.
 			if let Some(candidate_entry) = backend
-				.load_candidate_entry_v1(&candidate_hash)
+				.load_candidate_entry_v1(&candidate_hash, candidate_index as CandidateIndex)
 				.map_err(|e| Error::InternalError(e))?
 			{
 				// Write the updated representation.

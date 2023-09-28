@@ -20,6 +20,7 @@
 //! Within that context, things are plain-old-data. Within this module,
 //! data and logic are intertwined.
 
+use itertools::Itertools;
 use polkadot_node_primitives::approval::{
 	v1::{DelayTranche, RelayVRFStory},
 	v2::{AssignmentCertV2, CandidateBitfield},
@@ -93,22 +94,22 @@ impl From<OurApproval> for crate::approval_db::v2::OurApproval {
 	}
 }
 
-impl From<ValidatorSignature> for OurApproval {
-	fn from(value: ValidatorSignature) -> Self {
-		Self { signature: value, signed_candidates_indices: Default::default() }
-	}
-}
-
 /// Metadata about our approval signature
 #[derive(Debug, Clone, PartialEq)]
 pub struct OurApproval {
 	/// The signature for the candidates hashes pointed by indices.
 	pub signature: ValidatorSignature,
-	/// The indices of the candidates signed in this approval, an empty value means only
-	/// the candidate referred by this approval entry was signed.
-	pub signed_candidates_indices: Option<CandidateBitfield>,
+	/// The indices of the candidates signed in this approval.
+	pub signed_candidates_indices: CandidateBitfield,
 }
 
+impl OurApproval {
+	/// Converts a ValidatorSignature to an OurApproval.
+	/// It used in converting the database from v1 to v2.
+	pub fn from_v1(value: ValidatorSignature, candidate_index: CandidateIndex) -> Self {
+		Self { signature: value, signed_candidates_indices: candidate_index.into() }
+	}
+}
 /// Metadata regarding approval of a particular candidate within the context of some
 /// particular block.
 #[derive(Debug, Clone, PartialEq)]
@@ -265,6 +266,23 @@ impl ApprovalEntry {
 			(None, None)
 		}
 	}
+
+	// Convert an ApprovalEntry from v1 version to a v2 version
+	pub fn from_v1(
+		value: crate::approval_db::v1::ApprovalEntry,
+		candidate_index: CandidateIndex,
+	) -> Self {
+		ApprovalEntry {
+			tranches: value.tranches.into_iter().map(|tranche| tranche.into()).collect(),
+			backing_group: value.backing_group,
+			our_assignment: value.our_assignment.map(|assignment| assignment.into()),
+			our_approval_sig: value
+				.our_approval_sig
+				.map(|sig| OurApproval::from_v1(sig, candidate_index)),
+			assigned_validators: value.assignments,
+			approved: value.approved,
+		}
+	}
 }
 
 impl From<crate::approval_db::v2::ApprovalEntry> for ApprovalEntry {
@@ -336,6 +354,23 @@ impl CandidateEntry {
 	pub fn approval_entry(&self, block_hash: &Hash) -> Option<&ApprovalEntry> {
 		self.block_assignments.get(block_hash)
 	}
+
+	/// Convert a CandidateEntry from a v1 to its v2 equivalent.
+	pub fn from_v1(
+		value: crate::approval_db::v1::CandidateEntry,
+		candidate_index: CandidateIndex,
+	) -> Self {
+		Self {
+			approvals: value.approvals,
+			block_assignments: value
+				.block_assignments
+				.into_iter()
+				.map(|(h, ae)| (h, ApprovalEntry::from_v1(ae, candidate_index)))
+				.collect(),
+			candidate: value.candidate,
+			session: value.session,
+		}
+	}
 }
 
 impl From<crate::approval_db::v2::CandidateEntry> for CandidateEntry {
@@ -398,7 +433,7 @@ pub struct BlockEntry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CandidateSigningContext {
 	pub candidate_hash: CandidateHash,
-	pub send_no_later_than_tick: Tick,
+	pub sign_no_later_than_tick: Tick,
 }
 
 impl BlockEntry {
@@ -495,11 +530,11 @@ impl BlockEntry {
 		&mut self,
 		candidate_index: CandidateIndex,
 		candidate_hash: CandidateHash,
-		send_no_later_than_tick: Tick,
+		sign_no_later_than_tick: Tick,
 	) -> Option<CandidateSigningContext> {
 		self.candidates_pending_signature.insert(
 			candidate_index,
-			CandidateSigningContext { candidate_hash, send_no_later_than_tick },
+			CandidateSigningContext { candidate_hash, sign_no_later_than_tick },
 		)
 	}
 
@@ -514,7 +549,7 @@ impl BlockEntry {
 	}
 
 	/// Candidate hashes  for candidates pending signatures
-	pub fn candidate_hashes_pending_signature(&self) -> Vec<CandidateHash> {
+	fn candidate_hashes_pending_signature(&self) -> Vec<CandidateHash> {
 		self.candidates_pending_signature
 			.values()
 			.map(|unsigned_approval| unsigned_approval.candidate_hash)
@@ -522,15 +557,55 @@ impl BlockEntry {
 	}
 
 	/// Candidate indices for candidates pending signature
-	pub fn candidate_indices_pending_signature(&self) -> Vec<CandidateIndex> {
-		self.candidates_pending_signature.keys().map(|val| *val).collect()
+	fn candidate_indices_pending_signature(&self) -> CandidateBitfield {
+		self.candidates_pending_signature
+			.keys()
+			.map(|val| *val)
+			.collect_vec()
+			.try_into()
+			.expect("Fails only of array empty, it can't be, qed")
 	}
 
-	/// Returns the candidate that has been longest in the queue.
-	pub fn longest_waiting_candidate_signature(&self) -> Option<&CandidateSigningContext> {
-		self.candidates_pending_signature
+	/// Returns a list of candidates hashes that need need signature created at the current tick:
+	/// This might happen in other of the two reasons:
+	/// 1. We queued more than max_approval_coalesce_count candidates.
+	/// 2. We have candidates that waiting in the queue past their `sign_no_later_than_tick`
+	///
+	/// Additionally, we also return the first tick when we will have to create a signature,
+	/// so that the caller can arm the timer if it is not already armed.
+	pub fn get_candidates_that_need_signature(
+		&self,
+		tick_now: Tick,
+		max_approval_coalesce_count: u32,
+	) -> (Option<(Vec<CandidateHash>, CandidateBitfield)>, Option<Tick>) {
+		let sign_no_later_than_tick = self
+			.candidates_pending_signature
 			.values()
-			.min_by(|a, b| a.send_no_later_than_tick.cmp(&b.send_no_later_than_tick))
+			.min_by(|a, b| a.sign_no_later_than_tick.cmp(&b.sign_no_later_than_tick))
+			.map(|val| val.sign_no_later_than_tick);
+
+		if let Some(sign_no_later_than_tick) = sign_no_later_than_tick {
+			if sign_no_later_than_tick <= tick_now ||
+				self.num_candidates_pending_signature() >= max_approval_coalesce_count as usize
+			{
+				(
+					Some((
+						self.candidate_hashes_pending_signature(),
+						self.candidate_indices_pending_signature(),
+					)),
+					Some(sign_no_later_than_tick),
+				)
+			} else {
+				// We can still wait for other candidates to queue in, so just make sure
+				// we wake up at the tick we have to sign the longest waiting candidate.
+				(Default::default(), Some(sign_no_later_than_tick))
+			}
+		} else {
+			// No cached candidates, nothing to do here, this just means the timer fired,
+			// but the signatures were already sent because we gathered more than
+			// max_approval_coalesce_count.
+			(Default::default(), sign_no_later_than_tick)
+		}
 	}
 
 	/// Signals the approval was issued for the candidates pending signature
@@ -605,7 +680,7 @@ impl From<crate::approval_db::v2::CandidateSigningContext> for CandidateSigningC
 	fn from(signing_context: crate::approval_db::v2::CandidateSigningContext) -> Self {
 		Self {
 			candidate_hash: signing_context.candidate_hash,
-			send_no_later_than_tick: signing_context.send_no_later_than_tick.into(),
+			sign_no_later_than_tick: signing_context.sign_no_later_than_tick.into(),
 		}
 	}
 }
@@ -614,36 +689,7 @@ impl From<CandidateSigningContext> for crate::approval_db::v2::CandidateSigningC
 	fn from(signing_context: CandidateSigningContext) -> Self {
 		Self {
 			candidate_hash: signing_context.candidate_hash,
-			send_no_later_than_tick: signing_context.send_no_later_than_tick.into(),
-		}
-	}
-}
-
-/// Migration helpers.
-impl From<crate::approval_db::v1::CandidateEntry> for CandidateEntry {
-	fn from(value: crate::approval_db::v1::CandidateEntry) -> Self {
-		Self {
-			approvals: value.approvals,
-			block_assignments: value
-				.block_assignments
-				.into_iter()
-				.map(|(h, ae)| (h, ae.into()))
-				.collect(),
-			candidate: value.candidate,
-			session: value.session,
-		}
-	}
-}
-
-impl From<crate::approval_db::v1::ApprovalEntry> for ApprovalEntry {
-	fn from(value: crate::approval_db::v1::ApprovalEntry) -> Self {
-		ApprovalEntry {
-			tranches: value.tranches.into_iter().map(|tranche| tranche.into()).collect(),
-			backing_group: value.backing_group,
-			our_assignment: value.our_assignment.map(|assignment| assignment.into()),
-			our_approval_sig: value.our_approval_sig.map(Into::into),
-			assigned_validators: value.assignments,
-			approved: value.approved,
+			sign_no_later_than_tick: signing_context.sign_no_later_than_tick.into(),
 		}
 	}
 }

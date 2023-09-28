@@ -467,13 +467,15 @@ mod tests {
 
 	#[test]
 	fn pending_is_not_approved() {
-		let candidate = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: 0,
-			block_assignments: BTreeMap::default(),
-			approvals: BitVec::default(),
-		}
-		.into();
+		let candidate = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: 0,
+				block_assignments: BTreeMap::default(),
+				approvals: BitVec::default(),
+			},
+			0,
+		);
 
 		let approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
@@ -500,13 +502,15 @@ mod tests {
 
 	#[test]
 	fn exact_takes_only_assignments_up_to() {
-		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: 0,
-			block_assignments: BTreeMap::default(),
-			approvals: bitvec![u8, BitOrderLsb0; 0; 10],
-		}
-		.into();
+		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: 0,
+				block_assignments: BTreeMap::default(),
+				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
+			},
+			0,
+		);
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));
@@ -572,13 +576,15 @@ mod tests {
 
 	#[test]
 	fn one_honest_node_always_approves() {
-		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: 0,
-			block_assignments: BTreeMap::default(),
-			approvals: bitvec![u8, BitOrderLsb0; 0; 10],
-		}
-		.into();
+		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: 0,
+				block_assignments: BTreeMap::default(),
+				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
+			},
+			0,
+		);
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));
@@ -1043,13 +1049,15 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 3;
 
-		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: 0,
-			block_assignments: BTreeMap::default(),
-			approvals: bitvec![u8, BitOrderLsb0; 0; 3],
-		}
-		.into();
+		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: 0,
+				block_assignments: BTreeMap::default(),
+				approvals: bitvec![u8, BitOrderLsb0; 0; 3],
+			},
+			0,
+		);
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));

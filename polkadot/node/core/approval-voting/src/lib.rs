@@ -1346,7 +1346,7 @@ fn distribution_messages_for_activation(
 			session: block_entry.session(),
 		});
 		let mut signatures_queued = HashSet::new();
-		for (i, (_, candidate_hash)) in block_entry.candidates().iter().enumerate() {
+		for (_, candidate_hash) in block_entry.candidates() {
 			let _candidate_span =
 				distribution_message_span.child("candidate").with_candidate(*candidate_hash);
 			let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
@@ -1449,14 +1449,14 @@ fn distribution_messages_for_activation(
 										continue
 									},
 								}
-								let candidate_indices = approval_sig
-									.signed_candidates_indices
-									.unwrap_or((i as CandidateIndex).into());
-								if signatures_queued.insert(candidate_indices.clone()) {
+								if signatures_queued
+									.insert(approval_sig.signed_candidates_indices.clone())
+								{
 									messages.push(ApprovalDistributionMessage::DistributeApproval(
 										IndirectSignedApprovalVoteV2 {
 											block_hash,
-											candidate_indices,
+											candidate_indices: approval_sig
+												.signed_candidates_indices,
 											validator: assignment.validator_index(),
 											signature: approval_sig.signature,
 										},
@@ -3384,23 +3384,15 @@ async fn maybe_create_signature<Context>(
 		target: LOG_TARGET,
 		"Candidates pending signatures {:}", block_entry.num_candidates_pending_signature()
 	);
-
-	let oldest_candidate_to_sign = match block_entry.longest_waiting_candidate_signature() {
-		Some(candidate) => candidate,
-		// No cached candidates, nothing to do here, this just means the timer fired,
-		// but the signatures were already sent because we gathered more than
-		// max_approval_coalesce_count.
-		None => return Ok(None),
-	};
-
 	let tick_now = state.clock.tick_now();
 
-	if oldest_candidate_to_sign.send_no_later_than_tick > tick_now &&
-		(block_entry.num_candidates_pending_signature() as u32) <
-			approval_params.max_approval_coalesce_count
-	{
-		return Ok(Some(oldest_candidate_to_sign.send_no_later_than_tick))
-	}
+	let (candidates_to_sign, sign_no_later_then) = block_entry
+		.get_candidates_that_need_signature(tick_now, approval_params.max_approval_coalesce_count);
+
+	let (candidates_hashes, candidates_indices) = match candidates_to_sign {
+		Some(candidates_to_sign) => candidates_to_sign,
+		None => return Ok(sign_no_later_then),
+	};
 
 	let session_info = match get_session_info(
 		session_info_provider,
@@ -3436,12 +3428,10 @@ async fn maybe_create_signature<Context>(
 		},
 	};
 
-	let candidate_hashes = block_entry.candidate_hashes_pending_signature();
-
 	let signature = match sign_approval(
 		&state.keystore,
 		&validator_pubkey,
-		candidate_hashes.clone(),
+		candidates_hashes.clone(),
 		block_entry.session(),
 	) {
 		Some(sig) => sig,
@@ -3457,13 +3447,12 @@ async fn maybe_create_signature<Context>(
 			return Ok(None)
 		},
 	};
+	metrics.on_approval_coalesce(candidates_hashes.len() as u32);
 
-	let candidate_entries = candidate_hashes
+	let candidate_entries = candidates_hashes
 		.iter()
 		.map(|candidate_hash| db.load_candidate_entry(candidate_hash))
 		.collect::<SubsystemResult<Vec<Option<CandidateEntry>>>>()?;
-
-	let candidate_indices = block_entry.candidate_indices_pending_signature();
 
 	for candidate_entry in candidate_entries {
 		let mut candidate_entry = candidate_entry
@@ -3473,26 +3462,17 @@ async fn maybe_create_signature<Context>(
 			.expect("Candidate was scheduled to be signed entry in db should exist; qed");
 		approval_entry.import_approval_sig(OurApproval {
 			signature: signature.clone(),
-			signed_candidates_indices: Some(
-				candidate_indices
-					.clone()
-					.try_into()
-					.expect("Fails only of array empty, it can't be, qed"),
-			),
+			signed_candidates_indices: candidates_indices.clone(),
 		});
 		db.write_candidate_entry(candidate_entry);
 	}
-
-	metrics.on_approval_coalesce(candidate_indices.len() as u32);
 
 	metrics.on_approval_produced();
 
 	ctx.send_unbounded_message(ApprovalDistributionMessage::DistributeApproval(
 		IndirectSignedApprovalVoteV2 {
 			block_hash: block_entry.block_hash(),
-			candidate_indices: candidate_indices
-				.try_into()
-				.expect("Fails only of array empty, it can't be, qed"),
+			candidate_indices: candidates_indices,
 			validator: validator_index,
 			signature,
 		},

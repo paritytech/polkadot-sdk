@@ -22,7 +22,7 @@
 //! before any commit to the underlying storage is made.
 
 use polkadot_node_subsystem::SubsystemResult;
-use polkadot_primitives::{BlockNumber, CandidateHash, Hash};
+use polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
 
 use std::collections::HashMap;
 
@@ -72,6 +72,7 @@ pub trait V1ReadBackend: Backend {
 	fn load_candidate_entry_v1(
 		&self,
 		candidate_hash: &CandidateHash,
+		candidate_index: CandidateIndex,
 	) -> SubsystemResult<Option<CandidateEntry>>;
 
 	/// Load a block entry from the DB with scheme version 1.

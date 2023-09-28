@@ -280,6 +280,7 @@ impl V1ReadBackend for TestStoreInner {
 	fn load_candidate_entry_v1(
 		&self,
 		candidate_hash: &CandidateHash,
+		_candidate_index: CandidateIndex,
 	) -> SubsystemResult<Option<CandidateEntry>> {
 		self.load_candidate_entry(candidate_hash)
 	}
@@ -363,6 +364,7 @@ impl V1ReadBackend for TestStore {
 	fn load_candidate_entry_v1(
 		&self,
 		candidate_hash: &CandidateHash,
+		_candidate_index: CandidateIndex,
 	) -> SubsystemResult<Option<CandidateEntry>> {
 		self.load_candidate_entry(candidate_hash)
 	}
