@@ -89,7 +89,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running post_upgrade() for HostConfiguration MigrateToV10");
 		ensure!(
-			Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(10)
+			Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(10),
 			"Storage version should be >= 10 after the migration"
 		);
 
