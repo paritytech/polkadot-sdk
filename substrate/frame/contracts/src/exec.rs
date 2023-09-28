@@ -912,7 +912,7 @@ where
 
 			let call_span = T::Debug::new_call_span(contract_address, entry_point, &input_data);
 
-			let output = T::Debug::intercept_call(contract_address, entry_point, &input_data)
+			let output = T::Debug::intercept_call(contract_address, &entry_point, &input_data)
 				.unwrap_or_else(|| {
 					executable
 						.execute(self, &entry_point, input_data)
