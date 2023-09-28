@@ -331,24 +331,35 @@ where
 					))
 				};
 				let mut maybe_compiled_artifact = None;
+				
+				let artifact_version = compute_artifact_version(
+					allow_missing_func_imports,
+					code_hash,
+					&semantics,
+				);
+				log::debug!(
+					target: "wasmtime-runtime", 
+					"Searching for wasm hash: {}", 
+					artifact_version.clone()
+				);
+
 				for entry in std::fs::read_dir(wasmtime_precompiled_dir).map_err(handle_err)? {
 					let entry = entry.map_err(handle_err)?;
 					if let Some(file_name) = entry.file_name().to_str() {
-						let artifact_version = compute_artifact_version(
-							allow_missing_func_imports,
-							code_hash,
-							&semantics,
-						);
-
 						// We check that the artifact was generated for this specific artifact
 						// version and with the same wasm interface version and configuration.
-						if file_name.contains(&artifact_version) {
+						if file_name.contains(&artifact_version.clone()) {
+							log::info!(
+								target: "wasmtime-runtime", 
+								"Found precompiled wasm: {}", 
+								file_name
+							);
 							// We change the version check strategy to make sure that the file
 							// content was serialized with the exact same config as well
 							maybe_compiled_artifact = Some((
 								entry.path(),
 								sc_executor_wasmtime::ModuleVersionStrategy::Custom(
-									artifact_version,
+									artifact_version.clone(),
 								),
 							));
 						}
@@ -410,7 +421,6 @@ where
 
 /// Create and serialize a precompiled artifact of a wasm runtime with the given `code`.
 pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
-	allow_missing_func_imports: bool,
 	heap_alloc_strategy: HeapAllocStrategy,
 	runtime_code: &'c RuntimeCode<'c>,
 	wasm_method: WasmExecutionMethod,
@@ -434,7 +444,12 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	let code_hash = &runtime_code.hash;
 
 	let artifact_version =
-		compute_artifact_version(allow_missing_func_imports, code_hash, &semantics);
+		compute_artifact_version(false, code_hash, &semantics);
+	log::debug!(
+		target: "wasmtime-runtime", 
+		"Generated precompiled wasm hash: {}", 
+		artifact_version.clone()
+	);
 
 	let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
 
@@ -450,7 +465,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 
 	// Write in a file
 	let mut file = std::fs::File::create(
-		wasmtime_precompiled_path.join(format!("precompiled_wasm_0x{}", &artifact_version)),
+		wasmtime_precompiled_path.join(format!("precompiled_wasm_{}", &artifact_version)),
 	)
 	.map_err(|e| {
 		WasmError::Other(format!(
@@ -472,6 +487,11 @@ fn compute_artifact_version(
 	code_hash: &[u8],
 	semantics: &sc_executor_wasmtime::Semantics,
 ) -> String {
+	log::trace!(
+		target: "wasmtime-runtime", 
+		"Computing wasm runtime hash [allow_missing_func_imports: {}, code_hash: {:?}, semantics: {:?}]", 
+		allow_missing_func_imports, code_hash, semantics
+	);
 	let mut buffer = Vec::new();
 	buffer.extend_from_slice(code_hash);
 	buffer.extend_from_slice(sp_wasm_interface::VERSION.as_bytes());

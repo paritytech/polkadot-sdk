@@ -312,7 +312,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 /// See [here][stack_height] for more details of the instrumentation
 ///
 /// [stack_height]: https://github.com/paritytech/wasm-utils/blob/d9432baf/src/stack_height/mod.rs#L1-L50
-#[derive(Clone, codec::Encode)]
+#[derive(Debug, Clone, codec::Encode)]
 pub struct DeterministicStackLimit {
 	/// A number of logical "values" that can be pushed on the wasm stack. A trap will be triggered
 	/// if exceeded.
@@ -366,7 +366,7 @@ enum InternalInstantiationStrategy {
 	Builtin,
 }
 
-#[derive(Clone, codec::Encode)]
+#[derive(Debug, Clone, codec::Encode)]
 pub struct Semantics {
 	/// The instantiation strategy to use.
 	pub instantiation_strategy: InstantiationStrategy,

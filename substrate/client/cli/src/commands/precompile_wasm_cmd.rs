@@ -94,7 +94,6 @@ impl PrecompileWasmCmd {
 			let state = backend.state_at(backend.blockchain().info().finalized_hash)?;
 	
 			precompile_and_serialize_versioned_wasm_runtime(
-				true,
 				HeapAllocStrategy::Static { extra_pages: heap_pages },
 				&BackendRuntimeCode::new(&state).runtime_code()?,
 				execution_method_from_cli(
@@ -113,7 +112,6 @@ impl PrecompileWasmCmd {
 					heap_pages: Some(heap_pages as u64),
 				};
 				precompile_and_serialize_versioned_wasm_runtime(
-					true,
 					HeapAllocStrategy::Static { extra_pages: heap_pages },
 					&runtime_code,
 					execution_method_from_cli(
