@@ -713,6 +713,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				admin: owner.clone(),
 				freezer: owner.clone(),
 				supply: Zero::zero(),
+				inactive: Zero::zero(),
 				deposit: Zero::zero(),
 				min_balance,
 				is_sufficient,

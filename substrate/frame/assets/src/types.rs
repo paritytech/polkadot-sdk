@@ -60,6 +60,8 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	pub(super) freezer: AccountId,
 	/// The total supply across all accounts.
 	pub(super) supply: Balance,
+	/// The total units of deactivated supply across all accounts.
+	pub(super) inactive: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
 	pub(super) deposit: DepositBalance,
 	/// The ED for virtual accounts.
