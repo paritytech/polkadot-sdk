@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::*;
+use syn::parse_quote;
 
 #[macro_export]
 macro_rules! assert_error_matches {
@@ -86,3 +87,61 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut()>(path: P, clo
 }
 
 mod tasks;
+
+#[test]
+fn test_parse_minimal_pallet() {
+	simulate_manifest_dir("../../examples/basic", || {
+		Def::try_from(
+			parse_quote! {
+				#[frame_support::pallet]
+				pub mod pallet {
+					#[pallet::config]
+					pub trait Config: frame_system::Config {}
+
+					#[pallet::pallet]
+					pub struct Pallet<T>(_);
+				}
+			},
+			false,
+		)
+		.unwrap();
+	});
+}
+
+#[test]
+fn test_parse_pallet_missing_config() {
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			Def::try_from(
+				parse_quote! {
+					#[frame_support::pallet]
+					pub mod pallet {
+						#[pallet::config]
+						pub trait Config: frame_system::Config {}
+					}
+				},
+				false
+			),
+			"Missing `\\#\\[pallet::pallet\\]`"
+		);
+	});
+}
+
+#[test]
+fn test_parse_pallet_missing_pallet() {
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			Def::try_from(
+				parse_quote! {
+					#[frame_support::pallet]
+					pub mod pallet {
+						#[pallet::pallet]
+						pub struct Pallet<T>(_);
+					}
+				},
+				false
+			),
+			"Missing `\\#\\[pallet::config\\]`"
+		);
+	});
+}
