@@ -22,15 +22,11 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	pallet_prelude::StorageVersion,
 	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
-use sp_runtime::{
-	traits::{ConvertInto, Get},
-	TokenError,
-};
+use sp_runtime::{traits::ConvertInto, TokenError};
 
 fn asset_ids() -> Vec<u32> {
 	let mut s: Vec<_> = Assets::asset_ids().collect();
@@ -1780,11 +1776,13 @@ fn asset_destroy_refund_existence_deposit() {
 	});
 }
 
+#[cfg(all(feature = "try-runtime", test))]
 #[test]
 fn migrate_to_v2_works() {
 	new_test_ext().execute_with(|| {
 		use crate::migration::v2::old as v1;
-		use frame_support::traits::OnRuntimeUpgrade;
+		use frame_support::{pallet_prelude::StorageVersion, traits::OnRuntimeUpgrade};
+		use sp_runtime::traits::Get;
 		StorageVersion::new(1).put::<Pallet<Test, ()>>();
 
 		// Create an asset with id 1
