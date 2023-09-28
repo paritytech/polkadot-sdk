@@ -189,7 +189,7 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shoudln't work
+/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
 fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	// Init values for System Parachain
