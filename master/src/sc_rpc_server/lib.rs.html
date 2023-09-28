@@ -180,6 +180,8 @@
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -327,6 +329,8 @@
 
 <span class="kw">fn </span>build_rpc_api&lt;M: Send + Sync + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">mut </span>rpc_api: RpcModule&lt;M&gt;) -&gt; RpcModule&lt;M&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>available_methods = rpc_api.method_names().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+	<span class="comment">// The &quot;rpc_methods&quot; is defined below and we want it to be part of the reported methods.
+	</span>available_methods.push(<span class="string">&quot;rpc_methods&quot;</span>);
 	available_methods.sort();
 
 	rpc_api

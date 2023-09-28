@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["api","archive"]};
+window.SIDEBAR_ITEMS = {"mod":["api","archive","error"]};
