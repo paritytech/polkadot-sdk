@@ -113,7 +113,19 @@ where
 	}
 }
 
-/// Implement QueryKindTrait with query being `Value`
+/// Implement [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with query being `Value`
+/// 
+/// ## Example
+/// 
+/// The `ValueQuery` implementation exposes two generic type parameters: `Value` and `OnEmpty`. By
+/// default, all FRAME storage items set `OnEmpty` to
+/// [`GetDefault`](frame_support::traits::GetDefault). This returns `Default::default()` for `Value`
+/// types implementing [`Default`](core::default::Default) when the queried value is absent.
+/// However, the behavior for missing values can be altered with a custom `OnEmpty` implementation.
+#[doc = docify::embed!("src/storage/types/mod.rs", custom_onempty_implementation)]
+/// Using `OnEmpty = ADefault` causes storage items to return `42` when values are absent. For an
+/// overview of FRAME storage items and their use, refer to [crate::pallet_macros::storage].
+#[doc = docify::embed!("src/storage/types/mod.rs", test_valuequery_with_custom_onempty)]
 pub struct ValueQuery;
 impl<Value, OnEmpty> QueryKindTrait<Value, OnEmpty> for ValueQuery
 where
@@ -139,4 +151,41 @@ where
 pub trait StorageEntryMetadataBuilder {
 	/// Build into `entries` the storage metadata entries of a storage given some `docs`.
 	fn build_metadata(doc: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>);
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::{
+		storage::types::ValueQuery,
+		traits::{Get, StorageInstance},
+	};
+	use sp_io::TestExternalities;
+
+	// A custom `OnEmpty` implementation returning 42 consistently
+	struct ADefault;
+	#[docify::export(custom_onempty_implementation)]
+	impl Get<u32> for ADefault {
+		fn get() -> u32 {
+			42
+		}
+	}
+
+	struct Prefix;
+		impl StorageInstance for Prefix {
+ 			fn pallet_prefix() -> &'static str {
+ 			"test"
+		}
+		const STORAGE_PREFIX: &'static str = "foo";
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn test_valuequery_with_custom_onempty() {
+		type A = StorageValue<Prefix, u32, ValueQuery, ADefault>;
+		TestExternalities::default().execute_with(|| {
+			// Unset StorageValue should default to 42
+			assert_eq!(A::get(), 42);
+		});
+	}
 }
