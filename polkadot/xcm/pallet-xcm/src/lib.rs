@@ -1383,6 +1383,41 @@ impl<T: Config> Pallet<T> {
 		)
 	}
 
+	fn do_teleport_assets(
+		origin: OriginFor<T>,
+		dest: Box<VersionedMultiLocation>,
+		beneficiary: Box<VersionedMultiLocation>,
+		assets: Box<VersionedMultiAssets>,
+		fee_asset_item: u32,
+		weight_limit: WeightLimit,
+	) -> DispatchResult {
+		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
+		let beneficiary: MultiLocation =
+			(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
+		let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
+		let value = (origin_location, assets.into_inner());
+		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
+		let (origin_location, assets) = value;
+		for asset in assets.iter() {
+			let transfer_type = TransferType::determine_for::<T>(asset, &dest)?;
+			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
+		}
+		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
+
+		Self::build_and_execute_xcm_transfer_type(
+			origin_location,
+			dest,
+			beneficiary,
+			assets,
+			TransferType::Teleport,
+			fees,
+			weight_limit,
+		)
+	}
+
 	/// Teleport or reserve transfer `fees` - not to be used by itself, it is a helper function for
 	/// prefunding fees for subsequent assets transfer.
 	///
@@ -1426,7 +1461,8 @@ impl<T: Config> Pallet<T> {
 				fees,
 				weight_limit,
 			),
-			TransferType::Teleport => todo!(),
+			TransferType::Teleport =>
+				Self::teleport_asset_message(dest, beneficiary, assets, fees, weight_limit),
 		}?;
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
@@ -1519,55 +1555,25 @@ impl<T: Config> Pallet<T> {
 		]))
 	}
 
-	fn do_teleport_assets(
-		origin: OriginFor<T>,
-		dest: Box<VersionedMultiLocation>,
-		beneficiary: Box<VersionedMultiLocation>,
-		assets: Box<VersionedMultiAssets>,
-		fee_asset_item: u32,
+	fn teleport_asset_message(
+		dest: MultiLocation,
+		beneficiary: MultiLocation,
+		assets: Vec<MultiAsset>,
+		mut fees: MultiAsset,
 		weight_limit: WeightLimit,
-	) -> DispatchResult {
-		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
-		let beneficiary: MultiLocation =
-			(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
-		let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
-
-		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
-		let value = (origin_location, assets.into_inner());
-		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
-		let (origin_location, assets) = value;
-		for asset in assets.iter() {
-			ensure!(
-				<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(asset, &dest),
-				Error::<T>::Filtered
-			);
-		}
+	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
-		let fees = assets
-			.get(fee_asset_item as usize)
-			.ok_or(Error::<T>::Empty)?
-			.clone()
-			.reanchored(&dest, context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
-		let assets: MultiAssets = assets.into();
-		let xcm = Xcm(vec![
+		let xcm_on_dest = Xcm(vec![
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 		]);
-		let mut message = Xcm(vec![
-			WithdrawAsset(assets),
+		Ok(Xcm(vec![
+			WithdrawAsset(assets.into()),
 			SetFeesMode { jit_withdraw: true },
-			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm },
-		]);
-		let weight =
-			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
-		Ok(())
+			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
+		]))
 	}
 
 	/// Will always make progress, and will do its best not to use much more than `weight_cutoff`
