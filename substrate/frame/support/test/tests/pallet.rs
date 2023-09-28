@@ -2430,8 +2430,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Call `on_genesis` to put the storage version of `Example` into the storage.
-		Example::on_genesis();
+		// Set the on-chain version to one less than the current version for `Example`, simulating a
+		// forgotten migration
+		StorageVersion::new(9).put::<Example2>();
+
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
