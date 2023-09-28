@@ -79,9 +79,9 @@ fn open_hrmp_channel_between_paras_works() {
 				},
 				// Open channel requested from Para A to Para B
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::OpenChannelRequested(
-						sender, recipient, max_capacity, max_message_size
-					)
+					polkadot_runtime_parachains::hrmp::Event::OpenChannelRequested {
+						sender, recipient, proposed_max_capacity: max_capacity, proposed_max_message_size: max_message_size
+					}
 				) => {
 					sender: *sender == para_a_id.into(),
 					recipient: *recipient == para_b_id.into(),
@@ -133,9 +133,9 @@ fn open_hrmp_channel_between_paras_works() {
 				},
 				// Open channel accepted for Para A to Para B
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::OpenChannelAccepted(
+					polkadot_runtime_parachains::hrmp::Event::OpenChannelAccepted {
 						sender, recipient
-					)
+					}
 				) => {
 					sender: *sender == para_a_id.into(),
 					recipient: *recipient == para_b_id.into(),
@@ -159,12 +159,6 @@ fn force_open_hrmp_channel_for_system_para_works() {
 	// Parachain A init values
 	let para_a_id = PenpalPolkadotA::para_id();
 
-	let fund_amount = POLKADOT_ED * 1000_000_000;
-
-	// Fund Parachain's Sovereign accounts to be able to reserve the deposit
-	let system_para_sovereign_account = Polkadot::fund_para_sovereign(fund_amount, system_para_id);
-	let para_a_sovereign_account = Polkadot::fund_para_sovereign(fund_amount, para_a_id);
-
 	Polkadot::execute_with(|| {
 		assert_ok!(<Polkadot as PolkadotPallet>::Hrmp::force_open_hrmp_channel(
 			relay_root_origin,
@@ -179,19 +173,11 @@ fn force_open_hrmp_channel_for_system_para_works() {
 		assert_expected_events!(
 			Polkadot,
 			vec![
-				// Sender deposit is reserved for System Parachain's Sovereign account
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, .. }) =>{
-					who: *who == system_para_sovereign_account,
-				},
-				// Recipient deposit is reserved for Parachain's Sovereign account
-				RuntimeEvent::Balances(pallet_balances::Event::Reserved { who, .. }) =>{
-					who: *who == para_a_sovereign_account,
-				},
 				// HRMP channel forced opened
 				RuntimeEvent::Hrmp(
-					polkadot_runtime_parachains::hrmp::Event::HrmpChannelForceOpened(
-						sender, recipient, max_capacity, max_message_size
-					)
+					polkadot_runtime_parachains::hrmp::Event::HrmpChannelForceOpened{
+						sender, recipient, proposed_max_capacity: max_capacity, proposed_max_message_size: max_message_size
+					}
 				) => {
 					sender: *sender == system_para_id.into(),
 					recipient: *recipient == para_a_id.into(),

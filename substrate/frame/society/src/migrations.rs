@@ -95,7 +95,6 @@ impl<
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 0.
-#[cfg(feature = "experimental")]
 pub type VersionCheckedMigrateToV2<T, I, PastPayouts> =
 	frame_support::migrations::VersionedMigration<
 		0,
