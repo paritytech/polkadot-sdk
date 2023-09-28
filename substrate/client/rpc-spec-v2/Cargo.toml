@@ -31,7 +31,7 @@ serde = "1.0"
 hex = "0.4"
 futures = "0.3.21"
 parking_lot = "0.12.1"
-tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.22.0", features = ["sync"] }
 array-bytes = "6.1"
 log = "0.4.17"

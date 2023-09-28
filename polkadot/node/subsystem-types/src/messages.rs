@@ -727,7 +727,7 @@ impl RuntimeApiRequest {
 	pub const MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT: u32 = 6;
 
 	/// Minimum version to enable asynchronous backing: `AsyncBackingParams` and `ParaBackingState`.
-	pub const STAGING_BACKING_STATE: u32 = 7;
+	pub const ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT: u32 = 7;
 
 	/// `DisabledValidators`
 	pub const DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = 8;

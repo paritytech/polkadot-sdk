@@ -227,7 +227,6 @@ specialize_requests! {
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
-
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 }
 
