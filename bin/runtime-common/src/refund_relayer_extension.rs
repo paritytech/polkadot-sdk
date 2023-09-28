@@ -837,7 +837,10 @@ mod tests {
 		},
 		mock::*,
 	};
-	use bp_messages::{InboundLaneData, MessageNonce, OutboundLaneData, UnrewardedRelayersState};
+	use bp_messages::{
+		DeliveredMessages, InboundLaneData, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+		UnrewardedRelayersState,
+	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
 	use bp_runtime::HeaderId;
@@ -2184,6 +2187,40 @@ mod tests {
 				run_grandpa_validate(message_confirmation_call(200)),
 				Ok(Default::default()),
 			);
+		});
+	}
+
+	#[test]
+	fn does_not_panic_on_boosting_priority_of_empty_message_delivery_transaction() {
+		run_test(|| {
+			let best_delivered_message = MaxUnconfirmedMessagesAtInboundLane::get();
+			initialize_environment(100, 100, best_delivered_message);
+
+			// register relayer so it gets priority boost
+			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
+				.unwrap();
+
+			// allow empty message delivery transactions
+			let lane_id = TestLaneId::get();
+			let in_lane_data = InboundLaneData {
+				last_confirmed_nonce: 0,
+				relayers: vec![UnrewardedRelayer {
+					relayer: relayer_account_at_bridged_chain(),
+					messages: DeliveredMessages { begin: 1, end: best_delivered_message },
+				}]
+				.into(),
+			};
+			pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(lane_id, in_lane_data);
+
+			// now check that the priority of empty tx is the same as priority of 1-message tx
+			let priority_of_zero_messages_delivery =
+				run_validate(message_delivery_call(best_delivered_message)).unwrap().priority;
+			let priority_of_one_messages_delivery =
+				run_validate(message_delivery_call(best_delivered_message + 1))
+					.unwrap()
+					.priority;
+
+			assert_eq!(priority_of_zero_messages_delivery, priority_of_one_messages_delivery);
 		});
 	}
 }
