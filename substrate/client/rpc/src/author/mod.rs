@@ -132,19 +132,16 @@ where
 			#[allow(deprecated)]
 			runtime_api
 				.generate_session_keys_before_version_2(best_block_hash, None)
-				.map(|sk| GeneratedSessionKeys { keys: sk.into(), proof: None })
+				.map(Into::into)
 				.map_err(|api_err| Error::Client(Box::new(api_err)))
 		} else {
 			runtime_api
 				.generate_session_keys(best_block_hash, Vec::new(), None)
-				.map(|sk| GeneratedSessionKeys {
-					keys: sk.keys.into(),
-					proof: Some(sk.proof.into()),
-				})
+				.map(|sk| sk.keys.into())
 				.map_err(|api_err| Error::Client(Box::new(api_err)))
 		}?;
 
-		Ok(res.keys)
+		Ok(res)
 	}
 
 	fn has_session_keys(&self, session_keys: Bytes) -> RpcResult<bool> {
