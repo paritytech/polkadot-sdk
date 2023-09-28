@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, Hooks},
+	traits::{tokens::fungibles::Inspect, Currency, Hooks},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -660,6 +660,16 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 			Assets::balance(foreign_asset_id_multilocation, foreign_creator_as_account_id),
 			0
 		);
+		// Verify total and active issuance of foreign BLA have decreased (reserve-based
+		// (local-instance) BLA was burned)
+		assert_eq!(
+			Assets::total_issuance(foreign_asset_id_multilocation),
+			foreign_asset_amount - SEND_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(foreign_asset_id_multilocation),
+			foreign_asset_amount - SEND_AMOUNT
+		);
 
 		// Verify sent XCM program
 		assert_eq!(
@@ -799,6 +809,16 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 			INITIAL_BALANCE + SEND_AMOUNT
 		);
 		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
+		// Verify total and active issuance of USDC have decreased (reserve-based (local-instance)
+		// USDC was burned)
+		assert_eq!(
+			Assets::total_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
 
 		// Verify sent XCM program
 		assert_eq!(
@@ -915,6 +935,16 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 		assert_eq!(
 			Assets::balance(foreign_asset_id_multilocation, foreign_creator_as_account_id),
 			0
+		);
+		// Verify total and active issuance of foreign BLA have decreased (reserve-based
+		// (local-instance) BLA was burned)
+		assert_eq!(
+			Assets::total_issuance(foreign_asset_id_multilocation),
+			foreign_asset_amount - SEND_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(foreign_asset_id_multilocation),
+			foreign_asset_amount - SEND_AMOUNT
 		);
 
 		// Verify sent XCM program
@@ -1043,6 +1073,16 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_works
 		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
 		// Sovereign account of destination parachain holds `SEND_AMOUNT` in local reserve
 		assert_eq!(Balances::free_balance(dest_sovereign_account), SEND_AMOUNT);
+		// Verify total and active issuance of USDC have decreased (reserve-based (local-instance)
+		// USDC was burned)
+		assert_eq!(
+			Assets::total_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
 
 		// Verify sent XCM program
 		assert_eq!(
@@ -1218,6 +1258,26 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 		// Verify balances of transferred-asset reserve parachain
 		assert_eq!(Balances::free_balance(dest_sovereign_account.clone()), INITIAL_BALANCE);
 		assert_eq!(Assets::balance(foreign_asset_id_multilocation, dest_sovereign_account), 0);
+		// Verify total and active issuance of USDC have decreased (reserve-based (local-instance)
+		// USDC was burned)
+		assert_eq!(
+			Assets::total_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - FEE_AMOUNT
+		);
+		// Verify total and active issuance of foreign BLA asset have decreased (reserve-based
+		// (local-instance) asset was burned)
+		assert_eq!(
+			Assets::total_issuance(foreign_asset_id_multilocation),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(foreign_asset_id_multilocation),
+			foreign_asset_initial_amount - SEND_AMOUNT
+		);
 
 		// Verify sent XCM program
 		assert_eq!(
@@ -1347,6 +1407,16 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 		// Destination account (parachain account) has expected (same) balances
 		assert_eq!(Balances::free_balance(usdc_chain_sovereign_account.clone()), INITIAL_BALANCE);
 		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
+		// Verify total and active issuance of USDC have decreased (reserve-based (local-instance)
+		// USDC was burned)
+		assert_eq!(
+			Assets::total_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - SEND_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(usdc_id_multilocation),
+			usdc_initial_local_amount - SEND_AMOUNT
+		);
 
 		// Verify sent XCM program
 		assert_eq!(
@@ -1381,11 +1451,137 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 
 /// Test `reserve_transfer_assets` with local asset reserve and teleported fee.
 ///
-/// Asserts that the sender's balance is decreased and the beneficiary's balance
-/// is increased. Verifies the correct message is sent and event is emitted.
+/// Transferring native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
+/// fees.
+///
+///    Here (source)                               USDT_PARA_ID (destination)
+///    |  `assets` reserve                         `fees` teleport-trust
+///    |
+///    |  1. execute `InitiateTeleport(fees)`
+///    |     \--> sends `ReceiveTeleportedAsset(fees), .., DepositAsset(fees)`
+///    |  2. execute `TransferReserveAsset(assts)`
+///    |     \-> sends `ReserveAssetDeposited(assts), ClearOrigin, BuyExecution(fees), DepositAsset`
+///    \------------------------------------------>
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
-	// TODO
+	let usdt_location = RelayLocation::get().pushed_with_interior(Parachain(USDT_PARA_ID)).unwrap();
+	let usdt_chain_sovereign_account =
+		SovereignAccountOf::convert_location(&usdt_location).unwrap();
+
+	let usdt_id_multilocation = usdt_location;
+	let usdt_initial_local_amount = 42;
+
+	// native assets transfer destination is USDT chain (teleport trust only for USDT)
+	let dest = usdt_location;
+	let assets: MultiAssets = vec![
+		// native asset to transfer (not used for fees)
+		(MultiLocation::here(), SEND_AMOUNT).into(),
+		// usdc for fees (is sufficient on local chain too)
+		(usdt_id_multilocation, FEE_AMOUNT).into(),
+	]
+	.into();
+	let fee_index = 1;
+	let asset_index = 0;
+
+	let balances =
+		vec![(ALICE, INITIAL_BALANCE), (usdt_chain_sovereign_account.clone(), INITIAL_BALANCE)];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset USDT (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			usdt_id_multilocation,
+			BOB,
+			true,
+			1
+		));
+		// this asset should have been teleported in, but for this test we just mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			usdt_id_multilocation,
+			ALICE,
+			usdt_initial_local_amount
+		));
+		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		let context = UniversalLocation::get();
+		let mut expected_fee = assets.get(fee_index).unwrap().clone();
+		expected_fee.reanchor(&dest, context).unwrap();
+		let mut expected_asset = assets.get(asset_index).unwrap().clone();
+		expected_asset.reanchor(&dest, context).unwrap();
+
+		// do the transfer
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		));
+		assert!(matches!(
+			last_event(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+		));
+		// Alice spent (fees) amount
+		assert_eq!(
+			Assets::balance(usdt_id_multilocation, ALICE),
+			usdt_initial_local_amount - FEE_AMOUNT
+		);
+		// Alice used native asset for transfer
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+		// Sovereign account of dest parachain holds `SEND_AMOUNT` native asset in local reserve
+		assert_eq!(
+			Balances::free_balance(usdt_chain_sovereign_account.clone()),
+			INITIAL_BALANCE + SEND_AMOUNT
+		);
+		assert_eq!(Assets::balance(usdt_id_multilocation, usdt_chain_sovereign_account), 0);
+		// Verify total and active issuance have decreased
+		assert_eq!(
+			Assets::total_issuance(usdt_id_multilocation),
+			usdt_initial_local_amount - FEE_AMOUNT
+		);
+		assert_eq!(
+			Assets::active_issuance(usdt_id_multilocation),
+			usdt_initial_local_amount - FEE_AMOUNT
+		);
+
+		// Verify sent XCM program
+		assert_eq!(
+			sent_xcm(),
+			vec![
+				(
+					// first message is to prefund fees on `dest`
+					dest,
+					// fees are teleported to destination chain
+					Xcm(vec![
+						ReceiveTeleportedAsset(expected_fee.clone().into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee.clone(), Unlimited),
+						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+					])
+				),
+				(
+					// second message is to transfer/deposit (native) asset on `dest` while paying
+					// using prefunded (transferred above) fees
+					dest,
+					// transfer is through local-reserve transfer because `assets` (native asset)
+					// have local reserve
+					Xcm(vec![
+						ReserveAssetDeposited(expected_asset.into()),
+						ClearOrigin,
+						buy_limited_execution(expected_fee, Unlimited),
+						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+					])
+				)
+			]
+		);
+		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
+		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and teleported fee.

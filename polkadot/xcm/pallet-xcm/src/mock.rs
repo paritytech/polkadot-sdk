@@ -285,6 +285,10 @@ pub const USDC_RESERVE_PARA_ID: u32 = 2002;
 // Inner junction of reserve asset on `USDC_RESERVE_PARA_ID`.
 pub const USDC_INNER_JUNCTION: Junction = PalletInstance(42);
 
+// This child parachain is a trusted teleporter for say.. USDT (T from Teleport :)).
+// We'll use USDT in tests that teleport fees.
+pub const USDT_PARA_ID: u32 = 2003;
+
 // This child parachain is not configured as trusted reserve or teleport location for any assets.
 pub const OTHER_PARA_ID: u32 = 2009;
 
@@ -310,6 +314,17 @@ parameter_types! {
 		id: Concrete(MultiLocation {
 			parents: 0,
 			interior: X2(Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION),
+		}),
+	};
+	pub const UsdtTeleportLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(USDT_PARA_ID))
+	};
+	pub const Usdt: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(MultiLocation {
+			parents: 0,
+			interior: X1(Parachain(USDT_PARA_ID)),
 		}),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
@@ -362,9 +377,10 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
-	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedReserve1: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
-	pub TrustedReserve2: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
+	pub TrustedLocal: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
+	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), UsdtTeleportLocation::get());
+	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
+	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -382,8 +398,8 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = TestSendXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = (Case<TrustedReserve1>, Case<TrustedReserve2>);
-	type IsTeleporter = Case<TrustedAssets>;
+	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
+	type IsTeleporter = (Case<TrustedLocal>, Case<TrustedUsdt>);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
