@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 bitflags::bitflags! {
 	#[derive(Default, TypeInfo, Encode, Decode, Serialize, Deserialize)]
 	/// Bit indices in the `HostCoonfiguration.client_features` that correspond to different client features.
-	pub struct ClientFeatures: u8 {
+	pub struct ClientFeatures: u64 {
 		/// Is availability chunk shuffling enabled.
 		const AVAILABILITY_CHUNK_SHUFFLING = 0b1;
 	}
