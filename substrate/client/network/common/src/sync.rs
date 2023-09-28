@@ -316,6 +316,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
+	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -347,6 +348,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	///
 	/// If this corresponds to a valid block, this outputs the block that
 	/// must be imported in the import queue.
+	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -357,6 +359,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a response from the remote to a justification request that we made.
 	///
 	/// `request` must be the original request that triggered `response`.
+	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,

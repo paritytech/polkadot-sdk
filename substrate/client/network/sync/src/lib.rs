@@ -440,6 +440,7 @@ where
 		self.peers.len()
 	}
 
+	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -633,6 +634,7 @@ where
 			.extend(peers);
 	}
 
+	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -897,6 +899,7 @@ where
 		Ok(OnBlockData::Import(self.validate_and_queue_blocks(new_blocks, gap)))
 	}
 
+	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,
@@ -1886,6 +1889,7 @@ where
 	/// Call this when a batch of blocks have been processed by the import
 	/// queue, with or without errors. If an error is returned, the pending response
 	/// from the peer must be dropped.
+	#[must_use]
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
