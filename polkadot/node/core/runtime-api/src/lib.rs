@@ -569,7 +569,7 @@ where
 			query!(
 				ParaBackingState,
 				para_backing_state(para),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
@@ -577,7 +577,7 @@ where
 			query!(
 				AsyncBackingParams,
 				async_backing_params(),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
