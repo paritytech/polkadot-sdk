@@ -1726,6 +1726,90 @@
 <a href="#1726" id="1726">1726</a>
 <a href="#1727" id="1727">1727</a>
 <a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1762,6 +1846,7 @@
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>std::{
@@ -1930,8 +2015,13 @@
 </span><span class="kw">pub fn </span>start(config: Config, metrics: Metrics) -&gt; (ValidationHost, <span class="kw">impl </span>Future&lt;Output = ()&gt;) {
 	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">&quot;starting PVF validation host&quot;</span>);
 
-	<span class="comment">// Run checks for supported security features once per host startup.
-	</span>warn_if_no_landlock();
+	<span class="comment">// Run checks for supported security features once per host startup. Warn here if not enabled.
+	</span><span class="kw">let </span>security_status = {
+		<span class="kw">let </span>can_enable_landlock = check_landlock(<span class="kw-2">&amp;</span>config.prepare_worker_program_path);
+		<span class="kw">let </span>can_unshare_user_namespace_and_change_root =
+			check_can_unshare_user_namespace_and_change_root(<span class="kw-2">&amp;</span>config.prepare_worker_program_path);
+		SecurityStatus { can_enable_landlock, can_unshare_user_namespace_and_change_root }
+	};
 
 	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
 
@@ -1943,6 +2033,7 @@
 		config.cache_path.clone(),
 		config.prepare_worker_spawn_timeout,
 		config.node_version.clone(),
+		security_status.clone(),
 	);
 
 	<span class="kw">let </span>(to_prepare_queue_tx, from_prepare_queue_rx, run_prepare_queue) = prepare::start_queue(
@@ -1957,9 +2048,11 @@
 	<span class="kw">let </span>(to_execute_queue_tx, run_execute_queue) = execute::start(
 		metrics,
 		config.execute_worker_program_path.to_owned(),
+		config.cache_path.clone(),
 		config.execute_workers_max_num,
 		config.execute_worker_spawn_timeout,
 		config.node_version,
+		security_status,
 	);
 
 	<span class="kw">let </span>(to_sweeper_tx, to_sweeper_rx) = mpsc::channel(<span class="number">100</span>);
@@ -2601,28 +2694,103 @@
 	.map(|<span class="kw">_</span>| ())
 }
 
-<span class="doccomment">/// Check if landlock is supported and emit a warning if not.
-</span><span class="kw">fn </span>warn_if_no_landlock() {
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-	</span>{
-		<span class="kw">use </span>polkadot_node_core_pvf_common::worker::security::landlock;
-		<span class="kw">let </span>status = landlock::get_status();
-		<span class="kw">if </span>!landlock::status_is_fully_enabled(<span class="kw-2">&amp;</span>status) {
-			<span class="kw">let </span>abi = landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
+<span class="doccomment">/// Check if we can sandbox the root and emit a warning if not.
+///
+/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
+/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
+/// success and -1 on failure.
+</span><span class="kw">fn </span>check_can_unshare_user_namespace_and_change_root(
+	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
+	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
+) -&gt; bool {
+	<span class="macro">cfg_if::cfg_if! </span>{
+		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+			<span class="kw">let </span>output = std::process::Command::new(prepare_worker_program_path)
+				.arg(<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot;</span>)
+				.output();
+
+			<span class="kw">match </span>output {
+				<span class="prelude-val">Ok</span>(output) <span class="kw">if </span>output.status.success() =&gt; <span class="bool-val">true</span>,
+				<span class="prelude-val">Ok</span>(output) =&gt; {
+					<span class="kw">let </span>stderr = std::str::from_utf8(<span class="kw-2">&amp;</span>output.stderr)
+						.expect(<span class="string">&quot;child process writes a UTF-8 string to stderr; qed&quot;</span>)
+						.trim();
+					<span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>prepare_worker_program_path,
+						<span class="comment">// Docs say to always print status using `Display` implementation.
+						</span>status = %output.status,
+						%stderr,
+						<span class="string">&quot;Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security.&quot;
+					</span>);
+					<span class="bool-val">false
+				</span>},
+				<span class="prelude-val">Err</span>(err) =&gt; {
+					<span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>prepare_worker_program_path,
+						<span class="string">&quot;Could not start child process: {}&quot;</span>,
+						err
+					);
+					<span class="bool-val">false
+				</span>},
+			}
+		} <span class="kw">else </span>{
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="question-mark">?</span>status,
-				%abi,
-				<span class="string">&quot;Cannot fully enable landlock, a Linux kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security.&quot;
+				<span class="string">&quot;Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with support for unsharing user namespaces for maximum security.&quot;
 			</span>);
-		}
+			<span class="bool-val">false
+		</span>}
 	}
+}
 
-	<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-	</span><span class="macro">gum::warn!</span>(
-		target: LOG_TARGET,
-		<span class="string">&quot;Cannot enable landlock, a Linux kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security.&quot;
-	</span>);
+<span class="doccomment">/// Check if landlock is supported and emit a warning if not.
+///
+/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
+/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
+/// success and -1 on failure.
+</span><span class="kw">fn </span>check_landlock(
+	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
+	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
+) -&gt; bool {
+	<span class="macro">cfg_if::cfg_if! </span>{
+		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+			<span class="kw">match </span>std::process::Command::new(prepare_worker_program_path)
+				.arg(<span class="string">&quot;--check-can-enable-landlock&quot;</span>)
+				.status()
+			{
+				<span class="prelude-val">Ok</span>(status) <span class="kw">if </span>status.success() =&gt; <span class="bool-val">true</span>,
+				<span class="prelude-val">Ok</span>(status) =&gt; {
+					<span class="kw">let </span>abi =
+						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
+					<span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>prepare_worker_program_path,
+						<span class="question-mark">?</span>status,
+						%abi,
+						<span class="string">&quot;Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security.&quot;
+					</span>);
+					<span class="bool-val">false
+				</span>},
+				<span class="prelude-val">Err</span>(err) =&gt; {
+					<span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						<span class="question-mark">?</span>prepare_worker_program_path,
+						<span class="string">&quot;Could not start child process: {}&quot;</span>,
+						err
+					);
+					<span class="bool-val">false
+				</span>},
+			}
+		} <span class="kw">else </span>{
+			<span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security.&quot;
+			</span>);
+			<span class="bool-val">false
+		</span>}
+	}
 }
 
 <span class="attr">#[cfg(test)]

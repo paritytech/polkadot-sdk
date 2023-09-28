@@ -128,6 +128,7 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -168,12 +169,13 @@
 <span class="doccomment">/// Time and blocks.
 </span><span class="kw">pub mod </span>time {
 	<span class="kw">use </span>primitives::{BlockNumber, Moment};
-	<span class="kw">use </span>runtime_common::prod_or_fast;
 	<span class="kw">pub const </span>MILLISECS_PER_BLOCK: Moment = <span class="number">6000</span>;
 	<span class="kw">pub const </span>SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
-	<span class="kw">pub const </span>DEFAULT_EPOCH_DURATION: BlockNumber = <span class="macro">prod_or_fast!</span>(<span class="number">1 </span>* HOURS, <span class="number">1 </span>* MINUTES);
+
 	<span class="macro">frame_support::parameter_types! </span>{
-		<span class="kw">pub </span>storage EpochDurationInBlocks: BlockNumber = DEFAULT_EPOCH_DURATION;
+		<span class="kw">pub </span>storage EpochDurationInBlocks: BlockNumber = <span class="macro">option_env!</span>(<span class="string">&quot;ROCOCO_EPOCH_DURATION&quot;</span>)
+			.map(|s| s.parse().expect(<span class="string">&quot;`ROCOCO_EPOCH_DURATION` is not a valid `BlockNumber`&quot;</span>))
+			.unwrap_or(<span class="number">1 </span>* MINUTES);
 	}
 
 	<span class="comment">// These time units are defined in number of blocks.

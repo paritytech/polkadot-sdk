@@ -279,28 +279,6 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -319,7 +297,7 @@
 
 </span><span class="doccomment">//! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::executor_intf::Executor;
+</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -331,22 +309,21 @@
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	executor_intf::NATIVE_STACK_MAX,
-	framed_recv, framed_send,
+	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
-		security::LandlockStatus,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{<span class="self">self</span>, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-<span class="kw">use </span>tokio::{io, net::UnixStream};
+<span class="kw">use </span>tokio::io;
 
 <span class="comment">// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 // That native code does not create any stacks and just reuses the stack of the thread that
@@ -384,8 +361,8 @@
 </span><span class="doccomment">/// The stack size for the execute thread.
 </span><span class="kw">pub const </span>EXECUTE_THREAD_STACK_SIZE: usize = <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>+ NATIVE_STACK_MAX <span class="kw">as </span>usize;
 
-<span class="kw">async fn </span>recv_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;Handshake&gt; {
-	<span class="kw">let </span>handshake_enc = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="kw">fn </span>recv_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;Handshake&gt; {
+	<span class="kw">let </span>handshake_enc = framed_recv_blocking(stream)<span class="question-mark">?</span>;
 	<span class="kw">let </span>handshake = Handshake::decode(<span class="kw-2">&amp;mut &amp;</span>handshake_enc[..]).map_err(|<span class="kw">_</span>| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -395,57 +372,58 @@
 	<span class="prelude-val">Ok</span>(handshake)
 }
 
-<span class="kw">async fn </span>recv_request(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;(PathBuf, Vec&lt;u8&gt;, Duration)&gt; {
-	<span class="kw">let </span>artifact_path = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
-	<span class="kw">let </span>artifact_path = bytes_to_path(<span class="kw-2">&amp;</span>artifact_path).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			<span class="string">&quot;execute pvf recv_request: non utf-8 artifact path&quot;</span>.to_string(),
-		)
-	})<span class="question-mark">?</span>;
-	<span class="kw">let </span>params = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
-	<span class="kw">let </span>execution_timeout = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="kw">fn </span>recv_request(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;(Vec&lt;u8&gt;, Duration)&gt; {
+	<span class="kw">let </span>params = framed_recv_blocking(stream)<span class="question-mark">?</span>;
+	<span class="kw">let </span>execution_timeout = framed_recv_blocking(stream)<span class="question-mark">?</span>;
 	<span class="kw">let </span>execution_timeout = Duration::decode(<span class="kw-2">&amp;mut &amp;</span>execution_timeout[..]).map_err(|<span class="kw">_</span>| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			<span class="string">&quot;execute pvf recv_request: failed to decode duration&quot;</span>.to_string(),
 		)
 	})<span class="question-mark">?</span>;
-	<span class="prelude-val">Ok</span>((artifact_path, params, execution_timeout))
+	<span class="prelude-val">Ok</span>((params, execution_timeout))
 }
 
-<span class="kw">async fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, response: Response) -&gt; io::Result&lt;()&gt; {
-	framed_send(stream, <span class="kw-2">&amp;</span>response.encode()).<span class="kw">await
-</span>}
+<span class="kw">fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, response: Response) -&gt; io::Result&lt;()&gt; {
+	framed_send_blocking(stream, <span class="kw-2">&amp;</span>response.encode())
+}
 
 <span class="doccomment">/// The entrypoint that the spawned execute worker should start with.
 ///
 /// # Parameters
 ///
-/// The `socket_path` specifies the path to the socket used to communicate with the host. The
-/// `node_version`, if `Some`, is checked against the worker version. A mismatch results in
-/// immediate worker termination. `None` is used for tests and in other situations when version
-/// check is not necessary.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
+///
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
+///   immediate worker termination. `None` is used for tests and in other situations when version
+///   check is not necessary.
+///
+/// - `worker_version`: see above
+///
+/// - `security_status`: contains the detected status of security features.
 </span><span class="kw">pub fn </span>worker_entrypoint(
-	socket_path: <span class="kw-2">&amp;</span>str,
+	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		<span class="string">&quot;execute&quot;</span>,
-		socket_path,
+		WorkerKind::Execute,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		|<span class="kw-2">mut </span>stream| <span class="kw">async move </span>{
+		<span class="kw-2">&amp;</span>security_status,
+		|<span class="kw-2">mut </span>stream, worker_dir_path| <span class="kw">async move </span>{
 			<span class="kw">let </span>worker_pid = std::process::id();
+			<span class="kw">let </span>artifact_path = worker_dir::execute_artifact(<span class="kw-2">&amp;</span>worker_dir_path);
 
-			<span class="kw">let </span>handshake = recv_handshake(<span class="kw-2">&amp;mut </span>stream).<span class="kw">await</span><span class="question-mark">?</span>;
-			<span class="kw">let </span>executor = Executor::new(handshake.executor_params).map_err(|e| {
+			<span class="kw">let </span>Handshake { executor_params } = recv_handshake(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
+			<span class="kw">let </span>executor = Executor::new(executor_params).map_err(|e| {
 				io::Error::new(io::ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;cannot create executor: {}&quot;</span>, e))
 			})<span class="question-mark">?</span>;
 
 			<span class="kw">loop </span>{
-				<span class="kw">let </span>(artifact_path, params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream).<span class="kw">await</span><span class="question-mark">?</span>;
+				<span class="kw">let </span>(params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -454,15 +432,13 @@
 				);
 
 				<span class="comment">// Get the artifact bytes.
-				//
-				// We do this outside the thread so that we can lock down filesystem access there.
-				</span><span class="kw">let </span>compiled_artifact_blob = <span class="kw">match </span>std::fs::read(artifact_path) {
+				</span><span class="kw">let </span>compiled_artifact_blob = <span class="kw">match </span>std::fs::read(<span class="kw-2">&amp;</span>artifact_path) {
 					<span class="prelude-val">Ok</span>(bytes) =&gt; bytes,
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="kw">let </span>response = Response::InternalError(
 							InternalValidationError::CouldNotOpenFile(err.to_string()),
 						);
-						send_response(<span class="kw-2">&amp;mut </span>stream, response).<span class="kw">await</span><span class="question-mark">?</span>;
+						send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
 						<span class="kw">continue
 					</span>},
 				};
@@ -490,22 +466,11 @@
 				<span class="kw">let </span>execute_thread = thread::spawn_worker_thread_with_stack_size(
 					<span class="string">&quot;execute thread&quot;</span>,
 					<span class="kw">move </span>|| {
-						<span class="comment">// Try to enable landlock.
-						</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-					</span><span class="kw">let </span>landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
-						<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-						</span><span class="kw">let </span>landlock_status: <span class="prelude-ty">Result</span>&lt;LandlockStatus, String&gt; = <span class="prelude-val">Ok</span>(LandlockStatus::NotEnforced);
-
-						(
-							validate_using_artifact(
-								<span class="kw-2">&amp;</span>compiled_artifact_blob,
-								<span class="kw-2">&amp;</span>params,
-								executor_2,
-								cpu_time_start,
-							),
-							landlock_status,
+						validate_using_artifact(
+							<span class="kw-2">&amp;</span>compiled_artifact_blob,
+							<span class="kw-2">&amp;</span>params,
+							executor_2,
+							cpu_time_start,
 						)
 					},
 					Arc::clone(<span class="kw-2">&amp;</span>condvar),
@@ -518,24 +483,9 @@
 				<span class="kw">let </span>response = <span class="kw">match </span>outcome {
 					WaitOutcome::Finished =&gt; {
 						<span class="kw">let _ </span>= cpu_time_monitor_tx.send(());
-						<span class="kw">let </span>(result, landlock_status) = execute_thread.join().unwrap_or_else(|e| {
-							(
-								Response::Panic(stringify_panic_payload(e)),
-								<span class="prelude-val">Ok</span>(LandlockStatus::Unavailable),
-							)
-						});
-
-						<span class="comment">// Log if landlock threw an error.
-						</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = landlock_status {
-							<span class="macro">gum::warn!</span>(
-								target: LOG_TARGET,
-								%worker_pid,
-								<span class="string">&quot;error enabling landlock: {}&quot;</span>,
-								err
-							);
-						}
-
-						result
+						execute_thread
+							.join()
+							.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)))
 					},
 					<span class="comment">// If the CPU thread is not selected, we signal it to end, the join handle is
 					// dropped and the thread will finish in the background.
@@ -570,7 +520,13 @@
 					</span>),
 				};
 
-				send_response(<span class="kw-2">&amp;mut </span>stream, response).<span class="kw">await</span><span class="question-mark">?</span>;
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					%worker_pid,
+					<span class="string">&quot;worker: sending response to host: {:?}&quot;</span>,
+					response
+				);
+				send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
 			}
 		},
 	);

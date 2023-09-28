@@ -333,6 +333,112 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -355,6 +461,7 @@
 <span class="kw">use </span>futures::FutureExt <span class="kw">as _</span>;
 <span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>pin_project::pin_project;
+<span class="kw">use </span>polkadot_node_core_pvf_common::{worker_dir, SecurityStatus};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>std::{
 	fmt, mem,
@@ -374,99 +481,106 @@
 </span><span class="kw">pub const </span>JOB_TIMEOUT_WALL_CLOCK_FACTOR: u32 = <span class="number">4</span>;
 
 <span class="doccomment">/// This is publicly exposed only for integration tests.
+///
+/// # Parameters
+///
+/// - `debug_id`: An identifier for the process (e.g. &quot;execute&quot; or &quot;prepare&quot;).
+///
+/// - `program_path`: The path to the program.
+///
+/// - `cache_path`: The path to the artifact cache.
+///
+/// - `extra_args`: Optional extra CLI arguments to the program. NOTE: Should only contain data
+///   required before the handshake, like node/worker versions for the version check. Other data
+///   should go through the handshake.
+///
+/// - `spawn_timeout`: The amount of time to wait for the child process to spawn.
+///
+/// - `security_status`: contains the detected status of security features.
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">pub async fn </span>spawn_with_program_path(
 	debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 	program_path: <span class="kw">impl </span>Into&lt;PathBuf&gt;,
+	cache_path: <span class="kw-2">&amp;</span>Path,
 	extra_args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
 	spawn_timeout: Duration,
+	security_status: SecurityStatus,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(IdleWorker, WorkerHandle), SpawnErr&gt; {
 	<span class="kw">let </span>program_path = program_path.into();
-	with_transient_socket_path(debug_id, |socket_path| {
-		<span class="kw">let </span>socket_path = socket_path.to_owned();
-		<span class="kw">let </span>extra_args: Vec&lt;String&gt; = extra_args.iter().map(|arg| arg.to_string()).collect();
+	<span class="kw">let </span>worker_dir = WorkerDir::new(debug_id, cache_path).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>socket_path = worker_dir::socket(<span class="kw-2">&amp;</span>worker_dir.path);
 
-		<span class="kw">async move </span>{
-			<span class="kw">let </span>listener = UnixListener::bind(<span class="kw-2">&amp;</span>socket_path).map_err(|err| {
+	<span class="kw">let </span>extra_args: Vec&lt;String&gt; = extra_args.iter().map(|arg| arg.to_string()).collect();
+
+	<span class="kw">let </span>listener = UnixListener::bind(<span class="kw-2">&amp;</span>socket_path).map_err(|err| {
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			%debug_id,
+			<span class="question-mark">?</span>program_path,
+			<span class="question-mark">?</span>extra_args,
+			<span class="question-mark">?</span>worker_dir,
+			<span class="question-mark">?</span>socket_path,
+			<span class="string">&quot;cannot bind unix socket: {:?}&quot;</span>,
+			err,
+		);
+		SpawnErr::Bind
+	})<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>handle = WorkerHandle::spawn(<span class="kw-2">&amp;</span>program_path, <span class="kw-2">&amp;</span>extra_args, <span class="kw-2">&amp;</span>worker_dir.path, security_status)
+		.map_err(|err| {
+			<span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				%debug_id,
+				<span class="question-mark">?</span>program_path,
+				<span class="question-mark">?</span>extra_args,
+				<span class="question-mark">?</span>worker_dir.path,
+				<span class="question-mark">?</span>socket_path,
+				<span class="string">&quot;cannot spawn a worker: {:?}&quot;</span>,
+				err,
+			);
+			SpawnErr::ProcessSpawn
+		})<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>worker_dir_path = worker_dir.path.clone();
+	<span class="macro">futures::select! </span>{
+		accept_result = listener.accept().fuse() =&gt; {
+			<span class="kw">let </span>(stream, <span class="kw">_</span>) = accept_result.map_err(|err| {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					%debug_id,
 					<span class="question-mark">?</span>program_path,
 					<span class="question-mark">?</span>extra_args,
-					<span class="string">&quot;cannot bind unix socket: {:?}&quot;</span>,
+					<span class="question-mark">?</span>worker_dir_path,
+					<span class="question-mark">?</span>socket_path,
+					<span class="string">&quot;cannot accept a worker: {:?}&quot;</span>,
 					err,
 				);
-				SpawnErr::Bind
+				SpawnErr::Accept
 			})<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>handle =
-				WorkerHandle::spawn(<span class="kw-2">&amp;</span>program_path, <span class="kw-2">&amp;</span>extra_args, socket_path).map_err(|err| {
-					<span class="macro">gum::warn!</span>(
-						target: LOG_TARGET,
-						%debug_id,
-						<span class="question-mark">?</span>program_path,
-						<span class="question-mark">?</span>extra_args,
-						<span class="string">&quot;cannot spawn a worker: {:?}&quot;</span>,
-						err,
-					);
-					SpawnErr::ProcessSpawn
-				})<span class="question-mark">?</span>;
-
-			<span class="macro">futures::select! </span>{
-				accept_result = listener.accept().fuse() =&gt; {
-					<span class="kw">let </span>(stream, <span class="kw">_</span>) = accept_result.map_err(|err| {
-						<span class="macro">gum::warn!</span>(
-							target: LOG_TARGET,
-							%debug_id,
-							<span class="question-mark">?</span>program_path,
-							<span class="question-mark">?</span>extra_args,
-							<span class="string">&quot;cannot accept a worker: {:?}&quot;</span>,
-							err,
-						);
-						SpawnErr::Accept
-					})<span class="question-mark">?</span>;
-					<span class="prelude-val">Ok</span>((IdleWorker { stream, pid: handle.id() }, handle))
-				}
-				<span class="kw">_ </span>= Delay::new(spawn_timeout).fuse() =&gt; {
-					<span class="macro">gum::warn!</span>(
-						target: LOG_TARGET,
-						%debug_id,
-						<span class="question-mark">?</span>program_path,
-						<span class="question-mark">?</span>extra_args,
-						<span class="question-mark">?</span>spawn_timeout,
-						<span class="string">&quot;spawning and connecting to socket timed out&quot;</span>,
-					);
-					<span class="prelude-val">Err</span>(SpawnErr::AcceptTimeout)
-				}
-			}
+			<span class="prelude-val">Ok</span>((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 		}
-	})
-	.<span class="kw">await
-</span>}
-
-<span class="kw">async fn </span>with_transient_socket_path&lt;T, F, Fut&gt;(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;
-<span class="kw">where
-	</span>F: FnOnce(<span class="kw-2">&amp;</span>Path) -&gt; Fut,
-	Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;&gt; + <span class="lifetime">&#39;static</span>,
-{
-	<span class="kw">let </span>socket_path = tmpfile(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;pvf-host-{}&quot;</span>, debug_id))
-		.<span class="kw">await
-		</span>.map_err(|<span class="kw">_</span>| SpawnErr::TmpFile)<span class="question-mark">?</span>;
-	<span class="kw">let </span>result = f(<span class="kw-2">&amp;</span>socket_path).<span class="kw">await</span>;
-
-	<span class="comment">// Best effort to remove the socket file. Under normal circumstances the socket will be removed
-	// by the worker. We make sure that it is removed here, just in case a failed rendezvous.
-	</span><span class="kw">let _ </span>= tokio::fs::remove_file(socket_path).<span class="kw">await</span>;
-
-	result
+		<span class="kw">_ </span>= Delay::new(spawn_timeout).fuse() =&gt; {
+			<span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				%debug_id,
+				<span class="question-mark">?</span>program_path,
+				<span class="question-mark">?</span>extra_args,
+				<span class="question-mark">?</span>worker_dir_path,
+				<span class="question-mark">?</span>socket_path,
+				<span class="question-mark">?</span>spawn_timeout,
+				<span class="string">&quot;spawning and connecting to socket timed out&quot;</span>,
+			);
+			<span class="prelude-val">Err</span>(SpawnErr::AcceptTimeout)
+		}
+	}
 }
 
-<span class="doccomment">/// Returns a path under the given `dir`. The file name will start with the given prefix.
+<span class="doccomment">/// Returns a path under the given `dir`. The path name will start with the given prefix.
 ///
 /// There is only a certain number of retries. If exceeded this function will give up and return an
 /// error.
-</span><span class="kw">pub async fn </span>tmpfile_in(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;PathBuf&gt; {
-	<span class="kw">fn </span>tmppath(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+</span><span class="kw">pub async fn </span>tmppath_in(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;PathBuf&gt; {
+	<span class="kw">fn </span>make_tmppath(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
 		<span class="kw">use </span>rand::distributions::Alphanumeric;
 
 		<span class="kw">const </span>DESCRIMINATOR_LEN: usize = <span class="number">10</span>;
@@ -478,27 +592,28 @@
 		<span class="kw">let </span>s = std::str::from_utf8(<span class="kw-2">&amp;</span>buf)
 			.expect(<span class="string">&quot;the string is collected from a valid utf-8 sequence; qed&quot;</span>);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>file = dir.to_owned();
-		file.push(s);
-		file
+		<span class="kw">let </span><span class="kw-2">mut </span>path = dir.to_owned();
+		path.push(s);
+		path
 	}
 
 	<span class="kw">const </span>NUM_RETRIES: usize = <span class="number">50</span>;
 
 	<span class="kw">for _ in </span><span class="number">0</span>..NUM_RETRIES {
-		<span class="kw">let </span>candidate_path = tmppath(prefix, dir);
-		<span class="kw">if </span>!candidate_path.exists() {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(candidate_path)
+		<span class="kw">let </span>tmp_path = make_tmppath(prefix, dir);
+		<span class="kw">if </span>!tmp_path.exists() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(tmp_path)
 		}
 	}
 
-	<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to create a temporary file&quot;</span>))
+	<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to create a temporary path&quot;</span>))
 }
 
-<span class="doccomment">/// The same as [`tmpfile_in`], but uses [`std::env::temp_dir`] as the directory.
-</span><span class="kw">pub async fn </span>tmpfile(prefix: <span class="kw-2">&amp;</span>str) -&gt; io::Result&lt;PathBuf&gt; {
+<span class="doccomment">/// The same as [`tmppath_in`], but uses [`std::env::temp_dir`] as the directory.
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">pub async fn </span>tmppath(prefix: <span class="kw-2">&amp;</span>str) -&gt; io::Result&lt;PathBuf&gt; {
 	<span class="kw">let </span>temp_dir = PathBuf::from(std::env::temp_dir());
-	tmpfile_in(prefix, <span class="kw-2">&amp;</span>temp_dir).<span class="kw">await
+	tmppath_in(prefix, <span class="kw-2">&amp;</span>temp_dir).<span class="kw">await
 </span>}
 
 <span class="doccomment">/// A struct that represents an idle worker.
@@ -512,13 +627,19 @@
 
 	<span class="doccomment">/// The identifier of this process. Used to reset the niceness.
 	</span><span class="kw">pub </span>pid: u32,
+
+	<span class="doccomment">/// The temporary per-worker path. We clean up the worker dir between jobs and delete it when
+	/// the worker dies.
+	</span><span class="kw">pub </span>worker_dir: WorkerDir,
 }
 
 <span class="doccomment">/// An error happened during spawning a worker process.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub enum </span>SpawnErr {
-	<span class="doccomment">/// Cannot obtain a temporary file location.
-	</span>TmpFile,
+	<span class="doccomment">/// Cannot obtain a temporary path location.
+	</span>TmpPath,
+	<span class="doccomment">/// An FS error occurred.
+	</span>Fs(String),
 	<span class="doccomment">/// Cannot bind the socket to the given path.
 	</span>Bind,
 	<span class="doccomment">/// An error happened during accepting a connection to the socket.
@@ -554,12 +675,32 @@
 	<span class="kw">fn </span>spawn(
 		program: <span class="kw">impl </span>AsRef&lt;Path&gt;,
 		extra_args: <span class="kw-2">&amp;</span>[String],
-		socket_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+		worker_dir_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+		security_status: SecurityStatus,
 	) -&gt; io::Result&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>child = process::Command::new(program.as_ref())
+		<span class="kw">let </span>security_args = {
+			<span class="kw">let </span><span class="kw-2">mut </span>args = <span class="macro">vec!</span>[];
+			<span class="kw">if </span>security_status.can_enable_landlock {
+				args.push(<span class="string">&quot;--can-enable-landlock&quot;</span>.to_string());
+			}
+			<span class="kw">if </span>security_status.can_unshare_user_namespace_and_change_root {
+				args.push(<span class="string">&quot;--can-unshare-user-namespace-and-change-root&quot;</span>.to_string());
+			}
+			args
+		};
+
+		<span class="comment">// Clear all env vars from the spawned process.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>command = process::Command::new(program.as_ref());
+		command.env_clear();
+		<span class="comment">// Add back any env vars we want to keep.
+		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">&quot;RUST_LOG&quot;</span>) {
+			command.env(<span class="string">&quot;RUST_LOG&quot;</span>, value);
+		}
+		<span class="kw">let </span><span class="kw-2">mut </span>child = command
 			.args(extra_args)
-			.arg(<span class="string">&quot;--socket-path&quot;</span>)
-			.arg(socket_path.as_ref().as_os_str())
+			.arg(<span class="string">&quot;--worker-dir-path&quot;</span>)
+			.arg(worker_dir_path.as_ref().as_os_str())
+			.args(<span class="kw-2">&amp;</span>security_args)
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(<span class="bool-val">true</span>)
 			.spawn()<span class="question-mark">?</span>;
@@ -641,16 +782,6 @@
 	}
 }
 
-<span class="doccomment">/// Convert the given path into a byte buffer.
-</span><span class="kw">pub fn </span>path_to_bytes(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw-2">&amp;</span>[u8] {
-	<span class="comment">// Ideally, we take the `OsStr` of the path, send that and reconstruct this on the other side.
-	// However, libstd doesn&#39;t provide us with such an option. There are crates out there that
-	// allow for extraction of a path, but TBH it doesn&#39;t seem to be a real issue.
-	//
-	// However, should be there reports we can incorporate such a crate here.
-	</span>path.to_str().expect(<span class="string">&quot;non-UTF-8 path&quot;</span>).as_bytes()
-}
-
 <span class="doccomment">/// Write some data prefixed by its length into `w`.
 </span><span class="kw">pub async fn </span>framed_send(w: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>AsyncWrite + Unpin), buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt; {
 	<span class="kw">let </span>len_buf = buf.len().to_le_bytes();
@@ -667,5 +798,86 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; len];
 	r.read_exact(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(buf)
+}
+
+<span class="doccomment">/// A temporary worker dir that contains only files needed by the worker. The worker will change its
+/// root (the `/` directory) to this directory; it should have access to no other paths on its
+/// filesystem.
+///
+/// NOTE: This struct cleans up its associated directory when it is dropped. Therefore it should not
+/// implement `Clone`.
+///
+/// # File structure
+///
+/// The overall file structure for the PVF system is as follows. The `worker-dir-X`s are managed by
+/// this struct.
+///
+/// ```nocompile
+/// + /&lt;cache_path&gt;/
+///   - artifact-1
+///   - artifact-2
+///   - [...]
+///   - worker-dir-1/  (new `/` for worker-1)
+///     + socket                            (created by host)
+///     + tmp-artifact                      (created by host) (prepare-only)
+///     + artifact     (link -&gt; artifact-1) (created by host) (execute-only)
+///   - worker-dir-2/  (new `/` for worker-2)
+///     + [...]
+/// ```
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>WorkerDir {
+	<span class="kw">pub </span>path: PathBuf,
+}
+
+<span class="kw">impl </span>WorkerDir {
+	<span class="doccomment">/// Creates a new, empty worker dir with a random name in the given cache dir.
+	</span><span class="kw">pub async fn </span>new(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, cache_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SpawnErr&gt; {
+		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">&quot;worker-dir-{}-&quot;</span>, debug_id);
+		<span class="kw">let </span>path = tmppath_in(<span class="kw-2">&amp;</span>prefix, cache_dir).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| SpawnErr::TmpPath)<span class="question-mark">?</span>;
+		tokio::fs::create_dir(<span class="kw-2">&amp;</span>path)
+			.<span class="kw">await
+			</span>.map_err(|err| SpawnErr::Fs(err.to_string()))<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ path })
+	}
+}
+
+<span class="comment">// Try to clean up the temporary worker dir at the end of the worker&#39;s lifetime. It should be wiped
+// on startup, but we make a best effort not to leave it around.
+</span><span class="kw">impl </span>Drop <span class="kw">for </span>WorkerDir {
+	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="kw">let _ </span>= std::fs::remove_dir_all(<span class="kw-2">&amp;</span><span class="self">self</span>.path);
+	}
+}
+
+<span class="comment">// Not async since Rust has trouble with async recursion. There should be few files here anyway.
+//
+// TODO: A lingering malicious job can still access future files in this dir. See
+// &lt;https://github.com/paritytech/polkadot-sdk/issues/574&gt; for how to fully secure this.
+</span><span class="doccomment">/// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
+/// has mounted its own separate filesystem here.
+///
+/// Should be called right after a job has finished. We don&#39;t want jobs to have access to
+/// artifacts from previous jobs.
+</span><span class="kw">pub fn </span>clear_worker_dir_path(worker_dir_path: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;()&gt; {
+	<span class="kw">fn </span>remove_dir_contents(path: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;()&gt; {
+		<span class="kw">for </span>entry <span class="kw">in </span>std::fs::read_dir(<span class="kw-2">&amp;</span>path)<span class="question-mark">? </span>{
+			<span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
+			<span class="kw">let </span>path = entry.path();
+
+			<span class="kw">if </span>entry.file_type()<span class="question-mark">?</span>.is_dir() {
+				remove_dir_contents(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+				std::fs::remove_dir(path)<span class="question-mark">?</span>;
+			} <span class="kw">else </span>{
+				std::fs::remove_file(path)<span class="question-mark">?</span>;
+			}
+		}
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="comment">// Note the worker dir may not exist anymore because of the worker dying and being cleaned up.
+	</span><span class="kw">match </span>remove_dir_contents(worker_dir_path) {
+		<span class="prelude-val">Err</span>(err) <span class="kw">if </span><span class="macro">matches!</span>(err.kind(), io::ErrorKind::NotFound) =&gt; <span class="prelude-val">Ok</span>(()),
+		result =&gt; result,
+	}
 }
 </code></pre></div></section></main></body></html>

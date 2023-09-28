@@ -58,6 +58,21 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -82,6 +97,7 @@
 <span class="kw">pub mod </span>prepare;
 <span class="kw">pub mod </span>pvf;
 <span class="kw">pub mod </span>worker;
+<span class="kw">pub mod </span>worker_dir;
 
 <span class="kw">pub use </span>cpu_time::ProcessTime;
 
@@ -90,8 +106,11 @@
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf-common&quot;</span>;
 
-<span class="kw">use </span>std::mem;
-<span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncRead, AsyncReadExt <span class="kw">as _</span>, AsyncWrite, AsyncWriteExt <span class="kw">as _</span>};
+<span class="kw">use </span>std::{
+	io::{Read, Write},
+	mem,
+};
+<span class="kw">use </span>tokio::io;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
 </span><span class="kw">pub mod </span>tests {
@@ -101,21 +120,32 @@
 	<span class="kw">pub const </span>TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">30</span>);
 }
 
-<span class="doccomment">/// Write some data prefixed by its length into `w`.
-</span><span class="kw">pub async fn </span>framed_send(w: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>AsyncWrite + Unpin), buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt; {
+<span class="doccomment">/// Status of security features on the current system.
+</span><span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="kw">pub struct </span>SecurityStatus {
+	<span class="doccomment">/// Whether the landlock features we use are fully available on this system.
+	</span><span class="kw">pub </span>can_enable_landlock: bool,
+	<span class="comment">// Whether we are able to unshare the user namespace and change the filesystem root.
+	</span><span class="kw">pub </span>can_unshare_user_namespace_and_change_root: bool,
+}
+
+<span class="doccomment">/// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid
+/// dependency on tokio.
+</span><span class="kw">pub fn </span>framed_send_blocking(w: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>Write + Unpin), buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt; {
 	<span class="kw">let </span>len_buf = buf.len().to_le_bytes();
-	w.write_all(<span class="kw-2">&amp;</span>len_buf).<span class="kw">await</span><span class="question-mark">?</span>;
-	w.write_all(buf).<span class="kw">await</span><span class="question-mark">?</span>;
+	w.write_all(<span class="kw-2">&amp;</span>len_buf)<span class="question-mark">?</span>;
+	w.write_all(buf)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Read some data prefixed by its length from `r`.
-</span><span class="kw">pub async fn </span>framed_recv(r: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>AsyncRead + Unpin)) -&gt; io::Result&lt;Vec&lt;u8&gt;&gt; {
+<span class="doccomment">/// Read some data prefixed by its length from `r`. Sync version of `framed_recv` to avoid
+/// dependency on tokio.
+</span><span class="kw">pub fn </span>framed_recv_blocking(r: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>Read + Unpin)) -&gt; io::Result&lt;Vec&lt;u8&gt;&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>len_buf = [<span class="number">0u8</span>; mem::size_of::&lt;usize&gt;()];
-	r.read_exact(<span class="kw-2">&amp;mut </span>len_buf).<span class="kw">await</span><span class="question-mark">?</span>;
+	r.read_exact(<span class="kw-2">&amp;mut </span>len_buf)<span class="question-mark">?</span>;
 	<span class="kw">let </span>len = usize::from_le_bytes(len_buf);
 	<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; len];
-	r.read_exact(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span><span class="question-mark">?</span>;
+	r.read_exact(<span class="kw-2">&amp;mut </span>buf)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(buf)
 }
 </code></pre></div></section></main></body></html>

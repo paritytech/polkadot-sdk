@@ -324,18 +324,6 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -371,25 +359,24 @@
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	executor_intf::Executor,
-	framed_recv, framed_send,
+	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
-		security::LandlockStatus,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{<span class="self">self</span>, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
-	ProcessTime,
+	worker_dir, ProcessTime, SecurityStatus,
 };
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
 <span class="kw">use </span>std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-<span class="kw">use </span>tokio::{io, net::UnixStream};
+<span class="kw">use </span>tokio::io;
 
 <span class="doccomment">/// Contains the bytes for a successfully compiled artifact.
 </span><span class="kw">pub struct </span>CompiledArtifact(Vec&lt;u8&gt;);
@@ -407,36 +394,34 @@
 	}
 }
 
-<span class="kw">async fn </span>recv_request(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;(PvfPrepData, PathBuf)&gt; {
-	<span class="kw">let </span>pvf = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="kw">fn </span>recv_request(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;PvfPrepData&gt; {
+	<span class="kw">let </span>pvf = framed_recv_blocking(stream)<span class="question-mark">?</span>;
 	<span class="kw">let </span>pvf = PvfPrepData::decode(<span class="kw-2">&amp;mut &amp;</span>pvf[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			<span class="macro">format!</span>(<span class="string">&quot;prepare pvf recv_request: failed to decode PvfPrepData: {}&quot;</span>, e),
 		)
 	})<span class="question-mark">?</span>;
-	<span class="kw">let </span>tmp_file = framed_recv(stream).<span class="kw">await</span><span class="question-mark">?</span>;
-	<span class="kw">let </span>tmp_file = bytes_to_path(<span class="kw-2">&amp;</span>tmp_file).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			<span class="string">&quot;prepare pvf recv_request: non utf-8 artifact path&quot;</span>.to_string(),
-		)
-	})<span class="question-mark">?</span>;
-	<span class="prelude-val">Ok</span>((pvf, tmp_file))
+	<span class="prelude-val">Ok</span>(pvf)
 }
 
-<span class="kw">async fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, result: PrepareResult) -&gt; io::Result&lt;()&gt; {
-	framed_send(stream, <span class="kw-2">&amp;</span>result.encode()).<span class="kw">await
-</span>}
+<span class="kw">fn </span>send_response(stream: <span class="kw-2">&amp;mut </span>UnixStream, result: PrepareResult) -&gt; io::Result&lt;()&gt; {
+	framed_send_blocking(stream, <span class="kw-2">&amp;</span>result.encode())
+}
 
 <span class="doccomment">/// The entrypoint that the spawned prepare worker should start with.
 ///
 /// # Parameters
 ///
-/// The `socket_path` specifies the path to the socket used to communicate with the host. The
-/// `node_version`, if `Some`, is checked against the worker version. A mismatch results in
-/// immediate worker termination. `None` is used for tests and in other situations when version
-/// check is not necessary.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
+///
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
+///   immediate worker termination. `None` is used for tests and in other situations when version
+///   check is not necessary.
+///
+/// - `worker_version`: see above
+///
+/// - `security_status`: contains the detected status of security features.
 ///
 /// # Flow
 ///
@@ -457,20 +442,23 @@
 /// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 </span><span class="kw">pub fn </span>worker_entrypoint(
-	socket_path: <span class="kw-2">&amp;</span>str,
+	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		<span class="string">&quot;prepare&quot;</span>,
-		socket_path,
+		WorkerKind::Prepare,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		|<span class="kw-2">mut </span>stream| <span class="kw">async move </span>{
+		<span class="kw-2">&amp;</span>security_status,
+		|<span class="kw-2">mut </span>stream, worker_dir_path| <span class="kw">async move </span>{
 			<span class="kw">let </span>worker_pid = std::process::id();
+			<span class="kw">let </span>temp_artifact_dest = worker_dir::prepare_tmp_artifact(<span class="kw-2">&amp;</span>worker_dir_path);
 
 			<span class="kw">loop </span>{
-				<span class="kw">let </span>(pvf, temp_artifact_dest) = recv_request(<span class="kw-2">&amp;mut </span>stream).<span class="kw">await</span><span class="question-mark">?</span>;
+				<span class="kw">let </span>pvf = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -510,14 +498,6 @@
 				</span><span class="kw">let </span>prepare_thread = thread::spawn_worker_thread(
 					<span class="string">&quot;prepare thread&quot;</span>,
 					<span class="kw">move </span>|| {
-						<span class="comment">// Try to enable landlock.
-						</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-					</span><span class="kw">let </span>landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
-						<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-						</span><span class="kw">let </span>landlock_status: <span class="prelude-ty">Result</span>&lt;LandlockStatus, String&gt; = <span class="prelude-val">Ok</span>(LandlockStatus::NotEnforced);
-
 						<span class="attr">#[allow(unused_mut)]
 						</span><span class="kw">let </span><span class="kw-2">mut </span>result = prepare_artifact(pvf, cpu_time_start);
 
@@ -538,7 +518,7 @@
 							});
 						}
 
-						(result, landlock_status)
+						result
 					},
 					Arc::clone(<span class="kw-2">&amp;</span>condvar),
 					WaitOutcome::Finished,
@@ -551,20 +531,20 @@
 						<span class="kw">let _ </span>= cpu_time_monitor_tx.send(());
 
 						<span class="kw">match </span>prepare_thread.join().unwrap_or_else(|err| {
-							(
-								<span class="prelude-val">Err</span>(PrepareError::Panic(stringify_panic_payload(err))),
-								<span class="prelude-val">Ok</span>(LandlockStatus::Unavailable),
-							)
+							<span class="prelude-val">Err</span>(PrepareError::Panic(stringify_panic_payload(err)))
 						}) {
-							(<span class="prelude-val">Err</span>(err), <span class="kw">_</span>) =&gt; {
+							<span class="prelude-val">Err</span>(err) =&gt; {
 								<span class="comment">// Serialized error will be written into the socket.
 								</span><span class="prelude-val">Err</span>(err)
 							},
-							(<span class="prelude-val">Ok</span>(ok), landlock_status) =&gt; {
-								<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-								</span><span class="kw">let </span>(artifact, cpu_time_elapsed) = ok;
-								<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-								</span><span class="kw">let </span>(artifact, cpu_time_elapsed, max_rss) = ok;
+							<span class="prelude-val">Ok</span>(ok) =&gt; {
+								<span class="macro">cfg_if::cfg_if! </span>{
+									<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+										<span class="kw">let </span>(artifact, cpu_time_elapsed, max_rss) = ok;
+									} <span class="kw">else </span>{
+										<span class="kw">let </span>(artifact, cpu_time_elapsed) = ok;
+									}
+								}
 
 								<span class="comment">// Stop the memory stats worker and get its observed memory stats.
 								</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
@@ -579,16 +559,6 @@
 									<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 									</span>max_rss: extract_max_rss_stat(max_rss, worker_pid),
 								};
-
-								<span class="comment">// Log if landlock threw an error.
-								</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = landlock_status {
-									<span class="macro">gum::warn!</span>(
-										target: LOG_TARGET,
-										%worker_pid,
-										<span class="string">&quot;error enabling landlock: {}&quot;</span>,
-										err
-									);
-								}
 
 								<span class="comment">// Write the serialized artifact into a temp file.
 								//
@@ -638,7 +608,13 @@
 					</span>),
 				};
 
-				send_response(<span class="kw-2">&amp;mut </span>stream, result).<span class="kw">await</span><span class="question-mark">?</span>;
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					%worker_pid,
+					<span class="string">&quot;worker: sending response to host: {:?}&quot;</span>,
+					result
+				);
+				send_response(<span class="kw-2">&amp;mut </span>stream, result)<span class="question-mark">?</span>;
 			}
 		},
 	);

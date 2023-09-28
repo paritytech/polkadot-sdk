@@ -89,7 +89,7 @@
 }
 
 <span class="doccomment">/// The response from an execution job on the worker.
-</span><span class="attr">#[derive(Encode, Decode)]
+</span><span class="attr">#[derive(Debug, Encode, Decode)]
 </span><span class="kw">pub enum </span>Response {
 	<span class="doccomment">/// The job completed successfully.
 	</span><span class="prelude-val">Ok </span>{

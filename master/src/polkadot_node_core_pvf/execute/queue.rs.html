@@ -512,6 +512,23 @@
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -544,6 +561,7 @@
 	stream::{FuturesUnordered, StreamExt <span class="kw">as _</span>},
 	Future, FutureExt,
 };
+<span class="kw">use </span>polkadot_node_core_pvf_common::SecurityStatus;
 <span class="kw">use </span>polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 <span class="kw">use </span>slotmap::HopSlotMap;
 <span class="kw">use </span>std::{
@@ -653,8 +671,10 @@
 
 	<span class="comment">// Some variables related to the current session.
 	</span>program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	security_status: SecurityStatus,
 
 	<span class="doccomment">/// The queue of jobs that are waiting for a worker to pick up.
 	</span>queue: VecDeque&lt;ExecuteJob&gt;,
@@ -666,16 +686,20 @@
 	<span class="kw">fn </span>new(
 		metrics: Metrics,
 		program_path: PathBuf,
+		cache_path: PathBuf,
 		worker_capacity: usize,
 		spawn_timeout: Duration,
 		node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver&lt;ToQueue&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			metrics,
 			program_path,
+			cache_path,
 			spawn_timeout,
 			node_version,
+			security_status,
 			to_queue_rx,
 			queue: VecDeque::new(),
 			mux: Mux::new(),
@@ -919,9 +943,11 @@
 	queue.mux.push(
 		spawn_worker_task(
 			queue.program_path.clone(),
+			queue.cache_path.clone(),
 			job,
 			queue.spawn_timeout,
 			queue.node_version.clone(),
+			queue.security_status.clone(),
 		)
 		.boxed(),
 	);
@@ -937,18 +963,22 @@
 /// execute other jobs with a compatible execution environment.
 </span><span class="kw">async fn </span>spawn_worker_task(
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	job: ExecuteJob,
 	spawn_timeout: Duration,
 	node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	security_status: SecurityStatus,
 ) -&gt; QueueEvent {
 	<span class="kw">use </span>futures_timer::Delay;
 
 	<span class="kw">loop </span>{
 		<span class="kw">match </span><span class="kw">super</span>::worker_intf::spawn(
 			<span class="kw-2">&amp;</span>program_path,
+			<span class="kw-2">&amp;</span>cache_path,
 			job.executor_params.clone(),
 			spawn_timeout,
 			node_version.as_deref(),
+			security_status.clone(),
 		)
 		.<span class="kw">await
 		</span>{
@@ -1010,17 +1040,21 @@
 <span class="kw">pub fn </span>start(
 	metrics: Metrics,
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	worker_capacity: usize,
 	spawn_timeout: Duration,
 	node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	security_status: SecurityStatus,
 ) -&gt; (mpsc::Sender&lt;ToQueue&gt;, <span class="kw">impl </span>Future&lt;Output = ()&gt;) {
 	<span class="kw">let </span>(to_queue_tx, to_queue_rx) = mpsc::channel(<span class="number">20</span>);
 	<span class="kw">let </span>run = Queue::new(
 		metrics,
 		program_path,
+		cache_path,
 		worker_capacity,
 		spawn_timeout,
 		node_version,
+		security_status,
 		to_queue_rx,
 	)
 	.run();

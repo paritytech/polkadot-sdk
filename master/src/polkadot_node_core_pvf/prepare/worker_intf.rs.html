@@ -296,6 +296,38 @@
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -317,17 +349,17 @@
 </span><span class="kw">use crate</span>::{
 	metrics::Metrics,
 	worker_intf::{
-		path_to_bytes, spawn_with_program_path, tmpfile_in, IdleWorker, SpawnErr, WorkerHandle,
-		JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
+		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
 	LOG_TARGET,
 };
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	framed_recv, framed_send,
 	prepare::PrepareStats,
 	pvf::PvfPrepData,
+	worker_dir, SecurityStatus,
 };
 
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -339,20 +371,34 @@
 
 <span class="doccomment">/// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
 ///
-/// The program should be able to handle `&lt;program-path&gt; prepare-worker &lt;socket-path&gt;` invocation.
+/// Sends a handshake message to the worker as soon as it is spawned.
 </span><span class="kw">pub async fn </span>spawn(
 	program_path: <span class="kw-2">&amp;</span>Path,
+	cache_path: <span class="kw-2">&amp;</span>Path,
 	spawn_timeout: Duration,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	security_status: SecurityStatus,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(IdleWorker, WorkerHandle), SpawnErr&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>extra_args = <span class="macro">vec!</span>[<span class="string">&quot;prepare-worker&quot;</span>];
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(node_version) = node_version {
 		extra_args.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="string">&quot;--node-impl-version&quot;</span>, node_version]);
 	}
-	spawn_with_program_path(<span class="string">&quot;prepare&quot;</span>, program_path, <span class="kw-2">&amp;</span>extra_args, spawn_timeout).<span class="kw">await
+
+	spawn_with_program_path(
+		<span class="string">&quot;prepare&quot;</span>,
+		program_path,
+		cache_path,
+		<span class="kw-2">&amp;</span>extra_args,
+		spawn_timeout,
+		security_status,
+	)
+	.<span class="kw">await
 </span>}
 
-<span class="kw">pub enum </span>Outcome {
+<span class="doccomment">/// Outcome of PVF preparation.
+///
+/// If the idle worker token is not returned, it means the worker must be terminated.
+</span><span class="kw">pub enum </span>Outcome {
 	<span class="doccomment">/// The worker has finished the work assigned to it.
 	</span>Concluded { worker: IdleWorker, result: PrepareResult },
 	<span class="doccomment">/// The host tried to reach the worker but failed. This is most likely because the worked was
@@ -360,9 +406,19 @@
 	</span>Unreachable,
 	<span class="doccomment">/// The temporary file for the artifact could not be created at the given cache path.
 	</span>CreateTmpFileErr { worker: IdleWorker, err: String },
-	<span class="doccomment">/// The response from the worker is received, but the file cannot be renamed (moved) to the
+	<span class="doccomment">/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
-	</span>RenameTmpFileErr { worker: IdleWorker, result: PrepareResult, err: String },
+	</span>RenameTmpFileErr {
+		worker: IdleWorker,
+		result: PrepareResult,
+		err: String,
+		<span class="comment">// Unfortunately `PathBuf` doesn&#39;t implement `Encode`/`Decode`, so we do a fallible
+		// conversion to `Option&lt;String&gt;`.
+		</span>src: <span class="prelude-ty">Option</span>&lt;String&gt;,
+		dest: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	},
+	<span class="doccomment">/// The worker cache could not be cleared for the given reason.
+	</span>ClearWorkerDir { err: String },
 	<span class="doccomment">/// The worker failed to finish the job until the given deadline.
 	///
 	/// The worker is no longer usable and should be killed.
@@ -382,83 +438,88 @@
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	worker: IdleWorker,
 	pvf: PvfPrepData,
-	cache_path: <span class="kw-2">&amp;</span>Path,
 	artifact_path: PathBuf,
 ) -&gt; Outcome {
-	<span class="kw">let </span>IdleWorker { stream, pid } = worker;
+	<span class="kw">let </span>IdleWorker { stream, pid, worker_dir } = worker;
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		worker_pid = %pid,
+		<span class="question-mark">?</span>worker_dir,
 		<span class="string">&quot;starting prepare for {}&quot;</span>,
 		artifact_path.display(),
 	);
 
-	with_tmp_file(stream, pid, cache_path, |tmp_file, <span class="kw-2">mut </span>stream| <span class="kw">async move </span>{
-		<span class="kw">let </span>preparation_timeout = pvf.prep_timeout();
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_request(<span class="kw-2">&amp;mut </span>stream, pvf, <span class="kw-2">&amp;</span>tmp_file).<span class="kw">await </span>{
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				<span class="string">&quot;failed to send a prepare request: {:?}&quot;</span>,
-				err,
-			);
-			<span class="kw">return </span>Outcome::Unreachable
-		}
-
-		<span class="comment">// Wait for the result from the worker, keeping in mind that there may be a timeout, the
-		// worker may get killed, or something along these lines. In that case we should propagate
-		// the error to the pool.
-		//
-		// We use a generous timeout here. This is in addition to the one in the child process, in
-		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
-		// in the child. We want to use CPU time because it varies less than wall clock time under
-		// load, but the CPU resources of the child can only be measured from the parent after the
-		// child process terminates.
-		</span><span class="kw">let </span>timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-		<span class="kw">let </span>result = tokio::time::timeout(timeout, recv_response(<span class="kw-2">&amp;mut </span>stream, pid)).<span class="kw">await</span>;
-
-		<span class="kw">match </span>result {
-			<span class="comment">// Received bytes from worker within the time limit.
-			</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(prepare_result)) =&gt;
-				handle_response(
-					metrics,
-					IdleWorker { stream, pid },
-					prepare_result,
-					pid,
-					tmp_file,
-					artifact_path,
-					preparation_timeout,
-				)
-				.<span class="kw">await</span>,
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-				<span class="comment">// Communication error within the time limit.
-				</span><span class="macro">gum::warn!</span>(
+	with_worker_dir_setup(
+		worker_dir,
+		stream,
+		pid,
+		|tmp_artifact_file, <span class="kw-2">mut </span>stream, worker_dir| <span class="kw">async move </span>{
+			<span class="kw">let </span>preparation_timeout = pvf.prep_timeout();
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_request(<span class="kw-2">&amp;mut </span>stream, pvf).<span class="kw">await </span>{
+				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					worker_pid = %pid,
-					<span class="string">&quot;failed to recv a prepare response: {:?}&quot;</span>,
+					<span class="string">&quot;failed to send a prepare request: {:?}&quot;</span>,
 					err,
 				);
-				Outcome::IoErr(err.to_string())
-			},
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="comment">// Timed out here on the host.
-				</span><span class="macro">gum::warn!</span>(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					<span class="string">&quot;did not recv a prepare response within the time limit&quot;</span>,
-				);
-				Outcome::TimedOut
-			},
-		}
-	})
+				<span class="kw">return </span>Outcome::Unreachable
+			}
+
+			<span class="comment">// Wait for the result from the worker, keeping in mind that there may be a timeout, the
+			// worker may get killed, or something along these lines. In that case we should
+			// propagate the error to the pool.
+			//
+			// We use a generous timeout here. This is in addition to the one in the child process,
+			// in case the child stalls. We have a wall clock timeout here in the host, but a CPU
+			// timeout in the child. We want to use CPU time because it varies less than wall clock
+			// time under load, but the CPU resources of the child can only be measured from the
+			// parent after the child process terminates.
+			</span><span class="kw">let </span>timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
+			<span class="kw">let </span>result = tokio::time::timeout(timeout, recv_response(<span class="kw-2">&amp;mut </span>stream, pid)).<span class="kw">await</span>;
+
+			<span class="kw">match </span>result {
+				<span class="comment">// Received bytes from worker within the time limit.
+				</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(prepare_result)) =&gt;
+					handle_response(
+						metrics,
+						IdleWorker { stream, pid, worker_dir },
+						prepare_result,
+						pid,
+						tmp_artifact_file,
+						artifact_path,
+						preparation_timeout,
+					)
+					.<span class="kw">await</span>,
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
+					<span class="comment">// Communication error within the time limit.
+					</span><span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						worker_pid = %pid,
+						<span class="string">&quot;failed to recv a prepare response: {:?}&quot;</span>,
+						err,
+					);
+					Outcome::IoErr(err.to_string())
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="comment">// Timed out here on the host.
+					</span><span class="macro">gum::warn!</span>(
+						target: LOG_TARGET,
+						worker_pid = %pid,
+						<span class="string">&quot;did not recv a prepare response within the time limit&quot;</span>,
+					);
+					Outcome::TimedOut
+				},
+			}
+		},
+	)
 	.<span class="kw">await
 </span>}
 
 <span class="doccomment">/// Handles the case where we successfully received response bytes on the host from the child.
 ///
-/// NOTE: Here we know the artifact exists, but is still located in a temporary file which will be
-/// cleared by `with_tmp_file`.
+/// Here we know the artifact exists, but is still located in a temporary file which will be cleared
+/// by [`with_worker_dir_setup`].
 </span><span class="kw">async fn </span>handle_response(
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	worker: IdleWorker,
@@ -507,7 +568,13 @@
 				artifact_path.display(),
 				err,
 			);
-			Outcome::RenameTmpFileErr { worker, result, err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err) }
+			Outcome::RenameTmpFileErr {
+				worker,
+				result,
+				err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err),
+				src: tmp_file.to_str().map(String::from),
+				dest: artifact_path.to_str().map(String::from),
+			}
 		},
 	};
 
@@ -518,61 +585,58 @@
 	outcome
 }
 
-<span class="doccomment">/// Create a temporary file for an artifact at the given cache path and execute the given
-/// future/closure passing the file path in.
+<span class="doccomment">/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
+/// passing the file path in, and clean up the worker cache.
 ///
-/// The function will try best effort to not leave behind the temporary file.
-</span><span class="kw">async fn </span>with_tmp_file&lt;F, Fut&gt;(stream: UnixStream, pid: u32, cache_path: <span class="kw-2">&amp;</span>Path, f: F) -&gt; Outcome
+/// Failure to clean up the worker cache results in an error - leaving any files here could be a
+/// security issue, and we should shut down the worker. This should be very rare.
+</span><span class="kw">async fn </span>with_worker_dir_setup&lt;F, Fut&gt;(
+	worker_dir: WorkerDir,
+	stream: UnixStream,
+	pid: u32,
+	f: F,
+) -&gt; Outcome
 <span class="kw">where
 	</span>Fut: futures::Future&lt;Output = Outcome&gt;,
-	F: FnOnce(PathBuf, UnixStream) -&gt; Fut,
+	F: FnOnce(PathBuf, UnixStream, WorkerDir) -&gt; Fut,
 {
-	<span class="kw">let </span>tmp_file = <span class="kw">match </span>tmpfile_in(<span class="string">&quot;prepare-artifact-&quot;</span>, cache_path).<span class="kw">await </span>{
-		<span class="prelude-val">Ok</span>(f) =&gt; f,
-		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				<span class="string">&quot;failed to create a temp file for the artifact: {:?}&quot;</span>,
-				err,
-			);
-			<span class="kw">return </span>Outcome::CreateTmpFileErr {
-				worker: IdleWorker { stream, pid },
-				err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err),
-			}
-		},
+	<span class="comment">// Create the tmp file here so that the child doesn&#39;t need any file creation rights. This will
+	// be cleared at the end of this function.
+	</span><span class="kw">let </span>tmp_file = worker_dir::prepare_tmp_artifact(<span class="kw-2">&amp;</span>worker_dir.path);
+	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tokio::fs::File::create(<span class="kw-2">&amp;</span>tmp_file).<span class="kw">await </span>{
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			<span class="question-mark">?</span>worker_dir,
+			<span class="string">&quot;failed to create a temp file for the artifact: {:?}&quot;</span>,
+			err,
+		);
+		<span class="kw">return </span>Outcome::CreateTmpFileErr {
+			worker: IdleWorker { stream, pid, worker_dir },
+			err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err),
+		}
 	};
 
-	<span class="kw">let </span>outcome = f(tmp_file.clone(), stream).<span class="kw">await</span>;
+	<span class="kw">let </span>worker_dir_path = worker_dir.path.clone();
+	<span class="kw">let </span>outcome = f(tmp_file, stream, worker_dir).<span class="kw">await</span>;
 
-	<span class="comment">// The function called above is expected to move `tmp_file` to a new location upon success.
-	// However, the function may as well fail and in that case we should remove the tmp file here.
-	//
-	// In any case, we try to remove the file here so that there are no leftovers. We only report
-	// errors that are different from the `NotFound`.
-	</span><span class="kw">match </span>tokio::fs::remove_file(tmp_file).<span class="kw">await </span>{
-		<span class="prelude-val">Ok</span>(()) =&gt; (),
-		<span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.kind() == std::io::ErrorKind::NotFound =&gt; (),
-		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::warn!</span>(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				<span class="string">&quot;failed to remove the tmp file: {:?}&quot;</span>,
-				err,
-			);
-		},
+	<span class="comment">// Try to clear the worker dir.
+	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = clear_worker_dir_path(<span class="kw-2">&amp;</span>worker_dir_path) {
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			<span class="question-mark">?</span>worker_dir_path,
+			<span class="string">&quot;failed to clear worker cache after the job: {:?}&quot;</span>,
+			err,
+		);
+		<span class="kw">return </span>Outcome::ClearWorkerDir { err: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err) }
 	}
 
 	outcome
 }
 
-<span class="kw">async fn </span>send_request(
-	stream: <span class="kw-2">&amp;mut </span>UnixStream,
-	pvf: PvfPrepData,
-	tmp_file: <span class="kw-2">&amp;</span>Path,
-) -&gt; io::Result&lt;()&gt; {
+<span class="kw">async fn </span>send_request(stream: <span class="kw-2">&amp;mut </span>UnixStream, pvf: PvfPrepData) -&gt; io::Result&lt;()&gt; {
 	framed_send(stream, <span class="kw-2">&amp;</span>pvf.encode()).<span class="kw">await</span><span class="question-mark">?</span>;
-	framed_send(stream, path_to_bytes(tmp_file)).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(())
 }
 

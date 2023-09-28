@@ -317,6 +317,7 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -491,10 +492,11 @@
 	///
 	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
 	</span><span class="kw">pub async fn </span>new(cache_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="self">Self </span>{
-		<span class="comment">// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
+		<span class="comment">// First delete the entire cache. This includes artifacts and any leftover worker dirs (see
+		// [`WorkerDir`]). Nodes are long-running so this should populate shortly.
 		</span><span class="kw">let _ </span>= tokio::fs::remove_dir_all(cache_path).<span class="kw">await</span>;
-		<span class="kw">let _ </span>= tokio::fs::create_dir_all(cache_path).<span class="kw">await</span>;
+		<span class="comment">// Make sure that the cache path directory and all its parents are created.
+		</span><span class="kw">let _ </span>= tokio::fs::create_dir_all(cache_path).<span class="kw">await</span>;
 
 		<span class="self">Self </span>{ artifacts: HashMap::new() }
 	}
@@ -614,7 +616,7 @@
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>artifacts_removes_cache_on_startup() {
-		<span class="kw">let </span>fake_cache_path = <span class="kw">crate</span>::worker_intf::tmpfile(<span class="string">&quot;test-cache&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>fake_cache_path = <span class="kw">crate</span>::worker_intf::tmppath(<span class="string">&quot;test-cache&quot;</span>).<span class="kw">await</span>.unwrap();
 		<span class="kw">let </span>fake_artifact_path = {
 			<span class="kw">let </span><span class="kw-2">mut </span>p = fake_cache_path.clone();
 			p.push(<span class="string">&quot;wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234&quot;</span>);
