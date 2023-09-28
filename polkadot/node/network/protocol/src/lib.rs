@@ -253,26 +253,25 @@ impl View {
 
 /// A protocol-versioned type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, VStaging> {
+pub enum Versioned<V1, V2> {
 	/// V1 type.
 	V1(V1),
-	/// VStaging type.
-	VStaging(VStaging),
+	/// V2 type.
+	V2(V2),
 }
 
-impl<V1: Clone, VStaging: Clone> Versioned<&'_ V1, &'_ VStaging> {
+impl<V1: Clone, V2: Clone> Versioned<&'_ V1, &'_ V2> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> Versioned<V1, VStaging> {
+	pub fn clone_inner(&self) -> Versioned<V1, V2> {
 		match *self {
 			Versioned::V1(inner) => Versioned::V1(inner.clone()),
-			Versioned::VStaging(inner) => Versioned::VStaging(inner.clone()),
+			Versioned::V2(inner) => Versioned::V2(inner.clone()),
 		}
 	}
 }
 
 /// All supported versions of the validation protocol message.
-pub type VersionedValidationProtocol =
-	Versioned<v1::ValidationProtocol, vstaging::ValidationProtocol>;
+pub type VersionedValidationProtocol = Versioned<v1::ValidationProtocol, v2::ValidationProtocol>;
 
 impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v1: v1::ValidationProtocol) -> Self {
@@ -280,14 +279,14 @@ impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 	}
 }
 
-impl From<vstaging::ValidationProtocol> for VersionedValidationProtocol {
-	fn from(vstaging: vstaging::ValidationProtocol) -> Self {
-		VersionedValidationProtocol::VStaging(vstaging)
+impl From<v2::ValidationProtocol> for VersionedValidationProtocol {
+	fn from(v2: v2::ValidationProtocol) -> Self {
+		VersionedValidationProtocol::V2(v2)
 	}
 }
 
 /// All supported versions of the collation protocol message.
-pub type VersionedCollationProtocol = Versioned<v1::CollationProtocol, vstaging::CollationProtocol>;
+pub type VersionedCollationProtocol = Versioned<v1::CollationProtocol, v2::CollationProtocol>;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v1: v1::CollationProtocol) -> Self {
@@ -295,9 +294,9 @@ impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	}
 }
 
-impl From<vstaging::CollationProtocol> for VersionedCollationProtocol {
-	fn from(vstaging: vstaging::CollationProtocol) -> Self {
-		VersionedCollationProtocol::VStaging(vstaging)
+impl From<v2::CollationProtocol> for VersionedCollationProtocol {
+	fn from(v2: v2::CollationProtocol) -> Self {
+		VersionedCollationProtocol::V2(v2)
 	}
 }
 
@@ -307,7 +306,7 @@ macro_rules! impl_versioned_full_protocol_from {
 			fn from(versioned_from: $from) -> $out {
 				match versioned_from {
 					Versioned::V1(x) => Versioned::V1(x.into()),
-					Versioned::VStaging(x) => Versioned::VStaging(x.into()),
+					Versioned::V2(x) => Versioned::V2(x.into()),
 				}
 			}
 		}
@@ -321,7 +320,7 @@ macro_rules! impl_versioned_try_from {
 		$from:ty,
 		$out:ty,
 		$v1_pat:pat => $v1_out:expr,
-		$vstaging_pat:pat => $vstaging_out:expr
+		$v2_pat:pat => $v2_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
 			type Error = crate::WrongVariant;
@@ -330,7 +329,7 @@ macro_rules! impl_versioned_try_from {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out)),
-					Versioned::VStaging($vstaging_pat) => Ok(Versioned::VStaging($vstaging_out)),
+					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -343,8 +342,7 @@ macro_rules! impl_versioned_try_from {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
-					Versioned::VStaging($vstaging_pat) =>
-						Ok(Versioned::VStaging($vstaging_out.clone())),
+					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -354,7 +352,7 @@ macro_rules! impl_versioned_try_from {
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
 pub type BitfieldDistributionMessage =
-	Versioned<v1::BitfieldDistributionMessage, vstaging::BitfieldDistributionMessage>;
+	Versioned<v1::BitfieldDistributionMessage, v2::BitfieldDistributionMessage>;
 impl_versioned_full_protocol_from!(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
@@ -364,12 +362,12 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	BitfieldDistributionMessage,
 	v1::ValidationProtocol::BitfieldDistribution(x) => x,
-	vstaging::ValidationProtocol::BitfieldDistribution(x) => x
+	v2::ValidationProtocol::BitfieldDistribution(x) => x
 );
 
 /// Version-annotated messages used by the statement distribution subsystem.
 pub type StatementDistributionMessage =
-	Versioned<v1::StatementDistributionMessage, vstaging::StatementDistributionMessage>;
+	Versioned<v1::StatementDistributionMessage, v2::StatementDistributionMessage>;
 impl_versioned_full_protocol_from!(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
@@ -379,12 +377,12 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	StatementDistributionMessage,
 	v1::ValidationProtocol::StatementDistribution(x) => x,
-	vstaging::ValidationProtocol::StatementDistribution(x) => x
+	v2::ValidationProtocol::StatementDistribution(x) => x
 );
 
 /// Version-annotated messages used by the approval distribution subsystem.
 pub type ApprovalDistributionMessage =
-	Versioned<v1::ApprovalDistributionMessage, vstaging::ApprovalDistributionMessage>;
+	Versioned<v1::ApprovalDistributionMessage, v2::ApprovalDistributionMessage>;
 impl_versioned_full_protocol_from!(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
@@ -394,13 +392,13 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
 	v1::ValidationProtocol::ApprovalDistribution(x) => x,
-	vstaging::ValidationProtocol::ApprovalDistribution(x) => x
+	v2::ValidationProtocol::ApprovalDistribution(x) => x
 
 );
 
 /// Version-annotated messages used by the gossip-support subsystem (this is void).
 pub type GossipSupportNetworkMessage =
-	Versioned<v1::GossipSupportNetworkMessage, vstaging::GossipSupportNetworkMessage>;
+	Versioned<v1::GossipSupportNetworkMessage, v2::GossipSupportNetworkMessage>;
 // This is a void enum placeholder, so never gets sent over the wire.
 impl TryFrom<VersionedValidationProtocol> for GossipSupportNetworkMessage {
 	type Error = WrongVariant;
@@ -418,7 +416,7 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
 pub type CollatorProtocolMessage =
-	Versioned<v1::CollatorProtocolMessage, vstaging::CollatorProtocolMessage>;
+	Versioned<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
 impl_versioned_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,
@@ -428,7 +426,7 @@ impl_versioned_try_from!(
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
-	vstaging::CollationProtocol::CollatorProtocol(x) => x
+	v2::CollationProtocol::CollatorProtocol(x) => x
 );
 
 /// v1 notification protocol types.
@@ -589,12 +587,12 @@ pub mod v1 {
 	}
 }
 
-/// vstaging network protocol types.
-pub mod vstaging {
+/// v2 network protocol types.
+pub mod v2 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
 	use parity_scale_codec::{Decode, Encode};
 
-	use polkadot_primitives::vstaging::{
+	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
 		Id as ParaId, UncheckedSignedAvailabilityBitfield, UncheckedSignedStatement,
 	};

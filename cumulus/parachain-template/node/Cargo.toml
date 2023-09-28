@@ -90,7 +90,4 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-network-protocol-staging = [
-	"cumulus-client-service/network-protocol-staging",
-	"polkadot-cli/network-protocol-staging",
-]
+
