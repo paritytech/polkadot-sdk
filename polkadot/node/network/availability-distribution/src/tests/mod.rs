@@ -17,9 +17,10 @@
 use std::collections::HashSet;
 
 use futures::{executor, future, Future};
+use rstest::rstest;
 
 use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_primitives::{CoreState, Hash};
+use polkadot_primitives::{vstaging::ClientFeatures, CoreState, Hash};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -65,16 +66,20 @@ fn test_harness<T: Future<Output = ()>>(
 /// Simple basic check, whether the subsystem works as expected.
 ///
 /// Exceptional cases are tested as unit tests in `fetch_task`.
-#[test]
-fn check_basic() {
-	let state = TestState::default();
+#[rstest]
+#[case(ClientFeatures::empty())]
+#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
+fn check_basic(#[case] client_features: ClientFeatures) {
+	let state = TestState::new(client_features);
 	test_harness(state.keystore.clone(), move |harness| state.run(harness));
 }
 
 /// Check whether requester tries all validators in group.
-#[test]
-fn check_fetch_tries_all() {
-	let mut state = TestState::default();
+#[rstest]
+#[case(ClientFeatures::empty())]
+#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
+fn check_fetch_tries_all(#[case] client_features: ClientFeatures) {
+	let mut state = TestState::new(client_features);
 	for (_, v) in state.chunks.iter_mut() {
 		// 4 validators in group, so this should still succeed:
 		v.push(None);
@@ -88,9 +93,11 @@ fn check_fetch_tries_all() {
 ///
 /// Check that requester will retry the fetch on error on the next block still pending
 /// availability.
-#[test]
-fn check_fetch_retry() {
-	let mut state = TestState::default();
+#[rstest]
+#[case(ClientFeatures::empty())]
+#[case(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING)]
+fn check_fetch_retry(#[case] client_features: ClientFeatures) {
+	let mut state = TestState::new(client_features);
 	state
 		.cores
 		.insert(state.relay_chain[2], state.cores.get(&state.relay_chain[1]).unwrap().clone());

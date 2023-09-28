@@ -75,13 +75,16 @@ pub struct OccupiedCoreBuilder {
 	pub group_responsible: GroupIndex,
 	pub para_id: ParaId,
 	pub relay_parent: Hash,
+	pub n_validators: usize,
+	pub chunk_index: ChunkIndex,
 }
 
 impl OccupiedCoreBuilder {
 	pub fn build(self) -> (OccupiedCore, (CandidateHash, ErasureChunk)) {
 		let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
 		let pov_hash = pov.hash();
-		let (erasure_root, chunk) = get_valid_chunk_data(pov.clone());
+		let (erasure_root, chunk) =
+			get_valid_chunk_data(pov.clone(), self.n_validators, self.chunk_index);
 		let candidate_receipt = TestCandidateBuilder {
 			para_id: self.para_id,
 			pov_hash,
@@ -133,8 +136,11 @@ impl TestCandidateBuilder {
 }
 
 // Get chunk for index 0
-pub fn get_valid_chunk_data(pov: PoV) -> (Hash, ErasureChunk) {
-	let fake_validator_count = 10;
+pub fn get_valid_chunk_data(
+	pov: PoV,
+	n_validators: usize,
+	chunk_index: ChunkIndex,
+) -> (Hash, ErasureChunk) {
 	let persisted = PersistedValidationData {
 		parent_head: HeadData(vec![7, 8, 9]),
 		relay_parent_number: Default::default(),
@@ -142,7 +148,7 @@ pub fn get_valid_chunk_data(pov: PoV) -> (Hash, ErasureChunk) {
 		relay_parent_storage_root: Default::default(),
 	};
 	let available_data = AvailableData { validation_data: persisted, pov: Arc::new(pov) };
-	let chunks = obtain_chunks(fake_validator_count, &available_data).unwrap();
+	let chunks = obtain_chunks(n_validators, &available_data).unwrap();
 	let branches = branches(chunks.as_ref());
 	let root = branches.root();
 	let chunk = branches
@@ -152,7 +158,7 @@ pub fn get_valid_chunk_data(pov: PoV) -> (Hash, ErasureChunk) {
 			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
 		})
-		.next()
-		.expect("There really should be 10 chunks.");
+		.nth(chunk_index.0 as usize)
+		.expect("There really should be enough chunks.");
 	(root, chunk)
 }

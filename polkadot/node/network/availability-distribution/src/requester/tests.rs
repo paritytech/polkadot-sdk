@@ -25,8 +25,8 @@ use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
-	SessionIndex, SessionInfo,
+	vstaging::ClientFeatures, BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+	Id as ParaId, ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::traits::SpawnNamed;
 
@@ -50,7 +50,7 @@ use super::Requester;
 
 fn get_erasure_chunk() -> ErasureChunk {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
-	get_valid_chunk_data(pov).1
+	get_valid_chunk_data(pov, 10, ChunkIndex(0)).1
 }
 
 #[derive(Clone)]
@@ -125,6 +125,10 @@ fn spawn_virtual_overseer(
 								tx.send(Ok(Some(ExecutorParams::default())))
 									.expect("Receiver should be alive.");
 							},
+							RuntimeApiRequest::ClientFeatures(tx) => {
+								tx.send(Ok(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING))
+									.expect("Receiver should be alive.");
+							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {
 								let para_id = ParaId::from(1_u32);
 								let maybe_block_position =
@@ -142,6 +146,8 @@ fn spawn_virtual_overseer(
 													group_responsible: GroupIndex(1),
 													para_id,
 													relay_parent: hash,
+													n_validators: 10,
+													chunk_index: ChunkIndex(0),
 												}
 												.build()
 												.0,
@@ -170,6 +176,15 @@ fn spawn_virtual_overseer(
 							.unwrap_or_default();
 						response_channel
 							.send(Ok(ancestors))
+							.expect("Receiver is expected to be alive");
+					},
+					AllMessages::ChainApi(ChainApiMessage::BlockNumber(hash, response_channel)) => {
+						response_channel
+							.send(Ok(test_state
+								.relay_chain
+								.iter()
+								.position(|h| *h == hash)
+								.map(|pos| pos as u32)))
 							.expect("Receiver is expected to be alive");
 					},
 					msg => panic!("Unexpected overseer message: {:?}", msg),

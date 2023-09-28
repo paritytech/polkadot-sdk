@@ -20,7 +20,7 @@ use std::{
 };
 
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
-use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_node_subsystem_util::{availability_chunk_index, TimeoutExt};
 
 use futures::{
 	channel::{mpsc, oneshot},
@@ -46,8 +46,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
-	ScheduledCore, SessionInfo,
+	vstaging::ClientFeatures, CandidateHash, ChunkIndex, CoreState, ExecutorParams, GroupIndex,
+	Hash, Id as ParaId, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -82,10 +82,12 @@ pub struct TestState {
 	/// Cores per relay chain block.
 	pub cores: HashMap<Hash, Vec<CoreState>>,
 	pub keystore: KeystorePtr,
+	pub client_features: ClientFeatures,
 }
 
-impl Default for TestState {
-	fn default() -> Self {
+impl TestState {
+	/// Initialize a default test state.
+	pub fn new(client_features: ClientFeatures) -> Self {
 		let relay_chain: Vec<_> = (1u8..10).map(Hash::repeat_byte).collect();
 		let chain_a = ParaId::from(1);
 		let chain_b = ParaId::from(2);
@@ -113,7 +115,17 @@ impl Default for TestState {
 				advanced.next();
 				relay_chain.iter().zip(advanced)
 			};
-			for (relay_parent, relay_child) in heads {
+			for (block_number, (relay_parent, relay_child)) in heads.enumerate() {
+				let our_chunk_index = availability_chunk_index(
+					Some(&client_features),
+					session_info.random_seed,
+					session_info.validators.len(),
+					block_number as u32,
+					// Use the second para id, as we're in the first group and hold the entire POV.
+					2.into(),
+					ValidatorIndex(0),
+				);
+
 				let (p_cores, p_chunks): (Vec<_>, Vec<_>) = chain_ids
 					.iter()
 					.enumerate()
@@ -122,6 +134,8 @@ impl Default for TestState {
 							group_responsible: GroupIndex(i as _),
 							para_id: *para_id,
 							relay_parent: *relay_parent,
+							n_validators: session_info.validators.len(),
+							chunk_index: our_chunk_index,
 						}
 						.build();
 						(CoreState::Occupied(core), chunk)
@@ -144,11 +158,10 @@ impl Default for TestState {
 			session_info,
 			cores,
 			keystore,
+			client_features,
 		}
 	}
-}
 
-impl TestState {
 	/// Run, but fail after some timeout.
 	pub async fn run(self, harness: TestHarness) {
 		// Make sure test won't run forever.
@@ -226,12 +239,12 @@ impl TestState {
 				},
 				AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryChunk(
 					candidate_hash,
-					validator_index,
+					chunk_index,
 					tx,
 				)) => {
 					let chunk = self
 						.chunks
-						.get_mut(&(candidate_hash, validator_index))
+						.get_mut(&(candidate_hash, chunk_index))
 						.and_then(Vec::pop)
 						.flatten();
 					tx.send(chunk).expect("Receiver is expected to be alive");
@@ -269,6 +282,10 @@ impl TestState {
 							tx.send(Ok(self.cores[&hash].clone()))
 								.expect("Receiver should still be alive");
 						},
+						RuntimeApiRequest::ClientFeatures(tx) => {
+							tx.send(Ok(self.client_features))
+								.expect("Receiver should still be alive");
+						},
 						_ => {
 							panic!("Unexpected runtime request: {:?}", req);
 						},
@@ -282,7 +299,19 @@ impl TestState {
 						.unwrap_or_default();
 					response_channel.send(Ok(ancestors)).expect("Receiver is expected to be alive");
 				},
-				_ => {},
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(hash, response_channel)) => {
+					response_channel
+						.send(Ok(self
+							.relay_chain
+							.iter()
+							.position(|h| *h == hash)
+							.map(|pos| pos as u32)))
+						.expect("Receiver is expected to be alive");
+				},
+
+				_ => {
+					panic!("Received unexpected message")
+				},
 			}
 		}
 
