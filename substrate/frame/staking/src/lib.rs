@@ -451,7 +451,7 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 	/// Formats a `PayoutDestination` from another `PayoutDestination` provided in a call, which
 	/// could include a 0% and 100% split variant.
 	///
-	/// Falls back to `Stake` or `Free` variants if a 0% or 100% perbill is provided in a `Split`
+	/// Falls back to `Stake` or `Deposit` variants if a 0% or 100% perbill is provided in a `Split`
 	/// variant for an account respectively.
 	pub fn from_call(v: PayoutDestination<AccountId>) -> Self {
 		match v {
