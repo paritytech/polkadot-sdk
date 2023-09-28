@@ -447,6 +447,27 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 			},
 		}
 	}
+
+	/// Formats a `PayoutDestination` from another `PayoutDestination` provided in a call, which
+	/// could include a 0% and 100% split variant.
+	///
+	/// Falls back to `Stake` or `Free` variants if a 0% or 100% perbill is provided in a `Split`
+	/// variant for an account respectively.
+	pub fn from_call(v: PayoutDestination<AccountId>) -> Self {
+		match v {
+			PayoutDestination::Split((share, deposit_to)) => {
+				if share == Perbill::from_percent(100) {
+					PayoutDestination::Deposit(deposit_to)
+				} else if share == Perbill::zero() {
+					PayoutDestination::Stake
+				} else {
+					PayoutDestination::Split((share, deposit_to))
+				}
+			},
+			PayoutDestination::Stake | PayoutDestination::Deposit(_) | PayoutDestination::Forgo =>
+				v,
+		}
+	}
 }
 
 impl<AccountId> Default for PayoutDestination<AccountId> {

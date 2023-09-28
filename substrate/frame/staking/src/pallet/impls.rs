@@ -323,6 +323,7 @@ impl<T: Config> Pallet<T> {
 		let maybe_imbalance = match dest {
 			PayoutDestination::Stake => payout_destination_stake(amount),
 			PayoutDestination::Split((share, deposit_to)) => {
+				// `share` can never be 0% or 100%.
 				let amount_free = share * amount;
 				let amount_stake = amount.saturating_sub(amount_free);
 				let mut total_imbalance = PositiveImbalanceOf::<T>::zero();

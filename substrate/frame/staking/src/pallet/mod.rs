@@ -873,10 +873,14 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
+			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
+			// respectively.
+			let checked_payee = PayoutDestination::from_call(payee);
+
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
 			<Bonded<T>>::insert(&stash, &stash);
-			<Payees<T>>::insert(&stash, payee);
+			<Payees<T>>::insert(&stash, checked_payee);
 
 			let current_era = CurrentEra::<T>::get().unwrap_or(0);
 			let history_depth = T::HistoryDepth::get();
@@ -1244,24 +1248,13 @@ pub mod pallet {
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
 
-			// Fall back to `Stake` or `Free` variants if a 0% or 100% perbill is provided for an
-			// account respectively.
-			let payee_final = match payee {
-				PayoutDestination::Split((share, deposit_to)) => {
-					if share == Perbill::from_percent(100) {
-						PayoutDestination::Deposit(deposit_to)
-					} else if share == Perbill::zero() {
-						PayoutDestination::Stake
-					} else {
-						PayoutDestination::Split((share, deposit_to))
-					}
-				},
-				PayoutDestination::Stake |
-				PayoutDestination::Deposit(_) |
-				PayoutDestination::Forgo => payee,
-			};
+			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
+			// respectively.
+			let checked_payee = PayoutDestination::from_call(payee);
 
-			Payees::<T>::insert(stash.clone(), payee_final);
+			// Pass provided `payee` into `from_call` to ensure a 100% or 0% `Split` variant is
+			// updated to a `Deposit` or `Stake` variant respectively.
+			Payees::<T>::insert(stash.clone(), checked_payee);
 
 			// In-progress lazy migration to `Payees` storage item.
 			// NOTE: To be removed in next runtime upgrade once migration is completed.
