@@ -302,6 +302,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> Option<(PositiveImbalanceOf<T>, PayoutDestination<T::AccountId>)> {
 		// NOTE: temporary getter while `Payee` -> `Payees` lazy migration is taking place.
+		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
 		// Can replace with `dest = Self:payees(stash);` once migration is done.
 		let dest = Self::bonded(stash)
 			.and_then(|c| Some(Self::get_payout_destination_migrate(stash, c)))?;
