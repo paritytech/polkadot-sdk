@@ -257,7 +257,7 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &Configuration) -> WasmExecut
 	if let Some(ref wasmtime_precompiled_path) = config.wasmtime_precompiled {
 		wasm_builder = wasm_builder.with_wasmtime_precompiled_path(wasmtime_precompiled_path);
 	}
-	
+
 	wasm_builder.build()
 }
 

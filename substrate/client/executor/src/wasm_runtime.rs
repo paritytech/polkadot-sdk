@@ -321,14 +321,14 @@ where
 					return Err(WasmError::Instantiation(format!(
 						"--wasmtime-precompiled is not a directory: {}",
 						wasmtime_precompiled_dir.display()
-					)));
+					)))
 				}
 				let handle_err = |e: std::io::Error| -> WasmError {
 					return WasmError::Instantiation(format!(
 						"Io error when loading wasmtime precompiled folder ({}): {}",
 						wasmtime_precompiled_dir.display(),
 						e
-					));
+					))
 				};
 				let mut maybe_compiled_artifact = None;
 
@@ -364,7 +364,7 @@ where
 						return Err(WasmError::Instantiation(
 							"wasmtime precompiled folder contain a file with invalid utf8 name"
 								.to_owned(),
-						));
+						))
 					}
 				}
 
@@ -424,7 +424,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	wasmtime_precompiled_path: &Path,
 ) -> Result<(), WasmError> {
 	let semantics = match wasm_method {
-		WasmExecutionMethod::Compiled { instantiation_strategy } => {
+		WasmExecutionMethod::Compiled { instantiation_strategy } => 
 			sc_executor_wasmtime::Semantics {
 				heap_alloc_strategy,
 				instantiation_strategy,
@@ -435,8 +435,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
-			}
-		},
+			},
 	};
 
 	let code_hash = &runtime_code.hash;
