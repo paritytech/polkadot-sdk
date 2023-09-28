@@ -112,19 +112,19 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
-	pub const AssetHub: Location = Parachain(1000).into_location();
-	pub const Contracts: Location = Parachain(1002).into_location();
-	pub const Encointer: Location = Parachain(1003).into_location();
-	pub const Tick: Location = Parachain(100).into_location();
-	pub const Trick: Location = Parachain(110).into_location();
-	pub const Track: Location = Parachain(120).into_location();
-	pub const RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
-	pub const RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
-	pub const RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
-	pub const RocForAssetHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), AssetHub::get());
-	pub const RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
-	pub const RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub AssetHub: Location = Parachain(1000).into_location();
+	pub Contracts: Location = Parachain(1002).into_location();
+	pub Encointer: Location = Parachain(1003).into_location();
+	pub Tick: Location = Parachain(100).into_location();
+	pub Trick: Location = Parachain(110).into_location();
+	pub Track: Location = Parachain(120).into_location();
+	pub RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	pub RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	pub RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	pub RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
+	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -217,19 +217,19 @@ pub type LocalOriginToLocation = (
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
-/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
 pub type StakingAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
 
-/// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
+/// Type to convert the Fellows origin to a Plurality `Location` value.
 pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
 
-/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
-	// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	StakingAdminToPlurality,
-	// Fellows origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// Fellows origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowsToPlurality,
 );
 

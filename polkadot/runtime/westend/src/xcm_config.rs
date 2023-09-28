@@ -23,8 +23,8 @@ use super::{
 };
 
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Everything, Nothing, Contains},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -107,11 +107,11 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub const Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
-	pub const WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
-	pub const Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
-	pub const WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
+	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -119,14 +119,18 @@ parameter_types! {
 pub type TrustedTeleporters =
 	(xcm_builder::Case<WndForAssetHub>, xcm_builder::Case<WndForCollectives>);
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
-	pub type CollectivesOrFellows: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(COLLECTIVES_ID)) } |
-		MultiLocation { parents: 0, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct CollectivesOrFellows;
+impl Contains<Location> for CollectivesOrFellows {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(COLLECTIVES_ID)]) | (0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]))
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.
@@ -193,10 +197,10 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
 }
 
-/// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
 pub type GeneralAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
 
@@ -207,22 +211,22 @@ pub type LocalOriginToLocation = (
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
-/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
 pub type StakingAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
 
-/// Type to convert the `FellowshipAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `FellowshipAdmin` origin to a Plurality `Location` value.
 pub type FellowshipAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
 
-/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
-	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	GeneralAdminToPlurality,
-	// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	StakingAdminToPlurality,
-	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
 );
 
