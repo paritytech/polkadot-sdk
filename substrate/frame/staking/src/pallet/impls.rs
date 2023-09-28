@@ -697,6 +697,7 @@ impl<T: Config> Pallet<T> {
 		<Ledger<T>>::remove(&controller);
 
 		// NOTE: Checks both `Payees` and `Payee` records during migration period.
+		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
 		if Payees::<T>::contains_key(&stash) {
 			Payees::<T>::remove(stash);
 		} else {
