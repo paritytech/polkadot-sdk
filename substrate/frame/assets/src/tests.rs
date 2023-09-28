@@ -27,7 +27,10 @@ use frame_support::{
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
-use sp_runtime::{traits::ConvertInto, TokenError};
+use sp_runtime::{
+	traits::{ConvertInto, Get},
+	TokenError,
+};
 
 fn asset_ids() -> Vec<u32> {
 	let mut s: Vec<_> = Assets::asset_ids().collect();
@@ -1784,6 +1787,7 @@ fn migrate_to_v2_works() {
 		use frame_support::traits::OnRuntimeUpgrade;
 		StorageVersion::new(1).put::<Pallet<Test, ()>>();
 
+		// Create an asset with id 1
 		v1::Asset::<Test, ()>::insert(
 			1,
 			v1::AssetDetails::<
@@ -1806,6 +1810,7 @@ fn migrate_to_v2_works() {
 			},
 		);
 
+		// Populate balances of asset 1
 		Account::<Test, ()>::insert(
 			1,
 			1,
@@ -1827,14 +1832,24 @@ fn migrate_to_v2_works() {
 			},
 		);
 
-		// Run migration.
-		assert_ok!(
-			crate::migration::v2::VersionCheckedMigrateToV2::<Test, (), ()>::try_on_runtime_upgrade(
-				true
-			)
-		);
+		// Define a constant Vec for migration.
+		// This is a workaround for the fact that we can't implement Get for Vec.
+		struct ConstVecForMigrationToV2;
+		impl Get<Vec<(u32, u64)>> for ConstVecForMigrationToV2 {
+			fn get() -> Vec<(u32, u64)> {
+				// AssetId 1, AccountId 2 will be inactive.
+				vec![(1, 2)]
+			}
+		}
 
-		// TODO check with 2 after setting account 2's balance as inactive
-		assert_eq!(Asset::<Test, ()>::get(1).unwrap().inactive, 0);
+		// Run migration.
+		assert_ok!(crate::migration::v2::VersionCheckedMigrateToV2::<
+			Test,
+			(),
+			ConstVecForMigrationToV2,
+		>::try_on_runtime_upgrade(true));
+
+		// Total inactive balance of asset 1 should be 2.
+		assert_eq!(Asset::<Test, ()>::get(1).unwrap().inactive, 2);
 	});
 }

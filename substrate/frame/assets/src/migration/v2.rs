@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Asset, AssetDetails, AssetStatus, Config, DepositBalanceOf, Pallet};
+use crate::{Account, Asset, AssetDetails, AssetStatus, Config, DepositBalanceOf, Pallet};
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::{Saturating, Zero},
@@ -58,10 +58,12 @@ pub mod old {
 		pub status: AssetStatus,
 	}
 
-	impl<Balance, AccountId, DepositBalance> AssetDetails<Balance, AccountId, DepositBalance> {
+	impl<Balance, AccountId, DepositBalance> AssetDetails<Balance, AccountId, DepositBalance>
+	where
+		Balance: Zero,
+	{
 		pub(super) fn migrate_to_v2(
 			self,
-			inactive: Balance,
 		) -> super::AssetDetails<Balance, AccountId, DepositBalance> {
 			super::AssetDetails {
 				owner: self.owner,
@@ -69,7 +71,7 @@ pub mod old {
 				admin: self.admin,
 				freezer: self.freezer,
 				supply: self.supply,
-				inactive,
+				inactive: Zero::zero(),
 				deposit: self.deposit,
 				min_balance: self.min_balance,
 				is_sufficient: self.is_sufficient,
@@ -82,24 +84,47 @@ pub mod old {
 	}
 }
 /// This migration moves all the state to v2 of Assets
-pub struct VersionUncheckedMigrateToV2<T: Config<I>, I: 'static, A>(
-	sp_std::marker::PhantomData<(T, I, A)>,
-);
+pub struct VersionUncheckedMigrateToV2<
+	T: Config<I>,
+	I: 'static,
+	A: Get<Vec<(T::AssetId, T::AccountId)>>,
+>(sp_std::marker::PhantomData<(T, I, A)>);
 
-impl<T: Config<I>, I: 'static, A> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T, I, A> {
+impl<T: Config<I>, I: 'static, A: Get<Vec<(T::AssetId, T::AccountId)>>> OnRuntimeUpgrade
+	for VersionUncheckedMigrateToV2<T, I, A>
+{
 	fn on_runtime_upgrade() -> Weight {
 		let mut translated = 0u64;
+
 		Asset::<T, I>::translate::<
 			old::AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 			_,
 		>(|_asset_id, old_value| {
 			translated.saturating_inc();
-			let inactive = T::Balance::zero();
-			// TODO compute inactives based on input of A
-			Some(old_value.migrate_to_v2(inactive))
+			Some(old_value.migrate_to_v2())
 		});
 
-		T::DbWeight::get().reads_writes(translated, translated)
+		let mut read = 0u64;
+		for (asset_id, account) in A::get() {
+			if let Some(acc) = Account::<T, I>::get(&asset_id, &account) {
+				Asset::<T, I>::mutate(&asset_id, |asset| {
+					if let Some(asset) = asset {
+						asset.inactive.saturating_accrue(acc.balance);
+					} else {
+						log::info!("inactive migration: asset {:?} not found", asset_id);
+					}
+				});
+			} else {
+				log::info!(
+					"inactive migration: account {:?} not found for asset {:?}",
+					account,
+					asset_id
+				);
+			}
+			read.saturating_inc();
+		}
+
+		T::DbWeight::get().reads_writes(translated + read, translated)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -125,10 +150,11 @@ impl<T: Config<I>, I: 'static, A> OnRuntimeUpgrade for VersionUncheckedMigrateTo
 
 /// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
 /// ensuring the migration is only performed when on-chain version is 1.
-pub type VersionCheckedMigrateToV2<T, I, A> = frame_support::migrations::VersionedMigration<
-	1,
-	2,
-	VersionUncheckedMigrateToV2<T, I, A>,
-	crate::pallet::Pallet<T, I>,
-	<T as frame_system::Config>::DbWeight,
->;
+pub type VersionCheckedMigrateToV2<T, I = (), A = ()> =
+	frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		VersionUncheckedMigrateToV2<T, I, A>,
+		crate::pallet::Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
