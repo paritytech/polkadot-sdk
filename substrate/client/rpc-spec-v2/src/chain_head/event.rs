@@ -22,7 +22,6 @@ use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use sp_api::ApiError;
 use sp_version::RuntimeVersion;
 use std::collections::BTreeMap;
-use thiserror::Error;
 
 /// The operation could not be processed due to an error.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -61,43 +60,6 @@ pub struct ChainHeadRuntimeVersion {
 	pub apis: BTreeMap<String, u32>,
 	/// Transaction version.
 	pub transaction_version: u32,
-}
-
-/// Error when trying to convert a `ChainHeadRuntimeVersion` into a `RuntimeVersion`
-#[derive(Error, Debug)]
-pub enum IntoRuntimeVersionError {
-	/// Invalid characters in hex string.
-	#[error("invalid hex string provided")]
-	FromHexError(#[from] sp_core::bytes::FromHexError),
-	/// Hex string did not contain exactly 8 bytes.
-	#[error("buffer must be 8 bytes long")]
-	InvalidLength,
-}
-
-impl TryFrom<ChainHeadRuntimeVersion> for RuntimeVersion {
-	type Error = IntoRuntimeVersionError;
-
-	fn try_from(val: ChainHeadRuntimeVersion) -> Result<Self, Self::Error> {
-		let apis = val
-			.apis
-			.into_iter()
-			.map(|(api, version)| -> Result<([u8; 8], u32), IntoRuntimeVersionError> {
-				let bytes_vec = sp_core::bytes::from_hex(&api)?;
-				let api: [u8; 8] =
-					bytes_vec.try_into().map_err(|_| IntoRuntimeVersionError::InvalidLength)?;
-				Ok((api, version))
-			})
-			.collect::<Result<sp_version::ApisVec, IntoRuntimeVersionError>>()?;
-		Ok(Self {
-			spec_name: sp_runtime::RuntimeString::Owned(val.spec_name),
-			impl_name: sp_runtime::RuntimeString::Owned(val.impl_name),
-			spec_version: val.spec_version,
-			impl_version: val.impl_version,
-			apis,
-			transaction_version: val.transaction_version,
-			..Default::default()
-		})
-	}
 }
 
 impl From<RuntimeVersion> for ChainHeadRuntimeVersion {
