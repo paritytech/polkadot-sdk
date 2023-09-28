@@ -72,11 +72,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 started");
-		if StorageVersion::get::<Pallet<T>>() == 9 {
+		if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(9) {
 			let weight_consumed = migrate_to_v10::<T>();
 
 			log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
-			StorageVersion::new(10).put::<Pallet<T>>();
+			Pallet::<T>::current_storage_version().put::<Pallet<T>>();
 
 			weight_consumed
 		} else {
@@ -89,7 +89,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running post_upgrade() for HostConfiguration MigrateToV10");
 		ensure!(
-			StorageVersion::get::<Pallet<T>>() >= 10,
+			Pallet::<T>::on_chain_storage_version() >= StorageVersion::new(10)
 			"Storage version should be >= 10 after the migration"
 		);
 
