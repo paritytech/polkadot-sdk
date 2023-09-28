@@ -179,6 +179,7 @@ pub type AssetCredit<T> =
 ///
 /// Implies a negative imbalance in the system that can be placed into an account or alter the total
 /// supply.
+#[derive(RuntimeDebug, Eq, PartialEq)]
 pub enum Credit<T: Config> {
 	/// Native credit.
 	Native(NativeCredit<T>),

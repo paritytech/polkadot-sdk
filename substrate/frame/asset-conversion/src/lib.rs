@@ -94,7 +94,7 @@ use sp_runtime::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
 		One, TrailingZeroInput, Zero,
 	},
-	BoundedVec, DispatchError, Saturating, TokenError, TransactionOutcome,
+	BoundedVec, DispatchError, RuntimeDebug, Saturating, TokenError, TransactionOutcome,
 };
 use sp_std::vec::Vec;
 
