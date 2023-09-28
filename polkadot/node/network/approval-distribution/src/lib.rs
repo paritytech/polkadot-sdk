@@ -180,6 +180,16 @@ impl ApprovalEntry {
 		self.routing_info.required_routing = required_routing;
 	}
 
+	// Tells if this entry assignment covers at least one candidate in the approval
+	pub fn includes_approval_candidates(&self, approval: &IndirectSignedApprovalVoteV2) -> bool {
+		for candidate_index in approval.candidate_indices.iter_ones() {
+			if self.assignment_claimed_candidates.bit_at((candidate_index).as_bit_index()) {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Records a new approval. Returns false if the claimed candidate is not found or we already
 	// have received the approval.
 	pub fn note_approval(
@@ -195,13 +205,7 @@ impl ApprovalEntry {
 		}
 
 		// We need at least one of the candidates in the approval to be in this assignment
-		if !approval
-			.candidate_indices
-			.iter_ones()
-			.fold(false, |accumulator, candidate_index| {
-				self.assignment_claimed_candidates.bit_at((candidate_index).as_bit_index()) ||
-					accumulator
-			}) {
+		if !self.includes_approval_candidates(&approval) {
 			return Err(ApprovalEntryError::InvalidCandidateIndex)
 		}
 
@@ -405,6 +409,13 @@ impl Knowledge {
 		}
 		success
 	}
+
+	// Tells if all keys are contained by this peer_knowledge
+	pub fn contains_all_keys(&self, keys: &Vec<(MessageSubject, MessageKind)>) -> bool {
+		keys.iter().fold(true, |accumulator, assignment_key| {
+			accumulator && self.contains(&assignment_key.0, assignment_key.1)
+		})
+	}
 }
 
 /// Information that has been circulated to and from a peer.
@@ -423,12 +434,12 @@ impl PeerKnowledge {
 
 	// Tells if all assignments for a given approval are included in the knowledge of the peer
 	fn contains_assignments_for_approval(&self, approval: &IndirectSignedApprovalVoteV2) -> bool {
-		Self::generate_assignments_keys(&approval).iter().fold(
-			true,
-			|accumulator, assignment_key| {
-				accumulator && self.contains(&assignment_key.0, assignment_key.1)
-			},
-		)
+		self.contains_all_keys(&Self::generate_assignments_keys(&approval))
+	}
+
+	// Tells if all keys are contained by this peer_knowledge
+	pub fn contains_all_keys(&self, keys: &Vec<(MessageSubject, MessageKind)>) -> bool {
+		self.sent.contains_all_keys(keys) || self.received.contains_all_keys(keys)
 	}
 
 	// Generate the knowledge keys for querying if all assignments of an approval are known
@@ -584,6 +595,7 @@ impl BlockEntry {
 		}
 	}
 
+	/// Returns the list of approval votes covering this candidate
 	pub fn approval_votes(
 		&self,
 		candidate_index: CandidateIndex,
@@ -1723,10 +1735,7 @@ impl State {
 			//   3. Any randomly selected peers have been sent the assignment already.
 			let in_topology = topology
 				.map_or(false, |t| t.local_grid_neighbors().route_to_peer(required_routing, peer));
-			in_topology ||
-				assignments_knowledge_keys.iter().fold(true, |result, message_subject| {
-					result && knowledge.sent.contains(&message_subject.0, message_subject.1)
-				})
+			in_topology || knowledge.sent.contains_all_keys(&assignments_knowledge_keys)
 		};
 
 		let peers = entry
