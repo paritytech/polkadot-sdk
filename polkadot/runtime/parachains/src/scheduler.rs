@@ -152,7 +152,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn claimqueue)]
 	pub(crate) type ClaimQueue<T: Config> =
-		StorageValue<_, BTreeMap<CoreIndex, VecDeque<Option<ParasEntryType<T>>>>, ValueQuery>;
+		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
 	/// Opaque `AssignmentType` used in this module.
 	pub(crate) type AssignmentType<T> = <<T as Config>::AssignmentProvider as AssignmentProvider<
@@ -365,14 +365,10 @@ impl<T: Config> Pallet<T> {
 					while i < core_claimqueue.len() {
 						i += 1;
 
-						let dropped = if let Some(Some(entry)) = core_claimqueue.get(i) {
+						let dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
 								match core_claimqueue.remove(i) {
-									Some(Some(dropped)) => dropped,
-									Some(None) => {
-										i -= 1;
-										continue
-									},
+									Some(dropped) => dropped,
 									_ => continue,
 								}
 							} else {
@@ -391,8 +387,7 @@ impl<T: Config> Pallet<T> {
 							Some(assignment) => {
 								let AssignmentProviderConfig { ttl, .. } =
 									T::AssignmentProvider::get_provider_config(core_idx);
-								core_claimqueue
-									.push_back(Some(ParasEntry::new(assignment, now + ttl)));
+								core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 							},
 							None => (),
 						}
@@ -506,11 +501,9 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it became available.
 	pub(crate) fn next_up_on_available(core: CoreIndex) -> Option<ScheduledCore> {
-		ClaimQueue::<T>::get().get(&core).and_then(|a| {
-			a.iter()
-				.find_map(|e| e.as_ref())
-				.map(|pe| Self::paras_entry_to_scheduled_core(pe))
-		})
+		ClaimQueue::<T>::get()
+			.get(&core)
+			.and_then(|a| a.front().map(|pe| Self::paras_entry_to_scheduled_core(pe)))
 	}
 
 	fn paras_entry_to_scheduled_core(pe: &ParasEntryType<T>) -> ScheduledCore {
@@ -560,7 +553,7 @@ impl<T: Config> Pallet<T> {
 		for (_, claim_queue) in ClaimQueue::<T>::take() {
 			// Push back in reverse order so that when we pop from the provider again,
 			// the entries in the claimqueue are in the same order as they are right now.
-			for para_entry in claim_queue.into_iter().flatten().rev() {
+			for para_entry in claim_queue.into_iter().rev() {
 				Self::maybe_push_assignment(para_entry);
 			}
 		}
@@ -581,35 +574,8 @@ impl<T: Config> Pallet<T> {
 		<configuration::Pallet<T>>::config().scheduling_lookahead
 	}
 
-	/// Updates the claimqueue by moving it to the next paras and filling empty spots with new
-	/// paras.
-	pub(crate) fn update_claimqueue(
-		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
-		now: BlockNumberFor<T>,
-	) {
-		Self::move_claimqueue_forward();
-		Self::free_cores_and_fill_claimqueue(just_freed_cores, now)
-	}
-
-	/// Moves all elements in the claimqueue forward.
-	fn move_claimqueue_forward() {
-		let mut cq = ClaimQueue::<T>::get();
-		for (_, core_queue) in cq.iter_mut() {
-			// First pop the finished claims from the front.
-			match core_queue.front() {
-				None => {},
-				Some(None) => {
-					core_queue.pop_front();
-				},
-				Some(_) => {},
-			}
-		}
-
-		ClaimQueue::<T>::set(cq);
-	}
-
 	/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
-	fn free_cores_and_fill_claimqueue(
+	pub fn free_cores_and_fill_claimqueue(
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
 		now: BlockNumberFor<T>,
 	) {
@@ -676,7 +642,7 @@ impl<T: Config> Pallet<T> {
 	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
 		ClaimQueue::<T>::mutate(|la| {
 			let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(Some(pe));
+			la_deque.push_back(pe);
 		});
 	}
 
@@ -690,13 +656,10 @@ impl<T: Config> Pallet<T> {
 
 			let pos = core_claims
 				.iter()
-				.position(|a| a.as_ref().map_or(false, |pe| pe.para_id() == para_id))
+				.position(|pe| pe.para_id() == para_id)
 				.ok_or("para id not found at core_idx lookahead")?;
 
-			let pe = core_claims
-				.remove(pos)
-				.ok_or("remove returned None")?
-				.ok_or("Element in Claimqueue was None.")?;
+			let pe = core_claims.remove(pos).ok_or("remove returned None")?;
 
 			Ok((pos as u32, pe))
 		})
@@ -705,12 +668,9 @@ impl<T: Config> Pallet<T> {
 	/// Paras scheduled next in the claim queue.
 	pub(crate) fn scheduled_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		let claimqueue = ClaimQueue::<T>::get();
-		claimqueue.into_iter().filter_map(|(core_idx, v)| {
-			v.front()
-				.map(|x| x.as_ref())
-				.flatten()
-				.map(|e| (core_idx, e.assignment.para_id()))
-		})
+		claimqueue
+			.into_iter()
+			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
 
 	/// Internal access to entries at the top of the claim queue.

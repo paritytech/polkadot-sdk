@@ -78,7 +78,7 @@ fn run_to_block(
 		Scheduler::initializer_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::update_claimqueue(BTreeMap::new(), b + 1);
+		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), b + 1);
 	}
 }
 
@@ -662,7 +662,7 @@ fn schedule_schedules_including_just_freed() {
 		]
 		.into_iter()
 		.collect();
-		Scheduler::update_claimqueue(just_updated, now);
+		Scheduler::free_cores_and_fill_claimqueue(just_updated, now);
 
 		{
 			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
@@ -966,7 +966,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			]
 			.into_iter()
 			.collect();
-			Scheduler::update_claimqueue(just_updated, now);
+			Scheduler::free_cores_and_fill_claimqueue(just_updated, now);
 
 			// ParaId a exists in the claim queue until max_retries is reached.
 			if n < max_retries + now {
@@ -1017,7 +1017,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 				}
 			}
 
-			Scheduler::update_claimqueue(just_updated, now);
+			Scheduler::free_cores_and_fill_claimqueue(just_updated, now);
 
 			// ParaId a exists in the claim queue until groups are rotated.
 			if n < 31 {
@@ -1243,7 +1243,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 			));
 
 			// Pop assignment_b into the claimqueue
-			Scheduler::update_claimqueue(BTreeMap::new(), 2);
+			Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 2);
 
 			//// Now that there is an earlier next-up, we use that.
 			assert_eq!(
@@ -1405,7 +1405,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			_ => None,
 		});
 
-		Scheduler::update_claimqueue(BTreeMap::new(), 3);
+		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 3);
 
 		assert_eq!(
 			Scheduler::claimqueue(),
@@ -1449,7 +1449,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 		let groups = ValidatorGroups::<Test>::get();
 		assert_eq!(groups.len(), 5);
 
-		Scheduler::update_claimqueue(BTreeMap::new(), 4);
+		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 4);
 
 		assert_eq!(
 			Scheduler::claimqueue(),
