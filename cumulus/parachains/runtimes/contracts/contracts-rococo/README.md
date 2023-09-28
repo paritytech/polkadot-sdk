@@ -54,7 +54,8 @@ Once the executable is built, launch the parachain node via:
 ./target/release/polkadot-parachain --chain contracts-rococo
 ```
 
-Refer to the [setup instructions](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus#manual-setup) to run a local network for development.
+Refer to the [setup instructions](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus#manual-setup) to run a
+local network for development.
 
 ### Rococo Deployment
 
