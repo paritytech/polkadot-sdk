@@ -90,7 +90,7 @@ impl TrackingAllocatorData {
 		if self.current > self.peak {
 			self.peak = self.current;
 		}
-		let within_limits = self.peak <= self.limit;
+		let within_limits = self.limit == 0 || self.peak <= self.limit;
 		if within_limits {
 			self.unlock()
 		}
@@ -122,7 +122,7 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 		limit: Option<isize>,
 		failure_handler: Option<Box<dyn Fn()>>,
 	) {
-		ALLOCATOR_DATA.start_tracking(limit.unwrap_or(isize::MAX), failure_handler);
+		ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
 	}
 
 	/// End tracking and return the peak allocation value in bytes (as `isize`). Peak allocation
