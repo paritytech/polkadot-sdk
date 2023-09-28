@@ -99,7 +99,7 @@ impl CallSpan for TestCallSpan {
 }
 
 #[test]
-fn unsafe_debugging_works() {
+fn debugging_works() {
 	let (wasm_caller, _) = compile_module::<Test>("call").unwrap();
 	let (wasm_callee, _) = compile_module::<Test>("store_call").unwrap();
 
