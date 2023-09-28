@@ -316,8 +316,12 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	{
 		// Get the artifact path (asserting it exists).
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-		assert_eq!(cache_dir.len(), 1);
-		let artifact_path = cache_dir.pop().unwrap().unwrap();
+		// Should contain the artifact and the worker dir.
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
 
 		// Delete the artifact.
 		std::fs::remove_file(artifact_path.path()).unwrap();
@@ -378,4 +382,20 @@ async fn prechecking_out_of_memory() {
 		.await;
 
 	assert_matches!(result, Err(PrepareError::OutOfMemory));
+}
+
+// With one worker, run multiple preparation jobs serially. They should not conflict.
+#[tokio::test]
+async fn prepare_can_run_serially() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	});
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+
+	// Prepare a different wasm blob to prevent skipping work.
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
 }

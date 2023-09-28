@@ -16,7 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-use polkadot_node_core_pvf_common::executor_intf::Executor;
+use polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -28,22 +28,21 @@ use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
 	executor_intf::NATIVE_STACK_MAX,
-	framed_recv, framed_send,
+	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
-		security::LandlockStatus,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream};
+use tokio::io;
 
 // Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 // That native code does not create any stacks and just reuses the stack of the thread that
@@ -81,8 +80,8 @@ use tokio::{io, net::UnixStream};
 /// The stack size for the execute thread.
 pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + NATIVE_STACK_MAX as usize;
 
-async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
-	let handshake_enc = framed_recv(stream).await?;
+fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
@@ -92,57 +91,58 @@ async fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(PathBuf, Vec<u8>, Duration)> {
-	let artifact_path = framed_recv(stream).await?;
-	let artifact_path = bytes_to_path(&artifact_path).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: non utf-8 artifact path".to_string(),
-		)
-	})?;
-	let params = framed_recv(stream).await?;
-	let execution_timeout = framed_recv(stream).await?;
+fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
+	let params = framed_recv_blocking(stream)?;
+	let execution_timeout = framed_recv_blocking(stream)?;
 	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			"execute pvf recv_request: failed to decode duration".to_string(),
 		)
 	})?;
-	Ok((artifact_path, params, execution_timeout))
+	Ok((params, execution_timeout))
 }
 
-async fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
-	framed_send(stream, &response.encode()).await
+fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> {
+	framed_send_blocking(stream, &response.encode())
 }
 
 /// The entrypoint that the spawned execute worker should start with.
 ///
 /// # Parameters
 ///
-/// The `socket_path` specifies the path to the socket used to communicate with the host. The
-/// `node_version`, if `Some`, is checked against the worker version. A mismatch results in
-/// immediate worker termination. `None` is used for tests and in other situations when version
-/// check is not necessary.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
+///
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
+///   immediate worker termination. `None` is used for tests and in other situations when version
+///   check is not necessary.
+///
+/// - `worker_version`: see above
+///
+/// - `security_status`: contains the detected status of security features.
 pub fn worker_entrypoint(
-	socket_path: &str,
+	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		"execute",
-		socket_path,
+		WorkerKind::Execute,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream| async move {
+		&security_status,
+		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
+			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let handshake = recv_handshake(&mut stream).await?;
-			let executor = Executor::new(handshake.executor_params).map_err(|e| {
+			let Handshake { executor_params } = recv_handshake(&mut stream)?;
+			let executor = Executor::new(executor_params).map_err(|e| {
 				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
 			})?;
 
 			loop {
-				let (artifact_path, params, execution_timeout) = recv_request(&mut stream).await?;
+				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -151,15 +151,13 @@ pub fn worker_entrypoint(
 				);
 
 				// Get the artifact bytes.
-				//
-				// We do this outside the thread so that we can lock down filesystem access there.
-				let compiled_artifact_blob = match std::fs::read(artifact_path) {
+				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
 					Ok(bytes) => bytes,
 					Err(err) => {
 						let response = Response::InternalError(
 							InternalValidationError::CouldNotOpenFile(err.to_string()),
 						);
-						send_response(&mut stream, response).await?;
+						send_response(&mut stream, response)?;
 						continue
 					},
 				};
@@ -187,22 +185,11 @@ pub fn worker_entrypoint(
 				let execute_thread = thread::spawn_worker_thread_with_stack_size(
 					"execute thread",
 					move || {
-						// Try to enable landlock.
-						#[cfg(target_os = "linux")]
-					let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
-						#[cfg(not(target_os = "linux"))]
-						let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
-
-						(
-							validate_using_artifact(
-								&compiled_artifact_blob,
-								&params,
-								executor_2,
-								cpu_time_start,
-							),
-							landlock_status,
+						validate_using_artifact(
+							&compiled_artifact_blob,
+							&params,
+							executor_2,
+							cpu_time_start,
 						)
 					},
 					Arc::clone(&condvar),
@@ -215,24 +202,9 @@ pub fn worker_entrypoint(
 				let response = match outcome {
 					WaitOutcome::Finished => {
 						let _ = cpu_time_monitor_tx.send(());
-						let (result, landlock_status) = execute_thread.join().unwrap_or_else(|e| {
-							(
-								Response::Panic(stringify_panic_payload(e)),
-								Ok(LandlockStatus::Unavailable),
-							)
-						});
-
-						// Log if landlock threw an error.
-						if let Err(err) = landlock_status {
-							gum::warn!(
-								target: LOG_TARGET,
-								%worker_pid,
-								"error enabling landlock: {}",
-								err
-							);
-						}
-
-						result
+						execute_thread
+							.join()
+							.unwrap_or_else(|e| Response::Panic(stringify_panic_payload(e)))
 					},
 					// If the CPU thread is not selected, we signal it to end, the join handle is
 					// dropped and the thread will finish in the background.
@@ -267,7 +239,13 @@ pub fn worker_entrypoint(
 					),
 				};
 
-				send_response(&mut stream, response).await?;
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending response to host: {:?}",
+					response
+				);
+				send_response(&mut stream, response)?;
 			}
 		},
 	);

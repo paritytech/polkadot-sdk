@@ -7,6 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+cfg-if = "1.0"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.139"
