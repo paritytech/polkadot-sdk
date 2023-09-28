@@ -2159,7 +2159,8 @@ macro_rules! impl_opaque_keys_inner {
 /// Contains the public session keys and a `proof` to verify the ownership of these keys.
 ///
 /// To generate session keys the [`impl_opaque_keys!`](crate::impl_opaque_keys) needs to be used
-/// first to create the session keys type and this type provides the `generate` function.
+/// first to create the session keys type and this type provides the `generate` function which
+/// output is this type.
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
 pub struct GeneratedSessionKeys {
 	/// The opaque public session keys for registering on-chain.
