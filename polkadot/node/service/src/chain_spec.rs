@@ -1098,7 +1098,7 @@ fn wococo_local_testnet_genesis() -> serde_json::Value {
 #[cfg(feature = "rococo-native")]
 pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	Ok(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for wococo) not available")?,
 		Default::default(),
 	)
 	.with_name("Wococo Local Testnet")
@@ -1128,7 +1128,7 @@ fn versi_local_testnet_genesis() -> serde_json::Value {
 #[cfg(feature = "rococo-native")]
 pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 	Ok(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for versi) not available")?,
 		Default::default(),
 	)
 	.with_name("Versi Local Testnet")

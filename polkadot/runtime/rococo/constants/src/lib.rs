@@ -38,12 +38,13 @@ pub mod currency {
 /// Time and blocks.
 pub mod time {
 	use primitives::{BlockNumber, Moment};
-	use runtime_common::prod_or_fast;
 	pub const MILLISECS_PER_BLOCK: Moment = 6000;
 	pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
 
 	frame_support::parameter_types! {
-		pub storage EpochDurationInBlocks: BlockNumber = prod_or_fast!(1 * HOURS, 1 * MINUTES, "ROCOCO_EPOCH_DURATION");
+		pub storage EpochDurationInBlocks: BlockNumber = option_env!("ROCOCO_EPOCH_DURATION")
+			.map(|s| s.parse().expect("`ROCOCO_EPOCH_DURATION` is not a valid `BlockNumber`"))
+			.unwrap_or(1 * MINUTES);
 	}
 
 	// These time units are defined in number of blocks.

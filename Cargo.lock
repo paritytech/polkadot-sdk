@@ -12046,6 +12046,7 @@ version = "1.0.0"
 dependencies = [
  "always-assert",
  "assert_matches",
+ "cfg-if",
  "futures",
  "futures-timer",
  "hex-literal",
@@ -12102,6 +12103,7 @@ name = "polkadot-node-core-pvf-common"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "cfg-if",
  "cpu-time",
  "futures",
  "landlock",
@@ -12143,6 +12145,7 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "futures",
  "libc",
  "parity-scale-codec",

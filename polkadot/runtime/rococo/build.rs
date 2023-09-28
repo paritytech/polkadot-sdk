@@ -14,23 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::env;
-use substrate_wasm_builder::WasmBuilder;
-
-// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal in
-// prod_or_fast macro.
-const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
-const ROCOCO_FAST_RUNTIME_ENV: &str = "ROCOCO_FAST_RUNTIME";
-
+#[cfg(feature = "std")]
 fn main() {
-	let mut builder = WasmBuilder::new().with_current_project().import_memory().export_heap_base();
+	// note: needs to be synced with rococo-runtime-constants::time hard-coded string literal
+	const ROCOCO_EPOCH_DURATION_ENV: &str = "ROCOCO_EPOCH_DURATION";
 
-	if env::var(ROCOCO_EPOCH_DURATION_ENV).is_ok() | env::var(ROCOCO_FAST_RUNTIME_ENV).is_ok() {
-		builder = builder.enable_feature("fast-runtime")
-	};
-
-	builder.build();
+	substrate_wasm_builder::WasmBuilder::new()
+		.with_current_project()
+		.import_memory()
+		.export_heap_base()
+		.build();
 
 	println!("cargo:rerun-if-env-changed={}", ROCOCO_EPOCH_DURATION_ENV);
-	println!("cargo:rerun-if-env-changed={}", ROCOCO_FAST_RUNTIME_ENV);
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}
