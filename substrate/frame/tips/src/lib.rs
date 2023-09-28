@@ -343,10 +343,10 @@ pub mod pallet {
 			let who = T::Lookup::lookup(who)?;
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
 
+			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
 			let reason_hash = T::Hashing::hash(&reason[..]);
 			ensure!(!Reasons::<T, I>::contains_key(&reason_hash), Error::<T, I>::AlreadyKnown);
-
-			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
 
 			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 			Reasons::<T, I>::insert(&reason_hash, &reason);
@@ -396,9 +396,9 @@ pub mod pallet {
 			let tipper = ensure_signed(origin)?;
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
 
-			let mut tip = Tips::<T, I>::get(hash).ok_or(Error::<T, I>::UnknownTip)?;
-
 			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
+			let mut tip = Tips::<T, I>::get(hash).ok_or(Error::<T, I>::UnknownTip)?;
 
 			if Self::insert_tip_and_check_closing(&mut tip, tipper, tip_value) {
 				Self::deposit_event(Event::TipClosing { tip_hash: hash });
