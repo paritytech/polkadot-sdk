@@ -19,6 +19,10 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use extension::{
+	BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig,
+	RuntimeWithUtilityPallet,
+};
 pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
@@ -32,6 +36,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
+mod extension;
 mod registration;
 
 /// The owner of the sovereign account that should pay the rewards.

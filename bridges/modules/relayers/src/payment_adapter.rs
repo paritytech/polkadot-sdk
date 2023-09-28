@@ -103,11 +103,11 @@ mod tests {
 	use super::*;
 	use crate::{mock::*, RelayerRewards};
 
-	const RELAYER_1: AccountId = 1;
-	const RELAYER_2: AccountId = 2;
-	const RELAYER_3: AccountId = 3;
+	const RELAYER_1: ThisChainAccountId = 1;
+	const RELAYER_2: ThisChainAccountId = 2;
+	const RELAYER_3: ThisChainAccountId = 3;
 
-	fn relayers_rewards() -> RelayersRewards<AccountId> {
+	fn relayers_rewards() -> RelayersRewards<ThisChainAccountId> {
 		vec![(RELAYER_1, 2), (RELAYER_2, 3)].into_iter().collect()
 	}
 

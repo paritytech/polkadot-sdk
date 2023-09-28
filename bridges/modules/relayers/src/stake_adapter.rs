@@ -80,7 +80,7 @@ mod tests {
 
 	use frame_support::traits::fungible::Mutate;
 
-	fn test_stake() -> Balance {
+	fn test_stake() -> ThisChainBalance {
 		Stake::get()
 	}
 

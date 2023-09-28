@@ -154,6 +154,14 @@ pub enum MessagesCallInfo {
 }
 
 impl MessagesCallInfo {
+	/// Returns lane, used by the call.
+	pub fn lane_id(&self) -> LaneId {
+		match *self {
+			Self::ReceiveMessagesProof(ref info) => info.base.lane_id,
+			Self::ReceiveMessagesDeliveryProof(ref info) => info.0.lane_id,
+		}
+	}
+
 	/// Returns range of messages, bundled with the call.
 	pub fn bundled_messages(&self) -> RangeInclusive<MessageNonce> {
 		match *self {

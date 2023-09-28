@@ -34,10 +34,11 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug, SaturatedConversion,
 };
+use sp_std::fmt::Debug;
 
 /// Verified `SubmitFinalityProofInfo<N>`.
 #[derive(Copy, Clone, PartialEq, RuntimeDebug)]
-pub struct VerifiedSubmitFinalityProofInfo<N> {
+pub struct VerifiedSubmitFinalityProofInfo<N: Debug> {
 	/// Base call information.
 	pub base: SubmitFinalityProofInfo<N>,
 	/// A difference between bundled bridged header and best bridged header known to us
