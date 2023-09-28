@@ -177,7 +177,7 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
-				// Make sure account can pay delivery fees
+				// Mint funds into account to ensure it has enough balance to pay delivery fees
 				let delivery_fees = xcm_helpers::transfer_assets_delivery_fees::<
 					XcmConfig::XcmSender,
 				>(
