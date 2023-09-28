@@ -36,7 +36,9 @@ use polkadot_node_subsystem_util::{
 	self as util, availability_chunk_index, request_validators, runtime::request_client_features,
 	Validator,
 };
-use polkadot_primitives::{AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex};
+use polkadot_primitives::{
+	vstaging::ClientFeatures, AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex,
+};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
 use util::{
@@ -113,34 +115,46 @@ async fn get_core_availability(
 			return Ok(false)
 		};
 
-		let session_index =
-			recv_runtime(request_session_index_for_child(relay_parent, *sender.lock().await).await)
-				.await?;
-
-		let Some(session_info) = recv_runtime(
-			request_session_info(relay_parent, session_index, *sender.lock().await).await,
-		)
-		.await?
-		else {
-			gum::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				session_index,
-				?core.candidate_hash,
-				para_id = %core.para_id(),
-				"Failed to get session info."
-			);
-
-			return Ok(false)
-		};
-
 		let maybe_client_features = request_client_features(relay_parent, *sender.lock().await)
 			.await
 			.map_err(Error::from)?;
 
+		// Init this to all zeros. It won't be used unless
+		// `ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING` is enabled. We do this to avoid querying
+		// the runtime API for session index and session info unless the feature is enabled.
+		let mut babe_randomness = [0; 32];
+
+		if let Some(client_features) = maybe_client_features {
+			if client_features.contains(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING) {
+				let session_index = recv_runtime(
+					request_session_index_for_child(relay_parent, *sender.lock().await).await,
+				)
+				.await?;
+
+				let Some(session_info) = recv_runtime(
+					request_session_info(relay_parent, session_index, *sender.lock().await).await,
+				)
+				.await?
+				else {
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						session_index,
+						?core.candidate_hash,
+						para_id = %core.para_id(),
+						"Failed to get session info."
+					);
+
+					return Ok(false)
+				};
+
+				babe_randomness = session_info.random_seed;
+			}
+		}
+
 		let chunk_index = availability_chunk_index(
 			maybe_client_features.as_ref(),
-			session_info.random_seed,
+			babe_randomness,
 			n_validators,
 			block_number,
 			core.para_id(),

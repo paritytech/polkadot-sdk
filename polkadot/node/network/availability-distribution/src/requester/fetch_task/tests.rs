@@ -31,7 +31,7 @@ use sp_keyring::Sr25519Keyring;
 use polkadot_node_network_protocol::request_response::{v1, Recipient};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::AllMessages;
-use polkadot_primitives::{CandidateHash, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, ChunkIndex};
 
 use super::*;
 use crate::{metrics::Metrics, tests::mock::get_valid_chunk_data};
@@ -109,7 +109,7 @@ fn task_does_not_accept_wrongly_indexed_chunk() {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
 	let (root_hash, chunk) = get_valid_chunk_data(pov);
 	task.erasure_root = root_hash;
-	task.request.index = ValidatorIndex(chunk.index.0 + 1);
+	task.request.index = ChunkIndex(chunk.index.0 + 1);
 
 	let validators = vec![Sr25519Keyring::Alice.public().into()];
 	task.group = validators;
@@ -285,7 +285,7 @@ fn get_test_running_task() -> (RunningTask, mpsc::Receiver<FromFetchTask>) {
 			group: Vec::new(),
 			request: ChunkFetchingRequest {
 				candidate_hash: CandidateHash([43u8; 32].into()),
-				index: ValidatorIndex(0),
+				index: ChunkIndex(0),
 			},
 			erasure_root: Hash::repeat_byte(99),
 			relay_parent: Hash::repeat_byte(71),
