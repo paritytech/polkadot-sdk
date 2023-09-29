@@ -385,12 +385,14 @@ pub enum PeerSyncState<B: BlockT> {
 	Available,
 	/// Searching for ancestors the Peer has in common with us.
 	AncestorSearch { start: NumberFor<B>, current: NumberFor<B>, state: AncestorSearchState<B> },
-	/// Actively downloading new blocks.
-	DownloadingNew(PeerDownloadState<B>),
+	/// Actively downloading new blocks, starting from the given Number.
+	DownloadingNew(NumberFor<B>),
 	/// Downloading a stale block with given Hash. Stale means that it is a
 	/// block with a number that is lower than our best number. It might be
 	/// from a fork and not necessarily already imported.
 	DownloadingStale(B::Hash),
+	/// Downloading a range that starts from `peer.common_number + 1`.
+	DownloadingFork(PeerDownloadState<B>),
 	/// Downloading justification for given block hash.
 	DownloadingJustification(B::Hash),
 	/// Downloading state.
@@ -410,16 +412,29 @@ impl<B: BlockT> PeerSyncState<B> {
 
 	/// Checks if we can initiate a new download from the peer.
 	pub fn can_download(&self) -> bool {
-		self.is_available() || matches!(self, Self::DownloadingNew(_))
+		self.is_available() || matches!(self, Self::DownloadingFork(_))
 	}
 }
 
-/// State about the download in progress.
+/// `PeerDownloadStateState` tracks the download from a fork. It acts a staging
+/// area before the full range is downloaded before submitting to the BlockCollection.
+///
+/// The reason this is needed: consider the scenario where we are downloading from a fork.
+/// Common ancestor between current chain and fork = 915, current best
+/// queued number = 925.
+/// 1. Request is sent for blocks [916, 916 + 64)
+/// 2. Peer sends a partial responds with blocks [926, ..)
+/// 3. Since BlockCollection works off block numbers(and not hash), if this partial response is
+///    submitted to the collection, this would be considered to extend the current tip. Block 925 on
+///    current chain would be erroneously considered the parent of 926 on the fork. This would
+///    result in the partial response being imported, which  would fail as parent not found and
+///    result in the sync failing/restarted.
+///
+///    So instead, hold on to the partial response in this scenario, issue more requests to
+///    download the missing [916, 925). And submit to the block collection after the full
+///    range is downloaded.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PeerDownloadState<B: BlockT> {
-	/// peer.common_number when the download was started.
-	common_number: NumberFor<B>,
-
 	/// The range being download [start, end).
 	range: Range<NumberFor<B>>,
 
@@ -438,8 +453,8 @@ pub struct PeerDownloaded<B: BlockT> {
 }
 
 impl<B: BlockT> PeerDownloadState<B> {
-	fn new(common_number: NumberFor<B>, range: Range<NumberFor<B>>) -> Self {
-		Self { common_number, range, downloaded: None }
+	fn new(range: Range<NumberFor<B>>) -> Self {
+		Self { range, downloaded: None }
 	}
 
 	/// Validates the new blocks received from the peer and prepends to the
@@ -490,29 +505,12 @@ impl<B: BlockT> PeerDownloadState<B> {
 	/// be issued.
 	fn get_downloaded_blocks(&mut self) -> Option<(NumberFor<B>, Vec<BlockData<B>>)> {
 		if let Some(downloaded) = self.downloaded.as_mut() {
-			// Consider the following scenario where we are downloading from a fork:
-			// common ancestor between current chain and fork = 915, current best
-			// queued number = 925.
-			// 1. Request is sent for blocks [916, 916 + 64)
-			// 2. Peer sends a partial responds with blocks [926, ..)
-			// 3. Since BlockCollection works off block numbers(and not hash), if this partial
-			//    response is submitted to the collection, this would be considered to extend the
-			//    current tip. Block 925 on current chain would be erroneously considered the parent
-			//    of 926 on the fork. This would result in the partial response being imported,
-			//    which  would fail as parent not found and result in the sync failing/restarted.
-			//
-			//  Instead, hold on to the partial response in this scenario,
-			//  issue more requests to download the missing [916, 925). And submit
-			//  to the block collection after the full range is downloaded.
 			let range_len = (self.range.end - self.range.start).saturated_into::<usize>();
-			if self.range.start == (self.common_number + One::one()) &&
-				downloaded.blocks.len() < range_len
-			{
+			if downloaded.blocks.len() < range_len {
 				trace!(
 					target: LOG_TARGET,
-					"Download state: incomplete download: \
-					common = {}, range = {:?}, downloaded = {}",
-					self.common_number, self.range, downloaded.blocks.len()
+					"Download state: incomplete download: range = {:?}, downloaded = {}",
+					self.range, downloaded.blocks.len()
 				);
 				None
 			} else {
@@ -538,9 +536,8 @@ impl<B: BlockT> PeerDownloadState<B> {
 		} else {
 			warn!(
 				target: LOG_TARGET,
-				"Download state: unable to get block number of the downloaded blocks: \
-				common = {}, range = {:?}",
-				self.common_number, self.range
+				"Download state: unable to get block number of the downloaded blocks: range = {:?}",
+				self.range
 			);
 			return None
 		};
@@ -861,7 +858,17 @@ where
 			self.allowed_requests.add(who);
 			if let Some(request) = request {
 				match &mut peer.state {
-					PeerSyncState::DownloadingNew(download_state) => {
+					PeerSyncState::DownloadingNew(_) => {
+						self.blocks.clear_peer_download(who);
+						peer.state = PeerSyncState::Available;
+						if let Some(start_block) =
+							validate_blocks::<B>(&blocks, who, Some(request))?
+						{
+							self.blocks.insert(start_block, blocks, *who);
+						}
+						self.ready_blocks()
+					},
+					PeerSyncState::DownloadingFork(download_state) => {
 						self.blocks.clear_peer_download(who);
 						if let Err(err) = download_state.prepend_blocks(who, blocks, request) {
 							peer.state = PeerSyncState::Available;
@@ -875,7 +882,7 @@ where
 							self.blocks.insert(start_block, blocks, *who);
 							self.ready_blocks()
 						} else {
-							// Not done yet, leave it in DownloadingNew state to start
+							// Not done yet, leave it in DownloadingFork state.
 							vec![]
 						}
 					},
@@ -2186,7 +2193,7 @@ where
 						state: AncestorSearchState::ExponentialBackoff(One::one()),
 					};
 					Some((id, ancestry_request::<B>(current)))
-				} else if let PeerSyncState::DownloadingNew(download_state) = &peer.state {
+				} else if let PeerSyncState::DownloadingFork(download_state) = &peer.state {
 					// We have partially downloaded range, request the remaining part.
 					let result =
 						download_state.peer_block_request(attrs, peer.best_number, &peer.best_hash);
@@ -2209,16 +2216,19 @@ where
 					last_finalized,
 					best_queued,
 				) {
-					peer.state = PeerSyncState::DownloadingNew(PeerDownloadState::new(
-						peer.common_number,
-						range,
-					));
+					let first_different = peer.common_number + One::one();
+					if range.start == first_different {
+						peer.state = PeerSyncState::DownloadingFork(PeerDownloadState::new(range));
+					} else {
+						peer.state = PeerSyncState::DownloadingNew(range.start);
+					}
 					trace!(
 						target: LOG_TARGET,
-						"New block request for {}, (best:{}, common:{}) {:?}",
+						"New block request for {}, (best:{}, common:{}), downloading fork = {}, {:?}",
 						id,
 						peer.best_number,
 						peer.common_number,
+						matches!(peer.state, PeerSyncState::DownloadingFork(_)),
 						req,
 					);
 					Some((id, req))
@@ -3697,10 +3707,10 @@ mod test {
 		.unwrap();
 
 		// Connect the node we will sync from
-		let peer_id1 = PeerId::random();
+		let peer_id = PeerId::random();
 		let canonical_tip = canonical_blocks.last().unwrap().clone();
 		let mut request = sync
-			.new_peer(peer_id1, canonical_tip.hash(), *canonical_tip.header().number())
+			.new_peer(peer_id, canonical_tip.hash(), *canonical_tip.header().number())
 			.unwrap()
 			.unwrap();
 		assert_eq!(FromBlock::Number(client.info().best_number), request.from);
@@ -3712,7 +3722,7 @@ mod test {
 				&canonical_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
 			let response = create_block_response(vec![block.clone()]);
 
-			let on_block_data = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+			let on_block_data = sync.on_block_data(&peer_id, Some(request), response).unwrap();
 			request = if let OnBlockData::Request(_peer, request) = on_block_data {
 				request
 			} else {
@@ -3735,24 +3745,24 @@ mod test {
 			&mut sync,
 			FromBlock::Number(resp_1_from),
 			max_blocks_per_request as u32,
-			&peer_id1,
+			&peer_id,
 		);
 		let from = unwrap_from_block_number(request.from.clone());
 		let mut resp_blocks = canonical_blocks[18..from as usize].to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
-		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
 		assert!(matches!(
 			res,
 			OnBlockData::Import(_, blocks) if blocks.is_empty()
 		),);
 
 		// Gap filled, expect max_blocks_per_request being imported now.
-		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 3, &peer_id1);
+		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 3, &peer_id);
 		let mut resp_blocks = canonical_blocks[common_ancestor as usize..18].to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
-		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
 		let to_import: Vec<_> = match &res {
 			OnBlockData::Import(_, ref blocks) => {
 				assert_eq!(blocks.len(), sync.max_blocks_per_request as usize);
@@ -3780,7 +3790,7 @@ mod test {
 						Ok(BlockImportStatus::ImportedUnknown(
 							*b.header().number(),
 							Default::default(),
-							Some(peer_id1),
+							Some(peer_id),
 						)),
 						b.hash(),
 					)
@@ -3794,16 +3804,16 @@ mod test {
 		let expected_number = common_ancestor as u32 + max_blocks_per_request as u32;
 		assert_eq!(sync.best_queued_number as u32, expected_number);
 		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
-
+		log::trace!(target: LOG_TARGET, "xxx: rest");
 		// Sync rest of the chain.
 		let request =
-			get_block_request(&mut sync, FromBlock::Hash(canonical_tip.hash()), 10_u32, &peer_id1);
+			get_block_request(&mut sync, FromBlock::Hash(canonical_tip.hash()), 10_u32, &peer_id);
 		let mut resp_blocks = canonical_blocks
 			[(canonical_chain_length - 10) as usize..canonical_chain_length as usize]
 			.to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
-		let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
 		assert!(matches!(
 			res,
 			OnBlockData::Import(_, blocks) if blocks.len() == 10 as usize
@@ -3819,7 +3829,7 @@ mod test {
 						Ok(BlockImportStatus::ImportedUnknown(
 							*b.header().number(),
 							Default::default(),
-							Some(peer_id1),
+							Some(peer_id),
 						)),
 						b.hash(),
 					)
@@ -4193,7 +4203,7 @@ mod test {
 
 		// Full response
 		{
-			let mut state = PeerDownloadState::<Block>::new(19, 20..30);
+			let mut state = PeerDownloadState::<Block>::new(20..30);
 			assert!(state.get_downloaded_blocks().is_none());
 
 			let request = BlockRequest::<Block> {
@@ -4211,29 +4221,9 @@ mod test {
 			assert_eq!(downloaded.len(), 10);
 		}
 
-		// Partial response, not starting after common ancestor
-		{
-			let mut state = PeerDownloadState::<Block>::new(19, 25..30);
-			assert!(state.get_downloaded_blocks().is_none());
-
-			let request = BlockRequest::<Block> {
-				id: 0,
-				fields: BlockAttributes::HEADER | BlockAttributes::BODY,
-				from: FromBlock::Number(29),
-				direction: Direction::Descending,
-				max: Some(5),
-			};
-			let resp_blocks = blocks[28..29].to_vec(); // 1 block.
-			let response = create_block_response(resp_blocks.clone());
-			assert!(state.prepend_blocks(&peer_id, response.blocks, request).is_ok());
-			let (start_block, downloaded) = state.get_downloaded_blocks().unwrap();
-			assert_eq!(start_block, 29);
-			assert_eq!(downloaded.len(), 1);
-		}
-
 		// Partial response, starting after common ancestor
 		{
-			let mut state = PeerDownloadState::<Block>::new(19, 20..30);
+			let mut state = PeerDownloadState::<Block>::new(20..30);
 			assert!(state.get_downloaded_blocks().is_none());
 
 			// Response 1: Blocks [25 .. 29].
@@ -4276,7 +4266,7 @@ mod test {
 		let peer_id = PeerId::random();
 
 		{
-			let mut state = PeerDownloadState::<Block>::new(19, 20..30);
+			let mut state = PeerDownloadState::<Block>::new(20..30);
 			assert!(state.get_downloaded_blocks().is_none());
 
 			// Start block should be in remaining range.
