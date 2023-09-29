@@ -41,12 +41,8 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 parachains-common = { path = "../../../common" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
-asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
-asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
 asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
-collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
-bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
-bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
+collectives-westend-runtime = { path = "../../../runtimes/collectives/collectives-westend" }
 bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
 xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
 cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
@@ -58,14 +54,10 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 
 [features]
 runtime-benchmarks = [
-	"asset-hub-kusama-runtime/runtime-benchmarks",
-	"asset-hub-polkadot-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
-	"bridge-hub-kusama-runtime/runtime-benchmarks",
-	"bridge-hub-polkadot-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
-	"collectives-polkadot-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
