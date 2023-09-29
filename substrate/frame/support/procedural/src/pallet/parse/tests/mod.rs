@@ -36,6 +36,17 @@ macro_rules! assert_error_matches {
 	};
 }
 
+#[macro_export]
+macro_rules! assert_pallet_parses {
+	(#[manifest_dir($manifest_dir:literal)] $($tokens:tt)*) => {
+		$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, || {
+			$crate::pallet::parse::Def::try_from(syn::parse_quote! {
+				$($tokens)*
+			}, false).unwrap();
+		});
+	}
+}
+
 /// Implementation detail of [`simulate_manifest_dir`] that allows us to safely run a closure
 /// under an alternative `CARGO_MANIFEST_DIR` such that it will always be set back to the
 /// original value even if the closure panics.
@@ -90,22 +101,17 @@ mod tasks;
 
 #[test]
 fn test_parse_minimal_pallet() {
-	simulate_manifest_dir("../../examples/basic", || {
-		Def::try_from(
-			parse_quote! {
-				#[frame_support::pallet]
-				pub mod pallet {
-					#[pallet::config]
-					pub trait Config: frame_system::Config {}
+	assert_pallet_parses!(
+		#[manifest_dir("../../examples/basic")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
 
-					#[pallet::pallet]
-					pub struct Pallet<T>(_);
-				}
-			},
-			false,
-		)
-		.unwrap();
-	});
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	);
 }
 
 #[test]
