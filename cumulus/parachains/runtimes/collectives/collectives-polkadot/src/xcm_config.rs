@@ -46,8 +46,6 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
-const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
-
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
