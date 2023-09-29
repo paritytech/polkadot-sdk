@@ -1508,7 +1508,7 @@ pub mod migrations {
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
-		pallet_nomination_pools::migration::v6::VersionCheckedMigrateV5ToV6<Runtime>,
+		pallet_nomination_pools::migration::v7::VersionCheckedMigrateV6ToV7<Runtime>,
 	);
 }
 
