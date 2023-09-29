@@ -176,6 +176,7 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -201,7 +202,8 @@
 	misc::{SameOrOther, TryDrop},
 	tokens::{AssetId, Balance},
 };
-<span class="kw">use </span>sp_runtime::{traits::Zero, RuntimeDebug};
+<span class="kw">use </span>frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+<span class="kw">use </span>sp_runtime::traits::Zero;
 <span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -216,7 +218,7 @@
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 </span><span class="attr">#[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 </span><span class="kw">pub struct </span>Imbalance&lt;
 	A: AssetId,
 	B: Balance,
