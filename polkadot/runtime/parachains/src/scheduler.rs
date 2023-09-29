@@ -59,7 +59,7 @@ pub use pallet::*;
 mod tests;
 
 const LOG_TARGET: &str = "runtime::parachains::scheduler";
-// pub mod migration;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {

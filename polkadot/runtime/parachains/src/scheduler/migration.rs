@@ -21,82 +21,39 @@ use frame_support::{
 	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
 };
 
-mod v0 {
-	use super::*;
-
-	use primitives::CollatorId;
-	#[storage_alias]
-	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
-
-	#[derive(Encode, Decode)]
-	pub struct QueuedParathread {
-		claim: primitives::ParathreadEntry,
-		core_offset: u32,
-	}
-
-	#[derive(Encode, Decode, Default)]
-	pub struct ParathreadClaimQueue {
-		queue: Vec<QueuedParathread>,
-		next_core_offset: u32,
-	}
-
-	// Only here to facilitate the migration.
-	impl ParathreadClaimQueue {
-		pub fn len(self) -> usize {
-			self.queue.len()
-		}
-	}
-
-	#[storage_alias]
-	pub(super) type ParathreadQueue<T: Config> =
-		StorageValue<Pallet<T>, ParathreadClaimQueue, ValueQuery>;
-
-	#[storage_alias]
-	pub(super) type ParathreadClaimIndex<T: Config> =
-		StorageValue<Pallet<T>, Vec<ParaId>, ValueQuery>;
-
-	/// The assignment type.
-	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub enum AssignmentKind {
-		/// A parachain.
-		Parachain,
-		/// A parathread.
-		Parathread(CollatorId, u32),
-	}
-
-	/// How a free core is scheduled to be assigned.
-	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub struct CoreAssignment {
-		/// The core that is assigned.
-		pub core: CoreIndex,
-		/// The unique ID of the para that is assigned to the core.
-		pub para_id: ParaId,
-		/// The kind of the assignment.
-		pub kind: AssignmentKind,
-		/// The index of the validator group assigned to the core.
-		pub group_idx: GroupIndex,
-	}
-}
+use sp_std::convert::identity;
 
 pub mod v1 {
+	use frame_support::{
+		pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+	};
+
+	use super::*;
+
+	#[storage_alias]
+	pub(crate) type ClaimQueue<T: Config> =
+		StorageValue<Pallet<T>, BTreeMap<CoreIndex, VecDeque<Option<ParasEntryType<T>>>>, ValueQuery>;
+
+}
+// TODO: Generic migration code for changed assignment type.
+pub mod v2 {
 	use super::*;
 	use crate::scheduler;
 	use frame_support::traits::StorageVersion;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
-		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::get::<Pallet<T>>() == 0 {
-				let weight_consumed = migrate_to_v1::<T>();
+	pub struct MigrateToV2<T>(sp_std::marker::PhantomData<T>);
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
-				StorageVersion::new(1).put::<Pallet<T>>();
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
+		fn on_runtime_upgrade() -> Weight {
+			if StorageVersion::get::<Pallet<T>>() == 1 {
+				let weight_consumed = migrate_to_v2::<T>();
+
+				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v2");
+				StorageVersion::new(2).put::<Pallet<T>>();
 
 				weight_consumed
 			} else {
-				log::warn!(target: scheduler::LOG_TARGET, "Para scheduler v1 migration should be removed.");
+				log::warn!(target: scheduler::LOG_TARGET, "Para scheduler v2 migration should be removed.");
 				T::DbWeight::get().reads(1)
 			}
 		}
@@ -109,7 +66,7 @@ pub mod v1 {
 				v0::Scheduled::<T>::get().len()
 			);
 
-			let bytes = u32::to_be_bytes(v0::Scheduled::<T>::get().len() as u32);
+			let bytes = u32::to_be_bytes(v1::ClaimQueue::<T>::get().len() as u32);
 
 			Ok(bytes.to_vec())
 		}
@@ -118,18 +75,18 @@ pub mod v1 {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
 			ensure!(
-				StorageVersion::get::<Pallet<T>>() >= 1,
-				"Storage version should be at least `1` after the migration"
+				StorageVersion::get::<Pallet<T>>() >= 2,
+				"Storage version should be at least `2` after the migration"
 			);
 			ensure!(
-				v0::Scheduled::<T>::get().len() == 0,
-				"Scheduled should be empty after the migration"
+				v1::ClaimQueue::<T>::get().len() == Pallet<T>::ClaimQueue::<T>::get().len(),
+				"ClaimQueue should be of same size still"
 			);
 
-			let sched_len = u32::from_be_bytes(state.try_into().unwrap());
+			let old_len = u32::from_be_bytes(state.try_into().unwrap());
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 == sched_len,
-				"Scheduled completely moved to ClaimQueue after migration"
+				Pallet::<T>::claimqueue_len() as u32 == old_len,
+				"Old ClaimQueue completely moved to new ClaimQueue after migration"
 			);
 
 			Ok(())
@@ -137,29 +94,15 @@ pub mod v1 {
 	}
 }
 
-pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
+pub fn migrate_to_v2<T: crate::scheduler::Config>() -> Weight {
 	let mut weight: Weight = Weight::zero();
 
-	let pq = v0::ParathreadQueue::<T>::take();
-	let pq_len = pq.len() as u64;
+	let old = v1::ClaimQueue::<T>::take();
+	let old_len = old.len() as u64;
+	let new = old.into_iter().map(|(k, v)| (k, v.into_iter().filter_map(identity).collect::<VecDeque<_>>())).collect::<BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>>();
+	ClaimQueue::<T>::put(new);
 
-	let pci = v0::ParathreadClaimIndex::<T>::take();
-	let pci_len = pci.len() as u64;
-
-	let now = <frame_system::Pallet<T>>::block_number();
-	let scheduled = v0::Scheduled::<T>::take();
-	let sched_len = scheduled.len() as u64;
-	for core_assignment in scheduled {
-		let core_idx = core_assignment.core;
-		let assignment = Assignment::new(core_assignment.para_id);
-		let pe = ParasEntry::new(assignment, now);
-		Pallet::<T>::add_to_claimqueue(core_idx, pe);
-	}
-
-	// 2x as once for Scheduled and once for Claimqueue
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * sched_len, 2 * sched_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pq_len, pq_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pci_len, pci_len));
+	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * old_len, 2 * old_len));
 
 	weight
 }
