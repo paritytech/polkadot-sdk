@@ -6964,7 +6964,7 @@ mod slash {
 		};
 		ExtBuilder::default().with_check(0).build_and_execute(|| {
 			// Given
-			Balances::make_free_balance_be(&11, ExistentialDeposit::get() + 2);
+			Currency::set_balance(&11, ExistentialDeposit::get() + 2);
 			assert!(!PoolMembers::<Runtime>::contains_key(11));
 			assert_eq!(TotalValueLocked::<T>::get(), 10);
 
@@ -6993,7 +6993,7 @@ mod slash {
 			StakingMock::slash_by(1, 6);
 
 			// And
-			Balances::make_free_balance_be(&12, ExistentialDeposit::get() + 12);
+			Currency::set_balance(&12, ExistentialDeposit::get() + 12);
 			assert!(!PoolMembers::<Runtime>::contains_key(12));
 
 			// When
