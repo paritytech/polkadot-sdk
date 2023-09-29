@@ -411,7 +411,7 @@ pub enum PayoutDestination<AccountId> {
 /// A payout destination that has been checked via `PayoutDestination::to_checked`. Ensures that 0%
 /// and 100% splits do not make it into storage.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct CheckedPayoutDestination<AccountId>(PayoutDestination<AccountId>);
+pub struct CheckedPayoutDestination<AccountId>(pub PayoutDestination<AccountId>);
 
 impl<AccountId> Default for CheckedPayoutDestination<AccountId> {
 	fn default() -> Self {
