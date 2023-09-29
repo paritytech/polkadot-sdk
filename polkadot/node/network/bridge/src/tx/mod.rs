@@ -34,14 +34,14 @@ pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::request_response::Requests;
 use sc_network::ReputationChange;
 
-use crate::validator_discovery;
+use crate::{network::send_collation_message_vstaging, validator_discovery};
 
 /// Actual interfacing to the network based on the `Network` trait.
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, Network,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
 };
 
 use crate::metrics::Metrics;
@@ -200,7 +200,14 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 				),
-				Versioned::VStaging(msg) => send_validation_message_v2(
+				Versioned::VStaging(msg) => send_validation_message_vstaging(
+					&mut network_service,
+					peers,
+					peerset_protocol_names,
+					WireMessage::ProtocolMessage(msg),
+					&metrics,
+				),
+				Versioned::V2(msg) => send_validation_message_v2(
 					&mut network_service,
 					peers,
 					peerset_protocol_names,
@@ -226,7 +233,14 @@ where
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 					),
-					Versioned::VStaging(msg) => send_validation_message_v2(
+					Versioned::VStaging(msg) => send_validation_message_vstaging(
+						&mut network_service,
+						peers,
+						peerset_protocol_names,
+						WireMessage::ProtocolMessage(msg),
+						&metrics,
+					),
+					Versioned::V2(msg) => send_validation_message_v2(
 						&mut network_service,
 						peers,
 						peerset_protocol_names,
@@ -251,7 +265,14 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 				),
-				Versioned::VStaging(msg) => send_collation_message_v2(
+				Versioned::V2(msg) => send_collation_message_v2(
+					&mut network_service,
+					peers,
+					peerset_protocol_names,
+					WireMessage::ProtocolMessage(msg),
+					&metrics,
+				),
+				Versioned::VStaging(msg) => send_collation_message_vstaging(
 					&mut network_service,
 					peers,
 					peerset_protocol_names,
@@ -276,7 +297,14 @@ where
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 					),
-					Versioned::VStaging(msg) => send_collation_message_v2(
+					Versioned::V2(msg) => send_collation_message_v2(
+						&mut network_service,
+						peers,
+						peerset_protocol_names,
+						WireMessage::ProtocolMessage(msg),
+						&metrics,
+					),
+					Versioned::VStaging(msg) => send_collation_message_vstaging(
 						&mut network_service,
 						peers,
 						peerset_protocol_names,
@@ -299,13 +327,11 @@ where
 					Requests::AvailableDataFetchingV1(_) =>
 						metrics.on_message("available_data_fetching_v1"),
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
-					Requests::CollationFetchingVStaging(_) =>
-						metrics.on_message("collation_fetching_vstaging"),
+					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
 					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
-					Requests::AttestedCandidateVStaging(_) =>
-						metrics.on_message("attested_candidate_vstaging"),
+					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
 				}
 
 				network_service

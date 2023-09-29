@@ -31,9 +31,9 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		incoming::{self, OutgoingResponse},
-		v1 as request_v1, vstaging as request_vstaging, IncomingRequestReceiver,
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
@@ -577,7 +577,13 @@ async fn determine_our_validators<Context>(
 fn declare_message(
 	state: &mut State,
 	version: CollationVersion,
-) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_vstaging::CollationProtocol>> {
+) -> Option<
+	Versioned<
+		protocol_v1::CollationProtocol,
+		protocol_v2::CollationProtocol,
+		protocol_vstaging::CollationProtocol,
+	>,
+> {
 	let para_id = state.collating_on?;
 	Some(match version {
 		CollationVersion::V1 => {
@@ -590,17 +596,15 @@ fn declare_message(
 			);
 			Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
 		},
-		CollationVersion::VStaging => {
+		CollationVersion::V2 | CollationVersion::VStaging => {
 			let declare_signature_payload =
-				protocol_vstaging::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_vstaging::CollatorProtocolMessage::Declare(
+				protocol_v2::declare_signature_payload(&state.local_peer_id);
+			let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
 				state.collator_pair.public(),
 				para_id,
 				state.collator_pair.sign(&declare_signature_payload),
 			);
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				wire_message,
-			))
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -706,15 +710,13 @@ async fn advertise_collation<Context>(
 		collation.status.advance_to_advertised();
 
 		let collation_message = match protocol_version {
-			CollationVersion::VStaging => {
-				let wire_message = protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+			CollationVersion::V2 | CollationVersion::VStaging => {
+				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
-				Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-					wire_message,
-				))
+				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
 			CollationVersion::V1 => {
 				let wire_message =
@@ -837,7 +839,7 @@ async fn send_collation(
 	let candidate_hash = receipt.hash();
 
 	// The response payload is the same for both versions of protocol
-	// and doesn't have vstaging alias for simplicity.
+	// and doesn't have v2 alias for simplicity.
 	let response = OutgoingResponse {
 		result: Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 		reputation_changes: Vec::new(),
@@ -870,14 +872,18 @@ async fn handle_incoming_peer_message<Context>(
 	origin: PeerId,
 	msg: Versioned<
 		protocol_v1::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
 		protocol_vstaging::CollatorProtocolMessage,
 	>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
+	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_vstaging::CollatorProtocolMessage as VStaging;
 
 	match msg {
-		Versioned::V1(V1::Declare(..)) | Versioned::VStaging(VStaging::Declare(..)) => {
+		Versioned::V1(V1::Declare(..)) |
+		Versioned::V2(V2::Declare(..)) |
+		Versioned::VStaging(VStaging::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -889,6 +895,7 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::AdvertiseCollation(_)) |
+		Versioned::V2(V2::AdvertiseCollation { .. }) |
 		Versioned::VStaging(VStaging::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
@@ -904,6 +911,7 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
+		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
 		Versioned::VStaging(VStaging::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
@@ -1006,7 +1014,7 @@ async fn handle_incoming_request<Context>(
 			let collation = match &req {
 				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
 					per_relay_parent.collations.values_mut().next(),
-				VersionedCollationRequest::VStaging(req) =>
+				VersionedCollationRequest::V2(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
 				_ => {
 					gum::warn!(
@@ -1322,7 +1330,7 @@ pub(crate) async fn run<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	req_v2_receiver: IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 ) -> std::result::Result<(), FatalError> {
 	run_inner(
@@ -1344,7 +1352,7 @@ async fn run_inner<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	mut req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	mut req_v2_receiver: IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	mut req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
@@ -1425,7 +1433,7 @@ async fn run_inner<Context>(
 						(ProspectiveParachainsMode::Disabled, VersionedCollationRequest::V1(_)) => {
 							per_relay_parent.collations.values().next()
 						},
-						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::VStaging(req)) => {
+						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::V2(req)) => {
 							per_relay_parent.collations.get(&req.payload.candidate_hash)
 						},
 						_ => {
@@ -1476,7 +1484,7 @@ async fn run_inner<Context>(
 
 				log_error(
 					handle_incoming_request(&mut ctx, &mut state, request).await,
-					"Handling incoming collation fetch request VStaging"
+					"Handling incoming collation fetch request V2"
 				)?;
 			}
 		}

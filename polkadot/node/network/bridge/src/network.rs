@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, ProtocolVersion, ValidationVersion,
 	},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, PeerId,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
@@ -63,9 +63,9 @@ pub(crate) fn send_validation_message_v1(
 	);
 }
 
-// Helper function to send a validation v2 message to a list of peers.
+// Helper function to send a validation vstaging message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v2(
+pub(crate) fn send_validation_message_vstaging(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	peerset_protocol_names: &PeerSetProtocolNames,
@@ -80,6 +80,26 @@ pub(crate) fn send_validation_message_v2(
 		PeerSet::Validation,
 		ValidationVersion::VStaging.into(),
 		peerset_protocol_names,
+		message,
+		metrics,
+	);
+}
+
+// Helper function to send a validation v2 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v2(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	protocol_names: &PeerSetProtocolNames,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
+	metrics: &Metrics,
+) {
+	send_message(
+		net,
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V2.into(),
+		protocol_names,
 		message,
 		metrics,
 	);
@@ -108,6 +128,26 @@ pub(crate) fn send_collation_message_v1(
 // Helper function to send a collation v2 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
 pub(crate) fn send_collation_message_v2(
+	net: &mut impl Network,
+	peers: Vec<PeerId>,
+	peerset_protocol_names: &PeerSetProtocolNames,
+	message: WireMessage<protocol_v2::CollationProtocol>,
+	metrics: &Metrics,
+) {
+	send_message(
+		net,
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V2.into(),
+		peerset_protocol_names,
+		message,
+		metrics,
+	);
+}
+
+// Helper function to send a collation vstaging message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_vstaging(
 	net: &mut impl Network,
 	peers: Vec<PeerId>,
 	peerset_protocol_names: &PeerSetProtocolNames,
