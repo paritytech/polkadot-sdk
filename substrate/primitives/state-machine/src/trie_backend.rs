@@ -109,8 +109,6 @@ pub struct UnimplementedCacheProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the `LocalTrieCache` in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
-	// Statically prevents construction.
-	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]
@@ -160,8 +158,6 @@ pub struct UnimplementedRecorderProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
-	// Statically prevents construction.
-	_void: sp_core::Void,
 }
 
 #[cfg(not(feature = "std"))]

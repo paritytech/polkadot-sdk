@@ -19,8 +19,8 @@ use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::{new_partial, Block},
 };
+use cumulus_client_service::pov_reclaim_host_functions::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
-use cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::HostFunctions as ReclaimHostFunctions;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use parachains_common::{AssetHubPolkadotAuraId, AuraId};
