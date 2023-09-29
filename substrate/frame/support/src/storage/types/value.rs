@@ -30,7 +30,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store a value.
+/// A type that allows storing a single value.
 ///
 /// Each value is stored at:
 /// ```nocompile
