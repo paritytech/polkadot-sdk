@@ -26,7 +26,7 @@ use sp_runtime::{
 };
 
 // Cumulus
-use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
+use parachains_common::{AccountId, AuraId, Balance, BlockNumber};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
@@ -90,19 +90,6 @@ pub mod accounts {
 
 pub mod collators {
 	use super::*;
-
-	pub fn invulnerables_asset_hub_polkadot() -> Vec<(AccountId, AssetHubPolkadotAuraId)> {
-		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_from_seed::<AssetHubPolkadotAuraId>("Bob"),
-			),
-		]
-	}
 
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
