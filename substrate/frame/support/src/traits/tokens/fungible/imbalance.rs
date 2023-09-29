@@ -23,6 +23,7 @@ use crate::traits::{
 	misc::{SameOrOther, TryDrop},
 	tokens::Balance,
 };
+use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 
@@ -43,6 +44,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,
@@ -137,41 +139,6 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	}
 	fn peek(&self) -> B {
 		self.amount
-	}
-}
-
-impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>> PartialEq
-	for Imbalance<B, OnDrop, OppositeOnDrop>
-{
-	fn eq(&self, other: &Self) -> bool {
-		self.amount.eq(&other.amount)
-	}
-}
-
-impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>> Eq
-	for Imbalance<B, OnDrop, OppositeOnDrop>
-{
-}
-
-#[cfg(any(feature = "std", feature = "force-debug"))]
-impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>
-	sp_std::fmt::Debug for Imbalance<B, OnDrop, OppositeOnDrop>
-{
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		fmt.debug_struct("Imbalance")
-			.field("amount", &self.amount)
-			.field("OnDrop", &sp_std::any::type_name::<OnDrop>())
-			.field("OppositeOnDrop", &sp_std::any::type_name::<OppositeOnDrop>())
-			.finish()
-	}
-}
-
-#[cfg(all(not(feature = "std"), not(feature = "force-debug")))]
-impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>
-	sp_std::fmt::Debug for Imbalance<B, OnDrop, OppositeOnDrop>
-{
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		fmt.write_str("<wasm:stripped>")
 	}
 }
 
