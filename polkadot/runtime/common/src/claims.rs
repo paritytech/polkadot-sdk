@@ -716,6 +716,7 @@ mod secp_utils {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::traits::tokens::Preservation;
 	use hex_literal::hex;
 	use secp_utils::*;
 
@@ -729,7 +730,7 @@ mod tests {
 		assert_err, assert_noop, assert_ok,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
-		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
+		traits::{ConstU32, WithdrawReasons},
 	};
 	use pallet_balances;
 	use sp_runtime::{
@@ -783,6 +784,7 @@ mod tests {
 
 	parameter_types! {
 		pub const ExistentialDeposit: u64 = 1;
+		pub const MaxFreezes: u32 = 1;
 	}
 
 	impl pallet_balances::Config for Test {
@@ -796,22 +798,27 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type FreezeIdentifier = ();
+		type FreezeIdentifier = [u8; 8];
 		type MaxHolds = ConstU32<1>;
-		type MaxFreezes = ConstU32<1>;
+		type MaxFreezes = MaxFreezes;
 	}
 
 	parameter_types! {
 		pub const MinVestedTransfer: u64 = 1;
 		pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 			WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+		pub const VestingId: [u8; 8] = pallet_vesting::VESTING_ID;
 	}
 
 	impl pallet_vesting::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeHoldReason = RuntimeHoldReason;
 		type Currency = Balances;
+		type Balance = u64;
 		type BlockNumberToBalance = Identity;
 		type MinVestedTransfer = MinVestedTransfer;
+		type MaxFreezes = MaxFreezes;
+		type VestingId = VestingId;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
@@ -827,6 +834,8 @@ mod tests {
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type VestingSchedule = Vesting;
+		type Fungible = Balances;
+		type Balance = u64;
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
@@ -1213,11 +1222,11 @@ mod tests {
 
 			// Make sure we can not transfer the vested balance.
 			assert_err!(
-				<Balances as Currency<_>>::transfer(
+				<Balances as fungible::Mutate<_>>::transfer(
 					&69,
 					&80,
 					180,
-					ExistenceRequirement::AllowDeath
+					Preservation::Expendable
 				),
 				TokenError::Frozen,
 			);
@@ -1307,7 +1316,8 @@ mod tests {
 	#[test]
 	fn claiming_while_vested_doesnt_work() {
 		new_test_ext().execute_with(|| {
-			CurrencyOf::<Test>::make_free_balance_be(&69, total_claims());
+			use frame_support::traits::tokens::fungible::Mutate;
+			CurrencyOf::<Test>::set_balance(&69, total_claims());
 			assert_eq!(Balances::free_balance(69), total_claims());
 			// A user is already vested
 			assert_ok!(<Test as Config>::VestingSchedule::add_vesting_schedule(

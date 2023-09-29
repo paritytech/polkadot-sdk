@@ -545,6 +545,7 @@ mod tests {
 
 	parameter_types! {
 		pub const ExistentialDeposit: u64 = 1;
+		pub const MaxFreezes: u32 = 2; // Vesting + ?
 	}
 
 	impl pallet_balances::Config for Test {
@@ -558,22 +559,27 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type FreezeIdentifier = ();
+		type FreezeIdentifier = [u8; 8];
 		type MaxHolds = ConstU32<1>;
-		type MaxFreezes = ConstU32<1>;
+		type MaxFreezes = MaxFreezes;
 	}
 
 	parameter_types! {
 		pub const MinVestedTransfer: u64 = 1;
 		pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 			WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+		pub const VestingId: [u8; 8] = pallet_vesting::VESTING_ID;
 	}
 
 	impl pallet_vesting::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeHoldReason = RuntimeHoldReason;
 		type Currency = Balances;
+		type Balance = u64;
 		type BlockNumberToBalance = Identity;
 		type MinVestedTransfer = MinVestedTransfer;
+		type MaxFreezes = MaxFreezes;
+		type VestingId = VestingId;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 		const MAX_VESTING_SCHEDULES: u32 = 28;

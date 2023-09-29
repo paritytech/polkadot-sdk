@@ -191,6 +191,10 @@ pub mod pallet {
 
 		/// Freeze identifier to use for vesting locks.
 		type VestingId: Get<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
+
+		/// The benchmarks need a way to create asset ids from u32s.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
 	}
 
 	#[pallet::extra_constants]
@@ -761,5 +765,20 @@ impl<T: Config> fungible::freeze::VestingSchedule<T::AccountId> for Pallet<T>
 		Self::write_vesting(who, schedules)?;
 		Self::write_lock(who, locked_now)?;
 		Ok(())
+	}
+}
+
+/// Benchmark Helper
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<FreezeId> {
+	/// Returns a frozen `Id` from a given integer.
+	fn freeze_id(id: u8) -> FreezeId;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<[u8; 8]> for () {
+	/// Returns a frozen `Id` from a given integer.
+	fn freeze_id(id: u8) -> [u8; 8] {
+		[id; 8]
 	}
 }

@@ -17,7 +17,7 @@
 
 use frame_support::{
 	parameter_types,
-	traits::{tokens::Balance, ConstU32, ConstU64, WithdrawReasons},
+	traits::{ConstU32, ConstU64, WithdrawReasons},
 };
 use sp_core::H256;
 use sp_runtime::{
@@ -101,6 +101,8 @@ impl Config for Test {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub struct ExtBuilder {
