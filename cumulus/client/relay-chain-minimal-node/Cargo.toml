@@ -1,40 +1,35 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
-version = "0.1.0"
+version = "0.3.0-dev.1"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+description = "cumulus-relay-chain-minimal-node"
 
 [dependencies]
-# polkadot deps
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives" }
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-polkadot-node-subsystem-util = { path = "../../../polkadot/node/subsystem-util" }
-polkadot-node-network-protocol = { path = "../../../polkadot/node/network/protocol" }
-
-polkadot-availability-recovery = { path = "../../../polkadot/node/network/availability-recovery" }
-polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-protocol" }
-polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
-polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
-polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
-
-# substrate deps
-sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-common = { path = "../../../substrate/client/network/common" }
-sc-service = { path = "../../../substrate/client/service" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-
-# cumulus deps
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
-cumulus-primitives-core = { path = "../../primitives/core" }
+polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../polkadot/primitives" }
+polkadot-core-primitives = { version = "=3.0.0-dev.1", path = "../../../polkadot/core-primitives" }
+polkadot-overseer = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/overseer" }
+polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/subsystem-util" }
+polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/network/protocol" }
+polkadot-availability-recovery = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/network/availability-recovery" }
+polkadot-collator-protocol = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/network/collator-protocol" }
+polkadot-network-bridge = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/network/bridge" }
+polkadot-node-collation-generation = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/collation-generation" }
+polkadot-node-core-runtime-api = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/core/runtime-api" }
+sc-authority-discovery = { version = "=0.30.0-dev.1", path = "../../../substrate/client/authority-discovery" }
+sc-network = { version = "=0.30.0-dev.1", path = "../../../substrate/client/network" }
+sc-network-common = { version = "=0.29.0-dev.1", path = "../../../substrate/client/network/common" }
+sc-service = { version = "=0.31.0-dev.1", path = "../../../substrate/client/service" }
+sc-tracing = { version = "=24.0.0-dev.1", path = "../../../substrate/client/tracing" }
+sc-utils = { version = "=10.0.0-dev.1", path = "../../../substrate/client/utils" }
+sp-api = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/api" }
+sp-consensus-babe = { version = "=0.28.0-dev.1", path = "../../../substrate/primitives/consensus/babe" }
+sp-consensus = { version = "=0.28.0-dev.1", path = "../../../substrate/primitives/consensus/common" }
+sp-runtime = { version = "=27.0.0-dev.1", path = "../../../substrate/primitives/runtime" }
+cumulus-relay-chain-interface = { version = "=0.3.0-dev.1", path = "../relay-chain-interface" }
+cumulus-relay-chain-rpc-interface = { version = "=0.3.0-dev.1", path = "../relay-chain-rpc-interface" }
+cumulus-primitives-core = { version = "=0.3.0-dev.1", path = "../../primitives/core" }
 
 array-bytes = "6.1"
 schnellru = "0.2.1"

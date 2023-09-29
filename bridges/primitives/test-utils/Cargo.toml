@@ -1,24 +1,25 @@
 [package]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.3.0-dev.1"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+description = "bp-test-utils"
 
 [dependencies]
-bp-header-chain = { path = "../header-chain", default-features = false  }
-bp-parachains = { path = "../parachains", default-features = false }
-bp-polkadot-core = { path = "../polkadot-core", default-features = false  }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "=0.3.0-dev.1" }
+bp-parachains = { path = "../parachains", default-features = false, version = "=0.3.0-dev.1" }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "=0.3.0-dev.1" }
+bp-runtime = { path = "../runtime", default-features = false, version = "=0.3.0-dev.1" }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
 ed25519-dalek = { version = "2.0", default-features = false }
 finality-grandpa = { version = "0.16.2", default-features = false }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, version = "=26.0.0-dev.1" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, version = "=9.0.0-dev.1" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "=24.0.0-dev.1" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "=25.0.0-dev.1" }
 
 [features]
 default = [ "std" ]

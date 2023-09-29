@@ -3,7 +3,8 @@ name = "xcm-procedural"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "3.0.0-dev.1"
+description = "xcm-procedural"
 
 [lib]
 proc-macro = true

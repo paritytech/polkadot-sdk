@@ -1,6 +1,6 @@
 [package]
 name = "sc-chain-spec"
-version = "4.0.0-dev"
+version = "23.0.0-dev.1"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -16,12 +16,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 memmap2 = "0.5.0"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-sc-client-api = { path = "../api" }
-sc-chain-spec-derive = { path = "derive" }
-sc-executor = { path = "../executor" }
-sc-network = { path = "../network" }
-sc-telemetry = { path = "../telemetry" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-state-machine = { path = "../../primitives/state-machine" }
+sc-client-api = { version = "=24.0.0-dev.1", path = "../api" }
+sc-chain-spec-derive = { version = "=9.0.0-dev.1", path = "derive" }
+sc-executor = { version = "=0.28.0-dev.1", path = "../executor" }
+sc-network = { version = "=0.30.0-dev.1", path = "../network" }
+sc-telemetry = { version = "=11.0.0-dev.1", path = "../telemetry" }
+sp-blockchain = { version = "=24.0.0-dev.1", path = "../../primitives/blockchain" }
+sp-core = { version = "=24.0.0-dev.1", path = "../../primitives/core" }
+sp-runtime = { version = "=27.0.0-dev.1", path = "../../primitives/runtime" }
+sp-state-machine = { version = "=0.31.0-dev.1", path = "../../primitives/state-machine" }

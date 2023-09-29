@@ -1,25 +1,24 @@
 [package]
 name = "polkadot-performance-test"
-version = "1.0.0"
+version = "3.0.0-dev.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "polkadot-performance-test"
 
 [dependencies]
 thiserror = "1.0.48"
 quote = "1.0.28"
 env_logger = "0.9"
 log = "0.4"
+polkadot-node-core-pvf-prepare-worker = { version = "=3.0.0-dev.1", path = "../../core/pvf/prepare-worker" }
+polkadot-erasure-coding = { version = "=3.0.0-dev.1", path = "../../../erasure-coding" }
+polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
+polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
+sc-executor-common = { version = "=0.25.0-dev.1", path = "../../../../substrate/client/executor/common" }
+sp-maybe-compressed-blob = { version = "=8.0.0-dev.1", path = "../../../../substrate/primitives/maybe-compressed-blob" }
 
-polkadot-node-core-pvf-prepare-worker = { path = "../../core/pvf/prepare-worker" }
-polkadot-erasure-coding = { path = "../../../erasure-coding" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-primitives = { path = "../../../primitives" }
-
-sc-executor-common = { path = "../../../../substrate/client/executor/common" }
-sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
-
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama", version = "=3.0.0-dev.1" }
 
 [[bin]]
 name = "gen-ref-constants"

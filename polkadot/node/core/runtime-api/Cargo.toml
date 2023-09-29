@@ -1,21 +1,20 @@
 [package]
 name = "polkadot-node-core-runtime-api"
-version = "1.0.0"
+version = "3.0.0-dev.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "polkadot-node-core-runtime-api"
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
 schnellru = "0.2.1"
-
-sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
-
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
+sp-consensus-babe = { version = "=0.28.0-dev.1", path = "../../../../substrate/primitives/consensus/babe" }
+polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
+polkadot-node-metrics = { version = "=3.0.0-dev.1", path = "../../metrics" }
+polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
+polkadot-node-subsystem-types = { version = "=3.0.0-dev.1", path = "../../subsystem-types" }
 
 [dev-dependencies]
 sp-api = { path = "../../../../substrate/primitives/api" }

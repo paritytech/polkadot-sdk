@@ -1,6 +1,6 @@
 [package]
 name = "frame-election-solution-type-fuzzer"
-version = "2.0.0-alpha.5"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,13 +19,13 @@ rand = { version = "0.8", features = ["std", "small_rng"] }
 
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-election-provider-solution-type = { path = ".." }
-frame-election-provider-support = { path = "../.." }
-sp-arithmetic = { path = "../../../../primitives/arithmetic" }
-sp-runtime = { path = "../../../../primitives/runtime" }
+frame-election-provider-solution-type = { version = "=11.0.0-dev.1", path = ".." }
+frame-election-provider-support = { version = "=24.0.0-dev.1", path = "../.." }
+sp-arithmetic = { version = "=19.0.0-dev.1", path = "../../../../primitives/arithmetic" }
+sp-runtime = { version = "=27.0.0-dev.1", path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
-sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false}
-frame-support = { path = "../../../support" }
+sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false, version = "=22.0.0-dev.1" }
+frame-support = { version = "=24.0.0-dev.1", path = "../../../support" }
 
 [[bin]]
 name = "compact"
