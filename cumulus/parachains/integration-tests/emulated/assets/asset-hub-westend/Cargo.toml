@@ -23,7 +23,6 @@ pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conv
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
-polkadot-runtime = { path = "../../../../../../polkadot/runtime/polkadot" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false }
@@ -50,7 +49,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
