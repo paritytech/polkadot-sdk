@@ -1,4 +1,4 @@
-# This file is sourced from https://github.com/paritytech/polkadot-sdk/blob/master/docker/dockerfiles/polkadot/polkadot_builder.Dockerfile
+# This file is sourced from https://github.com/paritytech/polkadot-sdk/blob/master/docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Dockerfile
 # This is the build stage for polkadot-parachain. Here we create the binary in a temporary image.
 FROM docker.io/paritytech/ci-linux:production as builder
 
