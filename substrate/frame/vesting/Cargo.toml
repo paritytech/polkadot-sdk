@@ -29,7 +29,6 @@ pallet-balances = { path = "../balances" }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io", default-features = false}
 
-
 [features]
 default = [ "std" ]
 std = [

@@ -330,8 +330,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::vest_locked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::vest_unlocked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_locked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::vest_unlocked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn vest(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -350,8 +350,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::vest_other_locked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::vest_other_unlocked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_other_locked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::vest_other_unlocked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn vest_other(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
@@ -373,9 +373,10 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(
-			T::WeightInfo::vested_transfer(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-		)]
+		#[pallet::weight(T::WeightInfo::vested_transfer(
+			T::MaxFreezes::get(),
+			T::MAX_VESTING_SCHEDULES
+		))]
 		pub fn vested_transfer(
 			origin: OriginFor<T>,
 			target: AccountIdLookupOf<T>,
@@ -401,9 +402,10 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(
-			T::WeightInfo::force_vested_transfer(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-		)]
+		#[pallet::weight(T::WeightInfo::force_vested_transfer(
+			T::MaxFreezes::get(),
+			T::MAX_VESTING_SCHEDULES
+		))]
 		pub fn force_vested_transfer(
 			origin: OriginFor<T>,
 			source: AccountIdLookupOf<T>,
@@ -437,8 +439,8 @@ pub mod pallet {
 		/// - `schedule2_index`: index of the second schedule to merge.
 		#[pallet::call_index(4)]
 		#[pallet::weight(
-			T::WeightInfo::not_unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+			T::WeightInfo::not_unlocking_merge_schedules(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::unlocking_merge_schedules(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn merge_schedules(
 			origin: OriginFor<T>,

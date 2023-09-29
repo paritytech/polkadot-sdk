@@ -85,7 +85,7 @@ fn add_vesting_schedules<T: Config>(
 
 benchmarks! {
 	vest_locked {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 1 .. T::MAX_VESTING_SCHEDULES;
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -113,7 +113,7 @@ benchmarks! {
 	}
 
 	vest_unlocked {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 1 .. T::MAX_VESTING_SCHEDULES;
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -141,7 +141,7 @@ benchmarks! {
 	}
 
 	vest_other_locked {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 1 .. T::MAX_VESTING_SCHEDULES;
 
 		let other: T::AccountId = account("other", 0, SEED);
@@ -171,7 +171,7 @@ benchmarks! {
 	}
 
 	vest_other_unlocked {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 1 .. T::MAX_VESTING_SCHEDULES;
 
 		let other: T::AccountId = account("other", 0, SEED);
@@ -201,7 +201,7 @@ benchmarks! {
 	}
 
 	vested_transfer {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 0 .. T::MAX_VESTING_SCHEDULES - 1;
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -240,7 +240,7 @@ benchmarks! {
 	}
 
 	force_vested_transfer {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 0 .. T::MAX_VESTING_SCHEDULES - 1;
 
 		let source: T::AccountId = account("source", 0, SEED);
@@ -280,7 +280,7 @@ benchmarks! {
 		}
 
 	not_unlocking_merge_schedules {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 2 .. T::MAX_VESTING_SCHEDULES;
 
 		let caller: T::AccountId = account("caller", 0, SEED);
@@ -328,7 +328,7 @@ benchmarks! {
 	}
 
 	unlocking_merge_schedules {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let l in 0 .. T::MaxFreezes::get() - 1;
 		let s in 2 .. T::MAX_VESTING_SCHEDULES;
 
 		// Destination used just for currency transfers in asserts.
