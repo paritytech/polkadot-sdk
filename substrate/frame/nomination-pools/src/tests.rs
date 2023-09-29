@@ -3332,24 +3332,33 @@ mod withdraw_unbonded {
 				let unbond_pool = sub_pools.with_era.get_mut(&3).unwrap();
 				// Sanity check
 				assert_eq!(*unbond_pool, UnbondPool { points: 550 + 40, balance: 550 + 40 });
+				assert_eq!(TotalValueLocked::<Runtime>::get(), 600);
 
 				// Simulate a slash to the pool with_era(current_era), decreasing the balance by
 				// half
 				{
 					unbond_pool.balance /= 2; // 295
 					SubPoolsStorage::<Runtime>::insert(1, sub_pools);
+
+					// Adjust the TVL for this non-api usage (direct sub-pool modification)
+					TotalValueLocked::<Runtime>::mutate(|x| *x -= 295);
+
 					// Update the equivalent of the unbonding chunks for the `StakingMock`
 					let mut x = UnbondingBalanceMap::get();
-					*x.get_mut(&default_bonded_account()).unwrap() /= 5;
+					x.get_mut(&default_bonded_account())
+						.unwrap()
+						.get_mut(current_era as usize)
+						.unwrap()
+						.1 /= 2;
 					UnbondingBalanceMap::set(&x);
+
 					Balances::make_free_balance_be(
 						&default_bonded_account(),
 						Balances::free_balance(&default_bonded_account()) / 2, // 300
 					);
-					StakingMock::set_bonded_balance(
-						default_bonded_account(),
-						StakingMock::active_stake(&default_bonded_account()).unwrap() / 2,
-					);
+					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 10);
+					StakingMock::slash_by(1, 5);
+					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 5);
 				};
 
 				// Advance the current_era to ensure all `with_era` pools will be merged into
@@ -3385,6 +3394,7 @@ mod withdraw_unbonded {
 							era: 3
 						},
 						Event::Unbonded { member: 40, pool_id: 1, points: 40, balance: 40, era: 3 },
+						Event::PoolSlashed { pool_id: 1, balance: 5 }
 					]
 				);
 				assert_eq!(
