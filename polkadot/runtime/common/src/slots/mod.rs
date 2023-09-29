@@ -35,8 +35,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
-use sp_std::prelude::*;
-use std::collections::BTreeMap;
+use sp_std::{prelude::*, collections::btree_map::BTreeMap};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
