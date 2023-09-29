@@ -44,8 +44,8 @@ jemalloc-allocator = [
 
 [dev-dependencies]
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }
-staging-kusama-runtime = { path = "../../../../runtime/kusama" }
+rococo-runtime = { path = "../../../../runtime/rococo" }
 
 [[bench]]
-name = "prepare_kusama_runtime"
+name = "prepare_rococo_runtime"
 harness = false
