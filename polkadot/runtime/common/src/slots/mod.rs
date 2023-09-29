@@ -28,15 +28,15 @@ use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
 	defensive, defensive_assert,
 	pallet_prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::{Currency, Defensive, ReservableCurrency},
 	weights::Weight,
 };
-use frame_support::traits::Defensive;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::prelude::*;
+use std::collections::BTreeMap;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -413,7 +413,7 @@ impl<T: Config> Pallet<T> {
 	fn unreserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) {
 		if amount == Zero::zero() {
 			// nothing to unreserve
-			return;
+			return
 		}
 		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
 			if let Some(current) = maybe_current {
@@ -434,14 +434,19 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
 		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)));
-		// fixme(ank4n)
-		ReservedAmounts::<T>::iter_prefix(one).for_each(|(leaser, reserved_one)| {
-			// swap the reserved amounts for each leaser.
-			ReservedAmounts::<T>::get(other, &leaser).map(|reserved_other| {
-				ReservedAmounts::<T>::insert(one, &leaser, reserved_other);
-			});
-			ReservedAmounts::<T>::insert(other, &leaser, reserved_one);
+		// copy keys from one.
+		let one_map: BTreeMap<T::AccountId, BalanceOf<T>> =
+			ReservedAmounts::<T>::drain_prefix(one).collect();
 
+		// move keys from other to one.
+		ReservedAmounts::<T>::iter_prefix(other).for_each(|(leaser, reserved_other)| {
+			ReservedAmounts::<T>::insert(one, &leaser, reserved_other);
+		});
+
+		// move keys from one to other.
+		one_map.into_iter().for_each(|(leaser, reserved_one)| {
+			// move keys from one to other.
+			ReservedAmounts::<T>::insert(other, &leaser, reserved_one);
 		});
 	}
 }
@@ -540,10 +545,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		para: ParaId,
 		leaser: &Self::AccountId,
 	) -> <Self::Currency as Currency<Self::AccountId>>::Balance {
-		let actual_reserved_amount = T::Currency::reserved_balance(&leaser);
-		let reserved_amount = ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero());
-		defensive_assert!(actual_reserved_amount == reserved_amount);
-		reserved_amount
+		ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero())
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
