@@ -35,8 +35,8 @@ pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
-default = ["std"]
-fuzzing = ["pallet-balances", "sp-tracing"]
+default = [ "std" ]
+fuzzing = [ "pallet-balances", "sp-tracing" ]
 std = [
 	"codec/std",
 	"frame-support/std",

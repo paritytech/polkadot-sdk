@@ -64,7 +64,7 @@ impl StakingMock {
 	/// This reduces the bonded balance of a pool by `amount` and calls [`Pools::on_slash`] to
 	/// enact changes in the nomination-pool pallet.
 	///
-	/// Does not modify any [`SubPools::with_era`] of the pool as [`Default::default`] is passed for
+	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	pub fn slash_by(pool_id: PoolId, amount: Balance) {
 		let acc = Pools::create_bonded_account(pool_id);
