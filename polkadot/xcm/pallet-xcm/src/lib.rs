@@ -1298,7 +1298,8 @@ impl<T: Config> Pallet<T> {
 		let mut fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type = TransferType::determine_for::<T>(&fees, &dest)?;
 		let assets_transfer_type = if assets.is_empty() {
-			// Single asset to transfer (also used for fees).
+			// Single asset to transfer (one used for fees where transfer type is determined above).
+			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 			fees_transfer_type
 		} else {
 			// Find reserve for non-fee assets.

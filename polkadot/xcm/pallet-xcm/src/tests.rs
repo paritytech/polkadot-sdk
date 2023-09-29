@@ -25,7 +25,10 @@ use frame_support::{
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
+use sp_runtime::{
+	traits::{AccountIdConversion, BlakeTwo256, Hash},
+	DispatchError, ModuleError,
+};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
@@ -2214,6 +2217,74 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 		);
 		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+	});
+}
+
+/// Test `reserve_transfer_assets` single asset which is also teleportable - should fail.
+///
+/// Attempting to reserve-transfer teleport-trusted USDT to `USDT_PARA_ID` should fail.
+#[test]
+fn reserve_transfer_assets_with_teleportable_asset_fails() {
+	let usdt_chain = RelayLocation::get().pushed_with_interior(Parachain(USDT_PARA_ID)).unwrap();
+	let usdt_chain_sovereign_account = SovereignAccountOf::convert_location(&usdt_chain).unwrap();
+	let usdt_id_multilocation = usdt_chain;
+	let usdt_initial_local_amount = 42;
+
+	// transfer destination is USDT chain (foreign asset needs to go through its reserve chain)
+	let dest = usdt_chain;
+	let assets: MultiAssets = vec![(usdt_id_multilocation, FEE_AMOUNT).into()].into();
+	let fee_index = 0;
+
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset USDT (0 total issuance)
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			usdt_id_multilocation,
+			BOB,
+			true,
+			1
+		));
+		// USDT should have been teleported/reserve-transferred in, but for this test we just
+		// mint it locally.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(BOB),
+			usdt_id_multilocation,
+			ALICE,
+			usdt_initial_local_amount
+		));
+		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		// do the transfer
+		let res = XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		);
+		assert_eq!(
+			res,
+			Err(DispatchError::Module(ModuleError {
+				index: 4,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			}))
+		);
+		// Alice native asset is still same
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+		// Alice USDT balance is still same
+		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);
+		// No USDT moved to sovereign account of reserve parachain
+		assert_eq!(Assets::balance(usdt_id_multilocation, usdt_chain_sovereign_account), 0);
+		// Verify total and active issuance of USDT are still the same
+		assert_eq!(Assets::total_issuance(usdt_id_multilocation), usdt_initial_local_amount);
+		assert_eq!(Assets::active_issuance(usdt_id_multilocation), usdt_initial_local_amount);
 	});
 }
 
