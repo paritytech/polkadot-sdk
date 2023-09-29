@@ -695,7 +695,7 @@ construct_runtime! {
 		Claims: claims::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
 
 		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>, FreezeReason},
 
 		// Parachains runtime modules
 		Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},

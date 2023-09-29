@@ -159,8 +159,11 @@ pub mod pallet {
 		/// The overarching hold reason.
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
 		/// The currency trait.
-		type Currency: fungible::InspectFreeze<Self::AccountId>
+		type Currency: fungible::InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ fungible::freeze::Mutate<Self::AccountId>
 			+ fungible::Inspect<Self::AccountId, Balance = Self::Balance>
 			+ fungible::Mutate<Self::AccountId>;
@@ -189,8 +192,8 @@ pub mod pallet {
 		/// Typically this might be set to pallet_balance::MaxFreezes.
 		type MaxFreezes: Get<u32>;
 
-		/// Freeze identifier to use for vesting locks.
-		type VestingId: Get<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
+		// /// Freeze identifier to use for vesting locks.
+		// type VestingId: Get<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
 
 		/// The benchmarks need a way to create asset ids from u32s.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -275,7 +278,7 @@ pub mod pallet {
 				// 	WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
 
 				//TODO: this was before recording the T::UnvestedFundsAllowedWithdrawReasons::get()
-				T::Currency::set_freeze(&T::VestingId::get(), who, locked)
+				T::Currency::set_freeze(&FreezeReason::NotYetVested.into(), who, locked)
 					.expect("Can't freeze at genesis");
 			}
 		}
@@ -289,6 +292,14 @@ pub mod pallet {
 		VestingUpdated { account: T::AccountId, unvested: BalanceOf<T> },
 		/// An \[account\] has become fully vested.
 		VestingCompleted { account: T::AccountId },
+	}
+
+	/// A reason for freezing funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Funds are currently locked and are not yet liquid.
+		#[codec(index = 0)]
+		NotYetVested,
 	}
 
 	/// Error for the vesting pallet.
@@ -580,12 +591,12 @@ impl<T: Config> Pallet<T> {
 		use frame_support::traits::fungible::MutateFreeze;
 
 		if total_locked_now.is_zero() {
-			T::Currency::thaw(&T::VestingId::get(), who)?;
+			T::Currency::thaw(&FreezeReason::NotYetVested.into(), who)?;
 			Self::deposit_event(Event::<T>::VestingCompleted { account: who.clone() });
 		} else {
 			// let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
 			//TODO: should we have a hold here with a reason as well?
-			T::Currency::set_freeze(&T::VestingId::get(), who, total_locked_now)?;
+			T::Currency::set_freeze(&FreezeReason::NotYetVested.into(), who, total_locked_now)?;
 			Self::deposit_event(Event::<T>::VestingUpdated {
 				account: who.clone(),
 				unvested: total_locked_now,
@@ -672,11 +683,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> fungible::freeze::VestingSchedule<T::AccountId> for Pallet<T>
-//TODO can we get away without this?
-// where
-// 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
-{
+impl<T: Config> fungible::freeze::VestingSchedule<T::AccountId> for Pallet<T> {
 	type Fungible = T::Currency;
 	type Moment = BlockNumberFor<T>;
 
