@@ -1,6 +1,5 @@
 [package]
 name = "polkadot-performance-test"
-publish = false
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
