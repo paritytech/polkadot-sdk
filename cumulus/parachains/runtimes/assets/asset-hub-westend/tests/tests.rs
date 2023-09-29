@@ -662,8 +662,8 @@ fn plain_receive_teleported_asset_works() {
 }
 
 #[test]
-fn reserve_transfer_native_asset_works() {
-	asset_test_utils::test_cases::reserve_transfer_native_asset_works::<
+fn reserve_transfer_native_asset_to_non_teleport_para_works() {
+	asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,

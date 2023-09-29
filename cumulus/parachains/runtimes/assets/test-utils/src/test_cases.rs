@@ -201,10 +201,10 @@ pub fn teleports_for_native_asset_works<
 				);
 			}
 
-			// 3. try to teleport assets away to other parachain (1234): should not work as we don't
-			//    trust `IsTeleporter` for `(relay-native-asset, para(1234))` pair
+			// 3. try to teleport assets away to other parachain (2345): should not work as we don't
+			//    trust `IsTeleporter` for `(relay-native-asset, para(2345))` pair
 			{
-				let other_para_id = 1234;
+				let other_para_id = 2345;
 				let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
 				let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
 					.appended_with(AccountId32 {
@@ -1335,8 +1335,9 @@ macro_rules! include_create_and_manage_foreign_assets_for_local_consensus_parach
 	}
 );
 
-/// Test-case makes sure that `Runtime` can reserve-transfer asset to other parachains
-pub fn reserve_transfer_native_asset_works<
+/// Test-case makes sure that `Runtime` can reserve-transfer asset to other parachains (where
+/// teleport is not trusted)
+pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
@@ -1395,9 +1396,9 @@ pub fn reserve_transfer_native_asset_works<
 				AccountId::from(alice).into(),
 			);
 
-			// reserve-transfer native asset with local reserve to remote parachain (1234)
+			// reserve-transfer native asset with local reserve to remote parachain (2345)
 
-			let other_para_id = 1234;
+			let other_para_id = 2345;
 			let native_asset = MultiLocation::parent();
 			let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
 			let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))

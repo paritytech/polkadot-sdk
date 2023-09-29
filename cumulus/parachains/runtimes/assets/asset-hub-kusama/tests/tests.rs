@@ -629,8 +629,8 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 );
 
 #[test]
-fn reserve_transfer_native_asset_works() {
-	asset_test_utils::test_cases::reserve_transfer_native_asset_works::<
+fn reserve_transfer_native_asset_to_non_teleport_para_works() {
+	asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,
