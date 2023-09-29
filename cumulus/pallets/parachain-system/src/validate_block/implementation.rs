@@ -51,8 +51,7 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 }
 
 /// Recorder instance to be used during this validate_block call.
-/// Static mut is fine here because we are single-threaded in WASM.
-static mut RECORDER: Option<Box<dyn ProofSizeProvider + Send + Sync>> = None;
+environmental::environmental!(recorder: trait ProofSizeProvider);
 
 /// Validate the given parachain block.
 ///
@@ -126,7 +125,7 @@ where
 
 	sp_std::mem::drop(storage_proof);
 
-	let recorder = SizeOnlyRecorderProvider::new();
+	let mut recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -137,8 +136,6 @@ where
 	)
 	.with_recorder(recorder.clone())
 	.build();
-
-	set_recorder(recorder);
 
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -181,7 +178,7 @@ where
 			.replace_implementation(host_current_storage_proof_size),
 	);
 
-	run_with_externalities::<B, _, _>(&backend, || {
+	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
 		let relay_chain_proof = crate::RelayChainStateProof::new(
 			PSC::SelfParaId::get(),
 			inherent_data.validation_data.relay_parent_storage_root,
@@ -202,7 +199,7 @@ where
 		}
 	});
 
-	run_with_externalities::<B, _, _>(&backend, || {
+	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
 		let head_data = HeadData(block.header().encode());
 
 		E::execute_block(block);
@@ -278,14 +275,15 @@ fn validate_validation_data(
 }
 
 /// Run the given closure with the externalities set.
-fn run_with_externalities<B: BlockT, R, F: FnOnce() -> R>(
+fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
 	backend: &TrieBackend<B>,
+	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
 	execute: F,
 ) -> R {
 	let mut overlay = sp_state_machine::OverlayedChanges::default();
 	let mut ext = Ext::<B>::new(&mut overlay, backend);
 
-	set_and_run_with_externalities(&mut ext, || execute())
+	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
@@ -318,8 +316,7 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_current_storage_proof_size() -> u32 {
-	get_recorder_ref()
-		.map(|r| r.estimate_encoded_size())
+	recorder::with(|rec| rec.estimate_encoded_size())
 		.unwrap_or_default()
 		.try_into()
 		.unwrap_or_default()
@@ -426,14 +423,3 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
-
-fn set_recorder<H: sp_core::Hasher + 'static>(recorder: SizeOnlyRecorderProvider<H>) {
-	// This is safe here, there is strictly sequential access.
-	unsafe {
-		RECORDER = Some(Box::new(recorder));
-	}
-}
-
-fn get_recorder_ref() -> Option<&'static Box<dyn ProofSizeProvider + Send + Sync>> {
-	unsafe { RECORDER.as_ref() }
-}
