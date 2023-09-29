@@ -79,7 +79,7 @@ use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
 	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation, KsmLocation,
-	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig,
+	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig, PriceForParentDelivery,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -1224,25 +1224,21 @@ impl_runtime_apis! {
 			use xcm::latest::prelude::*;
 			use xcm_config::{KsmLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
-			use cumulus_primitives_core::ParaId;
 
 			parameter_types! {
 				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
 					xcm_config::KsmLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub ToParachain: ParaId = kusama_runtime_constants::system_parachain::BRIDGE_HUB_ID.into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					XcmConfig,
 					ExistentialDepositMultiAsset,
-					PriceForSiblingParachainDelivery,
-					ToParachain,
-					(),
+					PriceForParentDelivery,
 				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(KsmLocation::get())

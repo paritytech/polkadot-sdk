@@ -141,16 +141,32 @@ benchmarks_instance_pallet! {
 	}
 
 	initiate_reserve_withdraw {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		let holding = T::worst_case_holding(1);
 		let assets_filter = MultiAssetFilter::Definite(holding.clone());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
-		let mut executor = new_executor::<T>(Default::default());
+		use crate::EnsureDelivery;
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&reserve,
+			FeeReason::InitiateReserveWithdraw
+		);
+		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(holding.into());
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		let instruction = Instruction::InitiateReserveWithdraw { assets: assets_filter, reserve, xcm: Xcm(vec![]) };
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// The execute completing successfully is as good as we can check.
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}

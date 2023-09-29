@@ -47,7 +47,7 @@ use frame_support::{
 	traits::{EnsureOrigin, Get},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -110,7 +110,7 @@ pub mod pallet {
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
 		/// The price for delivering an XCM to a sibling parachain destination.
-		type PriceForSiblingDelivery: PriceForParachainDelivery;
+		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -1203,7 +1203,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
-				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
+				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				Ok(((id, versioned_xcm), price))
