@@ -129,10 +129,10 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"westend-runtime-constants/std",
 ]
 
 runtime-benchmarks = [

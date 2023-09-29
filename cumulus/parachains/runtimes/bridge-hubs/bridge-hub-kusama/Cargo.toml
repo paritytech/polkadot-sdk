@@ -112,6 +112,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
@@ -132,7 +133,6 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"rococo-runtime-constants/std",
 ]
 
 runtime-benchmarks = [
