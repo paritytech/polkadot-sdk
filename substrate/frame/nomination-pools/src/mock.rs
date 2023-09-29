@@ -66,7 +66,7 @@ impl StakingMock {
 	///
 	/// Does not modify any [`SubPools::with_era`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
-	pub fn slash_to(pool_id: PoolId, amount: Balance) {
+	pub fn slash_by(pool_id: PoolId, amount: Balance) {
 		let acc = Pools::create_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
