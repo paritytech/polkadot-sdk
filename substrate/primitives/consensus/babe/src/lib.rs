@@ -256,9 +256,10 @@ pub struct BabeEpochConfiguration {
 	pub allowed_slots: AllowedSlots,
 }
 
-/// Verifies the equivocation proof by making sure that: both headers have
-/// different hashes, are targetting the same slot, and have valid signatures by
-/// the same authority.
+/// Verifies the equivocation proof.
+///
+/// Makes sure that both headers have different hashes, are targetting the same slot,
+/// and have valid signatures by the same authority.
 pub fn check_equivocation_proof<H>(proof: EquivocationProof<H>) -> bool
 where
 	H: Header,

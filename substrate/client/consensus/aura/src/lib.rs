@@ -57,8 +57,7 @@ pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -487,6 +486,9 @@ pub enum Error<B: BlockT> {
 	/// Inherents Error
 	#[error("Inherent error: {0}")]
 	Inherent(sp_inherents::Error),
+	/// Runtime Api error.
+	#[error(transparent)]
+	RuntimeApi(sp_api::ApiError),
 }
 
 impl<B: BlockT> From<Error<B>> for String {
@@ -554,9 +556,10 @@ mod tests {
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
 	use sc_keystore::LocalKeystore;
 	use sc_network_test::{Block as TestBlock, *};
-	use sp_application_crypto::{key_types::AURA, AppCrypto};
+	use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
+	use sp_application_crypto::AppCrypto;
 	use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
-	use sp_consensus_aura::sr25519::AuthorityPair;
+	use sp_consensus_aura::{sr25519::AuthorityPair, KEY_TYPE};
 	use sp_inherents::InherentData;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
@@ -614,9 +617,16 @@ mod tests {
 		}
 	}
 
+	type TestSelectChain = substrate_test_runtime_client::LongestChain<
+		substrate_test_runtime_client::Backend,
+		TestBlock,
+	>;
+
 	type AuraVerifier = import_queue::AuraVerifier<
+		TestBlock,
 		PeersFullClient,
 		AuthorityPair,
+		TestSelectChain,
 		Box<
 			dyn CreateInherentDataProviders<
 				TestBlock,
@@ -639,12 +649,14 @@ mod tests {
 		type BlockImport = PeersClient;
 
 		fn make_verifier(&self, client: PeersClient, _peer_data: &()) -> Self::Verifier {
+			let backend = client.as_backend();
 			let client = client.as_client();
+			let select_chain = TestSelectChain::new(backend);
 			let slot_duration = slot_duration(&*client).expect("slot duration available");
-
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
+				select_chain,
 				Box::new(|_, _| async {
 					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 						Timestamp::current(),
@@ -652,8 +664,9 @@ mod tests {
 					);
 					Ok((slot,))
 				}),
-				CheckForEquivocation::Yes,
+				true,
 				None,
+				OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 				CompatibilityMode::None,
 			)
 		}
@@ -709,7 +722,7 @@ mod tests {
 			);
 
 			keystore
-				.sr25519_generate_new(AURA, Some(&key.to_seed()))
+				.sr25519_generate_new(KEY_TYPE, Some(&key.to_seed()))
 				.expect("Creates authority key");
 			keystore_paths.push(keystore_path);
 

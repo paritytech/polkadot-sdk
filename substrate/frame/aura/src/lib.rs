@@ -40,21 +40,25 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	log,
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
-use log;
-use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
+use sp_consensus_aura::{AuthorityIndex, ConsensusLog, EquivocationProof, Slot, AURA_ENGINE_ID};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
+use sp_session::{GetSessionNumber, GetValidatorCount};
+use sp_staking::offence::OffenceReportSystem;
 use sp_std::prelude::*;
 
-pub mod migrations;
+mod equivocation;
 mod mock;
 mod tests;
+
+pub mod migrations;
 
 pub use pallet::*;
 
@@ -91,6 +95,7 @@ pub mod pallet {
 			+ RuntimeAppPublic
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
+
 		/// The maximum number of authorities that the pallet can hold.
 		type MaxAuthorities: Get<u32>;
 
@@ -122,10 +127,35 @@ pub mod pallet {
 		/// feature.
 		#[cfg(feature = "experimental")]
 		type SlotDuration: Get<<Self as pallet_timestamp::Config>::Moment>;
+
+		/// The proof of key ownership, used for validating equivocation reports.
+		///
+		/// The proof must include the session index and validator count of the
+		/// session at which the equivocation occurred.
+		type KeyOwnerProof: Parameter + GetSessionNumber + GetValidatorCount;
+
+		/// Equivocation handling subsystem.
+		///
+		/// Defines methods to check/report an offence and for submitting a transaction to report
+		/// an equivocation (from an offchain context).
+		type EquivocationReportSystem: OffenceReportSystem<
+			Option<Self::AccountId>,
+			(EquivocationProof<HeaderFor<Self>, Self::AuthorityId>, Self::KeyOwnerProof),
+		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Equivocation proof provided as part of an equivocation report is invalid.
+		InvalidEquivocationProof,
+		/// Key ownership proof provided as part of an equivocation report is invalid.
+		InvalidKeyOwnershipProof,
+		/// Equivocation report is valid but already previously reported.
+		DuplicateOffenceReport,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -163,6 +193,82 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Report authority equivocation/misbehavior.
+		///
+		/// This method will verify the equivocation proof and validate the given
+		/// key ownership proof against the extracted offender. If both are valid,
+		/// the offence will be reported.
+		#[pallet::call_index(0)]
+		// TODO @davxy compute weights via benches
+		// #[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+		// 	key_owner_proof.validator_count(),
+		// 	T::MaxNominators::get(),
+		// ))]
+		#[pallet::weight(0)]
+		pub fn report_equivocation(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			let reporter = ensure_signed(origin)?;
+			T::EquivocationReportSystem::process_evidence(
+				Some(reporter),
+				(*equivocation_proof, key_owner_proof),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report authority equivocation/misbehavior.
+		///
+		/// This method will verify the equivocation proof and validate the given
+		/// key ownership proof against the extracted offender. If both are valid,
+		/// the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only
+		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// if the block author is defined it will be defined as the equivocation
+		/// reporter.
+		#[pallet::call_index(1)]
+		// #[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+		// 	key_owner_proof.validator_count(),
+		// 	T::MaxNominators::get(),
+		// ))]
+		#[pallet::weight(0)]
+		pub fn report_equivocation_unsigned(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				(*equivocation_proof, key_owner_proof),
+			)?;
+			Ok(Pays::No.into())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			panic!("Validate Unsigned Not implemented")
+		}
+
+		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+			if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call
+			{
+				let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
+				T::EquivocationReportSystem::check_evidence(evidence)
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
 		}
 	}
 

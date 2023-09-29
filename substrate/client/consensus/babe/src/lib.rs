@@ -1089,13 +1089,13 @@ where
 			},
 		};
 
-		// submit equivocation report at best block.
 		let mut runtime_api = self.client.runtime_api();
 
 		// Register the offchain tx pool to be able to use it from the runtime.
 		runtime_api
 			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash));
 
+		// Submit equivocation report at best block.
 		runtime_api
 			.submit_report_equivocation_unsigned_extrinsic(
 				best_hash,

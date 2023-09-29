@@ -19,15 +19,22 @@
 
 #![cfg(test)]
 
-use crate::mock::{build_ext_and_execute_test, Aura, MockDisabledValidators, System};
+use crate::{
+	mock::{
+		generate_equivocation_proof, new_test_ext_and_execute, progress_to_block, Aura,
+		MockDisabledValidators, RuntimeOrigin, System, Test,
+	},
+	CurrentSlot,
+};
 use codec::Encode;
 use frame_support::traits::OnInitialize;
 use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
+use sp_core::crypto::Pair;
 use sp_runtime::{Digest, DigestItem};
 
 #[test]
 fn initial_values() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		assert_eq!(Aura::current_slot(), 0u64);
 		assert_eq!(Aura::authorities().len(), 4);
 	});
@@ -38,7 +45,7 @@ fn initial_values() {
 	expected = "Validator with index 1 is disabled and should not be attempting to author blocks."
 )]
 fn disabled_validators_cannot_author_blocks() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		// slot 1 should be authored by validator at index 1
 		let slot = Slot::from(1);
 		let pre_digest =
@@ -58,7 +65,7 @@ fn disabled_validators_cannot_author_blocks() {
 #[test]
 #[should_panic(expected = "Slot must increase")]
 fn pallet_requires_slot_to_increase_unless_allowed() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		crate::mock::AllowMultipleBlocksPerSlot::set(false);
 
 		let slot = Slot::from(1);
@@ -76,7 +83,7 @@ fn pallet_requires_slot_to_increase_unless_allowed() {
 
 #[test]
 fn pallet_can_allow_unchanged_slot() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		let slot = Slot::from(1);
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
@@ -95,7 +102,7 @@ fn pallet_can_allow_unchanged_slot() {
 #[test]
 #[should_panic(expected = "Slot must not decrease")]
 fn pallet_always_rejects_decreasing_slot() {
-	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
+	new_test_ext_and_execute(4, |_| {
 		let slot = Slot::from(2);
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
@@ -114,4 +121,81 @@ fn pallet_always_rejects_decreasing_slot() {
 		System::initialize(&43, &System::parent_hash(), &pre_digest);
 		Aura::on_initialize(43);
 	});
+}
+
+#[test]
+fn report_equivocation_works() {
+	env_logger::init();
+	new_test_ext_and_execute(4, |pairs| {
+		progress_to_block(1);
+		// start_era(1);
+
+		let authorities = Aura::authorities();
+		// let validators = Session::validators();
+
+		// make sure that all authorities have the same balance
+		// for validator in &validators {
+		// 	assert_eq!(Balances::total_balance(validator), 10_000_000);
+		// 	assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+
+		// 	assert_eq!(
+		// 		Staking::eras_stakers(1, validator),
+		// 		pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+		// 	);
+		// }
+
+		// We will use the validator at index 1 as the offending authority.
+		let offending_validator_index = 1;
+		// let offending_validator_id = Session::validators()[offending_validator_index];
+		let offending_authority_pair = pairs
+			.into_iter()
+			.find(|p| p.public() == authorities[offending_validator_index])
+			.unwrap();
+
+		// Generate an equivocation proof. It creates two headers at the given
+		// slot with different block hashes and signed by the given key.
+		let equivocation_proof =
+			generate_equivocation_proof(&offending_authority_pair, CurrentSlot::<Test>::get());
+
+		// Create the key ownership proof
+		let key = (sp_consensus_aura::KEY_TYPE, &offending_authority_pair.public());
+		// Dummy key owner proof
+		// let key_owner_proof = Historical::prove(key).unwrap();
+		let key_owner_proof =
+			sp_session::MembershipProof { session: 0, trie_nodes: vec![], validator_count: 3 };
+
+		// report the equivocation
+		Aura::report_equivocation_unsigned(
+			RuntimeOrigin::none(),
+			Box::new(equivocation_proof),
+			key_owner_proof,
+		)
+		.unwrap();
+
+		// // start a new era so that the results of the offence report
+		// // are applied at era end
+		// start_era(2);
+
+		// // check that the balance of offending validator is slashed 100%.
+		// assert_eq!(Balances::total_balance(&offending_validator_id), 10_000_000 - 10_000);
+		// assert_eq!(Staking::slashable_balance_of(&offending_validator_id), 0);
+		// assert_eq!(
+		// 	Staking::eras_stakers(2, offending_validator_id),
+		// 	pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
+		// );
+
+		// // check that the balances of all other validators are left intact.
+		// for validator in &validators {
+		// 	if *validator == offending_validator_id {
+		// 		continue
+		// 	}
+
+		// 	assert_eq!(Balances::total_balance(validator), 10_000_000);
+		// 	assert_eq!(Staking::slashable_balance_of(validator), 10_000);
+		// 	assert_eq!(
+		// 		Staking::eras_stakers(2, validator),
+		// 		pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
+		// 	);
+		// }
+	})
 }

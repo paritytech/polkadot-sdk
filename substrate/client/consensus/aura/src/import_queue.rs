@@ -16,14 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Module implementing the logic for verifying and importing AuRa blocks.
+//! Module implementing the logic for verifying and importing AURA blocks.
 
 use crate::{
 	authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
 	LOG_TARGET,
 };
 use codec::Codec;
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
@@ -32,10 +32,11 @@ use sc_consensus::{
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::Error as ConsensusError;
+use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
@@ -46,47 +47,37 @@ use sp_runtime::{
 };
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
-/// check a header has been signed by the right key. If the slot is too far in the future, an error
-/// will be returned. If it's successful, returns the pre-header and the digest item
-/// containing the seal.
+// Checked header return information.
+struct VerifiedHeaderInfo<P: Pair> {
+	slot: Slot,
+	seal: DigestItem,
+	author: AuthorityId<P>,
+}
+
+/// Check a header has been signed by the right key.
 ///
-/// This digest item will always return `Some` when used with `as_aura_seal`.
-fn check_header<C, B: BlockT, P: Pair>(
-	client: &C,
+/// If the slot is too far in the future, an error will be returned.
+/// If it's successful, returns the checked header and some information
+/// which is required by the current callers.
+fn check_header<B: BlockT, P: Pair>(
 	slot_now: Slot,
 	header: B::Header,
 	hash: B::Hash,
 	authorities: &[AuthorityId<P>],
-	check_for_equivocation: CheckForEquivocation,
-) -> Result<CheckedHeader<B::Header, (Slot, DigestItem)>, Error<B>>
+) -> Result<CheckedHeader<B::Header, VerifiedHeaderInfo<P>>, Error<B>>
 where
 	P::Public: Codec,
 	P::Signature: Codec,
-	C: sc_client_api::backend::AuxStore,
 {
 	let check_result =
 		crate::standalone::check_header_slot_and_seal::<B, P>(slot_now, header, authorities);
 
 	match check_result {
 		Ok((header, slot, seal)) => {
-			let expected_author = crate::standalone::slot_author::<P>(slot, &authorities);
-			let should_equiv_check = check_for_equivocation.check_for_equivocation();
-			if let (true, Some(expected)) = (should_equiv_check, expected_author) {
-				if let Some(equivocation_proof) =
-					check_equivocation(client, slot_now, slot, &header, expected)
-						.map_err(Error::Client)?
-				{
-					info!(
-						target: LOG_TARGET,
-						"Slot author is equivocating at slot {} with headers {:?} and {:?}",
-						slot,
-						equivocation_proof.first_header.hash(),
-						equivocation_proof.second_header.hash(),
-					);
-				}
-			}
-
-			Ok(CheckedHeader::Checked(header, (slot, seal)))
+			let author = crate::standalone::slot_author::<P>(slot, &authorities)
+				.ok_or(Error::SlotAuthorNotFound)?
+				.clone();
+			Ok(CheckedHeader::Checked(header, VerifiedHeaderInfo { slot, seal, author }))
 		},
 		Err(SealVerificationError::Deferred(header, slot)) =>
 			Ok(CheckedHeader::Deferred(header, slot)),
@@ -98,51 +89,59 @@ where
 	}
 }
 
-/// A verifier for Aura blocks.
-pub struct AuraVerifier<C, P, CIDP, N> {
+/// A verifier for AURA blocks.
+pub struct AuraVerifier<B: BlockT, C, P, SC, CIDP, N> {
 	client: Arc<C>,
+	select_chain: SC,
 	create_inherent_data_providers: CIDP,
-	check_for_equivocation: CheckForEquivocation,
+	check_for_equivocation: bool,
 	telemetry: Option<TelemetryHandle>,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	compatibility_mode: CompatibilityMode<N>,
 	_phantom: PhantomData<fn() -> P>,
 }
 
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
+impl<B: BlockT, C, P, SC, CIDP, N> AuraVerifier<B, C, P, SC, CIDP, N> {
 	pub(crate) fn new(
 		client: Arc<C>,
+		select_chain: SC,
 		create_inherent_data_providers: CIDP,
-		check_for_equivocation: CheckForEquivocation,
+		check_for_equivocation: bool,
 		telemetry: Option<TelemetryHandle>,
+		offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 		compatibility_mode: CompatibilityMode<N>,
 	) -> Self {
 		Self {
 			client,
+			select_chain,
 			create_inherent_data_providers,
 			check_for_equivocation,
 			telemetry,
+			offchain_tx_pool_factory,
 			compatibility_mode,
 			_phantom: PhantomData,
 		}
 	}
 }
 
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N>
+impl<B, C, P, SC, CIDP, N> AuraVerifier<B, C, P, SC, CIDP, N>
 where
+	B: BlockT,
+	C: ProvideRuntimeApi<B> + AuxStore,
+	C::Api: AuraApi<B, AuthorityId<P>> + BlockBuilderApi<B>,
+	P: Pair,
+	P::Public: Codec,
+	SC: SelectChain<B>,
+	CIDP: CreateInherentDataProviders<B, ()>,
 	CIDP: Send,
 {
-	async fn check_inherents<B: BlockT>(
+	async fn check_inherents(
 		&self,
 		block: B,
 		at_hash: B::Hash,
 		inherent_data: sp_inherents::InherentData,
 		create_inherent_data_providers: CIDP::InherentDataProviders,
-	) -> Result<(), Error<B>>
-	where
-		C: ProvideRuntimeApi<B>,
-		C::Api: BlockBuilderApi<B>,
-		CIDP: CreateInherentDataProviders<B, ()>,
-	{
+	) -> Result<(), Error<B>> {
 		let inherent_res = self
 			.client
 			.runtime_api()
@@ -160,13 +159,100 @@ where
 
 		Ok(())
 	}
+
+	async fn check_and_report_equivocation(
+		&self,
+		slot_now: Slot,
+		slot: Slot,
+		header: &B::Header,
+		author: &AuthorityId<P>,
+		origin: &BlockOrigin,
+	) -> Result<(), Error<B>> {
+		// Don't report any equivocations during initial sync as they are most likely stale.
+		if !self.check_for_equivocation || *origin == BlockOrigin::NetworkInitialSync {
+			return Ok(())
+		}
+
+		// Check if authorship of this header is an equivocation and return a proof if so.
+		let equivocation_proof =
+			match check_equivocation(&*self.client, slot_now, slot, header, author)
+				.map_err(Error::Client)?
+			{
+				Some(proof) => proof,
+				None => return Ok(()),
+			};
+
+		info!(
+			target: LOG_TARGET,
+			"Slot author is equivocating at slot {} with headers {:?} and {:?}",
+			slot,
+			equivocation_proof.first_header.hash(),
+			equivocation_proof.second_header.hash(),
+		);
+
+		// Get the best block on which we will build and send the equivocation report.
+		let best_hash = self
+			.select_chain
+			.best_chain()
+			.await
+			.map(|h| h.hash())
+			.map_err(|e| Error::Client(e.into()))?;
+
+		// Generate a key ownership proof. we start by trying to generate the
+		// key ownership proof at the parent of the equivocating header, this
+		// will make sure that proof generation is successful since it happens
+		// during the on-going session (i.e. session keys are available in the
+		// state to be able to generate the proof). This might fail if the
+		// equivocation happens on the first block of the session, in which case
+		// its parent would be on the previous session. If generation on the
+		// parent header fails we try with best block as well.
+		let generate_key_owner_proof = |at_hash| {
+			self.client
+				.runtime_api()
+				.generate_key_ownership_proof(at_hash, slot, equivocation_proof.offender.clone())
+				.map_err(Error::<B>::RuntimeApi)
+		};
+
+		let parent_hash = *header.parent_hash();
+		let key_owner_proof = match generate_key_owner_proof(parent_hash)? {
+			Some(proof) => proof,
+			None => match generate_key_owner_proof(best_hash)? {
+				Some(proof) => proof,
+				None => {
+					debug!(
+						target: LOG_TARGET,
+						"Equivocation offender is not part of the authority set."
+					);
+					return Ok(())
+				},
+			},
+		};
+
+		let mut runtime_api = self.client.runtime_api();
+
+		// Register the offchain tx pool to be able to use it from the runtime.
+		runtime_api
+			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash));
+
+		// Submit equivocation report at best block.
+		runtime_api
+			.submit_report_equivocation_unsigned_extrinsic(
+				best_hash,
+				equivocation_proof,
+				key_owner_proof,
+			)
+			.map_err(Error::RuntimeApi)?;
+
+		Ok(())
+	}
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
+impl<B: BlockT, C, P, SC, CIDP> Verifier<B> for AuraVerifier<B, C, P, SC, CIDP, NumberFor<B>>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+	C: ProvideRuntimeApi<B> + Send + Sync + AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
+	SC: SelectChain<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
@@ -205,36 +291,36 @@ where
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
-		let mut inherent_data = create_inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(Error::<B>::Inherent)?;
-
 		let slot_now = create_inherent_data_providers.slot();
 
-		// we add one to allow for some small drift.
-		// FIXME #1019 in the future, alter this queue to allow deferring of
-		// headers
-		let checked_header = check_header::<C, B, P>(
-			&self.client,
-			slot_now + 1,
-			block.header,
-			hash,
-			&authorities[..],
-			self.check_for_equivocation,
-		)
-		.map_err(|e| e.to_string())?;
+		// We add one to allow for some small drift.
+		// FIXME #1019 in the future, alter this queue to allow deferring of headers
+		let checked_header =
+			check_header::<B, P>(slot_now + 1, block.header.clone(), hash, &authorities[..])
+				.map_err(|e| e.to_string())?;
+
 		match checked_header {
-			CheckedHeader::Checked(pre_header, (slot, seal)) => {
-				// if the body is passed through, we need to use the runtime
+			CheckedHeader::Checked(pre_header, verified_info) => {
+				if let Err(err) = self
+					.check_and_report_equivocation(
+						slot_now,
+						verified_info.slot,
+						&block.header,
+						&verified_info.author,
+						&block.origin,
+					)
+					.await
+				{
+					warn!(target: LOG_TARGET, "Error checking/reporting AURA equivocation: {}", err)
+				};
+
+				// If the body is passed through, we need to use the runtime
 				// to check that the internally-set timestamp in the inherents
 				// actually matches the slot set in the seal.
-				if let Some(inner_body) = block.body.take() {
+				if let Some(inner_body) = block.body {
 					let new_block = B::new(pre_header.clone(), inner_body);
 
-					inherent_data.aura_replace_inherent_data(slot);
-
-					// skip the inherents verification if the runtime API is old or not expected to
+					// Skip the inherents verification if the runtime API is old or not expected to
 					// exist.
 					if self
 						.client
@@ -242,6 +328,13 @@ where
 						.has_api_with::<dyn BlockBuilderApi<B>, _>(parent_hash, |v| v >= 2)
 						.map_err(|e| e.to_string())?
 					{
+						let mut inherent_data = create_inherent_data_providers
+							.create_inherent_data()
+							.await
+							.map_err(Error::<B>::Inherent)?;
+
+						inherent_data.aura_replace_inherent_data(verified_info.slot);
+
 						self.check_inherents(
 							new_block.clone(),
 							parent_hash,
@@ -265,7 +358,7 @@ where
 				);
 
 				block.header = pre_header;
-				block.post_digests.push(seal);
+				block.post_digests.push(verified_info.seal);
 				block.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 				block.post_hash = Some(hash);
 
@@ -287,38 +380,16 @@ where
 	}
 }
 
-/// Should we check for equivocation of a block author?
-#[derive(Debug, Clone, Copy)]
-pub enum CheckForEquivocation {
-	/// Yes, check for equivocation.
-	///
-	/// This is the default setting for this.
-	Yes,
-	/// No, don't check for equivocation.
-	No,
-}
-
-impl CheckForEquivocation {
-	/// Should we check for equivocation?
-	fn check_for_equivocation(self) -> bool {
-		matches!(self, Self::Yes)
-	}
-}
-
-impl Default for CheckForEquivocation {
-	fn default() -> Self {
-		Self::Yes
-	}
-}
-
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
+pub struct ImportQueueParams<'a, B: BlockT, I, C, SC, S, CIDP> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The justification import.
-	pub justification_import: Option<BoxJustificationImport<Block>>,
+	pub justification_import: Option<BoxJustificationImport<B>>,
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
+	/// Chain selection system.
+	pub select_chain: SC,
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
 	/// The spawner to spawn background tasks.
@@ -326,53 +397,62 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
 	/// Should we check for equivocation?
-	pub check_for_equivocation: CheckForEquivocation,
+	pub check_for_equivocation: bool,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
+	/// The offchain transaction pool factory.
+	///
+	/// Will be used when sending equivocation reports.
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	/// Compatibility mode that should be used.
 	///
 	/// If in doubt, use `Default::default()`.
-	pub compatibility_mode: CompatibilityMode<NumberFor<Block>>,
+	pub compatibility_mode: CompatibilityMode<NumberFor<B>>,
 }
 
-/// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<P, Block, I, C, S, CIDP>(
+/// Start an import queue for the AURA consensus algorithm.
+pub fn import_queue<P, B, I, C, SC, S, CIDP>(
 	ImportQueueParams {
 		block_import,
 		justification_import,
 		client,
+		select_chain,
 		create_inherent_data_providers,
 		spawner,
 		registry,
 		check_for_equivocation,
 		telemetry,
+		offchain_tx_pool_factory,
 		compatibility_mode,
-	}: ImportQueueParams<Block, I, C, S, CIDP>,
-) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
+	}: ImportQueueParams<B, I, C, SC, S, CIDP>,
+) -> Result<DefaultImportQueue<B>, sp_consensus::Error>
 where
-	Block: BlockT,
-	C::Api: BlockBuilderApi<Block> + AuraApi<Block, AuthorityId<P>> + ApiExt<Block>,
+	B: BlockT,
+	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	C: 'static
-		+ ProvideRuntimeApi<Block>
+		+ ProvideRuntimeApi<B>
 		+ BlockOf
 		+ Send
 		+ Sync
 		+ AuxStore
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
-	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
+		+ UsageProvider<B>
+		+ HeaderBackend<B>,
+	SC: SelectChain<B> + 'static,
+	I: BlockImport<B, Error = ConsensusError> + Send + Sync + 'static,
 	P: Pair + 'static,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<B, ()> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
+	let verifier = build_verifier::<B, P, _, _, _, _>(BuildVerifierParams {
 		client,
+		select_chain,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
+		offchain_tx_pool_factory,
 		compatibility_mode,
 	});
 
@@ -380,15 +460,21 @@ where
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP, N> {
+pub struct BuildVerifierParams<B: BlockT, C, SC, CIDP, N> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
+	/// Chain selection system.
+	pub select_chain: SC,
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
 	/// Should we check for equivocation?
-	pub check_for_equivocation: CheckForEquivocation,
+	pub check_for_equivocation: bool,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
+	/// The offchain transaction pool factory.
+	///
+	/// Will be used when sending equivocation reports.
+	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	/// Compatibility mode that should be used.
 	///
 	/// If in doubt, use `Default::default()`.
@@ -396,20 +482,24 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 }
 
 /// Build the [`AuraVerifier`]
-pub fn build_verifier<P, C, CIDP, N>(
+pub fn build_verifier<B: BlockT, P, C, SC, CIDP, N>(
 	BuildVerifierParams {
 		client,
+		select_chain,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
+		offchain_tx_pool_factory,
 		compatibility_mode,
-	}: BuildVerifierParams<C, CIDP, N>,
-) -> AuraVerifier<C, P, CIDP, N> {
-	AuraVerifier::<_, P, _, _>::new(
+	}: BuildVerifierParams<B, C, SC, CIDP, N>,
+) -> AuraVerifier<B, C, P, SC, CIDP, N> {
+	AuraVerifier::<B, _, P, _, _, _>::new(
 		client,
+		select_chain,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
+		offchain_tx_pool_factory,
 		compatibility_mode,
 	)
 }

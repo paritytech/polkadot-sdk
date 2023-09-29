@@ -626,6 +626,23 @@ impl_runtime_apis! {
 		fn authorities() -> Vec<AuraId> {
 			SubstrateTest::authorities().into_iter().map(|auth| AuraId::from(auth)).collect()
 		}
+
+		fn submit_report_equivocation_unsigned_extrinsic(
+			_equivocation_proof: sp_consensus_aura::EquivocationProof<
+				<Block as BlockT>::Header,
+				AuraId,
+			>,
+			_key_owner_proof: sp_consensus_aura::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
+		fn generate_key_ownership_proof(
+			_slot: sp_consensus_aura::Slot,
+			_authority_id: AuraId,
+		) -> Option<sp_consensus_aura::OpaqueKeyOwnershipProof> {
+			None
+		}
 	}
 
 	impl sp_consensus_babe::BabeApi<Block> for Runtime {
