@@ -31,3 +31,14 @@ rustflags = [
   "-Aclippy::stable_sort_primitive",     # prefer stable sort
   "-Aclippy::extra-unused-type-parameters", # stylistic
 ]
+
+[env]
+# The version of the node.
+#
+# This is the version that is used for versioning this node binary.
+# By default the `minor` version is bumped in every release. `Major` or `patch` releases are only
+# expected in very rare cases.
+#
+# The worker binaries associated to the node binary should ensure that they are using the same
+# version as the main node that started them.
+POLKADOT_NODE_VERSION = "1.1.0"

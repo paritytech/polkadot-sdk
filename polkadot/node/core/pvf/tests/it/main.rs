@@ -18,8 +18,8 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, Config, InvalidCandidate, Metrics, PrepareJobKind, PvfPrepData, ValidationError,
-	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareJobKind,
+	PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
@@ -50,13 +50,8 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let mut workers_path = std::env::current_exe().unwrap();
-		workers_path.pop();
-		workers_path.pop();
-		let mut prepare_worker_path = workers_path.clone();
-		prepare_worker_path.push("polkadot-prepare-worker");
-		let mut execute_worker_path = workers_path.clone();
-		execute_worker_path.push("polkadot-execute-worker");
+		let (prepare_worker_path, execute_worker_path) = get_and_check_worker_paths();
+
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),

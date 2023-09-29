@@ -18,7 +18,7 @@
 
 use super::Error;
 use is_executable::IsExecutable;
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
 #[cfg(test)]
 use std::sync::{Mutex, OnceLock};
@@ -75,11 +75,7 @@ pub fn determine_workers_paths(
 
 	// Do the version check.
 	if let Some(node_version) = node_version {
-		let worker_version = Command::new(&prep_worker_path).args(["--version"]).output()?.stdout;
-		let worker_version = std::str::from_utf8(&worker_version)
-			.expect("version is printed as a string; qed")
-			.trim()
-			.to_string();
+		let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
 		if worker_version != node_version {
 			return Err(Error::WorkerBinaryVersionMismatch {
 				worker_version,
@@ -87,11 +83,8 @@ pub fn determine_workers_paths(
 				worker_path: prep_worker_path,
 			})
 		}
-		let worker_version = Command::new(&exec_worker_path).args(["--version"]).output()?.stdout;
-		let worker_version = std::str::from_utf8(&worker_version)
-			.expect("version is printed as a string; qed")
-			.trim()
-			.to_string();
+
+		let worker_version = polkadot_node_core_pvf::get_worker_version(&exec_worker_path)?;
 		if worker_version != node_version {
 			return Err(Error::WorkerBinaryVersionMismatch {
 				worker_version,
