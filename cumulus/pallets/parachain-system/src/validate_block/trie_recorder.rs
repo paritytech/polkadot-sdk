@@ -14,15 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
 
-//! Module for defining classes that provide a specialized trie-recorder
-//! and provider for use in validate-block.
+//! Provide a specialized trie-recorder and provider for use in validate-block.
 //!
 //! This file defines two main structs, [`SizeOnlyRecorder`] and
 //! [`SizeOnlyRecorderProvider`]. They are used to track the current
 //! proof-size without actually recording the accessed nodes themselves.
-//!
-//! # Panics
-//! The `drain_storage_proof` method is not implemented and will panic if called.
 
 use codec::Encode;
 
@@ -49,24 +45,18 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 		let mut encoded_size_update = 0;
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } =>
-				if !self.seen_nodes.get(&hash).is_some() {
+				if self.seen_nodes.insert(hash) {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
 					encoded_size_update += node.encoded_size();
-					self.seen_nodes.insert(hash);
 				},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
-				if !self.seen_nodes.get(&hash).is_some() {
-					let node = encoded_node.into_owned();
-
-					encoded_size_update += node.encoded_size();
-					self.seen_nodes.insert(hash);
+				if self.seen_nodes.insert(hash) {
+					encoded_size_update += encoded_node.encoded_size();
 				}
 			},
 			TrieAccess::Value { hash, value, full_key } => {
-				if !self.seen_nodes.get(&hash).is_some() {
-					let value = value.into_owned();
+				if self.seen_nodes.insert(hash) {
 					encoded_size_update += value.encoded_size();
-					self.seen_nodes.insert(hash);
 				}
 				self.recorded_keys
 					.entry(full_key.into())
@@ -153,7 +143,7 @@ mod tests {
 	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
-	use crate::validate_block::trie_recorder::SizeOnlyRecorderProvider;
+	use super::*;
 
 	type Recorder = sp_trie::recorder::Recorder<sp_core::Blake2Hasher>;
 
