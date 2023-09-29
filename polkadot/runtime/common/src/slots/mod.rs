@@ -197,6 +197,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::clear_all_leases())]
 		pub fn clear_all_leases(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
+			// fixme(ank4n): check deposit from storage ReservedAmount (para_id, who => reserved_amount)
 			let deposits = Self::all_deposits_held(para);
 
 			// Refund any deposits for these leases
@@ -256,6 +257,7 @@ pub mod pallet {
 			ensure!(leases.len() == 1, Error::<T>::LeaseError);
 
 			if let Some((who, value)) = &leases[0] {
+				// FIXME(ank4n): assert on returned value
 				T::Currency::unreserve(&who, *value);
 			} else {
 				// This should never happen.
@@ -291,8 +293,7 @@ impl<T: Config> Pallet<T> {
 				//
 				// `para` is now just an on-demand parachain.
 				//
-				// We might have already unreserved if `early_lease_refund` was called. Any which
-				// way, unreserve whatever is left. Since unreserve is infallible, this is fine.
+				// FIXME(ank4n): unreserve whatever is left.
 				if let Some((who, value)) = &lease_periods[0] {
 					T::Currency::unreserve(&who, *value);
 				}
