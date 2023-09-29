@@ -26,6 +26,7 @@ pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
+	defensive,
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
 	weights::Weight,
@@ -33,7 +34,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
-use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
+use sp_runtime::traits::{CheckedAdd, CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::prelude::*;
 
 type BalanceOf<T> =
@@ -45,6 +46,7 @@ pub trait WeightInfo {
 	fn manage_lease_period_start(c: u32, t: u32) -> Weight;
 	fn clear_all_leases() -> Weight;
 	fn trigger_onboard() -> Weight;
+	fn early_release_refund() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -59,6 +61,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn trigger_onboard() -> Weight {
+		Weight::zero()
+	}
+	fn early_release_refund() -> Weight {
 		Weight::zero()
 	}
 }
@@ -85,6 +90,10 @@ pub mod pallet {
 		/// The number of blocks over which a single period lasts.
 		#[pallet::constant]
 		type LeasePeriod: Get<BlockNumberFor<Self>>;
+
+		/// The number of blocks in past upto which early refund is allowed.
+		#[pallet::constant]
+		type EarliestRefundPeriod: Get<BlockNumberFor<Self>>;
 
 		/// The number of blocks to offset each lease period by.
 		#[pallet::constant]
@@ -221,6 +230,41 @@ pub mod pallet {
 			};
 			Ok(())
 		}
+
+		/// Try to refund the lease deposit before the actual end of the lease.
+		///
+		/// This is only allowed if lease is ending within `T:EarliestRefundPeriod` and the
+		/// parachain has no new lease periods coming up. This is useful for parachains who want to
+		/// get access to their funds they used in the last lease and rebid using same for the
+		/// next lease.
+		///
+		/// Origin must be signed, but can be called by anyone.
+		#[pallet::call_index(3)]
+		// fixme(ank4n) weights
+		#[pallet::weight(T::WeightInfo::early_release_refund())]
+		pub fn early_release_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			// check if lease is ending soon.
+			let now = frame_system::Pallet::<T>::block_number();
+			let lease_ending_soon =
+				Self::lease_period_ending_soon(now).ok_or(Error::<T>::LeaseError)?;
+			ensure!(lease_ending_soon, Error::<T>::LeaseError);
+
+			// allow this iff parachain has one lease period left.
+			let leases = Leases::<T>::get(para);
+			ensure!(leases.len() == 1, Error::<T>::LeaseError);
+
+			if let Some((who, value)) = &leases[0] {
+				T::Currency::unreserve(&who, *value);
+			} else {
+				// This should never happen.
+				defensive!("lease period should never be empty");
+				return Err(Error::<T>::LeaseError.into())
+			}
+
+			Ok(())
+		}
 	}
 }
 
@@ -325,6 +369,16 @@ impl<T: Config> Pallet<T> {
 		});
 
 		tracker.into_iter().collect()
+	}
+
+	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> Option<bool> {
+		let (current_lease, _) = Self::lease_period_index(now)?;
+
+		// check if new lease is coming soon.
+		let soon = now.checked_add(&T::EarliestRefundPeriod::get())?;
+		let (maybe_next_lease, _) = Self::lease_period_index(soon)?;
+
+		Some(maybe_next_lease == current_lease.checked_add(&sp_runtime::traits::One::one())?)
 	}
 }
 
@@ -577,6 +631,7 @@ mod tests {
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 10;
+		pub const EarliestRefundPeriod: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -586,6 +641,7 @@ mod tests {
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
+		type EarliestRefundPeriod = EarliestRefundPeriod;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
 		type WeightInfo = crate::slots::TestWeightInfo;

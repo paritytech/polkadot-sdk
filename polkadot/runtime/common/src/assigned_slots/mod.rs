@@ -746,6 +746,7 @@ mod tests {
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 3;
+		pub const EarliestRefundPeriod: BlockNumber = 1;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
@@ -755,6 +756,7 @@ mod tests {
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
+		type EarliestRefundPeriod = EarliestRefundPeriod;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
 		type WeightInfo = crate::slots::TestWeightInfo;

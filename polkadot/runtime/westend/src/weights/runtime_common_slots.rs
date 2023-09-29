@@ -132,4 +132,8 @@ impl<T: frame_system::Config> runtime_common::slots::WeightInfo for WeightInfo<T
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+
+	fn early_release_refund() -> Weight {
+		todo!("run bench")
+	}
 }
