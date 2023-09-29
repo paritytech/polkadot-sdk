@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Glutton Runtime
+//! # Glutton Westend Runtime
 //!
 //! The purpose of the Glutton parachain is to do stress testing on the Kusama
-//! network.
+//! network. This runtime targets the Westend runtime to allow development
+//! separate to the Kusama runtime.
 //!
 //! There may be multiple instances of the Glutton parachain deployed and
-//! connected to Kusama.
+//! connected to its parent relay chain.
 //!
 //! These parachains are not holding any real value. Their purpose is to stress
 //! test the network.
@@ -27,14 +28,14 @@
 //! ### Governance
 //!
 //! Glutton defers its governance (namely, its `Root` origin), to its Relay
-//! Chain parent, Kusama.
+//! Chain parent, Kusama (or Westend for development purposes).
 //!
 //! ### XCM
 //!
 //! Since the main goal of Glutton is solely stress testing, the parachain will
-//! only be able receive XCM messages from Kusama via DMP. This way the Glutton
-//! parachains will be able to listen for upgrades that are coming from the
-//! Relay chain.
+//! only be able receive XCM messages from the relay chain via DMP. This way the
+//! Glutton parachains will be able to listen for upgrades that are coming from
+//! the Relay chain.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -82,7 +83,7 @@ use frame_system::{
 	EnsureRoot,
 };
 use parachains_common::{
-	kusama::consensus::{
+	westend::consensus::{
 		BLOCK_PROCESSING_VELOCITY, RELAY_CHAIN_SLOT_DURATION_MILLIS, UNINCLUDED_SEGMENT_CAPACITY,
 	},
 	AccountId, Signature, SLOT_DURATION,
@@ -99,8 +100,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("glutton"),
-	impl_name: create_runtime_str!("glutton"),
+	spec_name: create_runtime_str!("glutton-westend"),
+	impl_name: create_runtime_str!("glutton-westend"),
 	authoring_version: 1,
 	spec_version: 10000,
 	impl_version: 0,
@@ -248,7 +249,7 @@ construct_runtime! {
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin} = 10,
 
 		// The main stage.
-		Glutton: pallet_glutton::{Pallet, Call, Storage, Event, Config<T>} = 20,
+		GluttonWestend: pallet_glutton::{Pallet, Call, Storage, Event, Config<T>} = 20,
 
 		// Collator support
 		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 30,
@@ -305,7 +306,7 @@ extern crate frame_benchmarking;
 mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
-		[pallet_glutton, Glutton]
+		[pallet_glutton, GluttonWestend]
 	);
 }
 

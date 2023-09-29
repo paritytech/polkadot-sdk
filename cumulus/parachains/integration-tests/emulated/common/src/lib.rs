@@ -142,18 +142,18 @@ decl_test_parachains! {
 	pub struct AssetHubRococo {
 		genesis = asset_hub_rococo::genesis(),
 		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
+			asset_hub_westend_runtime::AuraExt::on_initialize(1);
 		},
-		runtime = asset_hub_kusama_runtime,
+		runtime = asset_hub_westend_runtime,
 		core = {
-			XcmpMessageHandler: asset_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_kusama_runtime::ParachainInfo,
+			XcmpMessageHandler: asset_hub_westend_runtime::XcmpQueue,
+			DmpMessageHandler: asset_hub_westend_runtime::DmpQueue,
+			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
 		},
 		pallets = {
-			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
-			Assets: asset_hub_kusama_runtime::Assets,
+			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
+			Assets: asset_hub_westend_runtime::Assets,
 		}
 	},
 	// Wococo Parachains
@@ -176,18 +176,18 @@ decl_test_parachains! {
 	pub struct AssetHubWococo {
 		genesis = asset_hub_westend::genesis(),
 		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
+			asset_hub_westend_runtime::AuraExt::on_initialize(1);
 		},
-		runtime = asset_hub_polkadot_runtime,
+		runtime = asset_hub_westend_runtime,
 		core = {
-			XcmpMessageHandler: asset_hub_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_polkadot_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_polkadot_runtime::ParachainInfo,
+			XcmpMessageHandler: asset_hub_westend_runtime::XcmpQueue,
+			DmpMessageHandler: asset_hub_westend_runtime::DmpQueue,
+			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
+			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
 		},
 		pallets = {
-			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
-			Assets: asset_hub_polkadot_runtime::Assets,
+			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
+			Assets: asset_hub_westend_runtime::Assets,
 		}
 	},
 	pub struct PenpalRococoA {
