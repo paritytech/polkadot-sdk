@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, PalletId};
+use frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::Stake;
@@ -29,6 +29,7 @@ pub type RewardCounter = FixedU128;
 // This sneaky little hack allows us to write code exactly as we would do in the pallet in the tests
 // as well, e.g. `StorageItem::<T>::get()`.
 pub type T = Runtime;
+pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
@@ -51,8 +52,8 @@ parameter_types! {
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
 }
-
 pub struct StakingMock;
+
 impl StakingMock {
 	pub(crate) fn set_bonded_balance(who: AccountId, bonded: Balance) {
 		let mut x = BondedBalanceMap::get();
@@ -221,8 +222,8 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type MaxHolds = ();
 }
@@ -251,6 +252,7 @@ impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -268,7 +270,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pools: pools::{Pallet, Call, Storage, Event<T>},
+		Pools: pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
 	}
 );
 
@@ -356,12 +358,12 @@ impl ExtBuilder {
 
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();
-			Balances::make_free_balance_be(&10, amount_to_bond * 5);
+			Currency::set_balance(&10, amount_to_bond * 5);
 			assert_ok!(Pools::create(RawOrigin::Signed(10).into(), amount_to_bond, 900, 901, 902));
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
 			let last_pool = LastPoolId::<Runtime>::get();
 			for (account_id, bonded) in self.members {
-				Balances::make_free_balance_be(&account_id, bonded * 2);
+				<Runtime as Config>::Currency::set_balance(&account_id, bonded * 2);
 				assert_ok!(Pools::join(RawOrigin::Signed(account_id).into(), bonded, last_pool));
 			}
 		});
@@ -438,6 +440,58 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 		.map(|d| d.active_points())
 		.unwrap_or_default();
 	Pools::unbond(RuntimeOrigin::signed(member), member, points)
+}
+
+pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {
+	let member = PoolMembers::<T>::get(delegator).unwrap();
+	let bonded_pool = BondedPools::<T>::get(member.pool_id).unwrap();
+	let reward_pool = RewardPools::<T>::get(member.pool_id).unwrap();
+
+	assert!(!bonded_pool.points.is_zero());
+
+	let commission = bonded_pool.commission.current();
+	let current_rc = reward_pool
+		.current_reward_counter(member.pool_id, bonded_pool.points, commission)
+		.unwrap()
+		.0;
+
+	member.pending_rewards(current_rc).unwrap_or_default()
+}
+
+#[derive(PartialEq, Debug)]
+pub enum RewardImbalance {
+	// There is no reward deficit.
+	Surplus(Balance),
+	// There is a reward deficit.
+	Deficit(Balance),
+}
+
+pub fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+	let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+	let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
+	let current_rc = if !bonded_pool.points.is_zero() {
+		let commission = bonded_pool.commission.current();
+		reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
+	} else {
+		Default::default()
+	};
+
+	Ok(PoolMembers::<T>::iter()
+		.filter(|(_, d)| d.pool_id == pool)
+		.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+		.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
+}
+
+pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
+	let pending_rewards = pool_pending_rewards(pool).expect("pool should exist");
+	let current_balance = RewardPool::<Runtime>::current_balance(pool);
+
+	if pending_rewards > current_balance {
+		RewardImbalance::Deficit(pending_rewards - current_balance)
+	} else {
+		RewardImbalance::Surplus(current_balance - pending_rewards)
+	}
 }
 
 #[cfg(test)]
