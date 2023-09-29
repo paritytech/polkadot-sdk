@@ -111,11 +111,11 @@ impl<P: AsRef<std::path::Path>, F: FnMut()> Drop for ManifestContext<P, F> {
 	}
 }
 
-/// Safely runs the specified `closure` while simulating an alternative
-/// `CARGO_MANIFEST_DIR`, restoring `CARGO_MANIFEST_DIR` to its original value upon completion
-/// regardless of whether the closure panics.
+/// Safely runs the specified `closure` while simulating an alternative `CARGO_MANIFEST_DIR`,
+/// restoring `CARGO_MANIFEST_DIR` to its original value upon completion regardless of whether
+/// the closure panics.
 ///
-/// This useful in tests of `Def::try_from` and other pallet-related methods that internally
+/// This is useful in tests of `Def::try_from` and other pallet-related methods that internally
 /// make use of [`generate_crate_access_2018`], which is sensitive to entries in the "current"
 /// `Cargo.toml` files.
 pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut()>(path: P, closure: F) {
