@@ -992,6 +992,7 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub LeasePeriod: BlockNumber = prod_or_fast!(1 * DAYS, 1 * DAYS, "ROC_LEASE_PERIOD");
+	pub EarliestRefundPeriod: BlockNumber = prod_or_fast!(0 * DAYS, 0 * DAYS, "ROC_EARLY_REFUND_PERIOD");
 }
 
 impl slots::Config for Runtime {
@@ -999,6 +1000,7 @@ impl slots::Config for Runtime {
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
+	type EarliestRefundPeriod = EarliestRefundPeriod;
 	type LeaseOffset = ();
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, LeaseAdmin>;
 	type WeightInfo = weights::runtime_common_slots::WeightInfo<Runtime>;
