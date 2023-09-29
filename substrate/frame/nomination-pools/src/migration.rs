@@ -736,7 +736,6 @@ pub mod v6 {
 	/// [`VersionUncheckedMigrateV5ToV6`] wrapped in a
 	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
 	/// performed when on-chain version is 5.
-	#[cfg(feature = "experimental")]
 	pub type VersionCheckedMigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
 		5,
 		6,
