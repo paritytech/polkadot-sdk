@@ -408,6 +408,16 @@ pub enum PayoutDestination<AccountId> {
 	Forgo,
 }
 
+/// A payout destination that has been checked via `PayoutDestination::to_checked`. Ensures that 0%
+/// and 100% splits do not make it into storage.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct CheckedPayoutDestination<AccountId>(PayoutDestination<AccountId>);
+
+impl<AccountId> Default for CheckedPayoutDestination<AccountId> {
+	fn default() -> Self {
+		Self(PayoutDestination::Stake)
+	}
+}
 // Used for testing and benchmarking where stash and controller accounts are sometimes generated
 // after providing the desired `PayoutDestination`. In such scenarios the provided `Alias` variant
 // is used. If payout destination accounts are already known, `Direct` can be used.
@@ -423,23 +433,24 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 		v: RewardDestination<AccountId>,
 		stash: AccountId,
 		controller: AccountId,
-	) -> Self {
-		match v {
+	) -> CheckedPayoutDestination<AccountId> {
+		let dest = match v {
 			RewardDestination::Staked => Self::Stake,
 			RewardDestination::Stash => Self::Deposit(stash),
 			RewardDestination::Controller => Self::Deposit(controller),
 			RewardDestination::Account(a) => Self::Deposit(a),
 			RewardDestination::None => Self::Forgo,
-		}
+		};
+		CheckedPayoutDestination(dest)
 	}
 
-	/// Formats a `PayoutDestination` from another `PayoutDestination` provided in a call, which
+	/// Formats a `CheckedPayoutDestination` from a `PayoutDestination` provided in a call, which
 	/// could include a 0% and 100% split variant.
 	///
 	/// Falls back to `Stake` or `Deposit` variants if a 0% or 100% perbill is provided in a `Split`
 	/// variant for an account respectively.
-	pub fn from_call(v: PayoutDestination<AccountId>) -> Self {
-		match v {
+	pub fn to_checked(v: PayoutDestination<AccountId>) -> CheckedPayoutDestination<AccountId> {
+		let dest = match v {
 			PayoutDestination::Split((share, deposit_to)) => {
 				if share == Perbill::from_percent(100) {
 					PayoutDestination::Deposit(deposit_to)
@@ -451,7 +462,8 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 			},
 			PayoutDestination::Stake | PayoutDestination::Deposit(_) | PayoutDestination::Forgo =>
 				v,
-		}
+		};
+		CheckedPayoutDestination(dest)
 	}
 }
 

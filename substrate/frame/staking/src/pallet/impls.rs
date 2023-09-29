@@ -341,7 +341,7 @@ impl<T: Config> Pallet<T> {
 			PayoutDestination::Forgo => None,
 		};
 
-		maybe_imbalance.map(|imbalance| (imbalance, Self::payees(stash)))
+		maybe_imbalance.map(|imbalance| (imbalance, Self::payees(stash).0))
 	}
 
 	/// Plan a new session potentially trigger a new era.
@@ -1074,9 +1074,9 @@ impl<T: Config> Pallet<T> {
 			);
 			Payees::<T>::insert(stash, current.clone());
 			DeprecatedPayee::<T>::remove(stash);
-			current
+			current.0
 		} else {
-			Payees::<T>::get(stash)
+			Payees::<T>::get(stash).0
 		}
 	}
 }

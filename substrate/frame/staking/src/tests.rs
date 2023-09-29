@@ -297,9 +297,9 @@ fn rewards_should_work() {
 		let init_balance_101 = Balances::total_balance(&101);
 
 		// Set payees
-		Payees::<Test>::insert(11, PayoutDestination::Deposit(11));
-		Payees::<Test>::insert(21, PayoutDestination::Deposit(21));
-		Payees::<Test>::insert(101, PayoutDestination::Deposit(101));
+		Payees::<Test>::insert(11, CheckedPayoutDestination(PayoutDestination::Deposit(11)));
+		Payees::<Test>::insert(21, CheckedPayoutDestination(PayoutDestination::Deposit(21)));
+		Payees::<Test>::insert(101, CheckedPayoutDestination(PayoutDestination::Deposit(101)));
 
 		Pallet::<Test>::reward_by_ids(vec![(11, 50)]);
 		Pallet::<Test>::reward_by_ids(vec![(11, 50)]);
@@ -727,7 +727,10 @@ fn set_payee_also_updates_payee_destination() {
 
 		// Then
 		assert!(!DeprecatedPayee::<Test>::contains_key(stash));
-		assert_eq!(Payees::<Test>::get(stash), PayoutDestination::Deposit(11));
+		assert_eq!(
+			Payees::<Test>::get(stash),
+			CheckedPayoutDestination(PayoutDestination::Deposit(11))
+		);
 	});
 }
 
@@ -1165,7 +1168,7 @@ fn payout_destination_works() {
 		mock::make_all_reward_payment(0);
 
 		// Check that PayoutDestination is Staked (default)
-		assert_eq!(Staking::payees(&11), PayoutDestination::Stake);
+		assert_eq!(Staking::payees(&11), CheckedPayoutDestination(PayoutDestination::Stake));
 		// Check that reward went to the stash account of validator
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0);
 		// Check that amount at stake increased accordingly
@@ -1181,7 +1184,7 @@ fn payout_destination_works() {
 		);
 
 		// Change PayoutDestination to Stash
-		<Payees<Test>>::insert(&11, PayoutDestination::Deposit(11));
+		<Payees<Test>>::insert(&11, CheckedPayoutDestination(PayoutDestination::Deposit(11)));
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_1 = current_total_payout_for_duration(reward_time_per_era());
@@ -1191,7 +1194,7 @@ fn payout_destination_works() {
 		mock::make_all_reward_payment(1);
 
 		// Check that PayoutDestination is Stash
-		assert_eq!(Staking::payees(&11), PayoutDestination::Deposit(11));
+		assert_eq!(Staking::payees(&11), CheckedPayoutDestination(PayoutDestination::Deposit(11)));
 		// Check that reward went to the stash account
 		assert_eq!(Balances::free_balance(11), 1000 + total_payout_0 + total_payout_1);
 		// Check that amount at stake is NOT increased
@@ -1207,7 +1210,7 @@ fn payout_destination_works() {
 		);
 
 		// Change PayoutDestination to Controller
-		<Payees<Test>>::insert(&11, PayoutDestination::Deposit(11));
+		<Payees<Test>>::insert(&11, CheckedPayoutDestination(PayoutDestination::Deposit(11)));
 
 		// Check controller balance
 		assert_eq!(Balances::free_balance(11), 23150);
@@ -1220,7 +1223,7 @@ fn payout_destination_works() {
 		mock::make_all_reward_payment(2);
 
 		// Check that PayoutDestination is Controller
-		assert_eq!(Staking::payees(&11), PayoutDestination::Deposit(11));
+		assert_eq!(Staking::payees(&11), CheckedPayoutDestination(PayoutDestination::Deposit(11)));
 		// Check that reward went to the controller account
 		assert_eq!(Balances::free_balance(11), 23150 + total_payout_2);
 		// Check that amount at stake is NOT increased
@@ -1247,8 +1250,8 @@ fn validator_payment_prefs_work() {
 		<Validators<Test>>::insert(&11, ValidatorPrefs { commission, ..Default::default() });
 
 		// Reward controller so staked ratio doesn't change.
-		<Payees<Test>>::insert(&11, PayoutDestination::Stake);
-		<Payees<Test>>::insert(&101, PayoutDestination::Stake);
+		<Payees<Test>>::insert(&11, CheckedPayoutDestination(PayoutDestination::Stake));
+		<Payees<Test>>::insert(&101, CheckedPayoutDestination(PayoutDestination::Stake));
 
 		mock::start_active_era(1);
 		mock::make_all_reward_payment(0);
@@ -3627,8 +3630,8 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		let part_for_101 = Perbill::from_rational::<u32>(125, 1125);
 
 		// Check state
-		Payees::<Test>::insert(11, PayoutDestination::Deposit(11));
-		Payees::<Test>::insert(101, PayoutDestination::Deposit(101));
+		Payees::<Test>::insert(11, CheckedPayoutDestination(PayoutDestination::Deposit(11)));
+		Payees::<Test>::insert(101, CheckedPayoutDestination(PayoutDestination::Deposit(101)));
 
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 		// Compute total payout now for whole duration as other parameter won't change

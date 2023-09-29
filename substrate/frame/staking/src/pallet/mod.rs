@@ -44,10 +44,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf, Nominations,
-	NominationsQuota, PayoutDestination, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	CheckedPayoutDestination, EraPayout, EraRewardPoints, Exposure, Forcing, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PayoutDestination, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 const STAKING_ID: LockIdentifier = *b"staking ";
@@ -341,7 +342,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		PayoutDestination<T::AccountId>,
+		CheckedPayoutDestination<T::AccountId>,
 		ValueQuery,
 	>;
 
@@ -871,7 +872,7 @@ pub mod pallet {
 
 			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
 			// respectively.
-			let checked_payee = PayoutDestination::from_call(payee);
+			let checked_payee = PayoutDestination::to_checked(payee);
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
@@ -1221,10 +1222,7 @@ pub mod pallet {
 
 			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
 			// respectively.
-			let checked_payee = PayoutDestination::from_call(payee);
-
-			// Pass provided `payee` into `from_call` to ensure a 100% or 0% `Split` variant is
-			// updated to a `Deposit` or `Stake` variant respectively.
+			let checked_payee = PayoutDestination::to_checked(payee);
 			Payees::<T>::insert(stash.clone(), checked_payee);
 
 			// In-progress lazy migration to `Payees` storage item.
