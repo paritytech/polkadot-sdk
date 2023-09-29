@@ -2240,7 +2240,6 @@ pub mod pallet {
 			// `transferrable_balance` is correct.
 			let stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)?;
 
-
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
 			ensure!(

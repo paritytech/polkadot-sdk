@@ -2677,7 +2677,7 @@ mod unbond {
 				let ed = Currency::minimum_balance();
 				// Given a slash from 600 -> 500
 				StakingMock::slash_by(1, 500);
-        
+
 				// and unclaimed rewards of 600.
 				Currency::set_balance(&default_reward_account(), ed + 600);
 
@@ -5003,7 +5003,7 @@ mod bond_extra {
 
 			assert_eq!(Currency::free_balance(&10), 35);
 			assert_eq!(Currency::free_balance(&20), 20);
-      assert_eq!(TotalValueLocked::<T>::get(), 30);
+			assert_eq!(TotalValueLocked::<T>::get(), 30);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::Rewards));
@@ -5012,7 +5012,7 @@ mod bond_extra {
 			// then
 			assert_eq!(Currency::free_balance(&10), 35);
 			assert_eq!(TotalValueLocked::<T>::get(), 31);
-      
+
 			// 10's share of the reward is 1/3, since they gave 10/30 of the total shares.
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + 1);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 1);
@@ -5023,7 +5023,7 @@ mod bond_extra {
 			// then
 			assert_eq!(Currency::free_balance(&20), 20);
 			assert_eq!(TotalValueLocked::<T>::get(), 33);
-      
+
 			// 20's share of the rewards is the other 2/3 of the rewards, since they have 20/30 of
 			// the shares
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20 + 2);
