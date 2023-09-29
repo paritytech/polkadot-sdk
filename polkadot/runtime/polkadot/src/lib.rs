@@ -573,7 +573,8 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		//	.filter(|i| *i >= LOWEST_PUBLIC_ID)
 		//	.count() as u64;
 
-        let auctioned_slots = 45;
+		// this is going to be used in the stake rate.
+		let auctioned_slots = 45;
 
 		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
@@ -2258,18 +2259,38 @@ mod era_payout_tests {
 			.unwrap()
 			.into();
 
+		// era_payout block 17504530
+		// (0xf82d31a2757aec000a81e43bab9d005fc2a75e5ff96301849ee5bc6e1348d443) era index 1214
+		let era_ended_at: u64 = 1_696_001_778_000;
+		let total_issuance: Balance = 13_611_106_588_352_981_160;
+		let total_staked: Balance = 6_628_574_563_135_879_586; // from era index 1214
+
+		// previous era_payout block: 17490219
+		// (0xaad716cde2bfb13772c9ccb848d58587f0c7b399d16bfb82089c405352e691d7)
+		let era_started_at: u64 = 1_695_915_378_000;
+
+		let era_duration_millis = era_ended_at - era_started_at;
+
 		t.execute_with(|| {
-			let total_staked = 10;
-			let total_issuance = 10;
-			let era_duration_millis = 10;
+			let mut results: Vec<(u128, (Balance, Balance))> = vec![];
+			let mut staked = 487;
+			loop {
+				let era_payout = <EraPayout as pallet_staking::EraPayout<Balance>>::era_payout(
+					staked,
+					total_issuance, // total_stakable, needed.
+					era_duration_millis,
+				);
 
-			let era_payout = <EraPayout as pallet_staking::EraPayout<Balance>>::era_payout(
-				total_staked,
-				total_issuance,
-				era_duration_millis,
-			);
+				println!("staked: {}, payout: {:?}", staked, era_payout);
+				results.push((staked, era_payout));
 
-			println!("era_payout: {:?}", era_payout);
+				staked = staked + 1;
+				if staked == 600 {
+					break
+				}
+			}
+
+			println!("{:?}", results);
 		});
 	}
 }

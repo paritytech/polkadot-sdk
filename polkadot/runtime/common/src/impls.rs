@@ -72,16 +72,24 @@ pub fn era_payout(
 	let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
 	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
 
-	// change values here to test.
-
 	// 30% reserved for up to 60 slots.
 	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
 
 	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
 	// amount that we expect to be taken up with auctions.
-	let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
+	//let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
 
-	let stake = Perquintill::from_rational(total_staked, total_stakable);
+	// 52.5%
+	//let ideal_stake = Perquintill::from_rational(525, 1000u64);
+	// 60%
+	let ideal_stake = Perquintill::from_rational(600, 1000u64);
+
+	// stake rate
+	//let stake = Perquintill::from_rational(total_staked, total_stakable);
+
+	let staked = total_staked;
+	let stake = Perquintill::from_rational(staked, 1000u128);
+
 	let falloff = Perquintill::from_percent(5);
 	let adjustment = compute_inflation(stake, ideal_stake, falloff);
 	let staking_inflation =
@@ -91,12 +99,13 @@ pub fn era_payout(
 	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
 	let rest = max_payout.saturating_sub(staking_payout);
 
-	let other_issuance = total_stakable.saturating_sub(total_staked);
-	if total_staked > other_issuance {
-		let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
-		// We don't do anything with this, but if we wanted to, we could introduce a cap on the
-		// treasury amount with: `rest = rest.min(cap_rest);`
-	}
+	//let other_issuance = total_stakable.saturating_sub(total_staked);
+	//if total_staked > other_issuance {
+	//	let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
+	//	// We don't do anything with this, but if we wanted to, we could introduce a cap on the
+	//	// treasury amount with: `rest = rest.min(cap_rest);`
+	//}
+
 	(staking_payout, rest)
 }
 
