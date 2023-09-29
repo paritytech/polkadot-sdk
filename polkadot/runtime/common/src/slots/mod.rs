@@ -46,7 +46,7 @@ pub trait WeightInfo {
 	fn manage_lease_period_start(c: u32, t: u32) -> Weight;
 	fn clear_all_leases() -> Weight;
 	fn trigger_onboard() -> Weight;
-	fn early_release_refund() -> Weight;
+	fn early_lease_refund() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -63,7 +63,7 @@ impl WeightInfo for TestWeightInfo {
 	fn trigger_onboard() -> Weight {
 		Weight::zero()
 	}
-	fn early_release_refund() -> Weight {
+	fn early_lease_refund() -> Weight {
 		Weight::zero()
 	}
 }
@@ -241,8 +241,8 @@ pub mod pallet {
 		/// Origin must be signed, but can be called by anyone.
 		#[pallet::call_index(3)]
 		// fixme(ank4n) weights
-		#[pallet::weight(T::WeightInfo::early_release_refund())]
-		pub fn early_release_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::early_lease_refund())]
+		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			// check if lease is ending soon.
