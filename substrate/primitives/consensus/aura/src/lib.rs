@@ -88,22 +88,7 @@ pub type EquivocationProof<H, AuthorityId> = sp_consensus_slots::EquivocationPro
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
 #[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	// TODO @davxy : Required???? If not remove for BABE as well
-	// /// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	// /// ownership proof type.
-	// pub fn decode<T: Decode>(self) -> Option<T> {
-	// 	Decode::decode(&mut &self.0[..]).ok()
-	// }
-}
+pub struct OpaqueKeyOwnershipProof(pub Vec<u8>);
 
 /// An consensus log item for Aura.
 #[derive(Decode, Encode)]

@@ -40,7 +40,6 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	log,
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
@@ -54,6 +53,7 @@ use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::OffenceReportSystem;
 use sp_std::prelude::*;
 
+#[cfg(any(feature = "equivocation-report", test))]
 mod equivocation;
 mod mock;
 mod tests;

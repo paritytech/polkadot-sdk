@@ -18,8 +18,9 @@ log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false}
 frame-system = { path = "../system", default-features = false}
-pallet-authorship = { path = "../authorship", default-features = false}
-pallet-timestamp = { path = "../timestamp", default-features = false}
+pallet-authorship = { path = "../authorship", default-features = false, optional = true }
+pallet-session = { path = "../session", default-features = false, optional = true }
+pallet-timestamp = { path = "../timestamp", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false}
 sp-consensus-aura = { path = "../../primitives/consensus/aura", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
@@ -30,6 +31,8 @@ sp-std = { path = "../../primitives/std", default-features = false}
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", default-features = false}
 sp-io = { path = "../../primitives/io" }
+pallet-authorship = { path = "../authorship" }
+pallet-session = { path = "../session" }
 env_logger = "0.10"
 
 [features]
@@ -56,5 +59,9 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+]
+equivocation-report = [
+	"pallet-authorship",
+	"pallet-session",
 ]
 experimental = []

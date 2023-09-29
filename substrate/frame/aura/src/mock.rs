@@ -31,8 +31,9 @@ use sp_consensus_aura::{
 };
 use sp_core::{crypto::Pair, H256, U256};
 use sp_runtime::{
+	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Header as _, IdentityLookup},
+	traits::{Convert, Header as _, Identity, IdentityLookup, OpaqueKeys},
 	BuildStorage,
 };
 use sp_staking::{
@@ -49,6 +50,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Authorship: pallet_authorship,
+		Session: pallet_session,
 		Timestamp: pallet_timestamp,
 		Aura: pallet_aura,
 	}
@@ -91,6 +93,37 @@ impl frame_system::Config for Test {
 impl pallet_authorship::Config for Test {
 	type FindAuthor = ();
 	type EventHandler = ();
+}
+
+parameter_types! {
+	pub const Period: u32 = 10;
+	pub const Offset: u32 = 0;
+}
+
+impl_opaque_keys! {
+	pub struct MockSessionKeys {
+		pub aura_authority: super::Pallet<Test>,
+	}
+}
+
+pub struct ValidatorIdOf<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: frame_system::Config> Convert<T::AccountId, Option<T::AccountId>> for ValidatorIdOf<T> {
+	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
+		Some(controller)
+	}
+}
+
+impl pallet_session::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = <Self as frame_system::Config>::AccountId;
+	type ValidatorIdOf = ValidatorIdOf<Self>;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = ();
+	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = MockSessionKeys;
+	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -191,10 +224,6 @@ pub fn new_test_ext_and_execute(
 		test(pairs);
 		Aura::do_try_state().expect("Storage invariants should hold")
 	});
-}
-
-pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
-	new_test_ext_with_pairs(authorities_len).1
 }
 
 pub fn new_test_ext_with_pairs(

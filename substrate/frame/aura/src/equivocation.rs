@@ -100,6 +100,10 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 /// - On-chain validity checks and processing are mostly delegated to the user-provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
+///
+/// Requires the runtime to implement:
+/// - pallet-authorship: to get reporter identity.
+/// - pallet-session: to check the `KeyOwnerProof` validity (map block to session-id).
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L>
@@ -108,7 +112,10 @@ impl<T, R, P, L>
 		(EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	> for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config
+		+ pallet_authorship::Config
+		+ pallet_session::Config
+		+ frame_system::offchain::SendTransactionTypes<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
