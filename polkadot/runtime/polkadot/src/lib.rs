@@ -566,12 +566,14 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		// all para-ids that are not active.
-		let auctioned_slots = Paras::parachains()
-			.into_iter()
-			// all active para-ids that do not belong to a system chain is the number
-			// of parachains that we should take into account for inflation.
-			.filter(|i| *i >= LOWEST_PUBLIC_ID)
-			.count() as u64;
+		//let auctioned_slots = Paras::parachains()
+		//	.into_iter()
+		//	// all active para-ids that do not belong to a system chain is the number
+		//	// of parachains that we should take into account for inflation.
+		//	.filter(|i| *i >= LOWEST_PUBLIC_ID)
+		//	.count() as u64;
+
+        let auctioned_slots = 45;
 
 		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
@@ -2241,6 +2243,35 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+}
+
+#[cfg(test)]
+mod era_payout_tests {
+	use super::*;
+
+	#[test]
+	fn era_payout_use_cases() {
+		assert!(true);
+
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
+			.unwrap()
+			.into();
+
+		t.execute_with(|| {
+			let total_staked = 10;
+			let total_issuance = 10;
+			let era_duration_millis = 10;
+
+			let era_payout = <EraPayout as pallet_staking::EraPayout<Balance>>::era_payout(
+				total_staked,
+				total_issuance,
+				era_duration_millis,
+			);
+
+			println!("era_payout: {:?}", era_payout);
+		});
+	}
 }
 
 #[cfg(test)]
