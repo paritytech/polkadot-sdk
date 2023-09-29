@@ -91,7 +91,7 @@ pub trait CallInterceptor<T: Config> {
 	/// This method should return:
 	/// * `Some(ExecResult)` - if the call should be intercepted and the mocked result of the call
 	/// is returned.
-	/// * `None` - otherwise, i.e. the call should be executed normally
+	/// * `None` - otherwise, i.e. the call should be executed normally.
 	fn intercept_call(
 		contract_address: &T::AccountId,
 		entry_point: &ExportedFunction,
