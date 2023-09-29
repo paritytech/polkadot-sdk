@@ -40,13 +40,13 @@ pub const DEFAULT_ROLES: PoolRoles<AccountId> =
 	PoolRoles { depositor: 10, root: Some(900), nominator: Some(901), bouncer: Some(902) };
 
 fn deposit_rewards(r: u128) {
-	let b = Balances::free_balance(&default_reward_account()).checked_add(r).unwrap();
-	Balances::make_free_balance_be(&default_reward_account(), b);
+	let b = Currency::free_balance(&default_reward_account()).checked_add(r).unwrap();
+	Currency::set_balance(&default_reward_account(), b);
 }
 
 fn remove_rewards(r: u128) {
-	let b = Balances::free_balance(&default_reward_account()).checked_sub(r).unwrap();
-	Balances::make_free_balance_be(&default_reward_account(), b);
+	let b = Currency::free_balance(&default_reward_account()).checked_sub(r).unwrap();
+	Currency::set_balance(&default_reward_account(), b);
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn test_setup_works() {
 		assert!(Nominations::get().is_none());
 
 		// reward account should have an initial ED in it.
-		assert_eq!(Balances::free_balance(&reward_account), Balances::minimum_balance());
+		assert_eq!(Currency::free_balance(&reward_account), Currency::minimum_balance());
 	})
 }
 
@@ -298,30 +298,168 @@ mod bonded_pool {
 }
 
 mod reward_pool {
+	use super::*;
+	use crate::mock::RewardImbalance::{Deficit, Surplus};
+
 	#[test]
-	fn current_balance_only_counts_balance_over_existential_deposit() {
-		use super::*;
+	fn ed_change_causes_reward_deficit() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// original ED
+			ExistentialDeposit::set(5);
 
-		ExtBuilder::default().build_and_execute(|| {
-			let reward_account = Pools::create_reward_account(2);
+			// 11 joins the pool
+			Currency::set_balance(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
 
-			// Given
-			assert_eq!(Balances::free_balance(&reward_account), 0);
+			// new delegator does not have any pending rewards
+			assert_eq!(pending_rewards_for_delegator(11), 0);
 
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 0);
+			// give the pool some rewards
+			deposit_rewards(100);
 
-			// Given
-			Balances::make_free_balance_be(&reward_account, Balances::minimum_balance());
+			// all existing delegator has pending rewards
+			assert_eq!(pending_rewards_for_delegator(11), 90);
+			assert_eq!(pending_rewards_for_delegator(10), 10);
+			assert_eq!(reward_imbalance(1), Surplus(0));
 
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 0);
+			// 12 joins the pool.
+			Currency::set_balance(&12, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(12), 100, 1));
 
-			// Given
-			Balances::make_free_balance_be(&reward_account, Balances::minimum_balance() + 1);
+			// Current reward balance is committed to last recorded reward counter of
+			// the pool before the increase in ED.
+			let bonded_pool = BondedPools::<Runtime>::get(1).unwrap();
+			let reward_pool = RewardPools::<Runtime>::get(1).unwrap();
+			assert_eq!(
+				reward_pool.last_recorded_reward_counter,
+				reward_pool
+					.current_reward_counter(1, bonded_pool.points, Perbill::zero())
+					.unwrap()
+					.0
+			);
 
-			// Then
-			assert_eq!(RewardPool::<Runtime>::current_balance(2), 1);
+			// reward pool before ED increase and reward counter getting committed.
+			let reward_pool_1 = RewardPools::<Runtime>::get(1).unwrap();
+
+			// increase ED from 5 to 50
+			ExistentialDeposit::set(50);
+
+			// There is now an expected deficit of ed_diff
+			assert_eq!(reward_imbalance(1), Deficit(45));
+
+			// 13 joins the pool which commits the reward counter to reward pool.
+			Currency::set_balance(&13, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(13), 100, 1));
+
+			// still a deficit
+			assert_eq!(reward_imbalance(1), Deficit(45));
+
+			// reward pool after ED increase
+			let reward_pool_2 = RewardPools::<Runtime>::get(1).unwrap();
+
+			// last recorded total payout does not decrease even as ED increases.
+			assert_eq!(
+				reward_pool_1.last_recorded_total_payouts,
+				reward_pool_2.last_recorded_total_payouts
+			);
+
+			// Topping up pool decreases deficit
+			deposit_rewards(10);
+			assert_eq!(reward_imbalance(1), Deficit(35));
+
+			// top up the pool to remove the deficit
+			deposit_rewards(35);
+			// No deficit anymore
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// fix the ed deficit
+			assert_ok!(Currency::mint_into(&10, 45));
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1));
+		});
+	}
+
+	#[test]
+	fn ed_adjust_fixes_reward_deficit() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// Given: pool has a reward deficit
+
+			// original ED
+			ExistentialDeposit::set(5);
+
+			// 11 joins the pool
+			Currency::set_balance(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
+
+			// Pool some rewards
+			deposit_rewards(100);
+
+			// 12 joins the pool.
+			Currency::set_balance(&12, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(12), 10, 1));
+
+			// When: pool ends up in reward deficit
+			// increase ED
+			ExistentialDeposit::set(50);
+			assert_eq!(reward_imbalance(1), Deficit(45));
+
+			// clear events
+			pool_events_since_last_call();
+
+			// Then: Anyone can permissionlessly can adjust ED deposit.
+
+			// make sure caller has enough funds..
+			assert_ok!(Currency::mint_into(&99, 100));
+			let pre_balance = Currency::free_balance(&99);
+			// adjust ED
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(99), 1));
+			// depositor's balance should decrease by 45
+			assert_eq!(Currency::free_balance(&99), pre_balance - 45);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::MinBalanceDeficitAdjusted { pool_id: 1, amount: 45 },]
+			);
+
+			// Trying to top up again does not work
+			assert_err!(
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1),
+				Error::<T>::NothingToAdjust
+			);
+
+			// When: ED is decreased and reward account has excess ED frozen
+			ExistentialDeposit::set(5);
+
+			// And:: adjust ED deposit is called
+			let pre_balance = Currency::free_balance(&100);
+			assert_ok!(Pools::adjust_pool_deposit(RuntimeOrigin::signed(100), 1));
+
+			// Then: excess ED is claimed by the caller
+			assert_eq!(Currency::free_balance(&100), pre_balance + 45);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::MinBalanceExcessAdjusted { pool_id: 1, amount: 45 },]
+			);
+		});
+	}
+
+	#[test]
+	fn topping_up_does_not_work_for_pools_with_no_deficit() {
+		ExtBuilder::default().max_members_per_pool(Some(5)).build_and_execute(|| {
+			// 11 joins the pool
+			Currency::set_balance(&11, 500);
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 90, 1));
+
+			// Pool some rewards
+			deposit_rewards(100);
+			assert_eq!(reward_imbalance(1), Surplus(0));
+
+			// Topping up fails
+			assert_err!(
+				Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1),
+				Error::<T>::NothingToAdjust
+			);
 		});
 	}
 }
@@ -497,7 +635,7 @@ mod join {
 		};
 		ExtBuilder::default().with_check(0).build_and_execute(|| {
 			// Given
-			Balances::make_free_balance_be(&11, ExistentialDeposit::get() + 2);
+			Currency::set_balance(&11, ExistentialDeposit::get() + 2);
 			assert!(!PoolMembers::<Runtime>::contains_key(11));
 
 			// When
@@ -525,7 +663,7 @@ mod join {
 			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), 6);
 
 			// And
-			Balances::make_free_balance_be(&12, ExistentialDeposit::get() + 12);
+			Currency::set_balance(&12, ExistentialDeposit::get() + 12);
 			assert!(!PoolMembers::<Runtime>::contains_key(12));
 
 			// When
@@ -661,12 +799,12 @@ mod join {
 			assert_eq!(MaxPoolMembersPerPool::<Runtime>::get(), Some(3));
 			for i in 1..3 {
 				let account = i + 100;
-				Balances::make_free_balance_be(&account, 100 + Balances::minimum_balance());
+				Currency::set_balance(&account, 100 + Currency::minimum_balance());
 
 				assert_ok!(Pools::join(RuntimeOrigin::signed(account), 100, 1));
 			}
 
-			Balances::make_free_balance_be(&103, 100 + Balances::minimum_balance());
+			Currency::set_balance(&103, 100 + Currency::minimum_balance());
 
 			// Then
 			assert_eq!(
@@ -688,7 +826,7 @@ mod join {
 			assert_eq!(PoolMembers::<Runtime>::count(), 3);
 			assert_eq!(MaxPoolMembers::<Runtime>::get(), Some(4));
 
-			Balances::make_free_balance_be(&104, 100 + Balances::minimum_balance());
+			Currency::set_balance(&104, 100 + Currency::minimum_balance());
 			assert_ok!(Pools::create(RuntimeOrigin::signed(104), 100, 104, 104, 104));
 
 			let pool_account = BondedPools::<Runtime>::iter()
@@ -754,13 +892,13 @@ mod claim_payout {
 			.add_members(vec![(40, 40), (50, 50)])
 			.build_and_execute(|| {
 				// Given each member currently has a free balance of
-				Balances::make_free_balance_be(&10, 0);
-				Balances::make_free_balance_be(&40, 0);
-				Balances::make_free_balance_be(&50, 0);
-				let ed = Balances::minimum_balance();
+				Currency::set_balance(&10, 0);
+				Currency::set_balance(&40, 0);
+				Currency::set_balance(&50, 0);
+				let ed = Currency::minimum_balance();
 
 				// and the reward pool has earned 100 in rewards
-				assert_eq!(Balances::free_balance(default_reward_account()), ed);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed);
 				deposit_rewards(100);
 
 				let _ = pool_events_since_last_call();
@@ -778,8 +916,8 @@ mod claim_payout {
 				// pool's 'last_recorded_reward_counter' and 'last_recorded_total_payouts' don't
 				// really change unless if someone bonds/unbonds.
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 10));
-				assert_eq!(Balances::free_balance(&10), 10);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 90);
+				assert_eq!(Currency::free_balance(&10), 10);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 90);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(40)));
@@ -791,8 +929,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(40).unwrap(), del(40, 1));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 50));
-				assert_eq!(Balances::free_balance(&40), 40);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 50);
+				assert_eq!(Currency::free_balance(&40), 40);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 50);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(50)));
@@ -804,8 +942,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(50).unwrap(), del(50, 1));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 100));
-				assert_eq!(Balances::free_balance(&50), 50);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed);
+				assert_eq!(Currency::free_balance(&50), 50);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed);
 
 				// Given the reward pool has some new rewards
 				deposit_rewards(50);
@@ -820,8 +958,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(10).unwrap(), del_float(10, 1.5));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 105));
-				assert_eq!(Balances::free_balance(&10), 10 + 5);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 45);
+				assert_eq!(Currency::free_balance(&10), 10 + 5);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 45);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(40)));
@@ -833,12 +971,12 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(40).unwrap(), del_float(40, 1.5));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 125));
-				assert_eq!(Balances::free_balance(&40), 40 + 20);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 25);
+				assert_eq!(Currency::free_balance(&40), 40 + 20);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 25);
 
 				// Given del 50 hasn't claimed and the reward pools has just earned 50
 				deposit_rewards(50);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 75);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 75);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(50)));
@@ -850,8 +988,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(50).unwrap(), del_float(50, 2.0));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 175));
-				assert_eq!(Balances::free_balance(&50), 50 + 50);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 25);
+				assert_eq!(Currency::free_balance(&50), 50 + 50);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 25);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
@@ -863,12 +1001,12 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(10).unwrap(), del(10, 2));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 180));
-				assert_eq!(Balances::free_balance(&10), 15 + 5);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 20);
+				assert_eq!(Currency::free_balance(&10), 15 + 5);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 20);
 
 				// Given del 40 hasn't claimed and the reward pool has just earned 400
 				deposit_rewards(400);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 420);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 420);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
@@ -882,12 +1020,12 @@ mod claim_payout {
 				// We expect a payout of 40
 				assert_eq!(PoolMembers::<Runtime>::get(10).unwrap(), del(10, 6));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 220));
-				assert_eq!(Balances::free_balance(&10), 20 + 40);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 380);
+				assert_eq!(Currency::free_balance(&10), 20 + 40);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 380);
 
 				// Given del 40 + del 50 haven't claimed and the reward pool has earned 20
 				deposit_rewards(20);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 400);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 400);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
@@ -899,8 +1037,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(10).unwrap(), del_float(10, 6.2));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 222));
-				assert_eq!(Balances::free_balance(&10), 60 + 2);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 398);
+				assert_eq!(Currency::free_balance(&10), 60 + 2);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 398);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(40)));
@@ -912,8 +1050,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(40).unwrap(), del_float(40, 6.2));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 410));
-				assert_eq!(Balances::free_balance(&40), 60 + 188);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed + 210);
+				assert_eq!(Currency::free_balance(&40), 60 + 188);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed + 210);
 
 				// When
 				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(50)));
@@ -925,8 +1063,8 @@ mod claim_payout {
 				);
 				assert_eq!(PoolMembers::<Runtime>::get(50).unwrap(), del_float(50, 6.2));
 				assert_eq!(RewardPools::<Runtime>::get(1).unwrap(), rew(0, 0, 620));
-				assert_eq!(Balances::free_balance(&50), 100 + 210);
-				assert_eq!(Balances::free_balance(&default_reward_account()), ed);
+				assert_eq!(Currency::free_balance(&50), 100 + 210);
+				assert_eq!(Currency::free_balance(&default_reward_account()), ed);
 			});
 	}
 
@@ -960,7 +1098,7 @@ mod claim_payout {
 				Pools::get_member_with_pools(&10).unwrap();
 
 			// top up commission payee account to existential deposit
-			let _ = Balances::deposit_creating(&2, 5);
+			let _ = Currency::set_balance(&2, 5);
 
 			// Set a commission pool 1 to 75%, with a payee set to `2`
 			assert_ok!(Pools::set_commission(
@@ -1010,7 +1148,7 @@ mod claim_payout {
 		ExtBuilder::default().build_and_execute(|| {
 			let (mut member, mut bonded_pool, mut reward_pool) =
 				Pools::get_member_with_pools(&10).unwrap();
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
 			let payout =
 				Pools::do_reward_payout(&10, &mut member, &mut bonded_pool, &mut reward_pool)
@@ -1060,7 +1198,7 @@ mod claim_payout {
 			assert_eq!(member, del(1.5));
 
 			// Given the pool has earned no new rewards
-			Balances::make_free_balance_be(&default_reward_account(), ed);
+			Currency::set_balance(&default_reward_account(), ed);
 
 			// When
 			let payout =
@@ -1267,7 +1405,7 @@ mod claim_payout {
 			deposit_rewards(10);
 
 			// 20 joins afterwards.
-			Balances::make_free_balance_be(&20, Balances::minimum_balance() + 10);
+			Currency::set_balance(&20, Currency::minimum_balance() + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
 
 			// reward by another 20
@@ -1310,7 +1448,7 @@ mod claim_payout {
 		ExtBuilder::default().build_and_execute(|| {
 			deposit_rewards(3);
 
-			Balances::make_free_balance_be(&20, Balances::minimum_balance() + 10);
+			Currency::set_balance(&20, Currency::minimum_balance() + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
 
 			deposit_rewards(6);
@@ -1363,16 +1501,16 @@ mod claim_payout {
 	#[test]
 	fn rewards_distribution_is_fair_3() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
 			deposit_rewards(30);
 
-			Balances::make_free_balance_be(&20, ed + 10);
+			Currency::set_balance(&20, ed + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
 
 			deposit_rewards(100);
 
-			Balances::make_free_balance_be(&30, ed + 10);
+			Currency::set_balance(&30, ed + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(30), 10, 1));
 
 			deposit_rewards(60);
@@ -1416,14 +1554,14 @@ mod claim_payout {
 	#[test]
 	fn pending_rewards_per_member_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
 			assert_eq!(Pools::api_pending_rewards(10), Some(0));
 			deposit_rewards(30);
 			assert_eq!(Pools::api_pending_rewards(10), Some(30));
 			assert_eq!(Pools::api_pending_rewards(20), None);
 
-			Balances::make_free_balance_be(&20, ed + 10);
+			Currency::set_balance(&20, ed + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
 
 			assert_eq!(Pools::api_pending_rewards(10), Some(30));
@@ -1435,7 +1573,7 @@ mod claim_payout {
 			assert_eq!(Pools::api_pending_rewards(20), Some(50));
 			assert_eq!(Pools::api_pending_rewards(30), None);
 
-			Balances::make_free_balance_be(&30, ed + 10);
+			Currency::set_balance(&30, ed + 10);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(30), 10, 1));
 
 			assert_eq!(Pools::api_pending_rewards(10), Some(30 + 50));
@@ -1469,11 +1607,11 @@ mod claim_payout {
 	#[test]
 	fn rewards_distribution_is_fair_bond_extra() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
-			Balances::make_free_balance_be(&20, ed + 20);
+			Currency::set_balance(&20, ed + 20);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
-			Balances::make_free_balance_be(&30, ed + 20);
+			Currency::set_balance(&30, ed + 20);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(30), 10, 1));
 
 			deposit_rewards(40);
@@ -1521,9 +1659,9 @@ mod claim_payout {
 	#[test]
 	fn rewards_distribution_is_fair_unbond() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
-			Balances::make_free_balance_be(&20, ed + 20);
+			Currency::set_balance(&20, ed + 20);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
 
 			deposit_rewards(30);
@@ -1566,11 +1704,11 @@ mod claim_payout {
 	#[test]
 	fn unclaimed_reward_is_safe() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
-			Balances::make_free_balance_be(&20, ed + 20);
+			Currency::set_balance(&20, ed + 20);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
-			Balances::make_free_balance_be(&30, ed + 20);
+			Currency::set_balance(&30, ed + 20);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(30), 10, 1));
 
 			// 10 gets 10, 20 gets 20, 30 gets 10
@@ -1635,9 +1773,9 @@ mod claim_payout {
 	#[test]
 	fn bond_extra_and_delayed_claim() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
-			Balances::make_free_balance_be(&20, ed + 200);
+			Currency::set_balance(&20, ed + 200);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
 
 			// 10 gets 10, 20 gets 20, 30 gets 10
@@ -1710,7 +1848,7 @@ mod claim_payout {
 			deposit_rewards(60);
 
 			// create pool 2
-			Balances::make_free_balance_be(&20, 100);
+			Currency::set_balance(&20, 100);
 			assert_ok!(Pools::create(RuntimeOrigin::signed(20), 10, 20, 20, 20));
 
 			// has no impact -- initial
@@ -1723,17 +1861,17 @@ mod claim_payout {
 			assert_eq!(member_20.last_recorded_reward_counter, 0.into());
 
 			// pre-fund the reward account of pool id 3 with some funds.
-			Balances::make_free_balance_be(&Pools::create_reward_account(3), 10);
+			Currency::set_balance(&Pools::create_reward_account(3), 10);
 
 			// create pool 3
-			Balances::make_free_balance_be(&30, 100);
+			Currency::set_balance(&30, 100);
 			assert_ok!(Pools::create(RuntimeOrigin::signed(30), 10, 30, 30, 30));
 
 			// reward counter is still the same.
 			let (member_30, _, reward_pool_30) = Pools::get_member_with_pools(&30).unwrap();
 			assert_eq!(
-				Balances::free_balance(&Pools::create_reward_account(3)),
-				10 + Balances::minimum_balance()
+				Currency::free_balance(&Pools::create_reward_account(3)),
+				10 + Currency::minimum_balance()
 			);
 
 			assert_eq!(reward_pool_30.last_recorded_total_payouts, 0);
@@ -1766,7 +1904,7 @@ mod claim_payout {
 			MaxPoolMembers::<Runtime>::set(None);
 			MaxPoolMembersPerPool::<Runtime>::set(None);
 			let join = |x, y| {
-				Balances::make_free_balance_be(&x, y + Balances::minimum_balance());
+				Currency::set_balance(&x, y + Currency::minimum_balance());
 				assert_ok!(Pools::join(RuntimeOrigin::signed(x), y, 1));
 			};
 
@@ -1844,8 +1982,8 @@ mod claim_payout {
 				assert_eq!(member_10.last_recorded_reward_counter, 0.into());
 			}
 
-			Balances::make_free_balance_be(&10, 100);
-			Balances::make_free_balance_be(&20, 100);
+			Currency::set_balance(&10, 100);
+			Currency::set_balance(&20, 100);
 
 			// 10 bonds extra without any rewards.
 			{
@@ -2063,10 +2201,10 @@ mod claim_payout {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
 			// initial balance of 10.
 
-			assert_eq!(Balances::free_balance(&10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 			assert_eq!(
-				Balances::free_balance(&default_reward_account()),
-				Balances::minimum_balance()
+				Currency::free_balance(&default_reward_account()),
+				Currency::minimum_balance()
 			);
 
 			// some rewards come in.
@@ -2115,7 +2253,7 @@ mod claim_payout {
 
 			assert!(!Metadata::<T>::contains_key(1));
 			// original ed + ed put into reward account + reward + bond + dust.
-			assert_eq!(Balances::free_balance(&10), 35 + 5 + 13 + 10 + 1);
+			assert_eq!(Currency::free_balance(&10), 35 + 5 + 13 + 10 + 1);
 		})
 	}
 
@@ -2131,7 +2269,7 @@ mod claim_payout {
 			.add_members(vec![(20, 1500 * unit), (21, 2500 * unit), (22, 5000 * unit)])
 			.build_and_execute(|| {
 				// some rewards come in.
-				assert_eq!(Balances::free_balance(&default_reward_account()), unit);
+				assert_eq!(Currency::free_balance(&default_reward_account()), unit);
 				deposit_rewards(unit / 1000);
 
 				// everyone claims
@@ -2180,14 +2318,14 @@ mod claim_payout {
 	#[test]
 	fn claim_payout_other_works() {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
-			Balances::make_free_balance_be(&default_reward_account(), 8);
+			Currency::set_balance(&default_reward_account(), 8);
 			// ... of which only 3 are claimable to make sure the reward account does not die.
 			let claimable_reward = 8 - ExistentialDeposit::get();
 			// NOTE: easier to read if we use 3, so let's use the number instead of variable.
 			assert_eq!(claimable_reward, 3, "test is correct if rewards are divisible by 3");
 
 			// given
-			assert_eq!(Balances::free_balance(10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 
 			// Permissioned by default
 			assert_noop!(
@@ -2202,8 +2340,8 @@ mod claim_payout {
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
-			assert_eq!(Balances::free_balance(10), 36);
-			assert_eq!(Balances::free_balance(&default_reward_account()), 7);
+			assert_eq!(Currency::free_balance(&10), 36);
+			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 		})
 	}
 }
@@ -2530,11 +2668,11 @@ mod unbond {
 		ExtBuilder::default()
 			.add_members(vec![(40, 40), (550, 550)])
 			.build_and_execute(|| {
-				let ed = Balances::minimum_balance();
+				let ed = Currency::minimum_balance();
 				// Given a slash from 600 -> 100
 				StakingMock::set_bonded_balance(default_bonded_account(), 100);
 				// and unclaimed rewards of 600.
-				Balances::make_free_balance_be(&default_reward_account(), ed + 600);
+				Currency::set_balance(&default_reward_account(), ed + 600);
 
 				// When
 				assert_ok!(fully_unbond_permissioned(40));
@@ -2574,7 +2712,7 @@ mod unbond {
 					PoolMembers::<Runtime>::get(40).unwrap().unbonding_eras,
 					member_unbonding_eras!(3 => 6)
 				);
-				assert_eq!(Balances::free_balance(&40), 40 + 40); // We claim rewards when unbonding
+				assert_eq!(Currency::free_balance(&40), 40 + 40); // We claim rewards when unbonding
 
 				// When
 				unsafe_set_state(1, PoolState::Destroying);
@@ -2603,7 +2741,7 @@ mod unbond {
 					PoolMembers::<Runtime>::get(550).unwrap().unbonding_eras,
 					member_unbonding_eras!(3 => 92)
 				);
-				assert_eq!(Balances::free_balance(&550), 550 + 550);
+				assert_eq!(Currency::free_balance(&550), 550 + 550);
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
@@ -2644,7 +2782,7 @@ mod unbond {
 				);
 				assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 0);
 
-				assert_eq!(Balances::free_balance(&550), 550 + 550 + 92);
+				assert_eq!(Currency::free_balance(&550), 550 + 550 + 92);
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
@@ -3173,14 +3311,11 @@ mod unbond {
 	#[test]
 	fn every_unbonding_triggers_payout() {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
-			let initial_reward_account = Balances::free_balance(default_reward_account());
-			assert_eq!(initial_reward_account, Balances::minimum_balance());
+			let initial_reward_account = Currency::free_balance(&default_reward_account());
+			assert_eq!(initial_reward_account, Currency::minimum_balance());
 			assert_eq!(initial_reward_account, 5);
 
-			Balances::make_free_balance_be(
-				&default_reward_account(),
-				4 * Balances::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 2));
 			assert_eq!(
@@ -3196,10 +3331,7 @@ mod unbond {
 			);
 
 			CurrentEra::set(1);
-			Balances::make_free_balance_be(
-				&default_reward_account(),
-				4 * Balances::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 3));
 			assert_eq!(
@@ -3212,10 +3344,7 @@ mod unbond {
 			);
 
 			CurrentEra::set(2);
-			Balances::make_free_balance_be(
-				&default_reward_account(),
-				4 * Balances::minimum_balance(),
-			);
+			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
 			assert_eq!(
@@ -3240,12 +3369,12 @@ mod pool_withdraw_unbonded {
 	#[test]
 	fn pool_withdraw_unbonded_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Given 10 unbond'ed directly against the pool account
+			// Given 10 unbonded directly against the pool account
 			assert_ok!(StakingMock::unbond(&default_bonded_account(), 5));
 			// and the pool account only has 10 balance
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(5));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(10));
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 10);
+			assert_eq!(Currency::free_balance(&default_bonded_account()), 10);
 
 			// When
 			assert_ok!(Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0));
@@ -3253,7 +3382,7 @@ mod pool_withdraw_unbonded {
 			// Then there unbonding balance is no longer locked
 			assert_eq!(StakingMock::active_stake(&default_bonded_account()), Ok(5));
 			assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(5));
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 10);
+			assert_eq!(Currency::free_balance(&default_bonded_account()), 10);
 		});
 	}
 }
@@ -3274,7 +3403,7 @@ mod withdraw_unbonded {
 				assert_eq!(StakingMock::bonding_duration(), 3);
 				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(550), 550));
 				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(40), 40));
-				assert_eq!(Balances::free_balance(&default_bonded_account()), 600);
+				assert_eq!(Currency::free_balance(&default_bonded_account()), 600);
 
 				let mut current_era = 1;
 				CurrentEra::set(current_era);
@@ -3293,9 +3422,9 @@ mod withdraw_unbonded {
 					let mut x = UnbondingBalanceMap::get();
 					*x.get_mut(&default_bonded_account()).unwrap() /= 5;
 					UnbondingBalanceMap::set(&x);
-					Balances::make_free_balance_be(
+					Currency::set_balance(
 						&default_bonded_account(),
-						Balances::free_balance(&default_bonded_account()) / 2, // 300
+						Currency::free_balance(&default_bonded_account()) / 2, // 300
 					);
 					StakingMock::set_bonded_balance(
 						default_bonded_account(),
@@ -3340,7 +3469,7 @@ mod withdraw_unbonded {
 				);
 				assert_eq!(
 					balances_events_since_last_call(),
-					vec![BEvent::BalanceSet { who: default_bonded_account(), free: 300 }]
+					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 }]
 				);
 
 				// When
@@ -3407,6 +3536,7 @@ mod withdraw_unbonded {
 					balances_events_since_last_call(),
 					vec![
 						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
+						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
@@ -3423,7 +3553,7 @@ mod withdraw_unbonded {
 				// Given
 				// current bond is 600, we slash it all to 300.
 				StakingMock::set_bonded_balance(default_bonded_account(), 300);
-				Balances::make_free_balance_be(&default_bonded_account(), 300);
+				Currency::set_balance(&default_bonded_account(), 300);
 				assert_eq!(StakingMock::total_stake(&default_bonded_account()), Ok(300));
 
 				assert_ok!(fully_unbond_permissioned(40));
@@ -3454,7 +3584,7 @@ mod withdraw_unbonded {
 				);
 				assert_eq!(
 					balances_events_since_last_call(),
-					vec![BEvent::BalanceSet { who: default_bonded_account(), free: 300 },]
+					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 },]
 				);
 
 				CurrentEra::set(StakingMock::bonding_duration());
@@ -3517,8 +3647,8 @@ mod withdraw_unbonded {
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 				// then
-				assert_eq!(Balances::free_balance(&10), 10 + 35);
-				assert_eq!(Balances::free_balance(&default_bonded_account()), 0);
+				assert_eq!(Currency::free_balance(&10), 10 + 35);
+				assert_eq!(Currency::free_balance(&default_bonded_account()), 0);
 
 				// in this test 10 also gets a fair share of the slash, because the slash was
 				// applied to the bonded account.
@@ -3536,6 +3666,7 @@ mod withdraw_unbonded {
 					balances_events_since_last_call(),
 					vec![
 						BEvent::Transfer { from: default_bonded_account(), to: 10, amount: 5 },
+						BEvent::Thawed { who: default_reward_account(), amount: 5 },
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
@@ -3546,14 +3677,14 @@ mod withdraw_unbonded {
 	fn withdraw_unbonded_handles_faulty_sub_pool_accounting() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Given
-			assert_eq!(Balances::minimum_balance(), 5);
-			assert_eq!(Balances::free_balance(&10), 35);
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 10);
+			assert_eq!(Currency::minimum_balance(), 5);
+			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(Currency::free_balance(&default_bonded_account()), 10);
 			unsafe_set_state(1, PoolState::Destroying);
 			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
 
 			// Simulate a slash that is not accounted for in the sub pools.
-			Balances::make_free_balance_be(&default_bonded_account(), 5);
+			Currency::set_balance(&default_bonded_account(), 5);
 			assert_eq!(
 				SubPoolsStorage::<Runtime>::get(1).unwrap().with_era,
 				//------------------------------balance decrease is not account for
@@ -3566,8 +3697,8 @@ mod withdraw_unbonded {
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			// Then
-			assert_eq!(Balances::free_balance(10), 10 + 35);
-			assert_eq!(Balances::free_balance(&default_bonded_account()), 0);
+			assert_eq!(Currency::free_balance(&10), 10 + 35);
+			assert_eq!(Currency::free_balance(&default_bonded_account()), 0);
 		});
 	}
 
@@ -3673,8 +3804,8 @@ mod withdraw_unbonded {
 				// Can kick as bouncer
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(900), 200, 0));
 
-				assert_eq!(Balances::free_balance(100), 100 + 100);
-				assert_eq!(Balances::free_balance(200), 200 + 200);
+				assert_eq!(Currency::free_balance(&100), 100 + 100);
+				assert_eq!(Currency::free_balance(&200), 200 + 200);
 				assert!(!PoolMembers::<Runtime>::contains_key(100));
 				assert!(!PoolMembers::<Runtime>::contains_key(200));
 				assert_eq!(SubPoolsStorage::<Runtime>::get(1).unwrap(), Default::default());
@@ -3709,7 +3840,7 @@ mod withdraw_unbonded {
 				}
 			);
 			CurrentEra::set(StakingMock::bonding_duration());
-			assert_eq!(Balances::free_balance(100), 100);
+			assert_eq!(Currency::free_balance(&100), 100);
 
 			// Cannot permissionlessly withdraw
 			assert_noop!(
@@ -3720,11 +3851,11 @@ mod withdraw_unbonded {
 			// Given
 			unsafe_set_state(1, PoolState::Destroying);
 
-			// Can permissionlesly withdraw a member that is not the depositor
+			// Can permissionlessly withdraw a member that is not the depositor
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(420), 100, 0));
 
 			assert_eq!(SubPoolsStorage::<Runtime>::get(1).unwrap(), Default::default(),);
-			assert_eq!(Balances::free_balance(100), 100 + 100);
+			assert_eq!(Currency::free_balance(&100), 100 + 100);
 			assert!(!PoolMembers::<Runtime>::contains_key(100));
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4258,20 +4389,21 @@ mod withdraw_unbonded {
 
 mod create {
 	use super::*;
+	use frame_support::traits::fungible::InspectFreeze;
 
 	#[test]
 	fn create_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// next pool id is 2.
 			let next_pool_stash = Pools::create_bonded_account(2);
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
 			assert!(!BondedPools::<Runtime>::contains_key(2));
 			assert!(!RewardPools::<Runtime>::contains_key(2));
 			assert!(!PoolMembers::<Runtime>::contains_key(11));
 			assert_err!(StakingMock::active_stake(&next_pool_stash), "balance not found");
 
-			Balances::make_free_balance_be(&11, StakingMock::minimum_nominator_bond() + ed);
+			Currency::set_balance(&11, StakingMock::minimum_nominator_bond() + ed);
 			assert_ok!(Pools::create(
 				RuntimeOrigin::signed(11),
 				StakingMock::minimum_nominator_bond(),
@@ -4280,7 +4412,7 @@ mod create {
 				789
 			));
 
-			assert_eq!(Balances::free_balance(&11), 0);
+			assert_eq!(Currency::free_balance(&11), 0);
 			assert_eq!(
 				PoolMembers::<Runtime>::get(11).unwrap(),
 				PoolMember {
@@ -4314,6 +4446,15 @@ mod create {
 			assert_eq!(
 				RewardPools::<Runtime>::get(2).unwrap(),
 				RewardPool { ..Default::default() }
+			);
+
+			// make sure ED is frozen on pool creation.
+			assert_eq!(
+				Currency::balance_frozen(
+					&FreezeReason::PoolMinBalance.into(),
+					&default_reward_account()
+				),
+				Currency::minimum_balance()
 			);
 
 			assert_eq!(
@@ -4380,10 +4521,10 @@ mod create {
 			assert_eq!(PoolMembers::<Runtime>::count(), 1);
 			MaxPools::<Runtime>::put(3);
 			MaxPoolMembers::<Runtime>::put(1);
-			Balances::make_free_balance_be(&11, 5 + 20);
+			Currency::set_balance(&11, 5 + 20);
 
 			// Then
-			let create = RuntimeCall::Pools(crate::Call::<Runtime>::create {
+			let create = RuntimeCall::Pools(Call::<Runtime>::create {
 				amount: 20,
 				root: 11,
 				nominator: 11,
@@ -4399,9 +4540,9 @@ mod create {
 	#[test]
 	fn create_with_pool_id_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			let ed = Balances::minimum_balance();
+			let ed = Currency::minimum_balance();
 
-			Balances::make_free_balance_be(&11, StakingMock::minimum_nominator_bond() + ed);
+			Currency::set_balance(&11, StakingMock::minimum_nominator_bond() + ed);
 			assert_ok!(Pools::create(
 				RuntimeOrigin::signed(11),
 				StakingMock::minimum_nominator_bond(),
@@ -4410,7 +4551,7 @@ mod create {
 				789
 			));
 
-			assert_eq!(Balances::free_balance(&11), 0);
+			assert_eq!(Currency::free_balance(&11), 0);
 			// delete the initial pool created, then pool_Id `1` will be free
 
 			assert_noop!(
@@ -4439,7 +4580,7 @@ mod create {
 fn set_claimable_actor_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
-		Balances::make_free_balance_be(&11, ExistentialDeposit::get() + 2);
+		Currency::set_balance(&11, ExistentialDeposit::get() + 2);
 		assert!(!PoolMembers::<Runtime>::contains_key(11));
 
 		// When
@@ -4569,7 +4710,7 @@ mod set_state {
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap().state, PoolState::Destroying);
 
 			// Given
-			Balances::make_free_balance_be(&default_bonded_account(), Balance::max_value() / 10);
+			Currency::set_balance(&default_bonded_account(), Balance::MAX / 10);
 			unsafe_set_state(1, PoolState::Open);
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
@@ -4693,18 +4834,18 @@ mod bond_extra {
 	fn bond_extra_from_free_balance_creator() {
 		ExtBuilder::default().build_and_execute(|| {
 			// 10 is the owner and a member in pool 1, give them some more funds.
-			Balances::make_free_balance_be(&10, 100);
+			Currency::set_balance(&10, 100);
 
 			// given
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10);
-			assert_eq!(Balances::free_balance(10), 100);
+			assert_eq!(Currency::free_balance(&10), 100);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
 
 			// then
-			assert_eq!(Balances::free_balance(10), 90);
+			assert_eq!(Currency::free_balance(&10), 90);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 20);
 
@@ -4721,7 +4862,7 @@ mod bond_extra {
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(20)));
 
 			// then
-			assert_eq!(Balances::free_balance(10), 70);
+			assert_eq!(Currency::free_balance(&10), 70);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 40);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 40);
 
@@ -4737,20 +4878,20 @@ mod bond_extra {
 		ExtBuilder::default().build_and_execute(|| {
 			// put some money in the reward account, all of which will belong to 10 as the only
 			// member of the pool.
-			Balances::make_free_balance_be(&default_reward_account(), 7);
+			Currency::set_balance(&default_reward_account(), 7);
 			// ... if which only 2 is claimable to make sure the reward account does not die.
 			let claimable_reward = 7 - ExistentialDeposit::get();
 
 			// given
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10);
-			assert_eq!(Balances::free_balance(10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::Rewards));
 
 			// then
-			assert_eq!(Balances::free_balance(10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + claimable_reward);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10 + claimable_reward);
 
@@ -4776,7 +4917,7 @@ mod bond_extra {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
 			// put some money in the reward account, all of which will belong to 10 as the only
 			// member of the pool.
-			Balances::make_free_balance_be(&default_reward_account(), 8);
+			Currency::set_balance(&default_reward_account(), 8);
 			// ... if which only 3 is claimable to make sure the reward account does not die.
 			let claimable_reward = 8 - ExistentialDeposit::get();
 			// NOTE: easier to read of we use 3, so let's use the number instead of variable.
@@ -4786,15 +4927,15 @@ mod bond_extra {
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30);
-			assert_eq!(Balances::free_balance(10), 35);
-			assert_eq!(Balances::free_balance(20), 20);
+			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(Currency::free_balance(&20), 20);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::Rewards));
-			assert_eq!(Balances::free_balance(&default_reward_account()), 7);
+			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 
 			// then
-			assert_eq!(Balances::free_balance(10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 			// 10's share of the reward is 1/3, since they gave 10/30 of the total shares.
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + 1);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 1);
@@ -4803,7 +4944,7 @@ mod bond_extra {
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::Rewards));
 
 			// then
-			assert_eq!(Balances::free_balance(20), 20);
+			assert_eq!(Currency::free_balance(&20), 20);
 			// 20's share of the rewards is the other 2/3 of the rewards, since they have 20/30 of
 			// the shares
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20 + 2);
@@ -4827,7 +4968,7 @@ mod bond_extra {
 	#[test]
 	fn bond_extra_other() {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
-			Balances::make_free_balance_be(&default_reward_account(), 8);
+			Currency::set_balance(&default_reward_account(), 8);
 			// ... of which only 3 are claimable to make sure the reward account does not die.
 			let claimable_reward = 8 - ExistentialDeposit::get();
 			// NOTE: easier to read if we use 3, so let's use the number instead of variable.
@@ -4837,8 +4978,8 @@ mod bond_extra {
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30);
-			assert_eq!(Balances::free_balance(10), 35);
-			assert_eq!(Balances::free_balance(20), 20);
+			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(Currency::free_balance(&20), 20);
 
 			// Permissioned by default
 			assert_noop!(
@@ -4851,10 +4992,10 @@ mod bond_extra {
 				ClaimPermission::PermissionlessAll
 			));
 			assert_ok!(Pools::bond_extra_other(RuntimeOrigin::signed(50), 10, BondExtra::Rewards));
-			assert_eq!(Balances::free_balance(&default_reward_account()), 7);
+			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 
 			// then
-			assert_eq!(Balances::free_balance(10), 35);
+			assert_eq!(Currency::free_balance(&10), 35);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + 1);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 1);
 
@@ -4872,8 +5013,8 @@ mod bond_extra {
 			));
 
 			// then
-			assert_eq!(Balances::free_balance(20), 12);
-			assert_eq!(Balances::free_balance(&default_reward_account()), 5);
+			assert_eq!(Currency::free_balance(&20), 12);
+			assert_eq!(Currency::free_balance(&default_reward_account()), 5);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 30);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 41);
 		})
@@ -5107,7 +5248,7 @@ mod reward_counter_precision {
 				]
 			);
 
-			Balances::make_free_balance_be(&20, tiny_bond);
+			Currency::set_balance(&20, tiny_bond);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), tiny_bond / 2, 1));
 
 			// Suddenly, add a shit ton of rewards.
@@ -5154,7 +5295,7 @@ mod reward_counter_precision {
 
 			// some whale now joins with the other half ot the total issuance. This will bloat all
 			// the calculation regarding current reward counter.
-			Balances::make_free_balance_be(&20, pool_bond * 2);
+			Currency::set_balance(&20, pool_bond * 2);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(20), pool_bond, 1));
 
 			assert_eq!(
@@ -5176,7 +5317,7 @@ mod reward_counter_precision {
 			);
 
 			// now let a small member join with 10 DOTs.
-			Balances::make_free_balance_be(&30, 20 * DOT);
+			Currency::set_balance(&30, 20 * DOT);
 			assert_ok!(Pools::join(RuntimeOrigin::signed(30), 10 * DOT, 1));
 
 			// and give a reasonably small reward to the pool.
@@ -5219,7 +5360,7 @@ mod reward_counter_precision {
 			// overflow. This test is actually a bit too lenient because all the reward counters are
 			// set to zero. In other tests that we want to assert a scenario won't fail, we should
 			// also set the reward counters to some large value.
-			Balances::make_free_balance_be(&20, pool_bond * 2);
+			Currency::set_balance(&20, pool_bond * 2);
 			assert_err!(
 				Pools::join(RuntimeOrigin::signed(20), pool_bond, 1),
 				Error::<T>::OverflowRisk
@@ -5248,7 +5389,7 @@ mod reward_counter_precision {
 				);
 
 				// and have a tiny fish join the pool as well..
-				Balances::make_free_balance_be(&20, 20 * DOT);
+				Currency::set_balance(&20, 20 * DOT);
 				assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10 * DOT, 1));
 
 				// earn some small rewards
@@ -5316,7 +5457,7 @@ mod reward_counter_precision {
 				);
 
 				// and have a tiny fish join the pool as well..
-				Balances::make_free_balance_be(&20, 20 * DOT);
+				Currency::set_balance(&20, 20 * DOT);
 				assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10 * DOT, 1));
 
 				// earn some small rewards
@@ -5602,7 +5743,7 @@ mod commission {
 			let member = 10;
 
 			// Set the pool commission to 10% to test commission shares. Pool is topped up 40 points
-			// and `member` immediately claims their pending rewards. Reward pooll should still have
+			// and `member` immediately claims their pending rewards. Reward pool should still have
 			// 10% share.
 
 			// Given:
@@ -6352,7 +6493,7 @@ mod commission {
 			let pool_id = 1;
 
 			// top up commission payee account to existential deposit
-			let _ = Balances::deposit_creating(&2, 5);
+			let _ = Currency::set_balance(&2, 5);
 
 			// Set a commission pool 1 to 33%, with a payee set to `2`
 			assert_ok!(Pools::set_commission(
@@ -6566,7 +6707,7 @@ mod commission {
 				Pools::get_member_with_pools(&10).unwrap();
 
 			// top up commission payee account to existential deposit
-			let _ = Balances::deposit_creating(&2, 5);
+			let _ = Currency::set_balance(&2, 5);
 
 			// Set a commission pool 1 to 100%, with a payee set to `2`
 			assert_ok!(Pools::set_commission(
@@ -6609,7 +6750,7 @@ mod commission {
 				Pools::get_member_with_pools(&10).unwrap();
 
 			// top up the commission payee account to existential deposit
-			let _ = Balances::deposit_creating(&2, 5);
+			let _ = Currency::set_balance(&2, 5);
 
 			// Set a commission pool 1 to 100% fails.
 			assert_noop!(
@@ -6667,7 +6808,7 @@ mod commission {
 		ExtBuilder::default().build_and_execute(|| {
 			let pool_id = 1;
 
-			let _ = Balances::deposit_creating(&900, 5);
+			let _ = Currency::set_balance(&900, 5);
 			assert_ok!(Pools::set_commission(
 				RuntimeOrigin::signed(900),
 				pool_id,

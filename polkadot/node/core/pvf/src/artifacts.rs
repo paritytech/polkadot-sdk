@@ -172,9 +172,10 @@ impl Artifacts {
 	///
 	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
 	pub async fn new(cache_path: &Path) -> Self {
-		// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
+		// First delete the entire cache. This includes artifacts and any leftover worker dirs (see
+		// [`WorkerDir`]). Nodes are long-running so this should populate shortly.
 		let _ = tokio::fs::remove_dir_all(cache_path).await;
+		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
 		Self { artifacts: HashMap::new() }
@@ -295,7 +296,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn artifacts_removes_cache_on_startup() {
-		let fake_cache_path = crate::worker_intf::tmpfile("test-cache").await.unwrap();
+		let fake_cache_path = crate::worker_intf::tmppath("test-cache").await.unwrap();
 		let fake_artifact_path = {
 			let mut p = fake_cache_path.clone();
 			p.push("wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234");
