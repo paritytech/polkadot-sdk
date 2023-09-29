@@ -1,8 +1,8 @@
 [package]
 authors.workspace = true
 edition.workspace = true
-name = "parachain-info"
-version = "0.1.0"
+name = "staging-parachain-info"
+version = "0.3.0-dev.1"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 description = "parachain-info"
 
