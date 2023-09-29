@@ -16,6 +16,7 @@
 
 //! Common traits and types used by the scheduler and assignment providers.
 
+use frame_support::{storage, traits::PalletInfoAccess};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
@@ -47,6 +48,12 @@ pub struct V0Assignment {
 	pub para_id: ParaId,
 }
 
+impl V0Assignment {
+	pub fn new(para_id: ParaId) -> Self {
+		V0Assignment { para_id }
+	}
+}
+
 impl Assignment for V0Assignment {
 	fn para_id(&self) -> ParaId {
 		self.para_id
@@ -54,12 +61,62 @@ impl Assignment for V0Assignment {
 }
 
 /// `Assignment` binary format version.
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
 pub struct AssignmentVersion(u16);
+
+/// The storage key postfix that is used to store the [`AssignmentVersion`] per pallet.
+///
+/// The full storage key is built by using:
+/// Twox128([`PalletInfo::name`]) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
+pub const ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__ASSIGNMENT_VERSION__:";
 
 impl AssignmentVersion {
 	pub const fn new(n: u16) -> AssignmentVersion {
 		Self(n)
+	}
+
+	/// Returns the storage key for an assignment version.
+	///
+	/// See [`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
+	pub fn storage_key<P: PalletInfoAccess>() -> [u8; 32] {
+		let pallet_name = P::name();
+		storage::storage_prefix(pallet_name.as_bytes(), ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX)
+	}
+
+	/// Put this assignment version for the given pallet into the storage.
+	///
+	/// It will use the storage key that is associated with the given `Pallet`.
+	///
+	/// # Panics
+	///
+	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
+	/// In a runtime that is put together using
+	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	///
+	/// It will also panic if this function isn't executed in an externalities
+	/// provided environment.
+	pub fn put<P: PalletInfoAccess>(&self) {
+		let key = Self::storage_key::<P>();
+
+		storage::unhashed::put(&key, self);
+	}
+
+	/// Get the storage version of the given pallet from the storage.
+	///
+	/// It will use the storage key that is associated with the given `Pallet`.
+	///
+	/// # Panics
+	///
+	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
+	/// In a runtime that is put together using
+	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	///
+	/// It will also panic if this function isn't executed in an externalities
+	/// provided environment.
+	pub fn get<P: PalletInfoAccess>() -> Self {
+		let key = Self::storage_key::<P>();
+
+		storage::unhashed::get_or_default(&key)
 	}
 
 	pub const fn saturating_add(&self, other: AssignmentVersion) -> AssignmentVersion {
