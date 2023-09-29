@@ -26,7 +26,7 @@ pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
-	defensive,
+	defensive, defensive_assert,
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
 	weights::Weight,
@@ -127,6 +127,11 @@ pub mod pallet {
 	pub type Leases<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<Option<(T::AccountId, BalanceOf<T>)>>, ValueQuery>;
 
+	/// Amounts currently reserved for the leased slot by the parachain.
+	#[pallet::storage]
+	pub type ReservedAmounts<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, ParaId, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -197,13 +202,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::clear_all_leases())]
 		pub fn clear_all_leases(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			// fixme(ank4n): check deposit from storage ReservedAmount (para_id, who => reserved_amount)
 			let deposits = Self::all_deposits_held(para);
 
 			// Refund any deposits for these leases
 			for (who, deposit) in deposits {
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
+				Self::unreserve(para, &who, deposit);
 			}
 
 			Leases::<T>::remove(para);
@@ -257,8 +260,8 @@ pub mod pallet {
 			ensure!(leases.len() == 1, Error::<T>::LeaseError);
 
 			if let Some((who, value)) = &leases[0] {
-				// FIXME(ank4n): assert on returned value
-				T::Currency::unreserve(&who, *value);
+				// unreserve the deposit for the ended lease.
+				Self::unreserve(para, &who, *value);
 			} else {
 				// This should never happen.
 				defensive!("lease period should never be empty");
@@ -292,10 +295,14 @@ impl<T: Config> Pallet<T> {
 				// Just one entry, which corresponds to the now-ended lease period.
 				//
 				// `para` is now just an on-demand parachain.
-				//
-				// FIXME(ank4n): unreserve whatever is left.
 				if let Some((who, value)) = &lease_periods[0] {
-					T::Currency::unreserve(&who, *value);
+					let current_held = Self::deposit_held(para, &who);
+					defensive_assert!(current_held <= *value);
+					let current_reserved_balance = T::Currency::reserved_balance(&who);
+					defensive_assert!(current_reserved_balance == current_held);
+
+					// unreserve whatever is left of the deposit for the ended lease.
+					Self::unreserve(para, &who, current_held);
 				}
 
 				// Remove the now-empty lease list.
@@ -313,18 +320,19 @@ impl<T: Config> Pallet<T> {
 				if let Some(ended_lease) = maybe_ended_lease {
 					// Then we need to get the new amount that should continue to be held on
 					// deposit for the parachain.
-					let required_hold = Self::deposit_held(para, &ended_lease.0);
+					let required_hold = Self::required_deposit(para, &ended_lease.0);
 
 					// If this is less than what we were holding for this leaser's now-ended lease,
 					// then unreserve it.
-					let current_hold = ended_lease.1;
-					// Fixme(ank4n): check reserved balance from state instead of deposit. We might
+					let current_hold = Self::deposit_held(para, &ended_lease.0);
+
+					// Note: check reserved balance from state instead of deposit. We might
 					// have unreserved early. Since reserves are not named, we can't check if this
 					// reserve was made by slots pallet or not. An account can probably cheat by
 					// reserving amount for something else so better to store the current reserved
 					// amount at all times in state.
 					if let Some(rebate) = current_hold.checked_sub(&required_hold) {
-						T::Currency::unreserve(&ended_lease.0, rebate);
+						Self::unreserve(para, &ended_lease.0, rebate);
 					}
 				}
 
@@ -362,21 +370,24 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
-		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
-			Some((who, amount)) => match tracker.get(&who) {
-				Some(prev_amount) =>
-					if amount > *prev_amount {
-						tracker.insert(who, amount);
-					},
-				None => {
-					tracker.insert(who, amount);
-				},
-			},
-			None => {},
-		});
+		ReservedAmounts::<T>::iter_prefix(para).collect::<Vec<_>>()
+	}
 
-		tracker.into_iter().collect()
+	// Fixme: use this code for migration of ReservedAmounts.
+	fn required_deposit(para: ParaId, leaser: &T::AccountId) -> BalanceOf<T> {
+		Leases::<T>::get(para)
+			.into_iter()
+			.map(|lease| match lease {
+				Some((who, amount)) =>
+					if &who == leaser {
+						amount
+					} else {
+						Zero::zero()
+					},
+				None => Zero::zero(),
+			})
+			.max()
+			.unwrap_or_else(Zero::zero)
 	}
 
 	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> Option<bool> {
@@ -388,11 +399,52 @@ impl<T: Config> Pallet<T> {
 
 		Some(maybe_next_lease == current_lease.checked_add(&sp_runtime::traits::One::one())?)
 	}
+
+	fn reserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		ReservedAmounts::<T>::mutate(para, leaser, |maybe_current| {
+			if let Some(current) = maybe_current {
+				*current = amount.saturating_add(*current)
+			} else {
+				*maybe_current = Some(amount)
+			}
+		});
+		T::Currency::reserve(&leaser, amount)
+	}
+
+	fn unreserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) {
+		if amount == Zero::zero() {
+			// nothing to unreserve
+			return;
+		}
+		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
+			if let Some(current) = maybe_current {
+				*current = amount.saturating_sub(*current);
+				if current.is_zero() {
+					*maybe_current = None
+				}
+			} else {
+				// fixme(ank4n)
+				// defensive!("unreserve called for non-existent reserve");
+			}
+		});
+
+		let err_balance = T::Currency::unreserve(&leaser, amount);
+		defensive_assert!(err_balance.is_zero());
+	}
 }
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)));
+		// fixme(ank4n)
+		ReservedAmounts::<T>::iter_prefix(one).for_each(|(leaser, reserved_one)| {
+			// swap the reserved amounts for each leaser.
+			ReservedAmounts::<T>::get(other, &leaser).map(|reserved_other| {
+				ReservedAmounts::<T>::insert(one, &leaser, reserved_other);
+			});
+			ReservedAmounts::<T>::insert(other, &leaser, reserved_one);
+
+		});
 	}
 }
 
@@ -457,11 +509,9 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 
 			// Figure out whether we already have some funds of `leaser` held in reserve for
 			// `para_id`.  If so, then we can deduct those from the amount that we need to reserve.
-			// Fixme(ank4n): Make sure we reserve the correct amount.
 			let maybe_additional = amount.checked_sub(&Self::deposit_held(para, &leaser));
 			if let Some(ref additional) = maybe_additional {
-				T::Currency::reserve(&leaser, *additional)
-					.map_err(|_| LeaseError::ReserveFailed)?;
+				Self::reserve(para, &leaser, *additional).map_err(|_| LeaseError::ReserveFailed)?;
 			}
 
 			let reserved = maybe_additional.unwrap_or_default();
@@ -492,19 +542,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		para: ParaId,
 		leaser: &Self::AccountId,
 	) -> <Self::Currency as Currency<Self::AccountId>>::Balance {
-		Leases::<T>::get(para)
-			.into_iter()
-			.map(|lease| match lease {
-				Some((who, amount)) =>
-					if &who == leaser {
-						amount
-					} else {
-						Zero::zero()
-					},
-				None => Zero::zero(),
-			})
-			.max()
-			.unwrap_or_else(Zero::zero)
+		ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero())
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
