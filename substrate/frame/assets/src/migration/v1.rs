@@ -25,6 +25,8 @@ use frame_support::{
 use log;
 
 #[cfg(feature = "try-runtime")]
+use crate::Vec;
+#[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 mod old {
