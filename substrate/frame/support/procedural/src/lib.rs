@@ -442,8 +442,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 		quote::quote!(
 			const _: () = {
-				impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
 						fmt.write_str("<wasm:stripped>")
 					}
 				}
@@ -473,7 +473,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 	quote::quote_spanned!(name.span() =>
 		const _: () = {
-			impl #impl_generics core::cmp::Eq for #name #ty_generics #where_clause {}
+			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
 	)
 	.into()
