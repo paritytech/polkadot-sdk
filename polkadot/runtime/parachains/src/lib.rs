@@ -58,9 +58,11 @@ use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
 /// Trait for tracking message delivery fees on a transport protocol.
-pub trait FeeTracker<Id = ()> {
+pub trait FeeTracker {
+	/// Type used for assigning different fee factors to different destinations
+	type Id;
 	/// The evolving exponential fee factor which will be used to calculate the delivery fees.
-	fn get_fee_factor(id: Id) -> FixedU128;
+	fn get_fee_factor(id: Self::Id) -> FixedU128;
 }
 
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.

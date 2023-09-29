@@ -1026,7 +1026,9 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	fn get_fee_factor(_: ()) -> FixedU128 {
+	type Id = ();
+
+	fn get_fee_factor(_: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 }
