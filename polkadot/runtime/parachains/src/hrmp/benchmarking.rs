@@ -166,8 +166,13 @@ mod benchmarks {
 		_(sender_origin, recipient_id, capacity, message_size);
 
 		assert_last_event::<T>(
-			Event::<T>::OpenChannelRequested(sender_id, recipient_id, capacity, message_size)
-				.into(),
+			Event::<T>::OpenChannelRequested {
+				sender: sender_id,
+				recipient: recipient_id,
+				proposed_max_capacity: capacity,
+				proposed_max_message_size: message_size,
+			}
+			.into(),
 		);
 	}
 
@@ -179,7 +184,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(recipient_origin, sender);
 
-		assert_last_event::<T>(Event::<T>::OpenChannelAccepted(sender, recipient).into());
+		assert_last_event::<T>(Event::<T>::OpenChannelAccepted { sender, recipient }.into());
 	}
 
 	#[benchmark]
@@ -191,7 +196,9 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(sender_origin, channel_id.clone());
 
-		assert_last_event::<T>(Event::<T>::ChannelClosed(sender, channel_id).into());
+		assert_last_event::<T>(
+			Event::<T>::ChannelClosed { by_parachain: sender, channel_id }.into(),
+		);
 	}
 
 	// NOTE: a single parachain should have the maximum number of allowed ingress and egress
@@ -411,8 +418,13 @@ mod benchmarks {
 		_(frame_system::Origin::<T>::Root, sender_id, recipient_id, capacity, message_size);
 
 		assert_last_event::<T>(
-			Event::<T>::HrmpChannelForceOpened(sender_id, recipient_id, capacity, message_size)
-				.into(),
+			Event::<T>::HrmpChannelForceOpened {
+				sender: sender_id,
+				recipient: recipient_id,
+				proposed_max_capacity: capacity,
+				proposed_max_message_size: message_size,
+			}
+			.into(),
 		);
 	}
 
@@ -435,8 +447,13 @@ mod benchmarks {
 		_(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id);
 
 		assert_last_event::<T>(
-			Event::<T>::HrmpSystemChannelOpened(sender_id, recipient_id, capacity, message_size)
-				.into(),
+			Event::<T>::HrmpSystemChannelOpened {
+				sender: sender_id,
+				recipient: recipient_id,
+				proposed_max_capacity: capacity,
+				proposed_max_message_size: message_size,
+			}
+			.into(),
 		);
 	}
 
@@ -478,7 +495,8 @@ mod benchmarks {
 		_(frame_system::RawOrigin::Signed(caller), sender_id, recipient_id);
 
 		assert_last_event::<T>(
-			Event::<T>::OpenChannelDepositsUpdated(sender_id, recipient_id).into(),
+			Event::<T>::OpenChannelDepositsUpdated { sender: sender_id, recipient: recipient_id }
+				.into(),
 		);
 		let channel = HrmpChannels::<T>::get(&channel_id).unwrap();
 		// Check that the deposit was updated in the channel state.
