@@ -5358,6 +5358,7 @@ dependencies = [
  "frame-support-procedural-tools",
  "itertools 0.10.5",
  "macro_magic",
+ "once_cell",
  "proc-macro-warning",
  "proc-macro2",
  "proc-utils",
