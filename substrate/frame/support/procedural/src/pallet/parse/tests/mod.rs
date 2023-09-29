@@ -92,10 +92,13 @@ impl<P: AsRef<std::path::Path>, F: FnMut()> ManifestContext<P, F> {
 		set_var("CARGO_MANIFEST_DIR", orig.join(self.path.as_ref()));
 
 		// cache the original `CARGO_MANIFEST_DIR` on this context
-		self.orig = Some(orig);
+		self.orig = Some(orig.clone());
 
 		// run the closure
 		(self.closure)();
+
+		// defensively ensure that dir is restored if closure succeeded
+		set_var("CARGO_MANIFEST_DIR", orig);
 	}
 }
 
