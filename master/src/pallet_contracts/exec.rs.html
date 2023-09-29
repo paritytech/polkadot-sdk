@@ -3876,6 +3876,9 @@
 <a href="#3876" id="3876">3876</a>
 <a href="#3877" id="3877">3877</a>
 <a href="#3878" id="3878">3878</a>
+<a href="#3879" id="3879">3879</a>
+<a href="#3880" id="3880">3880</a>
+<a href="#3881" id="3881">3881</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3894,7 +3897,7 @@
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{
-	debug::{CallSpan, Tracing},
+	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
 	storage::{<span class="self">self</span>, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -4786,13 +4789,16 @@
 			<span class="comment">// Every non delegate call or instantiate also optionally transfers the balance.
 			</span><span class="self">self</span>.initial_transfer()<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>call_span =
-				T::Debug::new_call_span(executable.code_hash(), entry_point, <span class="kw-2">&amp;</span>input_data);
+			<span class="kw">let </span>contract_address = <span class="kw-2">&amp;</span><span class="macro">top_frame!</span>(<span class="self">self</span>).account_id;
 
-			<span class="comment">// Call into the Wasm blob.
-			</span><span class="kw">let </span>output = executable
-				.execute(<span class="self">self</span>, <span class="kw-2">&amp;</span>entry_point, input_data)
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })<span class="question-mark">?</span>;
+			<span class="kw">let </span>call_span = T::Debug::new_call_span(contract_address, entry_point, <span class="kw-2">&amp;</span>input_data);
+
+			<span class="kw">let </span>output = T::Debug::intercept_call(contract_address, <span class="kw-2">&amp;</span>entry_point, <span class="kw-2">&amp;</span>input_data)
+				.unwrap_or_else(|| {
+					executable
+						.execute(<span class="self">self</span>, <span class="kw-2">&amp;</span>entry_point, input_data)
+						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+				})<span class="question-mark">?</span>;
 
 			call_span.after_call(<span class="kw-2">&amp;</span>output);
 

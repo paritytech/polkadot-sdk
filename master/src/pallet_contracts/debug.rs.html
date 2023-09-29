@@ -70,6 +70,44 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -87,14 +125,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">pub use </span><span class="kw">crate</span>::exec::ExportedFunction;
-<span class="kw">use crate</span>::{CodeHash, Config, LOG_TARGET};
-<span class="kw">use </span>pallet_contracts_primitives::ExecReturnValue;
+</span><span class="kw">pub use </span><span class="kw">crate</span>::exec::{ExecResult, ExportedFunction};
+<span class="kw">use crate</span>::{Config, LOG_TARGET};
+<span class="kw">pub use </span>pallet_contracts_primitives::ExecReturnValue;
 
 <span class="doccomment">/// Umbrella trait for all interfaces that serves for debugging.
-</span><span class="kw">pub trait </span>Debugger&lt;T: Config&gt;: Tracing&lt;T&gt; {}
+</span><span class="kw">pub trait </span>Debugger&lt;T: Config&gt;: Tracing&lt;T&gt; + CallInterceptor&lt;T&gt; {}
 
-<span class="kw">impl</span>&lt;T: Config, V&gt; Debugger&lt;T&gt; <span class="kw">for </span>V <span class="kw">where </span>V: Tracing&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: Config, V&gt; Debugger&lt;T&gt; <span class="kw">for </span>V <span class="kw">where </span>V: Tracing&lt;T&gt; + CallInterceptor&lt;T&gt; {}
 
 <span class="doccomment">/// Defines methods to capture contract calls, enabling external observers to
 /// measure, trace, and react to contract interactions.
@@ -109,11 +147,11 @@
 	///
 	/// # Arguments
 	///
-	/// * `code_hash` - The code hash of the contract being called.
+	/// * `contract_address` - The address of the contract that is about to be executed.
 	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
 	/// * `input_data` - The raw input data of the call.
 	</span><span class="kw">fn </span>new_call_span(
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
+		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
 		entry_point: ExportedFunction,
 		input_data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="self">Self</span>::CallSpan;
@@ -132,8 +170,12 @@
 <span class="kw">impl</span>&lt;T: Config&gt; Tracing&lt;T&gt; <span class="kw">for </span>() {
 	<span class="kw">type </span>CallSpan = ();
 
-	<span class="kw">fn </span>new_call_span(code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;, entry_point: ExportedFunction, input_data: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;call {entry_point:?} hash: {code_hash:?}, input_data: {input_data:?}&quot;</span>)
+	<span class="kw">fn </span>new_call_span(
+		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		entry_point: ExportedFunction,
+		input_data: <span class="kw-2">&amp;</span>[u8],
+	) {
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;call {entry_point:?} account: {contract_address:?}, input_data: {input_data:?}&quot;</span>)
 	}
 }
 
@@ -141,5 +183,39 @@
 	<span class="kw">fn </span>after_call(<span class="self">self</span>, output: <span class="kw-2">&amp;</span>ExecReturnValue) {
 		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;call result {output:?}&quot;</span>)
 	}
+}
+
+<span class="doccomment">/// Provides an interface for intercepting contract calls.
+</span><span class="kw">pub trait </span>CallInterceptor&lt;T: Config&gt; {
+	<span class="doccomment">/// Allows to intercept contract calls and decide whether they should be executed or not.
+	/// If the call is intercepted, the mocked result of the call is returned.
+	///
+	/// # Arguments
+	///
+	/// * `contract_address` - The address of the contract that is about to be executed.
+	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
+	/// * `input_data` - The raw input data of the call.
+	///
+	/// # Expected behavior
+	///
+	/// This method should return:
+	/// * `Some(ExecResult)` - if the call should be intercepted and the mocked result of the call
+	/// is returned.
+	/// * `None` - otherwise, i.e. the call should be executed normally.
+	</span><span class="kw">fn </span>intercept_call(
+		contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		entry_point: <span class="kw-2">&amp;</span>ExportedFunction,
+		input_data: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Option</span>&lt;ExecResult&gt;;
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; CallInterceptor&lt;T&gt; <span class="kw">for </span>() {
+	<span class="kw">fn </span>intercept_call(
+		_contract_address: <span class="kw-2">&amp;</span>T::AccountId,
+		_entry_point: <span class="kw-2">&amp;</span>ExportedFunction,
+		_input_data: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Option</span>&lt;ExecResult&gt; {
+		<span class="prelude-val">None
+	</span>}
 }
 </code></pre></div></section></main></body></html>
