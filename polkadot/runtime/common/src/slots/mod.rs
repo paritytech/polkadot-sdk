@@ -31,6 +31,7 @@ use frame_support::{
 	traits::{Currency, ReservableCurrency},
 	weights::Weight,
 };
+use frame_support::traits::Defensive;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use primitives::Id as ParaId;
@@ -298,8 +299,6 @@ impl<T: Config> Pallet<T> {
 				if let Some((who, value)) = &lease_periods[0] {
 					let current_held = Self::deposit_held(para, &who);
 					defensive_assert!(current_held <= *value);
-					let current_reserved_balance = T::Currency::reserved_balance(&who);
-					defensive_assert!(current_reserved_balance == current_held);
 
 					// unreserve whatever is left of the deposit for the ended lease.
 					Self::unreserve(para, &who, current_held);
@@ -418,13 +417,12 @@ impl<T: Config> Pallet<T> {
 		}
 		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
 			if let Some(current) = maybe_current {
-				*current = amount.saturating_sub(*current);
+				*current = current.checked_sub(&amount).defensive_unwrap_or_default();
 				if current.is_zero() {
 					*maybe_current = None
 				}
 			} else {
-				// fixme(ank4n)
-				// defensive!("unreserve called for non-existent reserve");
+				defensive!("unreserve called for non-existent reserve");
 			}
 		});
 
@@ -542,7 +540,10 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		para: ParaId,
 		leaser: &Self::AccountId,
 	) -> <Self::Currency as Currency<Self::AccountId>>::Balance {
-		ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero())
+		let actual_reserved_amount = T::Currency::reserved_balance(&leaser);
+		let reserved_amount = ReservedAmounts::<T>::get(para, leaser).unwrap_or(Zero::zero());
+		defensive_assert!(actual_reserved_amount == reserved_amount);
+		reserved_amount
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
