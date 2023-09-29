@@ -701,7 +701,7 @@ impl<T: Config> Pallet<T> {
 		if Payees::<T>::contains_key(&stash) {
 			Payees::<T>::remove(stash);
 		} else {
-			Payee::<T>::remove(stash);
+			DeprecatedPayee::<T>::remove(stash);
 		}
 
 		Self::do_remove_validator(stash);
@@ -1068,12 +1068,12 @@ impl<T: Config> Pallet<T> {
 	) -> PayoutDestination<T::AccountId> {
 		if !Payees::<T>::contains_key(stash) {
 			let current = PayoutDestination::from_reward_destination(
-				Payee::<T>::get(stash),
+				DeprecatedPayee::<T>::get(stash),
 				stash.clone(),
 				controller,
 			);
 			Payees::<T>::insert(stash, current.clone());
-			Payee::<T>::remove(stash);
+			DeprecatedPayee::<T>::remove(stash);
 			current
 		} else {
 			Payees::<T>::get(stash)

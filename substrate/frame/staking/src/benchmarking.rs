@@ -472,12 +472,12 @@ benchmarks! {
 		assert_eq!(Payees::<T>::get(&stash), PayoutDestination::Stake);
 
 		// Payee should exist to be migrated on `update_payee`.
-		Payee::<T>::insert(&stash,RewardDestination::Staked);
+		DeprecatedPayee::<T>::insert(&stash,RewardDestination::Staked);
 
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), PayoutDestination::Split((Perbill::from_percent(50), controller.clone())))
 	verify {
-		assert!(!Payee::<T>::contains_key(&stash));
+		assert!(!DeprecatedPayee::<T>::contains_key(&stash));
 		assert_eq!(Payees::<T>::get(&stash), PayoutDestination::Split((Perbill::from_percent(50), controller.clone())));
 	}
 
@@ -485,8 +485,8 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(
 			USER_SEED, 100, PayoutRoute::Direct(PayoutDestination::Stake)
 		)?;
-		// Payee should exist to be migrated on `update_payee`.
-		Payee::<T>::insert(&stash,RewardDestination::Staked);
+		// DeprecatedPayee should exist to be migrated on `update_payee`.
+		DeprecatedPayee::<T>::insert(&stash,RewardDestination::Staked);
 		Payees::<T>::remove(&stash);
 		assert!(!Payees::<T>::contains_key(&stash));
 		whitelist_account!(controller);

@@ -717,7 +717,7 @@ fn set_payee_also_updates_payee_destination() {
 				.unwrap();
 		Payees::<Test>::remove(stash);
 		// Value to be migrated
-		Payee::<Test>::insert(stash, RewardDestination::Stash);
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Stash);
 
 		// When
 		assert_ok!(Staking::set_payee(
@@ -726,7 +726,7 @@ fn set_payee_also_updates_payee_destination() {
 		));
 
 		// Then
-		assert!(!Payee::<Test>::contains_key(stash));
+		assert!(!DeprecatedPayee::<Test>::contains_key(stash));
 		assert_eq!(Payees::<Test>::get(stash), PayoutDestination::Deposit(11));
 	});
 }
@@ -748,11 +748,11 @@ fn update_payee_works() {
 				.unwrap();
 		Payees::<Test>::remove(stash);
 		// Value to be migrated
-		Payee::<Test>::insert(stash, RewardDestination::Staked);
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Staked);
 
 		// When
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(controller), PayoutDestination::Stake));
-		assert!(!Payee::<Test>::contains_key(stash));
+		assert!(!DeprecatedPayee::<Test>::contains_key(stash));
 		assert!(Payees::<Test>::contains_key(stash));
 
 		// Then
@@ -773,7 +773,7 @@ fn update_payee_charges_on_invalid_migration() {
 
 		// When
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(controller), PayoutDestination::Stake));
-		assert!(!Payee::<Test>::contains_key(stash));
+		assert!(!DeprecatedPayee::<Test>::contains_key(stash));
 		assert!(Payees::<Test>::contains_key(stash));
 
 		// Then
@@ -795,14 +795,14 @@ fn get_destination_payout_migrates_payee() {
 			create_stash_controller::<Test>(12, 13, PayoutRoute::Direct(PayoutDestination::Stake))
 				.unwrap();
 		Payees::<Test>::remove(stash);
-		Payee::<Test>::insert(stash, RewardDestination::Staked);
+		DeprecatedPayee::<Test>::insert(stash, RewardDestination::Staked);
 
 		// When
 		let dest = Staking::get_payout_destination_migrate(&stash, controller);
 
 		// Then
 		assert_eq!(dest, PayoutDestination::Stake,);
-		assert!(!Payee::<Test>::contains_key(stash));
+		assert!(!DeprecatedPayee::<Test>::contains_key(stash));
 		assert!(Payees::<Test>::contains_key(stash));
 	});
 }

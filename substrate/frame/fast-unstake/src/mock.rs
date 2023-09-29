@@ -355,7 +355,7 @@ pub(crate) fn next_block(on_idle: bool) {
 
 pub fn assert_unstaked(stash: &AccountId) {
 	assert!(!pallet_staking::Bonded::<T>::contains_key(stash));
-	assert!(!pallet_staking::Payee::<T>::contains_key(stash));
+	assert!(!pallet_staking::DeprecatedPayee::<T>::contains_key(stash));
 	assert!(!pallet_staking::Validators::<T>::contains_key(stash));
 	assert!(!pallet_staking::Nominators::<T>::contains_key(stash));
 }

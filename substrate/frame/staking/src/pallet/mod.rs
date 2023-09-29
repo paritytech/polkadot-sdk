@@ -327,8 +327,9 @@ pub mod pallet {
 	/// Tracking at <https://github.com/paritytech/substrate/issues/14438>
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
+	#[pallet::storage_prefix = "Payee"]
 	#[pallet::getter(fn payee)]
-	pub type Payee<T: Config> =
+	pub type DeprecatedPayee<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
 
 	/// Where the reward payment should be made. Keyed by stash.
@@ -1228,8 +1229,8 @@ pub mod pallet {
 
 			// In-progress lazy migration to `Payees` storage item.
 			// NOTE: To be removed in next runtime upgrade once migration is completed.
-			if Payee::<T>::contains_key(&stash) {
-				Payee::<T>::remove(stash);
+			if DeprecatedPayee::<T>::contains_key(&stash) {
+				DeprecatedPayee::<T>::remove(stash);
 			}
 			Ok(())
 		}
@@ -1770,19 +1771,19 @@ pub mod pallet {
 			let stash = &ledger.stash;
 
 			// If this stash has already been migrated, return early and charge tx fees.
-			if Payees::<T>::contains_key(&stash) && !Payee::<T>::contains_key(&stash) {
+			if Payees::<T>::contains_key(&stash) && !DeprecatedPayee::<T>::contains_key(&stash) {
 				return Ok(Pays::Yes.into())
 			}
 
 			Payees::<T>::insert(
 				stash.clone(),
 				PayoutDestination::from_reward_destination(
-					Payee::<T>::get(&stash),
+					DeprecatedPayee::<T>::get(&stash),
 					stash.clone(),
 					controller,
 				),
 			);
-			Payee::<T>::remove(&stash);
+			DeprecatedPayee::<T>::remove(&stash);
 
 			Ok(Pays::No.into())
 		}
