@@ -450,6 +450,9 @@ pub struct PeerDownloaded<B: BlockT> {
 
 	/// Block number of the first block in `blocks`.
 	start_block: NumberFor<B>,
+
+	/// Parent block hash of the first block in `blocks`.
+	start_block_parent_hash: B::Hash,
 }
 
 impl<B: BlockT> PeerDownloadState<B> {
@@ -467,11 +470,13 @@ impl<B: BlockT> PeerDownloadState<B> {
 		request: BlockRequest<B>,
 	) -> Result<(), BadPeer> {
 		// Validate the blocks.
-		let start_block = match validate_blocks::<B>(&new_blocks, who, Some(request)) {
-			Ok(Some(start_block)) => start_block,
-			Ok(None) => return Err(BadPeer(*who, rep::BAD_RESPONSE)),
-			Err(err) => return Err(err),
-		};
+		let (start_block, start_block_parent_hash) =
+			match validate_blocks::<B>(&new_blocks, who, Some(request)) {
+				Ok(Some((start_block, start_block_parent_hash))) =>
+					(start_block, start_block_parent_hash),
+				Ok(None) => return Err(BadPeer(*who, rep::BAD_RESPONSE)),
+				Err(err) => return Err(err),
+			};
 
 		// Validate against the current state.
 		let remaining = self.range.start..
@@ -493,8 +498,10 @@ impl<B: BlockT> PeerDownloadState<B> {
 			new_blocks.append(&mut downloaded.blocks);
 			downloaded.blocks.append(&mut new_blocks);
 			downloaded.start_block = start_block;
+			downloaded.start_block_parent_hash = start_block_parent_hash;
 		} else {
-			self.downloaded = Some(PeerDownloaded { blocks: new_blocks, start_block });
+			self.downloaded =
+				Some(PeerDownloaded { blocks: new_blocks, start_block, start_block_parent_hash });
 		}
 
 		Ok(())
@@ -528,11 +535,9 @@ impl<B: BlockT> PeerDownloadState<B> {
 	fn peer_block_request(
 		&self,
 		attrs: BlockAttributes,
-		peer_best_number: NumberFor<B>,
-		peer_best_hash: &B::Hash,
 	) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-		let start_block = if let Some(downloaded) = &self.downloaded {
-			downloaded.start_block
+		let (start_block, start_block_parent_hash) = if let Some(downloaded) = &self.downloaded {
+			(downloaded.start_block, downloaded.start_block_parent_hash)
 		} else {
 			warn!(
 				target: LOG_TARGET,
@@ -541,19 +546,12 @@ impl<B: BlockT> PeerDownloadState<B> {
 			);
 			return None
 		};
-		let range = Range { start: self.range.start, end: start_block };
 
-		// The end is not part of the range.
-		let last = range.end.saturating_sub(One::one());
-		let from = if peer_best_number == last {
-			FromBlock::Hash(*peer_best_hash)
-		} else {
-			FromBlock::Number(last)
-		};
+		let range = Range { start: self.range.start, end: start_block };
 		let request = BlockRequest::<B> {
 			id: 0,
 			fields: attrs,
-			from,
+			from: FromBlock::Hash(start_block_parent_hash),
 			direction: Direction::Descending,
 			max: Some((range.end - range.start).saturated_into::<u32>()),
 		};
@@ -861,7 +859,7 @@ where
 					PeerSyncState::DownloadingNew(_) => {
 						self.blocks.clear_peer_download(who);
 						peer.state = PeerSyncState::Available;
-						if let Some(start_block) =
+						if let Some((start_block, _)) =
 							validate_blocks::<B>(&blocks, who, Some(request))?
 						{
 							self.blocks.insert(start_block, blocks, *who);
@@ -890,7 +888,7 @@ where
 						peer.state = PeerSyncState::Available;
 						if let Some(gap_sync) = &mut self.gap_sync {
 							gap_sync.blocks.clear_peer_download(who);
-							if let Some(start_block) =
+							if let Some((start_block, _)) =
 								validate_blocks::<B>(&blocks, who, Some(request))?
 							{
 								gap_sync.blocks.insert(start_block, blocks, *who);
@@ -2195,8 +2193,7 @@ where
 					Some((id, ancestry_request::<B>(current)))
 				} else if let PeerSyncState::DownloadingFork(download_state) = &peer.state {
 					// We have partially downloaded range, request the remaining part.
-					let result =
-						download_state.peer_block_request(attrs, peer.best_number, &peer.best_hash);
+					let result = download_state.peer_block_request(attrs);
 					trace!(
 						target: LOG_TARGET,
 						"Continuing block request for {}, (best:{}, common:{}) {:?}",
@@ -2893,7 +2890,7 @@ fn validate_blocks<Block: BlockT>(
 	blocks: &Vec<BlockData<Block>>,
 	who: &PeerId,
 	request: Option<BlockRequest<Block>>,
-) -> Result<Option<NumberFor<Block>>, BadPeer> {
+) -> Result<Option<(NumberFor<Block>, Block::Hash)>, BadPeer> {
 	if let Some(request) = request {
 		if Some(blocks.len() as _) > request.max {
 			debug!(
@@ -2983,7 +2980,10 @@ fn validate_blocks<Block: BlockT>(
 		}
 	}
 
-	Ok(blocks.first().and_then(|b| b.header.as_ref()).map(|h| *h.number()))
+	Ok(blocks
+		.first()
+		.and_then(|b| b.header.as_ref())
+		.map(|h| (*h.number(), *h.parent_hash())))
 }
 
 #[cfg(test)]
@@ -3758,7 +3758,12 @@ mod test {
 		),);
 
 		// Gap filled, expect max_blocks_per_request being imported now.
-		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 3, &peer_id);
+		let request = get_block_request(
+			&mut sync,
+			FromBlock::Hash(canonical_blocks[resp_2_from as usize - 1].hash()),
+			3,
+			&peer_id,
+		);
 		let mut resp_blocks = canonical_blocks[common_ancestor as usize..18].to_vec();
 		resp_blocks.reverse();
 		let response = create_block_response(resp_blocks.clone());
@@ -4100,7 +4105,7 @@ mod test {
 		assert_eq!(sync.best_queued_number, 0);
 
 		// Request should only contain the missing block.
-		let request = get_block_request(&mut sync, FromBlock::Number(1), 1, &peer_id1);
+		let request = get_block_request(&mut sync, FromBlock::Hash(blocks[0].hash()), 1, &peer_id1);
 		let response = create_block_response(vec![blocks[0].clone()]);
 		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 		assert_eq!(sync.best_queued_number, 4);
@@ -4241,11 +4246,7 @@ mod test {
 
 			// Response 2: Blocks [20 .. 24].
 			let (range, request) = state
-				.peer_block_request(
-					BlockAttributes::HEADER | BlockAttributes::BODY,
-					100,
-					&blocks[0].hash(),
-				)
+				.peer_block_request(BlockAttributes::HEADER | BlockAttributes::BODY)
 				.unwrap();
 			assert_eq!(range.start, 20);
 			assert_eq!(range.end, 25);
