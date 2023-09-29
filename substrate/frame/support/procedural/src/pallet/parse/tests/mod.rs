@@ -19,6 +19,8 @@ use once_cell::sync::Lazy;
 use std::{panic, sync::Mutex};
 use syn::parse_quote;
 
+/// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
+/// avoiding a race condition because `cargo test` runs tests in parallel.
 static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 #[macro_export]
@@ -92,7 +94,7 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut() + std::panic:
 	use std::{env::*, path::*};
 
 	// avoid race condition when swapping out `CARGO_MANIFEST_DIR`
-	let _guard = MANIFEST_DIR_LOCK.lock().unwrap();
+	let guard = MANIFEST_DIR_LOCK.lock().unwrap();
 
 	// obtain the current/original `CARGO_MANIFEST_DIR`
 	let orig = PathBuf::from(
@@ -107,6 +109,9 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut() + std::panic:
 
 	// restore original `CARGO_MANIFEST_DIR` before unwinding
 	set_var("CARGO_MANIFEST_DIR", &orig);
+
+	// unlock the mutex so we don't poison it if there is a panic
+	drop(guard);
 
 	// unwind any panics originally encountered when running closure
 	result.unwrap();
