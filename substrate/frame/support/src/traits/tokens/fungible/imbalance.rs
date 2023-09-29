@@ -23,7 +23,8 @@ use crate::traits::{
 	misc::{SameOrOther, TryDrop},
 	tokens::Balance,
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -43,7 +44,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,
