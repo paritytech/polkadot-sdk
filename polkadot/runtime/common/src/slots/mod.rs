@@ -291,7 +291,8 @@ impl<T: Config> Pallet<T> {
 				//
 				// `para` is now just an on-demand parachain.
 				//
-				// Unreserve whatever is left.
+				// We might have already unreserved if `early_lease_refund` was called. Any which
+				// way, unreserve whatever is left. Since unreserve is infallible, this is fine.
 				if let Some((who, value)) = &lease_periods[0] {
 					T::Currency::unreserve(&who, *value);
 				}
@@ -315,6 +316,8 @@ impl<T: Config> Pallet<T> {
 
 					// If this is less than what we were holding for this leaser's now-ended lease,
 					// then unreserve it.
+					// Fixme: (ank4n) we might have unreserved early. Make sure correct amount is
+					// reserved at all times.
 					if let Some(rebate) = ended_lease.1.checked_sub(&now_held) {
 						T::Currency::unreserve(&ended_lease.0, rebate);
 					}
