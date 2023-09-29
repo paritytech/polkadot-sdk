@@ -16,59 +16,46 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Error helpers for `chainHead` RPC module.
+//! Error helpers for `archive` RPC module.
 
 use jsonrpsee::{
 	core::Error as RpcError,
 	types::error::{CallError, ErrorObject},
 };
-use sp_blockchain::Error as BlockchainError;
 
 /// ChainHead RPC errors.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	/// The provided block hash is invalid.
-	#[error("Invalid block hash")]
-	InvalidBlock,
-	/// Fetch block header error.
-	#[error("Could not fetch block header: {0}")]
-	FetchBlockHeader(BlockchainError),
 	/// Invalid parameter provided to the RPC method.
 	#[error("Invalid parameter: {0}")]
 	InvalidParam(String),
-	/// Invalid subscription ID provided by the RPC server.
-	#[error("Invalid subscription ID")]
-	InvalidSubscriptionID,
-	/// Wait-for-continue event not generated.
-	#[error("Wait for continue event was not generated for the subscription")]
-	InvalidContinue,
+	/// Runtime call failed.
+	#[error("Runtime call: {0}")]
+	RuntimeCall(String),
+	/// Failed to fetch leaves.
+	#[error("Failed to fetch leaves of the chain: {0}")]
+	FetchLeaves(String),
 }
 
-// Base code for all `chainHead` errors.
-const BASE_ERROR: i32 = 2000;
-/// The provided block hash is invalid.
-const INVALID_BLOCK_ERROR: i32 = BASE_ERROR + 1;
-/// Fetch block header error.
-const FETCH_BLOCK_HEADER_ERROR: i32 = BASE_ERROR + 2;
+// Base code for all `archive` errors.
+const BASE_ERROR: i32 = 3000;
 /// Invalid parameter error.
-const INVALID_PARAM_ERROR: i32 = BASE_ERROR + 3;
-/// Invalid subscription ID.
-const INVALID_SUB_ID: i32 = BASE_ERROR + 4;
-/// Wait-for-continue event not generated.
-const INVALID_CONTINUE: i32 = BASE_ERROR + 5;
+const INVALID_PARAM_ERROR: i32 = BASE_ERROR + 1;
+/// Runtime call error.
+const RUNTIME_CALL_ERROR: i32 = BASE_ERROR + 2;
+/// Failed to fetch leaves.
+const FETCH_LEAVES_ERROR: i32 = BASE_ERROR + 3;
 
 impl From<Error> for ErrorObject<'static> {
 	fn from(e: Error) -> Self {
 		let msg = e.to_string();
 
 		match e {
-			Error::InvalidBlock => ErrorObject::owned(INVALID_BLOCK_ERROR, msg, None::<()>),
-			Error::FetchBlockHeader(_) =>
-				ErrorObject::owned(FETCH_BLOCK_HEADER_ERROR, msg, None::<()>),
 			Error::InvalidParam(_) => ErrorObject::owned(INVALID_PARAM_ERROR, msg, None::<()>),
-			Error::InvalidSubscriptionID => ErrorObject::owned(INVALID_SUB_ID, msg, None::<()>),
-			Error::InvalidContinue => ErrorObject::owned(INVALID_CONTINUE, msg, None::<()>),
+			Error::RuntimeCall(_) => ErrorObject::owned(RUNTIME_CALL_ERROR, msg, None::<()>),
+			Error::FetchLeaves(_) => ErrorObject::owned(FETCH_LEAVES_ERROR, msg, None::<()>),
 		}
+		.into()
 	}
 }
 
