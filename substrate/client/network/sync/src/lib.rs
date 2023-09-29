@@ -29,44 +29,31 @@
 //! order to update it.
 
 use crate::{
-	block_relay_protocol::{BlockDownloader, BlockResponseError},
 	blocks::BlockCollection,
-	schema::v1::{StateRequest, StateResponse},
+	schema::v1::StateResponse,
 	state::StateSync,
 	warp::{WarpProofImportResult, WarpSync, WarpSyncConfig},
 };
 
 use codec::Encode;
 use extra_requests::ExtraRequests;
-use futures::{channel::oneshot, task::Poll, Future, FutureExt};
-use libp2p::{request_response::OutboundFailure, PeerId};
+use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
-use prost::Message;
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{
 	import_queue::ImportQueueService, BlockImportError, BlockImportStatus, IncomingBlock,
 };
-use sc_network::{
-	config::{
-		NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake, ProtocolId, SetConfig,
+use sc_network::types::ProtocolName;
+use sc_network_common::sync::{
+	message::{
+		BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction,
+		FromBlock,
 	},
-	request_responses::{IfDisconnected, RequestFailure},
-	types::ProtocolName,
-};
-use sc_network_common::{
-	role::Roles,
-	sync::{
-		message::{
-			BlockAnnounce, BlockAnnouncesHandshake, BlockAttributes, BlockData, BlockRequest,
-			BlockResponse, Direction, FromBlock,
-		},
-		warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
-		BadPeer, ChainSync as ChainSyncT, ImportResult, Metrics, OnBlockData, OnBlockJustification,
-		OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, PeerRequest, SyncMode,
-		SyncState, SyncStatus,
-	},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
+	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, OnStateData,
+	OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState, SyncStatus,
 };
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -81,9 +68,7 @@ use sp_runtime::{
 
 use std::{
 	collections::{HashMap, HashSet},
-	iter,
 	ops::Range,
-	pin::Pin,
 	sync::Arc,
 };
 
@@ -92,6 +77,7 @@ pub use service::chain_sync::SyncingService;
 mod block_announce_validator;
 mod extra_requests;
 mod futures_stream;
+mod pending_responses;
 mod schema;
 
 pub mod block_relay_protocol;
@@ -131,9 +117,6 @@ const MAJOR_SYNC_BLOCKS: u8 = 5;
 /// Number of peers that need to be connected before warp sync is started.
 const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
 
-/// Maximum allowed size for a block announce.
-const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
-
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
@@ -170,18 +153,6 @@ mod rep {
 
 	/// Peer response data does not have requested bits.
 	pub const BAD_RESPONSE: Rep = Rep::new(-(1 << 12), "Incomplete response");
-
-	/// Reputation change when a peer doesn't respond in time to our messages.
-	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
-
-	/// Peer is on unsupported protocol version.
-	pub const BAD_PROTOCOL: Rep = Rep::new_fatal("Unsupported protocol");
-
-	/// Reputation change when a peer refuses a request.
-	pub const REFUSED: Rep = Rep::new(-(1 << 10), "Request refused");
-
-	/// We received a message that failed to decode.
-	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 }
 
 enum AllowedRequests {
@@ -261,17 +232,12 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
-type PendingResponse<B> = Pin<
-	Box<
-		dyn Future<
-				Output = (
-					PeerId,
-					PeerRequest<B>,
-					Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>,
-				),
-			> + Send,
-	>,
->;
+/// An event used to notify [`engine::SyncingEngine`] if we want to perform a block request
+/// or drop an obsolete pending response.
+enum BlockRequestEvent<B: BlockT> {
+	SendRequest { peer_id: PeerId, request: BlockRequest<B> },
+	RemoveStale { peer_id: PeerId },
+}
 
 /// The main data structure which contains all the state for a chains
 /// active syncing strategy.
@@ -322,14 +288,6 @@ pub struct ChainSync<B: BlockT, Client> {
 	network_service: service::network::NetworkServiceHandle,
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
-	/// Block downloader stub
-	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
-	/// Protocol name used to send out warp sync requests
-	warp_sync_protocol_name: Option<ProtocolName>,
-	/// Pending responses
-	pending_responses: HashMap<PeerId, PendingResponse<B>>,
 	/// Handle to import queue.
 	import_queue: Box<dyn ImportQueueService<B>>,
 	/// Metrics.
@@ -489,10 +447,6 @@ where
 
 	fn num_peers(&self) -> usize {
 		self.peers.len()
-	}
-
-	fn num_active_peers(&self) -> usize {
-		self.pending_responses.len()
 	}
 
 	fn new_peer(
@@ -1145,7 +1099,6 @@ where
 			gap_sync.blocks.clear_peer_download(who)
 		}
 		self.peers.remove(who);
-		self.pending_responses.remove(who);
 		self.extra_justifications.peer_disconnected(who);
 		self.allowed_requests.set_all();
 		self.fork_targets.retain(|_, target| {
@@ -1168,36 +1121,6 @@ where
 			justifications: self.extra_justifications.metrics(),
 		}
 	}
-
-	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()> {
-		self.process_outbound_requests();
-
-		while let Poll::Ready(result) = self.poll_pending_responses(cx) {
-			match result {
-				ImportResult::BlockImport(origin, blocks) => self.import_blocks(origin, blocks),
-				ImportResult::JustificationImport(who, hash, number, justifications) =>
-					self.import_justifications(who, hash, number, justifications),
-			}
-		}
-
-		Poll::Pending
-	}
-
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<B>) {
-		if self.peers.contains_key(&who) {
-			let downloader = self.block_downloader.clone();
-			self.pending_responses.insert(
-				who,
-				Box::pin(async move {
-					(
-						who,
-						PeerRequest::Block(request.clone()),
-						downloader.download_blocks(who, request).await,
-					)
-				}),
-			);
-		}
-	}
 }
 
 impl<B, Client> ChainSync<B, Client>
@@ -1216,32 +1139,14 @@ where
 	pub fn new(
 		mode: SyncMode,
 		client: Arc<Client>,
-		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
-		roles: Roles,
+		block_announce_protocol_name: ProtocolName,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 		metrics_registry: Option<&Registry>,
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
-		block_downloader: Arc<dyn BlockDownloader<B>>,
-		state_request_protocol_name: ProtocolName,
-		warp_sync_protocol_name: Option<ProtocolName>,
-	) -> Result<(Self, NonDefaultSetConfig), ClientError> {
-		let block_announce_config = Self::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
-		);
-
+	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
@@ -1261,16 +1166,9 @@ where
 			import_existing: false,
 			gap_sync: None,
 			network_service,
-			block_downloader,
-			state_request_protocol_name,
 			warp_sync_config,
 			warp_sync_target_block_header: None,
-			warp_sync_protocol_name,
-			block_announce_protocol_name: block_announce_config
-				.notifications_protocol
-				.clone()
-				.into(),
-			pending_responses: HashMap::new(),
+			block_announce_protocol_name,
 			import_queue,
 			metrics: if let Some(r) = &metrics_registry {
 				match SyncingMetrics::register(r) {
@@ -1289,7 +1187,7 @@ where
 		};
 
 		sync.reset_sync_start_point()?;
-		Ok((sync, block_announce_config))
+		Ok(sync)
 	}
 
 	/// Returns the median seen block number.
@@ -1413,7 +1311,7 @@ where
 	/// Restart the sync process. This will reset all pending block requests and return an iterator
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
-	fn restart(&mut self) -> impl Iterator<Item = Result<(PeerId, BlockRequest<B>), BadPeer>> + '_ {
+	fn restart(&mut self) -> impl Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>> + '_ {
 		self.blocks.clear();
 		if let Err(e) = self.reset_sync_start_point() {
 			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
@@ -1427,23 +1325,23 @@ where
 		);
 		let old_peers = std::mem::take(&mut self.peers);
 
-		old_peers.into_iter().filter_map(move |(id, mut p)| {
+		old_peers.into_iter().filter_map(move |(peer_id, mut p)| {
 			// peers that were downloading justifications
 			// should be kept in that state.
 			if let PeerSyncState::DownloadingJustification(_) = p.state {
 				// We make sure our commmon number is at least something we have.
 				p.common_number = self.best_queued_number;
-				self.peers.insert(id, p);
+				self.peers.insert(peer_id, p);
 				return None
 			}
 
-			// since the request is not a justification, remove it from pending responses
-			self.pending_responses.remove(&id);
-
 			// handle peers that were in other states.
-			match self.new_peer(id, p.best_hash, p.best_number) {
-				Ok(None) => None,
-				Ok(Some(x)) => Some(Ok((id, x))),
+			match self.new_peer(peer_id, p.best_hash, p.best_number) {
+				// since the request is not a justification, remove it from pending responses
+				Ok(None) => Some(Ok(BlockRequestEvent::RemoveStale { peer_id })),
+				// update the request if the new one is available
+				Ok(Some(request)) => Some(Ok(BlockRequestEvent::SendRequest { peer_id, request })),
+				// this implies that we need to drop pending response from the peer
 				Err(e) => Some(Err(e)),
 			}
 		})
@@ -1524,6 +1422,11 @@ where
 			.any(|(_, p)| p.state == PeerSyncState::DownloadingStale(*hash))
 	}
 
+	/// Is the peer know to the sync state machine?
+	pub fn is_peer_known(&self, peer_id: &PeerId) -> bool {
+		self.peers.contains_key(peer_id)
+	}
+
 	/// Get the set of downloaded blocks that are ready to be queued for import.
 	fn ready_blocks(&mut self) -> Vec<IncomingBlock<B>> {
 		self.blocks
@@ -1588,117 +1491,12 @@ where
 		None
 	}
 
-	/// Get config for the block announcement protocol
-	pub fn get_block_announce_proto_config(
-		protocol_id: ProtocolId,
-		fork_id: &Option<String>,
-		roles: Roles,
-		best_number: NumberFor<B>,
-		best_hash: B::Hash,
-		genesis_hash: B::Hash,
-	) -> NonDefaultSetConfig {
-		let block_announces_protocol = {
-			let genesis_hash = genesis_hash.as_ref();
-			if let Some(ref fork_id) = fork_id {
-				format!(
-					"/{}/{}/block-announces/1",
-					array_bytes::bytes2hex("", genesis_hash),
-					fork_id
-				)
-			} else {
-				format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
-			}
-		};
-
-		NonDefaultSetConfig {
-			notifications_protocol: block_announces_protocol.into(),
-			fallback_names: iter::once(
-				format!("/{}/block-announces/1", protocol_id.as_ref()).into(),
-			)
-			.collect(),
-			max_notification_size: MAX_BLOCK_ANNOUNCE_SIZE,
-			handshake: Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
-				roles,
-				best_number,
-				best_hash,
-				genesis_hash,
-			))),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			set_config: SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
-		}
-	}
-
-	fn decode_state_response(response: &[u8]) -> Result<OpaqueStateResponse, String> {
-		let response = StateResponse::decode(response)
-			.map_err(|error| format!("Failed to decode state response: {error}"))?;
-
-		Ok(OpaqueStateResponse(Box::new(response)))
-	}
-
-	fn send_state_request(&mut self, who: PeerId, request: OpaqueStateRequest) {
-		let (tx, rx) = oneshot::channel();
-
-		if self.peers.contains_key(&who) {
-			self.pending_responses
-				.insert(who, Box::pin(async move { (who, PeerRequest::State, rx.await) }));
-		}
-
-		match self.encode_state_request(&request) {
-			Ok(data) => {
-				self.network_service.start_request(
-					who,
-					self.state_request_protocol_name.clone(),
-					data,
-					tx,
-					IfDisconnected::ImmediateError,
-				);
-			},
-			Err(err) => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to encode state request {request:?}: {err:?}",
-				);
-			},
-		}
-	}
-
-	fn send_warp_sync_request(&mut self, who: PeerId, request: WarpProofRequest<B>) {
-		let (tx, rx) = oneshot::channel();
-
-		if self.peers.contains_key(&who) {
-			self.pending_responses
-				.insert(who, Box::pin(async move { (who, PeerRequest::WarpProof, rx.await) }));
-		}
-
-		match &self.warp_sync_protocol_name {
-			Some(name) => self.network_service.start_request(
-				who,
-				name.clone(),
-				request.encode(),
-				tx,
-				IfDisconnected::ImmediateError,
-			),
-			None => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Trying to send warp sync request when no protocol is configured {request:?}",
-				);
-			},
-		}
-	}
-
-	fn on_block_response(
+	pub(crate) fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
-	) -> Option<ImportResult<B>> {
+	) -> Option<(PeerId, BlockRequest<B>)> {
 		let block_response = BlockResponse::<B> { id: request.id, blocks };
 
 		let blocks_range = || match (
@@ -1741,10 +1539,7 @@ where
 					self.import_blocks(origin, blocks);
 					None
 				},
-				Ok(OnBlockData::Request(peer, req)) => {
-					self.send_block_request(peer, req);
-					None
-				},
+				Ok(OnBlockData::Request(peer, req)) => Some((peer, req)),
 				Ok(OnBlockData::Continue) => None,
 				Err(BadPeer(id, repu)) => {
 					self.network_service
@@ -1756,20 +1551,14 @@ where
 		}
 	}
 
-	pub fn on_state_response(
-		&mut self,
-		peer_id: PeerId,
-		response: OpaqueStateResponse,
-	) -> Option<ImportResult<B>> {
+	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
 		match self.on_state_data(&peer_id, response) {
-			Ok(OnStateData::Import(origin, block)) =>
-				Some(ImportResult::BlockImport(origin, vec![block])),
-			Ok(OnStateData::Continue) => None,
+			Ok(OnStateData::Import(origin, block)) => self.import_blocks(origin, vec![block]),
+			Ok(OnStateData::Continue) => {},
 			Err(BadPeer(id, repu)) => {
 				self.network_service
 					.disconnect_peer(id, self.block_announce_protocol_name.clone());
 				self.network_service.report_peer(id, repu);
-				None
 			},
 		}
 	}
@@ -1782,165 +1571,10 @@ where
 		}
 	}
 
-	fn process_outbound_requests(&mut self) {
-		for (id, request) in self.block_requests() {
-			self.send_block_request(id, request);
-		}
-
-		if let Some((id, request)) = self.state_request() {
-			self.send_state_request(id, request);
-		}
-
-		for (id, request) in self.justification_requests().collect::<Vec<_>>() {
-			self.send_block_request(id, request);
-		}
-
-		if let Some((id, request)) = self.warp_sync_request() {
-			self.send_warp_sync_request(id, request);
-		}
-	}
-
-	fn poll_pending_responses(&mut self, cx: &mut std::task::Context) -> Poll<ImportResult<B>> {
-		let ready_responses = self
-			.pending_responses
-			.values_mut()
-			.filter_map(|future| match future.poll_unpin(cx) {
-				Poll::Pending => None,
-				Poll::Ready(result) => Some(result),
-			})
-			.collect::<Vec<_>>();
-
-		for (id, request, response) in ready_responses {
-			self.pending_responses
-				.remove(&id)
-				.expect("Logic error: peer id from pending response is missing in the map.");
-
-			match response {
-				Ok(Ok(resp)) => match request {
-					PeerRequest::Block(req) => {
-						match self.block_downloader.block_response_into_blocks(&req, resp) {
-							Ok(blocks) => {
-								if let Some(import) = self.on_block_response(id, req, blocks) {
-									return Poll::Ready(import)
-								}
-							},
-							Err(BlockResponseError::DecodeFailed(e)) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to decode block response from peer {:?}: {:?}.",
-									id,
-									e
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								self.network_service
-									.disconnect_peer(id, self.block_announce_protocol_name.clone());
-								continue
-							},
-							Err(BlockResponseError::ExtractionFailed(e)) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to extract blocks from peer response {:?}: {:?}.",
-									id,
-									e
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								continue
-							},
-						}
-					},
-					PeerRequest::State => {
-						let response = match Self::decode_state_response(&resp[..]) {
-							Ok(proto) => proto,
-							Err(e) => {
-								debug!(
-									target: LOG_TARGET,
-									"Failed to decode state response from peer {id:?}: {e:?}.",
-								);
-								self.network_service.report_peer(id, rep::BAD_MESSAGE);
-								self.network_service
-									.disconnect_peer(id, self.block_announce_protocol_name.clone());
-								continue
-							},
-						};
-
-						if let Some(import) = self.on_state_response(id, response) {
-							return Poll::Ready(import)
-						}
-					},
-					PeerRequest::WarpProof => {
-						self.on_warp_sync_response(id, EncodedProof(resp));
-					},
-				},
-				Ok(Err(e)) => {
-					debug!(target: LOG_TARGET, "Request to peer {id:?} failed: {e:?}.");
-
-					match e {
-						RequestFailure::Network(OutboundFailure::Timeout) => {
-							self.network_service.report_peer(id, rep::TIMEOUT);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
-							self.network_service.report_peer(id, rep::BAD_PROTOCOL);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Network(OutboundFailure::DialFailure) => {
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Refused => {
-							self.network_service.report_peer(id, rep::REFUSED);
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::Network(OutboundFailure::ConnectionClosed) |
-						RequestFailure::NotConnected => {
-							self.network_service
-								.disconnect_peer(id, self.block_announce_protocol_name.clone());
-						},
-						RequestFailure::UnknownProtocol => {
-							debug_assert!(false, "Block request protocol should always be known.");
-						},
-						RequestFailure::Obsolete => {
-							debug_assert!(
-								false,
-								"Can not receive `RequestFailure::Obsolete` after dropping the \
-								 response receiver.",
-							);
-						},
-					}
-				},
-				Err(oneshot::Canceled) => {
-					trace!(
-						target: LOG_TARGET,
-						"Request to peer {id:?} failed due to oneshot being canceled.",
-					);
-					self.network_service
-						.disconnect_peer(id, self.block_announce_protocol_name.clone());
-				},
-			}
-		}
-
-		Poll::Pending
-	}
-
-	fn encode_state_request(&self, request: &OpaqueStateRequest) -> Result<Vec<u8>, String> {
-		let request: &StateRequest = request.0.downcast_ref().ok_or_else(|| {
-			"Failed to downcast opaque state response during encoding, this is an \
-				implementation bug."
-				.to_string()
-		})?;
-
-		Ok(request.encode_to_vec())
-	}
-
-	fn justification_requests<'a>(
-		&'a mut self,
-	) -> Box<dyn Iterator<Item = (PeerId, BlockRequest<B>)> + 'a> {
+	fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
 		let mut matcher = self.extra_justifications.matcher();
-		Box::new(std::iter::from_fn(move || {
+		std::iter::from_fn(move || {
 			if let Some((peer, request)) = matcher.next(peers) {
 				peers
 					.get_mut(&peer)
@@ -1959,7 +1593,8 @@ where
 			} else {
 				None
 			}
-		}))
+		})
+		.collect()
 	}
 
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
@@ -2086,7 +1721,6 @@ where
 				}
 			})
 			.collect()
-		// Box::new(iter)
 	}
 
 	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
@@ -2288,13 +1922,14 @@ where
 	/// A batch of blocks have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks have been processed by the import
-	/// queue, with or without errors.
+	/// queue, with or without errors. If an error is returned, the pending response
+	/// from the peer must be dropped.
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
-	) -> Box<dyn Iterator<Item = Result<(PeerId, BlockRequest<B>), BadPeer>>> {
+	) -> Box<dyn Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>>> {
 		trace!(target: LOG_TARGET, "Imported {imported} of {count}");
 
 		let mut output = Vec::new();
@@ -2799,13 +2434,10 @@ fn validate_blocks<Block: BlockT>(
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
+	use crate::service::network::NetworkServiceProvider;
 	use futures::executor::block_on;
 	use sc_block_builder::BlockBuilderProvider;
-	use sc_network_common::{
-		role::Role,
-		sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock},
-	};
+	use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 	use sp_blockchain::HeaderBackend;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash, Header},
@@ -2825,21 +2457,16 @@ mod test {
 		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -2857,7 +2484,8 @@ mod test {
 		// the justification request should be scheduled to that peer
 		assert!(sync
 			.justification_requests()
-			.any(|(who, request)| { who == peer_id && request.from == FromBlock::Hash(a1_hash) }));
+			.iter()
+			.any(|(who, request)| { *who == peer_id && request.from == FromBlock::Hash(a1_hash) }));
 
 		// there are no extra pending requests
 		assert_eq!(sync.extra_justifications.pending_requests().count(), 0);
@@ -2891,21 +2519,16 @@ mod test {
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -2944,8 +2567,8 @@ mod test {
 
 		// the justification request should be scheduled to the
 		// new peer which is at the given block
-		assert!(sync.justification_requests().any(|(p, r)| {
-			p == peer_id3 &&
+		assert!(sync.justification_requests().iter().any(|(p, r)| {
+			*p == peer_id3 &&
 				r.fields == BlockAttributes::JUSTIFICATION &&
 				r.from == FromBlock::Hash(b1_hash)
 		}));
@@ -2959,9 +2582,11 @@ mod test {
 		let block_requests = sync.restart();
 
 		// which should make us send out block requests to the first two peers
-		assert!(block_requests
-			.map(|r| r.unwrap())
-			.all(|(p, _)| { p == peer_id1 || p == peer_id2 }));
+		assert!(block_requests.map(|r| r.unwrap()).all(|event| match event {
+			BlockRequestEvent::SendRequest { peer_id, .. } =>
+				peer_id == peer_id1 || peer_id == peer_id2,
+			BlockRequestEvent::RemoveStale { .. } => false,
+		}));
 
 		// peer 3 should be unaffected it was downloading finality data
 		assert_eq!(
@@ -3065,21 +2690,16 @@ mod test {
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3191,21 +2811,16 @@ mod test {
 			NetworkServiceProvider::new();
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3348,21 +2963,16 @@ mod test {
 
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3490,21 +3100,16 @@ mod test {
 
 		let info = client.info();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			5,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3634,21 +3239,16 @@ mod test {
 		let mut client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3679,21 +3279,16 @@ mod test {
 
 		let empty_client = Arc::new(TestClientBuilder::new().build());
 
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			empty_client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3731,21 +3326,16 @@ mod test {
 		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		let (mut sync, _) = ChainSync::new(
+		let mut sync = ChainSync::new(
 			SyncMode::Full,
 			client.clone(),
-			ProtocolId::from("test-protocol-name"),
-			&Some(String::from("test-fork-id")),
-			Roles::from(&Role::Full),
+			ProtocolName::from("test-block-announce-protocol"),
 			1,
 			64,
 			None,
 			None,
 			chain_sync_network_handle,
 			import_queue,
-			Arc::new(MockBlockDownloader::new()),
-			ProtocolName::from("state-request"),
-			None,
 		)
 		.unwrap();
 
@@ -3766,10 +3356,14 @@ mod test {
 		// add new peer and request blocks from them
 		sync.new_peer(peers[0], Hash::random(), 42).unwrap();
 
+		// we don't actually perform any requests, just keep track of peers waiting for a response
+		let mut pending_responses = HashSet::new();
+
 		// we wil send block requests to these peers
 		// for these blocks we don't know about
-		for (peer, request) in sync.block_requests() {
-			sync.send_block_request(peer, request);
+		for (peer, _request) in sync.block_requests() {
+			// "send" request
+			pending_responses.insert(peer);
 		}
 
 		// add a new peer at a known block
@@ -3780,10 +3374,11 @@ mod test {
 
 		// the justification request should be scheduled to the
 		// new peer which is at the given block
-		let mut requests = sync.justification_requests().collect::<Vec<_>>();
+		let mut requests = sync.justification_requests();
 		assert_eq!(requests.len(), 1);
-		let (peer, request) = requests.remove(0);
-		sync.send_block_request(peer, request);
+		let (peer, _request) = requests.remove(0);
+		// "send" request
+		assert!(pending_responses.insert(peer));
 
 		assert!(!std::matches!(
 			sync.peers.get(&peers[0]).unwrap().state,
@@ -3793,18 +3388,37 @@ mod test {
 			sync.peers.get(&peers[1]).unwrap().state,
 			PeerSyncState::DownloadingJustification(b1_hash),
 		);
-		assert_eq!(sync.pending_responses.len(), 2);
+		assert_eq!(pending_responses.len(), 2);
 
-		let requests = sync.restart().collect::<Vec<_>>();
-		assert!(requests.iter().any(|res| res.as_ref().unwrap().0 == peers[0]));
+		// restart sync
+		let request_events = sync.restart().collect::<Vec<_>>();
+		for event in request_events.iter() {
+			match event.as_ref().unwrap() {
+				BlockRequestEvent::RemoveStale { peer_id } => {
+					pending_responses.remove(&peer_id);
+				},
+				BlockRequestEvent::SendRequest { peer_id, .. } => {
+					// we drop obsolete response, but don't register a new request, it's checked in
+					// the `assert!` below
+					pending_responses.remove(&peer_id);
+				},
+			}
+		}
+		assert!(request_events.iter().any(|event| {
+			match event.as_ref().unwrap() {
+				BlockRequestEvent::RemoveStale { .. } => false,
+				BlockRequestEvent::SendRequest { peer_id, .. } => peer_id == &peers[0],
+			}
+		}));
 
-		assert_eq!(sync.pending_responses.len(), 1);
-		assert!(sync.pending_responses.get(&peers[1]).is_some());
+		assert_eq!(pending_responses.len(), 1);
+		assert!(pending_responses.contains(&peers[1]));
 		assert_eq!(
 			sync.peers.get(&peers[1]).unwrap().state,
 			PeerSyncState::DownloadingJustification(b1_hash),
 		);
 		sync.peer_disconnected(&peers[1]);
-		assert_eq!(sync.pending_responses.len(), 0);
+		pending_responses.remove(&peers[1]);
+		assert_eq!(pending_responses.len(), 0);
 	}
 }
