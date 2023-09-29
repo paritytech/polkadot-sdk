@@ -42,6 +42,7 @@ pub mod keywords {
 	custom_keyword!(pallet);
 }
 
+#[derive(Clone, Debug)]
 pub struct TasksDef {
 	tasks_attr: Option<PalletTasksAttr>,
 	tasks: Vec<TaskDef>,

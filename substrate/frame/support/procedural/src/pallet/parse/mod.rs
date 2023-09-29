@@ -220,7 +220,7 @@ impl Def {
 			(Some(_), None) =>
 				return Err(syn::Error::new(item_span, "Missing `#[pallet::tasks]` impl")),
 			(None, Some(_)) =>
-				return Err(syn::Error::new(item_span, "Missing `#[pallet::task]` enum")),
+				return Err(syn::Error::new(item_span, "Missing `#[pallet::task_enum]` enum")),
 			_ => (),
 		}
 
