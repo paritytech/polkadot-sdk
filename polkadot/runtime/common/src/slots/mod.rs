@@ -312,13 +312,17 @@ impl<T: Config> Pallet<T> {
 				if let Some(ended_lease) = maybe_ended_lease {
 					// Then we need to get the new amount that should continue to be held on
 					// deposit for the parachain.
-					let now_held = Self::deposit_held(para, &ended_lease.0);
+					let required_hold = Self::deposit_held(para, &ended_lease.0);
 
 					// If this is less than what we were holding for this leaser's now-ended lease,
 					// then unreserve it.
-					// Fixme: (ank4n) we might have unreserved early. Make sure correct amount is
-					// reserved at all times.
-					if let Some(rebate) = ended_lease.1.checked_sub(&now_held) {
+					let current_hold = ended_lease.1;
+					// Fixme(ank4n): check reserved balance from state instead of deposit. We might
+					// have unreserved early. Since reserves are not named, we can't check if this
+					// reserve was made by slots pallet or not. An account can probably cheat by
+					// reserving amount for something else so better to store the current reserved
+					// amount at all times in state.
+					if let Some(rebate) = current_hold.checked_sub(&required_hold) {
 						T::Currency::unreserve(&ended_lease.0, rebate);
 					}
 				}
@@ -452,7 +456,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 
 			// Figure out whether we already have some funds of `leaser` held in reserve for
 			// `para_id`.  If so, then we can deduct those from the amount that we need to reserve.
-			// Fixme(Ank4n): Make sure we reserve the correct amount.
+			// Fixme(ank4n): Make sure we reserve the correct amount.
 			let maybe_additional = amount.checked_sub(&Self::deposit_held(para, &leaser));
 			if let Some(ref additional) = maybe_additional {
 				T::Currency::reserve(&leaser, *additional)
@@ -482,6 +486,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		})
 	}
 
+	/// The max deposit of the upcoming leases is the amount we hold from the parachain.
 	fn deposit_held(
 		para: ParaId,
 		leaser: &Self::AccountId,
