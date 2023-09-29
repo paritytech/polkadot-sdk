@@ -45,6 +45,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -1070,7 +1071,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaWococoInstance,
@@ -1113,7 +1114,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaRococoInstance,
@@ -1233,6 +1234,16 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1243,55 +1254,67 @@ cumulus_pallet_parachain_system::register_validate_block! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::TransactionEra;
-	use bridge_hub_test_utils::test_header;
 	use codec::Encode;
-
-	pub type TestBlockHeader =
-		sp_runtime::generic::Header<bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher>;
+	use sp_runtime::{
+		generic::Era,
+		traits::{SignedExtension, Zero},
+	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		let payload: SignedExtra = (
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::from(10),
-			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(10),
-			BridgeRejectObsoleteHeadersAndMessages {},
-			(
-				BridgeRefundBridgeHubRococoMessages::default(),
-				BridgeRefundBridgeHubWococoMessages::default(),
-			),
-		);
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
-		{
-			use bp_bridge_hub_rococo::BridgeHubSignedExtension;
-			let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: SignedExtra = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					BridgeRefundBridgeHubRococoMessages::default(),
+					BridgeRefundBridgeHubWococoMessages::default(),
+				),
 			);
-			assert_eq!(payload.encode(), bhr_indirect_payload.encode());
-		}
 
-		{
-			use bp_bridge_hub_wococo::BridgeHubSignedExtension;
-			let bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
-			);
-			assert_eq!(payload.encode(), bhw_indirect_payload.encode());
-		}
+			{
+				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+
+			{
+				let bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhw_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhw_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+		});
 	}
 }
