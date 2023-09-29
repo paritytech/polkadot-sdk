@@ -384,6 +384,17 @@
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -502,11 +513,18 @@
 
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>BadPeer {}
 
+<span class="doccomment">/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>ImportBlocksAction&lt;B: BlockT&gt; {
+	<span class="kw">pub </span>origin: BlockOrigin,
+	<span class="kw">pub </span>blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt;,
+}
+
 <span class="doccomment">/// Result of [`ChainSync::on_block_data`].
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>OnBlockData&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The block should be imported.
-	</span>Import(BlockOrigin, Vec&lt;IncomingBlock&lt;Block&gt;&gt;),
+	</span>Import(ImportBlocksAction&lt;Block&gt;),
 	<span class="doccomment">/// A new block request needs to be made to the given peer.
 	</span>Request(PeerId, BlockRequest&lt;Block&gt;),
 	<span class="doccomment">/// Continue processing events.
@@ -520,7 +538,7 @@
 	</span>Nothing,
 	<span class="doccomment">/// The justification should be imported.
 	</span>Import {
-		peer: PeerId,
+		peer_id: PeerId,
 		hash: Block::Hash,
 		number: NumberFor&lt;Block&gt;,
 		justifications: Justifications,
@@ -695,6 +713,7 @@
 	<span class="doccomment">/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
+	</span><span class="attr">#[must_use]
 	</span><span class="kw">fn </span>new_peer(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		who: PeerId,
@@ -726,6 +745,7 @@
 	///
 	/// If this corresponds to a valid block, this outputs the block that
 	/// must be imported in the import queue.
+	</span><span class="attr">#[must_use]
 	</span><span class="kw">fn </span>on_block_data(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		who: <span class="kw-2">&amp;</span>PeerId,
@@ -736,6 +756,7 @@
 	<span class="doccomment">/// Handle a response from the remote to a justification request that we made.
 	///
 	/// `request` must be the original request that triggered `response`.
+	</span><span class="attr">#[must_use]
 	</span><span class="kw">fn </span>on_block_justification(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		who: PeerId,
@@ -765,7 +786,8 @@
 	<span class="doccomment">/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
 	/// import, so this functions checks for such blocks and returns them.
-	</span><span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId);
+	</span><span class="attr">#[must_use]
+	</span><span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ImportBlocksAction&lt;Block&gt;&gt;;
 
 	<span class="doccomment">/// Return some key metrics.
 	</span><span class="kw">fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Metrics;

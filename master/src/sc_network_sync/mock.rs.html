@@ -127,8 +127,8 @@
 <span class="kw">use </span>sc_network::RequestFailure;
 <span class="kw">use </span>sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, Metrics, OnBlockData, OnBlockJustification, PeerInfo,
-	SyncStatus,
+	BadPeer, ChainSync <span class="kw">as </span>ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
+	OnBlockJustification, PeerInfo, SyncStatus,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
@@ -180,7 +180,7 @@
 			who: PeerId,
 			announce: <span class="kw-2">&amp;</span>BlockAnnounce&lt;Block::Header&gt;,
 		);
-		<span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId);
+		<span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ImportBlocksAction&lt;Block&gt;&gt;;
 		<span class="kw">fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Metrics;
 	}
 }
