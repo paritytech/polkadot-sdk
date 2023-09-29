@@ -245,7 +245,7 @@ pub mod pallet {
 		///
 		/// Origin must be signed, but can be called by anyone.
 		#[pallet::call_index(3)]
-		// fixme(ank4n) weights
+		// fixme(ank4n) weights and better errors
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
@@ -261,7 +261,7 @@ pub mod pallet {
 			ensure!(leases.len() == 1, Error::<T>::LeaseError);
 
 			if let Some((who, value)) = &leases[0] {
-				// unreserve the deposit for the ended lease.
+				// unreserve the deposit for the soon to be ending lease.
 				Self::unreserve(para, &who, *value);
 			} else {
 				// This should never happen.
@@ -372,6 +372,9 @@ impl<T: Config> Pallet<T> {
 		ReservedAmounts::<T>::iter_prefix(para).collect::<Vec<_>>()
 	}
 
+	/// Returns how much deposit should be taken from the leaser for the current lease period of the
+	/// parachain. This is the maximum of all upcoming leases for the parachain with the same
+	/// leaser.
 	// Fixme: use this code for migration of ReservedAmounts.
 	fn required_deposit(para: ParaId, leaser: &T::AccountId) -> BalanceOf<T> {
 		Leases::<T>::get(para)
@@ -389,6 +392,8 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or_else(Zero::zero)
 	}
 
+	/// Returns true if the current lease period is ending within the next `T::EarliestRefundPeriod`
+	/// blocks.
 	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> Option<bool> {
 		let (current_lease, _) = Self::lease_period_index(now)?;
 
@@ -399,6 +404,8 @@ impl<T: Config> Pallet<T> {
 		Some(maybe_next_lease == current_lease.checked_add(&sp_runtime::traits::One::one())?)
 	}
 
+	/// Reserve the amount for the parachain, updating the current reserved amount for this leaser
+	/// and parachain.
 	fn reserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		ReservedAmounts::<T>::mutate(para, leaser, |maybe_current| {
 			if let Some(current) = maybe_current {
@@ -410,6 +417,8 @@ impl<T: Config> Pallet<T> {
 		T::Currency::reserve(&leaser, amount)
 	}
 
+	/// Unreserve the amount for the parachain, updating the current reserved amount for this leaser
+	/// and parachain.
 	fn unreserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) {
 		if amount == Zero::zero() {
 			// nothing to unreserve
@@ -418,6 +427,7 @@ impl<T: Config> Pallet<T> {
 		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
 			if let Some(current) = maybe_current {
 				*current = current.checked_sub(&amount).defensive_unwrap_or_default();
+				// remove the entry if it is zero.
 				if current.is_zero() {
 					*maybe_current = None
 				}
