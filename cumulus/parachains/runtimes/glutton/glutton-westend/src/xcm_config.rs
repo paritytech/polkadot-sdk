@@ -29,8 +29,8 @@ use xcm_builder::{
 };
 
 parameter_types! {
-	pub const KusamaLocation: MultiLocation = MultiLocation::parent();
-	pub const KusamaNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
+	pub const WestendLocation: MultiLocation = MultiLocation::parent();
+	pub const WestendNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
 }
 

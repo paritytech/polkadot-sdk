@@ -39,7 +39,7 @@ pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 		None,
 		None,
 		None,
-		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
+		Extensions { relay_chain: "westend-dev".into(), para_id: para_id.into() },
 	)
 }
 
@@ -64,7 +64,7 @@ pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
 		None,
 		None,
 		None,
-		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
+		Extensions { relay_chain: "westend-local".into(), para_id: para_id.into() },
 	)
 }
 
@@ -76,7 +76,7 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 		// Name
 		format!("Glutton {}", para_id).as_str(),
 		// ID
-		format!("glutton-kusama-{}", para_id).as_str(),
+		format!("glutton-westend-{}", para_id).as_str(),
 		ChainType::Live,
 		move || {
 			glutton_genesis(
@@ -90,10 +90,10 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 		Vec::new(),
 		None,
 		// Protocol ID
-		Some(format!("glutton-kusama-{}", para_id).as_str()),
+		Some(format!("glutton-westend-{}", para_id).as_str()),
 		None,
 		Some(properties),
-		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
+		Extensions { relay_chain: "westend".into(), para_id: para_id.into() },
 	)
 }
 
