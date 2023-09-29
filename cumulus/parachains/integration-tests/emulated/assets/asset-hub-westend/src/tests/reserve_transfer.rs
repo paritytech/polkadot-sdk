@@ -15,37 +15,6 @@
 
 use crate::*;
 
-fn relay_origin_assertions(t: RelayToSystemParaTest) {
-	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-
-	Westend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(629_384_000, 6_196)));
-
-	assert_expected_events!(
-		Westend,
-		vec![
-			// Amount to reserve transfer is transferred to System Parachain's Sovereign account
-			RuntimeEvent::Balances(pallet_balances::Event::Transfer { from, to, amount }) => {
-				from: *from == t.sender.account_id,
-				to: *to == Westend::sovereign_account_id_of(
-					t.args.dest
-				),
-				amount:  *amount == t.args.amount,
-			},
-		]
-	);
-}
-
-fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubWestend::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(1_000_000_000, 0)),
-		Some(Error::UntrustedReserveLocation),
-	);
-}
-
-fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
-	AssetHubWestend::assert_xcm_pallet_attempted_error(Some(XcmError::Barrier))
-}
-
 fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
@@ -97,48 +66,6 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	);
 }
 
-fn relay_limited_reserve_transfer_assets(t: RelayToSystemParaTest) -> DispatchResult {
-	<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-		t.args.weight_limit,
-	)
-}
-
-fn relay_reserve_transfer_assets(t: RelayToSystemParaTest) -> DispatchResult {
-	<Westend as WestendPallet>::XcmPallet::reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
-fn system_para_limited_reserve_transfer_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-		t.args.weight_limit,
-	)
-}
-
-fn system_para_reserve_transfer_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
 fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
@@ -160,123 +87,112 @@ fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> Dispa
 	)
 }
 
+fn do_reserve_transfer_native_asset_from_relay_to_system_para_fails(limited: bool) {
+	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
+	let destination = Westend::child_location_of(AssetHubWestend::para_id());
+	let beneficiary: MultiLocation =
+		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
+	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let assets: MultiAssets = (Here, amount_to_send).into();
+	let fee_asset_item = 0;
+
+	// this should fail
+	Westend::execute_with(|| {
+		let result = if limited {
+			<Westend as WestendPallet>::XcmPallet::reserve_transfer_assets(
+				signed_origin,
+				bx!(destination.into()),
+				bx!(beneficiary.into()),
+				bx!(assets.into()),
+				fee_asset_item,
+			)
+		} else {
+			<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
+				signed_origin,
+				bx!(destination.into()),
+				bx!(beneficiary.into()),
+				bx!(assets.into()),
+				fee_asset_item,
+				WeightLimit::Unlimited,
+			)
+		};
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 99,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			})
+		);
+	});
+}
+
 /// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
 /// work
 #[test]
 fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let test_args = TestContext {
-		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
-	};
-
-	let mut test = RelayToSystemParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
-	test.set_dispatchable::<Westend>(relay_limited_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
-}
-
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
-#[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	// Init values for System Parachain
-	let destination = AssetHubWestend::parent_location();
-	let beneficiary_id = WestendReceiver::get();
-	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubWestendSender::get(),
-		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubWestend>(system_para_to_relay_assertions);
-	test.set_dispatchable::<AssetHubWestend>(system_para_limited_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
+	do_reserve_transfer_native_asset_from_relay_to_system_para_fails(true);
 }
 
 /// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
 #[test]
 fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let test_args = TestContext {
-		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
-	};
+	do_reserve_transfer_native_asset_from_relay_to_system_para_fails(false);
+}
 
-	let mut test = RelayToSystemParaTest::new(test_args);
+fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: bool) {
+	// Init values for System Parachain
+	let signed_origin =
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+	let destination = AssetHubWestend::parent_location();
+	let beneficiary_id = WestendReceiver::get();
+	let beneficiary: MultiLocation =
+		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
+	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
+	let assets: MultiAssets = (Parent, amount_to_send).into();
+	let fee_asset_item = 0;
 
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
+	// this should fail
+	AssetHubWestend::execute_with(|| {
+		let result = if limited {
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::reserve_transfer_assets(
+				signed_origin,
+				bx!(destination.into()),
+				bx!(beneficiary.into()),
+				bx!(assets.into()),
+				fee_asset_item,
+			)
+		} else {
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+				signed_origin,
+				bx!(destination.into()),
+				bx!(beneficiary.into()),
+				bx!(assets.into()),
+				fee_asset_item,
+				WeightLimit::Unlimited,
+			)
+		};
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			})
+		);
+	});
+}
 
-	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
-	test.set_dispatchable::<Westend>(relay_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
+/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
+#[test]
+fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
+	do_reserve_transfer_native_asset_from_system_para_to_relay_fails(true);
 }
 
 /// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
 fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	// Init values for System Parachain
-	let destination = AssetHubWestend::parent_location();
-	let beneficiary_id = WestendReceiver::get();
-	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubWestendSender::get(),
-		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubWestend>(system_para_to_relay_assertions);
-	test.set_dispatchable::<AssetHubWestend>(system_para_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
+	do_reserve_transfer_native_asset_from_system_para_to_relay_fails(false);
 }
 
 /// Limited Reserve Transfers of native asset from System Parachain to Parachain should work

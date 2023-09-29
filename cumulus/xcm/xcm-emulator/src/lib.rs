@@ -1332,14 +1332,14 @@ pub struct TestContext<T> {
 	pub args: T,
 }
 
-/// Struct that help with tests where either dispatchables or assertions need
+/// Struct that helps with tests where either dispatchables or assertions need
 /// to be reused. The struct keeps the test's arguments of your choice in the generic `Args`.
 /// These arguments can be easily reused and shared between the assertions functions
 /// and dispatchables functions, which are also stored in `Test`.
 /// `Origin` corresponds to the chain where the XCM interaction starts with an initial execution.
-/// `Destination` corresponds to the last chain where an effect of the intial execution is expected
-/// happen. `Hops` refer all the ordered intermediary chains an initial XCM execution can provoke
-/// some effect.
+/// `Destination` corresponds to the last chain where an effect of the initial execution is expected
+/// to happen. `Hops` refer to all the ordered intermediary chains an initial XCM execution can
+/// provoke some effect on.
 #[derive(Clone)]
 pub struct Test<Origin, Destination, Hops = (), Args = TestArgs>
 where
@@ -1393,7 +1393,7 @@ where
 		let chain_name = std::any::type_name::<Hop>();
 		self.hops_assertion.insert(chain_name.to_string(), assertion);
 	}
-	/// Stores an assertion in a particular Chain
+	/// Stores a dispatchable in a particular Chain
 	pub fn set_dispatchable<Hop>(&mut self, dispatchable: fn(Self) -> DispatchResult) {
 		let chain_name = std::any::type_name::<Hop>();
 		self.hops_dispatchable.insert(chain_name.to_string(), dispatchable);
