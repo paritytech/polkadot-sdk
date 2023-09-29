@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Account, Asset, AssetDetails, AssetStatus, Config, DepositBalanceOf, Pallet};
+use crate::{Account, Asset, AssetDetails, AssetStatus, Config, DepositBalanceOf, Pallet, Vec};
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::{Saturating, Zero},
@@ -31,7 +31,7 @@ pub mod old {
 
 	#[frame_support::storage_alias]
 	/// Details of an asset.
-	pub type Asset<T: Config<I>, I: 'static> = StorageMap<
+	pub(crate) type Asset<T: Config<I>, I: 'static> = StorageMap<
 		Pallet<T, I>,
 		Blake2_128Concat,
 		<T as Config<I>>::AssetId,
