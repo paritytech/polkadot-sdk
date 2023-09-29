@@ -20,7 +20,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
-use frame_support::{assert_ok, traits::tokens::Preservation, traits::fungible::Mutate, traits::tokens::fungible::freeze::VestingSchedule};
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::Mutate,
+		tokens::{fungible::freeze::VestingSchedule, Preservation},
+	},
+};
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
@@ -32,11 +38,10 @@ const SEED: u32 = 0;
 type BalanceOf<T> =
 	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-fn add_locks<T: Config>(who: &T::AccountId, n: u8) 
-{
+fn add_locks<T: Config>(who: &T::AccountId, n: u8) {
 	use frame_support::traits::fungible::MutateFreeze;
 	for id in 0..n {
-		let lock_id = T::BenchmarkHelper::freeze_id(id);//[id; 8];
+		let lock_id = T::BenchmarkHelper::freeze_id(id);
 		let locked = 256u32;
 		//TODO: what do we do with reasons?
 		let reasons = WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE;

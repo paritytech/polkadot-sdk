@@ -194,7 +194,9 @@ pub mod pallet {
 
 		/// The benchmarks need a way to create asset ids from u32s.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
+		type BenchmarkHelper: BenchmarkHelper<
+			<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id,
+		>;
 	}
 
 	#[pallet::extra_constants]
