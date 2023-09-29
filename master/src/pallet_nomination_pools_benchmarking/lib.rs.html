@@ -806,6 +806,21 @@
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -835,7 +850,10 @@
 <span class="kw">use </span>frame_election_provider_support::SortedListProvider;
 <span class="kw">use </span>frame_support::{
 	assert_ok, ensure,
-	traits::{Currency, Get},
+	traits::{
+		fungible::{Inspect, Mutate, Unbalanced},
+		Get,
+	},
 };
 <span class="kw">use </span>frame_system::RawOrigin <span class="kw">as </span>RuntimeOrigin;
 <span class="kw">use </span>pallet_nomination_pools::{
@@ -875,7 +893,7 @@
 	balance: BalanceOf&lt;T&gt;,
 ) -&gt; T::AccountId {
 	<span class="kw">let </span>user = account(string, n, USER_SEED);
-	T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>user, balance);
+	T::Currency::set_balance(<span class="kw-2">&amp;</span>user, balance);
 	user
 }
 
@@ -956,8 +974,7 @@
 		</span>);
 
 		<span class="comment">// Burn the entire issuance.
-		</span><span class="kw">let </span>i = CurrencyOf::&lt;T&gt;::burn(CurrencyOf::&lt;T&gt;::total_issuance());
-		sp_std::mem::forget(i);
+		</span>CurrencyOf::&lt;T&gt;::set_total_issuance(Zero::zero());
 
 		<span class="comment">// Create accounts with the origin weight
 		</span><span class="kw">let </span>(pool_creator1, pool_origin1) =
@@ -1014,7 +1031,7 @@
 
 		<span class="kw">let </span>joiner: T::AccountId = account(<span class="string">&quot;joiner&quot;</span>, USER_SEED, <span class="number">0</span>);
 		<span class="self">self</span>.origin1_member = <span class="prelude-val">Some</span>(joiner.clone());
-		CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>joiner, amount * <span class="number">2u32</span>.into());
+		CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>joiner, amount * <span class="number">2u32</span>.into());
 
 		<span class="kw">let </span>original_bonded = T::Staking::active_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.origin1).unwrap();
 
@@ -1062,7 +1079,7 @@
 		<span class="macro">whitelist_account!</span>(joiner);
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(joiner.clone()), max_additional, <span class="number">1</span>)
 	verify {
-		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>joiner), joiner_free - max_additional);
+		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), joiner_free - max_additional);
 		<span class="macro">assert_eq!</span>(
 			T::Staking::active_stake(<span class="kw-2">&amp;</span>scenario.origin1).unwrap(),
 			scenario.dest_weight
@@ -1097,7 +1114,7 @@
 		<span class="comment">// transfer exactly `extra` to the depositor of the src pool (1),
 		</span><span class="kw">let </span>reward_account1 = Pools::&lt;T&gt;::create_reward_account(<span class="number">1</span>);
 		<span class="macro">assert!</span>(extra &gt;= CurrencyOf::&lt;T&gt;::minimum_balance());
-		CurrencyOf::&lt;T&gt;::deposit_creating(<span class="kw-2">&amp;</span>reward_account1, extra);
+		<span class="kw">let _ </span>= CurrencyOf::&lt;T&gt;::mint_into(<span class="kw-2">&amp;</span>reward_account1, extra);
 
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(claimer), T::Lookup::unlookup(scenario.creator1.clone()), BondExtra::Rewards)
 	verify {
@@ -1117,7 +1134,7 @@
 		<span class="kw">let </span>reward_account = Pools::&lt;T&gt;::create_reward_account(<span class="number">1</span>);
 
 		<span class="comment">// Send funds to the reward account of the pool
-		</span>CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>reward_account, ed + origin_weight);
+		</span>CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>reward_account, ed + origin_weight);
 
 		<span class="comment">// set claim preferences to `PermissionlessAll` so any account can claim rewards on member&#39;s
 		// behalf.
@@ -1125,7 +1142,7 @@
 
 		<span class="comment">// Sanity check
 		</span><span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>depositor),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>depositor),
 			origin_weight
 		);
 
@@ -1133,11 +1150,11 @@
 	}:claim_payout_other(RuntimeOrigin::Signed(claimer), depositor.clone())
 	verify {
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>depositor),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>depositor),
 			origin_weight + commission * origin_weight
 		);
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>reward_account),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>reward_account),
 			ed + commission * origin_weight
 		);
 	}
@@ -1191,7 +1208,7 @@
 			T::Staking::active_stake(<span class="kw-2">&amp;</span>pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
+		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
 
 		<span class="comment">// Unbond the new member
 		</span>Pools::&lt;T&gt;::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone()).unwrap();
@@ -1211,7 +1228,7 @@
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(pool_account.clone()), <span class="number">1</span>, s)
 	verify {
 		<span class="comment">// The joiners funds didn&#39;t change
-		</span><span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
+		</span><span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
 		<span class="comment">// The unlocking chunk was removed
 		</span><span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(pool_account).unwrap().unlocking.len(), <span class="number">0</span>);
 	}
@@ -1234,7 +1251,7 @@
 			T::Staking::active_stake(<span class="kw-2">&amp;</span>pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
+		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
 
 		<span class="comment">// Unbond the new member
 		</span>pallet_staking::CurrentEra::&lt;T&gt;::put(<span class="number">0</span>);
@@ -1255,8 +1272,7 @@
 	}: withdraw_unbonded(RuntimeOrigin::Signed(joiner.clone()), joiner_lookup, s)
 	verify {
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>joiner),
-			min_join_bond * <span class="number">2u32</span>.into()
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond * <span class="number">2u32</span>.into()
 		);
 		<span class="comment">// The unlocking chunk was removed
 		</span><span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_account).unwrap().unlocking.len(), <span class="number">0</span>);
@@ -1293,7 +1309,7 @@
 			Zero::zero()
 		);
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>pool_account),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>pool_account),
 			min_create_bond
 		);
 		<span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_account).unwrap().unlocking.len(), <span class="number">1</span>);
@@ -1323,7 +1339,7 @@
 
 		<span class="comment">// Funds where transferred back correctly
 		</span><span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>depositor),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>depositor),
 			<span class="comment">// gets bond back + rewards collecting when unbonding
 			</span>min_create_bond * <span class="number">2u32</span>.into() + CurrencyOf::&lt;T&gt;::minimum_balance()
 		);
@@ -1335,7 +1351,7 @@
 		<span class="kw">let </span>depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
 		<span class="comment">// Give the depositor some balance to bond
-		</span>CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>depositor, min_create_bond * <span class="number">2u32</span>.into());
+		</span>CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>depositor, min_create_bond * <span class="number">2u32</span>.into());
 
 		<span class="comment">// Make sure no Pools exist at a pre-condition for our verify checks
 		</span><span class="macro">assert_eq!</span>(RewardPools::&lt;T&gt;::count(), <span class="number">0</span>);
@@ -1590,7 +1606,7 @@
 		<span class="kw">let </span>ed = CurrencyOf::&lt;T&gt;::minimum_balance();
 		<span class="kw">let </span>(depositor, pool_account) = create_pool_account::&lt;T&gt;(<span class="number">0</span>, origin_weight, <span class="prelude-val">Some</span>(commission));
 		<span class="kw">let </span>reward_account = Pools::&lt;T&gt;::create_reward_account(<span class="number">1</span>);
-		CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>reward_account, ed + origin_weight);
+		CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>reward_account, ed + origin_weight);
 
 		<span class="comment">// member claims a payout to make some commission available.
 		</span><span class="kw">let _ </span>= Pools::&lt;T&gt;::claim_payout(RuntimeOrigin::Signed(claimer).into());
@@ -1599,13 +1615,27 @@
 	}:<span class="kw">_</span>(RuntimeOrigin::Signed(depositor.clone()), <span class="number">1u32</span>.into())
 	verify {
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>depositor),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>depositor),
 			origin_weight + commission * origin_weight
 		);
 		<span class="macro">assert_eq!</span>(
-			CurrencyOf::&lt;T&gt;::free_balance(<span class="kw-2">&amp;</span>reward_account),
+			CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>reward_account),
 			ed + commission * origin_weight
 		);
+	}
+
+	adjust_pool_deposit {
+		<span class="comment">// Create a pool
+		</span><span class="kw">let </span>(depositor, <span class="kw">_</span>) = create_pool_account::&lt;T&gt;(<span class="number">0</span>, Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into(), <span class="prelude-val">None</span>);
+
+		<span class="comment">// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
+		</span><span class="kw">let _ </span>= Pools::&lt;T&gt;::unfreeze_pool_deposit(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::create_reward_account(<span class="number">1</span>));
+		<span class="macro">assert!</span>(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::check_ed_imbalance().is_err());
+
+		<span class="macro">whitelist_account!</span>(depositor);
+	}:<span class="kw">_</span>(RuntimeOrigin::Signed(depositor), <span class="number">1</span>)
+	verify {
+		<span class="macro">assert!</span>(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::check_ed_imbalance().is_ok());
 	}
 
 	<span class="macro">impl_benchmark_test_suite!</span>(

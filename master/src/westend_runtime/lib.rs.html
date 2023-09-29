@@ -2323,6 +2323,8 @@
 <a href="#2323" id="2323">2323</a>
 <a href="#2324" id="2324">2324</a>
 <a href="#2325" id="2325">2325</a>
+<a href="#2326" id="2326">2326</a>
+<a href="#2327" id="2327">2327</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2617,9 +2619,9 @@
 	<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
 	<span class="kw">type </span>WeightInfo = weights::pallet_balances::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="kw">type </span>FreezeIdentifier = ();
+	<span class="kw">type </span>FreezeIdentifier = RuntimeFreezeReason;
+	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">1</span>&gt;;
-	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">0</span>&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3636,6 +3638,7 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = weights::pallet_nomination_pools::WeightInfo&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
 	<span class="kw">type </span>RewardCounter = FixedU128;
 	<span class="kw">type </span>BalanceToU256 = BalanceToU256;
 	<span class="kw">type </span>U256ToBalance = U256ToBalance;
@@ -3723,7 +3726,7 @@
 		</span>VoterList: pallet_bags_list::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">25</span>,
 
 		<span class="comment">// Nomination pools for staking.
-		</span>NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">29</span>,
+		</span>NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;, FreezeReason} = <span class="number">29</span>,
 
 		<span class="comment">// Fast unstake pallet: extension to staking.
 		</span>FastUnstake: pallet_fast_unstake = <span class="number">30</span>,
@@ -3830,6 +3833,7 @@
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
 		paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ()&gt;,
+		pallet_nomination_pools::migration::versioned_migrations::V5toV6&lt;Runtime&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
 	);
 }

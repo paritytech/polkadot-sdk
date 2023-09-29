@@ -304,6 +304,11 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -326,7 +331,10 @@
 </span><span class="kw">use </span>codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 <span class="kw">use </span>sp_core::RuntimeDebug;
-<span class="kw">use </span>sp_runtime::{traits::Convert, ArithmeticError, DispatchError, TokenError};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Convert, MaybeSerializeDeserialize},
+	ArithmeticError, DispatchError, TokenError,
+};
 <span class="kw">use </span>sp_std::fmt::Debug;
 
 <span class="doccomment">/// The origin of funds to be used for a deposit operation.
@@ -546,6 +554,7 @@
 	+ MaxEncodedLen
 	+ Send
 	+ Sync
+	+ MaybeSerializeDeserialize
 	+ <span class="lifetime">&#39;static
 </span>{
 }
@@ -559,6 +568,7 @@
 			+ MaxEncodedLen
 			+ Send
 			+ Sync
+			+ MaybeSerializeDeserialize
 			+ <span class="lifetime">&#39;static</span>,
 	&gt; Balance <span class="kw">for </span>T
 {
