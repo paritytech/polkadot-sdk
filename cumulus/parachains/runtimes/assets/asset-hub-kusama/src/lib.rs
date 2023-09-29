@@ -1231,19 +1231,12 @@ impl_runtime_apis! {
 					xcm_config::KsmLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub ToParachain: ParaId = kusama_runtime_constants::system_parachain::BRIDGE_HUB_ID.into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
-					XcmConfig,
-					ExistentialDepositMultiAsset,
-					PriceForSiblingParachainDelivery,
-					ToParachain,
-					(),
-				>;
+				type DeliveryHelper = (); // No requirement for UMP
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(KsmLocation::get())
 				}

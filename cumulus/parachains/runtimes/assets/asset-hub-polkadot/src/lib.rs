@@ -1107,7 +1107,7 @@ impl_runtime_apis! {
 					xcm_config::DotLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub ToParachain: ParaId = polkadot_runtime_constants::system_parachain::BRIDGE_HUB_ID.into();
+				pub ToParachain: ParaId = westend_runtime_constants::system_parachain::BRIDGE_HUB_ID.into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {

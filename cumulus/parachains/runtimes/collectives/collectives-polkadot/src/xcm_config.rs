@@ -30,7 +30,7 @@ use parachains_common::{
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::{
+use westend_runtime_constants::{
 	system_parachain::SystemParachains, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use sp_runtime::traits::AccountIdConversion;
