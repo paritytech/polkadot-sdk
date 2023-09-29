@@ -380,8 +380,7 @@ pub mod pallet {
 				let ancestor = Ancestor::new_unchecked(used_bandwidth, consumed_go_ahead_signal);
 
 				let watermark = HrmpWatermark::<T>::get();
-				let watermark_update =
-					HrmpWatermarkUpdate::new(watermark, vfp.relay_parent_number);
+				let watermark_update = HrmpWatermarkUpdate::new(watermark, vfp.relay_parent_number);
 
 				aggregated_segment
 					.append(&ancestor, watermark_update, &total_bandwidth_out)
