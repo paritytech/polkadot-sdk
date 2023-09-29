@@ -452,6 +452,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 
 			// Figure out whether we already have some funds of `leaser` held in reserve for
 			// `para_id`.  If so, then we can deduct those from the amount that we need to reserve.
+			// Fixme(Ank4n): Make sure we reserve the correct amount.
 			let maybe_additional = amount.checked_sub(&Self::deposit_held(para, &leaser));
 			if let Some(ref additional) = maybe_additional {
 				T::Currency::reserve(&leaser, *additional)
