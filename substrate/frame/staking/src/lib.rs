@@ -313,10 +313,12 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug,
 };
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use sp_staking::PayoutSplitOpt;
 pub use sp_staking::StakerStatus;
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, OnStakingUpdate, PayoutDestinationAlias, PayoutSplitOpt, SessionIndex,
+	EraIndex, OnStakingUpdate, PayoutDestinationAlias, SessionIndex,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
@@ -431,23 +433,6 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 		}
 	}
 
-	// NOTE: the `ctlr` parameter can be discontinued after the lazy migration to
-	// `PayoutDestination` is completed.
-	pub fn from_route(v: PayoutRoute<AccountId>, stash: &AccountId, ctlr: &AccountId) -> Self {
-		match v {
-			PayoutRoute::Direct(destination) => destination,
-			PayoutRoute::Alias(alias) => match alias {
-				PayoutDestinationAlias::Controller => PayoutDestination::Deposit(ctlr.clone()),
-				PayoutDestinationAlias::Split((percent, dest)) =>
-					if dest == PayoutSplitOpt::Stash {
-						PayoutDestination::Split((percent, stash.clone()))
-					} else {
-						PayoutDestination::Split((percent, ctlr.clone()))
-					},
-			},
-		}
-	}
-
 	/// Formats a `PayoutDestination` from another `PayoutDestination` provided in a call, which
 	/// could include a 0% and 100% split variant.
 	///
@@ -466,6 +451,26 @@ impl<AccountId: Clone> PayoutDestination<AccountId> {
 			},
 			PayoutDestination::Stake | PayoutDestination::Deposit(_) | PayoutDestination::Forgo =>
 				v,
+		}
+	}
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl<AccountId: Clone> PayoutDestination<AccountId> {
+	// NOTE: the `ctlr` parameter can be discontinued after the lazy migration to
+	// `PayoutDestination` is completed.
+	pub fn from_route(v: PayoutRoute<AccountId>, stash: &AccountId, ctlr: &AccountId) -> Self {
+		match v {
+			PayoutRoute::Direct(destination) => destination,
+			PayoutRoute::Alias(alias) => match alias {
+				PayoutDestinationAlias::Controller => PayoutDestination::Deposit(ctlr.clone()),
+				PayoutDestinationAlias::Split((percent, dest)) =>
+					if dest == PayoutSplitOpt::Stash {
+						PayoutDestination::Split((percent, stash.clone()))
+					} else {
+						PayoutDestination::Split((percent, ctlr.clone()))
+					},
+			},
 		}
 	}
 }
