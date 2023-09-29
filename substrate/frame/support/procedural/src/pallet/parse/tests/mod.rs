@@ -121,6 +121,7 @@ impl<P: AsRef<std::path::Path>, F: FnMut()> Drop for ManifestContext<P, F> {
 pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut()>(path: P, closure: F) {
 	let mut context = ManifestContext { path, closure, orig: None };
 	context.run();
+	drop(context)
 }
 
 mod tasks;
