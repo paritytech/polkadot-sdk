@@ -14,7 +14,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use super::*;
 use syn::parse_quote;
 
 #[macro_export]
@@ -38,11 +37,35 @@ macro_rules! assert_error_matches {
 
 #[macro_export]
 macro_rules! assert_pallet_parses {
-	(#[manifest_dir($manifest_dir:literal)] $($tokens:tt)*) => {
+	(
+		#[manifest_dir($manifest_dir:literal)]
+		$($tokens:tt)*
+	) => {
 		$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, || {
 			$crate::pallet::parse::Def::try_from(syn::parse_quote! {
 				$($tokens)*
 			}, false).unwrap();
+		});
+	}
+}
+
+#[macro_export]
+macro_rules! assert_pallet_parse_error {
+	(
+		#[manifest_dir($manifest_dir:literal)]
+		#[error_regex($reg:literal)]
+		$($tokens:tt)*
+	) => {
+		$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, || {
+			$crate::assert_error_matches!(
+				$crate::pallet::parse::Def::try_from(
+					parse_quote! {
+						$($tokens)*
+					},
+					false
+				),
+				$reg
+			);
 		});
 	}
 }
@@ -115,39 +138,27 @@ fn test_parse_minimal_pallet() {
 }
 
 #[test]
-fn test_parse_pallet_missing_config() {
-	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
-			Def::try_from(
-				parse_quote! {
-					#[frame_support::pallet]
-					pub mod pallet {
-						#[pallet::config]
-						pub trait Config: frame_system::Config {}
-					}
-				},
-				false
-			),
-			"Missing `\\#\\[pallet::pallet\\]`"
-		);
-	});
+fn test_parse_pallet_missing_pallet() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("Missing `\\#\\[pallet::pallet\\]`")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+		}
+	}
 }
 
 #[test]
-fn test_parse_pallet_missing_pallet() {
-	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
-			Def::try_from(
-				parse_quote! {
-					#[frame_support::pallet]
-					pub mod pallet {
-						#[pallet::pallet]
-						pub struct Pallet<T>(_);
-					}
-				},
-				false
-			),
-			"Missing `\\#\\[pallet::config\\]`"
-		);
-	});
+fn test_parse_pallet_missing_config() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("Missing `\\#\\[pallet::config\\]`")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
 }
