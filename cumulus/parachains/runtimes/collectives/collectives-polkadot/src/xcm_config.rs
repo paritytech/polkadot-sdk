@@ -32,7 +32,7 @@ use parachains_common::{
 };
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::{
+use westend_runtime_constants::{
 	system_parachain::SystemParachains, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use sp_runtime::traits::AccountIdConversion;
@@ -47,8 +47,6 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-
-const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();

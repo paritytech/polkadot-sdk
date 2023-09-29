@@ -743,6 +743,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "primitive-types",
+ "rococo-runtime-constants",
  "scale-info",
  "smallvec",
  "sp-api",
@@ -832,6 +833,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]
@@ -1806,6 +1808,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
+ "rococo-runtime-constants",
  "scale-info",
  "serde",
  "smallvec",
@@ -1890,6 +1893,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]
@@ -2578,6 +2582,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]

@@ -30,7 +30,7 @@ use frame_support::{
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
-use kusama_runtime_constants::system_parachain::SystemParachains;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,

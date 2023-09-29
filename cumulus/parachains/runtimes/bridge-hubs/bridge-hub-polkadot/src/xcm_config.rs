@@ -32,7 +32,7 @@ use parachains_common::{
 };
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::system_parachain::SystemParachains;
+use westend_runtime_constants::system_parachain::SystemParachains;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
