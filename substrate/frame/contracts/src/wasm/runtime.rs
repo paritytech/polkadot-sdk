@@ -118,8 +118,6 @@ pub enum ReturnCode {
 	Sr25519VerifyFailed = 12,
 	/// The `seal_xcm_query` was executed but returned an error.
 	XcmQueryFailed = 13,
-	/// The `seal_xcm_take_response` was executed but returned an error.
-	XcmTakeResponseFailed = 14,
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -2695,9 +2693,8 @@ pub mod env {
 	///
 	/// - `dest_ptr`: the pointer into the linear memory where the [`xcm::VersionedMultiLocation`]
 	///   is placed.
-	/// - `msg_ptr`: the pointer into the linear memory where the message is placed.
-	/// - `msg_len`: the length of the message in bytes.
-	///
+	/// - `call_ptr`: the pointer into the linear memory where the message is placed.
+	/// - `call_len`: the length of the message in bytes.
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
@@ -2790,7 +2787,7 @@ pub mod env {
 	///
 	/// # Return Value
 	///
-	/// Returns `ReturnCode::Success` when successful, `ReturnCode::TakeResponseFailed` otherwise.
+	/// Returns `ReturnCode::Success` when successful.
 	#[unstable]
 	fn xcm_take_response(
 		ctx: _,
