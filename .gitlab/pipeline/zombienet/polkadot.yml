@@ -110,7 +110,7 @@ zombienet-polkadot-smoke-0001-parachains-smoke-test:
     - .zombienet-polkadot-common
   before_script:
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
-    - export COL_IMAGE="docker.io/paritypr/colander:4519" # The collator image is fixed
+    - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
@@ -127,12 +127,12 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
     - .zombienet-polkadot-common
   before_script:
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
-    - export COL_IMAGE="docker.io/parity/polkadot-collator:latest" # Use cumulus lastest image
+    - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:${DOCKER_IMAGES_VERSION}"
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
     - echo "local-dir ${LOCAL_DIR}"
     - echo "polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
-    - echo "colander image ${COL_IMAGE}"
+    - echo "polkadot-parachain image ${CUMULUS_IMAGE}"
     - echo "malus image ${MALUS_IMAGE}"
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -193,27 +193,3 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
-
-zombienet-polkadot-async-backing-compatibility:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/async_backing"
-      --test="001-async-backing-compatibility.zndsl"
-
-zombienet-polkadot-async-backing-runtime-upgrade:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/async_backing"
-      --test="002-async-backing-runtime-upgrade.zndsl"
-
-zombienet-polkadot-async-backing-collator-mix:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/async_backing"
-      --test="003-async-backing-collator-mix.zndsl"

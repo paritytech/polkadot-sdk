@@ -291,6 +291,14 @@ pub mod pallet {
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
 		BountyExtended { index: BountyIndex },
+		/// A bounty is approved.
+		BountyApproved { index: BountyIndex },
+		/// A bounty curator is proposed.
+		CuratorProposed { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A bounty curator is unassigned.
+		CuratorUnassigned { bounty_id: BountyIndex },
+		/// A bounty curator is accepted.
+		CuratorAccepted { bounty_id: BountyIndex, curator: T::AccountId },
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -375,10 +383,12 @@ pub mod pallet {
 
 				Ok(())
 			})?;
+
+			Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
 			Ok(())
 		}
 
-		/// Assign a curator to a funded bounty.
+		/// Propose a curator to a funded bounty.
 		///
 		/// May only be called from `T::SpendOrigin`.
 		///
@@ -408,8 +418,10 @@ pub mod pallet {
 
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
-				bounty.status = BountyStatus::CuratorProposed { curator };
+				bounty.status = BountyStatus::CuratorProposed { curator: curator.clone() };
 				bounty.fee = fee;
+
+				Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
 
 				Ok(())
 			})?;
@@ -508,6 +520,8 @@ pub mod pallet {
 				bounty.status = BountyStatus::Funded;
 				Ok(())
 			})?;
+
+			Self::deposit_event(Event::<T, I>::CuratorUnassigned { bounty_id });
 			Ok(())
 		}
 
@@ -542,6 +556,10 @@ pub mod pallet {
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
+						Self::deposit_event(Event::<T, I>::CuratorAccepted {
+							bounty_id,
+							curator: signer,
+						});
 						Ok(())
 					},
 					_ => Err(Error::<T, I>::UnexpectedStatus.into()),
