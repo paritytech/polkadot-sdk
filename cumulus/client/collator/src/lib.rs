@@ -69,14 +69,14 @@ where
 	RA::Api: CollectCollationInfo<Block>,
 {
 	/// Create a new instance.
-	fn new(
+	pub fn new(
 		collator_service: CollatorService<Block, BS, RA>,
 		parachain_consensus: Box<dyn ParachainConsensus<Block>>,
 	) -> Self {
 		Self { service: collator_service, parachain_consensus }
 	}
 
-	async fn produce_candidate(
+	pub async fn produce_candidate(
 		mut self,
 		relay_parent: PHash,
 		validation_data: PersistedValidationData,
@@ -141,6 +141,10 @@ where
 		tracing::info!(target: LOG_TARGET, ?block_hash, "Produced proof-of-validity candidate.",);
 
 		Some(CollationResult { collation, result_sender: Some(result_sender) })
+	}
+
+	pub fn service(&self) -> &CollatorService<Block, BS, RA> {
+		&self.service
 	}
 }
 
