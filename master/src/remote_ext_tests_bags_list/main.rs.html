@@ -88,60 +88,6 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -173,16 +119,14 @@
 <span class="attr">#[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = <span class="string">&quot;PascalCase&quot;</span>)]
 </span><span class="kw">enum </span>Runtime {
-	Polkadot,
-	Kusama,
 	Westend,
 }
 
 <span class="attr">#[derive(Parser)]
 </span><span class="kw">struct </span>Cli {
-	<span class="attr">#[arg(long, short, default_value = <span class="string">&quot;wss://kusama-rpc.polkadot.io:443&quot;</span>)]
+	<span class="attr">#[arg(long, short, default_value = <span class="string">&quot;wss://westend-rpc.polkadot.io:443&quot;</span>)]
 	</span>uri: String,
-	<span class="attr">#[arg(long, short, ignore_case = <span class="bool-val">true</span>, value_enum, default_value_t = Runtime::Kusama)]
+	<span class="attr">#[arg(long, short, ignore_case = <span class="bool-val">true</span>, value_enum, default_value_t = Runtime::Westend)]
 	</span>runtime: Runtime,
 	<span class="attr">#[arg(long, short, ignore_case = <span class="bool-val">true</span>, value_enum, default_value_t = Command::SanityCheck)]
 	</span>command: Command,
@@ -204,16 +148,6 @@
 
 	<span class="kw">use </span>pallet_bags_list_remote_tests::<span class="kw-2">*</span>;
 	<span class="kw">match </span>options.runtime {
-		Runtime::Polkadot =&gt; sp_core::crypto::set_default_ss58_version(
-			&lt;polkadot_runtime::Runtime <span class="kw">as </span>frame_system::Config&gt;::SS58Prefix::get()
-				.try_into()
-				.unwrap(),
-		),
-		Runtime::Kusama =&gt; sp_core::crypto::set_default_ss58_version(
-			&lt;kusama_runtime::Runtime <span class="kw">as </span>frame_system::Config&gt;::SS58Prefix::get()
-				.try_into()
-				.unwrap(),
-		),
 		Runtime::Westend =&gt; sp_core::crypto::set_default_ss58_version(
 			&lt;westend_runtime::Runtime <span class="kw">as </span>frame_system::Config&gt;::SS58Prefix::get()
 				.try_into()
@@ -222,27 +156,6 @@
 	};
 
 	<span class="kw">match </span>(options.runtime, options.command) {
-		(Runtime::Kusama, Command::CheckMigration) =&gt; {
-			<span class="kw">use </span>kusama_runtime::{Block, Runtime};
-			<span class="kw">use </span>kusama_runtime_constants::currency::UNITS;
-			migration::execute::&lt;Runtime, Block&gt;(UNITS <span class="kw">as </span>u64, <span class="string">&quot;KSM&quot;</span>, options.uri.clone()).<span class="kw">await</span>;
-		},
-		(Runtime::Kusama, Command::SanityCheck) =&gt; {
-			<span class="kw">use </span>kusama_runtime::{Block, Runtime};
-			<span class="kw">use </span>kusama_runtime_constants::currency::UNITS;
-			try_state::execute::&lt;Runtime, Block&gt;(UNITS <span class="kw">as </span>u64, <span class="string">&quot;KSM&quot;</span>, options.uri.clone()).<span class="kw">await</span>;
-		},
-		(Runtime::Kusama, Command::Snapshot) =&gt; {
-			<span class="kw">use </span>kusama_runtime::{Block, Runtime};
-			<span class="kw">use </span>kusama_runtime_constants::currency::UNITS;
-			snapshot::execute::&lt;Runtime, Block&gt;(
-				options.snapshot_limit,
-				UNITS.try_into().unwrap(),
-				options.uri.clone(),
-			)
-			.<span class="kw">await</span>;
-		},
-
 		(Runtime::Westend, Command::CheckMigration) =&gt; {
 			<span class="kw">use </span>westend_runtime::{Block, Runtime};
 			<span class="kw">use </span>westend_runtime_constants::currency::UNITS;
@@ -256,27 +169,6 @@
 		(Runtime::Westend, Command::Snapshot) =&gt; {
 			<span class="kw">use </span>westend_runtime::{Block, Runtime};
 			<span class="kw">use </span>westend_runtime_constants::currency::UNITS;
-			snapshot::execute::&lt;Runtime, Block&gt;(
-				options.snapshot_limit,
-				UNITS.try_into().unwrap(),
-				options.uri.clone(),
-			)
-			.<span class="kw">await</span>;
-		},
-
-		(Runtime::Polkadot, Command::CheckMigration) =&gt; {
-			<span class="kw">use </span>polkadot_runtime::{Block, Runtime};
-			<span class="kw">use </span>polkadot_runtime_constants::currency::UNITS;
-			migration::execute::&lt;Runtime, Block&gt;(UNITS <span class="kw">as </span>u64, <span class="string">&quot;DOT&quot;</span>, options.uri.clone()).<span class="kw">await</span>;
-		},
-		(Runtime::Polkadot, Command::SanityCheck) =&gt; {
-			<span class="kw">use </span>polkadot_runtime::{Block, Runtime};
-			<span class="kw">use </span>polkadot_runtime_constants::currency::UNITS;
-			try_state::execute::&lt;Runtime, Block&gt;(UNITS <span class="kw">as </span>u64, <span class="string">&quot;DOT&quot;</span>, options.uri.clone()).<span class="kw">await</span>;
-		},
-		(Runtime::Polkadot, Command::Snapshot) =&gt; {
-			<span class="kw">use </span>polkadot_runtime::{Block, Runtime};
-			<span class="kw">use </span>polkadot_runtime_constants::currency::UNITS;
 			snapshot::execute::&lt;Runtime, Block&gt;(
 				options.snapshot_limit,
 				UNITS.try_into().unwrap(),

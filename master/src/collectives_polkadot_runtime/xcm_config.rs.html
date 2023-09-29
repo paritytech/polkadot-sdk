@@ -327,6 +327,7 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -355,7 +356,6 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
-<span class="kw">use </span>polkadot_runtime_constants::xcm::body::FELLOWSHIP_ADMIN_INDEX;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -367,6 +367,8 @@
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+
+<span class="kw">const </span>FELLOWSHIP_ADMIN_INDEX: u32 = <span class="number">1</span>;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>DotLocation: MultiLocation = MultiLocation::parent();

@@ -776,7 +776,7 @@
 		<span class="kw">let </span>parent = <span class="kw">match </span>parent {
 			<span class="prelude-val">Some</span>(parent) =&gt; parent,
 			<span class="comment">// Nothing to compare against, always report.
-			</span><span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt })),
+			</span><span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() })),
 		};
 
 		<span class="kw">let </span>parent_rt = <span class="kw">match </span><span class="self">self</span>.client.runtime_version_at(parent) {
@@ -786,7 +786,7 @@
 
 		<span class="comment">// Report the runtime version change.
 		</span><span class="kw">if </span>block_rt != parent_rt {
-			<span class="prelude-val">Some</span>(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt }))
+			<span class="prelude-val">Some</span>(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() }))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
 		</span>}

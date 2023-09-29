@@ -752,6 +752,44 @@
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -775,6 +813,7 @@
 </span><span class="kw">use </span>serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 <span class="kw">use </span>sp_api::ApiError;
 <span class="kw">use </span>sp_version::RuntimeVersion;
+<span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="doccomment">/// The operation could not be processed due to an error.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -789,11 +828,47 @@
 /// This event is generated for:
 ///   - the first announced block by the follow subscription
 ///   - blocks that suffered a change in runtime compared with their parents
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>RuntimeVersionEvent {
 	<span class="doccomment">/// The runtime version.
-	</span><span class="kw">pub </span>spec: RuntimeVersion,
+	</span><span class="kw">pub </span>spec: ChainHeadRuntimeVersion,
+}
+
+<span class="doccomment">/// Simplified type clone of `sp_version::RuntimeVersion`. Used instead of
+/// `sp_version::RuntimeVersion` to conform to RPC spec V2.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+</span><span class="kw">pub struct </span>ChainHeadRuntimeVersion {
+	<span class="doccomment">/// Identifies the different Substrate runtimes.
+	</span><span class="kw">pub </span>spec_name: String,
+	<span class="doccomment">/// Name of the implementation of the spec.
+	</span><span class="kw">pub </span>impl_name: String,
+	<span class="doccomment">/// Version of the runtime specification.
+	</span><span class="kw">pub </span>spec_version: u32,
+	<span class="doccomment">/// Version of the implementation of the specification.
+	</span><span class="kw">pub </span>impl_version: u32,
+	<span class="doccomment">/// Map of all supported API &quot;features&quot; and their versions.
+	</span><span class="kw">pub </span>apis: BTreeMap&lt;String, u32&gt;,
+	<span class="doccomment">/// Transaction version.
+	</span><span class="kw">pub </span>transaction_version: u32,
+}
+
+<span class="kw">impl </span>From&lt;RuntimeVersion&gt; <span class="kw">for </span>ChainHeadRuntimeVersion {
+	<span class="kw">fn </span>from(val: RuntimeVersion) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			spec_name: val.spec_name.into(),
+			impl_name: val.impl_name.into(),
+			spec_version: val.spec_version,
+			impl_version: val.impl_version,
+			apis: val
+				.apis
+				.into_iter()
+				.map(|(api, version)| (sp_core::bytes::to_hex(api, <span class="bool-val">false</span>), <span class="kw-2">*</span>version))
+				.collect(),
+			transaction_version: val.transaction_version,
+		}
+	}
 }
 
 <span class="doccomment">/// The runtime event generated if the `follow` subscription
@@ -1134,7 +1209,7 @@
 			..Default::default()
 		};
 
-		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		<span class="kw">let </span><span class="kw-2">mut </span>initialized = Initialized {
 			finalized_block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
 			finalized_block_runtime: <span class="prelude-val">Some</span>(runtime_event),
@@ -1145,8 +1220,8 @@
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp = <span class="macro">concat!</span>(
 			<span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHash&quot;:&quot;0x1&quot;,&quot;#</span>,
-			<span class="string">r#&quot;&quot;finalizedBlockRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;authoringVersion&quot;:0,&quot;#</span>,
-			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:[],&quot;transactionVersion&quot;:0,&quot;stateVersion&quot;:0}}}&quot;#</span>,
+			<span class="string">r#&quot;&quot;finalizedBlockRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;#</span>,
+			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:{},&quot;transactionVersion&quot;:0}}}&quot;#</span>,
 		);
 		<span class="macro">assert_eq!</span>(ser, exp);
 
@@ -1183,10 +1258,11 @@
 			spec_name: <span class="string">&quot;ABC&quot;</span>.into(),
 			impl_name: <span class="string">&quot;Impl&quot;</span>.into(),
 			spec_version: <span class="number">1</span>,
+			apis: <span class="macro">vec!</span>[([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="number">2</span>), ([<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="number">3</span>)].into(),
 			..Default::default()
 		};
 
-		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		<span class="kw">let </span><span class="kw-2">mut </span>new_block = NewBlock {
 			block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
 			parent_block_hash: <span class="string">&quot;0x2&quot;</span>.into(),
@@ -1199,8 +1275,8 @@
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp = <span class="macro">concat!</span>(
 			<span class="string">r#&quot;{&quot;event&quot;:&quot;newBlock&quot;,&quot;blockHash&quot;:&quot;0x1&quot;,&quot;parentBlockHash&quot;:&quot;0x2&quot;,&quot;#</span>,
-			<span class="string">r#&quot;&quot;newRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;authoringVersion&quot;:0,&quot;#</span>,
-			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:[],&quot;transactionVersion&quot;:0,&quot;stateVersion&quot;:0}}}&quot;#</span>,
+			<span class="string">r#&quot;&quot;newRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;#</span>,
+			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:{&quot;0x0000000000000000&quot;:2,&quot;0x0100000000000000&quot;:3},&quot;transactionVersion&quot;:0}}}&quot;#</span>,
 		);
 		<span class="macro">assert_eq!</span>(ser, exp);
 

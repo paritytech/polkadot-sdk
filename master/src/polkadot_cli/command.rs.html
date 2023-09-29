@@ -510,33 +510,6 @@
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -704,26 +677,6 @@
 	.into();
 
 	sp_core::crypto::set_default_ss58_version(ss58_version);
-}
-
-<span class="doccomment">/// Runs performance checks.
-/// Should only be used in release build since the check would take too much time otherwise.
-</span><span class="kw">fn </span>host_perf_check() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;hostperfcheck&quot;</span>))]
-	</span>{
-		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::FeatureNotEnabled { feature: <span class="string">&quot;hostperfcheck&quot; </span>}.into())
-	}
-
-	<span class="attr">#[cfg(all(not(build_type = <span class="string">&quot;release&quot;</span>), feature = <span class="string">&quot;hostperfcheck&quot;</span>))]
-	</span>{
-		<span class="kw">return </span><span class="prelude-val">Err</span>(PerfCheckError::WrongBuildType.into())
-	}
-
-	<span class="attr">#[cfg(all(feature = <span class="string">&quot;hostperfcheck&quot;</span>, build_type = <span class="string">&quot;release&quot;</span>))]
-	</span>{
-		<span class="kw">crate</span>::host_perf_check::host_perf_check()<span class="question-mark">?</span>;
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-	}
 }
 
 <span class="doccomment">/// Launch a node, accepting arguments just like a regular node,
@@ -1047,13 +1000,6 @@
 				</span><span class="attr">#[allow(unreachable_patterns)]
 				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Error::CommandNotImplemented),
 			}
-		},
-		<span class="prelude-val">Some</span>(Subcommand::HostPerfCheck) =&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>builder = sc_cli::LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
-			builder.with_colors(<span class="bool-val">true</span>);
-			builder.init()<span class="question-mark">?</span>;
-
-			host_perf_check()
 		},
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]

@@ -1,9 +1,6 @@
 (function() {var implementors = {
-"asset_hub_kusama_integration_tests":[],
-"asset_hub_polkadot_integration_tests":[],
 "asset_hub_westend_integration_tests":[],
 "bridge_hub_rococo_integration_tests":[],
-"collectives_polkadot_integration_tests":[],
 "cumulus_pallet_xcmp_queue":[["impl&lt;T: <a class=\"trait\" href=\"cumulus_pallet_xcmp_queue/pallet/trait.Config.html\" title=\"trait cumulus_pallet_xcmp_queue::pallet::Config\">Config</a>&gt; <a class=\"trait\" href=\"staging_xcm/v3/traits/trait.SendXcm.html\" title=\"trait staging_xcm::v3::traits::SendXcm\">SendXcm</a> for <a class=\"struct\" href=\"cumulus_pallet_xcmp_queue/pallet/struct.Pallet.html\" title=\"struct cumulus_pallet_xcmp_queue::pallet::Pallet\">Pallet</a>&lt;T&gt;"]],
 "cumulus_primitives_core":[],
 "cumulus_primitives_utility":[["impl&lt;T, W, P&gt; <a class=\"trait\" href=\"staging_xcm/v3/traits/trait.SendXcm.html\" title=\"trait staging_xcm::v3::traits::SendXcm\">SendXcm</a> for <a class=\"struct\" href=\"cumulus_primitives_utility/struct.ParentAsUmp.html\" title=\"struct cumulus_primitives_utility::ParentAsUmp\">ParentAsUmp</a>&lt;T, W, P&gt;<span class=\"where fmt-newline\">where\n    T: <a class=\"trait\" href=\"cumulus_primitives_core/trait.UpwardMessageSender.html\" title=\"trait cumulus_primitives_core::UpwardMessageSender\">UpwardMessageSender</a>,\n    W: <a class=\"trait\" href=\"staging_xcm/trait.WrapVersion.html\" title=\"trait staging_xcm::WrapVersion\">WrapVersion</a>,\n    P: <a class=\"trait\" href=\"cumulus_primitives_utility/trait.PriceForParentDelivery.html\" title=\"trait cumulus_primitives_utility::PriceForParentDelivery\">PriceForParentDelivery</a>,</span>"]],

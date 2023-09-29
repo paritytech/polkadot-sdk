@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CouncilPalletName","DemocracyPalletName","ParachainsToUnlock","PhragmenElectionPalletId","PhragmenElectionPalletName","TechnicalCommitteePalletName","TechnicalMembershipPalletName","TipsPalletName","UnlockConfig"],"type":["Unreleased"]};

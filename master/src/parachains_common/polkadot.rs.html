@@ -190,19 +190,19 @@
 <span class="doccomment">/// Constants relating to DOT.
 </span><span class="kw">pub mod </span>currency {
 	<span class="kw">use </span>polkadot_core_primitives::Balance;
-	<span class="kw">use </span>polkadot_runtime_constants <span class="kw">as </span>constants;
 
 	<span class="doccomment">/// The existential deposit. Set to 1/10 of its parent Relay Chain.
-	</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / <span class="number">10</span>;
+	</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = <span class="number">100 </span>* CENTS / <span class="number">10</span>;
 
-	<span class="kw">pub const </span>UNITS: Balance = constants::currency::UNITS;
-	<span class="kw">pub const </span>DOLLARS: Balance = constants::currency::DOLLARS;
-	<span class="kw">pub const </span>CENTS: Balance = constants::currency::CENTS;
-	<span class="kw">pub const </span>MILLICENTS: Balance = constants::currency::MILLICENTS;
+	<span class="kw">pub const </span>UNITS: Balance = <span class="number">10_000_000_000</span>;
+	<span class="kw">pub const </span>DOLLARS: Balance = UNITS; <span class="comment">// 10_000_000_000
+	</span><span class="kw">pub const </span>GRAND: Balance = DOLLARS * <span class="number">1_000</span>; <span class="comment">// 10_000_000_000_000
+	</span><span class="kw">pub const </span>CENTS: Balance = DOLLARS / <span class="number">100</span>; <span class="comment">// 100_000_000
+	</span><span class="kw">pub const </span>MILLICENTS: Balance = CENTS / <span class="number">1_000</span>; <span class="comment">// 100_000
 
-	<span class="kw">pub const fn </span>deposit(items: u32, bytes: u32) -&gt; Balance {
+	</span><span class="kw">pub const fn </span>deposit(items: u32, bytes: u32) -&gt; Balance {
 		<span class="comment">// 1/100 of Polkadot
-		</span>constants::currency::deposit(items, bytes) / <span class="number">100
+		</span>(items <span class="kw">as </span>Balance * <span class="number">20 </span>* DOLLARS + (bytes <span class="kw">as </span>Balance) * <span class="number">100 </span>* MILLICENTS) / <span class="number">100
 	</span>}
 }
 

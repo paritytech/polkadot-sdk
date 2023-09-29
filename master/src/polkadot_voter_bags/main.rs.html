@@ -68,12 +68,6 @@
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -98,8 +92,6 @@
 
 </span><span class="kw">use </span>clap::{Parser, ValueEnum};
 <span class="kw">use </span>generate_bags::generate_thresholds;
-<span class="kw">use </span>kusama_runtime::Runtime <span class="kw">as </span>KusamaRuntime;
-<span class="kw">use </span>polkadot_runtime::Runtime <span class="kw">as </span>PolkadotRuntime;
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>westend_runtime::Runtime <span class="kw">as </span>WestendRuntime;
 
@@ -107,8 +99,6 @@
 #[value(rename_all = <span class="string">&quot;PascalCase&quot;</span>)]
 </span><span class="kw">enum </span>Runtime {
 	Westend,
-	Kusama,
-	Polkadot,
 }
 
 <span class="kw">impl </span>Runtime {
@@ -117,8 +107,6 @@
 	) -&gt; Box&lt;<span class="kw">dyn </span>FnOnce(usize, <span class="kw-2">&amp;</span>Path, u128, u128) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			Runtime::Westend =&gt; Box::new(generate_thresholds::&lt;WestendRuntime&gt;),
-			Runtime::Kusama =&gt; Box::new(generate_thresholds::&lt;KusamaRuntime&gt;),
-			Runtime::Polkadot =&gt; Box::new(generate_thresholds::&lt;PolkadotRuntime&gt;),
 		}
 	}
 }
@@ -130,7 +118,7 @@
 	</span>n_bags: usize,
 
 	<span class="doccomment">/// Which runtime to generate.
-	</span><span class="attr">#[arg(long, ignore_case = <span class="bool-val">true</span>, value_enum, default_value_t = Runtime::Polkadot)]
+	</span><span class="attr">#[arg(long, ignore_case = <span class="bool-val">true</span>, value_enum, default_value_t = Runtime::Westend)]
 	</span>runtime: Runtime,
 
 	<span class="doccomment">/// Where to write the output.
