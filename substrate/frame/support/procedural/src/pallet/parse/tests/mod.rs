@@ -104,7 +104,7 @@ impl<P: AsRef<std::path::Path>, F: FnMut()> ManifestContext<P, F> {
 
 impl<P: AsRef<std::path::Path>, F: FnMut()> Drop for ManifestContext<P, F> {
 	fn drop(&mut self) {
-		let Some(orig) = &self.orig else { unreachable!() };
+		let Some(orig) = &self.orig else { return };
 		// ensures that `CARGO_MANIFEST_DIR` is set back to its original value even if closure()
 		// panicked or had a failed assertion.
 		std::env::set_var("CARGO_MANIFEST_DIR", orig);
