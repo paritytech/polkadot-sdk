@@ -27,7 +27,7 @@
 				(i32.const 7)				;; Pointer where the message is stored
 				(i32.sub		            ;; Size of the message
 					(i32.load (i32.const 0))
-					(i32.const 3)
+					(i32.const 3)           ;; Size of the XCM dest
 				)
 			)
 		)

@@ -1053,7 +1053,6 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 // for every function.
 #[define_env(doc)]
 pub mod env {
-	use crate::xcm::Xcm;
 
 	/// Set the value at the given key in the contract storage.
 	///
