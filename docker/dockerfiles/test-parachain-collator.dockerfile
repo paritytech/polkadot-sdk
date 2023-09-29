@@ -1,4 +1,4 @@
-# This file is sourced from https://github.com/paritytech/polkadot-sdk/blob/master/docker/dockerfiles/test-parachain-collator.dockerfile
+# This file is sourced from https://github.com/paritytech/polkadot-sdk/blob/master/docker/dockerfiles/test-parachain-collator.Dockerfile
 FROM docker.io/paritytech/ci-linux:production as builder
 
 WORKDIR /cumulus

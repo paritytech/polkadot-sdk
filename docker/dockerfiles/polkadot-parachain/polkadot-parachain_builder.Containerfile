@@ -14,7 +14,7 @@ LABEL io.parity.image.type="builder" \
     io.parity.image.authors="devops-team@parity.io" \
     io.parity.image.vendor="Parity Technologies" \
     io.parity.image.description="Multistage Docker image for polkadot-parachain" \
-    io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Containerfile" \
+    io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Dockerfile" \
     io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/tree/master/cumulus"
 
 COPY --from=builder /cumulus/target/release/polkadot-parachain /usr/local/bin
