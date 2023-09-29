@@ -42,13 +42,13 @@ hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For the puppet worker, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
-staging-kusama-runtime = { path = "../../../runtime/kusama" }
+rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }
 halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
 
 [[bench]]
-name = "host_prepare_kusama_runtime"
+name = "host_prepare_rococo_runtime"
 harness = false
 
 [features]

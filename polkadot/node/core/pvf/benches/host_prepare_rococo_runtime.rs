@@ -77,7 +77,7 @@ impl TestHost {
 	}
 }
 
-fn host_prepare_kusama_runtime(c: &mut Criterion) {
+fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	polkadot_node_core_pvf_common::sp_tracing::try_init_simple();
 
 	let rt = tokio::runtime::Runtime::new().unwrap();
@@ -87,7 +87,7 @@ fn host_prepare_kusama_runtime(c: &mut Criterion) {
 	});
 	let cache_dir = host.cache_dir.as_path();
 
-	let blob = staging_kusama_runtime::WASM_BINARY.unwrap();
+	let blob = rococo_runtime::WASM_BINARY.unwrap();
 	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
 		Ok(code) => PvfPrepData::from_code(
 			code.into_owned(),
@@ -100,11 +100,11 @@ fn host_prepare_kusama_runtime(c: &mut Criterion) {
 		},
 	};
 
-	let mut group = c.benchmark_group("kusama");
+	let mut group = c.benchmark_group("rococo");
 	group.sampling_mode(SamplingMode::Flat);
 	group.sample_size(20);
 	group.measurement_time(Duration::from_secs(240));
-	group.bench_function("host: prepare Kusama runtime", |b| {
+	group.bench_function("host: prepare Rococo runtime", |b| {
 		b.to_async(&rt).iter(|| async {
 			// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
 			// benchmark accuracy
@@ -125,5 +125,5 @@ fn host_prepare_kusama_runtime(c: &mut Criterion) {
 	group.finish();
 }
 
-criterion_group!(preparation, host_prepare_kusama_runtime);
+criterion_group!(preparation, host_prepare_rococo_runtime);
 criterion_main!(preparation);
