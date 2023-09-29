@@ -41,7 +41,7 @@ pub mod versioned_migrations {
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-mod v7 {
+pub mod v7 {
 	use super::*;
 
 	/// [`VersionUncheckedMigrateV6ToV7`] wrapped in a
