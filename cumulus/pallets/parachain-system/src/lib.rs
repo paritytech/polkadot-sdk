@@ -245,10 +245,10 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			assert!(
-				<ValidationData<T>>::exists(),
-				"set_validation_data inherent needs to be present in every block!"
-			);
+			let vfp = <ValidationData<T>>::get()
+				.expect("set_validation_data inherent needs to be present in every block!");
+
+			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
 			let host_config = match Self::host_configuration() {
 				Some(ok) => ok,
@@ -381,7 +381,7 @@ pub mod pallet {
 
 				let watermark = HrmpWatermark::<T>::get();
 				let watermark_update =
-					HrmpWatermarkUpdate::new(watermark, LastRelayChainBlockNumber::<T>::get());
+					HrmpWatermarkUpdate::new(watermark, vfp.relay_parent_number);
 
 				aggregated_segment
 					.append(&ancestor, watermark_update, &total_bandwidth_out)
@@ -460,6 +460,9 @@ pub mod pallet {
 				4 + hrmp_max_message_num_per_candidate as u64,
 			);
 
+			// Weight for updating the last relay chain block number in `on_finalize`.
+			weight += T::DbWeight::get().reads_writes(1, 1);
+
 			// Weight for adjusting the unincluded segment in `on_finalize`.
 			weight += T::DbWeight::get().reads_writes(6, 3);
 
@@ -515,7 +518,6 @@ pub mod pallet {
 				vfp.relay_parent_number,
 				LastRelayChainBlockNumber::<T>::get(),
 			);
-			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
 			let relay_state_proof = RelayChainStateProof::new(
 				T::SelfParaId::get(),
@@ -756,7 +758,10 @@ pub mod pallet {
 	pub(super) type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The relay chain block number associated with the last parachain block.
+	///
+	/// This is updated in `on_finalize`.
 	#[pallet::storage]
+	#[pallet::getter(fn last_relay_block_number)]
 	pub(super) type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
