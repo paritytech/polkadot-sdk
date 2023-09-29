@@ -26,7 +26,6 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_constants::xcm::body::FELLOWSHIP_ADMIN_INDEX;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -38,6 +37,8 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+
+const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();
