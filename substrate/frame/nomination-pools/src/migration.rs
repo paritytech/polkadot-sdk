@@ -793,21 +793,21 @@ pub mod v1 {
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-pub mod v6 {
+mod v7 {
 	use super::*;
 
-	/// [`VersionUncheckedMigrateV5ToV6`] wrapped in a
+	/// [`VersionUncheckedMigrateV6ToV7`] wrapped in a
 	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
-	/// performed when on-chain version is 5.
+	/// performed when on-chain version is 6.
 	pub type VersionCheckedMigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
-		5,
 		6,
+		7,
 		VersionUncheckedMigrateV5ToV6<T>,
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
 
-	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV5ToV6<T> {
 		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
 			BondedPools::<T>::iter()
@@ -868,8 +868,8 @@ pub mod v6 {
 			);
 
 			ensure!(
-				Pallet::<T>::on_chain_storage_version() >= 6,
-				"nomination-pools::migration::v6: wrong storage version"
+				Pallet::<T>::on_chain_storage_version() >= 7,
+				"nomination-pools::migration::v7: wrong storage version"
 			);
 
 			Ok(())
