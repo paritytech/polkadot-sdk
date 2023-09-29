@@ -48,10 +48,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Runs performance checks such as PVF compilation in order to measure machine
-	/// capabilities of running a validator.
-	HostPerfCheck,
-
 	/// Try-runtime has migrated to a standalone CLI
 	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
 	/// deprecation notice. It will be removed entirely some time after Janurary 2024.

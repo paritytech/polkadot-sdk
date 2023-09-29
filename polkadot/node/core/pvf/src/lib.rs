@@ -111,6 +111,7 @@ pub use polkadot_node_core_pvf_common::{
 	error::{InternalValidationError, PrepareError},
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 
 use std::{path::Path, process::Command};
