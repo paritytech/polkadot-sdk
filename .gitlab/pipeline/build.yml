@@ -19,12 +19,18 @@ build-linux-stable:
     RUN_UI_TESTS: 1
   script:
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time ROCOCO_EPOCH_DURATION=10  ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
+    - time ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
+    - time ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
+    - pwd
+    - ls -alR runtimes
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
     - mv ./target/testnet/polkadot ./artifacts/.
     - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
     - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+    - mv ./runtimes/ ./artifacts/.
     - pushd artifacts
     - sha256sum polkadot | tee polkadot.sha256
     - shasum -c polkadot.sha256
@@ -77,26 +83,6 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
-build-staking-miner:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    # - .collect-artifacts
-  # DAG
-  needs:
-    - job: build-malus
-      artifacts: false
-  script:
-    - time cargo build -q --locked --release --package staging-staking-miner
-    # # pack artifacts
-    # - mkdir -p ./artifacts
-    # - mv ./target/release/staking-miner ./artifacts/.
-    # - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
-    # - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
-    # - echo "staking-miner = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-    # - cp -r ./scripts/* ./artifacts
-
 build-rustdoc:
   stage: build
   extends:
@@ -131,6 +117,9 @@ build-rustdoc:
             sed -i "s|</head>|$script_content</head>|" "$file"
         }
         export -f process_file
+        # xargs runs process_file in seperate shells without access to outer variables.
+        # to make script_content available inside process_file, export it as an env var here.
+        export script_content
 
         # Modify .html files in parallel using xargs, otherwise it can take a long time.
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
@@ -144,7 +133,7 @@ build-implementers-guide:
     - .kubernetes-env
     - .common-refs
     - .run-immediately
-    # - .collect-artifacts
+    - .collect-artifacts
   # git depth is set on purpose: https://github.com/paritytech/polkadot/issues/6284
   variables:
     GIT_STRATEGY: clone
@@ -163,7 +152,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks --bin polkadot --workspace
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -290,7 +279,7 @@ build-short-benchmark-cumulus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks -p polkadot-parachain-bin --bin polkadot-parachain
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
     - mkdir -p artifacts
     - target/release/polkadot-parachain --version
     - cp ./target/release/polkadot-parachain ./artifacts/
@@ -358,7 +347,7 @@ build-subkey-linux:
   extends: .build-subkey
   # DAG
   needs:
-    - job: build-staking-miner
+    - job: build-malus
       artifacts: false
 # tbd
 # build-subkey-macos:

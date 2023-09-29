@@ -903,8 +903,9 @@ pub fn run_relay_chain_validator_node(
 		config.rpc_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
 	}
 
-	polkadot_test_service::run_validator_node(
-		config,
-		Some(cumulus_test_relay_validation_worker_provider::VALIDATION_WORKER.into()),
-	)
+	let mut workers_path = std::env::current_exe().unwrap();
+	workers_path.pop();
+	workers_path.pop();
+
+	polkadot_test_service::run_validator_node(config, Some(workers_path))
 }

@@ -22,12 +22,12 @@ pub mod message;
 pub mod metrics;
 pub mod warp;
 
-use crate::{role::Roles, sync::message::BlockAnnounce, types::ReputationChange};
+use crate::{role::Roles, types::ReputationChange};
 use futures::Stream;
 
 use libp2p_identity::PeerId;
 
-use message::{BlockData, BlockRequest, BlockResponse};
+use message::{BlockAnnounce, BlockRequest, BlockResponse};
 use sc_consensus::{import_queue::RuntimeOrigin, IncomingBlock};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 use warp::WarpSyncProgress;
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc, task::Poll};
+use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -204,6 +204,23 @@ pub enum PeerRequest<B: BlockT> {
 	WarpProof,
 }
 
+#[derive(Debug)]
+pub enum PeerRequestType {
+	Block,
+	State,
+	WarpProof,
+}
+
+impl<B: BlockT> PeerRequest<B> {
+	pub fn get_type(&self) -> PeerRequestType {
+		match self {
+			PeerRequest::Block(_) => PeerRequestType::Block,
+			PeerRequest::State => PeerRequestType::State,
+			PeerRequest::WarpProof => PeerRequestType::WarpProof,
+		}
+	}
+}
+
 /// Wrapper for implementation-specific state request.
 ///
 /// NOTE: Implementation must be able to encode and decode it for network purposes.
@@ -223,28 +240,6 @@ pub struct OpaqueStateResponse(pub Box<dyn Any + Send>);
 impl fmt::Debug for OpaqueStateResponse {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OpaqueStateResponse").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockResponse").finish()
 	}
 }
 
@@ -310,9 +305,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 
 	/// Returns the current number of peers stored within this state machine.
 	fn num_peers(&self) -> usize;
-
-	/// Returns the number of peers we're connected to and that are being queried.
-	fn num_active_peers(&self) -> usize;
 
 	/// Handle a new connected peer.
 	///
@@ -391,17 +383,4 @@ pub trait ChainSync<Block: BlockT>: Send {
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
-
-	/// Access blocks from implementation-specific block response.
-	fn block_response_into_blocks(
-		&self,
-		request: &BlockRequest<Block>,
-		response: OpaqueBlockResponse,
-	) -> Result<Vec<BlockData<Block>>, String>;
-
-	/// Advance the state of `ChainSync`
-	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()>;
-
-	/// Send block request to peer
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<Block>);
 }
