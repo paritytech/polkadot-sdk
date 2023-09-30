@@ -81,11 +81,8 @@ pub use weights::WeightInfo;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-//TODO inline
-type MaxLocksOf<T> = <T as Config>::MaxFreezes;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-pub const VESTING_ID: [u8; 8] = *b"vesting ";
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 // A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.

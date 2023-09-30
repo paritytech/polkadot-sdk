@@ -907,7 +907,6 @@ parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
-	pub const VestingId: [u8; 8] = pallet_vesting::VESTING_ID;
 }
 
 impl pallet_vesting::Config for Runtime {

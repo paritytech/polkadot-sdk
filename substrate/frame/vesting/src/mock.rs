@@ -87,7 +87,6 @@ parameter_types! {
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 	pub static ExistentialDeposit: u64 = 1;
-	pub const VestingId: [u8;8] = *b"vesting ";
 }
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
