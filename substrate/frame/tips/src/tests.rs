@@ -172,6 +172,7 @@ impl Config for Test {
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = ConstU64<1>;
 	type DataDepositPerByte = ConstU64<1>;
+	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -183,6 +184,7 @@ impl Config<Instance1> for Test {
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = ConstU64<1>;
 	type DataDepositPerByte = ConstU64<1>;
+	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -393,6 +395,23 @@ fn tip_median_calculation_works() {
 		System::set_block_number(2);
 		assert_ok!(Tips::close_tip(RuntimeOrigin::signed(0), h.into()));
 		assert_eq!(Balances::free_balance(3), 10);
+	});
+}
+
+#[test]
+fn tip_large_should_fail() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 0));
+		let h = tip_hash();
+		assert_noop!(
+			Tips::tip(
+				RuntimeOrigin::signed(12),
+				h,
+				<<Test as Config>::MaxTipAmount as Get<u64>>::get() + 1
+			),
+			Error::<Test>::MaxTipAmountExceeded
+		);
 	});
 }
 
