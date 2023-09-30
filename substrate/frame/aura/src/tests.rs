@@ -19,16 +19,13 @@
 
 #![cfg(test)]
 
-use crate::{
-	mock::{
-		generate_equivocation_proof, new_test_ext_and_execute, progress_to_block, Aura,
-		MockDisabledValidators, RuntimeOrigin, System, Test,
-	},
-	CurrentSlot,
+use crate::mock::{
+	make_equivocation_proof, new_test_ext_and_execute, progress_to_block, Aura,
+	MockDisabledValidators, Offences, RuntimeOrigin, System,
 };
 use codec::Encode;
 use frame_support::traits::OnInitialize;
-use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
+use sp_consensus_aura::{Slot, AURA_ENGINE_ID, KEY_TYPE};
 use sp_core::crypto::Pair;
 use sp_runtime::{Digest, DigestItem};
 
@@ -125,24 +122,13 @@ fn pallet_always_rejects_decreasing_slot() {
 
 #[test]
 fn report_equivocation_works() {
+	use crate::equivocation::EquivocationOffence;
 	env_logger::init();
+
 	new_test_ext_and_execute(4, |pairs| {
-		progress_to_block(1);
-		// start_era(1);
+		progress_to_block(3);
 
 		let authorities = Aura::authorities();
-		// let validators = Session::validators();
-
-		// make sure that all authorities have the same balance
-		// for validator in &validators {
-		// 	assert_eq!(Balances::total_balance(validator), 10_000_000);
-		// 	assert_eq!(Staking::slashable_balance_of(validator), 10_000);
-
-		// 	assert_eq!(
-		// 		Staking::eras_stakers(1, validator),
-		// 		pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
-		// 	);
-		// }
 
 		// We will use the validator at index 1 as the offending authority.
 		let offending_validator_index = 1;
@@ -152,50 +138,27 @@ fn report_equivocation_works() {
 			.find(|p| p.public() == authorities[offending_validator_index])
 			.unwrap();
 
-		// Generate an equivocation proof. It creates two headers at the given
-		// slot with different block hashes and signed by the given key.
-		let equivocation_proof =
-			generate_equivocation_proof(&offending_authority_pair, CurrentSlot::<Test>::get());
+		// Generate an equivocation proof.
+		let (equivocation_proof, key_owner_proof) =
+			make_equivocation_proof(&offending_authority_pair);
 
-		// Create the key ownership proof
-		let key = (sp_consensus_aura::KEY_TYPE, &offending_authority_pair.public());
-		// Dummy key owner proof
-		// let key_owner_proof = Historical::prove(key).unwrap();
-		let key_owner_proof =
-			sp_session::MembershipProof { session: 0, trie_nodes: vec![], validator_count: 3 };
-
-		// report the equivocation
-		Aura::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
-			Box::new(equivocation_proof),
-			key_owner_proof,
+		// Report the equivocation
+		Aura::report_equivocation(
+			RuntimeOrigin::signed(1),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
 		)
 		.unwrap();
 
-		// // start a new era so that the results of the offence report
-		// // are applied at era end
-		// start_era(2);
-
-		// // check that the balance of offending validator is slashed 100%.
-		// assert_eq!(Balances::total_balance(&offending_validator_id), 10_000_000 - 10_000);
-		// assert_eq!(Staking::slashable_balance_of(&offending_validator_id), 0);
-		// assert_eq!(
-		// 	Staking::eras_stakers(2, offending_validator_id),
-		// 	pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
-		// );
-
-		// // check that the balances of all other validators are left intact.
-		// for validator in &validators {
-		// 	if *validator == offending_validator_id {
-		// 		continue
-		// 	}
-
-		// 	assert_eq!(Balances::total_balance(validator), 10_000_000);
-		// 	assert_eq!(Staking::slashable_balance_of(validator), 10_000);
-		// 	assert_eq!(
-		// 		Staking::eras_stakers(2, validator),
-		// 		pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
-		// 	);
-		// }
+		print_type(&equivocation_proof.offender);
+		let offences = Offences::take();
+		// println!("{:?}", offences);
+		let expected_offence = EquivocationOffence {
+			slot: equivocation_proof.slot,
+			session_index: key_owner_proof.session,
+			validator_set_count: key_owner_proof.validator_count,
+			offender: (KEY_TYPE, equivocation_proof.offender),
+		};
+		assert_eq!(offences, vec![(vec![1], expected_offence)]);
 	})
 }

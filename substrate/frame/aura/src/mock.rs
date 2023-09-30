@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_aura, Config, CurrentSlot};
+use crate::{self as pallet_aura, CurrentSlot};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64, DisabledValidators, KeyOwnerProofSystem},
@@ -33,13 +33,10 @@ use sp_core::{crypto::Pair, H256, U256};
 use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Convert, Header as _, Identity, IdentityLookup, OpaqueKeys},
+	traits::{Convert, Header as _, IdentityLookup, OpaqueKeys},
 	BuildStorage,
 };
-use sp_staking::{
-	offence::{OffenceError, ReportOffence},
-	SessionIndex,
-};
+use sp_staking::offence::{OffenceError, ReportOffence};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -161,18 +158,20 @@ type IdentificationTuple = (sp_core::crypto::KeyTypeId, AuthorityId);
 
 type EquivocationOffence = crate::equivocation::EquivocationOffence<IdentificationTuple>;
 
+type MembershipProof = sp_session::MembershipProof;
+
 pub struct TestOffenceHandler;
 
-// parameter_types! {
-// 	pub static Offences: Vec<(Vec<u64>, EquivocationOffence)> = vec![];
-// }
+parameter_types! {
+	pub static Offences: Vec<(Vec<u64>, EquivocationOffence)> = vec![];
+}
 
 impl ReportOffence<u64, IdentificationTuple, EquivocationOffence> for TestOffenceHandler {
 	fn report_offence(
-		_reporters: Vec<u64>,
-		_offence: EquivocationOffence,
+		reporters: Vec<u64>,
+		offence: EquivocationOffence,
 	) -> Result<(), OffenceError> {
-		// Offences::mutate(|l| l.push((reporters, offence)));
+		Offences::mutate(|l| l.push((reporters, offence)));
 		Ok(())
 	}
 
@@ -184,7 +183,7 @@ impl ReportOffence<u64, IdentificationTuple, EquivocationOffence> for TestOffenc
 pub struct TestKeyOwnerProofSystem;
 
 impl KeyOwnerProofSystem<IdentificationTuple> for TestKeyOwnerProofSystem {
-	type Proof = sp_session::MembershipProof;
+	type Proof = MembershipProof;
 	type IdentificationTuple = IdentificationTuple;
 
 	fn prove(_key: IdentificationTuple) -> Option<Self::Proof> {
@@ -204,7 +203,7 @@ impl pallet_aura::Config for Test {
 	type DisabledValidators = MockDisabledValidators;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
-	type KeyOwnerProof = sp_session::MembershipProof;
+	type KeyOwnerProof = MembershipProof;
 	type EquivocationReportSystem = pallet_aura::equivocation::EquivocationReportSystem<
 		Self,
 		TestOffenceHandler,
@@ -260,10 +259,10 @@ pub fn go_to_block(n: u64, s: u64) {
 		System::parent_hash()
 	};
 
-	let pre_digest = make_pre_digest(s.into(), None);
+	let digest = make_digest(s.into(), None);
 
 	System::reset_events();
-	System::initialize(&n, &parent_hash, &pre_digest);
+	System::initialize(&n, &parent_hash, &digest);
 
 	Aura::on_initialize(n);
 }
@@ -277,7 +276,7 @@ pub fn progress_to_block(n: u64) {
 	}
 }
 
-fn make_pre_digest(slot: Slot, other: Option<Vec<u8>>) -> Digest {
+fn make_digest(slot: Slot, other: Option<Vec<u8>>) -> Digest {
 	let item = <DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_pre_digest(slot);
 	let mut logs = vec![item];
 	if let Some(other) = other {
@@ -286,54 +285,46 @@ fn make_pre_digest(slot: Slot, other: Option<Vec<u8>>) -> Digest {
 	Digest { logs }
 }
 
-/// Creates an equivocation proof at the current block
-pub fn generate_equivocation_proof(
+/// Creates an equivocation proof at the current block for current slot and block number
+pub fn make_equivocation_proof(
 	offender_authority_pair: &AuthorityPair,
-	slot: Slot,
-) -> EquivocationProof<Header, AuthorityId> {
+) -> (EquivocationProof<Header, AuthorityId>, MembershipProof) {
 	let current_block = System::block_number();
 	let current_slot = CurrentSlot::<Test>::get();
+	let validator_count = Aura::authorities().len() as u32;
 
 	let make_header = |additional_data| {
-		let parent_hash = System::parent_hash();
-		let pre_digest = make_pre_digest(slot, additional_data);
-		System::reset_events();
-		System::initialize(&current_block, &parent_hash, &pre_digest);
-		System::set_block_number(current_block);
-		Timestamp::set_timestamp(*current_slot * Aura::slot_duration());
-		System::finalize()
-	};
-
-	// Sign the header prehash and sign it, adding it to the block as the seal digest item
-	let seal_header = |header: &mut Header| {
-		let prehash = header.hash();
-		let seal = <DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_seal(
-			offender_authority_pair.sign(prehash.as_ref()),
+		let mut header = Header::new(
+			current_block,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			make_digest(current_slot, additional_data),
 		);
-		println!("{:?}", seal);
+
+		let seal = <DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_seal(
+			offender_authority_pair.sign(header.hash().as_ref()),
+		);
 		header.digest_mut().push(seal);
+
+		header
 	};
 
-	// Generate two different headers for the current slot.
-	let mut h1 = make_header(None);
-	let mut h2 = make_header(Some(vec![0xFF]));
-	println!("H1: {:?}", h1.hash());
-	println!("H2: {:?}", h2.hash());
+	// Generate two different headers for `slot`.
+	let first_header = make_header(None);
+	let second_header = make_header(Some(vec![0xFF]));
 
-	seal_header(&mut h1);
-	seal_header(&mut h2);
-
-	// TODO @davxy remove print
-	println!("H1: {:?}", h1.hash());
-	println!("H2: {:?}", h2.hash());
-
-	// restore previous runtime state
-	// go_to_block(current_block, *current_slot);
-
-	EquivocationProof {
-		slot,
+	let equivocation_proof = EquivocationProof {
+		slot: current_slot,
 		offender: offender_authority_pair.public(),
-		first_header: h1,
-		second_header: h2,
-	}
+		first_header,
+		second_header,
+	};
+
+	let session = current_block as u32 / Period::get();
+
+	// Dummy key owner proof
+	let membership_proof = MembershipProof { session, trie_nodes: vec![], validator_count };
+
+	(equivocation_proof, membership_proof)
 }

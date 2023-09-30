@@ -29,8 +29,8 @@
 //! in a runtime context, to validate the equivocation proofs in the extrinsic
 //! and report the offences.
 
-use frame_support::traits::{Get, KeyOwnerProofSystem};
-use frame_system::pallet_prelude::HeaderFor;
+use frame_support::traits::{EstimateNextSessionRotation, Get, KeyOwnerProofSystem};
+use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 
 use sp_consensus_aura::{EquivocationProof, Slot, KEY_TYPE};
@@ -39,7 +39,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, KeyTypeId, Perbill,
+	DispatchError, KeyTypeId, Perbill, RuntimeDebug,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{
@@ -48,11 +48,12 @@ use sp_staking::{
 };
 use sp_std::prelude::*;
 
-use crate::{Call, Config, Error, Pallet, LOG_TARGET};
+use crate::{Call, Config, Error, LOG_TARGET};
 
 /// AURA equivocation offence report.
 ///
 /// When a validator released two or more blocks at the same slot.
+#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct EquivocationOffence<Offender> {
 	/// The slot in which this incident happened.
 	pub slot: Slot,
@@ -104,18 +105,23 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 /// Requires the runtime to implement:
 /// - pallet-authorship: to get reporter identity.
 /// - pallet-session: to check the `KeyOwnerProof` validity (map block to session-id).
+///
+/// Furthermore it requires the `[pallet_session::Config::NextSessionRotation]` to be
+/// a `[pallet_session::PeriodicSessions]` type.
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
-impl<T, R, P, L>
+impl<T, R, P, L, Period, Offset>
 	OffenceReportSystem<
 		Option<T::AccountId>,
 		(EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	> for EquivocationReportSystem<T, R, P, L>
 where
 	T: Config
+		+ frame_system::Config
 		+ pallet_authorship::Config
-		+ pallet_session::Config
-		+ frame_system::offchain::SendTransactionTypes<Call<T>>,
+		+ pallet_session::Config<
+			NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>,
+		> + frame_system::offchain::SendTransactionTypes<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -124,6 +130,8 @@ where
 	P: KeyOwnerProofSystem<(KeyTypeId, T::AuthorityId), Proof = T::KeyOwnerProof>,
 	P::IdentificationTuple: Clone,
 	L: Get<u64>,
+	Period: Get<BlockNumberFor<T>>,
+	Offset: Get<BlockNumberFor<T>>,
 {
 	type Longevity = L;
 
@@ -167,41 +175,40 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), DispatchError> {
+		use sp_runtime::traits::{CheckedDiv, Header as _, Zero};
 		let (equivocation_proof, key_owner_proof) = evidence;
 		let reporter = reporter.or_else(|| <pallet_authorship::Pallet<T>>::author());
+
 		let offender = equivocation_proof.offender.clone();
 		let slot = equivocation_proof.slot;
 
-		log::debug!(target: LOG_TARGET, "HELLOOOO");
+		let block_num1 = *equivocation_proof.first_header.number();
+		let block_num2 = *equivocation_proof.second_header.number();
 
 		// Validate the equivocation proof (check votes are different and signatures are valid)
 		if !sp_consensus_aura::check_equivocation_proof(equivocation_proof) {
 			return Err(Error::<T>::InvalidEquivocationProof.into())
 		}
 
-		log::debug!(target: LOG_TARGET, "VALID EQUIVOCATION");
-
-		// @TODO davxy
-
 		let validator_set_count = key_owner_proof.validator_count();
-		log::debug!(target: LOG_TARGET, "Validator-set count: {}", validator_set_count);
+
+		// Because we are using the `PeriodicSession` type, this is the exact session length.
+		let session_len =
+			<<T as pallet_session::Config>::NextSessionRotation as EstimateNextSessionRotation<
+				BlockNumberFor<T>,
+			>>::average_session_length();
+		log::debug!(target: LOG_TARGET, "SESSION LENGTH: {}", session_len);
+
 		let session_index = key_owner_proof.session();
 		log::debug!(target: LOG_TARGET, "SESSION INDEX: {}", session_index);
 
-		// TODO @davxy
-		// How we can recover the session-index using the slot? We need GenesisSlot...
-		// Maybe the best we can do is to depend on some external thing which is able
-		// to transform slot to epoch...
-		// Or report just for current session?
+		let idx1 = block_num1.checked_div(&session_len).unwrap_or(Zero::zero());
+		let idx2 = block_num2.checked_div(&session_len).unwrap_or(Zero::zero());
 
-		// let epoch_index =
-		// 	*slot.saturating_sub(crate::GenesisSlot::<T>::get()) / T::EpochDuration::get();
-
-		// // Check that the slot number is consistent with the session index
-		// // in the key ownership proof (i.e. slot is for that epoch)
-		// if Pallet::<T>::session_index_for_epoch(epoch_index) != session_index {
-		// 	return Err(Error::<T>::InvalidKeyOwnershipProof.into())
-		// }
+		log::debug!(target: LOG_TARGET, "NUM1 {}, NUM2 {}, INDEX1: {}, INDEX2: {}", block_num1, block_num2, idx1, idx2);
+		if BlockNumberFor::<T>::from(session_index as u32) != idx1 || idx1 != idx2 {
+			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
+		}
 
 		// Check the membership proof and extract the offender's id
 		let offender = P::check_proof((KEY_TYPE, offender), key_owner_proof)

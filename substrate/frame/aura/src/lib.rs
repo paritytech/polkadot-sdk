@@ -468,21 +468,23 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 	{
 		// instant changes
-		if changed {
-			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
-			let last_authorities = Self::authorities();
-			if last_authorities != next_authorities {
-				if next_authorities.len() as u32 > T::MaxAuthorities::get() {
-					log::warn!(
-						target: LOG_TARGET,
-						"next authorities list larger than {}, truncating",
-						T::MaxAuthorities::get(),
-					);
-				}
-				let bounded = <BoundedVec<_, T::MaxAuthorities>>::truncate_from(next_authorities);
-				Self::change_authorities(bounded);
-			}
+		if !changed {
+			return
 		}
+		let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+		let last_authorities = Self::authorities();
+		if last_authorities == next_authorities {
+			return
+		}
+		if next_authorities.len() as u32 > T::MaxAuthorities::get() {
+			log::warn!(
+				target: LOG_TARGET,
+				"next authorities list larger than {}, truncating",
+				T::MaxAuthorities::get(),
+			);
+		}
+		let bounded = <BoundedVec<_, T::MaxAuthorities>>::truncate_from(next_authorities);
+		Self::change_authorities(bounded);
 	}
 
 	fn on_disabled(i: u32) {
