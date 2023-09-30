@@ -787,9 +787,12 @@ pub trait BenchmarkHelper<FreezeId> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelper<[u8; 8]> for () {
+impl <T> BenchmarkHelper<T> for () 
+where T: Decode
+{
 	/// Returns a frozen `Id` from a given integer.
-	fn freeze_id(id: u8) -> [u8; 8] {
-		[id; 8]
+	fn freeze_id(id: u8) -> T {
+		let vec = vec![id,];
+		T::decode(&mut vec.as_slice()).unwrap()
 	}
 }
