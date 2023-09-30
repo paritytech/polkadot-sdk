@@ -27,6 +27,17 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned_migrations {
 	use super::*;
 
+	/// [`VersionUncheckedMigrateV6ToV7`] wrapped in a
+	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
+	/// performed when on-chain version is 6.
+	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
+		6,
+		7,
+		v7::VersionUncheckedMigrateV6ToV7<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// Wrapper over `MigrateToV6` with convenience version checks.
 	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
 		5,
@@ -35,25 +46,15 @@ pub mod versioned_migrations {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+
 }
 
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-pub mod v7 {
+mod v7 {
 	use super::*;
-
-	/// [`VersionUncheckedMigrateV6ToV7`] wrapped in a
-	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
-	/// performed when on-chain version is 6.
-	pub type VersionCheckedMigrateV6ToV7<T> = frame_support::migrations::VersionedMigration<
-		6,
-		7,
-		VersionUncheckedMigrateV6ToV7<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
