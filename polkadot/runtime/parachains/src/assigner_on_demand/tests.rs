@@ -26,9 +26,10 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
 };
-use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
 use primitives::{BlockNumber, SessionIndex, ValidationCode};
+use sp_runtime::traits::BadOrigin;
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {

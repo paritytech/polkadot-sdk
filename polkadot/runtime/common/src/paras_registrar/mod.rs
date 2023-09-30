@@ -699,9 +699,7 @@ mod tests {
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
 	use frame_support::{
-		assert_noop, assert_ok,
-		error::BadOrigin,
-		parameter_types,
+		assert_noop, assert_ok, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
@@ -712,7 +710,7 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
