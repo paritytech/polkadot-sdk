@@ -1065,31 +1065,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Increment the reference counter on an account.
-	#[deprecated = "Use `inc_consumers` instead"]
-	pub fn inc_ref(who: &T::AccountId) {
-		let _ = Self::inc_consumers(who);
-	}
-
-	/// Decrement the reference counter on an account. This *MUST* only be done once for every time
-	/// you called `inc_consumers` on `who`.
-	#[deprecated = "Use `dec_consumers` instead"]
-	pub fn dec_ref(who: &T::AccountId) {
-		let _ = Self::dec_consumers(who);
-	}
-
-	/// The number of outstanding references for the account `who`.
-	#[deprecated = "Use `consumers` instead"]
-	pub fn refs(who: &T::AccountId) -> RefCount {
-		Self::consumers(who)
-	}
-
-	/// True if the account has no outstanding references.
-	#[deprecated = "Use `!is_provider_required` instead"]
-	pub fn allow_death(who: &T::AccountId) -> bool {
-		!Self::is_provider_required(who)
-	}
-
 	/// Increment the provider reference counter on an account.
 	pub fn inc_providers(who: &T::AccountId) -> IncRefStatus {
 		Account::<T>::mutate(who, |a| {
@@ -1514,7 +1489,7 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	pub fn read_events_no_consensus(
-	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
+	) -> impl Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
 	}
 
