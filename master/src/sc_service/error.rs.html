@@ -131,10 +131,10 @@
 	<span class="attr">#[error(<span class="string">&quot;Tasks executor hasn&#39;t been provided.&quot;</span>)]
 	</span>TaskExecutorRequired,
 
-	<span class="attr">#[error(<span class="string">&quot;Prometheus metrics error&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Prometheus metrics error: {0}&quot;</span>)]
 	</span>Prometheus(<span class="attr">#[from] </span>prometheus_endpoint::PrometheusError),
 
-	<span class="attr">#[error(<span class="string">&quot;Application&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Application: {0}&quot;</span>)]
 	</span>Application(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;),
 
 	<span class="attr">#[error(<span class="string">&quot;Other: {0}&quot;</span>)]
