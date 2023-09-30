@@ -115,7 +115,6 @@ use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
 	ensure,
-	error::BadOrigin,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
@@ -136,7 +135,7 @@ use pallet_contracts_primitives::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};

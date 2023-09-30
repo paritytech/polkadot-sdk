@@ -25,7 +25,6 @@ use crate as utility;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
-	error::BadOrigin,
 	parameter_types, storage,
 	traits::{ConstU32, ConstU64, Contains},
 	weights::Weight,
@@ -33,7 +32,7 @@ use frame_support::{
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup},
+	traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash, IdentityLookup},
 	BuildStorage, DispatchError, TokenError,
 };
 

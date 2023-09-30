@@ -20,14 +20,12 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok,
-	error::BadOrigin,
-	parameter_types,
+	assert_noop, assert_ok, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, Polling},
 };
 use sp_core::{Get, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, ReduceBy},
+	traits::{BadOrigin, BlakeTwo256, IdentityLookup, ReduceBy},
 	BuildStorage,
 };
 
