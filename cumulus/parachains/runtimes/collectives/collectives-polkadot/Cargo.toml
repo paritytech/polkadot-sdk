@@ -75,7 +75,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core", default-featur
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "=0.3.0-dev.1" }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "=5.0.0-dev.1" }
 pallet-collective-content = { path = "../../../pallets/collective-content", default-features = false, version = "=0.2.0-dev.1" }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false, version = "=0.1.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "=0.3.0-dev.1" }
 parachains-common = { path = "../../../common", default-features = false, version = "=3.0.0-dev.1" }
 
 [build-dependencies]

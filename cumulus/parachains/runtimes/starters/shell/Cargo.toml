@@ -40,7 +40,7 @@ cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-featu
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "=0.3.0-dev.1" }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false, version = "=0.3.0-dev.1" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "=0.3.0-dev.1" }
-parachain-info = { path = "../../../pallets/parachain-info", default-features = false, version = "=0.1.0" }
+parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "=0.3.0-dev.1" }
 parachains-common = { path = "../../../common", default-features = false, version = "=3.0.0-dev.1" }
 
 [build-dependencies]

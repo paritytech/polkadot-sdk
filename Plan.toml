@@ -25535,7 +25535,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -26428,7 +26429,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -26729,7 +26731,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -27045,7 +27048,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -27251,7 +27255,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -27461,7 +27466,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -27727,7 +27733,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -28073,7 +28080,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -28399,7 +28407,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -28694,7 +28703,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -29053,7 +29063,8 @@ exact = true
 path = "substrate/frame/timestamp"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -29289,7 +29300,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -29530,7 +29542,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -30066,7 +30079,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -30232,7 +30246,8 @@ exact = true
 path = "substrate/frame/timestamp"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -30365,7 +30380,8 @@ exact = true
 path = "substrate/frame/timestamp"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
@@ -30606,7 +30622,8 @@ exact = true
 path = "polkadot/xcm/pallet-xcm-benchmarks"
 
 [[crate.rewrite_dep]]
-name = "staging-parachain-info"
+name = "parachain-info"
+package = "staging-parachain-info"
 exact = true
 path = "cumulus/parachains/pallets/parachain-info"
 
