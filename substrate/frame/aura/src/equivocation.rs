@@ -35,10 +35,7 @@ use log::{error, info};
 
 use sp_consensus_aura::{EquivocationProof, Slot, KEY_TYPE};
 use sp_runtime::{
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	DispatchError, KeyTypeId, Perbill, RuntimeDebug,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};

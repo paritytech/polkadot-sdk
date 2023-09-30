@@ -171,6 +171,10 @@ impl ReportOffence<u64, IdentificationTuple, EquivocationOffence> for TestOffenc
 		reporters: Vec<u64>,
 		offence: EquivocationOffence,
 	) -> Result<(), OffenceError> {
+		let offences = Offences::get();
+		if offences.iter().find(|item| item.1 == offence).is_some() {
+			return Err(OffenceError::DuplicateReport)
+		}
 		Offences::mutate(|l| l.push((reporters, offence)));
 		Ok(())
 	}

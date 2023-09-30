@@ -24,7 +24,7 @@ use crate::mock::{
 	MockDisabledValidators, Offences, RuntimeOrigin, System,
 };
 use codec::Encode;
-use frame_support::traits::OnInitialize;
+use frame_support::{pallet_prelude::Pays, traits::OnInitialize};
 use sp_consensus_aura::{Slot, AURA_ENGINE_ID, KEY_TYPE};
 use sp_core::crypto::Pair;
 use sp_runtime::{Digest, DigestItem};
@@ -123,6 +123,7 @@ fn pallet_always_rejects_decreasing_slot() {
 #[test]
 fn report_equivocation_works() {
 	use crate::equivocation::EquivocationOffence;
+	use sp_runtime::DispatchError;
 	env_logger::init();
 
 	new_test_ext_and_execute(4, |pairs| {
@@ -143,16 +144,29 @@ fn report_equivocation_works() {
 			make_equivocation_proof(&offending_authority_pair);
 
 		// Report the equivocation
-		Aura::report_equivocation(
+		let res = Aura::report_equivocation(
 			RuntimeOrigin::signed(1),
 			Box::new(equivocation_proof.clone()),
 			key_owner_proof.clone(),
 		)
 		.unwrap();
+		assert_eq!(res.pays_fee, Pays::No);
 
-		print_type(&equivocation_proof.offender);
+		// Report duplicated equivocation
+		let res = Aura::report_equivocation(
+			RuntimeOrigin::signed(2),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
+		)
+		.unwrap_err();
+		assert_eq!(res.post_info.pays_fee, Pays::Yes);
+		let DispatchError::Module(err) = res.error else {
+			panic!("Unexpected error type");
+		};
+		assert_eq!(err.message, Some("DuplicateOffenceReport"));
+
+		// Check reported offences content
 		let offences = Offences::take();
-		// println!("{:?}", offences);
 		let expected_offence = EquivocationOffence {
 			slot: equivocation_proof.slot,
 			session_index: key_owner_proof.session,
