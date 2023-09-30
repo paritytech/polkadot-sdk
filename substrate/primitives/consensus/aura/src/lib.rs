@@ -77,19 +77,6 @@ pub const AURA_ENGINE_ID: ConsensusEngineId = [b'a', b'u', b'r', b'a'];
 /// The index of an authority.
 pub type AuthorityIndex = u32;
 
-/// An equivocation proof for multiple block authorships on the same slot.
-pub type EquivocationProof<H, AuthorityId> = sp_consensus_slots::EquivocationProof<H, AuthorityId>;
-
-/// Opaque type representing the key ownership proof at runtime API boundary.
-///
-/// The inner value is an encoded representation of the actual key
-/// ownership proof which will be parameterized when defining the runtime. At
-/// the runtime API boundary this type is unknown and as such we keep this
-/// opaque representation, implementors of the runtime API will have to make
-/// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(pub Vec<u8>);
-
 /// An consensus log item for Aura.
 #[derive(Decode, Encode)]
 pub enum ConsensusLog<AuthorityId: Codec> {
@@ -101,16 +88,25 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 	OnDisabled(AuthorityIndex),
 }
 
-/// Verifies the equivocation proof.
+/// An equivocation proof for multiple block authorships on the same slot.
+pub type EquivocationProof<H, AuthorityId> = sp_consensus_slots::EquivocationProof<H, AuthorityId>;
+
+/// Opaque type representing the key ownership proof.
+///
+/// The inner value is an encoded representation of the actual key ownership
+/// proof which will be parameterized when defining the runtime.
+/// Outside the runtime boundary this type is unknown and as such we keep this
+/// opaque representation.
+#[derive(Decode, Encode, PartialEq, TypeInfo)]
+pub struct OpaqueKeyOwnershipProof(pub Vec<u8>);
+
+/// Verifies an equivocation proof.
 ///
 /// Makes sure that both headers have different hashes, are targetting the same slot,
 /// and have valid signatures by the same authority.
-pub fn check_equivocation_proof<H, AuthorityId: RuntimeAppPublic>(
+pub fn check_equivocation_proof<H: Header, AuthorityId: RuntimeAppPublic>(
 	proof: EquivocationProof<H, AuthorityId>,
-) -> bool
-where
-	H: Header,
-{
+) -> bool {
 	use digests::CompatibleDigestItem;
 
 	let find_pre_digest = |header: &H| {
@@ -126,7 +122,7 @@ where
 	};
 
 	let verify_proof = || {
-		// We must have different headers for the equivocation to be valid
+		// We must have different headers for the equivocation to be valid.
 		if proof.first_header.hash() == proof.second_header.hash() {
 			return None
 		}
@@ -134,14 +130,12 @@ where
 		let first_slot = find_pre_digest(&proof.first_header)?;
 		let second_slot = find_pre_digest(&proof.second_header)?;
 
-		// Both headers must be targetting the same slot and it must
-		// be the same as the one in the proof.
+		// Both headers must target the slot in the proof.
 		if proof.slot != first_slot || first_slot != second_slot {
 			return None
 		}
 
-		// Finally verify that the expected authority has signed both headers and
-		// that the signature is valid.
+		// Finally verify that the authority has signed both headers.
 		verify_signature(proof.first_header, &proof.offender)?;
 		verify_signature(proof.second_header, &proof.offender)?;
 
@@ -187,5 +181,67 @@ sp_api::decl_runtime_apis! {
 			equivocation_proof: EquivocationProof<Block::Header, AuthorityId>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{
+		check_equivocation_proof,
+		digests::CompatibleDigestItem,
+		ed25519::{AuthorityId, AuthorityPair, AuthoritySignature},
+	};
+	use sp_application_crypto::sp_core::crypto::Pair;
+	use sp_runtime::{testing::Header, traits::Header as _, DigestItem};
+
+	type EquivocationProof = super::EquivocationProof<Header, AuthorityId>;
+
+	#[test]
+	fn check_equivocation_proof_works() {
+		let first_header = Header::new(
+			3u64,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let second_header = Header::new(
+			999u64,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let slot = 7.into();
+		let pair = AuthorityPair::generate().0;
+		let offender = pair.public();
+
+		let mut proof = EquivocationProof { offender, slot, first_header, second_header };
+
+		let pre_digest =
+			<DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_pre_digest(slot);
+
+		assert!(!check_equivocation_proof(proof.clone()));
+
+		proof.first_header.digest_mut().push(pre_digest.clone());
+		assert!(!check_equivocation_proof(proof.clone()));
+
+		proof.second_header.digest_mut().push(pre_digest);
+		assert!(!check_equivocation_proof(proof.clone()));
+
+		let push_seal = |header: &mut Header| {
+			let sig = pair.sign(header.hash().as_bytes());
+			let seal = <DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_seal(sig);
+			header.digest_mut().push(seal);
+		};
+
+		push_seal(&mut proof.first_header);
+		assert!(!check_equivocation_proof(proof.clone()));
+
+		push_seal(&mut proof.second_header);
+		assert!(check_equivocation_proof(proof.clone()));
+
+		proof.slot += 1.into();
+		assert!(!check_equivocation_proof(proof.clone()));
 	}
 }
