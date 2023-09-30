@@ -21,6 +21,7 @@ use super::*;
 use always_assert::never;
 use bytes::Bytes;
 use futures::stream::{BoxStream, StreamExt};
+use net_protocol::filter_by_peer_version;
 use parity_scale_codec::{Decode, DecodeAll};
 
 use sc_network::Event as NetworkEvent;
@@ -323,7 +324,7 @@ where
 								&mut network_service,
 								vec![peer],
 								&peerset_protocol_names,
-								WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(
+								WireMessage::<protocol_vstaging::CollationProtocol>::ViewUpdate(
 									local_view,
 								),
 								&metrics,
@@ -495,6 +496,16 @@ where
 							v_messages,
 							&metrics,
 						)
+					} else if expected_versions[PeerSet::Validation] ==
+						Some(ValidationVersion::VStaging.into())
+					{
+						handle_peer_messages::<protocol_vstaging::ValidationProtocol, _>(
+							remote,
+							PeerSet::Validation,
+							&mut shared.0.lock().validation_peers,
+							v_messages,
+							&metrics,
+						)
 					} else {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -531,6 +542,16 @@ where
 						Some(CollationVersion::V2.into())
 					{
 						handle_peer_messages::<protocol_v2::CollationProtocol, _>(
+							remote,
+							PeerSet::Collation,
+							&mut shared.0.lock().collation_peers,
+							c_messages,
+							&metrics,
+						)
+					} else if expected_versions[PeerSet::Collation] ==
+						Some(CollationVersion::VStaging.into())
+					{
+						handle_peer_messages::<protocol_vstaging::CollationProtocol, _>(
 							remote,
 							PeerSet::Collation,
 							&mut shared.0.lock().collation_peers,
@@ -827,15 +848,18 @@ fn update_our_view<Net, Context>(
 		)
 	};
 
-	let filter_by_version = |peers: &[(PeerId, ProtocolVersion)], version| {
-		peers.iter().filter(|(_, v)| v == &version).map(|(p, _)| *p).collect::<Vec<_>>()
-	};
+	let v1_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::V1.into());
+	let v1_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V1.into());
 
-	let v1_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V1.into());
-	let v1_collation_peers = filter_by_version(&collation_peers, CollationVersion::V1.into());
+	let v2_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::V2.into());
+	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
-	let v2_validation_peers = filter_by_version(&validation_peers, ValidationVersion::V2.into());
-	let v2_collation_peers = filter_by_version(&collation_peers, ValidationVersion::V2.into());
+	let vstaging_validation_peers =
+		filter_by_peer_version(&validation_peers, ValidationVersion::VStaging.into());
+	let vstaging_collation_peers =
+		filter_by_peer_version(&collation_peers, CollationVersion::VStaging.into());
 
 	send_validation_message_v1(
 		net,
@@ -853,7 +877,7 @@ fn update_our_view<Net, Context>(
 		metrics,
 	);
 
-	send_validation_message_vstaging(
+	send_validation_message_v2(
 		net,
 		v2_validation_peers,
 		peerset_protocol_names,
@@ -865,10 +889,25 @@ fn update_our_view<Net, Context>(
 		net,
 		v2_collation_peers,
 		peerset_protocol_names,
-		WireMessage::ViewUpdate(new_view),
+		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 	);
 
+	send_validation_message_vstaging(
+		net,
+		vstaging_validation_peers,
+		peerset_protocol_names,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+	);
+
+	send_collation_message_vstaging(
+		net,
+		vstaging_collation_peers,
+		peerset_protocol_names,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+	);
 	let our_view = OurView::new(
 		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
 		finalized_number,

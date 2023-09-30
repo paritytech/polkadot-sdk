@@ -596,7 +596,7 @@ fn declare_message(
 			);
 			Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
 		},
-		CollationVersion::V2 | CollationVersion::VStaging => {
+		CollationVersion::V2 => {
 			let declare_signature_payload =
 				protocol_v2::declare_signature_payload(&state.local_peer_id);
 			let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
@@ -605,6 +605,16 @@ fn declare_message(
 				state.collator_pair.sign(&declare_signature_payload),
 			);
 			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
+		},
+		CollationVersion::VStaging => {
+			let declare_signature_payload =
+				protocol_vstaging::declare_signature_payload(&state.local_peer_id);
+			let wire_message = protocol_vstaging::CollatorProtocolMessage::Declare(
+				state.collator_pair.public(),
+				para_id,
+				state.collator_pair.sign(&declare_signature_payload),
+			);
+			Versioned::VStaging(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -710,13 +720,23 @@ async fn advertise_collation<Context>(
 		collation.status.advance_to_advertised();
 
 		let collation_message = match protocol_version {
-			CollationVersion::V2 | CollationVersion::VStaging => {
+			CollationVersion::V2 => {
 				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
+			},
+			CollationVersion::VStaging => {
+				let wire_message = protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+					relay_parent,
+					candidate_hash: *candidate_hash,
+					parent_head_data_hash: collation.parent_head_data_hash,
+				};
+				Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
+					wire_message,
+				))
 			},
 			CollationVersion::V1 => {
 				let wire_message =

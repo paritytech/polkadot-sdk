@@ -697,7 +697,8 @@ async fn request_collation(
 			let requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
 		},
-		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) => {
+		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) |
+		(CollationVersion::VStaging, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
 				request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },

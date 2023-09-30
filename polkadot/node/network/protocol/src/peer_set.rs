@@ -154,6 +154,8 @@ impl PeerSet {
 					Some("validation/1")
 				} else if version == ValidationVersion::V2.into() {
 					Some("validation/2")
+				} else if version == ValidationVersion::VStaging.into() {
+					Some("validation/3")
 				} else {
 					None
 				},
@@ -162,6 +164,8 @@ impl PeerSet {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
+				} else if version == CollationVersion::VStaging.into() {
+					Some("collation/3")
 				} else {
 					None
 				},
@@ -238,7 +242,7 @@ pub enum CollationVersion {
 	/// The second version.
 	V2 = 2,
 	/// Same format as V2,
-	VStaging,
+	VStaging = 3,
 }
 
 /// Marker indicating the version is unknown.

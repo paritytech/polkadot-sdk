@@ -289,6 +289,12 @@ impl From<v2::ValidationProtocol> for VersionedValidationProtocol {
 	}
 }
 
+impl From<vstaging::ValidationProtocol> for VersionedValidationProtocol {
+	fn from(vstaging: vstaging::ValidationProtocol) -> Self {
+		VersionedValidationProtocol::VStaging(vstaging)
+	}
+}
+
 /// All supported versions of the collation protocol message.
 pub type VersionedCollationProtocol =
 	Versioned<v1::CollationProtocol, v2::CollationProtocol, vstaging::CollationProtocol>;
@@ -350,6 +356,7 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
+					Versioned::VStaging($vstaging_pat) => Ok(Versioned::VStaging($vstaging_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
