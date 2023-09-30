@@ -143,8 +143,25 @@ where
 		Some(CollationResult { collation, result_sender: Some(result_sender) })
 	}
 
-	pub fn service(&self) -> &CollatorService<Block, BS, RA> {
-		&self.service
+	pub fn header_hash(&self, pvd: PersistedValidationData) -> Option<Block::Hash> {
+		let header = match Block::Header::decode(&mut &pvd.parent_head.0[..]) {
+			Ok(x) => x,
+			Err(e) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Could not decode the head data."
+				);
+				return None
+			},
+		};
+
+		let header_hash = header.hash();
+		if !self.service.check_block_status(header_hash, &header) {
+			return None
+		}
+
+		Some(header_hash)
 	}
 }
 
