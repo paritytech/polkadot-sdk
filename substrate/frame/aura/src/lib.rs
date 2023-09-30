@@ -53,8 +53,9 @@ use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::OffenceReportSystem;
 use sp_std::prelude::*;
 
-#[cfg(any(feature = "equivocation-report", test))]
+#[cfg(any(feature = "default-equivocation-report-system", test))]
 mod equivocation;
+
 mod mock;
 mod tests;
 
@@ -258,7 +259,40 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			panic!("Validate Unsigned Not implemented")
+			if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call
+			{
+				// Discard equivocation report not coming from the local node
+				match source {
+					TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+					_ => {
+						log::warn!(
+							target: LOG_TARGET,
+							"rejecting unsigned report equivocation transaction because it is not local/in-block.",
+						);
+
+						return InvalidTransaction::Call.into()
+					},
+				}
+
+				// Check report validity
+				let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
+				T::EquivocationReportSystem::check_evidence(evidence)?;
+
+				let longevity =
+					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+
+				ValidTransaction::with_tag_prefix("AuraEquivocation")
+					// We assign the maximum priority for any equivocation report.
+					.priority(TransactionPriority::max_value())
+					// Only one equivocation report for the same offender at the same slot.
+					.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
+					.longevity(longevity)
+					// We don't propagate this. This can never be included on a remote node.
+					.propagate(false)
+					.build()
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
 		}
 
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
