@@ -310,13 +310,6 @@ pub trait PerThing:
 	#[cfg(feature = "std")]
 	fn from_float(x: f64) -> Self;
 
-	/// Same as `Self::from_float`.
-	#[deprecated = "Use from_float instead"]
-	#[cfg(feature = "std")]
-	fn from_fraction(x: f64) -> Self {
-		Self::from_float(x)
-	}
-
 	/// Approximate the fraction `p/q` into a per-thing fraction. This will never overflow.
 	///
 	/// The computation of this approximation is performed in the generic type `N`. Given
@@ -401,16 +394,6 @@ pub trait PerThing:
 	where
 		N: RationalArg + TryInto<Self::Inner> + TryInto<Self::Upper>,
 		Self::Inner: Into<N>;
-
-	/// Same as `Self::from_rational`.
-	#[deprecated = "Use from_rational instead"]
-	fn from_rational_approximation<N>(p: N, q: N) -> Self
-	where
-		N: RationalArg + TryInto<Self::Inner> + TryInto<Self::Upper>,
-		Self::Inner: Into<N>,
-	{
-		Self::from_rational(p, q)
-	}
 }
 
 /// The rounding method to use for unsigned quantities.
@@ -725,16 +708,6 @@ macro_rules! implement_per_thing {
 			#[cfg(feature = "std")]
 			pub fn from_float(x: f64) -> Self {
 				<Self as PerThing>::from_float(x)
-			}
-
-			/// See [`PerThing::from_rational`].
-			#[deprecated = "Use `PerThing::from_rational` instead"]
-			pub fn from_rational_approximation<N>(p: N, q: N) -> Self
-			where
-				N: RationalArg+ TryInto<$type> + TryInto<$upper_type>,
-				$type: Into<N>
-			{
-				<Self as PerThing>::from_rational(p, q)
 			}
 
 			/// See [`PerThing::from_rational`].
