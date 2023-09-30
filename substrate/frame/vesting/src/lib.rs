@@ -164,7 +164,7 @@ pub mod pallet {
 
 		/// The currency trait.
 		type Currency: fungible::InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
-			+ fungible::freeze::Mutate<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId>
 			+ fungible::Inspect<Self::AccountId, Balance = Self::Balance>
 			+ fungible::Mutate<Self::AccountId>;
 
@@ -192,13 +192,10 @@ pub mod pallet {
 		/// Typically this might be set to pallet_balance::MaxFreezes.
 		type MaxFreezes: Get<u32>;
 
-		// /// Freeze identifier to use for vesting locks.
-		// type VestingId: Get<<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id>;
-
 		/// The benchmarks need a way to create asset ids from u32s.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<
-			<Self::Currency as fungible::freeze::Inspect<Self::AccountId>>::Id,
+			<Self::Currency as fungible::InspectFreeze<Self::AccountId>>::Id,
 		>;
 	}
 
