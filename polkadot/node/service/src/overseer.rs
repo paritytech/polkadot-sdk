@@ -28,7 +28,7 @@ use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1 as request_v1, vstaging as request_vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 #[cfg(any(feature = "malus", test))]
@@ -104,17 +104,15 @@ where
 	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
 	/// Collations request receiver for network protocol v1.
 	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	/// Collations request receiver for network protocol vstaging.
-	pub collation_req_vstaging_receiver:
-		IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	/// Collations request receiver for network protocol v2.
+	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	/// Receiver for available data requests.
 	pub available_data_req_receiver:
 		IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
-	pub candidate_req_vstaging_receiver:
-		IncomingRequestReceiver<request_vstaging::AttestedCandidateRequest>,
+	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -158,10 +156,10 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		pov_req_receiver,
 		chunk_req_receiver,
 		collation_req_v1_receiver,
-		collation_req_vstaging_receiver,
+		collation_req_v2_receiver,
 		available_data_req_receiver,
 		statement_req_receiver,
-		candidate_req_vstaging_receiver,
+		candidate_req_v2_receiver,
 		dispute_req_receiver,
 		registry,
 		spawner,
@@ -288,7 +286,7 @@ where
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
 					request_receiver_v1: collation_req_v1_receiver,
-					request_receiver_vstaging: collation_req_vstaging_receiver,
+					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
 				},
 				IsParachainNode::FullNode => ProtocolSide::None,
@@ -309,7 +307,7 @@ where
 		.statement_distribution(StatementDistributionSubsystem::new(
 			keystore.clone(),
 			statement_req_receiver,
-			candidate_req_vstaging_receiver,
+			candidate_req_v2_receiver,
 			Metrics::register(registry)?,
 			rand::rngs::StdRng::from_entropy(),
 		))
