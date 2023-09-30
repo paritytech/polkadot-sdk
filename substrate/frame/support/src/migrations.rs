@@ -119,7 +119,7 @@ impl<
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			log::info!(
-				"Running {} VersionedOnRuntimeUpgrade: version {:?} to {:?}.",
+				"Running {} VersionedMigration: version {:?} to {:?}.",
 				Pallet::name(),
 				FROM,
 				TO
@@ -134,7 +134,7 @@ impl<
 			weight.saturating_add(DbWeight::get().reads_writes(1, 1))
 		} else {
 			log::warn!(
-				"{} VersionedOnRuntimeUpgrade for version {:?} skipped because current on-chain version is {:?}.",
+				"{} VersionedMigration for version {:?} skipped because current on-chain version is {:?}.",
 				Pallet::name(),
 				FROM,
 				on_chain_version
