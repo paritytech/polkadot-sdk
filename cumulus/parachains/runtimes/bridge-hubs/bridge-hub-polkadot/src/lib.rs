@@ -58,7 +58,6 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{
 	FellowshipLocation, GovernanceLocation, XcmConfig, XcmOriginToTransactDispatchOrigin,
-	PriceForParentDelivery,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -699,7 +698,7 @@ impl_runtime_apis! {
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					XcmConfig,
 					ExistentialDepositMultiAsset,
-					PriceForParentDelivery,
+					xcm_config::PriceForParentDelivery,
 				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(DotRelayLocation::get())

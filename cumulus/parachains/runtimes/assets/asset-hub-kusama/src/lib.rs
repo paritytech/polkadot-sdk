@@ -79,7 +79,7 @@ use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
 	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation, KsmLocation,
-	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig, PriceForParentDelivery,
+	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId, XcmConfig,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -1238,7 +1238,7 @@ impl_runtime_apis! {
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					XcmConfig,
 					ExistentialDepositMultiAsset,
-					PriceForParentDelivery,
+					xcm_config::PriceForParentDelivery,
 				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(KsmLocation::get())
