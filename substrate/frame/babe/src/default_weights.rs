@@ -30,7 +30,7 @@ impl crate::WeightInfo for () {
 
 	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
 		// we take the validator set count from the membership proof to
-		// calculate the weight but we set a max of 100 validators.
+		// calculate the weight but we set a floor of 100 validators.
 		let validator_count = validator_count.max(100) as u64;
 
 		// checking membership proof
