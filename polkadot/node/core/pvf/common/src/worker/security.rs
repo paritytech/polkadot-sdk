@@ -18,8 +18,11 @@
 //!
 //! This is needed because workers are used to compile and execute untrusted code (PVFs).
 
+use serde::{Deserialize, Serialize};
+
 /// To what degree landlock is enabled. It's a separate struct from `RulesetStatus` because that is
 /// only available on Linux, plus this has a nicer name.
+#[derive(Serialize, Deserialize, Debug)]
 pub enum LandlockStatus {
 	FullyEnforced,
 	PartiallyEnforced,

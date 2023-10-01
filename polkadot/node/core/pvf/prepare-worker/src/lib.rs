@@ -20,7 +20,7 @@ mod executor_intf;
 mod memory_stats;
 
 pub use executor_intf::{prepare, prevalidate};
-use libc::{c_int, exit, rusage, write};
+use libc;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -45,10 +45,19 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_primitives::ExecutorParams;
-use std::{ffi::c_void, mem, path::PathBuf, time::Duration};
+use std::{mem, path::PathBuf, process, time::Duration};
+use std::io::{Read, Write};
+use std::sync::Arc;
+use futures::TryFutureExt;
+use nix::sys::resource::Resource;
+use os_pipe::PipeWriter;
+use serde::{Deserialize, Serialize};
 use tokio::{io, net::UnixStream};
+use polkadot_node_core_pvf_common::worker::stringify_panic_payload;
+use polkadot_node_core_pvf_common::worker::thread::{spawn_worker_thread, WaitOutcome};
 
 /// Contains the bytes for a successfully compiled artifact.
+#[derive(Serialize, Deserialize)]
 pub struct CompiledArtifact(Vec<u8>);
 
 impl CompiledArtifact {
@@ -101,17 +110,21 @@ async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Re
 ///
 /// 1. Get the code and parameters for preparation from the host.
 ///
-/// 2. Start a memory tracker in a separate thread.
+/// 2. Start a new child process
 ///
-/// 3. Start the CPU time monitor loop and the actual preparation in two separate threads.
+/// 3. Start a memory tracker in a separate thread.
 ///
-/// 4. Wait on the two threads created in step 3.
+/// 3. Start the actual preparation in a separate thread.
+///
+/// 4. Wait on the thread created in step 3.
 ///
 /// 5. Stop the memory tracker and get the stats.
 ///
-/// 6. If compilation succeeded, write the compiled artifact into a temporary file.
+/// 6. Pipe the result back to the parent process and exit from child process.
 ///
-/// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
+/// 7. If compilation succeeded, write the compiled artifact into a temporary file.
+///
+/// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 pub fn worker_entrypoint(
 	socket_path: &str,
@@ -138,58 +151,30 @@ pub fn worker_entrypoint(
 				let prepare_job_kind = pvf.prep_kind();
 				let executor_params = (*pvf.executor_params()).clone();
 
-				let mut rusage_before = unsafe { mem::zeroed() };
-				let mut rusage_after = unsafe { mem::zeroed() };
-				if unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut rusage_before) } == -1 {
-					send_response(
-						&mut stream,
-						Err(PrepareError::Panic(format!(
-							"error getting children resource usage for worker pid {}",
-							worker_pid
-						))),
-					)
-					.await?;
-				};
-				let mut pipe_fds = [0; 2];
-				if unsafe { libc::pipe(pipe_fds.as_mut_ptr()) } == -1 {
-					send_response(
-						&mut stream,
-						Err(PrepareError::Panic(format!("error creating pipe {}", worker_pid))),
-					)
-					.await?;
-				}
+				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
-				let pipe_read = pipe_fds[0];
-				let pipe_write = pipe_fds[1];
+				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { libc::fork() } {
 					// error
 					-1 => Err(PrepareError::Panic(String::from("error forking"))),
 					// child
-					0 => unsafe {
-						handle_child_process(
+					0 => handle_child_process(
 							pvf,
-							pipe_write,
-							pipe_read,
+							pipe_writer,
 							preparation_timeout,
 							prepare_job_kind,
 							executor_params,
 						)
-						.await;
-						Err(PrepareError::Panic(String::from("unreachable")))
-					},
+						.await,
 					// parent
-					_ => unsafe {
-						handle_parent_process(
-							&mut rusage_after,
-							rusage_before,
-							pipe_read,
-							pipe_write,
+					_ => handle_parent_process(
+							pipe_reader,
+							pipe_writer,
 							temp_artifact_dest,
 							preparation_timeout,
 							worker_pid,
 						)
 						.await
-					},
 				};
 				send_response(&mut stream, result).await?;
 			}
@@ -224,133 +209,143 @@ fn runtime_construction_check(
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))
 }
 
+#[derive(Serialize, Deserialize)]
 struct Response {
 	artifact_result: Result<CompiledArtifact, PrepareError>,
 	landlock_status: Result<LandlockStatus, String>,
 	memory_stats: MemoryStats,
 }
 
-async unsafe fn handle_child_process(
+async fn handle_child_process(
 	pvf: PvfPrepData,
-	pipe_write: c_int,
-	pipe_read: c_int,
+	mut pipe_write: os_pipe::PipeWriter,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: ExecutorParams,
-) {
-	if libc::close(pipe_read) == -1 {
-		exit(libc::EXIT_FAILURE)
-	}
+) -> ! {
 
 	let worker_pid = std::process::id();
+
+	nix::sys::resource::setrlimit(
+		Resource::RLIMIT_CPU,
+		preparation_timeout.as_secs(),
+		preparation_timeout.as_secs()
+	).unwrap_or_else(|e| {
+		process::exit(libc::EXIT_FAILURE)
+	});
+
+
+	let condvar = thread::get_condvar();
+
 	// Run the memory tracker in a regular, non-worker thread.
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-	let condvar_memory = thread::get_condvar();
+		let condvar_memory = Arc::clone(&condvar);
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
-	if libc::setrlimit(
-		libc::RLIMIT_CPU,
-		&mut libc::rlimit {
-			rlim_cur: preparation_timeout.as_secs(),
-			rlim_max: preparation_timeout.as_secs(),
+		let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
+
+	let prepare_thread = spawn_worker_thread(
+		"prepare worker",
+		move || {
+			// Try to enable landlock.
+			#[cfg(target_os = "linux")]
+				let landlock_status =
+				polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
+					.map(LandlockStatus::from_ruleset_status)
+					.map_err(|e| e.to_string());
+			#[cfg(not(target_os = "linux"))]
+				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
+
+			#[allow(unused_mut)]
+				let mut artifact_result = prepare_artifact(pvf);
+
+			// If we are pre-checking, check for runtime construction errors.
+			//
+			// As pre-checking is more strict than just preparation in terms of memory
+			// and time, it is okay to do extra checks here. This takes negligible time
+			// anyway.
+			if let PrepareJobKind::Prechecking = prepare_job_kind {
+				artifact_result = artifact_result.and_then(|output| {
+					runtime_construction_check(output.as_ref(), executor_params)?;
+					Ok(output)
+				});
+			}
+			(artifact_result, landlock_status)
 		},
-	) == -1
-	{
-		exit(libc::EXIT_FAILURE);
-	};
+		Arc::clone(&condvar),
+		WaitOutcome::Finished
+	).unwrap_or_else(|_| {
+		process::exit(libc::EXIT_FAILURE)
+	});
 
-	// Try to enable landlock.
-	#[cfg(target_os = "linux")]
-	let landlock_status =
-		polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-			.map(LandlockStatus::from_ruleset_status)
-			.map_err(|e| e.to_string());
-	#[cfg(not(target_os = "linux"))]
-	let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
+	let outcome = thread::wait_for_threads(condvar);
 
-	#[allow(unused_mut)]
-	let mut artifact_result = prepare_artifact(pvf);
+	match outcome {
+		WaitOutcome::Finished => {
+			 let (artifact_result, landlock_status) = prepare_thread.join().unwrap_or_else(|err| {
+				(
+					Err(PrepareError::Panic(stringify_panic_payload(err))),
+					Ok(LandlockStatus::Unavailable),
+				)
+			});
 
-	// If we are pre-checking, check for runtime construction errors.
-	//
-	// As pre-checking is more strict than just preparation in terms of memory
-	// and time, it is okay to do extra checks here. This takes negligible time
-	// anyway.
-	if let PrepareJobKind::Prechecking = prepare_job_kind {
-		artifact_result = artifact_result.and_then(|output| {
-			runtime_construction_check(output.as_ref(), executor_params)?;
-			Ok(output)
-		});
+			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
+			#[cfg(target_os = "linux")]
+				let max_rss = get_max_rss_thread();
+
+			// Stop the memory stats worker and get its observed memory stats.
+			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+				let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid).await;
+
+			let memory_stats = MemoryStats {
+				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+				memory_tracker_stats,
+				#[cfg(target_os = "linux")]
+				max_rss: extract_max_rss_stat(max_rss, worker_pid),
+			};
+
+			let response = Response { artifact_result, landlock_status, memory_stats };
+
+			let bytes = bincode::serialize(&response).unwrap_or_else(|_| {
+				process::exit(libc::EXIT_FAILURE)
+			});
+
+			pipe_write.write_all(bytes.as_slice()).unwrap_or_else(|_| {
+				process::exit(libc::EXIT_FAILURE)
+			});
+
+			process::exit(libc::EXIT_SUCCESS);
+
+		},
+		_ => {
+			process::exit(libc::EXIT_FAILURE)
+		}
 	}
-
-	// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-	#[cfg(target_os = "linux")]
-	let max_rss = get_max_rss_thread();
-
-	// // Stop the memory stats worker and get its observed memory stats.
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-	let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid).await;
-
-	let memory_stats = MemoryStats {
-		#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-		memory_tracker_stats,
-		#[cfg(target_os = "linux")]
-		max_rss: extract_max_rss_stat(max_rss, worker_pid),
-	};
-
-	let response = Response { artifact_result, landlock_status, memory_stats };
-
-	if write(pipe_write, &response as *const _ as *const c_void, mem::size_of::<Response>()) == -1 {
-		exit(libc::EXIT_FAILURE);
-	}
-
-	if libc::close(pipe_write) == -1 {
-		exit(libc::EXIT_FAILURE);
-	}
-
-	exit(libc::EXIT_SUCCESS);
 }
 
-async unsafe fn handle_parent_process(
-	rusage_after: &mut rusage,
-	rusage_before: rusage,
-	pipe_read: c_int,
-	pipe_write: c_int,
+async fn handle_parent_process(
+	mut pipe_read: os_pipe::PipeReader,
+	pipe_write: PipeWriter,
 	temp_artifact_dest: PathBuf,
 	preparation_timeout: Duration,
 	worker_pid: u32,
 ) -> Result<PrepareStats, PrepareError> {
-	if libc::close(pipe_write) == -1 {
-		return Err(PrepareError::Panic(String::from(
-			"error closing pipe write end on the parent process",
-		)))
-	}
+	drop(pipe_write);
 
-	let mut status: c_int = 0;
-	if libc::wait(&mut status) == -1 {
-		return Err(PrepareError::Panic(String::from("error waiting for child")))
-	}
-
-	if libc::getrusage(libc::RUSAGE_CHILDREN, rusage_after) == -1 {
-		return Err(PrepareError::Panic(String::from("error getting resource usage from child")))
-	};
-
-	// Get total cpu usage for current child
-	let cpu_tv = get_total_cpu_usage(*rusage_after) - get_total_cpu_usage(rusage_before);
-	let cpu_duration = Duration::from_micros(cpu_tv as u64);
-
-	return match status {
-		libc::EXIT_SUCCESS => {
-			let mut result: Response = mem::zeroed();
+	return match nix::sys::wait::wait() {
+		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let data_size = mem::size_of::<Response>();
 
-			if libc::read(pipe_read, &mut result as *mut _ as *mut c_void, data_size) == -1 {
-				return Err(PrepareError::Panic(String::from("error reading pipe from child")))
-			};
+			let mut received_data = Vec::new();
 
-			if libc::close(pipe_read) == -1 {
-				return Err(PrepareError::Panic(String::from("error reading pipe from child")))
-			}
+			pipe_read.read_to_end(&mut received_data).map_err(|_| {
+				PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
+			})?;
+
+			let result: Response = bincode::deserialize(received_data.as_slice()).map_err(|e| {
+				PrepareError::Panic(e.to_string())
+			})?;
+
+			drop(pipe_read);
 
 			match result.artifact_result {
 				Err(err) => Err(err),
@@ -383,31 +378,16 @@ async unsafe fn handle_parent_process(
 					};
 
 					Ok(PrepareStats {
-						cpu_time_elapsed: cpu_duration,
 						memory_stats: result.memory_stats,
 					})
 				},
 			}
 		},
-		libc::SIGXCPU => {
-			// Log if we exceed the timeout and the other thread hasn't
-			// finished.
-			gum::warn!(
-				target: LOG_TARGET,
-				%worker_pid,
-				"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
-				cpu_duration.as_millis(),
-				preparation_timeout.as_millis(),
-			);
+		Ok(nix::sys::wait::WaitStatus::Signaled(_, nix::sys::signal::Signal::SIGXCPU, _)) => {
 			Err(PrepareError::TimedOut)
 		},
-		status => Err(PrepareError::Panic(format!("child failed with status {}", status))),
+		_ => {
+			Err(PrepareError::Panic(format!("child failed")))
+		},
 	}
-}
-
-fn get_total_cpu_usage(rusage: libc::rusage) -> i64 {
-	return rusage.ru_utime.tv_sec * 1000000 +
-		(rusage.ru_utime.tv_usec as i64) +
-		rusage.ru_stime.tv_sec * 1000000 +
-		(rusage.ru_stime.tv_usec as i64)
 }

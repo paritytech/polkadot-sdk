@@ -17,13 +17,14 @@
 use crate::prepare::PrepareStats;
 use parity_scale_codec::{Decode, Encode};
 use std::fmt;
+use serde::{Deserialize, Serialize};
 
 /// Result of PVF preparation performed by the validation host. Contains stats about the preparation
 /// if successful
 pub type PrepareResult = Result<PrepareStats, PrepareError>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Encode, Decode, Deserialize, Serialize)]
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
 	Prevalidation(String),

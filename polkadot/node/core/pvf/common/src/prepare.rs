@@ -15,19 +15,18 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// Preparation statistics, including the CPU time and memory taken.
 #[derive(Debug, Clone, Default, Encode, Decode)]
 pub struct PrepareStats {
-	/// The CPU time that elapsed for the preparation job.
-	pub cpu_time_elapsed: std::time::Duration,
 	/// The observed memory statistics for the preparation job.
 	pub memory_stats: MemoryStats,
 }
 
 /// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if
 /// supported by the OS, `ru_maxrss`.
-#[derive(Clone, Debug, Default, Encode, Decode)]
+#[derive(Clone, Debug, Default, Encode, Decode, Serialize, Deserialize)]
 pub struct MemoryStats {
 	/// Memory stats from `tikv_jemalloc_ctl`.
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
