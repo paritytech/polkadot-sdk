@@ -43,6 +43,7 @@ use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
+use frame_system::pallet_prelude::HeaderFor;
 use sp_consensus_aura::{AuthorityIndex, ConsensusLog, EquivocationProof, Slot, AURA_ENGINE_ID};
 use sp_runtime::{
 	generic::DigestItem,
@@ -445,6 +446,17 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Ok(())
+	}
+
+	/// Submits an extrinsic to report an equivocation.
+	///
+	/// This method will create an unsigned extrinsic with a call to `report_equivocation_unsigned`
+	/// and will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_equivocation_report(
+		equivocation_proof: EquivocationProof<HeaderFor<T>, T::AuthorityId>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence((equivocation_proof, key_owner_proof)).ok()
 	}
 }
 
