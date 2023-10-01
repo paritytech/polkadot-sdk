@@ -29,7 +29,7 @@
 //! in a runtime context, to validate the equivocation proofs in the extrinsic
 //! and report the offences.
 
-use frame_support::traits::{EstimateNextSessionRotation, Get, KeyOwnerProofSystem};
+use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::{
 	offchain::SubmitTransaction,
 	pallet_prelude::{BlockNumberFor, HeaderFor},
@@ -37,7 +37,7 @@ use frame_system::{
 
 use sp_consensus_aura::{EquivocationProof, Slot, KEY_TYPE};
 use sp_runtime::{
-	traits::{CheckedDiv, Header as _, Zero},
+	traits::{CheckedDiv, Header as _, Saturating, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	DispatchError, KeyTypeId, Perbill, RuntimeDebug,
 };
@@ -196,16 +196,16 @@ where
 
 		let validator_set_count = key_owner_proof.validator_count();
 
-		// Because we are using the `PeriodicSession` type, this is the exact session duration.
-		let session_len =
-			<<T as pallet_session::Config>::NextSessionRotation as EstimateNextSessionRotation<
-				BlockNumberFor<T>,
-			>>::average_session_length();
-
 		let session_index = key_owner_proof.session();
 
-		let idx1 = block_num1.checked_div(&session_len).unwrap_or(Zero::zero());
-		let idx2 = block_num2.checked_div(&session_len).unwrap_or(Zero::zero());
+		let idx1 = block_num1
+			.saturating_sub(Offset::get())
+			.checked_div(&Period::get())
+			.unwrap_or(Zero::zero());
+		let idx2 = block_num2
+			.saturating_sub(Offset::get())
+			.checked_div(&Period::get())
+			.unwrap_or(Zero::zero());
 
 		if BlockNumberFor::<T>::from(session_index as u32) != idx1 || idx1 != idx2 {
 			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
