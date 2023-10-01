@@ -192,7 +192,7 @@
 			Fields::Named(named) =&gt; {
 				<span class="kw">let </span>fields = named.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ident).map(|ident| {
 					<span class="macro">quote_spanned! </span>{ident.span() =&gt;
-						#ident: core::default::Default::default()
+						#ident: ::core::default::Default::default()
 					}
 				});
 
@@ -201,7 +201,7 @@
 			Fields::Unnamed(unnamed) =&gt; {
 				<span class="kw">let </span>fields = unnamed.unnamed.iter().map(|field| {
 					<span class="macro">quote_spanned! </span>{field.span()=&gt;
-						core::default::Default::default()
+						::core::default::Default::default()
 					}
 				});
 
@@ -265,7 +265,7 @@
 							<span class="kw">let </span>fields =
 								named.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ident).map(|ident| {
 									<span class="macro">quote_spanned! </span>{ident.span()=&gt;
-										#ident: core::default::Default::default()
+										#ident: ::core::default::Default::default()
 									}
 								});
 
@@ -274,7 +274,7 @@
 						Fields::Unnamed(unnamed) =&gt; {
 							<span class="kw">let </span>fields = unnamed.unnamed.iter().map(|field| {
 								<span class="macro">quote_spanned! </span>{field.span()=&gt;
-									core::default::Default::default()
+									::core::default::Default::default()
 								}
 							});
 
@@ -309,7 +309,7 @@
 
 	<span class="macro">quote!</span>(
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics core::default::Default <span class="kw">for </span>#name #ty_generics #where_clause {
+			<span class="kw">impl </span>#impl_generics ::core::default::Default <span class="kw">for </span>#name #ty_generics #where_clause {
 				<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 					#impl_
 				}

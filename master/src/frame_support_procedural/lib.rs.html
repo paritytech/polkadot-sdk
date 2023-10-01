@@ -2092,8 +2092,8 @@
 
 		<span class="macro">quote::quote!</span>(
 			<span class="kw">const _</span>: () = {
-				<span class="kw">impl </span>#impl_generics core::fmt::Debug <span class="kw">for </span>#name #ty_generics #where_clause {
-					<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
+				<span class="kw">impl </span>#impl_generics ::core::fmt::Debug <span class="kw">for </span>#name #ty_generics #where_clause {
+					<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; core::fmt::Result {
 						fmt.write_str(<span class="string">&quot;&lt;wasm:stripped&gt;&quot;</span>)
 					}
 				}
@@ -2123,7 +2123,7 @@
 
 	<span class="macro">quote::quote_spanned!</span>(name.span() =&gt;
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics core::cmp::Eq <span class="kw">for </span>#name #ty_generics #where_clause {}
+			<span class="kw">impl </span>#impl_generics ::core::cmp::Eq <span class="kw">for </span>#name #ty_generics #where_clause {}
 		};
 	)
 	.into()

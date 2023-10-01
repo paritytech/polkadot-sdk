@@ -141,7 +141,7 @@
 			syn::Fields::Named(named) =&gt; {
 				<span class="kw">let </span>fields = named.named.iter().map(|i| <span class="kw-2">&amp;</span>i.ident).map(|i| {
 					<span class="macro">quote::quote_spanned!</span>(i.span() =&gt;
-						#i: core::clone::Clone::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.#i)
+						#i: ::core::clone::Clone::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.#i)
 					)
 				});
 
@@ -151,7 +151,7 @@
 				<span class="kw">let </span>fields =
 					unnamed.unnamed.iter().enumerate().map(|(i, <span class="kw">_</span>)| syn::Index::from(i)).map(|i| {
 						<span class="macro">quote::quote_spanned!</span>(i.span() =&gt;
-							core::clone::Clone::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.#i)
+							::core::clone::Clone::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.#i)
 						)
 					});
 
@@ -168,8 +168,8 @@
 					syn::Fields::Named(named) =&gt; {
 						<span class="kw">let </span>captured = named.named.iter().map(|i| <span class="kw-2">&amp;</span>i.ident);
 						<span class="kw">let </span>cloned = captured.clone().map(|i| {
-							<span class="macro">quote::quote_spanned!</span>(i.span() =&gt;
-								#i: core::clone::Clone::clone(#i)
+							<span class="macro">::quote::quote_spanned!</span>(i.span() =&gt;
+								#i: ::core::clone::Clone::clone(#i)
 							)
 						});
 						<span class="macro">quote::quote!</span>(
@@ -184,7 +184,7 @@
 							.map(|(i, f)| syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;_{}&quot;</span>, i), f.span()));
 						<span class="kw">let </span>cloned = captured.clone().map(|i| {
 							<span class="macro">quote::quote_spanned!</span>(i.span() =&gt;
-								core::clone::Clone::clone(#i)
+								::core::clone::Clone::clone(#i)
 							)
 						});
 						<span class="macro">quote::quote!</span>(
@@ -207,7 +207,7 @@
 
 	<span class="macro">quote::quote!</span>(
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics core::clone::Clone <span class="kw">for </span>#name #ty_generics #where_clause {
+			<span class="kw">impl </span>#impl_generics ::core::clone::Clone <span class="kw">for </span>#name #ty_generics #where_clause {
 				<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 					#impl_
 				}

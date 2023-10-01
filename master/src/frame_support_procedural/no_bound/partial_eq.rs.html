@@ -267,7 +267,7 @@
 
 	<span class="macro">quote::quote!</span>(
 		<span class="kw">const _</span>: () = {
-			<span class="kw">impl </span>#impl_generics core::cmp::PartialEq <span class="kw">for </span>#name #ty_generics #where_clause {
+			<span class="kw">impl </span>#impl_generics ::core::cmp::PartialEq <span class="kw">for </span>#name #ty_generics #where_clause {
 				<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
 					#impl_
 				}
