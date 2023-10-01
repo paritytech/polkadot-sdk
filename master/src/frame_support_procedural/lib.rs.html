@@ -1646,6 +1646,8 @@
 <a href="#1646" id="1646">1646</a>
 <a href="#1647" id="1647">1647</a>
 <a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2525,6 +2527,8 @@
 	<span class="kw">if </span>item.ident != <span class="string">&quot;RuntimeCall&quot; </span>&amp;&amp;
 		item.ident != <span class="string">&quot;RuntimeEvent&quot; </span>&amp;&amp;
 		item.ident != <span class="string">&quot;RuntimeOrigin&quot; </span>&amp;&amp;
+		item.ident != <span class="string">&quot;RuntimeHoldReason&quot; </span>&amp;&amp;
+		item.ident != <span class="string">&quot;RuntimeFreezeReason&quot; </span>&amp;&amp;
 		item.ident != <span class="string">&quot;PalletInfo&quot;
 	</span>{
 		<span class="kw">return </span>syn::Error::new_spanned(

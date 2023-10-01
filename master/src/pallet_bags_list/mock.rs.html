@@ -150,26 +150,6 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -192,11 +172,11 @@
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>bags_list};
 <span class="kw">use </span>frame_election_provider_support::VoteWeight;
-<span class="kw">use </span>frame_support::parameter_types;
+<span class="kw">use </span>frame_support::{derive_impl, parameter_types};
 <span class="kw">use </span>sp_runtime::BuildStorage;
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">pub type </span>AccountId = u32;
+<span class="kw">pub type </span>AccountId = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 <span class="kw">pub type </span>Balance = u32;
 
 <span class="macro">parameter_types! </span>{
@@ -220,30 +200,10 @@
 	}
 }
 
-<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>SS58Prefix = ();
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-	<span class="kw">type </span>Nonce = u64;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="kw">type </span>Hash = sp_core::H256;
-	<span class="kw">type </span>Hashing = sp_runtime::traits::BlakeTwo256;
-	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>Lookup = sp_runtime::traits::IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
+<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Block = Block;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>BlockHashCount = ();
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>BlockLength = ();
-	<span class="kw">type </span>BlockWeights = ();
-	<span class="kw">type </span>Version = ();
-	<span class="kw">type </span>PalletInfo = PalletInfo;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>SystemWeightInfo = ();
-	<span class="kw">type </span>OnSetCode = ();
-	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
