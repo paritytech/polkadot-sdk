@@ -382,7 +382,7 @@ where
 ///
 /// Implemented as a `bool` newtype (default: true)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CheckForEquivocation(bool);
+pub struct CheckForEquivocation(pub bool);
 
 impl Default for CheckForEquivocation {
 	fn default() -> Self {
