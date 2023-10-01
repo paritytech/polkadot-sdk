@@ -59,6 +59,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+# Provide the default equivocation report system.
 default-equivocation-report-system = [
 	"pallet-authorship",
 	"pallet-session",

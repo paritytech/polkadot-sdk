@@ -55,14 +55,14 @@ use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::OffenceReportSystem;
 use sp_std::prelude::*;
 
-#[cfg(any(feature = "default-equivocation-report-system", test))]
-mod equivocation;
-
-mod default_weights;
 mod mock;
 mod tests;
 
+pub mod default_weights;
 pub mod migrations;
+
+#[cfg(any(feature = "default-equivocation-report-system", test))]
+pub mod equivocation;
 
 pub use pallet::*;
 

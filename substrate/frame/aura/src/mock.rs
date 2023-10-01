@@ -43,8 +43,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 const SLOT_DURATION: u64 = 2;
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Session: pallet_session,
@@ -162,6 +161,7 @@ type MembershipProof = sp_session::MembershipProof;
 
 pub struct TestOffenceHandler;
 
+// This is used to persist reported offences during tests.
 parameter_types! {
 	pub static Offences: Vec<(Vec<u64>, EquivocationOffence)> = vec![];
 }
@@ -205,7 +205,7 @@ impl KeyOwnerProofSystem<IdentificationTuple> for TestKeyOwnerProofSystem {
 impl pallet_aura::Config for Test {
 	type AuthorityId = AuthorityId;
 	type DisabledValidators = MockDisabledValidators;
-	type WeightInfo = pallet_aura::default_weights::WeightInfo<0>;
+	type WeightInfo = pallet_aura::default_weights::SubstrateWeight<0>;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
 	type KeyOwnerProof = MembershipProof;

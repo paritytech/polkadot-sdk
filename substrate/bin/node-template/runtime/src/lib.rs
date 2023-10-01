@@ -206,6 +206,7 @@ impl frame_system::Config for Runtime {
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
+	type WeightInfo = pallet_aura::default_weights::SubstrateWeight<0>;
 	type MaxAuthorities = ConstU32<32>;
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	type KeyOwnerProof = sp_core::Void;

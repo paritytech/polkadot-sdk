@@ -23,10 +23,10 @@ use frame_support::weights::{
 	Weight,
 };
 
-/// Default `WeightInfo` generic over the max number of validator's nominators (`N`).
-pub struct WeightInfo<const N: u32>;
+/// Default `WeightInfo` implementation generic over the max number of validator's nominators (`N`).
+pub struct SubstrateWeight<const N: u32>;
 
-impl<const N: u32> crate::WeightInfo for WeightInfo<N> {
+impl<const N: u32> crate::WeightInfo for SubstrateWeight<N> {
 	fn report_equivocation(validator_count: u32) -> Weight {
 		// We take the validator set count from the membership proof to
 		// calculate the weight but we set a floor of 100 validators.
