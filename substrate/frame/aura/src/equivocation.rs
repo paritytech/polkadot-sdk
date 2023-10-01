@@ -30,11 +30,14 @@
 //! and report the offences.
 
 use frame_support::traits::{EstimateNextSessionRotation, Get, KeyOwnerProofSystem};
-use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
-use log::{error, info};
+use frame_system::{
+	offchain::SubmitTransaction,
+	pallet_prelude::{BlockNumberFor, HeaderFor},
+};
 
 use sp_consensus_aura::{EquivocationProof, Slot, KEY_TYPE};
 use sp_runtime::{
+	traits::{CheckedDiv, Header as _, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	DispatchError, KeyTypeId, Perbill, RuntimeDebug,
 };
@@ -44,6 +47,8 @@ use sp_staking::{
 	SessionIndex,
 };
 use sp_std::prelude::*;
+
+use log::{error, info};
 
 use crate::{Call, Config, Error, LOG_TARGET};
 
@@ -135,7 +140,6 @@ where
 	fn publish_evidence(
 		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), ()> {
-		use frame_system::offchain::SubmitTransaction;
 		let (equivocation_proof, key_owner_proof) = evidence;
 
 		let call = Call::report_equivocation_unsigned {
@@ -172,7 +176,6 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: (EquivocationProof<HeaderFor<T>, T::AuthorityId>, T::KeyOwnerProof),
 	) -> Result<(), DispatchError> {
-		use sp_runtime::traits::{CheckedDiv, Header as _, Zero};
 		let (equivocation_proof, key_owner_proof) = evidence;
 		let reporter = reporter.or_else(|| <pallet_authorship::Pallet<T>>::author());
 

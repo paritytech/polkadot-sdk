@@ -16,9 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Aura (Authority-round) consensus in substrate.
+//! AURA (Authority-round) consensus in Substrate.
 //!
-//! Aura works by having a list of authorities A who are expected to roughly
+//! AURA works by having a list of authorities A who are expected to roughly
 //! agree on the current time. Time is divided up into discrete slots of t
 //! seconds each. For each slot s, the author of that slot is A[s % |A|].
 //!
@@ -28,7 +28,8 @@
 //! Blocks from future steps will be either deferred or rejected depending on how
 //! far in the future they are.
 //!
-//! NOTE: Aura itself is designed to be generic over the crypto used.
+//! NOTE: AURA itself is designed to be generic over the crypto used.
+
 #![forbid(missing_docs, unsafe_code)]
 use std::{fmt::Debug, marker::PhantomData, pin::Pin, sync::Arc};
 
@@ -57,7 +58,8 @@ pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, ImportQueueParams,
+	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
+	ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -617,10 +619,8 @@ mod tests {
 		}
 	}
 
-	type TestSelectChain = substrate_test_runtime_client::LongestChain<
-		substrate_test_runtime_client::Backend,
-		TestBlock,
-	>;
+	type TestSelectChain =
+		sc_consensus::LongestChain<substrate_test_runtime_client::Backend, TestBlock>;
 
 	type AuraVerifier = import_queue::AuraVerifier<
 		TestBlock,
@@ -664,7 +664,7 @@ mod tests {
 					);
 					Ok((slot,))
 				}),
-				true,
+				true.into(),
 				None,
 				OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
 				CompatibilityMode::None,

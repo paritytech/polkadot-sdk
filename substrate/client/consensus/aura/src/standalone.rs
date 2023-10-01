@@ -18,11 +18,9 @@
 
 //! Standalone functions used within the implementation of Aura.
 
-use std::fmt::Debug;
-
-use log::trace;
-
 use codec::Codec;
+use log::trace;
+use std::fmt::Debug;
 
 use sc_client_api::{backend::AuxStore, UsageProvider};
 use sp_api::{Core, ProvideRuntimeApi};

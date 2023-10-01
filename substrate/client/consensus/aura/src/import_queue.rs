@@ -54,7 +54,7 @@ struct VerifiedHeaderInfo<P: Pair> {
 	author: AuthorityId<P>,
 }
 
-/// Check a header has been signed by the right key.
+/// Check if a header has been signed by the right key.
 ///
 /// If the slot is too far in the future, an error will be returned.
 /// If it's successful, returns the checked header and some information
@@ -94,7 +94,7 @@ pub struct AuraVerifier<B: BlockT, C, P, SC, CIDP, N> {
 	client: Arc<C>,
 	select_chain: SC,
 	create_inherent_data_providers: CIDP,
-	check_for_equivocation: bool,
+	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 	compatibility_mode: CompatibilityMode<N>,
@@ -106,7 +106,7 @@ impl<B: BlockT, C, P, SC, CIDP, N> AuraVerifier<B, C, P, SC, CIDP, N> {
 		client: Arc<C>,
 		select_chain: SC,
 		create_inherent_data_providers: CIDP,
-		check_for_equivocation: bool,
+		check_for_equivocation: CheckForEquivocation,
 		telemetry: Option<TelemetryHandle>,
 		offchain_tx_pool_factory: OffchainTransactionPoolFactory<B>,
 		compatibility_mode: CompatibilityMode<N>,
@@ -169,22 +169,21 @@ where
 		origin: &BlockOrigin,
 	) -> Result<(), Error<B>> {
 		// Don't report any equivocations during initial sync as they are most likely stale.
-		if !self.check_for_equivocation || *origin == BlockOrigin::NetworkInitialSync {
+		if !self.check_for_equivocation.0 || *origin == BlockOrigin::NetworkInitialSync {
 			return Ok(())
 		}
 
 		// Check if authorship of this header is an equivocation and return a proof if so.
-		let equivocation_proof =
-			match check_equivocation(&*self.client, slot_now, slot, header, author)
+		let Some(equivocation_proof) =
+			check_equivocation(&*self.client, slot_now, slot, header, author)
 				.map_err(Error::Client)?
-			{
-				Some(proof) => proof,
-				None => return Ok(()),
-			};
+		else {
+			return Ok(())
+		};
 
 		info!(
 			target: LOG_TARGET,
-			"Slot author is equivocating at slot {} with headers {:?} and {:?}",
+			"Equivocation at slot {} with headers {:?} and {:?}",
 			slot,
 			equivocation_proof.first_header.hash(),
 			equivocation_proof.second_header.hash(),
@@ -198,7 +197,9 @@ where
 			.map(|h| h.hash())
 			.map_err(|e| Error::Client(e.into()))?;
 
-		// Generate a key ownership proof. we start by trying to generate the
+		let mut runtime_api = self.client.runtime_api();
+
+		// Generate a key ownership proof. We start by trying to generate the
 		// key ownership proof at the parent of the equivocating header, this
 		// will make sure that proof generation is successful since it happens
 		// during the on-going session (i.e. session keys are available in the
@@ -207,8 +208,7 @@ where
 		// its parent would be on the previous session. If generation on the
 		// parent header fails we try with best block as well.
 		let generate_key_owner_proof = |at_hash| {
-			self.client
-				.runtime_api()
+			runtime_api
 				.generate_key_ownership_proof(at_hash, slot, equivocation_proof.offender.clone())
 				.map_err(Error::<B>::RuntimeApi)
 		};
@@ -219,7 +219,7 @@ where
 			None => match generate_key_owner_proof(best_hash)? {
 				Some(proof) => proof,
 				None => {
-					debug!(
+					warn!(
 						target: LOG_TARGET,
 						"Equivocation offender is not part of the authority set."
 					);
@@ -227,8 +227,6 @@ where
 				},
 			},
 		};
-
-		let mut runtime_api = self.client.runtime_api();
 
 		// Register the offchain tx pool to be able to use it from the runtime.
 		runtime_api
@@ -296,7 +294,7 @@ where
 		// We add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of headers
 		let checked_header =
-			check_header::<B, P>(slot_now + 1, block.header.clone(), hash, &authorities[..])
+			check_header::<B, P>(slot_now + 1, block.header.clone(), hash, &authorities)
 				.map_err(|e| e.to_string())?;
 
 		match checked_header {
@@ -380,6 +378,30 @@ where
 	}
 }
 
+/// Should we check for equivocation of a block author?
+///
+/// Implemented as a `bool` newtype (default: true)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CheckForEquivocation(bool);
+
+impl Default for CheckForEquivocation {
+	fn default() -> Self {
+		Self(true)
+	}
+}
+
+impl From<bool> for CheckForEquivocation {
+	fn from(value: bool) -> Self {
+		Self(value)
+	}
+}
+
+impl From<CheckForEquivocation> for bool {
+	fn from(value: CheckForEquivocation) -> Self {
+		value.0
+	}
+}
+
 /// Parameters of [`import_queue`].
 pub struct ImportQueueParams<'a, B: BlockT, I, C, SC, S, CIDP> {
 	/// The block import to use.
@@ -397,7 +419,7 @@ pub struct ImportQueueParams<'a, B: BlockT, I, C, SC, S, CIDP> {
 	/// The prometheus registry.
 	pub registry: Option<&'a Registry>,
 	/// Should we check for equivocation?
-	pub check_for_equivocation: bool,
+	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
 	/// The offchain transaction pool factory.
@@ -468,7 +490,7 @@ pub struct BuildVerifierParams<B: BlockT, C, SC, CIDP, N> {
 	/// Something that can create the inherent data providers.
 	pub create_inherent_data_providers: CIDP,
 	/// Should we check for equivocation?
-	pub check_for_equivocation: bool,
+	pub check_for_equivocation: CheckForEquivocation,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
 	/// The offchain transaction pool factory.
