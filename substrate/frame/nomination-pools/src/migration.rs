@@ -27,6 +27,16 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned_migrations {
 	use super::*;
 
+	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
+	/// the migration is only performed when on-chain version is 6.
+	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
+		6,
+		7,
+		v7::VersionUncheckedMigrateV6ToV7<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// Wrapper over `MigrateToV6` with convenience version checks.
 	pub type V5toV6<T> = frame_support::migrations::VersionedMigration<
 		5,
@@ -35,6 +45,83 @@ pub mod versioned_migrations {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+/// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
+///
+/// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
+/// arbitrarily. Otherwise this migration could fail due to too high weight.
+mod v7 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
+		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
+			BondedPools::<T>::iter()
+				.map(|(id, inner)| {
+					T::Staking::total_stake(
+						&BondedPool { id, inner: inner.clone() }.bonded_account(),
+					)
+					.unwrap_or_default()
+				})
+				.reduce(|acc, total_balance| acc + total_balance)
+				.unwrap_or_default()
+		}
+	}
+
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let migrated = BondedPools::<T>::count();
+			// The TVL should be the sum of all the funds that are actively staked and in the
+			// unbonding process of the account of each pool.
+			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+
+			TotalValueLocked::<T>::set(tvl);
+
+			log!(info, "Upgraded {} pools with a TVL of {:?}", migrated, tvl);
+
+			// reads: migrated * (BondedPools +  Staking::total_stake) + count + onchain
+			// version
+			//
+			// writes: current version + TVL
+			T::DbWeight::get().reads_writes(migrated.saturating_mul(2).saturating_add(2).into(), 2)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
+			// `BondedPools``
+			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			ensure!(
+				TotalValueLocked::<T>::get() == tvl,
+				"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
+			);
+
+			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
+			// `TotalValueLocked`.
+			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
+				.map(|(_, member)| member.total_balance())
+				.reduce(|acc, total_balance| acc + total_balance)
+				.unwrap_or_default();
+
+			ensure!(
+				TotalValueLocked::<T>::get() <= total_balance_members,
+				"TVL is greater than the balance of all PoolMembers."
+			);
+
+			ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 7,
+				"nomination-pools::migration::v7: wrong storage version"
+			);
+
+			Ok(())
+		}
+	}
 }
 
 mod v6 {
