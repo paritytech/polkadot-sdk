@@ -27,9 +27,8 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned_migrations {
 	use super::*;
 
-	/// [`VersionUncheckedMigrateV6ToV7`] wrapped in a
-	/// [`frame_support::migrations::VersionedMigration`], ensuring the migration is only
-	/// performed when on-chain version is 6.
+	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
+	/// the migration is only performed when on-chain version is 6.
 	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
 		6,
 		7,
