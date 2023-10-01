@@ -28,7 +28,8 @@ use crate::{
 	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
 	warp::WarpSyncParams,
-	BlockRequestEvent, ChainSync, ClientError, SyncingService,
+	BlockRequestAction, ChainSync, ClientError, ImportBlocksAction, ImportJustificationsAction,
+	OnBlockResponse, SyncingService,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -41,7 +42,8 @@ use futures_timer::Delay;
 use libp2p::{request_response::OutboundFailure, PeerId};
 use log::{debug, trace};
 use prometheus_endpoint::{
-	register, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
+	register, Counter, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry,
+	SourcedGauge, U64,
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
@@ -138,6 +140,8 @@ struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
 	justifications: GaugeVec<U64>,
+	import_queue_blocks_submitted: Counter<U64>,
+	import_queue_justifications_submitted: Counter<U64>,
 }
 
 impl Metrics {
@@ -166,6 +170,20 @@ impl Metrics {
 					&["status"],
 				)?;
 				register(g, r)?
+			},
+			import_queue_blocks_submitted: {
+				let c = Counter::new(
+					"substrate_sync_import_queue_blocks_submitted",
+					"Number of blocks submitted to the import queue.",
+				)?;
+				register(c, r)?
+			},
+			import_queue_justifications_submitted: {
+				let c = Counter::new(
+					"substrate_sync_import_queue_justifications_submitted",
+					"Number of justifications submitted to the import queue.",
+				)?;
+				register(c, r)?
 			},
 		})
 	}
@@ -315,6 +333,9 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Protocol name used to send out warp sync requests
 	warp_sync_protocol_name: Option<ProtocolName>,
+
+	/// Handle to import queue.
+	import_queue: Box<dyn ImportQueueService<B>>,
 }
 
 impl<B: BlockT, Client> SyncingEngine<B, Client>
@@ -440,9 +461,7 @@ where
 			max_parallel_downloads,
 			max_blocks_per_request,
 			warp_sync_config,
-			metrics_registry,
 			network_service.clone(),
-			import_queue,
 		)?;
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
@@ -507,6 +526,7 @@ where
 				block_downloader,
 				state_request_protocol_name,
 				warp_sync_protocol_name,
+				import_queue,
 			},
 			SyncingService::new(tx, num_connected, is_major_syncing),
 			block_announce_config,
@@ -722,13 +742,13 @@ where
 				ToServiceCommand::BlocksProcessed(imported, count, results) => {
 					for result in self.chain_sync.on_blocks_processed(imported, count, results) {
 						match result {
-							Ok(event) => match event {
-								BlockRequestEvent::SendRequest { peer_id, request } => {
+							Ok(action) => match action {
+								BlockRequestAction::SendRequest { peer_id, request } => {
 									// drop obsolete pending response first
 									self.pending_responses.remove(&peer_id);
 									self.send_block_request(peer_id, request);
 								},
-								BlockRequestEvent::RemoveStale { peer_id } => {
+								BlockRequestAction::RemoveStale { peer_id } => {
 									self.pending_responses.remove(&peer_id);
 								},
 							},
@@ -945,7 +965,10 @@ where
 			}
 		}
 
-		self.chain_sync.peer_disconnected(&peer_id);
+		if let Some(import_blocks_action) = self.chain_sync.peer_disconnected(&peer_id) {
+			self.import_blocks(import_blocks_action)
+		}
+
 		self.pending_responses.remove(&peer_id);
 		self.event_streams
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
@@ -1239,10 +1262,14 @@ where
 				PeerRequest::Block(req) => {
 					match self.block_downloader.block_response_into_blocks(&req, resp) {
 						Ok(blocks) => {
-							if let Some((peer_id, new_req)) =
-								self.chain_sync.on_block_response(peer_id, req, blocks)
-							{
-								self.send_block_request(peer_id, new_req);
+							match self.chain_sync.on_block_response(peer_id, req, blocks) {
+								OnBlockResponse::SendBlockRequest { peer_id, request } =>
+									self.send_block_request(peer_id, request),
+								OnBlockResponse::ImportBlocks(import_blocks_action) =>
+									self.import_blocks(import_blocks_action),
+								OnBlockResponse::ImportJustifications(action) =>
+									self.import_justifications(action),
+								OnBlockResponse::Nothing => {},
 							}
 						},
 						Err(BlockResponseError::DecodeFailed(e)) => {
@@ -1288,7 +1315,11 @@ where
 						},
 					};
 
-					self.chain_sync.on_state_response(peer_id, response);
+					if let Some(import_blocks_action) =
+						self.chain_sync.on_state_response(peer_id, response)
+					{
+						self.import_blocks(import_blocks_action);
+					}
 				},
 				PeerRequest::WarpProof => {
 					self.chain_sync.on_warp_sync_response(peer_id, EncodedProof(resp));
@@ -1391,5 +1422,25 @@ where
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
 		)
+	}
+
+	/// Import blocks.
+	fn import_blocks(&mut self, ImportBlocksAction { origin, blocks }: ImportBlocksAction<B>) {
+		if let Some(metrics) = &self.metrics {
+			metrics.import_queue_blocks_submitted.inc();
+		}
+
+		self.import_queue.import_blocks(origin, blocks);
+	}
+
+	/// Import justifications.
+	fn import_justifications(&mut self, action: ImportJustificationsAction<B>) {
+		if let Some(metrics) = &self.metrics {
+			metrics.import_queue_justifications_submitted.inc();
+		}
+
+		let ImportJustificationsAction { peer_id, hash, number, justifications } = action;
+
+		self.import_queue.import_justifications(peer_id, hash, number, justifications);
 	}
 }

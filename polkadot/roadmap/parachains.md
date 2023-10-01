@@ -178,7 +178,7 @@ It is the responsibility of the full nodes of the _sending_ para to maintain all
 the link where `b` is less than the watermark of the _receiving_ para.
 
 Full nodes of the para will be aware of the head of all MQCs for its channels because they are produced by execution of
-the block. This will take collaboration with the Cumulus team (https://github.com/paritytech/cumulus) on APIs.
+the block. This will take collaboration with the Cumulus team (https://github.com/paritytech/polkadot-sdk) on APIs.
 
 We will need a network where collators of paras can discover and fetch the relevant portion of the MQC incoming from all
 channels.

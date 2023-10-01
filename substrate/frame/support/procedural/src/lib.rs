@@ -877,6 +877,8 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(

@@ -110,7 +110,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 tokio = { version = "1.24.2", features = ["macros"] }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
 default = [ "std" ]
@@ -196,6 +196,7 @@ std = [
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-version/std",
+	"substrate-wasm-builder",
 	"tx-pool-api/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -307,3 +308,8 @@ try-runtime = [
 fast-runtime = []
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+
+# A feature that should be enabled when the runtime should be build for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]
