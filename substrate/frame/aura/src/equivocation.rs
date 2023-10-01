@@ -97,19 +97,23 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 
 /// AURA equivocation offence report system.
 ///
-/// This type implements `OffenceReportSystem` such that:
+/// This type implements `OffenceReportSystem` trait such that:
 /// - Equivocation reports are published on-chain as unsigned extrinsic via
 ///   `offchain::SendTransactionTypes`.
 /// - On-chain validity checks and processing are mostly delegated to the user-provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
 ///
-/// Requires the runtime to implement:
-/// - pallet-authorship: to get reporter identity.
-/// - pallet-session: to check the `KeyOwnerProof` validity (map block to session-id).
+/// Depends on:
+/// - pallet-authorship: to get reporter identity when missing during offence evidence processing.
+/// - pallet-session: to check the `KeyOwnerProof` validity.
 ///
-/// Furthermore it requires the `[pallet_session::Config::NextSessionRotation]` to be
-/// a `[pallet_session::PeriodicSessions]` type.
+/// In order to check for `KeyOwnerProof` validity we need a way to compare the session index
+/// contained within the proof and the session index relative to the produced blocks.
+/// In order to map block number to session index this implementation requires the
+/// `[pallet_session::Config::NextSessionRotation]` to be `[pallet_session::PeriodicSessions]`.
+/// In this way the mapping is performed by just divinding the block number by the session period
+/// duration.
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L, Period, Offset>
@@ -192,20 +196,17 @@ where
 
 		let validator_set_count = key_owner_proof.validator_count();
 
-		// Because we are using the `PeriodicSession` type, this is the exact session length.
+		// Because we are using the `PeriodicSession` type, this is the exact session duration.
 		let session_len =
 			<<T as pallet_session::Config>::NextSessionRotation as EstimateNextSessionRotation<
 				BlockNumberFor<T>,
 			>>::average_session_length();
-		log::debug!(target: LOG_TARGET, "SESSION LENGTH: {}", session_len);
 
 		let session_index = key_owner_proof.session();
-		log::debug!(target: LOG_TARGET, "SESSION INDEX: {}", session_index);
 
 		let idx1 = block_num1.checked_div(&session_len).unwrap_or(Zero::zero());
 		let idx2 = block_num2.checked_div(&session_len).unwrap_or(Zero::zero());
 
-		log::debug!(target: LOG_TARGET, "NUM1 {}, NUM2 {}, INDEX1: {}, INDEX2: {}", block_num1, block_num2, idx1, idx2);
 		if BlockNumberFor::<T>::from(session_index as u32) != idx1 || idx1 != idx2 {
 			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
 		}
@@ -213,7 +214,6 @@ where
 		// Check the membership proof and extract the offender's id
 		let offender = P::check_proof((KEY_TYPE, offender), key_owner_proof)
 			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
-		log::debug!(target: LOG_TARGET, "VALID KEY OWNER PROOF");
 
 		let offence = EquivocationOffence { slot, session_index, validator_set_count, offender };
 		R::report_offence(reporter.into_iter().collect(), offence)
