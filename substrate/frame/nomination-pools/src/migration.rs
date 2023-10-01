@@ -45,7 +45,6 @@ pub mod versioned_migrations {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
-
 }
 
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
