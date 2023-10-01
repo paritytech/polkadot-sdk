@@ -25,8 +25,8 @@ use libp2p::PeerId;
 use sc_network::RequestFailure;
 use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, PeerInfo,
-	SyncStatus,
+	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
+	OnBlockJustification, PeerInfo, SyncStatus,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -78,7 +78,7 @@ mockall::mock! {
 			who: PeerId,
 			announce: &BlockAnnounce<Block::Header>,
 		);
-		fn peer_disconnected(&mut self, who: &PeerId);
+		fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
 		fn metrics(&self) -> Metrics;
 	}
 }
