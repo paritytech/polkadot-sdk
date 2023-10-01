@@ -8827,7 +8827,6 @@ dependencies = [
 name = "pallet-aura"
 version = "4.0.0-dev"
 dependencies = [
- "env_logger 0.10.0",
  "frame-support",
  "frame-system",
  "log",

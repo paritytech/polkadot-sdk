@@ -124,7 +124,6 @@ fn pallet_always_rejects_decreasing_slot() {
 fn report_equivocation_works() {
 	use crate::equivocation::EquivocationOffence;
 	use sp_runtime::DispatchError;
-	env_logger::init();
 
 	new_test_ext_and_execute(4, |pairs| {
 		progress_to_block(3);
@@ -140,7 +139,7 @@ fn report_equivocation_works() {
 			.unwrap();
 
 		// Generate an equivocation proof.
-		let (equivocation_proof, key_owner_proof) =
+		let (equivocation_proof, mut key_owner_proof) =
 			make_equivocation_proof(&offending_authority_pair);
 
 		// Report the equivocation
@@ -171,8 +170,22 @@ fn report_equivocation_works() {
 			slot: equivocation_proof.slot,
 			session_index: key_owner_proof.session,
 			validator_set_count: key_owner_proof.validator_count,
-			offender: (KEY_TYPE, equivocation_proof.offender),
+			offender: (KEY_TYPE, equivocation_proof.offender.clone()),
 		};
 		assert_eq!(offences, vec![(vec![1], expected_offence)]);
+
+		// Report invalid equivocation
+		key_owner_proof.session += 1;
+		let res = Aura::report_equivocation(
+			RuntimeOrigin::signed(2),
+			Box::new(equivocation_proof.clone()),
+			key_owner_proof.clone(),
+		)
+		.unwrap_err();
+		assert_eq!(res.post_info.pays_fee, Pays::Yes);
+		let DispatchError::Module(err) = res.error else {
+			panic!("Unexpected error type");
+		};
+		assert_eq!(err.message, Some("InvalidKeyOwnershipProof"));
 	})
 }

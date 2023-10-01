@@ -41,6 +41,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
+	weights::Weight,
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
 use frame_system::pallet_prelude::HeaderFor;
@@ -57,6 +58,7 @@ use sp_std::prelude::*;
 #[cfg(any(feature = "default-equivocation-report-system", test))]
 mod equivocation;
 
+mod default_weights;
 mod mock;
 mod tests;
 
@@ -65,6 +67,10 @@ pub mod migrations;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::aura";
+
+pub trait WeightInfo {
+	fn report_equivocation(validator_count: u32) -> Weight;
+}
 
 /// A slot duration provider which infers the slot duration from the
 /// [`pallet_timestamp::Config::MinimumPeriod`] by multiplying it by two, to ensure
@@ -98,7 +104,11 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
+		/// Helper for weights computations.
+		type WeightInfo: WeightInfo;
+
 		/// The maximum number of authorities that the pallet can hold.
+		#[pallet::constant]
 		type MaxAuthorities: Get<u32>;
 
 		/// A way to check whether a given validator is disabled and should not be authoring blocks.
@@ -206,12 +216,9 @@ pub mod pallet {
 		/// key ownership proof against the extracted offender. If both are valid,
 		/// the offence will be reported.
 		#[pallet::call_index(0)]
-		// TODO @davxy compute weights via benches
-		// #[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
-		// 	key_owner_proof.validator_count(),
-		// 	T::MaxNominators::get(),
-		// ))]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+			key_owner_proof.validator_count(),
+		))]
 		pub fn report_equivocation(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,
@@ -237,11 +244,9 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(1)]
-		// #[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
-		// 	key_owner_proof.validator_count(),
-		// 	T::MaxNominators::get(),
-		// ))]
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::report_equivocation(
+			key_owner_proof.validator_count(),
+		))]
 		pub fn report_equivocation_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<EquivocationProof<HeaderFor<T>, T::AuthorityId>>,

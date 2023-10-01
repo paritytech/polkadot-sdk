@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Default weights for the Babe Pallet
+//! Default weights for the AURA Pallet.
 //! This file was not auto-generated.
 
 use frame_support::weights::{
@@ -23,26 +23,26 @@ use frame_support::weights::{
 	Weight,
 };
 
-impl crate::WeightInfo for () {
-	fn plan_config_change() -> Weight {
-		DbWeight::get().writes(1)
-	}
+/// Default `WeightInfo` generic over the max number of validator's nominators.
+pub struct WeightInfo<const N: u32>;
 
-	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
-		// we take the validator set count from the membership proof to
+impl<const N: u32> crate::WeightInfo for WeightInfo<N> {
+	fn report_equivocation(validator_count: u32) -> Weight {
+		// We take the validator set count from the membership proof to
 		// calculate the weight but we set a max of 100 validators.
 		let validator_count = validator_count.max(100) as u64;
+		let max_nominators_per_validator = N;
 
-		// checking membership proof
+		// Checking membership proof
 		Weight::from_parts(35u64 * WEIGHT_REF_TIME_PER_MICROS, 0)
 			.saturating_add(
 				Weight::from_parts(175u64 * WEIGHT_REF_TIME_PER_NANOS, 0)
 					.saturating_mul(validator_count),
 			)
 			.saturating_add(DbWeight::get().reads(5))
-			// check equivocation proof
+			// Check equivocation proof
 			.saturating_add(Weight::from_parts(110u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
-			// report offence
+			// Report offence
 			.saturating_add(Weight::from_parts(110u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
 			.saturating_add(Weight::from_parts(
 				25u64 * WEIGHT_REF_TIME_PER_MICROS * max_nominators_per_validator as u64,

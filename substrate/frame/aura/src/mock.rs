@@ -205,6 +205,7 @@ impl KeyOwnerProofSystem<IdentificationTuple> for TestKeyOwnerProofSystem {
 impl pallet_aura::Config for Test {
 	type AuthorityId = AuthorityId;
 	type DisabledValidators = MockDisabledValidators;
+	type WeightInfo = pallet_aura::default_weights::WeightInfo<0>;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
 	type KeyOwnerProof = MembershipProof;

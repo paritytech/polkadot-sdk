@@ -33,7 +33,6 @@ sp-core = { path = "../../primitives/core", default-features = false}
 sp-io = { path = "../../primitives/io" }
 pallet-authorship = { path = "../authorship" }
 pallet-session = { path = "../session" }
-env_logger = "0.10"
 
 [features]
 default = [ "std" ]
