@@ -7,7 +7,7 @@ destinations of a bridge lane must have a sovereign account at each end of the b
 of the sovereign accounts will pay rewards for different operations. So we need multiple
 parameters to identify the account that pays a reward to the relayer.</p>
 </div></details><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RewardsAccountParams" class="impl"><a class="srclink rightside" href="../src/bp_relayers/lib.rs.html#65-74">source</a><a href="#impl-RewardsAccountParams" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.RewardsAccountParams.html" title="struct bp_relayers::RewardsAccountParams">RewardsAccountParams</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="srclink rightside" href="../src/bp_relayers/lib.rs.html#67-73">source</a><h4 class="code-header">pub const fn <a href="#method.new" class="fn">new</a>(
-    lane_id: <a class="struct" href="../bp_messages/struct.LaneId.html" title="struct bp_messages::LaneId">LaneId</a>,
+    lane_id: LaneId,
     bridged_chain_id: ChainId,
     owner: <a class="enum" href="enum.RewardsAccountOwner.html" title="enum bp_relayers::RewardsAccountOwner">RewardsAccountOwner</a>
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Create a new instance of <code>RewardsAccountParams</code>.</p>

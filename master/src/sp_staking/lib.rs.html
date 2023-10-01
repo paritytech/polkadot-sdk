@@ -273,6 +273,8 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -396,10 +398,12 @@
 	/// * `slashed_active` - The new bonded balance of the staker after the slash was applied.
 	/// * `slashed_unlocking` - A map of slashed eras, and the balance of that unlocking chunk after
 	///   the slash is applied. Any era not present in the map is not affected at all.
+	/// * `slashed_total` - The aggregated balance that was lost due to the slash.
 	</span><span class="kw">fn </span>on_slash(
 		_stash: <span class="kw-2">&amp;</span>AccountId,
 		_slashed_active: Balance,
 		_slashed_unlocking: <span class="kw-2">&amp;</span>BTreeMap&lt;EraIndex, Balance&gt;,
+		_slashed_total: Balance,
 	) {
 	}
 }

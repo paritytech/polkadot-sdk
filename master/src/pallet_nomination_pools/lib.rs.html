@@ -3452,6 +3452,91 @@
 <a href="#3452" id="3452">3452</a>
 <a href="#3453" id="3453">3453</a>
 <a href="#3454" id="3454">3454</a>
+<a href="#3455" id="3455">3455</a>
+<a href="#3456" id="3456">3456</a>
+<a href="#3457" id="3457">3457</a>
+<a href="#3458" id="3458">3458</a>
+<a href="#3459" id="3459">3459</a>
+<a href="#3460" id="3460">3460</a>
+<a href="#3461" id="3461">3461</a>
+<a href="#3462" id="3462">3462</a>
+<a href="#3463" id="3463">3463</a>
+<a href="#3464" id="3464">3464</a>
+<a href="#3465" id="3465">3465</a>
+<a href="#3466" id="3466">3466</a>
+<a href="#3467" id="3467">3467</a>
+<a href="#3468" id="3468">3468</a>
+<a href="#3469" id="3469">3469</a>
+<a href="#3470" id="3470">3470</a>
+<a href="#3471" id="3471">3471</a>
+<a href="#3472" id="3472">3472</a>
+<a href="#3473" id="3473">3473</a>
+<a href="#3474" id="3474">3474</a>
+<a href="#3475" id="3475">3475</a>
+<a href="#3476" id="3476">3476</a>
+<a href="#3477" id="3477">3477</a>
+<a href="#3478" id="3478">3478</a>
+<a href="#3479" id="3479">3479</a>
+<a href="#3480" id="3480">3480</a>
+<a href="#3481" id="3481">3481</a>
+<a href="#3482" id="3482">3482</a>
+<a href="#3483" id="3483">3483</a>
+<a href="#3484" id="3484">3484</a>
+<a href="#3485" id="3485">3485</a>
+<a href="#3486" id="3486">3486</a>
+<a href="#3487" id="3487">3487</a>
+<a href="#3488" id="3488">3488</a>
+<a href="#3489" id="3489">3489</a>
+<a href="#3490" id="3490">3490</a>
+<a href="#3491" id="3491">3491</a>
+<a href="#3492" id="3492">3492</a>
+<a href="#3493" id="3493">3493</a>
+<a href="#3494" id="3494">3494</a>
+<a href="#3495" id="3495">3495</a>
+<a href="#3496" id="3496">3496</a>
+<a href="#3497" id="3497">3497</a>
+<a href="#3498" id="3498">3498</a>
+<a href="#3499" id="3499">3499</a>
+<a href="#3500" id="3500">3500</a>
+<a href="#3501" id="3501">3501</a>
+<a href="#3502" id="3502">3502</a>
+<a href="#3503" id="3503">3503</a>
+<a href="#3504" id="3504">3504</a>
+<a href="#3505" id="3505">3505</a>
+<a href="#3506" id="3506">3506</a>
+<a href="#3507" id="3507">3507</a>
+<a href="#3508" id="3508">3508</a>
+<a href="#3509" id="3509">3509</a>
+<a href="#3510" id="3510">3510</a>
+<a href="#3511" id="3511">3511</a>
+<a href="#3512" id="3512">3512</a>
+<a href="#3513" id="3513">3513</a>
+<a href="#3514" id="3514">3514</a>
+<a href="#3515" id="3515">3515</a>
+<a href="#3516" id="3516">3516</a>
+<a href="#3517" id="3517">3517</a>
+<a href="#3518" id="3518">3518</a>
+<a href="#3519" id="3519">3519</a>
+<a href="#3520" id="3520">3520</a>
+<a href="#3521" id="3521">3521</a>
+<a href="#3522" id="3522">3522</a>
+<a href="#3523" id="3523">3523</a>
+<a href="#3524" id="3524">3524</a>
+<a href="#3525" id="3525">3525</a>
+<a href="#3526" id="3526">3526</a>
+<a href="#3527" id="3527">3527</a>
+<a href="#3528" id="3528">3528</a>
+<a href="#3529" id="3529">3529</a>
+<a href="#3530" id="3530">3530</a>
+<a href="#3531" id="3531">3531</a>
+<a href="#3532" id="3532">3532</a>
+<a href="#3533" id="3533">3533</a>
+<a href="#3534" id="3534">3534</a>
+<a href="#3535" id="3535">3535</a>
+<a href="#3536" id="3536">3536</a>
+<a href="#3537" id="3537">3537</a>
+<a href="#3538" id="3538">3538</a>
+<a href="#3539" id="3539">3539</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3990,6 +4075,31 @@
 		} <span class="kw">else </span>{
 			Zero::zero()
 		}
+	}
+
+	<span class="doccomment">/// Total balance of the member, both active and unbonding.
+	/// Doesn&#39;t mutate state.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzzing&quot;</span>, test, debug_assertions))]
+	</span><span class="kw">fn </span>total_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
+		<span class="kw">let </span>pool = BondedPool::&lt;T&gt;::get(<span class="self">self</span>.pool_id).unwrap();
+		<span class="kw">let </span>active_balance = pool.points_to_balance(<span class="self">self</span>.active_points());
+
+		<span class="kw">let </span>sub_pools = <span class="kw">match </span>SubPoolsStorage::&lt;T&gt;::get(<span class="self">self</span>.pool_id) {
+			<span class="prelude-val">Some</span>(sub_pools) =&gt; sub_pools,
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>active_balance,
+		};
+
+		<span class="kw">let </span>unbonding_balance = <span class="self">self</span>.unbonding_eras.iter().fold(
+			BalanceOf::&lt;T&gt;::zero(),
+			|accumulator, (era, unlocked_points)| {
+				<span class="comment">// if the `SubPools::with_era` has already been merged into the
+				// `SubPools::no_era` use this pool instead.
+				</span><span class="kw">let </span>era_pool = sub_pools.with_era.get(era).unwrap_or(<span class="kw-2">&amp;</span>sub_pools.no_era);
+				accumulator + (era_pool.point_to_balance(<span class="kw-2">*</span>unlocked_points))
+			},
+		);
+
+		active_balance + unbonding_balance
 	}
 
 	<span class="doccomment">/// Total points of this member, both active and unbonding.
@@ -4643,11 +4753,11 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Bond exactly `amount` from `who`&#39;s funds into this pool.
+	<span class="doccomment">/// Bond exactly `amount` from `who`&#39;s funds into this pool. Increases the [`TotalValueLocked`]
+	/// by `amount`.
 	///
-	/// If the bond type is `Create`, `Staking::bond` is called, and `who`
-	/// is allowed to be killed. Otherwise, `Staking::bond_extra` is called and `who`
-	/// cannot be killed.
+	/// If the bond is [`BondType::Create`], [`Staking::bond`] is called, and `who` is allowed to be
+	/// killed. Otherwise, [`Staking::bond_extra`] is called and `who` cannot be killed.
 	///
 	/// Returns `Ok(points_issues)`, `Err` otherwise.
 	</span><span class="kw">fn </span>try_bond_funds(
@@ -4678,6 +4788,9 @@
 			// found, we exit early.
 			</span>BondType::Later =&gt; T::Staking::bond_extra(<span class="kw-2">&amp;</span>bonded_account, amount)<span class="question-mark">?</span>,
 		}
+		TotalValueLocked::&lt;T&gt;::mutate(|tvl| {
+			tvl.saturating_accrue(amount);
+		});
 
 		<span class="prelude-val">Ok</span>(points_issued)
 	}
@@ -4692,6 +4805,27 @@
 				new_state: state,
 			});
 		};
+	}
+
+	<span class="doccomment">/// Withdraw all the funds that are already unlocked from staking for the
+	/// [`BondedPool::bonded_account`].
+	///
+	/// Also reduces the [`TotalValueLocked`] by the difference of the
+	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
+	/// [`T::Staking::withdraw_unbonded`].
+	///
+	/// Returns the result of [`T::Staking::withdraw_unbonded`]
+	</span><span class="kw">fn </span>withdraw_from_staking(<span class="kw-2">&amp;</span><span class="self">self</span>, num_slashing_spans: u32) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
+		<span class="kw">let </span>bonded_account = <span class="self">self</span>.bonded_account();
+
+		<span class="kw">let </span>prev_total = T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_account.clone()).unwrap_or_default();
+		<span class="kw">let </span>outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
+		<span class="kw">let </span>diff = prev_total
+			.defensive_saturating_sub(T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_account).unwrap_or_default());
+		TotalValueLocked::&lt;T&gt;::mutate(|tvl| {
+			tvl.saturating_reduce(diff);
+		});
+		outcome
 	}
 }
 
@@ -4891,9 +5025,7 @@
 	}
 
 	<span class="doccomment">/// Dissolve some points from the unbonding pool, reducing the balance of the pool
-	/// proportionally.
-	///
-	/// This is the opposite of `issue`.
+	/// proportionally. This is the opposite of `issue`.
 	///
 	/// Returns the actual amount of `Balance` that was removed from the pool.
 	</span><span class="kw">fn </span>dissolve(<span class="kw-2">&amp;mut </span><span class="self">self</span>, points: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
@@ -4979,7 +5111,7 @@
 	<span class="kw">use </span>sp_runtime::Perbill;
 
 	<span class="doccomment">/// The current storage version.
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">6</span>);
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">7</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -5055,6 +5187,14 @@
 		<span class="doccomment">/// The maximum number of simultaneous unbonding chunks that can exist per member.
 		</span><span class="kw">type </span>MaxUnbonding: Get&lt;u32&gt;;
 	}
+
+	<span class="doccomment">/// The sum of funds across all pools.
+	///
+	/// This might be lower but never higher than the sum of `total_balance` of all [`PoolMembers`]
+	/// because calling `pool_withdraw_unbonded` might decrease the total stake of the pool&#39;s
+	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`&#39;s.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>TotalValueLocked&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Minimum amount to bond to join a pool.
 	</span><span class="attr">#[pallet::storage]
@@ -5279,9 +5419,9 @@
 		</span>CannotWithdrawAny,
 		<span class="doccomment">/// The amount does not meet the minimum bond to either join or create a pool.
 		///
-		/// The depositor can never unbond to a value less than
-		/// `Pallet::depositor_min_bond`. The caller does not have nominating
-		/// permissions for the pool. Members can never unbond to a value below `MinJoinBond`.
+		/// The depositor can never unbond to a value less than `Pallet::depositor_min_bond`. The
+		/// caller does not have nominating permissions for the pool. Members can never unbond to a
+		/// value below `MinJoinBond`.
 		</span>MinimumBondNotMet,
 		<span class="doccomment">/// The transaction could not be executed due to overflow risk for the pool.
 		</span>OverflowRisk,
@@ -5568,7 +5708,7 @@
 
 		<span class="doccomment">/// Call `withdraw_unbonded` for the pools account. This call can be made by any account.
 		///
-		/// This is useful if their are too many unlocking chunks to call `unbond`, and some
+		/// This is useful if there are too many unlocking chunks to call `unbond`, and some
 		/// can be cleared by withdrawing. In the case there are too many unlocking chunks, the user
 		/// would probably see an error like `NoMoreChunks` emitted from the staking system when
 		/// they attempt to unbond.
@@ -5581,10 +5721,12 @@
 		) -&gt; DispatchResult {
 			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
+
 			<span class="comment">// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			</span><span class="macro">ensure!</span>(pool.state != PoolState::Destroying, Error::&lt;T&gt;::NotDestroying);
-			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
+			pool.withdraw_from_staking(num_slashing_spans)<span class="question-mark">?</span>;
+
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -5634,9 +5776,8 @@
 			<span class="macro">ensure!</span>(!withdrawn_points.is_empty(), Error::&lt;T&gt;::CannotWithdrawAny);
 
 			<span class="comment">// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
-			// `transferable_balance` is correct.
-			</span><span class="kw">let </span>stash_killed =
-				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
+			// `transferrable_balance` is correct.
+			</span><span class="kw">let </span>stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)<span class="question-mark">?</span>;
 
 			<span class="comment">// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -6300,12 +6441,9 @@
 			},
 			(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; {
 				<span class="comment">// Equivalent to (current_points / current_balance) * new_funds
-				</span>balance(
-					u256(current_points)
-						.saturating_mul(u256(new_funds))
-						<span class="comment">// We check for zero above
-						</span>.div(u256(current_balance)),
-				)
+				</span>balance(u256(current_points).saturating_mul(u256(new_funds)))
+					<span class="comment">// We check for zero above
+					</span>.div(current_balance)
 			},
 		}
 	}
@@ -6325,9 +6463,12 @@
 		}
 
 		<span class="comment">// Equivalent of (current_balance / current_points) * points
-		</span>balance(u256(current_balance).saturating_mul(u256(points)))
-			<span class="comment">// We check for zero above
-			</span>.div(current_points)
+		</span>balance(
+			u256(current_balance)
+				.saturating_mul(u256(points))
+				<span class="comment">// We check for zero above
+				</span>.div(u256(current_points)),
+		)
 	}
 
 	<span class="doccomment">/// If the member has some rewards, transfer a payout from the reward pool to the member.
@@ -6696,6 +6837,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>pools_members = BTreeMap::&lt;PoolId, u32&gt;::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>pools_members_pending_rewards = BTreeMap::&lt;PoolId, BalanceOf&lt;T&gt;&gt;::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>all_members = <span class="number">0u32</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>total_balance_members = Default::default();
 		PoolMembers::&lt;T&gt;::iter().try_for_each(|(<span class="kw">_</span>, d)| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="kw">let </span>bonded_pool = BondedPools::&lt;T&gt;::get(d.pool_id).unwrap();
 			<span class="macro">ensure!</span>(!d.total_points().is_zero(), <span class="string">&quot;No member should have zero points&quot;</span>);
@@ -6711,8 +6853,9 @@
 				<span class="kw">let </span>pending_rewards = d.pending_rewards(current_rc).unwrap();
 				<span class="kw-2">*</span>pools_members_pending_rewards.entry(d.pool_id).or_default() += pending_rewards;
 			} <span class="comment">// else this pool has been heavily slashed and cannot have any rewards anymore.
+			</span>total_balance_members += d.total_balance();
 
-			</span><span class="prelude-val">Ok</span>(())
+			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
 
 		RewardPools::&lt;T&gt;::iter_keys().try_for_each(|id| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
@@ -6734,6 +6877,7 @@
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
 
+		<span class="kw">let </span><span class="kw-2">mut </span>expected_tvl: BalanceOf&lt;T&gt; = Default::default();
 		BondedPools::&lt;T&gt;::iter().try_for_each(|(id, inner)| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="kw">let </span>bonded_pool = BondedPool { id, inner };
 			<span class="macro">ensure!</span>(
@@ -6754,12 +6898,27 @@
 				<span class="string">&quot;depositor must always have MinCreateBond stake in the pool, except for when the \
 				pool is being destroyed and the depositor is the last member&quot;</span>,
 			);
+
+			expected_tvl +=
+				T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()).unwrap_or_default();
+
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
+
 		<span class="macro">ensure!</span>(
 			MaxPoolMembers::&lt;T&gt;::get().map_or(<span class="bool-val">true</span>, |max| all_members &lt;= max),
 			Error::&lt;T&gt;::MaxPoolMembers
 		);
+
+		<span class="macro">ensure!</span>(
+			TotalValueLocked::&lt;T&gt;::get() == expected_tvl,
+			<span class="string">&quot;TVL deviates from the actual sum of funds of all Pools.&quot;
+		</span>);
+
+		<span class="macro">ensure!</span>(
+			TotalValueLocked::&lt;T&gt;::get() &lt;= total_balance_members,
+			<span class="string">&quot;TVL must be equal to or less than the total balance of all PoolMembers.&quot;
+		</span>);
 
 		<span class="kw">if </span>level &lt;= <span class="number">1 </span>{
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -6878,20 +7037,30 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; sp_staking::OnStakingUpdate&lt;T::AccountId, BalanceOf&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">fn </span>on_slash(
+	<span class="doccomment">/// Reduces the balances of the [`SubPools`], that belong to the pool involved in the
+	/// slash, to the amount that is defined in the `slashed_unlocking` field of
+	/// [`sp_staking::OnStakingUpdate::on_slash`]
+	///
+	/// Emits the `PoolsSlashed` event.
+	</span><span class="kw">fn </span>on_slash(
 		pool_account: <span class="kw-2">&amp;</span>T::AccountId,
 		<span class="comment">// Bonded balance is always read directly from staking, therefore we don&#39;t need to update
 		// anything here.
 		</span>slashed_bonded: BalanceOf&lt;T&gt;,
 		slashed_unlocking: <span class="kw-2">&amp;</span>BTreeMap&lt;EraIndex, BalanceOf&lt;T&gt;&gt;,
+		total_slashed: BalanceOf&lt;T&gt;,
 	) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(pool_id) = ReversePoolIdLookup::&lt;T&gt;::get(pool_account) {
-			<span class="kw">let </span><span class="kw-2">mut </span>sub_pools = <span class="kw">match </span>SubPoolsStorage::&lt;T&gt;::get(pool_id).defensive() {
-				<span class="prelude-val">Some</span>(sub_pools) =&gt; sub_pools,
-				<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
-			};
-			<span class="kw">for </span>(era, slashed_balance) <span class="kw">in </span>slashed_unlocking.iter() {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(pool) = sub_pools.with_era.get_mut(era) {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(pool_id) = ReversePoolIdLookup::&lt;T&gt;::get(pool_account) <span class="kw">else </span>{ <span class="kw">return </span>};
+		<span class="comment">// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
+		// an event is emitted.
+		</span>TotalValueLocked::&lt;T&gt;::mutate(|tvl| {
+			tvl.defensive_saturating_reduce(total_slashed);
+		});
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>sub_pools) = SubPoolsStorage::&lt;T&gt;::get(pool_id) {
+			<span class="comment">// set the reduced balance for each of the `SubPools`
+			</span>slashed_unlocking.iter().for_each(|(era, slashed_balance)| {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(pool) = sub_pools.with_era.get_mut(era).defensive() {
 					pool.balance = <span class="kw-2">*</span>slashed_balance;
 					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::UnbondingPoolSlashed {
 						era: <span class="kw-2">*</span>era,
@@ -6899,11 +7068,12 @@
 						balance: <span class="kw-2">*</span>slashed_balance,
 					});
 				}
-			}
-
-			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PoolSlashed { pool_id, balance: slashed_bonded });
+			});
 			SubPoolsStorage::&lt;T&gt;::insert(pool_id, sub_pools);
+		} <span class="kw">else if </span>!slashed_unlocking.is_empty() {
+			<span class="macro">defensive!</span>(<span class="string">&quot;Expected SubPools were not found&quot;</span>);
 		}
+		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PoolSlashed { pool_id, balance: slashed_bonded });
 	}
 }
 </code></pre></div></section></main></body></html>

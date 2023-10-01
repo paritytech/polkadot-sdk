@@ -515,6 +515,28 @@
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -537,7 +559,7 @@
 <span class="kw">use </span>frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_runtime::{BuildStorage, FixedU128};
-<span class="kw">use </span>sp_staking::Stake;
+<span class="kw">use </span>sp_staking::{OnStakingUpdate, Stake};
 
 <span class="kw">pub type </span>BlockNumber = u64;
 <span class="kw">pub type </span>AccountId = u128;
@@ -563,7 +585,8 @@
 	<span class="kw">pub static </span>CurrentEra: EraIndex = <span class="number">0</span>;
 	<span class="kw">pub static </span>BondingDuration: EraIndex = <span class="number">3</span>;
 	<span class="kw">pub </span>storage BondedBalanceMap: BTreeMap&lt;AccountId, Balance&gt; = Default::default();
-	<span class="kw">pub </span>storage UnbondingBalanceMap: BTreeMap&lt;AccountId, Balance&gt; = Default::default();
+	<span class="comment">// map from a user to a vec of eras and amounts being unlocked in each era.
+	</span><span class="kw">pub </span>storage UnbondingBalanceMap: BTreeMap&lt;AccountId, Vec&lt;(EraIndex, Balance)&gt;&gt; = Default::default();
 	<span class="attr">#[derive(Clone, PartialEq)]
 	</span><span class="kw">pub static </span>MaxUnbonding: u32 = <span class="number">8</span>;
 	<span class="kw">pub static </span>StakingMinBond: Balance = <span class="number">10</span>;
@@ -576,6 +599,19 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>x = BondedBalanceMap::get();
 		x.insert(who, bonded);
 		BondedBalanceMap::set(<span class="kw-2">&amp;</span>x)
+	}
+	<span class="doccomment">/// Mimics a slash towards a pool specified by `pool_id`.
+	/// This reduces the bonded balance of a pool by `amount` and calls [`Pools::on_slash`] to
+	/// enact changes in the nomination-pool pallet.
+	///
+	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
+	/// `slashed_unlocking`.
+	</span><span class="kw">pub fn </span>slash_by(pool_id: PoolId, amount: Balance) {
+		<span class="kw">let </span>acc = Pools::create_bonded_account(pool_id);
+		<span class="kw">let </span>bonded = BondedBalanceMap::get();
+		<span class="kw">let </span>pre_total = bonded.get(<span class="kw-2">&amp;</span>acc).unwrap();
+		<span class="self">Self</span>::set_bonded_balance(acc, pre_total - amount);
+		Pools::on_slash(<span class="kw-2">&amp;</span>acc, pre_total - amount, <span class="kw-2">&amp;</span>Default::default(), amount);
 	}
 }
 
@@ -622,8 +658,11 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>x = BondedBalanceMap::get();
 		<span class="kw-2">*</span>x.get_mut(who).unwrap() = x.get_mut(who).unwrap().saturating_sub(amount);
 		BondedBalanceMap::set(<span class="kw-2">&amp;</span>x);
+
+		<span class="kw">let </span>era = <span class="self">Self</span>::current_era();
+		<span class="kw">let </span>unlocking_at = era + <span class="self">Self</span>::bonding_duration();
 		<span class="kw">let </span><span class="kw-2">mut </span>y = UnbondingBalanceMap::get();
-		<span class="kw-2">*</span>y.entry(<span class="kw-2">*</span>who).or_insert(<span class="self">Self</span>::Balance::zero()) += amount;
+		y.entry(<span class="kw-2">*</span>who).or_insert(Default::default()).push((unlocking_at, amount));
 		UnbondingBalanceMap::set(<span class="kw-2">&amp;</span>y);
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -633,11 +672,13 @@
 	}
 
 	<span class="kw">fn </span>withdraw_unbonded(who: <span class="self">Self</span>::AccountId, <span class="kw">_</span>: u32) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
-		<span class="comment">// Simulates removing unlocking chunks and only having the bonded balance locked
-		</span><span class="kw">let </span><span class="kw-2">mut </span>x = UnbondingBalanceMap::get();
-		x.remove(<span class="kw-2">&amp;</span>who);
-		UnbondingBalanceMap::set(<span class="kw-2">&amp;</span>x);
+		<span class="kw">let </span><span class="kw-2">mut </span>unbonding_map = UnbondingBalanceMap::get();
+		<span class="kw">let </span>staker_map = unbonding_map.get_mut(<span class="kw-2">&amp;</span>who).ok_or(<span class="string">&quot;Nothing to unbond&quot;</span>)<span class="question-mark">?</span>;
 
+		<span class="kw">let </span>current_era = <span class="self">Self</span>::current_era();
+		staker_map.retain(|(unlocking_at, _amount)| <span class="kw-2">*</span>unlocking_at &gt; current_era);
+
+		UnbondingBalanceMap::set(<span class="kw-2">&amp;</span>unbonding_map);
 		<span class="prelude-val">Ok</span>(UnbondingBalanceMap::get().is_empty() &amp;&amp; BondedBalanceMap::get().is_empty())
 	}
 
@@ -661,14 +702,17 @@
 	}
 
 	<span class="kw">fn </span>stake(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Stake&lt;Balance&gt;, DispatchError&gt; {
-		<span class="kw">match </span>(
-			UnbondingBalanceMap::get().get(who).copied(),
-			BondedBalanceMap::get().get(who).copied(),
-		) {
+		<span class="kw">match </span>(UnbondingBalanceMap::get().get(who), BondedBalanceMap::get().get(who).copied()) {
 			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(DispatchError::Other(<span class="string">&quot;balance not found&quot;</span>)),
-			(<span class="prelude-val">Some</span>(v), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(Stake { total: v, active: <span class="number">0 </span>}),
+			(<span class="prelude-val">Some</span>(v), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(Stake {
+				total: v.into_iter().fold(<span class="number">0u128</span>, |acc, <span class="kw-2">&amp;</span>x| acc.saturating_add(x.<span class="number">1</span>)),
+				active: <span class="number">0</span>,
+			}),
 			(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(v)) =&gt; <span class="prelude-val">Ok</span>(Stake { total: v, active: v }),
-			(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) =&gt; <span class="prelude-val">Ok</span>(Stake { total: a + b, active: b }),
+			(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) =&gt; <span class="prelude-val">Ok</span>(Stake {
+				total: a.into_iter().fold(<span class="number">0u128</span>, |acc, <span class="kw-2">&amp;</span>x| acc.saturating_add(x.<span class="number">1</span>)) + b,
+				active: b,
+			}),
 		}
 	}
 

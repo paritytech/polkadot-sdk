@@ -2325,6 +2325,7 @@
 <a href="#2325" id="2325">2325</a>
 <a href="#2326" id="2326">2326</a>
 <a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3835,6 +3836,7 @@
 		paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ()&gt;,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6&lt;Runtime&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
+		pallet_nomination_pools::migration::versioned_migrations::V6ToV7&lt;Runtime&gt;,
 	);
 }
 
