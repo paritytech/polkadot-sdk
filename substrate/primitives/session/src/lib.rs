@@ -37,16 +37,10 @@ sp_api::decl_runtime_apis! {
 	#[api_version(2)]
 	pub trait SessionKeys {
 		/// Generate a set of session keys with optionally using the given seed.
-		///
 		/// The keys should be stored within the keystore exposed via runtime
 		/// externalities.
 		///
-		/// - `owner`: The `owner` will be used for constructing a `proof` of ownership of the
-		/// generated session keys. This is used by the on-chain logic to verify the ownership.
-		/// The data for `owner` depends on the runtime implementation, e.g. for FRAME this should
-		/// be the SCALE encoded account id.
-		/// - `seed`: A `seed/phrase` that is used to construct the private key. If `None`,
-		/// a random private key is generated.
+		/// The seed needs to be a valid `utf8` string.
 		///
 		/// Returns the concatenated SCALE encoded public keys.
 		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> GeneratedSessionKeys;
