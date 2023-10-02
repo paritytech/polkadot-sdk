@@ -139,14 +139,14 @@ impl TypeId for PalletId {
 /// # Examples
 ///
 /// There are different ways to declare the `prefix` to use. The `prefix` type can either be
-/// declared explicetly by passing it to the macro as an attribute or by letting the macro
+/// declared explicitly by passing it to the macro as an attribute or by letting the macro
 /// guess on what the `prefix` type is. The `prefix` is always passed as the first generic
 /// argument to the type declaration. When using [`#[pallet::storage]`](pallet_macros::storage)
 /// this first generic argument is always `_`. Besides declaring the `prefix`, the rest of the
 /// type declaration works as with [`#[pallet::storage]`](pallet_macros::storage).
 ///
 /// 1. Use the `verbatim` prefix type. This prefix type uses the given identifier as the
-/// `prefix`:
+///    `prefix`:
 #[doc = docify::embed!("src/tests/storage_alias.rs", verbatim_attribute)]
 ///
 /// 2. Use the `pallet_name` prefix type. This prefix type uses the name of the pallet as

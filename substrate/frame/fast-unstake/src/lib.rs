@@ -152,7 +152,11 @@ pub mod pallet {
 	use crate::types::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{Defensive, ReservableCurrency, StorageVersion},
+		traits::{
+			fungible::MutateHold as FunMutateHold,
+			tokens::{Fortitude, Precision},
+			Defensive, StorageVersion,
+		},
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::Zero, DispatchResult};
@@ -169,6 +173,13 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for doing a system-sponsored fast unstake.
+		FastUnstake,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -177,7 +188,10 @@ pub mod pallet {
 			+ TryInto<Event<Self>>;
 
 		/// The currency used for deposits.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Deposit to take for unstaking, to make sure we're able to slash the it in order to cover
 		/// the costs of resources on unsuccessful unstake.
@@ -220,7 +234,7 @@ pub mod pallet {
 	/// Keeps track of `AccountId` wishing to unstake and it's corresponding deposit.
 	// Hasher: Twox safe since `AccountId` is a secure hash.
 	#[pallet::storage]
-	pub type Queue<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+	pub type UnstakeQueue<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// Number of eras to check per block.
 	///
@@ -240,7 +254,7 @@ pub mod pallet {
 		/// A staker was unstaked.
 		Unstaked { stash: T::AccountId, result: DispatchResult },
 		/// A staker was slashed for requesting fast-unstake whilst being exposed.
-		Slashed { stash: T::AccountId, amount: BalanceOf<T> },
+		Slashed { stash: T::AccountId },
 		/// A batch was partially checked for the given eras, but the process did not finish.
 		BatchChecked { eras: Vec<EraIndex> },
 		/// A batch of a given size was terminated.
@@ -339,7 +353,7 @@ pub mod pallet {
 			ensure!(ErasToCheckPerBlock::<T>::get() != 0, <Error<T>>::CallNotAllowed);
 			let stash_account =
 				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
-			ensure!(!Queue::<T>::contains_key(&stash_account), Error::<T>::AlreadyQueued);
+			ensure!(!UnstakeQueue::<T>::contains_key(&stash_account), Error::<T>::AlreadyQueued);
 			ensure!(!Self::is_head(&stash_account), Error::<T>::AlreadyHead);
 			ensure!(!T::Staking::is_unbonding(&stash_account)?, Error::<T>::NotFullyBonded);
 
@@ -347,10 +361,10 @@ pub mod pallet {
 			T::Staking::chill(&stash_account)?;
 			T::Staking::fully_unbond(&stash_account)?;
 
-			T::Currency::reserve(&stash_account, T::Deposit::get())?;
+			T::Currency::hold(&HoldReason::FastUnstake.into(), &stash_account, T::Deposit::get())?;
 
 			// enqueue them.
-			Queue::<T>::insert(stash_account, T::Deposit::get());
+			UnstakeQueue::<T>::insert(stash_account, ());
 			Ok(())
 		}
 
@@ -381,16 +395,17 @@ pub mod pallet {
 
 			let stash_account =
 				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
-			ensure!(Queue::<T>::contains_key(&stash_account), Error::<T>::NotQueued);
+			ensure!(UnstakeQueue::<T>::contains_key(&stash_account), Error::<T>::NotQueued);
 			ensure!(!Self::is_head(&stash_account), Error::<T>::AlreadyHead);
-			let deposit = Queue::<T>::take(stash_account.clone());
+			let _ = UnstakeQueue::<T>::take(stash_account.clone());
 
-			if let Some(deposit) = deposit.defensive() {
-				let remaining = T::Currency::unreserve(&stash_account, deposit);
-				if !remaining.is_zero() {
-					Self::halt("not enough balance to unreserve");
-				}
-			}
+			// This pallet only puts one type of deposit on accounts, and will unlock it all of it
+			// under any circumstance. If `Config::deposit` changes, we still want to do the same.
+			let _ = T::Currency::release_all(
+				&HoldReason::FastUnstake.into(),
+				&stash_account,
+				Precision::BestEffort,
+			)?;
 
 			Ok(())
 		}
@@ -422,7 +437,7 @@ pub mod pallet {
 		/// Returns `true` if `staker` is anywhere to be found in the `head`.
 		pub(crate) fn is_head(staker: &T::AccountId) -> bool {
 			Head::<T>::get().map_or(false, |UnstakeRequest { stashes, .. }| {
-				stashes.iter().any(|(stash, _)| stash == staker)
+				stashes.iter().any(|stash| stash == staker)
 			})
 		}
 
@@ -459,7 +474,7 @@ pub mod pallet {
 			// meaning that the number of exposures to check is either this per era, or less.
 			let validator_count = T::Staking::desired_validator_count();
 			let (next_batch_size, reads_from_queue) = Head::<T>::get()
-				.map_or((Queue::<T>::count().min(T::BatchSize::get()), true), |head| {
+				.map_or((UnstakeQueue::<T>::count().min(T::BatchSize::get()), true), |head| {
 					(head.stashes.len() as u32, false)
 				});
 
@@ -490,8 +505,11 @@ pub mod pallet {
 			}
 
 			let UnstakeRequest { stashes, mut checked } = match Head::<T>::take().or_else(|| {
-				// NOTE: there is no order guarantees in `Queue`.
-				let stashes: BoundedVec<_, T::BatchSize> = Queue::<T>::drain()
+				// NOTE: there is no order guarantees in `UnstakeQueue`.
+				let stashes: BoundedVec<_, T::BatchSize> = UnstakeQueue::<T>::iter()
+					.drain()
+					.map(|(k, _)| k) // TODO: iter_keys().drain() seem to not work as expected. investigate
+					// elsewhere.
 					.take(T::BatchSize::get() as usize)
 					.collect::<Vec<_>>()
 					.try_into()
@@ -558,10 +576,14 @@ pub mod pallet {
 				unchecked_eras_to_check
 			);
 
-			let unstake_stash = |stash: T::AccountId, deposit| {
+			let unstake_stash = |stash: T::AccountId| {
 				let result = T::Staking::force_unstake(stash.clone());
-				let remaining = T::Currency::unreserve(&stash, deposit);
-				if !remaining.is_zero() {
+				let release_outcome = T::Currency::release_all(
+					&HoldReason::FastUnstake.into(),
+					&stash,
+					Precision::BestEffort,
+				);
+				if release_outcome.is_err() {
 					Self::halt("not enough balance to unreserve");
 				} else {
 					log!(info, "unstaked {:?}, outcome: {:?}", stash, result);
@@ -569,15 +591,22 @@ pub mod pallet {
 				}
 			};
 
-			let check_stash = |stash, deposit| {
+			let check_stash = |stash| {
 				let is_exposed = unchecked_eras_to_check
 					.iter()
 					.any(|e| T::Staking::is_exposed_in_era(&stash, e));
 
 				if is_exposed {
-					T::Currency::slash_reserved(&stash, deposit);
-					log!(info, "slashed {:?} by {:?}", stash, deposit);
-					Self::deposit_event(Event::<T>::Slashed { stash, amount: deposit });
+					let _ = T::Currency::burn_all_held(
+						&HoldReason::FastUnstake.into(),
+						&stash,
+						Precision::BestEffort,
+						// This is not a system-level slash, so we politely do our best to slash.
+						Fortitude::Polite,
+					)
+					.defensive();
+					log!(info, "slashed {:?}", stash);
+					Self::deposit_event(Event::<T>::Slashed { stash });
 					false
 				} else {
 					true
@@ -587,14 +616,14 @@ pub mod pallet {
 			if unchecked_eras_to_check.is_empty() {
 				// `stashes` are not exposed in any era now -- we can let go of them now.
 				let size = stashes.len() as u32;
-				stashes.into_iter().for_each(|(stash, deposit)| unstake_stash(stash, deposit));
+				stashes.into_iter().for_each(|stash| unstake_stash(stash));
 				Self::deposit_event(Event::<T>::BatchFinished { size });
 				<T as Config>::WeightInfo::on_idle_unstake(size).saturating_add(unaccounted_weight)
 			} else {
 				let pre_length = stashes.len();
-				let stashes: BoundedVec<(T::AccountId, BalanceOf<T>), T::BatchSize> = stashes
+				let stashes: BoundedVec<T::AccountId, T::BatchSize> = stashes
 					.into_iter()
-					.filter(|(stash, deposit)| check_stash(stash.clone(), *deposit))
+					.filter(|stash| check_stash(stash.clone()))
 					.collect::<Vec<_>>()
 					.try_into()
 					.expect("filter can only lessen the length; still in bound; qed");

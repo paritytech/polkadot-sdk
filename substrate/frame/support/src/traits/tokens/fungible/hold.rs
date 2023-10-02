@@ -321,8 +321,7 @@ pub trait Mutate<AccountId>:
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount = Self::balance_on_hold(reason, who);
-		Self::burn_held(reason, who, amount, precision, force)
+		Self::burn_held(reason, who, Self::balance_on_hold(reason, who), precision, force)
 	}
 
 	/// Transfer held funds into a destination account.

@@ -30,6 +30,7 @@ use crate::{
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
+use sp_arithmetic::traits::Zero;
 use sp_io::MultiRemovalResults;
 use sp_metadata_ir::StorageEntryMetadataIR;
 use sp_runtime::traits::Saturating;
@@ -74,7 +75,9 @@ impl<P: CountedStorageMapInstance, H, K, V, Q, O, M> MapWrapper
 	type Map = StorageMap<P, H, K, V, Q, O, M>;
 }
 
-type CounterFor<P> = StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
+/// The counter prefix for any given storage map.
+pub type CounterFor<P> =
+	StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
 
 /// On removal logic for updating counter while draining upon some prefix with
 /// [`crate::storage::PrefixIterator`].
@@ -380,7 +383,12 @@ where
 	/// Returns the number of items in the map which is used to set the counter.
 	pub fn initialize_counter() -> u32 {
 		let count = Self::iter_values().count() as u32;
-		CounterFor::<Prefix>::set(count);
+		if count.is_zero() {
+			CounterFor::<Prefix>::kill();
+		} else {
+			CounterFor::<Prefix>::set(count);
+		}
+
 		count
 	}
 
