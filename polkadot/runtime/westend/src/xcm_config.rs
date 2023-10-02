@@ -100,10 +100,10 @@ pub type PriceForChildParachainDelivery =
 
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-pub type XcmRouter = WithUniqueTopic<(
+pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
-)>;
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>
+>;
 
 parameter_types! {
 	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();

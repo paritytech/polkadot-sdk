@@ -669,7 +669,7 @@ impl<T: Config> Pallet<T> {
 		messages_processed: &mut u8,
 		max_weight: Weight,
 		max_individual_weight: Weight,
-		should_decrement_fee_factor: bool,
+		should_decrease_fee_factor: bool,
 	) -> (Weight, bool) {
 		let data = <InboundXcmpMessages<T>>::get(sender, sent_at);
 		let mut last_remaining_fragments;
@@ -735,8 +735,8 @@ impl<T: Config> Pallet<T> {
 						remaining_fragments = &b""[..];
 					}
 
-					if should_decrement_fee_factor {
-						Self::decrement_fee_factor(sender);
+					if should_decrease_fee_factor {
+						Self::decrease_fee_factor(sender);
 					}
 				}
 			},
@@ -892,7 +892,7 @@ impl<T: Config> Pallet<T> {
 			} else {
 				// Process up to one block's worth for now.
 				let weight_remaining = weight_available.saturating_sub(weight_used);
-				let should_decrement_fee_factor =
+				let should_decrease_fee_factor =
 					(status[index].message_metadata.len() as u32) <= suspend_threshold;
 				let (weight_processed, is_empty) = Self::process_xcmp_message(
 					sender,
@@ -900,7 +900,7 @@ impl<T: Config> Pallet<T> {
 					&mut messages_processed,
 					weight_remaining,
 					xcmp_max_individual_weight,
-					should_decrement_fee_factor,
+					should_decrease_fee_factor,
 				);
 				if is_empty {
 					status[index].message_metadata.remove(0);
@@ -971,22 +971,22 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	/// Raise the delivery fee factor by a multiplicative factor and stores the resulting value.
+	/// Increases the delivery fee factor by a multiplicative factor and stores the resulting value.
 	///
-	/// Returns the new delivery fee factor after the increment.
-	pub(crate) fn increment_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
+	/// Returns the new delivery fee factor after the increase.
+	pub(crate) fn increase_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
 		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE + message_size_factor);
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
 			*f
 		})
 	}
 
-	/// Reduce the delivery fee factor by a multiplicative factor and stores the resulting value.
+	/// Decreases the delivery fee factor by a multiplicative factor and stores the resulting value.
 	///
 	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
 	///
-	/// Returns the new delivery fee factor after the decrement.
-	pub(crate) fn decrement_fee_factor(para: ParaId) -> FixedU128 {
+	/// Returns the new delivery fee factor after the decrease.
+	pub(crate) fn decrease_fee_factor(para: ParaId) -> FixedU128 {
 		<DeliveryFeeFactor<T>>::mutate(para, |f| {
 			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
 			*f
@@ -1050,9 +1050,9 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						// Update the delivery fee factor, if applicable.
 						if count > suspend_threshold {
 							let message_size_factor =
-								FixedU128::from_u32(data_ref.len().saturating_div(1024) as u32)
+								FixedU128::from((data_ref.len() / 1024) as u128)
 									.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-							Self::increment_fee_factor(sender, message_size_factor);
+							Self::increase_fee_factor(sender, message_size_factor);
 						}
 					},
 					Err(_) => status.push(InboundChannelDetails {
