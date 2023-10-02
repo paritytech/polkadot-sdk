@@ -247,6 +247,15 @@ where
 			ForeignAssets::asset_exists(asset)
 		}
 	}
+
+	/// Returns `Some(true)` if an `asset` exists and is sufficient.
+	fn asset_sufficient(asset: Self::AssetId) -> Option<bool> {
+		if let Some(asset) = LocalAssetIdConverter::convert(&asset) {
+			Assets::asset_sufficient(asset)
+		} else {
+			ForeignAssets::asset_sufficient(asset)
+		}
+	}
 }
 
 impl<Assets, LocalAssetIdConverter, ForeignAssets> Mutate<AccountId>
