@@ -124,7 +124,7 @@ where
 		TestAssetOf::get().contains_key(&(Instance::get(), asset.encode()))
 	}
 
-	fn asset_sufficient(asset: Self::AssetId) -> Option<bool> {
+	fn asset_sufficient(_: Self::AssetId) -> Option<bool> {
 		None
 	}
 }
