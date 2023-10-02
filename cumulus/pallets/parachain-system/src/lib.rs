@@ -760,7 +760,6 @@ pub mod pallet {
 	///
 	/// This is updated in `on_finalize`.
 	#[pallet::storage]
-	#[pallet::getter(fn last_relay_block_number)]
 	pub(super) type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
@@ -1504,6 +1503,12 @@ impl<T: Config> Pallet<T> {
 		let hash = sp_io::hashing::blake2_256(&message);
 		Self::deposit_event(Event::UpwardMessageSent { message_hash: Some(hash) });
 		Ok((0, hash))
+	}
+
+	/// Get the relay chain block number which was used as an anchor for the last block in this
+	/// chain.
+	pub fn last_relay_block_number(&self) -> RelayChainBlockNumber {
+		LastRelayChainBlockNumber::<T>::get()
 	}
 }
 
