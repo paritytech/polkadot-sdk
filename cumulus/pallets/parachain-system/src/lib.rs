@@ -181,7 +181,7 @@ where
 mod ump_constants {
 	use super::FixedU128;
 
-	/// `max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
+	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// The price starts to increase when queue is half full
 	pub const THRESHOLD_FACTOR: u32 = 2;
