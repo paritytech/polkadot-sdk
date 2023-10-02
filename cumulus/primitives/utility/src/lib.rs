@@ -483,6 +483,10 @@ mod tests {
 			fn asset_exists(_: Self::AssetId) -> bool {
 				todo!()
 			}
+
+			fn asset_sufficient(_: Self::AssetId) -> Option<bool> {
+				todo!()
+			}
 		}
 		impl fungibles::Mutate<TestAccountId> for TestAssets {}
 		impl fungibles::Balanced<TestAccountId> for TestAssets {
