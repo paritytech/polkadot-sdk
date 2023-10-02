@@ -976,30 +976,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// ## Expectations:
 	///
-	/// Looking at proposals:
-	///
-	/// * Each hash of a proposal that is stored inside `Proposals` must have a
-	/// call mapped to it inside the `ProposalOf` storage map.
-	/// * `ProposalCount` must always be more or equal to the number of
-	/// proposals inside the `Proposals` storage value. The reason why
-	/// `ProposalCount` can be more is because when a proposal is removed the
-	/// count is not deducted.
-	/// * Count of `ProposalOf` should match the count of `Proposals`
-	///
 	/// Looking at votes:
-	/// * The sum of aye and nay votes for a proposal can never exceed
-	///  `MaxMembers`.
+	/// * `ProposalCount` must always be more or equal to the number of proposals inside the
+	///   `Voting` storage map. The reason why `ProposalCount` can be more is because when a
+	///   proposal is removed the count is not deducted.
+	/// * A `proposal_hash` must be paired to a preimage stored by `Preimages`.
+	/// * The sum of aye and nay votes for a proposal can never exceed `MaxMembers`.
 	/// * The proposal index inside the `Voting` storage map must be unique.
-	/// * All proposal hashes inside `Voting` must exist in `Proposals`.
 	///
 	/// Looking at members:
-	/// * The members count must never exceed `MaxMembers`.
 	/// * All the members must be sorted by value.
 	///
 	/// Looking at prime account:
 	/// * The prime account must be a member of the collective.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), TryRuntimeError> {
+		use frame_support::traits::DefensiveResult;
+
 		ensure!(
 			Voting::<T, I>::count() <= Self::proposal_count(),
 			"The actual number of proposals is greater than `ProposalCount`"
@@ -1024,9 +1017,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			let proposal_index = votes.index;
 			ensure!(
-				// returns true if the value was not already in the set
-				proposal_indices.try_insert(proposal_index).unwrap(),
-				"The proposal index is not unique."
+				// Returns true if the value was not already in the set.
+				proposal_indices
+					.try_insert(proposal_index)
+					.defensive_map_err(|_| "The number of proposals exceeds `MaxProposals`")?,
+				"The proposal index is not unique.",
 			);
 		}
 
@@ -1108,6 +1103,8 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InitializeMembers<T::AccountId> for Pallet<T, I> {
+	/// Initialize members of the collective. Panics if members are already initialized,
+	/// or if the number of members is greater than `MaxMembers`.
 	fn initialize_members(members: &[T::AccountId]) {
 		if !members.is_empty() {
 			assert!(<Members<T, I>>::get().is_empty(), "Members are already initialized!");

@@ -193,12 +193,14 @@ fn propose_works() {
 		));
 		assert_eq!(*AllianceMotion::proposals(), vec![hash]);
 		assert_eq!(AllianceMotion::proposal_of(&hash), Some(proposal));
-		System::assert_has_event(mock::RuntimeEvent::AllianceMotion(AllianceMotionEvent::Proposed {
-			account: 1,
-			proposal_index: 0,
-			proposal_hash: hash,
-			threshold: 3,
-		}));
+		System::assert_has_event(mock::RuntimeEvent::AllianceMotion(
+			AllianceMotionEvent::Proposed {
+				account: 1,
+				proposal_index: 0,
+				proposal_hash: hash,
+				threshold: 3,
+			},
+		));
 	});
 }
 
@@ -217,7 +219,12 @@ fn vote_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -264,7 +271,12 @@ fn close_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![

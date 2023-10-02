@@ -330,7 +330,12 @@ fn close_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -474,7 +479,12 @@ fn close_with_prime_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -546,7 +556,12 @@ fn close_with_voting_prime_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -621,7 +636,12 @@ fn close_with_no_prime_but_majority_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -843,19 +863,12 @@ fn propose_works() {
 			Some(Votes { index: 0, threshold: 3, ayes: bounded_vec![], nays: bounded_vec![], end })
 		);
 
-		assert_eq!(
-			System::events()
-				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
-				.cloned()
-				.collect::<Vec<_>>(),
-			vec![record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))]
-		);
+		System::assert_has_event(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+			account: 1,
+			proposal_index: 0,
+			proposal_hash: hash,
+			threshold: 3,
+		}));
 	});
 }
 
@@ -1044,7 +1057,12 @@ fn motions_vote_after_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1193,7 +1211,12 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1252,7 +1275,12 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1327,7 +1355,12 @@ fn motions_disapproval_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1390,7 +1423,12 @@ fn motions_approval_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1442,19 +1480,13 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(
-			System::events()
-				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
-				.cloned()
-				.collect::<Vec<_>>()[0],
-			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))
-		);
+
+		System::assert_has_event(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+			account: 1,
+			proposal_index: 0,
+			proposal_hash: hash,
+			threshold: 3,
+		}));
 
 		// Closing the motion too early is not possible because it has neither
 		// an approving or disapproving simple majority due to the lack of votes.
@@ -1475,13 +1507,20 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			proposal_len
 		));
 
+		let events = System::events()
+			.iter()
+			.filter(|e| {
+				// We filter out Preimage events because introducing them would be a long manual
+				// process, and since we are testing the Collective events, they can be
+				// considered superfluous.
+				!matches!(e.event, RuntimeEvent::Preimage(_))
+			})
+			.cloned()
+			.collect::<Vec<_>>();
+
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
-			System::events()
-				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
-				.cloned()
-				.collect::<Vec<_>>()[1],
+			events[1],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1489,11 +1528,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()
-				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
-				.cloned()
-				.collect::<Vec<_>>()[2],
+			events[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1554,7 +1589,12 @@ fn disapprove_proposal_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| !matches!(e.event, RuntimeEvent::Preimage(_)))
+				.filter(|e| {
+					// We filter out Preimage events because introducing them would be a long manual
+					// process, and since we are testing the Collective events, they can be
+					// considered superfluous.
+					!matches!(e.event, RuntimeEvent::Preimage(_))
+				})
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
