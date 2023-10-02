@@ -33,7 +33,7 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_crate_access_from_frame_or_deps;
 use macro_magic::import_tokens_attr;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -754,9 +754,9 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 #[import_tokens_attr {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_crate_access_from_frame_or_deps("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_crate_access_from_frame_or_deps("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
@@ -1647,9 +1647,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 #[import_tokens_attr {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_crate_access_from_frame_or_deps("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_crate_access_from_frame_or_deps("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()

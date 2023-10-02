@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_crate_access_from_frame_or_deps;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Ident, Result};
@@ -28,7 +28,7 @@ pub fn impl_key_prefix_for_tuples(input: proc_macro::TokenStream) -> Result<Toke
 	}
 
 	let mut all_trait_impls = TokenStream::new();
-	let frame_support = generate_crate_access_2018("frame-support")?;
+	let frame_support = generate_crate_access_from_frame_or_deps("frame-support")?;
 
 	for i in 2..=MAX_IDENTS {
 		let current_tuple = (0..i)

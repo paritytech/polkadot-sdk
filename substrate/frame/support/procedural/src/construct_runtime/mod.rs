@@ -213,7 +213,7 @@ mod parse;
 
 use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
-	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
+	generate_crate_access, generate_crate_access_from_frame_or_deps, generate_hidden_includes,
 };
 use itertools::Itertools;
 use parse::{ExplicitRuntimeDeclaration, ImplicitRuntimeDeclaration, Pallet, RuntimeDeclaration};
@@ -271,7 +271,7 @@ fn construct_runtime_implicit_to_explicit(
 	input: TokenStream2,
 	definition: ImplicitRuntimeDeclaration,
 ) -> Result<TokenStream2> {
-	let frame_support = generate_crate_access_2018("frame-support")?;
+	let frame_support = generate_crate_access_from_frame_or_deps("frame-support")?;
 	let mut expansion = quote::quote!(
 		#frame_support::construct_runtime! { #input }
 	);
@@ -307,7 +307,7 @@ fn construct_runtime_explicit_to_explicit_expanded(
 	input: TokenStream2,
 	definition: ExplicitRuntimeDeclaration,
 ) -> Result<TokenStream2> {
-	let frame_support = generate_crate_access_2018("frame-support")?;
+	let frame_support = generate_crate_access_from_frame_or_deps("frame-support")?;
 	let mut expansion = quote::quote!(
 		#frame_support::construct_runtime! { #input }
 	);
@@ -371,7 +371,7 @@ fn construct_runtime_final_expansion(
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
 	let scrate_decl = generate_hidden_includes(hidden_crate_name, "frame-support");
 
-	let frame_system = generate_crate_access_2018("frame-system")?;
+	let frame_system = generate_crate_access_from_frame_or_deps("frame-system")?;
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
 

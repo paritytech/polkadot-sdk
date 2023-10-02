@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_crate_access_from_frame_or_deps;
 use quote::ToTokens;
 
 // Derive `PalletError`
@@ -25,7 +25,7 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 		Err(e) => return e.to_compile_error().into(),
 	};
 
-	let frame_support = match generate_crate_access_2018("frame-support") {
+	let frame_support = match generate_crate_access_from_frame_or_deps("frame-support") {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
 	};

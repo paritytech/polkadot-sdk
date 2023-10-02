@@ -39,7 +39,7 @@ fn generate_hidden_includes_mod_name(unique_id: &str) -> Ident {
 /// Generates the access to the `frame-support` crate.
 pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 	if std::env::var("CARGO_PKG_NAME").unwrap() == def_crate {
-		let frame_support = match generate_crate_access_2018("frame-support") {
+		let frame_support = match generate_crate_access_from_frame_or_deps("frame-support") {
 			Ok(c) => c,
 			Err(e) => return e.into_compile_error().into(),
 		};
@@ -52,7 +52,7 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 
 /// Check if a path is using the `frame` crate or not.
 ///
-/// This will usually check the output of [`generate_crate_access_2018`].
+/// This will usually check the output of [`generate_crate_access_from_frame_or_deps`].
 /// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
 /// case `path` would start with `frame`, something like `frame::x::y:z`.
 pub fn is_using_frame_crate(path: &syn::Path) -> bool {
@@ -63,14 +63,13 @@ pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 ///
 /// If `frame` is in scope, it will use `frame::deps::<def_crate>`. Else, it will try and find
 /// `<def_crate>` directly.
-pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Path, Error> {
+pub fn generate_crate_access_from_frame_or_deps(def_crate: &str) -> Result<syn::Path, Error> {
 	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
 		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
-		let path = syn::parse_str::<syn::Path>(&path)?;
-		return Ok(path)
+		return syn::parse_str::<syn::Path>(&path)
 	}
 
-	let indent = match crate_name(def_crate) {
+	let ident = match crate_name(def_crate) {
 		Ok(FoundCrate::Itself) => {
 			let name = def_crate.to_string().replace("-", "_");
 			Ok(syn::Ident::new(&name, Span::call_site()))
@@ -79,7 +78,7 @@ pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Path, Error> {
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}?;
 
-	Ok(syn::Path::from(indent))
+	Ok(syn::Path::from(ident))
 }
 
 /// Generates the hidden includes that are required to make the macro independent from its scope.

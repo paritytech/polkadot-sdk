@@ -276,7 +276,7 @@ fn check_event_type(
 
 fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
 	// check if `frame_system` is actually 'frame_system'.
-	if let None = path.segments.clone().into_iter().find(|s| s.ident == "frame_system") {
+	if path.segments.iter().all(|s| s.ident != "frame_system") {
 		return false
 	}
 
