@@ -14,28 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot CLI library.
+//! Shared functions for getting the known worker files.
 
-#![warn(missing_docs)]
+use std::path::{Path, PathBuf};
 
-#[cfg(feature = "cli")]
-mod cli;
-#[cfg(feature = "cli")]
-mod command;
-#[cfg(feature = "cli")]
-mod error;
+const WORKER_EXECUTE_ARTIFACT_NAME: &str = "artifact";
+const WORKER_PREPARE_TMP_ARTIFACT_NAME: &str = "tmp-artifact";
+const WORKER_SOCKET_NAME: &str = "socket";
 
-#[cfg(feature = "service")]
-pub use service::{self, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient};
+pub fn execute_artifact(worker_dir_path: &Path) -> PathBuf {
+	worker_dir_path.join(WORKER_EXECUTE_ARTIFACT_NAME)
+}
 
-#[cfg(feature = "malus")]
-pub use service::overseer::prepared_overseer_builder;
+pub fn prepare_tmp_artifact(worker_dir_path: &Path) -> PathBuf {
+	worker_dir_path.join(WORKER_PREPARE_TMP_ARTIFACT_NAME)
+}
 
-#[cfg(feature = "cli")]
-pub use cli::*;
-
-#[cfg(feature = "cli")]
-pub use command::*;
-
-#[cfg(feature = "cli")]
-pub use sc_cli::{Error, Result};
+pub fn socket(worker_dir_path: &Path) -> PathBuf {
+	worker_dir_path.join(WORKER_SOCKET_NAME)
+}
