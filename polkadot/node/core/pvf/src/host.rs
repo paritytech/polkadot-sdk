@@ -131,7 +131,7 @@ impl ValidationHost {
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
 
-	/// TEST-ONLY: resets the artifacts table.
+	/// TEST-ONLY: deletes all on-disk artifacts and resets the artifacts table.
 	#[cfg(feature = "test-utils")]
 	pub async fn prune_all_artifacts(
 		&mut self,
