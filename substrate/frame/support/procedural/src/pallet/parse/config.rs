@@ -497,6 +497,7 @@ mod tests {
 		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
+
 	#[test]
 	fn has_expected_system_config_works_with_assoc_type() {
 		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
@@ -505,6 +506,7 @@ mod tests {
 				.unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
+
 	#[test]
 	fn has_expected_system_config_works_with_frame() {
 		let frame_system =
@@ -512,6 +514,7 @@ mod tests {
 		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
+
 	#[test]
 	fn has_expected_system_config_unexpected_frame_system() {
 		let frame_system =
@@ -519,12 +522,14 @@ mod tests {
 		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
 		assert!(!has_expected_system_config(path, &frame_system));
 	}
+
 	#[test]
 	fn has_expected_system_config_unexpected_path() {
 		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
 		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::ConfigSystem)).unwrap();
 		assert!(!has_expected_system_config(path, &frame_system));
 	}
+
 	#[test]
 	fn has_expected_system_config_not_frame_system() {
 		let frame_system = syn::parse2::<syn::Path>(quote::quote!(something)).unwrap();

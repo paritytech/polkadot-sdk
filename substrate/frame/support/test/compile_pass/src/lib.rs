@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Test that `construct_runtime!` also works when `frame-support` is renamed in the `Cargo.toml`.
+//! Test that `construct_runtime!` also works when `frame-support` or `frame-system` are renamed in
+//! the `Cargo.toml`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
