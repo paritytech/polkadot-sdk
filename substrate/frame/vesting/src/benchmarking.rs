@@ -44,7 +44,7 @@ fn add_locks<T: Config>(who: &T::AccountId, n: u8) {
 		let lock_id = T::BenchmarkHelper::freeze_id(id);
 		let locked = 256u32;
 		//TODO: what do we do with reasons?
-		let reasons = WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE;
+		// let reasons = WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE;
 		T::Currency::set_freeze(&lock_id, who, locked.into()).unwrap();
 	}
 }
