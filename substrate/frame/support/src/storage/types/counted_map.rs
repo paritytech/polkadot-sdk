@@ -76,8 +76,7 @@ impl<P: CountedStorageMapInstance, H, K, V, Q, O, M> MapWrapper
 }
 
 /// The counter prefix for any given storage map.
-pub type CounterFor<P> =
-	StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
+type CounterFor<P> = StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
 
 /// On removal logic for updating counter while draining upon some prefix with
 /// [`crate::storage::PrefixIterator`].

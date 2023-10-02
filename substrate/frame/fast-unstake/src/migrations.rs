@@ -30,7 +30,7 @@ use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-/// The old queue, removed in <TODO>, used in v1 and v2.
+// The old queue, removed in <https://github.com/paritytech/polkadot-sdk/pull/1772>, used in v1 and v2.
 #[frame_support::storage_alias]
 type Queue<T: Config> = CountedStorageMap<
 	Pallet<T>,
