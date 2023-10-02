@@ -18,8 +18,9 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareJobKind,
-	PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
+	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
+	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
@@ -291,25 +292,9 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new();
 	let cache_dir = host.cache_dir.path();
 
-	let result = host
-		.validate_candidate(
-			halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		)
-		.await;
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
 
-	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
-		r => panic!("{:?}", r),
-	}
-
-	// Delete the prepared artifact.
+	// Manually delete the prepared artifact from disk. The in-memory artifacts table won't change.
 	{
 		// Get the artifact path (asserting it exists).
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
@@ -324,7 +309,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		std::fs::remove_file(artifact_path.path()).unwrap();
 	}
 
-	// Try to validate again, artifact should get recreated.
+	// Try to validate, artifact should get recreated.
 	let result = host
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),

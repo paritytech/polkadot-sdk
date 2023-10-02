@@ -255,6 +255,7 @@ impl WorkerHandle {
 		if let Ok(value) = std::env::var("RUST_LOG") {
 			command.env("RUST_LOG", value);
 		}
+
 		let mut child = command
 			.args(extra_args)
 			.arg("--worker-dir-path")

@@ -22,13 +22,14 @@ use polkadot_node_core_pvf::{
 	ValidationHost,
 };
 use polkadot_primitives::ExecutorParams;
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 use tokio::{runtime::Handle, sync::Mutex};
 
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
-	cache_dir: PathBuf,
+	#[allow(unused)]
+	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
 
@@ -39,10 +40,13 @@ impl TestHost {
 	{
 		let (prepare_worker_path, execute_worker_path) = testing::get_and_check_worker_paths();
 
-		let cache_dir = std::path::Path::new("/tmp/test").to_owned();
-		// let cache_dir = tempfile::tempdir().unwrap();
-		let mut config =
-			Config::new(cache_dir.clone(), None, prepare_worker_path, execute_worker_path);
+		let cache_dir = tempfile::tempdir().unwrap();
+		let mut config = Config::new(
+			cache_dir.path().to_owned(),
+			None,
+			prepare_worker_path,
+			execute_worker_path,
+		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default());
 		let _ = handle.spawn(task);
@@ -75,6 +79,13 @@ impl TestHost {
 			.unwrap();
 		result_rx.await.unwrap()
 	}
+
+	async fn prune_all_artifacts(&self) -> Result<usize, std::io::Error> {
+		let (result_tx, result_rx) = futures::channel::oneshot::channel();
+
+		self.host.lock().await.prune_all_artifacts(result_tx).await.unwrap();
+		result_rx.await.unwrap()
+	}
 }
 
 fn host_prepare_rococo_runtime(c: &mut Criterion) {
@@ -85,7 +96,6 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	let host = TestHost::new_with_config(rt.handle(), |cfg| {
 		cfg.prepare_workers_hard_max_num = 1;
 	});
-	let cache_dir = host.cache_dir.as_path();
 
 	let blob = rococo_runtime::WASM_BINARY.unwrap();
 	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
@@ -104,6 +114,8 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	group.sampling_mode(SamplingMode::Flat);
 	group.sample_size(20);
 	group.measurement_time(Duration::from_secs(240));
+	// The host spinning up a worker will be done in criterion's "warmup" stage, and not counted in
+	// the results.
 	group.bench_function("host: prepare Rococo runtime", |b| {
 		b.to_async(&rt).iter(|| async {
 			// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
@@ -111,15 +123,8 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 			let _stats = host.precheck_pvf(&pvf.clone().code(), Default::default()).await.unwrap();
 
 			// Delete the prepared artifact. Otherwise the next iterations will immediately finish.
-			{
-				// Get the artifact path (asserting it exists).
-				let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-				assert_eq!(cache_dir.len(), 1);
-				let artifact_path = cache_dir.pop().unwrap().unwrap();
-
-				// Delete the artifact.
-				std::fs::remove_file(artifact_path.path()).unwrap();
-			}
+			let num_deleted = host.prune_all_artifacts().await.unwrap();
+			assert_eq!(num_deleted, 1);
 		})
 	});
 	group.finish();

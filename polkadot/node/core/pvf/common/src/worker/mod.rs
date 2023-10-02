@@ -42,7 +42,7 @@ macro_rules! decl_worker_main {
 
 		fn print_help(expected_command: &str) {
 			println!("{} {}", expected_command, $worker_version);
-			println!("commit: {}", worker_version_hash);
+			println!("commit: {}", $worker_version_hash);
 			println!();
 			println!("PVF worker that is called by polkadot.");
 		}
