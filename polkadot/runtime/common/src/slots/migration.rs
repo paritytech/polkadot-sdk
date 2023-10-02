@@ -17,8 +17,49 @@
 use super::*;
 use crate::crowdloan;
 use sp_runtime::traits::AccountIdConversion;
+use frame_support::traits::OnRuntimeUpgrade;
 
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
+pub mod versioned {
+	use super::*;
+
+	/// Wrapper over `MigrateToV1` with convenience version checks.
+	///
+	/// This migration would add a new StorageDoubleMap `ReservedAmounts` and initialise it with
+	/// the current deposit of existing leases.
+	pub type ToV1<T> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		v1::MigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
+mod v1 {
+	use super::*;
+
+	/// This migration would restrict reward account of pools to go below ED by doing a named
+	/// freeze on all the existing pools.
+	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
+		fn on_runtime_upgrade() -> Weight {
+			todo!("migrate to v1")
+		}
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			todo!("migrate to v1 pre check")
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			todo!("migrate to v1 post check")
+		}
+	}
+}
 
 /// Migrations for using fund index to create fund accounts instead of para ID.
 pub mod slots_crowdloan_index_migration {
