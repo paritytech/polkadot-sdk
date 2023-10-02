@@ -156,6 +156,11 @@ pub mod pallet {
 		ParaNotOnboarding,
 		/// There was an error with the lease.
 		LeaseError,
+		/// The signing account has no permission to do the operation.
+		NoPermission,
+		/// The signing account has privileges for this operation but the preconditions are not
+		/// met.
+		NotAllowed,
 	}
 
 	#[pallet::hooks]
@@ -242,18 +247,22 @@ pub mod pallet {
 		/// get access to their funds they used in the last lease and rebid using same for the
 		/// next lease.
 		///
-		/// Origin must be signed, but can be called by anyone.
+		/// Can only be called by the parachain manager.
 		#[pallet::call_index(3)]
 		// fixme(ank4n) weights and better errors
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+			ensure!(
+				who == T::Registrar::manager_of(para).ok_or(Error::<T>::NoPermission)?,
+				Error::<T>::NoPermission
+			);
 
 			// check if lease is ending soon.
 			let now = frame_system::Pallet::<T>::block_number();
 			let lease_ending_soon =
 				Self::lease_period_ending_soon(now).ok_or(Error::<T>::LeaseError)?;
-			ensure!(lease_ending_soon, Error::<T>::LeaseError);
+			ensure!(lease_ending_soon, Error::<T>::NotAllowed);
 
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
