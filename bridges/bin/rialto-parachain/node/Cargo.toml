@@ -17,7 +17,7 @@ default = []
 runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
 
 [dependencies]
-clap = { version = "4.4.4", features = ["derive"] }
+clap = { version = "4.4.6", features = ["derive"] }
 log = '0.4.20'
 codec = { package = 'parity-scale-codec', version = '3.1.5' }
 serde = { version = '1.0', features = ['derive'] }
