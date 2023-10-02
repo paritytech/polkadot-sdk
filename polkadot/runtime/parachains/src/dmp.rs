@@ -336,28 +336,6 @@ impl<T: Config> Pallet<T> {
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		DownwardMessageQueues::<T>::get(&recipient)
 	}
-
-	/// Increases the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Returns the new delivery fee factor after the increase.
-	pub(crate) fn increase_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
-			*f
-		})
-	}
-
-	/// Decreases the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
-	///
-	/// Returns the new delivery fee factor after the decrease.
-	pub(crate) fn decrease_fee_factor(para: ParaId) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
-			*f
-		})
-	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -365,5 +343,19 @@ impl<T: Config> FeeTracker for Pallet<T> {
 
 	fn get_fee_factor(id: Self::Id) -> FixedU128 {
 		DeliveryFeeFactor::<T>::get(id)
+	}
+
+	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+			*f
+		})
+	}
+
+	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
+			*f
+		})
 	}
 }

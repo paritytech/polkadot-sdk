@@ -31,6 +31,7 @@ use sp_runtime::{
 use xcm::prelude::*;
 use xcm_builder::{CurrencyAdapter, FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset};
 use xcm_executor::traits::ConvertOrigin;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -205,7 +206,7 @@ impl Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
