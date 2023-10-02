@@ -165,18 +165,16 @@ impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T,
 	}
 
 	fn deactivate(asset: Self::AssetId, amount: Self::Balance) {
-		Asset::<T, I>::mutate(asset, |maybe_asset| {
-			if let Some(ref mut asset) = maybe_asset {
-				asset.inactive.saturating_accrue(amount);
-			}
+		Asset::<T, I>::mutate(&asset, |maybe_asset| match maybe_asset {
+			Some(ref mut asset) => asset.inactive.saturating_accrue(amount),
+			None => log::error!("Called deactivate for nonexistent asset {:?}", asset),
 		});
 	}
 
 	fn reactivate(asset: Self::AssetId, amount: Self::Balance) {
-		Asset::<T, I>::mutate(asset, |maybe_asset| {
-			if let Some(ref mut asset) = maybe_asset {
-				asset.inactive.saturating_reduce(amount);
-			}
+		Asset::<T, I>::mutate(&asset, |maybe_asset| match maybe_asset {
+			Some(ref mut asset) => asset.inactive.saturating_reduce(amount),
+			None => log::error!("Called reactivate for nonexistent asset {:?}", asset),
 		});
 	}
 }
