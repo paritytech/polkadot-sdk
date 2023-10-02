@@ -442,8 +442,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 		quote::quote!(
 			const _: () = {
-				impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
 						fmt.write_str("<wasm:stripped>")
 					}
 				}
@@ -473,7 +473,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 	quote::quote_spanned!(name.span() =>
 		const _: () = {
-			impl #impl_generics core::cmp::Eq for #name #ty_generics #where_clause {}
+			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
 	)
 	.into()
@@ -877,6 +877,8 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
@@ -1417,11 +1419,15 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

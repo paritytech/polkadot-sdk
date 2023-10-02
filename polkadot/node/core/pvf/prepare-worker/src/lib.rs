@@ -31,30 +31,21 @@ use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 use parity_scale_codec::{Decode, Encode};
-use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
-	executor_intf::Executor,
-	framed_recv, framed_send,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
-	pvf::PvfPrepData,
-	worker::{
-		bytes_to_path,
-		security::LandlockStatus,
-		thread::{self},
-		worker_event_loop,
-	},
-};
+use polkadot_node_core_pvf_common::{error::{PrepareError, PrepareResult}, executor_intf::Executor, framed_recv_blocking, framed_send_blocking, prepare::{MemoryStats, PrepareJobKind, PrepareStats}, pvf::PvfPrepData, SecurityStatus, worker::{
+	thread::{self, WaitOutcome},
+	WorkerKind,
+	worker_event_loop,
+}, worker_dir};
 use polkadot_primitives::ExecutorParams;
 use std::{mem, path::PathBuf, process, time::Duration};
 use std::io::{Read, Write};
+use std::os::unix::net::UnixStream;
 use std::sync::Arc;
-use futures::TryFutureExt;
 use nix::sys::resource::Resource;
 use os_pipe::PipeWriter;
 use serde::{Deserialize, Serialize};
-use tokio::{io, net::UnixStream};
-use polkadot_node_core_pvf_common::worker::stringify_panic_payload;
-use polkadot_node_core_pvf_common::worker::thread::{spawn_worker_thread, WaitOutcome};
+use polkadot_node_core_pvf_common::worker::thread::{spawn_worker_thread};
+use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Serialize, Deserialize)]
@@ -73,36 +64,34 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(PvfPrepData, PathBuf)> {
-	let pvf = framed_recv(stream).await?;
+fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
+	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			format!("prepare pvf recv_request: failed to decode PvfPrepData: {}", e),
 		)
 	})?;
-	let tmp_file = framed_recv(stream).await?;
-	let tmp_file = bytes_to_path(&tmp_file).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"prepare pvf recv_request: non utf-8 artifact path".to_string(),
-		)
-	})?;
-	Ok((pvf, tmp_file))
+	Ok(pvf)
 }
 
-async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
-	framed_send(stream, &result.encode()).await
+fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+	framed_send_blocking(stream, &result.encode())
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
 ///
 /// # Parameters
 ///
-/// The `socket_path` specifies the path to the socket used to communicate with the host. The
-/// `node_version`, if `Some`, is checked against the worker version. A mismatch results in
-/// immediate worker termination. `None` is used for tests and in other situations when version
-/// check is not necessary.
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
+///
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
+///   immediate worker termination. `None` is used for tests and in other situations when version
+///   check is not necessary.
+///
+/// - `worker_version`: see above
+///
+/// - `security_status`: contains the detected status of security features.
 ///
 /// # Flow
 ///
@@ -127,20 +116,23 @@ async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Re
 /// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 pub fn worker_entrypoint(
-	socket_path: &str,
+	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		"prepare",
-		socket_path,
+		WorkerKind::Prepare,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream| async move {
+		&security_status,
+		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
+			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
 			loop {
-				let (pvf, temp_artifact_dest) = recv_request(&mut stream).await?;
+				let pvf = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -170,13 +162,13 @@ pub fn worker_entrypoint(
 					_ => handle_parent_process(
 							pipe_reader,
 							pipe_writer,
-							temp_artifact_dest,
+							temp_artifact_dest.clone(),
 							preparation_timeout,
 							worker_pid,
 						)
 						.await
 				};
-				send_response(&mut stream, result).await?;
+				send_response(&mut stream, result)?;
 			}
 		},
 	);
@@ -212,7 +204,6 @@ fn runtime_construction_check(
 #[derive(Serialize, Deserialize)]
 struct Response {
 	artifact_result: Result<CompiledArtifact, PrepareError>,
-	landlock_status: Result<LandlockStatus, String>,
 	memory_stats: MemoryStats,
 }
 
@@ -230,11 +221,11 @@ async fn handle_child_process(
 		Resource::RLIMIT_CPU,
 		preparation_timeout.as_secs(),
 		preparation_timeout.as_secs()
-	).unwrap_or_else(|e| {
+	).unwrap_or_else(|_| {
 		process::exit(libc::EXIT_FAILURE)
 	});
 
-
+    // Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
@@ -246,17 +237,14 @@ async fn handle_child_process(
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
 		move || {
-			// Try to enable landlock.
-			#[cfg(target_os = "linux")]
-				let landlock_status =
-				polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-					.map(LandlockStatus::from_ruleset_status)
-					.map_err(|e| e.to_string());
-			#[cfg(not(target_os = "linux"))]
-				let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
 
 			#[allow(unused_mut)]
-				let mut artifact_result = prepare_artifact(pvf);
+				let mut result = prepare_artifact(pvf);
+
+            // Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
+            #[cfg(target_os = "linux")]
+                let mut result = result
+                .map(|(artifact, elapsed)| (artifact, elapsed, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
@@ -264,12 +252,12 @@ async fn handle_child_process(
 			// and time, it is okay to do extra checks here. This takes negligible time
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
-				artifact_result = artifact_result.and_then(|output| {
+				result = result.and_then(|output| {
 					runtime_construction_check(output.as_ref(), executor_params)?;
 					Ok(output)
 				});
 			}
-			(artifact_result, landlock_status)
+			result
 		},
 		Arc::clone(&condvar),
 		WaitOutcome::Finished
@@ -281,16 +269,18 @@ async fn handle_child_process(
 
 	match outcome {
 		WaitOutcome::Finished => {
-			 let (artifact_result, landlock_status) = prepare_thread.join().unwrap_or_else(|err| {
+			 let result = prepare_thread.join().unwrap_or_else(|_| {
 				(
-					Err(PrepareError::Panic(stringify_panic_payload(err))),
-					Ok(LandlockStatus::Unavailable),
+					process::exit(libc::EXIT_FAILURE)
 				)
 			});
-
-			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-			#[cfg(target_os = "linux")]
-				let max_rss = get_max_rss_thread();
+            cfg_if::cfg_if! {
+				if #[cfg(target_os = "linux")] {
+					let (artifact_result, max_rss) = result;
+				} else {
+					let artifact_result = result;
+				}
+			}
 
 			// Stop the memory stats worker and get its observed memory stats.
 			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -303,7 +293,7 @@ async fn handle_child_process(
 				max_rss: extract_max_rss_stat(max_rss, worker_pid),
 			};
 
-			let response = Response { artifact_result, landlock_status, memory_stats };
+			let response = Response { artifact_result, memory_stats };
 
 			let bytes = bincode::serialize(&response).unwrap_or_else(|_| {
 				process::exit(libc::EXIT_FAILURE)
@@ -350,16 +340,6 @@ async fn handle_parent_process(
 			match result.artifact_result {
 				Err(err) => Err(err),
 				Ok(artifact) => {
-					// Log if landlock threw an error.
-					if let Err(err) = &result.landlock_status {
-						gum::warn!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"error enabling landlock: {}",
-							err
-						);
-					}
-
 					// Write the serialized artifact into a temp file.
 					//
 					// PVF host only keeps artifacts statuses in its memory,
