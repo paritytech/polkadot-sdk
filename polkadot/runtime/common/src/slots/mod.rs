@@ -216,7 +216,7 @@ pub mod pallet {
 				Self::unreserve(para, &who, deposit);
 			}
 
-			Leases::<T>::remove(para);
+			Self::clear_lease_storage(para);
 			Ok(())
 		}
 
@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				// Remove the now-empty lease list.
-				Leases::<T>::remove(para);
+				Self::clear_lease_storage(para);
 			} else {
 				// The parachain entry has leased future periods.
 
@@ -448,6 +448,14 @@ impl<T: Config> Pallet<T> {
 
 		let err_balance = T::Currency::unreserve(&leaser, amount);
 		defensive_assert!(err_balance.is_zero());
+	}
+
+	fn clear_lease_storage(para: ParaId) {
+		Leases::<T>::remove(para);
+		// Since we don't expect too many child keys here, should be fine to do this.
+		// fixme(ank4n): Use a vector of tuples instead of double map?
+		let result = ReservedAmounts::<T>::clear_prefix(para, u32::MAX, None);
+		defensive_assert!(result.maybe_cursor.is_none());
 	}
 }
 

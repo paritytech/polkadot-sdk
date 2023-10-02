@@ -16,8 +16,8 @@
 
 use super::*;
 use crate::crowdloan;
-use sp_runtime::traits::AccountIdConversion;
 use frame_support::traits::OnRuntimeUpgrade;
+use sp_runtime::traits::AccountIdConversion;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -47,16 +47,57 @@ mod v1 {
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			todo!("migrate to v1")
-		}
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			todo!("migrate to v1 pre check")
+			for (para, lease_periods) in Leases::<T>::iter() {
+				let mut max_deposits: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
+
+				lease_periods.iter().for_each(|lease| {
+					if let Some((who, amount)) = lease {
+						max_deposits
+							.entry(who.clone())
+							.and_modify(|deposit| *deposit = *amount.max(deposit))
+							.or_insert(*amount);
+					}
+				});
+
+				max_deposits.iter().for_each(|(leaser, deposit)| {
+					ReservedAmounts::<T>::insert(para, leaser, deposit);
+				})
+			}
+
+			// weight: all active lease periods * rw
+			todo!("weights")
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			todo!("migrate to v1 post check")
+			let mut para_leasers = sp_std::collections::btree_set::BTreeSet::<(ParaId, T::AccountId)>::new();
+			for (para, lease_periods) in Leases::<T>::iter() {
+				lease_periods.into_iter().for_each(|maybe_lease| {
+					if let Some((who, _)) = maybe_lease {
+						para_leasers.insert((para, who));
+					}
+				});
+			}
+
+			// for each pair assert ReservedAmount is what we expect
+			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
+				let migrated_entry = ReservedAmounts::<T>::get(para, who)
+					.expect("Migration should have inserted this entry");
+				let expected = Pallet::<T>::required_deposit(*para, who);
+				let reserved_balance = T::Currency::reserved_balance(who);
+
+				ensure!(
+					migrated_entry == expected,
+					"ReservedAmount value not same as required deposit"
+				);
+				// fixme(ank4n) if there is another reserve on the account, this might be possible.
+				ensure!(
+					migrated_entry == reserved_balance,
+					"ReservedAmount value not same as actual reserved balance"
+				);
+
+				Ok(())
+			})
 		}
 	}
 }
