@@ -18,6 +18,8 @@ use super::*;
 use crate::crowdloan;
 use sp_runtime::traits::AccountIdConversion;
 
+
+
 /// Migrations for using fund index to create fund accounts instead of para ID.
 pub mod slots_crowdloan_index_migration {
 	use super::*;
