@@ -30,7 +30,6 @@ use frame_support::{
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::system_parachain::SystemParachains;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
@@ -39,6 +38,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{

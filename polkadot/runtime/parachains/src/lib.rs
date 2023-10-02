@@ -61,7 +61,8 @@ use sp_runtime::{DispatchResult, FixedU128};
 pub trait FeeTracker {
 	/// Type used for assigning different fee factors to different destinations
 	type Id;
-	/// The evolving exponential fee factor which will be used to calculate the delivery fees.
+	/// Returns the evolving exponential fee factor which will be used to calculate the delivery
+	/// fees.
 	fn get_fee_factor(id: Self::Id) -> FixedU128;
 }
 
