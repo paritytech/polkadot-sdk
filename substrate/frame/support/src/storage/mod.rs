@@ -1748,8 +1748,8 @@ mod test {
 					b"MyStorageMap"
 				}
 
-				fn prefix_hash() -> Vec<u8> {
-					storage_prefix(Self::pallet_prefix(), Self::storage_prefix()).to_vec()
+				fn prefix_hash() -> [u8; 32] {
+					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 				}
 
 				fn from_optional_value_to_query(v: Option<u64>) -> Self::Query {

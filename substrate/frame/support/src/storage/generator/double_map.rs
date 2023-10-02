@@ -61,7 +61,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 
 	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	fn prefix_hash() -> Vec<u8>;
+	fn prefix_hash() -> [u8; 32];
 
 	/// Convert an optional value retrieved from storage to the type queried.
 	fn from_optional_value_to_query(v: Option<V>) -> Self::Query;
@@ -416,7 +416,7 @@ where
 	}
 
 	fn iter() -> Self::Iterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		Self::Iterator {
 			prefix: prefix.clone(),
 			previous_key: prefix,
@@ -439,7 +439,7 @@ where
 	}
 
 	fn iter_keys() -> Self::FullKeyIterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		Self::FullKeyIterator {
 			prefix: prefix.clone(),
 			previous_key: prefix,
@@ -467,7 +467,7 @@ where
 	}
 
 	fn translate<O: Decode, F: FnMut(K1, K2, O) -> Option<V>>(mut f: F) {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
 		while let Some(next) =
 			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
@@ -558,7 +558,7 @@ mod test_iterators {
 			type DoubleMap = self::frame_system::DoubleMap<Runtime>;
 
 			// All map iterator
-			let prefix = DoubleMap::prefix_hash();
+			let prefix = DoubleMap::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
@@ -618,7 +618,7 @@ mod test_iterators {
 			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
 
 			// Translate
-			let prefix = DoubleMap::prefix_hash();
+			let prefix = DoubleMap::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);

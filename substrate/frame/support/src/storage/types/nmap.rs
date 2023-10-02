@@ -78,8 +78,8 @@ where
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-	fn prefix_hash() -> Vec<u8> {
-		Prefix::prefix_hash().to_vec()
+	fn prefix_hash() -> [u8; 32] {
+		Prefix::prefix_hash()
 	}
 	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
 		QueryKind::from_optional_value_to_query(v)

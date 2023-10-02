@@ -50,7 +50,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 
 	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	fn prefix_hash() -> Vec<u8>;
+	fn prefix_hash() -> [u8; 32];
 
 	/// Convert an optional value retrieved from storage to the type queried.
 	fn from_optional_value_to_query(v: Option<V>) -> Self::Query;
@@ -125,7 +125,7 @@ where
 
 	/// Enumerate all elements in the map.
 	fn iter() -> Self::Iterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		PrefixIterator {
 			prefix: prefix.clone(),
 			previous_key: prefix,
@@ -147,7 +147,7 @@ where
 
 	/// Enumerate all keys in the map.
 	fn iter_keys() -> Self::KeyIterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		KeyPrefixIterator {
 			prefix: prefix.clone(),
 			previous_key: prefix,
@@ -187,7 +187,7 @@ where
 		previous_key: Option<Vec<u8>>,
 		mut f: F,
 	) -> Option<Vec<u8>> {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		let previous_key = previous_key.unwrap_or_else(|| prefix.clone());
 
 		let current_key =
@@ -395,7 +395,7 @@ mod test_iterators {
 			type Map = self::frame_system::Map<Runtime>;
 
 			// All map iterator
-			let prefix = Map::prefix_hash();
+			let prefix = Map::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
@@ -417,7 +417,7 @@ mod test_iterators {
 			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
 
 			// Translate
-			let prefix = Map::prefix_hash();
+			let prefix = Map::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
