@@ -821,6 +821,8 @@ mod tests {
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = ();
 	}
 
 	parameter_types! {
