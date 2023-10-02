@@ -243,9 +243,8 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len > (threshold as usize) {
-			let message_size_factor =
-				FixedU128::from((serialized_len / 1024) as u128)
-					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+			let message_size_factor = FixedU128::from((serialized_len / 1024) as u128)
+				.saturating_mul(MESSAGE_SIZE_FEE_BASE);
 			Self::increase_fee_factor(para, message_size_factor);
 		}
 

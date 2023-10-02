@@ -102,7 +102,7 @@ pub type PriceForChildParachainDelivery =
 /// individual routers.
 pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
 >;
 
 parameter_types! {
