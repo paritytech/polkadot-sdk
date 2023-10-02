@@ -17,7 +17,7 @@
 
 use crate::{self as fast_unstake};
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, Currency},
@@ -32,7 +32,6 @@ use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::prelude::*;
 
 pub type AccountId = u128;
-pub type Nonce = u32;
 pub type BlockNumber = u64;
 pub type Balance = u128;
 pub type T = Runtime;
@@ -44,30 +43,13 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type Block = Block;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	// we use U128 account id in order to get a better iteration order out of a map.
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Runtime {
