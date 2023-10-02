@@ -688,28 +688,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// The bounded counterpart of an active proposal.
 	pub fn proposal_of(proposal_hash: &T::Hash) -> Option<<T as Config<I>>::Proposal> {
-		match Voting::<T, I>::contains_key(proposal_hash) {
-			false => None,
-			true => {
-				let Ok(encoded) = T::Preimages::fetch(proposal_hash, None) else {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to fetch preimage for proposal hash {:?} contained in Voting.",
-						proposal_hash,
-					);
-					return None
-				};
-				let Ok(proposal) = <T as Config<I>>::Proposal::decode(&mut &encoded[..]) else {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to decode stored Proposal with preimage hash {:?}",
-						proposal_hash,
-					);
-					return None
-				};
-				Some(proposal)
-			},
+		if !Voting::<T, I>::contains_key(proposal_hash) {
+			return None
 		}
+		let Ok(encoded) = T::Preimages::fetch(proposal_hash, None) else {
+			log::error!(
+				target: LOG_TARGET,
+				"Failed to fetch preimage for proposal hash {:?} contained in Voting.",
+				proposal_hash,
+			);
+			return None
+		};
+		let Ok(proposal) = <T as Config<I>>::Proposal::decode(&mut &encoded[..]) else {
+			log::error!(
+				target: LOG_TARGET,
+				"Failed to decode stored Proposal with preimage hash {:?}",
+				proposal_hash,
+			);
+			return None
+		};
+		Some(proposal)
 	}
 
 	/// Check whether `who` is a member of the collective.
@@ -961,14 +959,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Removes a proposal from the pallet, and deposit the `Disapproved` event.
 	pub fn do_disapprove_proposal(proposal_hash: T::Hash) -> u32 {
-		// disapproved
 		Self::deposit_event(Event::Disapproved { proposal_hash });
 		Self::remove_proposal(proposal_hash)
 	}
 
-	// Removes a proposal from the pallet, cleaning up votes
+	/// Removes a proposal from the pallet, cleaning up votes.
+	/// Returns the number of proposals prior to the removal.
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
-		// remove proposal and vote
 		Voting::<T, I>::remove(&proposal_hash);
 		Voting::<T, I>::count().saturating_add(1)
 	}
@@ -1079,31 +1076,25 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
 				frame_system::pallet_prelude::BlockNumberFor<T>,
 				T::MaxMembers,
 			>| {
-				votes.ayes = votes
-					.ayes
-					.into_iter()
-					.filter(|i| outgoing.binary_search(i).is_err())
-					.collect::<Vec<T::AccountId>>()
-					.try_into()
-					.expect(
-						"The filtered elements should be at most equal to the original length; qed",
-					);
-				votes.nays = votes
-					.nays
-					.into_iter()
-					.filter(|i| outgoing.binary_search(i).is_err())
-					.collect::<Vec<T::AccountId>>()
-					.try_into()
-					.expect(
-						"The filtered elements should be at most equal to the original length; qed",
-					);
+				votes.ayes = BoundedVec::truncate_from(
+					votes
+						.ayes
+						.into_iter()
+						.filter(|i| outgoing.binary_search(i).is_err())
+						.collect::<Vec<_>>(),
+				);
+				votes.nays = BoundedVec::truncate_from(
+					votes
+						.nays
+						.into_iter()
+						.filter(|i| outgoing.binary_search(i).is_err())
+						.collect::<Vec<_>>(),
+				);
 
 				Some(votes)
 			},
 		);
-		Members::<T, I>::put(
-			BoundedVec::try_from(new.to_vec()).expect("Members bound was already checked; qed"),
-		);
+		Members::<T, I>::put(BoundedVec::truncate_from(new.to_vec()));
 		Prime::<T, I>::kill();
 	}
 

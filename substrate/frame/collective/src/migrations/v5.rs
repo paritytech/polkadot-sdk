@@ -18,7 +18,7 @@
 use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::{OptionQuery, StorageVersion, TypeInfo, ValueQuery},
+	pallet_prelude::{OptionQuery, TypeInfo, ValueQuery},
 	sp_runtime::RuntimeDebug,
 	traits::{Get, OnRuntimeUpgrade, QueryPreimage, StorePreimage},
 	weights::Weight,
@@ -143,13 +143,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<
 
 		// Members
 		crate::Members::<T, I>::put(BoundedVec::truncate_from(Members::<T, I>::get()));
-		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-
-		// StorageVersion
-		StorageVersion::new(5).put::<Pallet<T, I>>();
-		weight = weight.saturating_add(T::DbWeight::get().writes(1));
-
-		weight
+		weight.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 	}
 
 	#[cfg(feature = "try-runtime")]
