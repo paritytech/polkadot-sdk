@@ -1488,6 +1488,44 @@
 <a href="#1488" id="1488">1488</a>
 <a href="#1489" id="1489">1489</a>
 <a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2347,7 +2385,45 @@
 	</span>pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	<span class="comment">// unreleased
 	</span>migrations::NativeAssetParents0ToParents1Migration&lt;Runtime&gt;,
+	<span class="comment">// unreleased
+	</span>pallet_multisig::migrations::v1::MigrateToV1&lt;Runtime&gt;,
+	<span class="comment">// unreleased
+	</span>InitStorageVersions,
 );
+
+<span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// &lt;https://github.com/paritytech/polkadot-sdk/pull/1297&gt;), but it probably won&#39;t be ready for some
+/// time and it&#39;s beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we&#39;re
+/// doing it manually.
+</span><span class="kw">pub struct </span>InitStorageVersions;
+
+<span class="kw">impl </span>frame_support::traits::OnRuntimeUpgrade <span class="kw">for </span>InitStorageVersions {
+	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
+		<span class="kw">use </span>frame_support::traits::{GetStorageVersion, StorageVersion};
+		<span class="kw">use </span>sp_runtime::traits::Saturating;
+
+		<span class="kw">let </span><span class="kw-2">mut </span>writes = <span class="number">0</span>;
+
+		<span class="kw">if </span>PolkadotXcm::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
+			PolkadotXcm::current_storage_version().put::&lt;PolkadotXcm&gt;();
+			writes.saturating_inc();
+		}
+
+		<span class="kw">if </span>ForeignAssets::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
+			ForeignAssets::current_storage_version().put::&lt;ForeignAssets&gt;();
+			writes.saturating_inc();
+		}
+
+		<span class="kw">if </span>PoolAssets::on_chain_storage_version() == StorageVersion::new(<span class="number">0</span>) {
+			PoolAssets::current_storage_version().put::&lt;PoolAssets&gt;();
+			writes.saturating_inc();
+		}
+
+		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">3</span>, writes)
+	}
+}
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;

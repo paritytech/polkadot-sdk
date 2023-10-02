@@ -118,9 +118,6 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -220,9 +217,6 @@
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-			<span class="kw">let </span>current_version = Pallet::&lt;T&gt;::current_storage_version();
-			<span class="kw">let </span>onchain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="macro">ensure!</span>(onchain_version == <span class="number">0 </span>&amp;&amp; current_version == <span class="number">1</span>, <span class="string">&quot;migration from version 0 to 1.&quot;</span>);
 			<span class="kw">let </span>prev_count = Collection::&lt;T&gt;::iter().count();
 			<span class="prelude-val">Ok</span>((prev_count <span class="kw">as </span>u32).encode())
 		}
@@ -238,7 +232,7 @@
 				<span class="string">&quot;the records count before and after the migration should be the same&quot;
 			</span>);
 
-			<span class="macro">ensure!</span>(Pallet::&lt;T&gt;::on_chain_storage_version() == <span class="number">1</span>, <span class="string">&quot;wrong storage version&quot;</span>);
+			<span class="macro">ensure!</span>(Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">1</span>, <span class="string">&quot;wrong storage version&quot;</span>);
 
 			<span class="prelude-val">Ok</span>(())
 		}

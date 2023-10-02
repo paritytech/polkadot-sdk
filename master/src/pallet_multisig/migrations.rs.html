@@ -83,6 +83,8 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -128,16 +130,14 @@
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">let </span>onchain = Pallet::&lt;T&gt;::on_chain_storage_version();
-
-			<span class="macro">ensure!</span>(onchain &lt; <span class="number">1</span>, <span class="string">&quot;this migration can be deleted&quot;</span>);
-
 			<span class="macro">log!</span>(info, <span class="string">&quot;Number of calls to refund and delete: {}&quot;</span>, Calls::&lt;T&gt;::iter().count());
 
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
 
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
+			<span class="kw">use </span>sp_runtime::Saturating;
+
 			<span class="kw">let </span>current = Pallet::&lt;T&gt;::current_storage_version();
 			<span class="kw">let </span>onchain = Pallet::&lt;T&gt;::on_chain_storage_version();
 
@@ -146,20 +146,24 @@
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 
+			<span class="kw">let </span><span class="kw-2">mut </span>call_count = <span class="number">0u64</span>;
 			Calls::&lt;T&gt;::drain().for_each(|(_call_hash, (_data, caller, deposit))| {
 				T::Currency::unreserve(<span class="kw-2">&amp;</span>caller, deposit);
+				call_count.saturating_inc();
 			});
 
 			current.put::&lt;Pallet&lt;T&gt;&gt;();
 
-			&lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block
+			T::DbWeight::get().reads_writes(
+				<span class="comment">// Reads: Get Calls + Get Version
+				</span>call_count.saturating_add(<span class="number">1</span>),
+				<span class="comment">// Writes: Drain Calls + Unreserves + Set version
+				</span>call_count.saturating_mul(<span class="number">2</span>).saturating_add(<span class="number">1</span>),
+			)
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">let </span>onchain = Pallet::&lt;T&gt;::on_chain_storage_version();
-			<span class="macro">ensure!</span>(onchain &lt; <span class="number">2</span>, <span class="string">&quot;this migration needs to be removed&quot;</span>);
-			<span class="macro">ensure!</span>(onchain == <span class="number">1</span>, <span class="string">&quot;this migration needs to be run&quot;</span>);
 			<span class="macro">ensure!</span>(
 				Calls::&lt;T&gt;::iter().count() == <span class="number">0</span>,
 				<span class="string">&quot;there are some dangling calls that need to be destroyed and refunded&quot;

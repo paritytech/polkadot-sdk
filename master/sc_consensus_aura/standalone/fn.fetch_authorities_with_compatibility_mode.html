@@ -3,7 +3,7 @@
     parent_hash: B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
     context_block_number: <a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;,
     compatibility_mode: &amp;<a class="enum" href="../enum.CompatibilityMode.html" title="enum sc_consensus_aura::CompatibilityMode">CompatibilityMode</a>&lt;<a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;A&gt;, ConsensusError&gt;<span class="where fmt-newline">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;A&gt;, <a class="enum" href="../../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">ConsensusError</a>&gt;<span class="where fmt-newline">where
     A: Codec + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>,
     B: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     C: ProvideRuntimeApi&lt;B&gt;,
