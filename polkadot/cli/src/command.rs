@@ -62,7 +62,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot/issues/new".into()
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -165,26 +165,6 @@ fn set_default_ss58_version(spec: &Box<dyn service::ChainSpec>) {
 	.into();
 
 	sp_core::crypto::set_default_ss58_version(ss58_version);
-}
-
-/// Runs performance checks.
-/// Should only be used in release build since the check would take too much time otherwise.
-fn host_perf_check() -> Result<()> {
-	#[cfg(not(feature = "hostperfcheck"))]
-	{
-		return Err(Error::FeatureNotEnabled { feature: "hostperfcheck" }.into())
-	}
-
-	#[cfg(all(not(build_type = "release"), feature = "hostperfcheck"))]
-	{
-		return Err(PerfCheckError::WrongBuildType.into())
-	}
-
-	#[cfg(all(feature = "hostperfcheck", build_type = "release"))]
-	{
-		crate::host_perf_check::host_perf_check()?;
-		return Ok(())
-	}
 }
 
 /// Launch a node, accepting arguments just like a regular node,
@@ -508,13 +488,6 @@ pub fn run() -> Result<()> {
 				#[allow(unreachable_patterns)]
 				_ => Err(Error::CommandNotImplemented),
 			}
-		},
-		Some(Subcommand::HostPerfCheck) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_colors(true);
-			builder.init()?;
-
-			host_perf_check()
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		#[cfg(feature = "try-runtime")]
