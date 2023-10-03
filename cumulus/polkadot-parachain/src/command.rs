@@ -143,12 +143,12 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 
 		// -- Westend Collectives
 		"collectives-westend-dev" =>
-			Box::new(chain_spec::collectives::collectives_polkadot_development_config()),
+			Box::new(chain_spec::collectives::collectives_westend_development_config()),
 		"collectives-westend-local" =>
-			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
+			Box::new(chain_spec::collectives::collectives_westend_local_config()),
 		"collectives-westend" =>
-			Box::new(chain_spec::collectives::CollectivesPolkadotChainSpec::from_json_bytes(
-				&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
+			Box::new(chain_spec::collectives::CollectivesWestendChainSpec::from_json_bytes(
+				&include_bytes!("../chain-specs/collectives-westend.json")[..],
 			)?),
 
 		// -- Contracts on Rococo

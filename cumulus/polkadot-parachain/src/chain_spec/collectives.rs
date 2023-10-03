@@ -22,35 +22,33 @@ use parachains_common::{AccountId, AuraId, Balance as CollectivesBalance};
 use sc_service::ChainType;
 use sp_core::sr25519;
 
-pub type CollectivesPolkadotChainSpec =
-	sc_service::GenericChainSpec<collectives_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
+pub type CollectivesWestendChainSpec =
+	sc_service::GenericChainSpec<collectives_westend_runtime::RuntimeGenesisConfig, Extensions>;
 
-const COLLECTIVES_POLKADOT_ED: CollectivesBalance =
-	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
+const COLLECTIVES_WESTEND_ED: CollectivesBalance =
+	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn collectives_polkadot_session_keys(
-	keys: AuraId,
-) -> collectives_polkadot_runtime::SessionKeys {
-	collectives_polkadot_runtime::SessionKeys { aura: keys }
+pub fn collectives_westend_session_keys(keys: AuraId) -> collectives_westend_runtime::SessionKeys {
+	collectives_westend_runtime::SessionKeys { aura: keys }
 }
 
-pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec {
+pub fn collectives_westend_development_config() -> CollectivesWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::from_genesis(
+	CollectivesWestendChainSpec::from_genesis(
 		// Name
-		"Polkadot Collectives Development",
+		"Westend Collectives Development",
 		// ID
-		"collectives_polkadot_dev",
+		"collectives_westend_dev",
 		ChainType::Local,
 		move || {
-			collectives_polkadot_genesis(
+			collectives_westend_genesis(
 				// initial collators.
 				vec![(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -72,25 +70,25 @@ pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec
 		None,
 		None,
 		Some(properties),
-		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1002 },
+		Extensions { relay_chain: "westend-dev".into(), para_id: 1002 },
 	)
 }
 
-/// Collectives Polkadot Local Config.
-pub fn collectives_polkadot_local_config() -> CollectivesPolkadotChainSpec {
+/// Collectives Westend Local Config.
+pub fn collectives_westend_local_config() -> CollectivesWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	CollectivesPolkadotChainSpec::from_genesis(
+	CollectivesWestendChainSpec::from_genesis(
 		// Name
-		"Polkadot Collectives Local",
+		"Westend Collectives Local",
 		// ID
-		"collectives_polkadot_local",
+		"collectives_westend_local",
 		ChainType::Local,
 		move || {
-			collectives_polkadot_genesis(
+			collectives_westend_genesis(
 				// initial collators.
 				vec![
 					(
@@ -124,46 +122,46 @@ pub fn collectives_polkadot_local_config() -> CollectivesPolkadotChainSpec {
 		None,
 		None,
 		Some(properties),
-		Extensions { relay_chain: "polkadot-local".into(), para_id: 1002 },
+		Extensions { relay_chain: "westend-local".into(), para_id: 1002 },
 	)
 }
 
-fn collectives_polkadot_genesis(
+fn collectives_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
-) -> collectives_polkadot_runtime::RuntimeGenesisConfig {
-	collectives_polkadot_runtime::RuntimeGenesisConfig {
-		system: collectives_polkadot_runtime::SystemConfig {
-			code: collectives_polkadot_runtime::WASM_BINARY
+) -> collectives_westend_runtime::RuntimeGenesisConfig {
+	collectives_westend_runtime::RuntimeGenesisConfig {
+		system: collectives_westend_runtime::SystemConfig {
+			code: collectives_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 			..Default::default()
 		},
-		balances: collectives_polkadot_runtime::BalancesConfig {
+		balances: collectives_westend_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, COLLECTIVES_POLKADOT_ED * 4096))
+				.map(|k| (k, COLLECTIVES_WESTEND_ED * 4096))
 				.collect(),
 		},
-		parachain_info: collectives_polkadot_runtime::ParachainInfoConfig {
+		parachain_info: collectives_westend_runtime::ParachainInfoConfig {
 			parachain_id: id,
 			..Default::default()
 		},
-		collator_selection: collectives_polkadot_runtime::CollatorSelectionConfig {
+		collator_selection: collectives_westend_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: COLLECTIVES_POLKADOT_ED * 16,
+			candidacy_bond: COLLECTIVES_WESTEND_ED * 16,
 			..Default::default()
 		},
-		session: collectives_polkadot_runtime::SessionConfig {
+		session: collectives_westend_runtime::SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                             // account id
-						acc,                                     // validator id
-						collectives_polkadot_session_keys(aura), // session keys
+						acc.clone(),                            // account id
+						acc,                                    // validator id
+						collectives_westend_session_keys(aura), // session keys
 					)
 				})
 				.collect(),
@@ -173,7 +171,7 @@ fn collectives_polkadot_genesis(
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		polkadot_xcm: collectives_polkadot_runtime::PolkadotXcmConfig {
+		polkadot_xcm: collectives_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
