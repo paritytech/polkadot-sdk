@@ -31,6 +31,8 @@ pub trait PalletInfo {
 	fn index<P: 'static>() -> Option<usize>;
 	/// Convert the given pallet `P` into its name as configured in the runtime.
 	fn name<P: 'static>() -> Option<&'static str>;
+	/// The two128 hash of name.
+	fn name_hash<P: 'static>() -> Option<[u8; 16]>;
 	/// Convert the given pallet `P` into its Rust module name as used in `construct_runtime!`.
 	fn module_name<P: 'static>() -> Option<&'static str>;
 	/// Convert the given pallet `P` into its containing crate version.
@@ -59,6 +61,8 @@ pub trait PalletInfoAccess {
 	fn index() -> usize;
 	/// Name of the pallet as configured in the runtime.
 	fn name() -> &'static str;
+	/// Two128 hash of name.
+	fn name_hash() -> [u8; 16];
 	/// Name of the Rust module containing the pallet.
 	fn module_name() -> &'static str;
 	/// Version of the crate containing the pallet.
@@ -281,6 +285,7 @@ pub trait GetStorageVersion {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sp_core::twox_128;
 
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
@@ -289,6 +294,9 @@ mod tests {
 		}
 		fn name() -> &'static str {
 			"Pallet1"
+		}
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
 		}
 		fn module_name() -> &'static str {
 			"pallet1"
@@ -305,6 +313,11 @@ mod tests {
 		fn name() -> &'static str {
 			"Pallet2"
 		}
+
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
+		}
+
 		fn module_name() -> &'static str {
 			"pallet2"
 		}
