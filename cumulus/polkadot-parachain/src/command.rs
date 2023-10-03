@@ -330,7 +330,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(WESTEND_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..WESTEND_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
+	} else if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
 	} else if let Some(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
