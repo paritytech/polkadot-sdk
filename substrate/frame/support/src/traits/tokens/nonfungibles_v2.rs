@@ -426,7 +426,7 @@ pub trait Trading<AccountId, ItemPrice>: Inspect<AccountId> {
 		bid_price: &ItemPrice,
 	) -> DispatchResult;
 
-	/// Set the item price of `item` of `collection` to make it available for sale
+	/// Sets the item price for `item` to make it available for sale.
 	fn set_price(
 		collection: &Self::CollectionId,
 		item: &Self::ItemId,
@@ -435,6 +435,6 @@ pub trait Trading<AccountId, ItemPrice>: Inspect<AccountId> {
 		whitelisted_buyer: Option<AccountId>,
 	) -> DispatchResult;
 
-	/// Returns the item price of `item` of `collection`, or `None` if the item is not for sale
+	/// Returns the item price of `item` or `None` if the item is not for sale.
 	fn item_price(collection: &Self::CollectionId, item: &Self::ItemId) -> Option<ItemPrice>;
 }
