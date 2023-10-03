@@ -363,8 +363,8 @@ macro_rules! construct_partials {
 					$code
 				},
 			},
-			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend => {
-				let $partials = new_partial::<collectives_polkadot_runtime::RuntimeApi, _>(
+			Runtime::CollectivesWestend => {
+				let $partials = new_partial::<collectives_westend_runtime::RuntimeApi, _>(
 					&$config,
 					crate::service::aura_build_import_queue::<_, AuraId>,
 				)?;
