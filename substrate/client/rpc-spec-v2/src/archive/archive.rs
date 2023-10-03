@@ -20,8 +20,7 @@
 
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	chain_head::hex_string,
-	MethodResult,
+	hex_string, MethodResult,
 };
 
 use codec::Encode;

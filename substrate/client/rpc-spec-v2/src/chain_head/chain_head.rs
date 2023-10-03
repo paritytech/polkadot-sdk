@@ -28,10 +28,9 @@ use crate::{
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
 		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
-		hex_string,
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	SubscriptionTaskExecutor,
+	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
 use futures::future::FutureExt;

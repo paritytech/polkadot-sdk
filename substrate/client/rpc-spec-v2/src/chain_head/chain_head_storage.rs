@@ -25,16 +25,16 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::BlockT;
 use sp_core::storage::well_known_keys;
 
-use crate::chain_head::event::OperationStorageItems;
-
-use super::{
-	event::{
-		OperationError, OperationId, StorageQuery, StorageQueryType, StorageResult,
-		StorageResultType,
+use crate::{
+	chain_head::{
+		event::{
+			OperationError, OperationId, OperationStorageItems, StorageQuery, StorageQueryType,
+			StorageResult, StorageResultType,
+		},
+		subscription::BlockGuard,
+		FollowEvent,
 	},
 	hex_string,
-	subscription::BlockGuard,
-	FollowEvent,
 };
 
 /// The query type of an iteration.

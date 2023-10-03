@@ -24,6 +24,7 @@
 #![deny(unused_crate_dependencies)]
 
 use serde::{Deserialize, Serialize};
+use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
 
 pub mod archive;
 pub mod chain_head;
@@ -73,6 +74,11 @@ pub struct MethodResultErr {
 	success: bool,
 	/// The error of the method.
 	pub error: String,
+}
+
+/// Util function to print the results of rpc-spec-v2 as hex string
+pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
+	format!("0x{:?}", HexDisplay::from(data))
 }
 
 #[cfg(test)]
