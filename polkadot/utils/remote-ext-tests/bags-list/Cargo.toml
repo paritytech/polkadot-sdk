@@ -7,11 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-polkadot-runtime = { path = "../../../runtime/polkadot" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
 westend-runtime = { path = "../../../runtime/westend" }
-polkadot-runtime-constants = { path = "../../../runtime/polkadot/constants" }
-kusama-runtime-constants = { path = "../../../runtime/kusama/constants" }
 westend-runtime-constants = { path = "../../../runtime/westend/constants" }
 
 pallet-bags-list-remote-tests = { path = "../../../../substrate/frame/bags-list/remote-tests" }
