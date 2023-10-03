@@ -317,7 +317,7 @@ impl<
 		// Apply inherents:
 		for e in extrinsics.iter().take(num_inherents) {
 			if let Err(err) = try_apply_extrinsic(e.clone()) {
-				frame_support::log::error!(
+				log::error!(
 					target: LOG_TARGET, "inherent {:?} failed due to {:?}. Aborting the rest of the block execution.",
 					e,
 					err,
@@ -326,10 +326,12 @@ impl<
 			}
 		}
 
+		Self::after_inherents();
+
 		// Apply transactions:
 		for e in extrinsics.iter().skip(num_inherents) {
 			if let Err(err) = try_apply_extrinsic(e.clone()) {
-				frame_support::log::error!(
+				log::error!(
 					target: LOG_TARGET, "transaction {:?} failed due to {:?}. Aborting the rest of the block execution.",
 					e,
 					err,
@@ -340,7 +342,7 @@ impl<
 
 		// post-extrinsics book-keeping
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
-		// TODO MBMs will run here depending on `ExtrinsicInclusionModeQuery::get()`.
+		// TODO MBMs will conditionally skip this.
 		Self::on_idle_hook(*header.number());
 
 		Self::on_finalize_hook(*header.number());
@@ -563,11 +565,12 @@ impl<
 
 			// Process inherents (if any).
 			Self::apply_extrinsics(extrinsics.iter().take(num_inherents), mode);
+			Self::after_inherents();
 			// Process transactions (if any).
 			Self::apply_extrinsics(extrinsics.iter().skip(num_inherents), mode);
 
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
-			// TODO MBMs will run here depending on `ExtrinsicInclusionModeQuery::get()`.
+			// TODO MBMs will conditionally skip this.
 			Self::on_idle_hook(*header.number());
 
 			Self::on_finalize_hook(*header.number());
@@ -588,6 +591,13 @@ impl<
 		});
 	}
 
+	/// Execute code after inherents but before extrinsic application.
+	pub fn after_inherents() {
+		// TODO run either MBMs or `poll` depending on the mode:
+		//  <https://github.com/paritytech/substrate/pull/14275>
+		//  <https://github.com/paritytech/substrate/pull/14279>
+	}
+
 	/// Finalize the block - it is up the caller to ensure that all header fields are valid
 	/// except state-root.
 	// Note: Only used by the block builder - not Executive itself.
@@ -597,7 +607,7 @@ impl<
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		let block_number = <frame_system::Pallet<System>>::block_number();
 
-		// TODO MBMs will run here depending on `ExtrinsicInclusionModeQuery::get()`.
+		// TODO MBMs will conditionally skip this.
 		Self::on_idle_hook(block_number);
 
 		Self::on_finalize_hook(block_number);

@@ -82,7 +82,7 @@ fn construct_and_apply_extrinsic(
 }
 
 fn executive_init_block(header: &HeaderFor<Runtime>) {
-	Executive::initialize_block(header)
+	Executive::initialize_block(header);
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {

@@ -344,6 +344,7 @@ where
 		// <https://github.com/paritytech/substrate/pull/14275/>
 
 		let block_timer = time::Instant::now();
+		block_builder.after_inherents()?;
 		let end_reason =
 			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();

@@ -60,7 +60,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}
@@ -96,6 +96,10 @@ sp_api::impl_runtime_apis! {
 			_: Block,
 			_: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
+			unimplemented!()
+		}
+
+		fn after_inherents() {
 			unimplemented!()
 		}
 	}

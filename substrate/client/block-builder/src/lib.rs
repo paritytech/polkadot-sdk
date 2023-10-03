@@ -36,7 +36,7 @@ use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
-	BlockAfterInherentsMode, Digest,
+	Digest,
 };
 
 use sc_client_api::backend;
@@ -191,6 +191,15 @@ where
 			backend,
 			estimated_header_size,
 		})
+	}
+
+	/// Called after inherents but before extrinsics have been applied.
+	pub fn after_inherents(&self) -> Result<(), Error> {
+		if self.version >= 7 {
+			self.api.after_inherents(self.parent_hash).map_err(Into::into)
+		} else {
+			Ok(())
+		}
 	}
 
 	/// Push onto the block's list of extrinsics.
