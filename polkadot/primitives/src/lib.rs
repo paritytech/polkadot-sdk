@@ -43,7 +43,7 @@ pub use v6::{
 	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CollatorId,
 	CollatorSignature, CommittedCandidateReceipt, CompactStatement, ConsensusLog, CoreIndex,
 	CoreState, DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs,
-	ExecutorParam, ExecutorParams, ExecutorParamsHash, ExplicitDisputeStatement, GroupIndex,
+	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExplicitDisputeStatement, GroupIndex,
 	GroupRotationInfo, Hash, HashT, HeadData, Header, HorizontalMessages, HrmpChannelId, Id,
 	InboundDownwardMessage, InboundHrmpMessage, IndexedVec, InherentData,
 	InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce, OccupiedCore,
