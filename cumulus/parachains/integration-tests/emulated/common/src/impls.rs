@@ -80,20 +80,10 @@ impl From<u32> for LaneIdWrapper {
 type BridgeHubRococoRuntime = <BridgeHubRococo as Chain>::Runtime;
 type BridgeHubWococoRuntime = <BridgeHubWococo as Chain>::Runtime;
 
-// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
-// type BridgeHubPolkadotRuntime = <BridgeHubPolkadot as Chain>::Runtime;
-// type BridgeHubKusamaRuntime = <BridgeHubKusama as Chain>::Runtime;
-
 pub type RococoWococoMessageHandler =
 	BridgeHubMessageHandler<BridgeHubRococoRuntime, BridgeHubWococoRuntime, Instance2>;
 pub type WococoRococoMessageHandler =
 	BridgeHubMessageHandler<BridgeHubWococoRuntime, BridgeHubRococoRuntime, Instance2>;
-
-// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
-// pub type PolkadotKusamaMessageHandler
-//	= BridgeHubMessageHandler<BridgeHubPolkadotRuntime, BridgeHubKusamaRuntime, Instance1>;
-// pub type KusamaPolkadotMessageHandler
-//	= BridgeHubMessageHandler<BridgeHubKusamaRuntime, BridgeHubPolkadoRuntime, Instance1>;
 
 impl<S, T, I> BridgeMessageHandler for BridgeHubMessageHandler<S, T, I>
 where
