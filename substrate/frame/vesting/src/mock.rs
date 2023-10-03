@@ -91,7 +91,6 @@ parameter_types! {
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
-	type Balance = u64;
 	type MaxFreezes = MaxFreezes;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeFreezeReason = RuntimeFreezeReason;

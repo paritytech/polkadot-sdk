@@ -149,7 +149,11 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config
+	where
+		<Self::Currency as fungible::Inspect<Self::AccountId>>::Balance:
+			frame_support::traits::tokens::Balance + MaybeSerializeDeserialize,
+	{
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -159,13 +163,11 @@ pub mod pallet {
 		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;
 
-		/// The currency trait.
+		/// The fungible trait.
 		type Currency: fungible::InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ fungible::MutateFreeze<Self::AccountId>
-			+ fungible::Inspect<Self::AccountId, Balance = Self::Balance>
+			+ fungible::Inspect<Self::AccountId>
 			+ fungible::Mutate<Self::AccountId>;
-
-		type Balance: frame_support::traits::tokens::Balance + MaybeSerializeDeserialize;
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;

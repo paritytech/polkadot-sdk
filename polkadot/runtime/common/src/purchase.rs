@@ -575,7 +575,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type Currency = Balances;
-		type Balance = u64;
 		type BlockNumberToBalance = Identity;
 		type MinVestedTransfer = MinVestedTransfer;
 		type MaxFreezes = MaxFreezes;

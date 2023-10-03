@@ -670,7 +670,6 @@ impl pallet_vesting::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Currency = Balances;
-	type Balance = Balance;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type MaxFreezes = MaxFreezes;
