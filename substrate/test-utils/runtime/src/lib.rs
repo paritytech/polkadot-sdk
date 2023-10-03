@@ -528,6 +528,10 @@ impl_runtime_apis! {
 		fn check_inherents(_block: Block, _data: InherentData) -> CheckInherentsResult {
 			CheckInherentsResult::new()
 		}
+
+		fn after_inherents() -> sp_runtime::BlockAfterInherentsMode {
+			Executive::after_inherents()
+		}
 	}
 
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {

@@ -36,7 +36,7 @@ use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
-	Digest,
+	BlockAfterInherentsMode, Digest,
 };
 
 use sc_client_api::backend;
