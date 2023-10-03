@@ -665,6 +665,15 @@
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -684,7 +693,7 @@
 
 </span><span class="doccomment">//! Implementation of the `storage_alias` attribute macro.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::counter_prefix;
+</span><span class="kw">use crate</span>::{counter_prefix, pallet::parse::helper};
 <span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
 <span class="kw">use </span>proc_macro2::{Span, TokenStream};
 <span class="kw">use </span>quote::{quote, ToTokens};
@@ -1286,6 +1295,7 @@
 	<span class="kw">let </span>counter_code = is_counted_map.then(|| {
 		<span class="kw">let </span>counter_name = Ident::new(<span class="kw-2">&amp;</span>counter_prefix(<span class="kw-2">&amp;</span>name_str), Span::call_site());
 		<span class="kw">let </span>counter_storage_name_str = counter_prefix(<span class="kw-2">&amp;</span>storage_name_str);
+		<span class="kw">let </span>storage_prefix_hash = helper::two128_str(<span class="kw-2">&amp;</span>counter_storage_name_str);
 
 		<span class="macro">quote! </span>{
 			#visibility <span class="kw">struct </span>#counter_name&lt; #impl_generics &gt;(
@@ -1300,6 +1310,9 @@
 				}
 
 				<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #counter_storage_name_str;
+				<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
+					#storage_prefix_hash
+				}
 			}
 
 			<span class="kw">impl</span>&lt;#impl_generics&gt; #crate_::storage::types::CountedStorageMapInstance
@@ -1309,6 +1322,8 @@
 			}
 		}
 	});
+
+	<span class="kw">let </span>storage_prefix_hash = helper::two128_str(<span class="kw-2">&amp;</span>storage_name_str);
 
 	<span class="comment">// Implement `StorageInstance` trait.
 	</span><span class="kw">let </span>code = <span class="macro">quote! </span>{
@@ -1325,6 +1340,9 @@
 			}
 
 			<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #storage_name_str;
+			<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
+				#storage_prefix_hash
+			}
 		}
 
 		#counter_code

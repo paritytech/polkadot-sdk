@@ -968,6 +968,11 @@
 <a href="#968" id="968">968</a>
 <a href="#969" id="969">969</a>
 <a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1087,12 +1092,17 @@
 	<span class="kw">type </span>Query = QueryKind::Query;
 	<span class="kw">type </span>Hasher1 = Hasher1;
 	<span class="kw">type </span>Hasher2 = Hasher2;
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
+
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
+	<span class="kw">fn </span>prefix_hash() -&gt; [u8; <span class="number">32</span>] {
+		Prefix::prefix_hash()
+	}
+
 	<span class="kw">fn </span>from_optional_value_to_query(v: <span class="prelude-ty">Option</span>&lt;Value&gt;) -&gt; <span class="self">Self</span>::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
@@ -1115,8 +1125,8 @@
 	OnEmpty: Get&lt;QueryKind::Query&gt; + <span class="lifetime">&#39;static</span>,
 	MaxValues: Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;,
 {
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageDoubleMap&lt;Key1, Key2, Value&gt;&gt;::module_prefix()
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageDoubleMap&lt;Key1, Key2, Value&gt;&gt;::pallet_prefix()
 	}
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageDoubleMap&lt;Key1, Key2, Value&gt;&gt;::storage_prefix()
@@ -1661,7 +1671,7 @@
 {
 	<span class="kw">fn </span>storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -1692,7 +1702,7 @@
 {
 	<span class="kw">fn </span>partial_storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::final_prefix().to_vec(),
 			max_values: MaxValues::get(),

@@ -610,6 +610,20 @@
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -627,7 +641,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>quote::ToTokens;
+</span><span class="kw">use </span>proc_macro2::TokenStream;
+<span class="kw">use </span>quote::{quote, ToTokens};
 <span class="kw">use </span>syn::spanned::Spanned;
 
 <span class="doccomment">/// List of additional token to be used for parsing.
@@ -1221,5 +1236,18 @@
 	}
 
 	syn::parse2::&lt;Checker&gt;(type_.to_token_stream()).map(|<span class="kw">_</span>| ())
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>two128_str(s: <span class="kw-2">&amp;</span>str) -&gt; TokenStream {
+	bytes_to_array(sp_core_hashing::twox_128(s.as_bytes()).into_iter())
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bytes_to_array(bytes: <span class="kw">impl </span>IntoIterator&lt;Item = u8&gt;) -&gt; TokenStream {
+	<span class="kw">let </span>bytes = bytes.into_iter();
+
+	<span class="macro">quote!</span>(
+		[ #( #bytes ),* ]
+	)
+	.into()
 }
 </code></pre></div></section></main></body></html>

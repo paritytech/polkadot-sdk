@@ -1281,6 +1281,9 @@
 <a href="#1281" id="1281">1281</a>
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1355,11 +1358,14 @@
 	MaxValues: Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;,
 {
 	<span class="kw">type </span>Query = QueryKind::Query;
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
+	}
+	<span class="kw">fn </span>prefix_hash() -&gt; [u8; <span class="number">32</span>] {
+		Prefix::prefix_hash()
 	}
 	<span class="kw">fn </span>from_optional_value_to_query(v: <span class="prelude-ty">Option</span>&lt;Value&gt;) -&gt; <span class="self">Self</span>::Query {
 		QueryKind::from_optional_value_to_query(v)
@@ -1379,8 +1385,8 @@
 	OnEmpty: Get&lt;QueryKind::Query&gt; + <span class="lifetime">&#39;static</span>,
 	MaxValues: Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt;,
 {
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageNMap&lt;Key, Value&gt;&gt;::module_prefix()
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageNMap&lt;Key, Value&gt;&gt;::pallet_prefix()
 	}
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::generator::StorageNMap&lt;Key, Value&gt;&gt;::storage_prefix()
@@ -1864,7 +1870,7 @@
 {
 	<span class="kw">fn </span>storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -1890,7 +1896,7 @@
 {
 	<span class="kw">fn </span>partial_storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::final_prefix().to_vec(),
 			max_values: MaxValues::get(),

@@ -634,7 +634,7 @@
 /// [`Page`]s.
 ///
 /// Each [`Page`] holds at most `ValuesPerNewPage` values in its `values` vector. The last page is
-/// the only one that could have less than `ValuesPerNewPage` values.  
+/// the only one that could have less than `ValuesPerNewPage` values.
 /// **Iteration** happens by starting
 /// at [`first_page`][StoragePagedListMeta::first_page]/
 /// [`first_value_offset`][StoragePagedListMeta::first_value_offset] and incrementing these indices
@@ -954,11 +954,11 @@
 /// that are completely useless for prefix calculation.
 </span><span class="kw">struct </span>StoragePagedListPrefix&lt;Prefix&gt;(PhantomData&lt;Prefix&gt;);
 
-<span class="kw">impl</span>&lt;Prefix&gt; frame_support::storage::StoragePrefixedContainer <span class="kw">for </span>StoragePagedListPrefix&lt;Prefix&gt;
+<span class="kw">impl</span>&lt;Prefix&gt; StoragePrefixedContainer <span class="kw">for </span>StoragePagedListPrefix&lt;Prefix&gt;
 <span class="kw">where
 	</span>Prefix: StorageInstance,
 {
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 
@@ -967,15 +967,15 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;Prefix, Value, ValuesPerNewPage&gt; frame_support::storage::StoragePrefixedContainer
+<span class="kw">impl</span>&lt;Prefix, Value, ValuesPerNewPage&gt; StoragePrefixedContainer
 	<span class="kw">for </span>StoragePagedList&lt;Prefix, Value, ValuesPerNewPage&gt;
 <span class="kw">where
 	</span>Prefix: StorageInstance,
 	Value: FullCodec,
 	ValuesPerNewPage: Get&lt;u32&gt;,
 {
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-		StoragePagedListPrefix::&lt;Prefix&gt;::module_prefix()
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+		StoragePagedListPrefix::&lt;Prefix&gt;::pallet_prefix()
 	}
 
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {

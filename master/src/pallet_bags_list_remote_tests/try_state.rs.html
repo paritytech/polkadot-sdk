@@ -99,8 +99,8 @@
 			pallets: <span class="macro">vec!</span>[pallet_bags_list::Pallet::&lt;Runtime, pallet_bags_list::Instance1&gt;::name()
 				.to_string()],
 			hashed_prefixes: <span class="macro">vec!</span>[
-				&lt;pallet_staking::Bonded&lt;Runtime&gt;&gt;::prefix_hash(),
-				&lt;pallet_staking::Ledger&lt;Runtime&gt;&gt;::prefix_hash(),
+				&lt;pallet_staking::Bonded&lt;Runtime&gt;&gt;::prefix_hash().to_vec(),
+				&lt;pallet_staking::Ledger&lt;Runtime&gt;&gt;::prefix_hash().to_vec(),
 			],
 			..Default::default()
 		}))

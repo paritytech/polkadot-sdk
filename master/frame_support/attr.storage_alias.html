@@ -34,7 +34,7 @@ type declaration works as with <a href="pallet_macros/attr.storage.html" title="
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, Value::get().unwrap());
 
 		<span class="comment">// The prefix is the one we declared above.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::module_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::pallet_prefix());
 	});
 }</code></pre></div>
 <ol start="2">
@@ -55,7 +55,7 @@ configured in    <a href="macro.construct_runtime.html" title="macro frame_suppo
 
 		<span class="comment">// The prefix is the pallet name. In this case the pallet name is `System` as declared in
 		// `construct_runtime!`.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], Value::&lt;Runtime&gt;::module_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], Value::&lt;Runtime&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 <p>It requires that the given prefix type implements
@@ -85,7 +85,7 @@ to get the <code>prefix</code>:</li>
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, Value::&lt;Prefix&gt;::get().unwrap());
 
 		<span class="comment">// The prefix is the one we declared above.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Hello&quot;</span>[..], Value::&lt;Prefix&gt;::module_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Hello&quot;</span>[..], Value::&lt;Prefix&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 <p>It requires that the given prefix type implements <a href="pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get"><code>Get&lt;'static str&gt;</code></a>.</p>
@@ -102,13 +102,13 @@ indication that it should use the pallet name as the <code>prefix</code>:</li>
 		</span><span class="attr">#[<span class="kw">crate</span>::storage_alias]
 		</span><span class="kw">pub type </span>Value = StorageValue&lt;Test, u32&gt;;
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::module_prefix());
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::pallet_prefix());
 
 		<span class="comment">// The macro will use the pallet name as prefix.
 		</span><span class="attr">#[<span class="kw">crate</span>::storage_alias]
 		</span><span class="kw">pub type </span>PalletValue&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, u32&gt;;
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], PalletValue::&lt;Runtime&gt;::module_prefix());
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], PalletValue::&lt;Runtime&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 </div></details></section></div></main></body></html>

@@ -159,8 +159,6 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -188,14 +186,14 @@
 ///
 /// By default value is stored at:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix)
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix)
 /// ```
 </span><span class="kw">pub trait </span>StorageValue&lt;T: FullCodec&gt; {
 	<span class="doccomment">/// The type that get/take returns.
 	</span><span class="kw">type </span>Query;
 
-	<span class="doccomment">/// Module prefix. Used for generating final key.
-	</span><span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	<span class="doccomment">/// Pallet prefix. Used for generating final key.
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
 	<span class="doccomment">/// Storage prefix. Used for generating final key.
 	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
@@ -207,9 +205,7 @@
 	</span><span class="kw">fn </span>from_query_to_optional_value(v: <span class="self">Self</span>::Query) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;;
 
 	<span class="doccomment">/// Generate the full key used in top storage.
-	</span><span class="kw">fn </span>storage_value_final_key() -&gt; [u8; <span class="number">32</span>] {
-		<span class="kw">crate</span>::storage::storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix())
-	}
+	</span><span class="kw">fn </span>storage_value_final_key() -&gt; [u8; <span class="number">32</span>];
 }
 
 <span class="kw">impl</span>&lt;T: FullCodec, G: StorageValue&lt;T&gt;&gt; storage::StorageValue&lt;T&gt; <span class="kw">for </span>G {
@@ -260,10 +256,6 @@
 		}
 	}
 
-	<span class="kw">fn </span>kill() {
-		unhashed::kill(<span class="kw-2">&amp;</span><span class="self">Self</span>::storage_value_final_key())
-	}
-
 	<span class="kw">fn </span>mutate&lt;R, F: FnOnce(<span class="kw-2">&amp;mut </span>G::Query) -&gt; R&gt;(f: F) -&gt; R {
 		<span class="self">Self</span>::try_mutate(|v| <span class="prelude-val">Ok</span>::&lt;R, Never&gt;(f(v))).expect(<span class="string">&quot;`Never` can not be constructed; qed&quot;</span>)
 	}
@@ -303,6 +295,10 @@
 			}
 		}
 		ret
+	}
+
+	<span class="kw">fn </span>kill() {
+		unhashed::kill(<span class="kw-2">&amp;</span><span class="self">Self</span>::storage_value_final_key())
 	}
 
 	<span class="kw">fn </span>take() -&gt; G::Query {

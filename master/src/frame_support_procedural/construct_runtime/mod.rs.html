@@ -828,6 +828,22 @@
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1041,6 +1057,7 @@
 </span><span class="kw">mod </span>expand;
 <span class="kw">mod </span>parse;
 
+<span class="kw">use </span><span class="kw">crate</span>::pallet::parse::helper::two128_str;
 <span class="kw">use </span>cfg_expr::Predicate;
 <span class="kw">use </span>frame_support_procedural_tools::{
 	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
@@ -1233,17 +1250,19 @@
 	<span class="kw">let </span>integrity_test = decl_integrity_test(<span class="kw-2">&amp;</span>scrate);
 	<span class="kw">let </span>static_assertions = decl_static_assertions(<span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>pallets, <span class="kw-2">&amp;</span>scrate);
 
-	<span class="kw">let </span>warning =
-		where_section.map_or(<span class="prelude-val">None</span>, |where_section| {
-			<span class="prelude-val">Some</span>(proc_macro_warning::Warning::new_deprecated(<span class="string">&quot;WhereSection&quot;</span>)
-			.old(<span class="string">&quot;use a `where` clause in `construct_runtime`&quot;</span>)
-			.new(<span class="string">&quot;use `frame_system::Config` to set the `Block` type and delete this clause. 
-				It is planned to be removed in December 2023&quot;</span>)
-			.help_links(<span class="kw-2">&amp;</span>[<span class="string">&quot;https://github.com/paritytech/substrate/pull/14437&quot;</span>])
-			.span(where_section.span)
-			.build(),
+	<span class="kw">let </span>warning = where_section.map_or(<span class="prelude-val">None</span>, |where_section| {
+		<span class="prelude-val">Some</span>(
+			proc_macro_warning::Warning::new_deprecated(<span class="string">&quot;WhereSection&quot;</span>)
+				.old(<span class="string">&quot;use a `where` clause in `construct_runtime`&quot;</span>)
+				.new(
+					<span class="string">&quot;use `frame_system::Config` to set the `Block` type and delete this clause.
+				It is planned to be removed in December 2023&quot;</span>,
+				)
+				.help_links(<span class="kw-2">&amp;</span>[<span class="string">&quot;https://github.com/paritytech/substrate/pull/14437&quot;</span>])
+				.span(where_section.span)
+				.build(),
 		)
-		});
+	});
 
 	<span class="kw">let </span>res = <span class="macro">quote!</span>(
 		#warning
@@ -1489,7 +1508,6 @@
 		#( #all_pallets_reversed_with_system_first )*
 	)
 }
-
 <span class="kw">fn </span>decl_pallet_runtime_setup(
 	runtime: <span class="kw-2">&amp;</span>Ident,
 	pallet_declarations: <span class="kw-2">&amp;</span>[Pallet],
@@ -1497,6 +1515,7 @@
 ) -&gt; TokenStream2 {
 	<span class="kw">let </span>names = pallet_declarations.iter().map(|d| <span class="kw-2">&amp;</span>d.name).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 	<span class="kw">let </span>name_strings = pallet_declarations.iter().map(|d| d.name.to_string());
+	<span class="kw">let </span>name_hashes = pallet_declarations.iter().map(|d| two128_str(<span class="kw-2">&amp;</span>d.name.to_string()));
 	<span class="kw">let </span>module_names = pallet_declarations.iter().map(|d| d.path.module_name());
 	<span class="kw">let </span>indices = pallet_declarations.iter().map(|pallet| pallet.index <span class="kw">as </span>usize);
 	<span class="kw">let </span>pallet_structs = pallet_declarations
@@ -1529,6 +1548,7 @@
 		</span><span class="kw">pub struct </span>PalletInfo;
 
 		<span class="kw">impl </span>#scrate::traits::PalletInfo <span class="kw">for </span>PalletInfo {
+
 			<span class="kw">fn </span>index&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
@@ -1547,6 +1567,18 @@
 					#pallet_attrs
 					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
 						<span class="kw">return </span><span class="prelude-val">Some</span>(#name_strings)
+					}
+				)*
+
+				<span class="prelude-val">None
+			</span>}
+
+			<span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt; {
+				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
+				#(
+					#pallet_attrs
+					<span class="kw">if </span>type_id == #scrate::__private::sp_std::any::TypeId::of::&lt;#names&gt;() {
+						<span class="kw">return </span><span class="prelude-val">Some</span>(#name_hashes)
 					}
 				)*
 

@@ -2022,6 +2022,14 @@
 <a href="#2022" id="2022">2022</a>
 <a href="#2023" id="2023">2023</a>
 <a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2215,7 +2223,7 @@
 
 	<span class="doccomment">/// Append a single element.
 	///
-	/// Should not be called repeatedly; use `append_many` instead.  
+	/// Should not be called repeatedly; use `append_many` instead.
 	/// Worst case linear `O(len)` with `len` being the number if elements in the list.
 	</span><span class="kw">fn </span>append_one&lt;EncodeLikeValue&gt;(item: EncodeLikeValue)
 	<span class="kw">where
@@ -2226,7 +2234,7 @@
 
 	<span class="doccomment">/// Append many elements.
 	///
-	/// Should not be called repeatedly; use `appender` instead.  
+	/// Should not be called repeatedly; use `appender` instead.
 	/// Worst case linear `O(len + items.count())` with `len` beings the number if elements in the
 	/// list.
 	</span><span class="kw">fn </span>append_many&lt;EncodeLikeValue, I&gt;(items: I)
@@ -3297,15 +3305,15 @@
 
 <span class="doccomment">/// Trait for storage types that store all its value after a unique prefix.
 </span><span class="kw">pub trait </span>StoragePrefixedContainer {
-	<span class="doccomment">/// Module prefix. Used for generating final key.
-	</span><span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	<span class="doccomment">/// Pallet prefix. Used for generating final key.
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
 	<span class="doccomment">/// Storage prefix. Used for generating final key.
 	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
 	<span class="doccomment">/// Final full prefix that prefixes all keys.
 	</span><span class="kw">fn </span>final_prefix() -&gt; [u8; <span class="number">32</span>] {
-		<span class="kw">crate</span>::storage::storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix())
+		<span class="kw">crate</span>::storage::storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix())
 	}
 }
 
@@ -3313,18 +3321,18 @@
 ///
 /// By default the final prefix is:
 /// ```nocompile
-/// Twox128(module_prefix) ++ Twox128(storage_prefix)
+/// Twox128(pallet_prefix) ++ Twox128(storage_prefix)
 /// ```
 </span><span class="kw">pub trait </span>StoragePrefixedMap&lt;Value: FullCodec&gt; {
-	<span class="doccomment">/// Module prefix. Used for generating final key.
-	</span><span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]; <span class="comment">// TODO move to StoragePrefixedContainer
+	<span class="doccomment">/// Pallet prefix. Used for generating final key.
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]; <span class="comment">// TODO move to StoragePrefixedContainer
 
 	</span><span class="doccomment">/// Storage prefix. Used for generating final key.
 	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
 	<span class="doccomment">/// Final full prefix that prefixes all keys.
 	</span><span class="kw">fn </span>final_prefix() -&gt; [u8; <span class="number">32</span>] {
-		<span class="kw">crate</span>::storage::storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix())
+		<span class="kw">crate</span>::storage::storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix())
 	}
 
 	<span class="doccomment">/// Remove all values in the overlay and up to `limit` in the backend.
@@ -3648,7 +3656,7 @@
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">struct </span>MyStorage;
 			<span class="kw">impl </span>StoragePrefixedMap&lt;u64&gt; <span class="kw">for </span>MyStorage {
-				<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 					<span class="string">b&quot;MyModule&quot;
 				</span>}
 
@@ -3725,7 +3733,7 @@
 			<span class="kw">impl </span>generator::StorageValue&lt;Digest&gt; <span class="kw">for </span>Storage {
 				<span class="kw">type </span>Query = Digest;
 
-				<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 					<span class="string">b&quot;MyModule&quot;
 				</span>}
 
@@ -3739,6 +3747,10 @@
 
 				<span class="kw">fn </span>from_query_to_optional_value(v: <span class="self">Self</span>::Query) -&gt; <span class="prelude-ty">Option</span>&lt;Digest&gt; {
 					<span class="prelude-val">Some</span>(v)
+				}
+
+				<span class="kw">fn </span>storage_value_final_key() -&gt; [u8; <span class="number">32</span>] {
+					storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix())
 				}
 			}
 
@@ -3760,13 +3772,17 @@
 				<span class="kw">type </span>Query = u64;
 				<span class="kw">type </span>Hasher = Twox64Concat;
 
-				<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 					<span class="string">b&quot;MyModule&quot;
 				</span>}
 
 				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 					<span class="string">b&quot;MyStorageMap&quot;
 				</span>}
+
+				<span class="kw">fn </span>prefix_hash() -&gt; [u8; <span class="number">32</span>] {
+					storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix())
+				}
 
 				<span class="kw">fn </span>from_optional_value_to_query(v: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="self">Self</span>::Query {
 					v.unwrap_or_default()

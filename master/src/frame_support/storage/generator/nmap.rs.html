@@ -627,9 +627,6 @@
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -693,18 +690,15 @@
 	<span class="doccomment">/// The type that get/take returns.
 	</span><span class="kw">type </span>Query;
 
-	<span class="doccomment">/// Module prefix. Used for generating final key.
-	</span><span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	<span class="doccomment">/// Pallet prefix. Used for generating final key.
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
 	<span class="doccomment">/// Storage prefix. Used for generating final key.
 	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
 
-	<span class="doccomment">/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
+	<span class="doccomment">/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	</span><span class="kw">fn </span>prefix_hash() -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>result = storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix());
-		result.to_vec()
-	}
+	</span><span class="kw">fn </span>prefix_hash() -&gt; [u8; <span class="number">32</span>];
 
 	<span class="doccomment">/// Convert an optional value retrieved from storage to the type queried.
 	</span><span class="kw">fn </span>from_optional_value_to_query(v: <span class="prelude-ty">Option</span>&lt;V&gt;) -&gt; <span class="self">Self</span>::Query;
@@ -717,7 +711,7 @@
 	<span class="kw">where
 		</span>K: HasKeyPrefix&lt;KP&gt;,
 	{
-		<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix());
+		<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix());
 		<span class="kw">let </span>key_hashed = &lt;K <span class="kw">as </span>HasKeyPrefix&lt;KP&gt;&gt;::partial_key(key);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -734,7 +728,7 @@
 		</span>KG: KeyGenerator,
 		KArg: EncodeLikeTuple&lt;KG::KArg&gt; + TupleToEncodedIter,
 	{
-		<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix());
+		<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix());
 		<span class="kw">let </span>key_hashed = KG::final_key(key);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -931,7 +925,7 @@
 		</span>KArg: EncodeLikeTuple&lt;K::KArg&gt; + TupleToEncodedIter,
 	{
 		<span class="kw">let </span>old_key = {
-			<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::module_prefix(), <span class="self">Self</span>::storage_prefix());
+			<span class="kw">let </span>storage_prefix = storage_prefix(<span class="self">Self</span>::pallet_prefix(), <span class="self">Self</span>::storage_prefix());
 			<span class="kw">let </span>key_hashed = K::migrate_key(<span class="kw-2">&amp;</span>key, hash_fns);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -1018,11 +1012,11 @@
 	}
 
 	<span class="kw">fn </span>iter() -&gt; <span class="self">Self</span>::Iterator {
-		<span class="self">Self</span>::iter_from(G::prefix_hash())
+		<span class="self">Self</span>::iter_from(G::prefix_hash().to_vec())
 	}
 
 	<span class="kw">fn </span>iter_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator {
-		<span class="kw">let </span>prefix = G::prefix_hash();
+		<span class="kw">let </span>prefix = G::prefix_hash().to_vec();
 		<span class="self">Self</span>::Iterator {
 			prefix,
 			previous_key: starting_raw_key,
@@ -1036,11 +1030,11 @@
 	}
 
 	<span class="kw">fn </span>iter_keys() -&gt; <span class="self">Self</span>::KeyIterator {
-		<span class="self">Self</span>::iter_keys_from(G::prefix_hash())
+		<span class="self">Self</span>::iter_keys_from(G::prefix_hash().to_vec())
 	}
 
 	<span class="kw">fn </span>iter_keys_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::KeyIterator {
-		<span class="kw">let </span>prefix = G::prefix_hash();
+		<span class="kw">let </span>prefix = G::prefix_hash().to_vec();
 		<span class="self">Self</span>::KeyIterator {
 			prefix,
 			previous_key: starting_raw_key,
@@ -1059,7 +1053,7 @@
 	}
 
 	<span class="kw">fn </span>translate&lt;O: Decode, F: FnMut(K::Key, O) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;&gt;(<span class="kw-2">mut </span>f: F) {
-		<span class="kw">let </span>prefix = G::prefix_hash();
+		<span class="kw">let </span>prefix = G::prefix_hash().to_vec();
 		<span class="kw">let </span><span class="kw-2">mut </span>previous_key = prefix.clone();
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(next) =
 			sp_io::storage::next_key(<span class="kw-2">&amp;</span>previous_key).filter(|n| n.starts_with(<span class="kw-2">&amp;</span>prefix))
@@ -1169,7 +1163,7 @@
 			<span class="kw">type </span>NMap = <span class="self">self</span>::frame_system::NMap&lt;Runtime&gt;;
 
 			<span class="comment">// All map iterator
-			</span><span class="kw">let </span>prefix = NMap::prefix_hash();
+			</span><span class="kw">let </span>prefix = NMap::prefix_hash().to_vec();
 
 			unhashed::put(<span class="kw-2">&amp;</span>key_before_prefix(prefix.clone()), <span class="kw-2">&amp;</span><span class="number">1u64</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>key_after_prefix(prefix.clone()), <span class="kw-2">&amp;</span><span class="number">1u64</span>);
@@ -1226,7 +1220,7 @@
 			<span class="macro">assert_eq!</span>(unhashed::get(<span class="kw-2">&amp;</span>key_after_prefix(prefix.clone())), <span class="prelude-val">Some</span>(<span class="number">1u64</span>));
 
 			<span class="comment">// Translate
-			</span><span class="kw">let </span>prefix = NMap::prefix_hash();
+			</span><span class="kw">let </span>prefix = NMap::prefix_hash().to_vec();
 
 			unhashed::put(<span class="kw-2">&amp;</span>key_before_prefix(prefix.clone()), <span class="kw-2">&amp;</span><span class="number">1u64</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>key_after_prefix(prefix.clone()), <span class="kw-2">&amp;</span><span class="number">1u64</span>);

@@ -326,6 +326,19 @@
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -359,6 +372,8 @@
 	</span><span class="kw">fn </span>index&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its name as configured in the runtime.
 	</span><span class="kw">fn </span>name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+	<span class="doccomment">/// The two128 hash of name.
+	</span><span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its Rust module name as used in `construct_runtime!`.
 	</span><span class="kw">fn </span>module_name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its containing crate version.
@@ -387,6 +402,8 @@
 	</span><span class="kw">fn </span>index() -&gt; usize;
 	<span class="doccomment">/// Name of the pallet as configured in the runtime.
 	</span><span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="doccomment">/// Two128 hash of name.
+	</span><span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>];
 	<span class="doccomment">/// Name of the Rust module containing the pallet.
 	</span><span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 	<span class="doccomment">/// Version of the crate containing the pallet.
@@ -609,6 +626,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>sp_core::twox_128;
 
 	<span class="kw">struct </span>Pallet1;
 	<span class="kw">impl </span>PalletInfoAccess <span class="kw">for </span>Pallet1 {
@@ -618,6 +636,9 @@
 		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
 			<span class="string">&quot;Pallet1&quot;
 		</span>}
+		<span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>] {
+			twox_128(<span class="self">Self</span>::name().as_bytes())
+		}
 		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
 			<span class="string">&quot;pallet1&quot;
 		</span>}
@@ -633,6 +654,11 @@
 		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
 			<span class="string">&quot;Pallet2&quot;
 		</span>}
+
+		<span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>] {
+			twox_128(<span class="self">Self</span>::name().as_bytes())
+		}
+
 		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
 			<span class="string">&quot;pallet2&quot;
 		</span>}

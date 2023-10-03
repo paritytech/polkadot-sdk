@@ -393,6 +393,9 @@
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -444,7 +447,7 @@
 	OnEmpty: <span class="kw">crate</span>::traits::Get&lt;QueryKind::Query&gt; + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">type </span>Query = QueryKind::Query;
-	<span class="kw">fn </span>module_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
@@ -455,6 +458,9 @@
 	}
 	<span class="kw">fn </span>from_query_to_optional_value(v: <span class="self">Self</span>::Query) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt; {
 		QueryKind::from_query_to_optional_value(v)
+	}
+	<span class="kw">fn </span>storage_value_final_key() -&gt; [u8; <span class="number">32</span>] {
+		Prefix::prefix_hash()
 	}
 }
 
@@ -646,7 +652,7 @@
 {
 	<span class="kw">fn </span>storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::hashed_key().to_vec(),
 			max_values: <span class="prelude-val">Some</span>(<span class="number">1</span>),
@@ -666,7 +672,7 @@
 {
 	<span class="kw">fn </span>partial_storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="self">Self</span>::module_prefix().to_vec(),
+			pallet_name: <span class="self">Self</span>::pallet_prefix().to_vec(),
 			storage_name: <span class="self">Self</span>::storage_prefix().to_vec(),
 			prefix: <span class="self">Self</span>::hashed_key().to_vec(),
 			max_values: <span class="prelude-val">Some</span>(<span class="number">1</span>),

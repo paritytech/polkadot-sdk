@@ -142,8 +142,8 @@
 				.to_string()],
 			at: <span class="prelude-val">None</span>,
 			hashed_prefixes: <span class="macro">vec!</span>[
-				&lt;pallet_staking::Bonded&lt;Runtime&gt;&gt;::prefix_hash(),
-				&lt;pallet_staking::Ledger&lt;Runtime&gt;&gt;::prefix_hash(),
+				&lt;pallet_staking::Bonded&lt;Runtime&gt;&gt;::prefix_hash().to_vec(),
+				&lt;pallet_staking::Ledger&lt;Runtime&gt;&gt;::prefix_hash().to_vec(),
 				&lt;pallet_staking::Validators&lt;Runtime&gt;&gt;::map_storage_final_prefix(),
 				&lt;pallet_staking::Nominators&lt;Runtime&gt;&gt;::map_storage_final_prefix(),
 			],

@@ -280,6 +280,14 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -524,6 +532,14 @@
 				&lt;
 					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo <span class="kw">as </span>#frame_support::traits::PalletInfo
 				&gt;::name::&lt;<span class="self">Self</span>&gt;()
+					.expect(<span class="string">&quot;Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime&quot;</span>)
+			}
+
+			<span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>] {
+				&lt;
+					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo <span class="kw">as </span>#frame_support::traits::PalletInfo
+				&gt;::name_hash::&lt;<span class="self">Self</span>&gt;()
 					.expect(<span class="string">&quot;Pallet is part of the runtime because pallet `Config` trait is \
 						implemented by the runtime&quot;</span>)
 			}

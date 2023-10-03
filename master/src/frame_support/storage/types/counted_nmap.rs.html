@@ -1531,7 +1531,7 @@
 	<span class="doccomment">/// The prefix used to generate the key of the map.
 	</span><span class="kw">pub fn </span>map_storage_final_prefix() -&gt; Vec&lt;u8&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::generator::StorageNMap;
-		&lt;<span class="self">Self </span><span class="kw">as </span>MapWrapper&gt;::Map::prefix_hash()
+		&lt;<span class="self">Self </span><span class="kw">as </span>MapWrapper&gt;::Map::prefix_hash().to_vec()
 	}
 
 	<span class="doccomment">/// Get the storage key used to fetch a value corresponding to a specific key.
