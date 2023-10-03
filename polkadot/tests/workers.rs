@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_cli::NODE_VERSION;
 use std::process::Command;
 
 const PREPARE_WORKER_EXE: &str = env!("CARGO_BIN_EXE_polkadot-prepare-worker");
 const EXECUTE_WORKER_EXE: &str = env!("CARGO_BIN_EXE_polkadot-execute-worker");
+const POLKADOT_NODE_VERSION: &str = env!("POLKADOT_NODE_VERSION");
 
 #[test]
 fn worker_binaries_have_same_version_as_node() {
@@ -27,12 +27,12 @@ fn worker_binaries_have_same_version_as_node() {
 	let prep_worker_version = std::str::from_utf8(&prep_worker_version)
 		.expect("version is printed as a string; qed")
 		.trim();
-	assert_eq!(prep_worker_version, NODE_VERSION);
+	assert_eq!(prep_worker_version, POLKADOT_NODE_VERSION);
 
 	let exec_worker_version =
 		Command::new(&EXECUTE_WORKER_EXE).args(["--version"]).output().unwrap().stdout;
 	let exec_worker_version = std::str::from_utf8(&exec_worker_version)
 		.expect("version is printed as a string; qed")
 		.trim();
-	assert_eq!(exec_worker_version, NODE_VERSION);
+	assert_eq!(exec_worker_version, POLKADOT_NODE_VERSION);
 }
