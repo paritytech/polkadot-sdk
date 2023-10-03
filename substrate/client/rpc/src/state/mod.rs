@@ -98,6 +98,13 @@ where
 		key: StorageKey,
 	) -> Result<Option<StorageData>, Error>;
 
+	/// Returns a storage diff between start block and end block
+	fn storage_diff(
+		&self,
+		start: Block::Hash,
+		end: Block::Hash,
+	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+
 	/// Returns the hash of a storage entry at a block's state.
 	fn storage_hash(
 		&self,
@@ -252,6 +259,14 @@ where
 		block: Option<Block::Hash>,
 	) -> RpcResult<Option<StorageData>> {
 		self.backend.storage(block, key).map_err(Into::into)
+	}
+
+	fn storage_diff(
+		&self,
+		start: Block::Hash,
+		end: Block::Hash,
+	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>> {
+		self.backend.storage_diff(start, end).map_err(Into::into)
 	}
 
 	fn storage_hash(

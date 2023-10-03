@@ -19,14 +19,13 @@
 //! State API backend for full nodes.
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
-
 use super::{
 	client_err,
 	error::{Error, Result},
 	ChildStateBackend, StateBackend,
 };
 use crate::{DenyUnsafe, SubscriptionTaskExecutor};
-
+use itertools::Itertools;
 use futures::{future, stream, FutureExt, StreamExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError},
@@ -215,6 +214,35 @@ where
 			.and_then(|block| self.client.storage_keys(block, Some(&prefix), None))
 			.map(|iter| iter.collect())
 			.map_err(client_err)
+	}
+
+	fn storage_diff(
+		&self,
+		start : Block::Hash,
+		end : Block::Hash,
+	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
+		let mut start_keys = self.client.storage_keys(start, None, None).map_err(client_err)?;
+		let end_keys = self.client.storage_keys(end, None, None).map_err(client_err)?;
+		
+		// prepare diff
+		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
+		for key in end_keys {
+			// if a new key is present, add it to the diff
+			if !start_keys.contains(&key) {
+				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
+				storage_diff.push((key, new_storage))
+			} else {
+				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
+				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
+
+				if start_storage_val != end_storage_val {
+					storage_diff.push((key, end_storage_val))
+				}
+			}
+		}
+
+		Ok(storage_diff)
+
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

@@ -15443,6 +15443,7 @@ dependencies = [
  "assert_matches",
  "env_logger 0.9.3",
  "futures",
+ "itertools 0.11.0",
  "jsonrpsee",
  "log",
  "parity-scale-codec",

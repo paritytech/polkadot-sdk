@@ -66,6 +66,10 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_getStorage", aliases = ["state_getStorageAt"], blocking)]
 	fn storage(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<StorageData>>;
 
+	/// Returns a storage entry at a specific block's state.
+	#[method(name = "state_getStorageDiff", aliases = ["state_getStorageDiffAt"], blocking)]
+	fn storage_diff(&self, start: Hash, end: Hash) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+
 	/// Returns the hash of a storage entry at a block's state.
 	#[method(name = "state_getStorageHash", aliases = ["state_getStorageHashAt"], blocking)]
 	fn storage_hash(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<Hash>>;
