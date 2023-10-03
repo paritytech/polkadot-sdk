@@ -1668,6 +1668,15 @@
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
 <a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1915,10 +1924,10 @@
 			&lt;UpgradeRestrictionSignal&lt;T&gt;&gt;::kill();
 			<span class="kw">let </span>relay_upgrade_go_ahead = &lt;UpgradeGoAhead&lt;T&gt;&gt;::take();
 
-			<span class="macro">assert!</span>(
-				&lt;ValidationData&lt;T&gt;&gt;::exists(),
-				<span class="string">&quot;set_validation_data inherent needs to be present in every block!&quot;
-			</span>);
+			<span class="kw">let </span>vfp = &lt;ValidationData&lt;T&gt;&gt;::get()
+				.expect(<span class="string">&quot;set_validation_data inherent needs to be present in every block!&quot;</span>);
+
+			LastRelayChainBlockNumber::&lt;T&gt;::put(vfp.relay_parent_number);
 
 			<span class="kw">let </span>host_config = <span class="kw">match </span><span class="self">Self</span>::host_configuration() {
 				<span class="prelude-val">Some</span>(ok) =&gt; ok,
@@ -2050,8 +2059,7 @@
 				</span><span class="kw">let </span>ancestor = Ancestor::new_unchecked(used_bandwidth, consumed_go_ahead_signal);
 
 				<span class="kw">let </span>watermark = HrmpWatermark::&lt;T&gt;::get();
-				<span class="kw">let </span>watermark_update =
-					HrmpWatermarkUpdate::new(watermark, LastRelayChainBlockNumber::&lt;T&gt;::get());
+				<span class="kw">let </span>watermark_update = HrmpWatermarkUpdate::new(watermark, vfp.relay_parent_number);
 
 				aggregated_segment
 					.append(<span class="kw-2">&amp;</span>ancestor, watermark_update, <span class="kw-2">&amp;</span>total_bandwidth_out)
@@ -2130,6 +2138,9 @@
 				<span class="number">4 </span>+ hrmp_max_message_num_per_candidate <span class="kw">as </span>u64,
 			);
 
+			<span class="comment">// Weight for updating the last relay chain block number in `on_finalize`.
+			</span>weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+
 			<span class="comment">// Weight for adjusting the unincluded segment in `on_finalize`.
 			</span>weight += T::DbWeight::get().reads_writes(<span class="number">6</span>, <span class="number">3</span>);
 
@@ -2185,7 +2196,6 @@
 				vfp.relay_parent_number,
 				LastRelayChainBlockNumber::&lt;T&gt;::get(),
 			);
-			LastRelayChainBlockNumber::&lt;T&gt;::put(vfp.relay_parent_number);
 
 			<span class="kw">let </span>relay_state_proof = RelayChainStateProof::new(
 				T::SelfParaId::get(),
@@ -2426,6 +2436,8 @@
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>DidSetValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
 
 	<span class="doccomment">/// The relay chain block number associated with the last parachain block.
+	///
+	/// This is updated in `on_finalize`.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>LastRelayChainBlockNumber&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, RelayChainBlockNumber, ValueQuery&gt;;
@@ -3170,6 +3182,12 @@
 		</span><span class="kw">let </span>hash = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>message);
 		<span class="self">Self</span>::deposit_event(Event::UpwardMessageSent { message_hash: <span class="prelude-val">Some</span>(hash) });
 		<span class="prelude-val">Ok</span>((<span class="number">0</span>, hash))
+	}
+
+	<span class="doccomment">/// Get the relay chain block number which was used as an anchor for the last block in this
+	/// chain.
+	</span><span class="kw">pub fn </span>last_relay_block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelayChainBlockNumber {
+		LastRelayChainBlockNumber::&lt;T&gt;::get()
 	}
 }
 
