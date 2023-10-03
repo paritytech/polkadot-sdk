@@ -28,31 +28,50 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{ops::Deref, time::Duration, vec, vec::Vec};
 
+const MEMORY_PAGES_LIMIT: u32 = 65536;
+const SHADOW_STACK_PAGES: u32 = 32;
+
 /// The different executor parameters for changing the execution environment semantics.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
 pub enum ExecutorParam {
 	/// Maximum number of memory pages (64KiB bytes per page) the executor can allocate.
+	/// A valid value lies within (0, 65536 + 32].
 	#[codec(index = 1)]
 	MaxMemoryPages(u32),
-	/// Wasm logical stack size limit (max. number of Wasm values on stack)
+	/// Wasm logical stack size limit (max. number of Wasm values on stack).
+	/// A valid value lies within [1024, 2 * 65536].
 	#[codec(index = 2)]
 	StackLogicalMax(u32),
-	/// Executor machine stack size limit, in bytes
+	/// Executor machine stack size limit, in bytes.
+	/// If `StackLogicalMax` is also present, a valid value lies within
+	/// [128 * logical_max, 512 * logical_max].
 	#[codec(index = 3)]
 	StackNativeMax(u32),
 	/// Max. amount of memory the preparation worker is allowed to use during
-	/// pre-checking, in bytes
+	/// pre-checking, in bytes.
+	/// A valid max memory ranges from 256MB to 16GB.
 	#[codec(index = 4)]
 	PrecheckingMaxMemory(u64),
 	/// PVF preparation timeouts, millisec
+	/// If both `PvfPrepTimeoutKind::Precheck` and `PvfPrepTimeoutKind::Lenient` are present,
+	/// ensure that `precheck` < `lenient`.
 	#[codec(index = 5)]
 	PvfPrepTimeout(PvfPrepTimeoutKind, u64),
 	/// PVF execution timeouts, millisec
+	/// If both `PvfExecTimeoutKind::Backing` and `PvfExecTimeoutKind::Approval` are present,
+	/// ensure that `backing` < `approval`.
 	#[codec(index = 6)]
 	PvfExecTimeout(PvfExecTimeoutKind, u64),
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
+}
+
+#[derive(Debug)]
+pub enum ExecutorParamError {
+	DuplicatedParam(&'static str),
+	LimitExceeded(&'static str),
+	IncompatibleValues(&'static str, &'static str)
 }
 
 /// Unit type wrapper around [`type@Hash`] that represents an execution parameter set hash.
@@ -129,6 +148,138 @@ impl ExecutorParams {
 			}
 		}
 		None
+	}
+
+	// FIXME Should it be
+	// pub fn check_consistency(&self) -> Result<(), ExecutorParamError>, which would be simpler.
+	// I guess it depends on whether they could be considered "warnings".
+
+	/// Check params coherence
+	pub fn check_consistency(&self) -> Vec<ExecutorParamError> {
+		use ExecutorParam::*;
+		use ExecutorParamError::*;
+
+		let mut errors = Vec::with_capacity(8);
+
+		let mut max_pages = false;
+		let mut logical_max: Option<u32> = None;
+		let mut native_max: Option<u32> = None;
+		let mut pvf_mem_max = false;
+		let mut pvf_prep_precheck: Option<u64> = None;
+		let mut pvf_prep_lenient: Option<u64> = None;
+		let mut pvf_exec_backing: Option<u64> = None;
+		let mut pvf_exec_approval: Option<u64> = None;
+		let mut enable_bulk_mem = false;
+
+		for param in &self.0 {
+			let param_ident = match *param {
+				MaxMemoryPages(_) => "MaxMemoryPages",
+				StackLogicalMax(_) => "StackLogicalMax",
+				StackNativeMax(_) => "StackNativeMax",
+				PrecheckingMaxMemory(_) => "PrecheckingMaxMemory",
+				PvfPrepTimeout(kind, _) => match kind {
+					PvfPrepTimeoutKind::Precheck => "PvfPrepTimeoutKind::Precheck",
+					PvfPrepTimeoutKind::Lenient => "PvfPrepTimeoutKind::Lenient",
+				},
+				PvfExecTimeout(kind, _) => match kind {
+					PvfExecTimeoutKind::Backing => "PvfExecTimeoutKind::Backing",
+					PvfExecTimeoutKind::Approval => "PvfExecTimeoutKind::Approval",
+				},
+				WasmExtBulkMemory => "WasmExtBulkMemory",
+			};
+
+			// FIXME report each kind of duplication only once
+			match *param {
+				MaxMemoryPages(max) => if max_pages {
+					errors.push(DuplicatedParam(param_ident));
+				} else {
+					max_pages = true;
+					if max <= 0 || max > MEMORY_PAGES_LIMIT + SHADOW_STACK_PAGES {
+						errors.push(LimitExceeded(param_ident));
+					}
+				}
+
+				StackLogicalMax(max) => if logical_max.is_some() {
+					errors.push(DuplicatedParam(param_ident));
+				} else {
+					logical_max = Some(max);
+					if max < 1024 || max > 2 * 65536 {
+						errors.push(LimitExceeded(param_ident));
+					}
+				}
+
+				StackNativeMax(max) => if native_max.is_some() {
+					errors.push(DuplicatedParam(param_ident));
+				} else {
+					native_max = Some(max);
+				}
+
+				// FIXME upper bound
+				PrecheckingMaxMemory(max) => if pvf_mem_max {
+					errors.push(DuplicatedParam(param_ident));
+				} else {
+					pvf_mem_max = true;
+					if max < 256 * 1024 * 1024 || max > 16 * 1024 * 1024 * 1024 {
+						errors.push(LimitExceeded(param_ident));
+					}
+				}
+
+				// FIXME upper bounds
+				PvfPrepTimeout(kind, timeout) => match kind {
+					PvfPrepTimeoutKind::Precheck => if pvf_prep_precheck.is_some() {
+						errors.push(DuplicatedParam(param_ident));
+					} else {
+						pvf_prep_precheck = Some(timeout);
+					}
+					PvfPrepTimeoutKind::Lenient => if pvf_prep_lenient.is_some() {
+						errors.push(DuplicatedParam(param_ident));
+					} else {
+						pvf_prep_lenient = Some(timeout);
+					}
+				}
+
+				// FIXME upper bounds
+				PvfExecTimeout(kind, timeout) => match kind {
+					PvfExecTimeoutKind::Backing => if pvf_exec_backing.is_some() {
+						errors.push(DuplicatedParam(param_ident));
+					} else {
+						pvf_exec_backing = Some(timeout);
+					}
+					PvfExecTimeoutKind::Approval => if pvf_exec_approval.is_some() {
+						errors.push(DuplicatedParam(param_ident));
+					} else {
+						pvf_exec_approval = Some(timeout);
+					}
+				}
+
+				WasmExtBulkMemory => if enable_bulk_mem {
+					errors.push(DuplicatedParam(param_ident));
+				} else {
+					enable_bulk_mem = true;
+				}
+			}
+
+			// FIXME is it valid if only one is present?
+			if let (Some(lm), Some(nm)) = (logical_max, native_max) {
+				if nm < 128 * lm || nm > 512 * lm {
+					errors.push(IncompatibleValues("StackLogicalMax", "StackNativeMax"));
+				}
+			}
+
+			if let (Some(precheck), Some(lenient)) = (pvf_prep_precheck, pvf_prep_lenient) {
+				if precheck >= lenient {
+					errors.push(IncompatibleValues("PvfPrepTimeoutKind::Precheck", "PvfPrepTimeoutKind::Lenient"));
+				}
+			}
+
+			if let (Some(backing), Some(approval)) = (pvf_exec_backing, pvf_exec_approval) {
+				if backing >= approval {
+					errors.push(IncompatibleValues("PvfExecTimeoutKind::Backing", "PvfExecTimeoutKind::Approval"));
+				}
+			}
+		}
+
+		errors
 	}
 }
 
