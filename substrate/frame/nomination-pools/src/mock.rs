@@ -20,7 +20,7 @@ use crate::{self as pools};
 use frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
-use sp_staking::Stake;
+use sp_staking::{OnStakingUpdate, Stake};
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;
@@ -46,7 +46,8 @@ parameter_types! {
 	pub static CurrentEra: EraIndex = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub storage BondedBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
-	pub storage UnbondingBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
+	// map from a user to a vec of eras and amounts being unlocked in each era.
+	pub storage UnbondingBalanceMap: BTreeMap<AccountId, Vec<(EraIndex, Balance)>> = Default::default();
 	#[derive(Clone, PartialEq)]
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
@@ -59,6 +60,19 @@ impl StakingMock {
 		let mut x = BondedBalanceMap::get();
 		x.insert(who, bonded);
 		BondedBalanceMap::set(&x)
+	}
+	/// Mimics a slash towards a pool specified by `pool_id`.
+	/// This reduces the bonded balance of a pool by `amount` and calls [`Pools::on_slash`] to
+	/// enact changes in the nomination-pool pallet.
+	///
+	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
+	/// `slashed_unlocking`.
+	pub fn slash_by(pool_id: PoolId, amount: Balance) {
+		let acc = Pools::create_bonded_account(pool_id);
+		let bonded = BondedBalanceMap::get();
+		let pre_total = bonded.get(&acc).unwrap();
+		Self::set_bonded_balance(acc, pre_total - amount);
+		Pools::on_slash(&acc, pre_total - amount, &Default::default(), amount);
 	}
 }
 
@@ -105,8 +119,11 @@ impl sp_staking::StakingInterface for StakingMock {
 		let mut x = BondedBalanceMap::get();
 		*x.get_mut(who).unwrap() = x.get_mut(who).unwrap().saturating_sub(amount);
 		BondedBalanceMap::set(&x);
+
+		let era = Self::current_era();
+		let unlocking_at = era + Self::bonding_duration();
 		let mut y = UnbondingBalanceMap::get();
-		*y.entry(*who).or_insert(Self::Balance::zero()) += amount;
+		y.entry(*who).or_insert(Default::default()).push((unlocking_at, amount));
 		UnbondingBalanceMap::set(&y);
 		Ok(())
 	}
@@ -116,11 +133,13 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
-		// Simulates removing unlocking chunks and only having the bonded balance locked
-		let mut x = UnbondingBalanceMap::get();
-		x.remove(&who);
-		UnbondingBalanceMap::set(&x);
+		let mut unbonding_map = UnbondingBalanceMap::get();
+		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
 
+		let current_era = Self::current_era();
+		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
+
+		UnbondingBalanceMap::set(&unbonding_map);
 		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
 	}
 
@@ -144,14 +163,17 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Balance>, DispatchError> {
-		match (
-			UnbondingBalanceMap::get().get(who).copied(),
-			BondedBalanceMap::get().get(who).copied(),
-		) {
+		match (UnbondingBalanceMap::get().get(who), BondedBalanceMap::get().get(who).copied()) {
 			(None, None) => Err(DispatchError::Other("balance not found")),
-			(Some(v), None) => Ok(Stake { total: v, active: 0 }),
+			(Some(v), None) => Ok(Stake {
+				total: v.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)),
+				active: 0,
+			}),
 			(None, Some(v)) => Ok(Stake { total: v, active: v }),
-			(Some(a), Some(b)) => Ok(Stake { total: a + b, active: b }),
+			(Some(a), Some(b)) => Ok(Stake {
+				total: a.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)) + b,
+				active: b,
+			}),
 		}
 	}
 

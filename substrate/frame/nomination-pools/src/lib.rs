@@ -538,6 +538,31 @@ impl<T: Config> PoolMember<T> {
 		}
 	}
 
+	/// Total balance of the member, both active and unbonding.
+	/// Doesn't mutate state.
+	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
+	fn total_balance(&self) -> BalanceOf<T> {
+		let pool = BondedPool::<T>::get(self.pool_id).unwrap();
+		let active_balance = pool.points_to_balance(self.active_points());
+
+		let sub_pools = match SubPoolsStorage::<T>::get(self.pool_id) {
+			Some(sub_pools) => sub_pools,
+			None => return active_balance,
+		};
+
+		let unbonding_balance = self.unbonding_eras.iter().fold(
+			BalanceOf::<T>::zero(),
+			|accumulator, (era, unlocked_points)| {
+				// if the `SubPools::with_era` has already been merged into the
+				// `SubPools::no_era` use this pool instead.
+				let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
+				accumulator + (era_pool.point_to_balance(*unlocked_points))
+			},
+		);
+
+		active_balance + unbonding_balance
+	}
+
 	/// Total points of this member, both active and unbonding.
 	fn total_points(&self) -> BalanceOf<T> {
 		self.active_points().saturating_add(self.unbonding_points())
@@ -1189,11 +1214,11 @@ impl<T: Config> BondedPool<T> {
 		Ok(())
 	}
 
-	/// Bond exactly `amount` from `who`'s funds into this pool.
+	/// Bond exactly `amount` from `who`'s funds into this pool. Increases the [`TotalValueLocked`]
+	/// by `amount`.
 	///
-	/// If the bond type is `Create`, `Staking::bond` is called, and `who`
-	/// is allowed to be killed. Otherwise, `Staking::bond_extra` is called and `who`
-	/// cannot be killed.
+	/// If the bond is [`BondType::Create`], [`Staking::bond`] is called, and `who` is allowed to be
+	/// killed. Otherwise, [`Staking::bond_extra`] is called and `who` cannot be killed.
 	///
 	/// Returns `Ok(points_issues)`, `Err` otherwise.
 	fn try_bond_funds(
@@ -1224,6 +1249,9 @@ impl<T: Config> BondedPool<T> {
 			// found, we exit early.
 			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
 		}
+		TotalValueLocked::<T>::mutate(|tvl| {
+			tvl.saturating_accrue(amount);
+		});
 
 		Ok(points_issued)
 	}
@@ -1238,6 +1266,27 @@ impl<T: Config> BondedPool<T> {
 				new_state: state,
 			});
 		};
+	}
+
+	/// Withdraw all the funds that are already unlocked from staking for the
+	/// [`BondedPool::bonded_account`].
+	///
+	/// Also reduces the [`TotalValueLocked`] by the difference of the
+	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
+	/// [`T::Staking::withdraw_unbonded`].
+	///
+	/// Returns the result of [`T::Staking::withdraw_unbonded`]
+	fn withdraw_from_staking(&self, num_slashing_spans: u32) -> Result<bool, DispatchError> {
+		let bonded_account = self.bonded_account();
+
+		let prev_total = T::Staking::total_stake(&bonded_account.clone()).unwrap_or_default();
+		let outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
+		let diff = prev_total
+			.defensive_saturating_sub(T::Staking::total_stake(&bonded_account).unwrap_or_default());
+		TotalValueLocked::<T>::mutate(|tvl| {
+			tvl.saturating_reduce(diff);
+		});
+		outcome
 	}
 }
 
@@ -1437,9 +1486,7 @@ impl<T: Config> UnbondPool<T> {
 	}
 
 	/// Dissolve some points from the unbonding pool, reducing the balance of the pool
-	/// proportionally.
-	///
-	/// This is the opposite of `issue`.
+	/// proportionally. This is the opposite of `issue`.
 	///
 	/// Returns the actual amount of `Balance` that was removed from the pool.
 	fn dissolve(&mut self, points: BalanceOf<T>) -> BalanceOf<T> {
@@ -1525,7 +1572,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1601,6 +1648,14 @@ pub mod pallet {
 		/// The maximum number of simultaneous unbonding chunks that can exist per member.
 		type MaxUnbonding: Get<u32>;
 	}
+
+	/// The sum of funds across all pools.
+	///
+	/// This might be lower but never higher than the sum of `total_balance` of all [`PoolMembers`]
+	/// because calling `pool_withdraw_unbonded` might decrease the total stake of the pool's
+	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`'s.
+	#[pallet::storage]
+	pub type TotalValueLocked<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// Minimum amount to bond to join a pool.
 	#[pallet::storage]
@@ -1825,9 +1880,9 @@ pub mod pallet {
 		CannotWithdrawAny,
 		/// The amount does not meet the minimum bond to either join or create a pool.
 		///
-		/// The depositor can never unbond to a value less than
-		/// `Pallet::depositor_min_bond`. The caller does not have nominating
-		/// permissions for the pool. Members can never unbond to a value below `MinJoinBond`.
+		/// The depositor can never unbond to a value less than `Pallet::depositor_min_bond`. The
+		/// caller does not have nominating permissions for the pool. Members can never unbond to a
+		/// value below `MinJoinBond`.
 		MinimumBondNotMet,
 		/// The transaction could not be executed due to overflow risk for the pool.
 		OverflowRisk,
@@ -2114,7 +2169,7 @@ pub mod pallet {
 
 		/// Call `withdraw_unbonded` for the pools account. This call can be made by any account.
 		///
-		/// This is useful if their are too many unlocking chunks to call `unbond`, and some
+		/// This is useful if there are too many unlocking chunks to call `unbond`, and some
 		/// can be cleared by withdrawing. In the case there are too many unlocking chunks, the user
 		/// would probably see an error like `NoMoreChunks` emitted from the staking system when
 		/// they attempt to unbond.
@@ -2127,10 +2182,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			let pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)?;
+			pool.withdraw_from_staking(num_slashing_spans)?;
+
 			Ok(())
 		}
 
@@ -2180,9 +2237,8 @@ pub mod pallet {
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
-			// `transferable_balance` is correct.
-			let stash_killed =
-				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
+			// `transferrable_balance` is correct.
+			let stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -2846,12 +2902,9 @@ impl<T: Config> Pallet<T> {
 			},
 			(false, false) => {
 				// Equivalent to (current_points / current_balance) * new_funds
-				balance(
-					u256(current_points)
-						.saturating_mul(u256(new_funds))
-						// We check for zero above
-						.div(u256(current_balance)),
-				)
+				balance(u256(current_points).saturating_mul(u256(new_funds)))
+					// We check for zero above
+					.div(current_balance)
 			},
 		}
 	}
@@ -2871,9 +2924,12 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Equivalent of (current_balance / current_points) * points
-		balance(u256(current_balance).saturating_mul(u256(points)))
-			// We check for zero above
-			.div(current_points)
+		balance(
+			u256(current_balance)
+				.saturating_mul(u256(points))
+				// We check for zero above
+				.div(u256(current_points)),
+		)
 	}
 
 	/// If the member has some rewards, transfer a payout from the reward pool to the member.
@@ -3242,6 +3298,7 @@ impl<T: Config> Pallet<T> {
 		let mut pools_members = BTreeMap::<PoolId, u32>::new();
 		let mut pools_members_pending_rewards = BTreeMap::<PoolId, BalanceOf<T>>::new();
 		let mut all_members = 0u32;
+		let mut total_balance_members = Default::default();
 		PoolMembers::<T>::iter().try_for_each(|(_, d)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPools::<T>::get(d.pool_id).unwrap();
 			ensure!(!d.total_points().is_zero(), "No member should have zero points");
@@ -3257,6 +3314,7 @@ impl<T: Config> Pallet<T> {
 				let pending_rewards = d.pending_rewards(current_rc).unwrap();
 				*pools_members_pending_rewards.entry(d.pool_id).or_default() += pending_rewards;
 			} // else this pool has been heavily slashed and cannot have any rewards anymore.
+			total_balance_members += d.total_balance();
 
 			Ok(())
 		})?;
@@ -3280,6 +3338,7 @@ impl<T: Config> Pallet<T> {
 			Ok(())
 		})?;
 
+		let mut expected_tvl: BalanceOf<T> = Default::default();
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
@@ -3300,11 +3359,26 @@ impl<T: Config> Pallet<T> {
 				"depositor must always have MinCreateBond stake in the pool, except for when the \
 				pool is being destroyed and the depositor is the last member",
 			);
+
+			expected_tvl +=
+				T::Staking::total_stake(&bonded_pool.bonded_account()).unwrap_or_default();
+
 			Ok(())
 		})?;
+
 		ensure!(
 			MaxPoolMembers::<T>::get().map_or(true, |max| all_members <= max),
 			Error::<T>::MaxPoolMembers
+		);
+
+		ensure!(
+			TotalValueLocked::<T>::get() == expected_tvl,
+			"TVL deviates from the actual sum of funds of all Pools."
+		);
+
+		ensure!(
+			TotalValueLocked::<T>::get() <= total_balance_members,
+			"TVL must be equal to or less than the total balance of all PoolMembers."
 		);
 
 		if level <= 1 {
@@ -3424,20 +3498,30 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	/// Reduces the balances of the [`SubPools`], that belong to the pool involved in the
+	/// slash, to the amount that is defined in the `slashed_unlocking` field of
+	/// [`sp_staking::OnStakingUpdate::on_slash`]
+	///
+	/// Emits the `PoolsSlashed` event.
 	fn on_slash(
 		pool_account: &T::AccountId,
 		// Bonded balance is always read directly from staking, therefore we don't need to update
 		// anything here.
 		slashed_bonded: BalanceOf<T>,
 		slashed_unlocking: &BTreeMap<EraIndex, BalanceOf<T>>,
+		total_slashed: BalanceOf<T>,
 	) {
-		if let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) {
-			let mut sub_pools = match SubPoolsStorage::<T>::get(pool_id).defensive() {
-				Some(sub_pools) => sub_pools,
-				None => return,
-			};
-			for (era, slashed_balance) in slashed_unlocking.iter() {
-				if let Some(pool) = sub_pools.with_era.get_mut(era) {
+		let Some(pool_id) = ReversePoolIdLookup::<T>::get(pool_account) else { return };
+		// As the slashed account belongs to a `BondedPool` the `TotalValueLocked` decreases and
+		// an event is emitted.
+		TotalValueLocked::<T>::mutate(|tvl| {
+			tvl.defensive_saturating_reduce(total_slashed);
+		});
+
+		if let Some(mut sub_pools) = SubPoolsStorage::<T>::get(pool_id) {
+			// set the reduced balance for each of the `SubPools`
+			slashed_unlocking.iter().for_each(|(era, slashed_balance)| {
+				if let Some(pool) = sub_pools.with_era.get_mut(era).defensive() {
 					pool.balance = *slashed_balance;
 					Self::deposit_event(Event::<T>::UnbondingPoolSlashed {
 						era: *era,
@@ -3445,10 +3529,11 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 						balance: *slashed_balance,
 					});
 				}
-			}
-
-			Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
+			});
 			SubPoolsStorage::<T>::insert(pool_id, sub_pools);
+		} else if !slashed_unlocking.is_empty() {
+			defensive!("Expected SubPools were not found");
 		}
+		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
 	}
 }
