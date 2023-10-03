@@ -20,13 +20,13 @@
 //! DATE: 2023-08-11, STEPS: `2`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `cob`, CPU: `<UNKNOWN>`
-//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("collectives-polkadot-dev")`, DB CACHE: 1024
+//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("collectives-westend-dev")`, DB CACHE: 1024
 
 // Executed Command:
 // target/release/polkadot-parachain
 // benchmark
 // pallet
-// --chain=collectives-polkadot-dev
+// --chain=collectives-westend-dev
 // --wasm-execution=compiled
 // --pallet=pallet_salary
 // --extrinsic=*
@@ -34,7 +34,7 @@
 // --repeat=2
 // --json
 // --header=./file_header.txt
-// --output=./parachains/runtimes/collectives/collectives-polkadot/src/weights/
+// --output=./parachains/runtimes/collectives/collectives-westend/src/weights/
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
