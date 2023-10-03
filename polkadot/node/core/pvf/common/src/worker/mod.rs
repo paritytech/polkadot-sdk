@@ -18,7 +18,7 @@
 
 pub mod security;
 
-use crate::{worker_dir, SecurityStatus, LOG_TARGET};
+use crate::{SecurityStatus, LOG_TARGET};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
@@ -115,6 +115,7 @@ macro_rules! decl_worker_main {
 				},
 			}
 
+			let mut socket_path = None;
 			let mut worker_dir_path = None;
 			let mut node_version = None;
 			let mut can_enable_landlock = false;
@@ -123,6 +124,10 @@ macro_rules! decl_worker_main {
 			let mut i = 2;
 			while i < args.len() {
 				match args[i].as_ref() {
+					"--socket-path" => {
+						socket_path = Some(args[i + 1].as_str());
+						i += 1
+					},
 					"--worker-dir-path" => {
 						worker_dir_path = Some(args[i + 1].as_str());
 						i += 1
@@ -138,16 +143,24 @@ macro_rules! decl_worker_main {
 				}
 				i += 1;
 			}
+			let socket_path = socket_path.expect("the --socket-path argument is required");
 			let worker_dir_path =
 				worker_dir_path.expect("the --worker-dir-path argument is required");
 
+			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 			let security_status = $crate::SecurityStatus {
 				can_enable_landlock,
 				can_unshare_user_namespace_and_change_root,
 			};
 
-			$entrypoint(worker_dir_path, node_version, Some($worker_version), security_status);
+			$entrypoint(
+				socket_path,
+				worker_dir_path,
+				node_version,
+				Some($worker_version),
+				security_status,
+			);
 		}
 	};
 }
@@ -177,6 +190,7 @@ impl fmt::Display for WorkerKind {
 // the version that this crate was compiled with.
 pub fn worker_event_loop<F, Fut>(
 	worker_kind: WorkerKind,
+	socket_path: PathBuf,
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
@@ -237,11 +251,8 @@ pub fn worker_event_loop<F, Fut>(
 	}
 
 	// Connect to the socket.
-	let socket_path = worker_dir::socket(&worker_dir_path);
 	let stream = || -> std::io::Result<UnixStream> {
 		let stream = UnixStream::connect(&socket_path)?;
-		// Remove the socket here. We don't also need to do this on the host-side; on failed
-		// rendezvous, the host will delete the whole worker dir.
 		std::fs::remove_file(&socket_path)?;
 		Ok(stream)
 	}();
