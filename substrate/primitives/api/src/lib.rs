@@ -100,9 +100,9 @@ pub use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
 	transaction_validity::TransactionValidity,
-	RuntimeString, TransactionOutcome, ExtrinsicInclusionMode,
+	ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 };
-#[doc(hidden)]	
+#[doc(hidden)]
 #[cfg(feature = "std")]
 pub use sp_state_machine::{
 	backend::AsTrieBackend, Backend as StateBackend, InMemoryBackend, OverlayedChanges,
