@@ -44,11 +44,11 @@ impl<Client, Block, BE> Storage<Client, Block, BE> {
 /// Query to iterate over storage.
 pub struct QueryIter {
 	/// The key from which the iteration was started.
-	query_key: StorageKey,
+	pub query_key: StorageKey,
 	/// The key after which pagination should resume.
-	pagination_start_key: Option<StorageKey>,
+	pub pagination_start_key: Option<StorageKey>,
 	/// The type of the query (either value or hash).
-	ty: IterQueryType,
+	pub ty: IterQueryType,
 }
 
 /// The query type of an iteration.
@@ -64,7 +64,7 @@ pub enum IterQueryType {
 ///
 /// Keys that are identical to `:child_storage:` or `:child_storage:default:`
 /// are not queryable.
-fn is_key_queryable(key: &[u8]) -> bool {
+pub fn is_key_queryable(key: &[u8]) -> bool {
 	!well_known_keys::is_default_child_storage_key(key) &&
 		!well_known_keys::is_child_storage_key(key)
 }
