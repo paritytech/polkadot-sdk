@@ -246,6 +246,14 @@ mod tests {
 		fn get_fee_factor(_: Self::Id) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}
+
+		fn increase_fee_factor(_: Self::Id, _: FixedU128) -> FixedU128 {
+			FixedU128::from_rational(101, 100)
+		}
+
+		fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
+			FixedU128::from_rational(101, 100)
+		}
 	}
 
 	type TestExponentialPrice =
