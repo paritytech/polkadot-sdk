@@ -37,7 +37,7 @@ use super::{
 	FollowEvent,
 };
 
-/// The query type of an interation.
+/// The query type of an iteration.
 enum IterQueryType {
 	/// Iterating over (key, value) pairs.
 	Value,
