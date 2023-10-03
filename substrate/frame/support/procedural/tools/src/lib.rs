@@ -64,6 +64,7 @@ pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 /// If `frame` is in scope, it will use `frame::deps::<def_crate>`. Else, it will try and find
 /// `<def_crate>` directly.
 pub fn generate_crate_access_from_frame_or_deps(def_crate: &str) -> Result<syn::Path, Error> {
+	// TODO: this does not work if the frame crate is renamed.
 	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
 		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
 		return syn::parse_str::<syn::Path>(&path)
