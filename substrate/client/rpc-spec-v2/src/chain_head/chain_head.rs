@@ -27,9 +27,10 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
+		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
+	common::events::StorageQuery,
 	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;

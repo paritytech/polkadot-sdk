@@ -27,13 +27,11 @@ use sp_core::storage::well_known_keys;
 
 use crate::{
 	chain_head::{
-		event::{
-			OperationError, OperationId, OperationStorageItems, StorageQuery, StorageQueryType,
-			StorageResult, StorageResultType,
-		},
+		event::{OperationError, OperationId, OperationStorageItems},
 		subscription::BlockGuard,
 		FollowEvent,
 	},
+	common::events::{StorageQuery, StorageQueryType, StorageResult, StorageResultType},
 	hex_string,
 };
 
