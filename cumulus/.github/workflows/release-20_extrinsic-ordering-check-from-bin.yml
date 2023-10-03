@@ -6,7 +6,7 @@ on:
     inputs:
       reference_url:
         description: The WebSocket url of the reference node
-        default: wss://kusama-asset-hub-rpc.polkadot.io
+        default: wss://westend-asset-hub-rpc.polkadot.io
         required: true
       binary_url:
         description: A url to a Linux binary for the node containing the runtime to test
@@ -14,7 +14,7 @@ on:
         required: true
       chain:
         description: The name of the chain under test. Usually, you would pass a local chain
-        default: asset-hub-kusama-local
+        default: asset-hub-westend-local
         required: true
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
       - name: Start local node
         run: |
           echo Running on $CHAIN
-          $BIN_PATH --chain=$CHAIN -- --chain polkadot-local &
+          $BIN_PATH --chain=$CHAIN -- --chain westend-local &
 
       - name: Prepare output
         run: |

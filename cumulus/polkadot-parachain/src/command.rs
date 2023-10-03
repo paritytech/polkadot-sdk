@@ -22,7 +22,7 @@ use crate::{
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachains_common::{AssetHubPolkadotAuraId, AuraId};
+use parachains_common::AuraId;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,

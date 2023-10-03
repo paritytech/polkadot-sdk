@@ -42,9 +42,6 @@ rules:
       # excluding files from 'Runtime files' and 'CI files' rules
       exclude:
         - ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$
         - ^cumulus/parachains/common/src/[^/]+\.rs$
         - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
         - ^polkadot/runtime/(kusama|polkadot)/src/[^/]+\.rs$
@@ -64,9 +61,6 @@ rules:
     countAuthor: true
     condition:
       include:
-        - ^cumulus/parachains/runtimes/assets/(asset-hub-kusama|asset-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/bridge-hubs/(bridge-hub-kusama|bridge-hub-polkadot)/src/[^/]+\.rs$
-        - ^cumulus/parachains/runtimes/collectives/collectives-polkadot/src/[^/]+\.rs$
         - ^cumulus/parachains/common/src/[^/]+\.rs$
     type: and-distinct
     reviewers:

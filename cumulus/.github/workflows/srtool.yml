@@ -31,20 +31,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - category: assets
-            runtime: asset-hub-kusama
-          - category: assets
-            runtime: asset-hub-polkadot
-          - category: assets
             runtime: asset-hub-westend
-          - category: bridge-hubs
-            runtime: bridge-hub-polkadot
-          - category: bridge-hubs
-            runtime: bridge-hub-kusama
           - category: bridge-hubs
             runtime: bridge-hub-rococo
           - category: collectives
-            runtime: collectives-polkadot
+            runtime: collectives-westend
           - category: contracts
             runtime: contracts-rococo
           - category: starters
