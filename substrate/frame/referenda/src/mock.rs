@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_referenda;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
 		SortedMembers,
@@ -59,6 +59,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
 }
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type BlockWeights = ();
@@ -84,6 +85,7 @@ impl frame_system::Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
+
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -91,6 +93,7 @@ impl pallet_preimage::Config for Test {
 	type ManagerOrigin = EnsureRoot<u64>;
 	type Consideration = ();
 }
+
 impl pallet_scheduler::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -103,24 +106,20 @@ impl pallet_scheduler::Config for Test {
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
 	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<128>;
 }
+
 parameter_types! {
 	pub static AlarmInterval: u64 = 1;
 }
+
 ord_parameter_types! {
 	pub const One: u64 = 1;
 	pub const Two: u64 = 2;
@@ -129,6 +128,7 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
+
 pub struct OneToFive;
 impl SortedMembers<u64> for OneToFive {
 	fn sorted_members() -> Vec<u64> {
@@ -203,6 +203,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
+
 impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
@@ -211,10 +212,10 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin = frame_system::EnsureSigned<u64>;
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
-	type Slash = ();
 	type Votes = u32;
 	type Tally = Tally;
 	type SubmissionDeposit = ConstU64<2>;
