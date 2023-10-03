@@ -264,7 +264,7 @@ pub struct XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAcc
 impl<
 		FungiblesMutateAdapter: TransactAsset,
 		AccountId: Clone + Into<[u8; 32]>,
-		ReceiverAccount: frame_support::traits::Get<Option<AccountId>>,
+		ReceiverAccount: Get<Option<AccountId>>,
 	> TakeRevenue for XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>
 {
 	fn take_revenue(revenue: MultiAsset) {
