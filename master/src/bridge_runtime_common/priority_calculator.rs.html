@@ -239,7 +239,7 @@
 	</span>PriorityBoostPerMessage: Get&lt;TransactionPriority&gt;,
 {
 	<span class="comment">// we don&#39;t want any boost for transaction with single message =&gt; minus one
-	</span>PriorityBoostPerMessage::get().saturating_mul(messages - <span class="number">1</span>)
+	</span>PriorityBoostPerMessage::get().saturating_mul(messages.saturating_sub(<span class="number">1</span>))
 }
 
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;integrity-test&quot;</span>))]

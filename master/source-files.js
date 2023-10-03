@@ -21,6 +21,7 @@ var sourcesIndex = JSON.parse('{\
 "bp_messages":["",[],["lib.rs","source_chain.rs","storage_keys.rs","target_chain.rs"]],\
 "bp_parachains":["",[],["lib.rs"]],\
 "bp_polkadot":["",[],["lib.rs"]],\
+"bp_polkadot_bulletin":["",[],["lib.rs"]],\
 "bp_polkadot_core":["",[],["lib.rs","parachains.rs"]],\
 "bp_relayers":["",[],["lib.rs","registration.rs"]],\
 "bp_rococo":["",[],["lib.rs"]],\

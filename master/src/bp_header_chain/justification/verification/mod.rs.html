@@ -295,6 +295,7 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -440,6 +441,7 @@
 }
 
 <span class="doccomment">/// The context needed for validating GRANDPA finality proofs.
+</span><span class="attr">#[derive(RuntimeDebug)]
 </span><span class="kw">pub struct </span>JustificationVerificationContext {
 	<span class="doccomment">/// The authority set used to verify the justification.
 	</span><span class="kw">pub </span>voter_set: VoterSet&lt;AuthorityId&gt;,

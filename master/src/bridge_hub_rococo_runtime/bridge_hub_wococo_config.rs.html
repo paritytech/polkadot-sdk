@@ -215,6 +215,8 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -246,8 +248,8 @@
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
-		RefundableParachain,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
 	},
 };
 <span class="kw">use </span>frame_support::{parameter_types, traits::PalletInfoAccess};
@@ -353,13 +355,15 @@
 }
 
 <span class="doccomment">/// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
-</span><span class="kw">pub type </span>BridgeRefundBridgeHubRococoMessages = RefundBridgedParachainMessages&lt;
-	Runtime,
-	RefundableParachain&lt;BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo&gt;,
-	RefundableMessagesLane&lt;WithBridgeHubRococoMessagesInstance, BridgeHubRococoMessagesLane&gt;,
-	ActualFeeRefund&lt;Runtime&gt;,
-	PriorityBoostPerMessage,
-	StrBridgeRefundBridgeHubRococoMessages,
+</span><span class="kw">pub type </span>BridgeRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter&lt;
+	RefundBridgedParachainMessages&lt;
+		Runtime,
+		RefundableParachain&lt;BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo&gt;,
+		RefundableMessagesLane&lt;WithBridgeHubRococoMessagesInstance, BridgeHubRococoMessagesLane&gt;,
+		ActualFeeRefund&lt;Runtime&gt;,
+		PriorityBoostPerMessage,
+		StrBridgeRefundBridgeHubRococoMessages,
+	&gt;,
 &gt;;
 <span class="macro">bp_runtime::generate_static_str_provider!</span>(BridgeRefundBridgeHubRococoMessages);
 

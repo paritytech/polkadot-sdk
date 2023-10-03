@@ -5,6 +5,7 @@
 "bp_bridge_hub_wococo":[["impl Chain for <a class=\"struct\" href=\"bp_bridge_hub_wococo/struct.BridgeHubWococo.html\" title=\"struct bp_bridge_hub_wococo::BridgeHubWococo\">BridgeHubWococo</a>"]],
 "bp_kusama":[["impl Chain for <a class=\"struct\" href=\"bp_kusama/struct.Kusama.html\" title=\"struct bp_kusama::Kusama\">Kusama</a>"]],
 "bp_polkadot":[["impl Chain for <a class=\"struct\" href=\"bp_polkadot/struct.Polkadot.html\" title=\"struct bp_polkadot::Polkadot\">Polkadot</a>"]],
+"bp_polkadot_bulletin":[["impl Chain for <a class=\"struct\" href=\"bp_polkadot_bulletin/struct.PolkadotBulletin.html\" title=\"struct bp_polkadot_bulletin::PolkadotBulletin\">PolkadotBulletin</a>"]],
 "bp_polkadot_core":[["impl Chain for <a class=\"struct\" href=\"bp_polkadot_core/struct.PolkadotLike.html\" title=\"struct bp_polkadot_core::PolkadotLike\">PolkadotLike</a>"]],
 "bp_rococo":[["impl Chain for <a class=\"struct\" href=\"bp_rococo/struct.Rococo.html\" title=\"struct bp_rococo::Rococo\">Rococo</a>"]],
 "bp_runtime":[],

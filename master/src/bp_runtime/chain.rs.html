@@ -711,7 +711,7 @@
 						$(
 							<span class="doccomment">/// Returns the justifications accepted in the current block.
 							</span><span class="kw">fn </span>[&lt;synced_headers_ <span class="macro-nonterminal">$consensus</span>:lower _info&gt;](
-							) -&gt; Vec&lt;<span class="macro-nonterminal">$justification_type</span>&gt;;
+							) -&gt; sp_std::vec::Vec&lt;<span class="macro-nonterminal">$justification_type</span>&gt;;
 						)<span class="question-mark">?
 					</span>}
 				}
@@ -760,10 +760,10 @@
 						/// If some (or all) messages are missing from the storage, they&#39;ll also will
 						/// be missing from the resulting vector. The vector is ordered by the nonce.
 						</span><span class="kw">fn </span>message_details(
-							lane: LaneId,
-							begin: MessageNonce,
-							end: MessageNonce,
-						) -&gt; Vec&lt;OutboundMessageDetails&gt;;
+							lane: bp_messages::LaneId,
+							begin: bp_messages::MessageNonce,
+							end: bp_messages::MessageNonce,
+						) -&gt; sp_std::vec::Vec&lt;bp_messages::OutboundMessageDetails&gt;;
 					}
 
 					<span class="doccomment">/// Inbound message lane API for messages sent by this chain.
@@ -776,9 +776,9 @@
 					</span><span class="kw">pub trait </span>[&lt;From <span class="macro-nonterminal">$chain</span>:camel InboundLaneApi&gt;] {
 						<span class="doccomment">/// Return details of given inbound messages.
 						</span><span class="kw">fn </span>message_details(
-							lane: LaneId,
-							messages: Vec&lt;(MessagePayload, OutboundMessageDetails)&gt;,
-						) -&gt; Vec&lt;InboundMessageDetails&gt;;
+							lane: bp_messages::LaneId,
+							messages: sp_std::vec::Vec&lt;(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)&gt;,
+						) -&gt; sp_std::vec::Vec&lt;bp_messages::InboundMessageDetails&gt;;
 					}
 				}
 			}
