@@ -576,14 +576,16 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Sets the session key(s) of the function caller to `keys`.
+		///
 		/// Allows an account to set its session key prior to becoming a validator.
 		/// This doesn't take effect until the next session.
 		///
-		/// The dispatch origin of this function must be signed.
-		///
-		/// ## Complexity
-		/// - `O(1)`. Actual cost depends on the number of length of `T::Keys::key_ids()` which is
-		///   fixed.
+		/// - `origin`: The dispatch origin of this function must be signed.
+		/// - `keys`: The new session keys to set. These are the public keys of all sessions keys
+		///   setup in the runtime.
+		/// - `proof`: The proof that `origin` has access to the private keys of `keys`. See
+		///   [`impl_opaque_keys`](sp_runtime::impl_opaque_keys) for more information about the
+		///   proof format.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
@@ -605,10 +607,6 @@ pub mod pallet {
 		/// convertible to a validator ID using the chain's typical addressing system (this usually
 		/// means being a controller account) or directly convertible into a validator ID (which
 		/// usually means being a stash account).
-		///
-		/// ## Complexity
-		/// - `O(1)` in number of key types. Actual cost depends on the number of length of
-		///   `T::Keys::key_ids()` which is fixed.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
