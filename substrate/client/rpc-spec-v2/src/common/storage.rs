@@ -165,7 +165,7 @@ where
 		query: QueryIter,
 		hash: Block::Hash,
 		child_key: Option<&ChildInfo>,
-		operation_max_storage_items: usize,
+		count: usize,
 	) -> QueryIterResult {
 		let QueryIter { ty, query_key, pagination_start_key } = query;
 
@@ -181,9 +181,9 @@ where
 		}
 		.map_err(|err| err.to_string())?;
 
-		let mut ret = Vec::with_capacity(operation_max_storage_items);
+		let mut ret = Vec::with_capacity(count);
 		let mut next_pagination_key = None;
-		for _ in 0..operation_max_storage_items {
+		for _ in 0..count {
 			let Some(key) = keys_iter.next() else { break };
 
 			next_pagination_key = Some(key.clone());
