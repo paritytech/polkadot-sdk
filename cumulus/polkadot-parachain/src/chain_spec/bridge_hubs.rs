@@ -426,8 +426,4 @@ pub mod westend {
 			},
 		}
 	}
-
-	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
-	pub type BridgeHubChainSpec = westend::BridgeHubChainSpec;
-	pub type RuntimeApi = bridge_hub_westend_runtime::RuntimeApi;
 }

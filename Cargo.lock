@@ -6082,6 +6082,7 @@ dependencies = [
  "asset-hub-westend-runtime",
  "bp-messages",
  "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
  "bridge-runtime-common",
  "collectives-westend-runtime",
  "cumulus-pallet-dmp-queue",
