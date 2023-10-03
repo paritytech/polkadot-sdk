@@ -55,7 +55,7 @@ use frame_support::{
 		PostDispatchInfo,
 	},
 	ensure,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Consideration, Currency, Footprint, Get, ReservableCurrency},
 	weights::Weight,
 	BoundedVec,
 };
@@ -63,7 +63,7 @@ use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{Dispatchable, TrailingZeroInput, Zero},
+	traits::{Dispatchable, TrailingZeroInput},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
@@ -104,7 +104,7 @@ pub struct Timepoint<BlockNumber> {
 /// An open multisig operation.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(MaxApprovals))]
-pub struct Multisig<BlockNumber, Balance, AccountId, MaxApprovals>
+pub struct OldMultisig<BlockNumber, Balance, AccountId, MaxApprovals>
 where
 	MaxApprovals: Get<u32>,
 {
@@ -118,7 +118,26 @@ where
 	approvals: BoundedVec<AccountId, MaxApprovals>,
 }
 
+/// An open multisig operation.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxApprovals))]
+pub struct Multisig<BlockNumber, Ticket, AccountId, MaxApprovals>
+where
+	MaxApprovals: Get<u32>,
+{
+	/// The extrinsic when the multisig operation was opened.
+	when: Timepoint<BlockNumber>,
+	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
+	ticket: Ticket,
+	/// The account who opened it (i.e. the first to approve it).
+	depositor: AccountId,
+	/// The approvals achieved so far, including the depositor. Always sorted.
+	approvals: BoundedVec<AccountId, MaxApprovals>,
+}
+
 type CallHash = [u8; 32];
+
+type TicketOf<T> = <T as Config>::Consideration;
 
 enum CallOrHash<T: Config> {
 	Call(<T as Config>::RuntimeCall),
@@ -126,6 +145,7 @@ enum CallOrHash<T: Config> {
 }
 
 #[frame_support::pallet]
+#[allow(deprecated)]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -145,20 +165,8 @@ pub mod pallet {
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		/// The base amount of currency needed to reserve for creating a multisig execution or to
-		/// store a dispatch call for later.
-		///
-		/// This is held for an additional storage item whose value size is
-		/// `4 + sizeof((BlockNumber, Balance, AccountId))` bytes and whose key size is
-		/// `32 + sizeof(AccountId)` bytes.
-		#[pallet::constant]
-		type DepositBase: Get<BalanceOf<Self>>;
-
-		/// The amount of currency needed per unit threshold when creating a multisig execution.
-		///
-		/// This is held for adding 32 bytes more into a pre-existing storage value.
-		#[pallet::constant]
-		type DepositFactor: Get<BalanceOf<Self>>;
+		/// A means of providing some cost while data is stored on-chain.
+		type Consideration: Consideration<Self::AccountId>;
 
 		/// The maximum amount of signatories allowed in the multisig.
 		#[pallet::constant]
@@ -176,6 +184,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// The set of open multisig operations.
+	#[deprecated = "MultisigsFor"]
 	#[pallet::storage]
 	pub type Multisigs<T: Config> = StorageDoubleMap<
 		_,
@@ -183,7 +192,18 @@ pub mod pallet {
 		T::AccountId,
 		Blake2_128Concat,
 		[u8; 32],
-		Multisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
+		OldMultisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
+	>;
+
+	/// The set of open multisig operations.
+	#[pallet::storage]
+	pub type MultisigsFor<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Blake2_128Concat,
+		[u8; 32],
+		Multisig<BlockNumberFor<T>, TicketOf<T>, T::AccountId, T::MaxSignatories>,
 	>;
 
 	#[pallet::error]
@@ -216,6 +236,13 @@ pub mod pallet {
 		MaxWeightTooLow,
 		/// The data to be stored is already stored.
 		AlreadyStored,
+	}
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as storage deposit for a multisig.
+		Multisig,
 	}
 
 	#[pallet::event]
@@ -477,13 +504,12 @@ pub mod pallet {
 
 			let id = Self::multi_account_id(&signatories, threshold);
 
-			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
+			let m = <MultisigsFor<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
-			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
-			debug_assert!(err_amount.is_zero());
-			<Multisigs<T>>::remove(&id, &call_hash);
+			let _ = m.ticket.drop(&m.depositor);
+			<MultisigsFor<T>>::remove(&id, &call_hash);
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
@@ -534,7 +560,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Branch on whether the operation has already started or not.
-		if let Some(mut m) = <Multisigs<T>>::get(&id, call_hash) {
+		if let Some(mut m) = <MultisigsFor<T>>::get(&id, call_hash) {
 			// Yes; ensure that the timepoint exists and agrees.
 			let timepoint = maybe_timepoint.ok_or(Error::<T>::NoTimepoint)?;
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
@@ -558,8 +584,8 @@ impl<T: Config> Pallet<T> {
 
 				// Clean up storage before executing call to avoid an possibility of reentrancy
 				// attack.
-				<Multisigs<T>>::remove(&id, call_hash);
-				T::Currency::unreserve(&m.depositor, m.deposit);
+				<MultisigsFor<T>>::remove(&id, call_hash);
+				let _ = m.ticket.drop(&m.depositor);
 
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
@@ -587,7 +613,7 @@ impl<T: Config> Pallet<T> {
 					m.approvals
 						.try_insert(pos, who.clone())
 						.map_err(|_| Error::<T>::TooManySignatories)?;
-					<Multisigs<T>>::insert(&id, call_hash, m);
+					<MultisigsFor<T>>::insert(&id, call_hash, m);
 					Self::deposit_event(Event::MultisigApproval {
 						approving: who,
 						timepoint,
@@ -609,20 +635,17 @@ impl<T: Config> Pallet<T> {
 			// Not yet started; there should be no timepoint given.
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
-			// Just start the operation by recording it in storage.
-			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
-
-			T::Currency::reserve(&who, deposit)?;
+			let ticket = T::Consideration::new(&who, Footprint::from_parts(1, threshold as usize))?;
 
 			let initial_approvals =
 				vec![who.clone()].try_into().map_err(|_| Error::<T>::TooManySignatories)?;
 
-			<Multisigs<T>>::insert(
+			<MultisigsFor<T>>::insert(
 				&id,
 				call_hash,
 				Multisig {
 					when: Self::timepoint(),
-					deposit,
+					ticket,
 					depositor: who.clone(),
 					approvals: initial_approvals,
 				},
