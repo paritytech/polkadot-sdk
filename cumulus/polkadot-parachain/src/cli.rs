@@ -64,9 +64,9 @@ pub enum Subcommand {
 const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
 	r#"<bold><underline>Examples:</></>
    <bold>polkadot-parachain --chain asset-hub-westend --sync warp -- --chain polkadot --sync warp</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Westend</> Relay Chain.
+           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
    <bold>polkadot-parachain --chain asset-hub-westend --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Westend</> Relay Chain.
+           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
            Uses <italic>ws://rpc.example.com</> as remote relay chain node.
  "#
 );
