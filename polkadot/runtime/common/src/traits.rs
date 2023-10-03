@@ -18,7 +18,13 @@
 
 use frame_support::{
 	dispatch::DispatchResult,
-	traits::{Currency, ReservableCurrency},
+	traits::{
+		fungible::{
+			hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
+			Inspect as FunInspect, Mutate as FunMutate,
+		},
+		Currency, ReservableCurrency,
+	},
 };
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_std::vec::*;
@@ -109,7 +115,7 @@ pub trait Leaser<BlockNumber> {
 	type LeasePeriod;
 
 	/// The currency type in which the lease is taken.
-	type Currency: ReservableCurrency<Self::AccountId>;
+	type Currency: FunHoldMutate<Self::AccountId>;
 
 	/// Lease a new parachain slot for `para`.
 	///
@@ -126,7 +132,7 @@ pub trait Leaser<BlockNumber> {
 	fn lease_out(
 		para: ParaId,
 		leaser: &Self::AccountId,
-		amount: <Self::Currency as Currency<Self::AccountId>>::Balance,
+		amount: <Self::Currency as FunInspect<Self::AccountId>>::Balance,
 		period_begin: Self::LeasePeriod,
 		period_count: Self::LeasePeriod,
 	) -> Result<(), LeaseError>;
@@ -136,7 +142,7 @@ pub trait Leaser<BlockNumber> {
 	fn deposit_held(
 		para: ParaId,
 		leaser: &Self::AccountId,
-	) -> <Self::Currency as Currency<Self::AccountId>>::Balance;
+	) -> <Self::Currency as FunInspect<Self::AccountId>>::Balance;
 
 	/// The length of a lease period, and any offset which may be introduced.
 	/// This is only used in benchmarking to automate certain calls.

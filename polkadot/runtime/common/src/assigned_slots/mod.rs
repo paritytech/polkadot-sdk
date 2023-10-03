@@ -30,7 +30,7 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{pallet_prelude::*, traits::{Currency, fungible::Inspect as FunInspect}};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -98,9 +98,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as Currency<
+type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
+
 type LeasePeriodOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::LeasePeriod;
 
 #[frame_support::pallet]

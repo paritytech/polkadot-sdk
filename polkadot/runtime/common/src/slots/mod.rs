@@ -26,8 +26,12 @@ pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
+	defensive_assert,
 	pallet_prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::fungible::{
+		hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
+		Inspect as FunInspect, Mutate as FunMutate,
+	},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::*;
@@ -37,7 +41,8 @@ use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
 use sp_std::prelude::*;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+
 type LeasePeriodOf<T> = BlockNumberFor<T>;
 
 pub trait WeightInfo {
@@ -77,7 +82,10 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency type used for bidding.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The hold reason when reserving funds for the lease.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The parachain registrar type.
 		type Registrar: Registrar<AccountId = Self::AccountId>;
@@ -144,6 +152,14 @@ pub mod pallet {
 		LeaseError,
 	}
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds are held for the current or upcoming leases.
+		#[codec(index = 0)]
+		LeaseDeposit,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
@@ -192,8 +208,7 @@ pub mod pallet {
 
 			// Refund any deposits for these leases
 			for (who, deposit) in deposits {
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
+				Self::release(&who, deposit);
 			}
 
 			Leases::<T>::remove(para);
@@ -247,9 +262,9 @@ impl<T: Config> Pallet<T> {
 				//
 				// `para` is now just an on-demand parachain.
 				//
-				// Unreserve whatever is left.
+				// Release whatever is left.
 				if let Some((who, value)) = &lease_periods[0] {
-					T::Currency::unreserve(&who, *value);
+					Self::release(&who, *value);
 				}
 
 				// Remove the now-empty lease list.
@@ -270,9 +285,9 @@ impl<T: Config> Pallet<T> {
 					let now_held = Self::deposit_held(para, &ended_lease.0);
 
 					// If this is less than what we were holding for this leaser's now-ended lease,
-					// then unreserve it.
+					// then release it.
 					if let Some(rebate) = ended_lease.1.checked_sub(&now_held) {
-						T::Currency::unreserve(&ended_lease.0, rebate);
+						Self::release(&ended_lease.0, rebate);
 					}
 				}
 
@@ -308,7 +323,7 @@ impl<T: Config> Pallet<T> {
 
 	// Return a vector of (user, balance) for all deposits for a parachain.
 	// Useful when trying to clean up a parachain leases, as this would tell
-	// you all the balances you need to unreserve.
+	// you all the balances you need to release.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
 		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
@@ -326,6 +341,21 @@ impl<T: Config> Pallet<T> {
 
 		tracker.into_iter().collect()
 	}
+
+	fn hold(leaser: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		T::Currency::hold(&HoldReason::LeaseDeposit.into(), leaser, amount)
+	}
+
+	fn release(leaser: &T::AccountId, amount: BalanceOf<T>) {
+		let amount = T::Currency::release(
+			&HoldReason::LeaseDeposit.into(),
+			&leaser,
+			amount,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+
+		defensive_assert!(amount.is_ok() && amount.unwrap() == amount);
+	}
 }
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
@@ -342,7 +372,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 	fn lease_out(
 		para: ParaId,
 		leaser: &Self::AccountId,
-		amount: <Self::Currency as Currency<Self::AccountId>>::Balance,
+		amount: BalanceOf<T>,
 		period_begin: Self::LeasePeriod,
 		period_count: Self::LeasePeriod,
 	) -> Result<(), LeaseError> {
@@ -397,8 +427,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 			// `para_id`.  If so, then we can deduct those from the amount that we need to reserve.
 			let maybe_additional = amount.checked_sub(&Self::deposit_held(para, &leaser));
 			if let Some(ref additional) = maybe_additional {
-				T::Currency::reserve(&leaser, *additional)
-					.map_err(|_| LeaseError::ReserveFailed)?;
+				Self::hold(&leaser, *additional).map_err(|_| LeaseError::ReserveFailed)?;
 			}
 
 			let reserved = maybe_additional.unwrap_or_default();
@@ -424,10 +453,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		})
 	}
 
-	fn deposit_held(
-		para: ParaId,
-		leaser: &Self::AccountId,
-	) -> <Self::Currency as Currency<Self::AccountId>>::Balance {
+	fn deposit_held(para: ParaId, leaser: &Self::AccountId) -> BalanceOf<T> {
 		Leases::<T>::get(para)
 			.into_iter()
 			.map(|lease| match lease {
@@ -584,6 +610,7 @@ mod tests {
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type Currency = Balances;
+		type RuntimeHoldReason = RuntimeHoldReason;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
 		type LeaseOffset = LeaseOffset;
@@ -1008,7 +1035,7 @@ mod benchmarking {
 	fn register_a_parathread<T: Config + paras::Config>(i: u32) -> (ParaId, T::AccountId) {
 		let para = ParaId::from(i);
 		let leaser: T::AccountId = account("leaser", i, 0);
-		T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&leaser, BalanceOf::<T>::max_value());
 		let worst_head_data = T::Registrar::worst_head_data();
 		let worst_validation_code = T::Registrar::worst_validation_code();
 
@@ -1036,7 +1063,7 @@ mod benchmarking {
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 			let para = ParaId::from(1337);
 			let leaser: T::AccountId = account("leaser", 0, 0);
-			T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
+			T::Currency::set_balance(&leaser, BalanceOf::<T>::max_value());
 			let amount = T::Currency::minimum_balance();
 			let period_begin = 69u32.into();
 			let period_count = 3u32.into();
@@ -1122,7 +1149,7 @@ mod benchmarking {
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
 				let amount = T::Currency::minimum_balance();
-				T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
+				T::Currency::set_balance(&leaser, BalanceOf::<T>::max_value());
 
 				// Average slot has 4 lease periods.
 				let period_count: LeasePeriodOf<T> = 4u32.into();
@@ -1134,7 +1161,7 @@ mod benchmarking {
 
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
-				assert_eq!(T::Currency::reserved_balance(&leaser), T::Currency::minimum_balance());
+				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into, &leaser), T::Currency::minimum_balance());
 			}
 
 			let origin =
@@ -1143,6 +1170,7 @@ mod benchmarking {
 		verify {
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
+				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into, &leaser), 0u32.into());
 				assert_eq!(T::Currency::reserved_balance(&leaser), 0u32.into());
 			}
 		}

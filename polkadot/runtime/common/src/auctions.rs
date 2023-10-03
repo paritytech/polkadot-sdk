@@ -25,7 +25,7 @@ use crate::{
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{Currency, Get, Randomness, ReservableCurrency},
+	traits::{{Currency, Get, Randomness, ReservableCurrency}, fungible::Inspect as FunInspect},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -35,8 +35,8 @@ use primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 use sp_std::{mem::swap, prelude::*};
 
-type CurrencyOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency;
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as Currency<
+type CurrencyOf<T> = <T as Config>::Currency;
+type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
@@ -97,6 +97,8 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			LeasePeriod = BlockNumberFor<Self>,
 		>;
+
+		type Currency: ReservableCurrency<Self::AccountId, Balance = <<Self::Leaser as Leaser<BlockNumberFor<Self>>>::Currency as FunInspect<Self::AccountId>>::Balance>;
 
 		/// The parachain registrar type.
 		type Registrar: Registrar<AccountId = Self::AccountId>;
