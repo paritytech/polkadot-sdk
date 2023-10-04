@@ -194,7 +194,7 @@ fn open_database_at<Block: BlockT>(
 		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
 		#[cfg(feature = "rocksdb")]
 		DatabaseSource::RocksDb { path, cache_size } =>
-			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?,
+			open_kvdb_rocksdb::<Block>(path, db_type, false, *cache_size)?,
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
 				return Err(OpenDbError::DoesNotExist)
@@ -228,6 +228,7 @@ pub enum OpenDbError {
 		expected: DatabaseType,
 		found: Vec<u8>,
 	},
+	RocksDbNotSupported,
 }
 
 type OpenDbResult = Result<Arc<dyn Database<DbHash>>, OpenDbError>;
@@ -251,6 +252,9 @@ impl fmt::Display for OpenDbError {
 					found
 				)
 			},
+			OpenDbError::RocksDbNotSupported => f.write_str(
+				"Creating new RocksDB databases is not supported anymore; please use ParityDB",
+			),
 		}
 	}
 }
@@ -274,7 +278,7 @@ impl From<parity_db::Error> for OpenDbError {
 impl From<io::Error> for OpenDbError {
 	fn from(err: io::Error) -> Self {
 		if err.to_string().contains("create_if_missing is false") {
-			OpenDbError::DoesNotExist
+			OpenDbError::RocksDbNotSupported
 		} else {
 			OpenDbError::Internal(err.to_string())
 		}
