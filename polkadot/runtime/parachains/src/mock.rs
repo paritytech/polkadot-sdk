@@ -340,10 +340,7 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 }
 
-impl assigner::Config for Test {
-	type ParachainsAssignmentProvider = ParachainsAssigner;
-	type OnDemandAssignmentProvider = OnDemandAssigner;
-}
+impl assigner::Config for Test {}
 
 impl assigner_parachains::Config for Test {}
 

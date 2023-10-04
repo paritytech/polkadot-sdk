@@ -311,7 +311,10 @@ fn add_on_demand_order_works() {
 
 		// Max queue size is 1, queue should be full.
 		assert_noop!(
-			OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment.para_id()), QueuePushDirection::Back),
+			OnDemandAssigner::add_on_demand_order(
+				EnqueuedOrder::new(assignment.para_id()),
+				QueuePushDirection::Back
+			),
 			Error::<Test>::QueueFull
 		);
 	});
@@ -352,7 +355,11 @@ fn spotqueue_push_directions() {
 		assert_eq!(OnDemandAssigner::queue_size(), 3);
 		assert_eq!(
 			OnDemandAssigner::get_queue(),
-			VecDeque::from(vec![EnqueuedOrder::new(assignment_b.para_id()), EnqueuedOrder::new(assignment_a.para_id()), EnqueuedOrder::new(assignment_c.para_id())])
+			VecDeque::from(vec![
+				EnqueuedOrder::new(assignment_b.para_id()),
+				EnqueuedOrder::new(assignment_a.para_id()),
+				EnqueuedOrder::new(assignment_c.para_id())
+			])
 		)
 	});
 }
@@ -413,7 +420,8 @@ fn affinity_changes_work() {
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
-			OnDemandAssigner::report_processed(assignment_a); //TODO: Need to check that a report is actually processed when popping with an empty queue.
+			OnDemandAssigner::report_processed(assignment_a); //TODO: Need to check that a report is actually processed when popping with an empty
+												  // queue.
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
@@ -445,14 +453,23 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
 
 		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_a.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_a.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_b.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_b.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
 		assert_eq!(OnDemandAssigner::queue_size(), 3);
 
@@ -475,14 +492,23 @@ fn affinity_prohibits_parallel_scheduling() {
 		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
 
 		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_a.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_a.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(EnqueuedOrder::new(assignment_b.para_id()), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_b.para_id()),
+			QueuePushDirection::Back,
+		)
+		.expect("Invalid paraid or queue full");
 
 		// Approximate having 2 cores.
 		for _ in 0..3 {
