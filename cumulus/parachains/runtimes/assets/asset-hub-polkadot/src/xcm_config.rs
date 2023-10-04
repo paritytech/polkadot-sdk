@@ -186,9 +186,6 @@ match_types! {
 	pub type FellowshipSalaryPallet: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(64)) }
 	};
-	pub type TreasuryPallet: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(PalletInstance(19)) }
-	};
 	pub type AmbassadorSalaryPallet: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(74)) }
 	};
@@ -372,13 +369,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attemps to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, parent's pluralities (i.e. governance bodies), parent's treasury
-					// pallet and the Fellows plurality get free execution.
+					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
+					// get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						FellowsPlurality,
 						FellowshipSalaryPallet,
-						TreasuryPallet,
 						AmbassadorSalaryPallet,
 					)>,
 					// Subscriptions for version tracking are OK.

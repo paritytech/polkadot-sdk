@@ -1,18 +1,17 @@
-// Copyright Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::*;
 use frame_support::traits::fungibles::{Create, Inspect, Mutate};
@@ -25,27 +24,27 @@ fn create_and_claim_treasury_spend() {
 	const ASSET_ID: u32 = 1984;
 	const SPEND_AMOUNT: u128 = 1_000_000;
 	// treasury location from a sibling parachain.
-	let treasury_location: MultiLocation = MultiLocation::new(1, PalletInstance(19));
+	let treasury_location: MultiLocation = MultiLocation::new(1, PalletInstance(37));
 	// treasury account on a sibling parachain.
 	let treasury_account =
-		asset_hub_polkadot_runtime::xcm_config::LocationToAccountId::convert_location(
+		asset_hub_westend_runtime::xcm_config::LocationToAccountId::convert_location(
 			&treasury_location,
 		)
 		.unwrap();
-	let asset_hub_location = MultiLocation::new(0, Parachain(AssetHubPolkadot::para_id().into()));
-	let root = <Polkadot as Chain>::RuntimeOrigin::root();
-	// asset kind to be spent from the treasury.
+	let asset_hub_location = MultiLocation::new(0, Parachain(AssetHubWestend::para_id().into()));
+	let root = <Westend as Chain>::RuntimeOrigin::root();
+	// asset kind to be spend from the treasury.
 	let asset_kind = VersionedLocatableAsset::V3 {
 		location: asset_hub_location,
 		asset_id: AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
 	};
 	// treasury spend beneficiary.
-	let alice: AccountId = Polkadot::account_id_of(ALICE);
-	let bob: AccountId = Polkadot::account_id_of(BOB);
-	let bob_signed = <Polkadot as Chain>::RuntimeOrigin::signed(bob.clone());
+	let alice: AccountId = Westend::account_id_of(ALICE);
+	let bob: AccountId = Westend::account_id_of(BOB);
+	let bob_signed = <Westend as Chain>::RuntimeOrigin::signed(bob.clone());
 
-	AssetHubPolkadot::execute_with(|| {
-		type Assets = <AssetHubPolkadot as AssetHubPolkadotPallet>::Assets;
+	AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
 		// create an asset class and mint some assets to the treasury account.
 		assert_ok!(<Assets as Create<_>>::create(
@@ -59,10 +58,10 @@ fn create_and_claim_treasury_spend() {
 		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), 0u128,);
 	});
 
-	Polkadot::execute_with(|| {
-		type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
-		type Treasury = <Polkadot as PolkadotPallet>::Treasury;
-		type AssetRate = <Polkadot as PolkadotPallet>::AssetRate;
+	Westend::execute_with(|| {
+		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+		type Treasury = <Westend as WestendPallet>::Treasury;
+		type AssetRate = <Westend as WestendPallet>::AssetRate;
 
 		// create a conversion rate from `asset_kind` to the native currency.
 		assert_ok!(AssetRate::create(root.clone(), Box::new(asset_kind.clone()), 2.into()));
@@ -79,20 +78,23 @@ fn create_and_claim_treasury_spend() {
 		assert_ok!(Treasury::payout(bob_signed.clone(), 0));
 
 		assert_expected_events!(
-			Polkadot,
+			Westend,
 			vec![
 				RuntimeEvent::Treasury(pallet_treasury::Event::Paid { .. }) => {},
 			]
 		);
 	});
 
-	AssetHubPolkadot::execute_with(|| {
-		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
-		type Assets = <AssetHubPolkadot as AssetHubPolkadotPallet>::Assets;
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
-		// assets transferred, response sent back via UMP.
+		// assert events triggered by xcm pay program
+		// 1. treasury asset transferred to spend beneficiary
+		// 2. response to Relay Chain treasury pallet instance sent back
+		// 3. XCM program completed
 		assert_expected_events!(
-			AssetHubPolkadot,
+			AssetHubWestend,
 			vec![
 				RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) => {
 					id: id == &ASSET_ID,
@@ -108,14 +110,14 @@ fn create_and_claim_treasury_spend() {
 		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), SPEND_AMOUNT,);
 	});
 
-	Polkadot::execute_with(|| {
-		type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
-		type Treasury = <Polkadot as PolkadotPallet>::Treasury;
+	Westend::execute_with(|| {
+		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+		type Treasury = <Westend as WestendPallet>::Treasury;
 
 		// check the payment status to ensure the response from the AssetHub was received.
 		assert_ok!(Treasury::check_status(bob_signed, 0));
 		assert_expected_events!(
-			Polkadot,
+			Westend,
 			vec![
 				RuntimeEvent::Treasury(pallet_treasury::Event::SpendProcessed { .. }) => {},
 			]
