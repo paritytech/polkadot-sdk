@@ -31,8 +31,6 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	// this wouldn't work with frame::deps::frame_system::Config because of
-	// has_expected_system_config
 	pub trait Config: frame::deps::frame_system::Config {}
 
 	/// I'm the documentation

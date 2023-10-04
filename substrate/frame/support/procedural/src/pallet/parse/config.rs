@@ -280,22 +280,38 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 		return false
 	}
 
-	let mut expected_system_config = if is_using_frame_crate(&frame_system) {
-		// in this case, we know that the only valid frame_system path is one that
-		// is `frame_system`, as `frame` re-exports it as such.
-		let fixed_frame_system =
-			syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed");
-		fixed_frame_system
-	} else {
+	// TODO: WIP. Do we need `if is_using_frame_crate` at all? By having it, things this wouldn't work
+	// ```
+	// #[pallet::config]
+	// pub trait Config: frame::deps::frame_system::Config {}
+	// ```
+	// Instead this would be needed
+	// ```
+	// pub trait Config: frame_system::Config {}
+	// ```
+	//
+	// On the other hand, with it the test `has_expected_system_config_works_with_frame` does not work.
+	let mut expected_system_config = 
+	// if is_using_frame_crate(&frame_system) {
+	// 	// in this case, we know that the only valid frame_system path is one that
+	// 	// is `frame_system`, as `frame` re-exports it as such.
+	// 	let fixed_frame_system =
+	// 		syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed");
+	// 	fixed_frame_system
+	// } else {
 		// a possibly renamed frame-system, which is a direct dependency.
-		frame_system.clone()
-	};
+		frame_system.clone();
+	// };
 
 	expected_system_config
 		.segments
 		.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
 	// the parse path might be something like `frame_system::Config<...>`, so we
 	// only compare the idents along the path.
+	println!("path: {}", path.to_token_stream());
+	println!("frame_system: {}", frame_system.to_token_stream());
+	println!("expected_system_config: {}", expected_system_config.to_token_stream());
+	// TODO: end WIP.
 	expected_system_config
 		.segments
 		.into_iter()
