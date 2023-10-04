@@ -278,7 +278,7 @@ pub trait ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> {
 	fn ensure_successful(asset_id: AssetId);
 }
 
-/// Implements the [`ConversionFromAssetBalance`] enabling a 1:1 conversion of the asset balance
+/// Implements [`ConversionFromAssetBalance`], enabling a 1:1 conversion of the asset balance
 /// value to the balance.
 pub struct UnityAssetBalanceConversion;
 impl<AssetBalance, AssetId, OutBalance>
