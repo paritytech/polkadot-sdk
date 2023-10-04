@@ -664,7 +664,7 @@ mod tests {
 			Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},
 			ParasShared: parachains_shared::{Pallet, Call, Storage},
 			Parachains: parachains_paras::{Pallet, Call, Storage, Config<T>, Event},
-			Slots: slots::{Pallet, Call, Storage, Event<T>},
+			Slots: slots::{Pallet, Call, Storage, Event<T>, HoldReason},
 			AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>},
 		}
 	);
@@ -754,6 +754,7 @@ mod tests {
 	impl slots::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type Currency = Balances;
+		type RuntimeHoldReason = RuntimeHoldReason;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
 		type LeaseOffset = LeaseOffset;

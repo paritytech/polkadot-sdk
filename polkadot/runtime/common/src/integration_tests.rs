@@ -87,7 +87,7 @@ frame_support::construct_runtime!(
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>},
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
-		Slots: slots::{Pallet, Call, Storage, Event<T>},
+		Slots: slots::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -230,6 +230,7 @@ parameter_types! {
 impl auctions::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Leaser = Slots;
+	type Currency = Balances;
 	type Registrar = Registrar;
 	type EndingPeriod = EndingPeriod;
 	type SampleLength = SampleLength;
@@ -246,6 +247,7 @@ parameter_types! {
 impl slots::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
 	type LeaseOffset = LeaseOffset;

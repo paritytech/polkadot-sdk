@@ -347,14 +347,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn release(leaser: &T::AccountId, amount: BalanceOf<T>) {
-		let amount = T::Currency::release(
+		let released_amount = T::Currency::release(
 			&HoldReason::LeaseDeposit.into(),
 			&leaser,
 			amount,
 			frame_support::traits::tokens::Precision::BestEffort,
 		);
 
-		defensive_assert!(amount.is_ok() && amount.unwrap() == amount);
+		defensive_assert!(released_amount.is_ok() && released_amount.unwrap() == amount);
 	}
 }
 
@@ -548,7 +548,7 @@ mod tests {
 		{
 			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Slots: slots::{Pallet, Call, Storage, Event<T>},
+			Slots: slots::{Pallet, Call, Storage, Event<T>, HoldReason},
 		}
 	);
 

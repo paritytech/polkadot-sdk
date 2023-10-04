@@ -875,6 +875,7 @@ mod tests {
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type Leaser = TestLeaser;
+		type Currency = Balances;
 		type Registrar = TestRegistrar<Self>;
 		type EndingPeriod = EndingPeriod;
 		type SampleLength = SampleLength;
