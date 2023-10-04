@@ -31,7 +31,7 @@ use frame_support::{
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_runtime::{traits::Saturating, SaturatedConversion};
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, WrapVersion};
+use xcm::{latest::{prelude::*, MAX_ITEMS_IN_MULTIASSETS, MAX_INSTRUCTIONS_TO_DECODE}, WrapVersion};
 use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 
@@ -574,7 +574,11 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = vec![ClearOrigin; 128].into();
+			let mut max_assets: Vec<MultiAsset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_MULTIASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm = vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
 			let overestimated_fees = PriceForDelivery::price_for_delivery(
 				(),
 				&overestimated_xcm,

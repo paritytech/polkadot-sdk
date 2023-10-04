@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{account_and_location, new_executor, AssetTransactorOf, XcmCallOf};
+use crate::{account_and_location, new_executor, AssetTransactorOf, XcmCallOf, EnsureDelivery};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	pallet_prelude::Get,
@@ -23,7 +23,7 @@ use frame_support::{
 };
 use sp_runtime::traits::{Bounded, Zero};
 use sp_std::{prelude::*, vec};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, MAX_ITEMS_IN_MULTIASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
@@ -87,7 +87,6 @@ benchmarks_instance_pallet! {
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 
-		use crate::EnsureDelivery;
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
 			&dest_location,
@@ -142,16 +141,17 @@ benchmarks_instance_pallet! {
 
 	initiate_reserve_withdraw {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		let holding = T::worst_case_holding(1);
-		let assets_filter = MultiAssetFilter::Definite(holding.clone());
+		let assets_filter = MultiAssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_MULTIASSETS).collect::<Vec<_>>().into());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
-		use crate::EnsureDelivery;
+
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
 			&reserve,
-			FeeReason::InitiateReserveWithdraw
+			FeeReason::InitiateReserveWithdraw,
 		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
 		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(holding.into());
 		if let Some(expected_fees_mode) = expected_fees_mode {
