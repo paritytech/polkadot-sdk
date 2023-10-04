@@ -41,8 +41,6 @@ pub mod versioned {
 mod v1 {
 	use super::*;
 
-	/// This migration would restrict reward account of pools to go below ED by doing a named
-	/// freeze on all the existing pools.
 	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
