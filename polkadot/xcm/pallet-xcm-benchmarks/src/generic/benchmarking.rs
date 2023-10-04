@@ -15,16 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{new_executor, XcmCallOf, account_and_location, AssetTransactorOf, EnsureDelivery};
+use crate::{new_executor, XcmCallOf, account_and_location, EnsureDelivery};
 use codec::Encode;
 use frame_benchmarking::{benchmarks, BenchmarkError};
-use frame_support::dispatch::GetDispatchInfo;
+use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
 use sp_std::vec;
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
 	DoubleEncoded,
 };
-use xcm_executor::{ExecutorError, FeesMode, traits::{ConvertLocation, FeeReason, TransactAsset}};
+use xcm_executor::{ExecutorError, FeesMode, traits::{ConvertLocation, FeeReason}};
 
 benchmarks! {
 	report_holding {
@@ -35,7 +35,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
 			&destination,
-			FeeReason::ReportHolding,
+			FeeReason::Report,
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
@@ -205,7 +205,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
 			&destination,
-			FeeReason::ReportError,
+			FeeReason::Report,
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
@@ -403,6 +403,12 @@ benchmarks! {
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		let mut executor = new_executor::<T>(sender_location);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 
 		let instruction = Instruction::QueryPallet {
 			module_name: b"frame_system".to_vec(),
@@ -443,7 +449,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
 			&destination,
-			FeeReason::ReportTransactStatus,
+			FeeReason::Report,
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
@@ -551,13 +557,19 @@ benchmarks! {
 
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin,
-			&destination,
-			FeeReason::ExportMessage,
+			&destination.into(),
+			FeeReason::Export(network),
 		);
 		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
 		let mut executor = new_executor::<T>(origin);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		let xcm = Xcm(vec![ExportMessage {
 			network, destination, xcm: inner_xcm,
 		}]);
@@ -589,7 +601,7 @@ benchmarks! {
 			&unlocker,
 			FeeReason::LockAsset,
 		);
-		let sender_account = T::AccountIdConverter::convert_location(&owner);
+		let sender_account = T::AccountIdConverter::convert_location(&owner).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
 		let mut executor = new_executor::<T>(owner);
@@ -683,7 +695,7 @@ benchmarks! {
 			&locker,
 			FeeReason::RequestUnlock,
 		);
-		let sender_account = T::AccountIdConverter::convert_location(&owner);
+		let sender_account = T::AccountIdConverter::convert_location(&owner).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
 		// ... then request for an unlock with the RequestUnlock instruction.
