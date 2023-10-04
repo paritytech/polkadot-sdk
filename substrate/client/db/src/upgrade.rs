@@ -193,7 +193,7 @@ fn version_file_path(path: &Path) -> PathBuf {
 #[cfg(all(test, feature = "rocksdb"))]
 mod tests {
 	use super::*;
-	use crate::{tests::Block, DatabaseSource};
+	use crate::tests::Block;
 
 	fn create_db(db_path: &Path, version: Option<u32>) {
 		if let Some(version) = version {
