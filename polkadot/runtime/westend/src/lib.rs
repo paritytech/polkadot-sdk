@@ -1501,6 +1501,8 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
+		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
