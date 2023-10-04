@@ -25,7 +25,7 @@ use sp_core::Bytes;
 pub mod error;
 pub mod hash;
 
-/// Output of [`AuthorApi::rotate_keys_with_owner`].
+/// Output of [`AuthorApiServer::rotate_keys_with_owner`].
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct GeneratedSessionKeys {
 	/// The public session keys for registering them on chain.
