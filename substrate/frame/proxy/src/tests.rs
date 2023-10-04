@@ -25,7 +25,7 @@ use crate as proxy;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Contains},
 };
 use sp_core::H256;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
@@ -126,6 +126,12 @@ impl Config for Test {
 	type MaxPending = ConstU32<2>;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
