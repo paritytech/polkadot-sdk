@@ -206,8 +206,11 @@ fn open_database_at<Block: BlockT>(
 			// check if rocksdb exists first, if not, open paritydb
 			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
 				Ok(db) => (db, true),
-				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
-					(open_parity_db::<Block>(paritydb_path, db_type, create)?, false),
+				Err(
+					OpenDbError::NotEnabled(_) |
+					OpenDbError::DoesNotExist |
+					OpenDbError::RocksDbNotSupported,
+				) => (open_parity_db::<Block>(paritydb_path, db_type, create)?, false),
 				Err(as_is) => return Err(as_is),
 			}
 		},
