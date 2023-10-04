@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-prospective-parachains"
-version = "2.0.0-dev.1"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,15 +8,15 @@ description = "polkadot-node-core-prospective-parachains"
 
 [dependencies]
 futures = "0.3.19"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
 parity-scale-codec = "3.6.4"
 thiserror = "1.0.48"
 fatality = "0.0.6"
 bitvec = "1"
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
 
 [dev-dependencies]
 assert_matches = "1"

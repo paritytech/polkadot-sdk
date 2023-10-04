@@ -1,6 +1,6 @@
 [package]
 name = "sp-transaction-pool"
-version = "22.0.0-dev.1"
+version = "22.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,8 +14,8 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = "../api", default-features = false, version = "=22.0.0-dev.1" }
-sp-runtime = { path = "../runtime", default-features = false, version = "=27.0.0-dev.1" }
+sp-api = { path = "../api", default-features = false, version = "22.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "27.0.0" }
 
 [features]
 default = [ "std" ]

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-session-benchmarking"
-version = "5.0.0-dev.1"
+version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,12 +14,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 parity-scale-codec = { version = "3.6.4", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "=24.0.0-dev.1" }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "=24.0.0-dev.1" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "24.0.0" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "24.0.0" }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "24.0.0" }
 
 [features]
 default = [ "std" ]

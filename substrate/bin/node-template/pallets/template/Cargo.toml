@@ -17,10 +17,10 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../../../../frame/benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-frame-support = { path = "../../../../frame/support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../../../frame/system", default-features = false, version = "=24.0.0-dev.1" }
-sp-std = { path = "../../../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+frame-benchmarking = { path = "../../../../frame/benchmarking", default-features = false, optional = true, version = "24.0.0" }
+frame-support = { path = "../../../../frame/support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../../../frame/system", default-features = false, version = "24.0.0" }
+sp-std = { path = "../../../../primitives/std", default-features = false, version = "11.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../../../primitives/core" }

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-availability-distribution"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,16 +8,16 @@ description = "polkadot-availability-distribution"
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-polkadot-erasure-coding = { version = "=3.0.0-dev.1", path = "../../../erasure-coding" }
-polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../protocol" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"], version = "=24.0.0-dev.1" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+polkadot-erasure-coding = { version = "3.0.0", path = "../../../erasure-coding" }
+polkadot-node-network-protocol = { version = "3.0.0", path = "../protocol" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+sp-core = { path = "../../../../substrate/primitives/core", features = ["std"], version = "24.0.0" }
+sp-keystore = { version = "0.30.0", path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 rand = "0.8.5"
 derive_more = "0.99.17"

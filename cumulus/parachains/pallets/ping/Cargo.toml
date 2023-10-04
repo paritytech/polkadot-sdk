@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "cumulus-ping"
-version = "0.3.0-dev.1"
+version = "0.3.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 description = "cumulus-ping"
 
@@ -10,15 +10,15 @@ description = "cumulus-ping"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "=24.0.0-dev.1" }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "24.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "=3.0.0-dev.1" }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false, version = "3.0.0" }
 
-cumulus-primitives-core = { path = "../../../primitives/core", default-features = false, version = "=0.3.0-dev.1" }
-cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false, version = "=0.3.0-dev.1" }
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false, version = "0.3.0" }
+cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false, version = "0.3.0" }
 
 [features]
 default = [ "std" ]

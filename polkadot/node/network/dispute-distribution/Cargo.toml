@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-dispute-distribution"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,18 +9,18 @@ description = "polkadot-dispute-distribution"
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
 derive_more = "0.99.17"
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-polkadot-erasure-coding = { version = "=3.0.0-dev.1", path = "../../../erasure-coding" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../protocol" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-sc-network = { version = "=0.30.0-dev.1", path = "../../../../substrate/client/network" }
-sp-application-crypto = { version = "=26.0.0-dev.1", path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+polkadot-erasure-coding = { version = "3.0.0", path = "../../../erasure-coding" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-network-protocol = { version = "3.0.0", path = "../protocol" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+sc-network = { version = "0.30.0", path = "../../../../substrate/client/network" }
+sp-application-crypto = { version = "26.0.0", path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { version = "0.30.0", path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
 schnellru = "0.2.1"

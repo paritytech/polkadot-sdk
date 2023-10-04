@@ -7,7 +7,7 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "5.0.0-dev.1"
+version = "5.0.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -18,15 +18,15 @@ codec = { default-features = false, features = ["derive"], package = "parity-sca
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, version = "=22.0.0-dev.1" }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "=24.0.0-dev.1" }
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "=24.0.0-dev.1" }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "=24.0.0-dev.1" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, version = "22.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "24.0.0" }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "24.0.0" }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "24.0.0" }
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "24.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }

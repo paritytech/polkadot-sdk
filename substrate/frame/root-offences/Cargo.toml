@@ -1,6 +1,6 @@
 [package]
 name = "pallet-root-offences"
-version = "21.0.0-dev.1"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,13 +16,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
-pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "=24.0.0-dev.1" }
-pallet-staking = { path = "../staking", default-features = false, version = "=24.0.0-dev.1" }
+pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "24.0.0" }
+pallet-staking = { path = "../staking", default-features = false, version = "24.0.0" }
 
-frame-support = { path = "../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../system", default-features = false, version = "=24.0.0-dev.1" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../primitives/runtime" }
-sp-staking = { path = "../../primitives/staking", default-features = false, version = "=22.0.0-dev.1" }
+frame-support = { path = "../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../system", default-features = false, version = "24.0.0" }
+sp-runtime = { version = "27.0.0", path = "../../primitives/runtime" }
+sp-staking = { path = "../../primitives/staking", default-features = false, version = "22.0.0" }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-election-provider-multi-phase"
-version = "23.0.0-dev.1"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,20 +20,20 @@ scale-info = { version = "2.5.0", default-features = false, features = [
 ] }
 log = { version = "0.4.17", default-features = false }
 
-frame-support = { path = "../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../system", default-features = false, version = "=24.0.0-dev.1" }
+frame-support = { path = "../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../system", default-features = false, version = "24.0.0" }
 
-sp-io = { path = "../../primitives/io", default-features = false, version = "=26.0.0-dev.1" }
-sp-std = { path = "../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-core = { path = "../../primitives/core", default-features = false, version = "=24.0.0-dev.1" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false, version = "=22.0.0-dev.1" }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "=19.0.0-dev.1" }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "=24.0.0-dev.1" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "26.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "11.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "24.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "27.0.0" }
+sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false, version = "22.0.0" }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "19.0.0" }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "24.0.0" }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-pallet-election-provider-support-benchmarking = { path = "../election-provider-support/benchmarking", default-features = false, optional = true, version = "=23.0.0-dev.1" }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "24.0.0" }
+pallet-election-provider-support-benchmarking = { path = "../election-provider-support/benchmarking", default-features = false, optional = true, version = "23.0.0" }
 rand = { version = "0.8.5", default-features = false, features = ["alloc", "small_rng"], optional = true }
 strum = { version = "0.24.1",  default-features = false, features = ["derive"], optional = true }
 

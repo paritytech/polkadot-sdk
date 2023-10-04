@@ -13,19 +13,19 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-pallet-staking = { version = "=24.0.0-dev.1", path = "../../staking" }
-pallet-bags-list = { path = "..", features = ["fuzz"], version = "=23.0.0-dev.1" }
-frame-election-provider-support = { version = "=24.0.0-dev.1", path = "../../election-provider-support" }
-frame-system = { version = "=24.0.0-dev.1", path = "../../system" }
-frame-support = { version = "=24.0.0-dev.1", path = "../../support" }
-sp-storage = { version = "=16.0.0-dev.1", path = "../../../primitives/storage" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../primitives/core" }
-sp-tracing = { version = "=13.0.0-dev.1", path = "../../../primitives/tracing" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../primitives/runtime" }
-sp-std = { version = "=11.0.0-dev.1", path = "../../../primitives/std" }
+pallet-staking = { version = "24.0.0", path = "../../staking" }
+pallet-bags-list = { path = "..", features = ["fuzz"], version = "23.0.0" }
+frame-election-provider-support = { version = "24.0.0", path = "../../election-provider-support" }
+frame-system = { version = "24.0.0", path = "../../system" }
+frame-support = { version = "24.0.0", path = "../../support" }
+sp-storage = { version = "16.0.0", path = "../../../primitives/storage" }
+sp-core = { version = "24.0.0", path = "../../../primitives/core" }
+sp-tracing = { version = "13.0.0", path = "../../../primitives/tracing" }
+sp-runtime = { version = "27.0.0", path = "../../../primitives/runtime" }
+sp-std = { version = "11.0.0", path = "../../../primitives/std" }
 
 # utils
-remote-externalities = { package = "frame-remote-externalities", path = "../../../utils/frame/remote-externalities", version = "=0.31.0-dev.1" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../../utils/frame/remote-externalities", version = "0.31.0" }
 
 # others
 log = "0.4.17"

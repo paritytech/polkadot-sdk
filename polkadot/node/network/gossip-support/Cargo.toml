@@ -1,27 +1,27 @@
 [package]
 name = "polkadot-gossip-support"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "polkadot-gossip-support"
 
 [dependencies]
-sp-application-crypto = { version = "=26.0.0-dev.1", path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../../substrate/primitives/keystore" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../../substrate/primitives/core" }
-sc-network = { version = "=0.30.0-dev.1", path = "../../../../substrate/client/network" }
-sc-network-common = { version = "=0.29.0-dev.1", path = "../../../../substrate/client/network/common" }
-polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../protocol" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
+sp-application-crypto = { version = "26.0.0", path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { version = "0.30.0", path = "../../../../substrate/primitives/keystore" }
+sp-core = { version = "24.0.0", path = "../../../../substrate/primitives/core" }
+sc-network = { version = "0.30.0", path = "../../../../substrate/client/network" }
+sc-network-common = { version = "0.29.0", path = "../../../../substrate/client/network/common" }
+polkadot-node-network-protocol = { version = "3.0.0", path = "../protocol" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
 
 futures = "0.3.21"
 futures-timer = "3.0.2"
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
 
 [dev-dependencies]
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }

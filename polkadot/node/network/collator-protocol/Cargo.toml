@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,15 +10,15 @@ description = "polkadot-collator-protocol"
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 futures = "0.3.21"
 futures-timer = "3"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../../substrate/primitives/core" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../../substrate/primitives/runtime" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../protocol" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
+sp-core = { version = "24.0.0", path = "../../../../substrate/primitives/core" }
+sp-runtime = { version = "27.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-keystore = { version = "0.30.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+polkadot-node-network-protocol = { version = "3.0.0", path = "../protocol" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
 fatality = "0.0.6"
 thiserror = "1.0.48"
 tokio-util = "0.7.1"

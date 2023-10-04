@@ -1,7 +1,7 @@
 [package]
 description = "Substrate sync network protocol"
 name = "sc-network-sync"
-version = "0.29.0-dev.1"
+version = "0.29.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -29,19 +29,19 @@ prost = "0.11"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
 thiserror = "1.0"
-fork-tree = { version = "=10.0.0-dev.1", path = "../../../utils/fork-tree" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "=0.15.0-dev.1" }
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../api" }
-sc-consensus = { version = "=0.29.0-dev.1", path = "../../consensus/common" }
-sc-network = { version = "=0.30.0-dev.1", path = ".." }
-sc-network-common = { version = "=0.29.0-dev.1", path = "../common" }
-sc-utils = { version = "=10.0.0-dev.1", path = "../../utils" }
-sp-arithmetic = { version = "=19.0.0-dev.1", path = "../../../primitives/arithmetic" }
-sp-blockchain = { version = "=24.0.0-dev.1", path = "../../../primitives/blockchain" }
-sp-consensus = { version = "=0.28.0-dev.1", path = "../../../primitives/consensus/common" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../primitives/core" }
-sp-consensus-grandpa = { version = "=9.0.0-dev.1", path = "../../../primitives/consensus/grandpa" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../primitives/runtime" }
+fork-tree = { version = "10.0.0", path = "../../../utils/fork-tree" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.15.0" }
+sc-client-api = { version = "24.0.0", path = "../../api" }
+sc-consensus = { version = "0.29.0", path = "../../consensus/common" }
+sc-network = { version = "0.30.0", path = ".." }
+sc-network-common = { version = "0.29.0", path = "../common" }
+sc-utils = { version = "10.0.0", path = "../../utils" }
+sp-arithmetic = { version = "19.0.0", path = "../../../primitives/arithmetic" }
+sp-blockchain = { version = "24.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.28.0", path = "../../../primitives/consensus/common" }
+sp-core = { version = "24.0.0", path = "../../../primitives/core" }
+sp-consensus-grandpa = { version = "9.0.0", path = "../../../primitives/consensus/grandpa" }
+sp-runtime = { version = "27.0.0", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["macros"] }

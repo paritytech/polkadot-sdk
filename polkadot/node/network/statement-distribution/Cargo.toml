@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-statement-distribution"
 description = "Statement Distribution Subsystem"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,15 +9,15 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false, version = "=22.0.0-dev.1" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../../substrate/primitives/keystore" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-node-subsystem-types = { version = "=3.0.0-dev.1", path = "../../subsystem-types" }
-polkadot-node-network-protocol = { version = "=3.0.0-dev.1", path = "../protocol" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+sp-staking = { path = "../../../../substrate/primitives/staking", default-features = false, version = "22.0.0" }
+sp-keystore = { version = "0.30.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-node-subsystem-types = { version = "3.0.0", path = "../../subsystem-types" }
+polkadot-node-network-protocol = { version = "3.0.0", path = "../protocol" }
 arrayvec = "0.7.4"
 indexmap = "1.9.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-parachain-inherent"
-version = "0.3.0-dev.1"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -13,20 +13,20 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 tracing = { version = "0.1.37", optional = true }
 
 # Substrate
-sc-client-api = { path = "../../../substrate/client/api", optional = true, version = "=24.0.0-dev.1" }
-sp-api = { path = "../../../substrate/primitives/api", optional = true, version = "=22.0.0-dev.1" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "=24.0.0-dev.1" }
-sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false, version = "=22.0.0-dev.1" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", optional = true, version = "=27.0.0-dev.1" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine", optional = true, version = "=0.31.0-dev.1" }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-storage = { path = "../../../substrate/primitives/storage", optional = true, version = "=16.0.0-dev.1" }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "=25.0.0-dev.1" }
+sc-client-api = { path = "../../../substrate/client/api", optional = true, version = "24.0.0" }
+sp-api = { path = "../../../substrate/primitives/api", optional = true, version = "22.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "24.0.0" }
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false, version = "22.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", optional = true, version = "27.0.0" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine", optional = true, version = "0.31.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
+sp-storage = { path = "../../../substrate/primitives/storage", optional = true, version = "16.0.0" }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "25.0.0" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../core", default-features = false, version = "=0.3.0-dev.1" }
-cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true, version = "=0.3.0-dev.1" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true, version = "=0.3.0-dev.1" }
+cumulus-primitives-core = { path = "../core", default-features = false, version = "0.3.0" }
+cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface", optional = true, version = "0.3.0" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder", optional = true, version = "0.3.0" }
 
 [features]
 default = [ "std" ]

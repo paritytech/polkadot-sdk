@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-constants"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,12 +9,12 @@ description = "polkadot-runtime-constants"
 [dependencies]
 smallvec = "1.8.0"
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "=24.0.0-dev.1" }
-primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false, version = "=3.0.0-dev.1" }
-runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false, version = "=3.0.0-dev.1" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false, version = "=23.0.0-dev.1" }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "=24.0.0-dev.1" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "24.0.0" }
+primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false, version = "3.0.0" }
+runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false, version = "3.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false, version = "23.0.0" }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false, version = "24.0.0" }
 
 [features]
 default = [ "std" ]

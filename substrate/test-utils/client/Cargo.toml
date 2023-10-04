@@ -19,16 +19,16 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 serde = "1.0.188"
 serde_json = "1.0.107"
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../client/api" }
-sc-client-db = { path = "../../client/db", default-features = false, features = ["test-helpers"], version = "=0.31.0-dev.1" }
-sc-consensus = { version = "=0.29.0-dev.1", path = "../../client/consensus/common" }
-sc-executor = { version = "=0.28.0-dev.1", path = "../../client/executor" }
-sc-offchain = { version = "=25.0.0-dev.1", path = "../../client/offchain" }
-sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], version = "=0.31.0-dev.1" }
-sp-blockchain = { version = "=24.0.0-dev.1", path = "../../primitives/blockchain" }
-sp-consensus = { version = "=0.28.0-dev.1", path = "../../primitives/consensus/common" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../primitives/core" }
-sp-keyring = { version = "=27.0.0-dev.1", path = "../../primitives/keyring" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../primitives/keystore" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../primitives/runtime" }
-sp-state-machine = { version = "=0.31.0-dev.1", path = "../../primitives/state-machine" }
+sc-client-api = { version = "24.0.0", path = "../../client/api" }
+sc-client-db = { path = "../../client/db", default-features = false, features = ["test-helpers"], version = "0.31.0" }
+sc-consensus = { version = "0.29.0", path = "../../client/consensus/common" }
+sc-executor = { version = "0.28.0", path = "../../client/executor" }
+sc-offchain = { version = "25.0.0", path = "../../client/offchain" }
+sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], version = "0.31.0" }
+sp-blockchain = { version = "24.0.0", path = "../../primitives/blockchain" }
+sp-consensus = { version = "0.28.0", path = "../../primitives/consensus/common" }
+sp-core = { version = "24.0.0", path = "../../primitives/core" }
+sp-keyring = { version = "27.0.0", path = "../../primitives/keyring" }
+sp-keystore = { version = "0.30.0", path = "../../primitives/keystore" }
+sp-runtime = { version = "27.0.0", path = "../../primitives/runtime" }
+sp-state-machine = { version = "0.31.0", path = "../../primitives/state-machine" }

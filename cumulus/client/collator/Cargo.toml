@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-collator"
-version = "0.3.0-dev.1"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -11,18 +11,18 @@ parking_lot = "0.12.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
 futures = "0.3.21"
 tracing = "0.1.25"
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../../substrate/client/api" }
-sp-consensus = { version = "=0.28.0-dev.1", path = "../../../substrate/primitives/consensus/common" }
-sp-api = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/api" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../substrate/primitives/core" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../substrate/primitives/runtime" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/primitives" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/subsystem" }
-polkadot-overseer = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/overseer" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../polkadot/primitives" }
-cumulus-client-consensus-common = { version = "=0.3.0-dev.1", path = "../consensus/common" }
-cumulus-client-network = { version = "=0.3.0-dev.1", path = "../network" }
-cumulus-primitives-core = { version = "=0.3.0-dev.1", path = "../../primitives/core" }
+sc-client-api = { version = "24.0.0", path = "../../../substrate/client/api" }
+sp-consensus = { version = "0.28.0", path = "../../../substrate/primitives/consensus/common" }
+sp-api = { version = "22.0.0", path = "../../../substrate/primitives/api" }
+sp-core = { version = "24.0.0", path = "../../../substrate/primitives/core" }
+sp-runtime = { version = "27.0.0", path = "../../../substrate/primitives/runtime" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../../polkadot/node/primitives" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../../polkadot/node/subsystem" }
+polkadot-overseer = { version = "3.0.0", path = "../../../polkadot/node/overseer" }
+polkadot-primitives = { version = "3.0.0", path = "../../../polkadot/primitives" }
+cumulus-client-consensus-common = { version = "0.3.0", path = "../consensus/common" }
+cumulus-client-network = { version = "0.3.0", path = "../network" }
+cumulus-primitives-core = { version = "0.3.0", path = "../../primitives/core" }
 
 [dev-dependencies]
 async-trait = "0.1.73"

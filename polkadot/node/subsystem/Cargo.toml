@@ -1,12 +1,12 @@
 [package]
 name = "polkadot-node-subsystem"
 description = "Subsystem traits and message definitions and the generated overseer"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-polkadot-overseer = { version = "=3.0.0-dev.1", path = "../overseer" }
-polkadot-node-subsystem-types = { version = "=3.0.0-dev.1", path = "../subsystem-types" }
-polkadot-node-jaeger = { version = "=3.0.0-dev.1", path = "../jaeger" }
+polkadot-overseer = { version = "3.0.0", path = "../overseer" }
+polkadot-node-subsystem-types = { version = "3.0.0", path = "../subsystem-types" }
+polkadot-node-jaeger = { version = "3.0.0", path = "../jaeger" }

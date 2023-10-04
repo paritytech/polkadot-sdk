@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-av-store"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,18 +11,18 @@ futures = "0.3.21"
 futures-timer = "3.0.2"
 kvdb = "0.13.0"
 thiserror = "1.0.48"
-gum = { package = "tracing-gum", path = "../../gum", version = "=3.0.0-dev.1" }
+gum = { package = "tracing-gum", path = "../../gum", version = "3.0.0" }
 bitvec = "1.0.0"
 
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
-erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding", version = "=3.0.0-dev.1" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../subsystem" }
-polkadot-node-subsystem-util = { version = "=3.0.0-dev.1", path = "../../subsystem-util" }
-polkadot-overseer = { version = "=3.0.0-dev.1", path = "../../overseer" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../primitives" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../primitives" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false, version = "=0.28.0-dev.1" }
-polkadot-node-jaeger = { version = "=3.0.0-dev.1", path = "../../jaeger" }
+erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding", version = "3.0.0" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "3.0.0", path = "../../subsystem-util" }
+polkadot-overseer = { version = "3.0.0", path = "../../overseer" }
+polkadot-primitives = { version = "3.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../primitives" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false, version = "0.28.0" }
+polkadot-node-jaeger = { version = "3.0.0", path = "../../jaeger" }
 
 [dev-dependencies]
 log = "0.4.17"

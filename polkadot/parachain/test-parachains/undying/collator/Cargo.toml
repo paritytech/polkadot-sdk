@@ -17,15 +17,15 @@ clap = { version = "4.4.4", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 log = "0.4.17"
-test-parachain-undying = { version = "=0.1.0", path = ".." }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../../primitives" }
-polkadot-cli = { version = "=3.0.0-dev.1", path = "../../../../cli" }
-polkadot-service = { path = "../../../../node/service", features = ["rococo-native"], version = "=3.0.0-dev.1" }
-polkadot-node-primitives = { version = "=3.0.0-dev.1", path = "../../../../node/primitives" }
-polkadot-node-subsystem = { version = "=3.0.0-dev.1", path = "../../../../node/subsystem" }
-sc-cli = { version = "=0.32.0-dev.1", path = "../../../../../substrate/client/cli" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../../../substrate/primitives/core" }
-sc-service = { version = "=0.31.0-dev.1", path = "../../../../../substrate/client/service" }
+test-parachain-undying = { version = "0.1.0", path = ".." }
+polkadot-primitives = { version = "3.0.0", path = "../../../../primitives" }
+polkadot-cli = { version = "3.0.0", path = "../../../../cli" }
+polkadot-service = { path = "../../../../node/service", features = ["rococo-native"], version = "3.0.0" }
+polkadot-node-primitives = { version = "3.0.0", path = "../../../../node/primitives" }
+polkadot-node-subsystem = { version = "3.0.0", path = "../../../../node/subsystem" }
+sc-cli = { version = "0.32.0", path = "../../../../../substrate/client/cli" }
+sp-core = { version = "24.0.0", path = "../../../../../substrate/primitives/core" }
+sc-service = { version = "0.31.0", path = "../../../../../substrate/client/service" }
 
 [dev-dependencies]
 polkadot-parachain-primitives = { path = "../../.." }

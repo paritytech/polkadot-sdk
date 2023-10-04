@@ -1,7 +1,7 @@
 [package]
 name = "bp-parachains"
 description = "Primitives of parachains module."
-version = "0.3.0-dev.1"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -13,16 +13,16 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 
 # Bridge dependencies
 
-bp-header-chain = { path = "../header-chain", default-features = false, version = "=0.3.0-dev.1" }
-bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "=0.3.0-dev.1" }
-bp-runtime = { path = "../runtime", default-features = false, version = "=0.3.0-dev.1" }
+bp-header-chain = { path = "../header-chain", default-features = false, version = "0.3.0" }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.3.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.3.0" }
 
 # Substrate dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "=24.0.0-dev.1" }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "=24.0.0-dev.1" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "24.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "24.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
 
 [features]
 default = [ "std" ]

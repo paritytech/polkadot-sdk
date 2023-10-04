@@ -1,6 +1,6 @@
 [package]
 name = "pallet-tx-pause"
-version = "5.0.0-dev.1"
+version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -13,15 +13,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-frame-support = { path = "../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../system", default-features = false, version = "=24.0.0-dev.1" }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "24.0.0" }
+frame-support = { path = "../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../system", default-features = false, version = "24.0.0" }
 scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-std = { path = "../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-pallet-balances = { path = "../balances", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-pallet-utility = { path = "../utility", default-features = false, optional = true, version = "=24.0.0-dev.1" }
-pallet-proxy = { path = "../proxy", default-features = false, optional = true, version = "=24.0.0-dev.1" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "27.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "11.0.0" }
+pallet-balances = { path = "../balances", default-features = false, optional = true, version = "24.0.0" }
+pallet-utility = { path = "../utility", default-features = false, optional = true, version = "24.0.0" }
+pallet-proxy = { path = "../proxy", default-features = false, optional = true, version = "24.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }

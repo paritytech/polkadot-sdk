@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts-primitives"
-version = "27.0.0-dev.1"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 
 # Substrate Dependencies (This crate should not rely on frame)
-sp-std = { path = "../../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-weights = { path = "../../../primitives/weights", default-features = false, version = "=23.0.0-dev.1" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "11.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "27.0.0" }
+sp-weights = { path = "../../../primitives/weights", default-features = false, version = "23.0.0" }
 
 [features]
 default = [ "std" ]

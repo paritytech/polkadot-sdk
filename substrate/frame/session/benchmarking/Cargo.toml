@@ -1,6 +1,6 @@
 [package]
 name = "pallet-session-benchmarking"
-version = "24.0.0-dev.1"
+version = "24.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,14 +15,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 rand = { version = "0.8.5", default-features = false, features = ["std_rng"] }
-frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "=24.0.0-dev.1" }
-frame-support = { path = "../../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../system", default-features = false, version = "=24.0.0-dev.1" }
-pallet-session = { path = "..", default-features = false, version = "=24.0.0-dev.1" }
-pallet-staking = { path = "../../staking", default-features = false, version = "=24.0.0-dev.1" }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-session = { path = "../../../primitives/session", default-features = false, version = "=23.0.0-dev.1" }
-sp-std = { path = "../../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "24.0.0" }
+frame-support = { path = "../../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "24.0.0" }
+pallet-session = { path = "..", default-features = false, version = "24.0.0" }
+pallet-staking = { path = "../../staking", default-features = false, version = "24.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "27.0.0" }
+sp-session = { path = "../../../primitives/session", default-features = false, version = "23.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "11.0.0" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }

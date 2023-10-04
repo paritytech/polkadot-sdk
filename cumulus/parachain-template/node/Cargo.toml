@@ -17,55 +17,55 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"
-parachain-template-runtime = { version = "=0.3.0-dev.1", path = "../runtime" }
-frame-benchmarking = { version = "=24.0.0-dev.1", path = "../../../substrate/frame/benchmarking" }
-frame-benchmarking-cli = { version = "=28.0.0-dev.1", path = "../../../substrate/utils/frame/benchmarking-cli" }
-pallet-transaction-payment-rpc = { version = "=26.0.0-dev.1", path = "../../../substrate/frame/transaction-payment/rpc" }
-sc-basic-authorship = { version = "=0.30.0-dev.1", path = "../../../substrate/client/basic-authorship" }
-sc-chain-spec = { version = "=23.0.0-dev.1", path = "../../../substrate/client/chain-spec" }
-sc-cli = { version = "=0.32.0-dev.1", path = "../../../substrate/client/cli" }
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../../substrate/client/api" }
-sc-offchain = { version = "=25.0.0-dev.1", path = "../../../substrate/client/offchain" }
-sc-consensus = { version = "=0.29.0-dev.1", path = "../../../substrate/client/consensus/common" }
-sc-executor = { version = "=0.28.0-dev.1", path = "../../../substrate/client/executor" }
-sc-network = { version = "=0.30.0-dev.1", path = "../../../substrate/client/network" }
-sc-network-sync = { version = "=0.29.0-dev.1", path = "../../../substrate/client/network/sync" }
-sc-rpc = { version = "=25.0.0-dev.1", path = "../../../substrate/client/rpc" }
-sc-service = { version = "=0.31.0-dev.1", path = "../../../substrate/client/service" }
-sc-sysinfo = { version = "=23.0.0-dev.1", path = "../../../substrate/client/sysinfo" }
-sc-telemetry = { version = "=11.0.0-dev.1", path = "../../../substrate/client/telemetry" }
-sc-tracing = { version = "=24.0.0-dev.1", path = "../../../substrate/client/tracing" }
-sc-transaction-pool = { version = "=24.0.0-dev.1", path = "../../../substrate/client/transaction-pool" }
-sc-transaction-pool-api = { version = "=24.0.0-dev.1", path = "../../../substrate/client/transaction-pool/api" }
-sp-api = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/api" }
-sp-block-builder = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/block-builder" }
-sp-blockchain = { version = "=24.0.0-dev.1", path = "../../../substrate/primitives/blockchain" }
-sp-consensus-aura = { version = "=0.28.0-dev.1", path = "../../../substrate/primitives/consensus/aura" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../substrate/primitives/core" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../../substrate/primitives/keystore" }
-sp-io = { version = "=26.0.0-dev.1", path = "../../../substrate/primitives/io" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../substrate/primitives/runtime" }
-sp-timestamp = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/timestamp" }
-substrate-frame-rpc-system = { version = "=24.0.0-dev.1", path = "../../../substrate/utils/frame/rpc/system" }
-substrate-prometheus-endpoint = { version = "=0.15.0-dev.1", path = "../../../substrate/utils/prometheus" }
+parachain-template-runtime = { version = "0.3.0", path = "../runtime" }
+frame-benchmarking = { version = "24.0.0", path = "../../../substrate/frame/benchmarking" }
+frame-benchmarking-cli = { version = "28.0.0", path = "../../../substrate/utils/frame/benchmarking-cli" }
+pallet-transaction-payment-rpc = { version = "26.0.0", path = "../../../substrate/frame/transaction-payment/rpc" }
+sc-basic-authorship = { version = "0.30.0", path = "../../../substrate/client/basic-authorship" }
+sc-chain-spec = { version = "23.0.0", path = "../../../substrate/client/chain-spec" }
+sc-cli = { version = "0.32.0", path = "../../../substrate/client/cli" }
+sc-client-api = { version = "24.0.0", path = "../../../substrate/client/api" }
+sc-offchain = { version = "25.0.0", path = "../../../substrate/client/offchain" }
+sc-consensus = { version = "0.29.0", path = "../../../substrate/client/consensus/common" }
+sc-executor = { version = "0.28.0", path = "../../../substrate/client/executor" }
+sc-network = { version = "0.30.0", path = "../../../substrate/client/network" }
+sc-network-sync = { version = "0.29.0", path = "../../../substrate/client/network/sync" }
+sc-rpc = { version = "25.0.0", path = "../../../substrate/client/rpc" }
+sc-service = { version = "0.31.0", path = "../../../substrate/client/service" }
+sc-sysinfo = { version = "23.0.0", path = "../../../substrate/client/sysinfo" }
+sc-telemetry = { version = "11.0.0", path = "../../../substrate/client/telemetry" }
+sc-tracing = { version = "24.0.0", path = "../../../substrate/client/tracing" }
+sc-transaction-pool = { version = "24.0.0", path = "../../../substrate/client/transaction-pool" }
+sc-transaction-pool-api = { version = "24.0.0", path = "../../../substrate/client/transaction-pool/api" }
+sp-api = { version = "22.0.0", path = "../../../substrate/primitives/api" }
+sp-block-builder = { version = "22.0.0", path = "../../../substrate/primitives/block-builder" }
+sp-blockchain = { version = "24.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-consensus-aura = { version = "0.28.0", path = "../../../substrate/primitives/consensus/aura" }
+sp-core = { version = "24.0.0", path = "../../../substrate/primitives/core" }
+sp-keystore = { version = "0.30.0", path = "../../../substrate/primitives/keystore" }
+sp-io = { version = "26.0.0", path = "../../../substrate/primitives/io" }
+sp-runtime = { version = "27.0.0", path = "../../../substrate/primitives/runtime" }
+sp-timestamp = { version = "22.0.0", path = "../../../substrate/primitives/timestamp" }
+substrate-frame-rpc-system = { version = "24.0.0", path = "../../../substrate/utils/frame/rpc/system" }
+substrate-prometheus-endpoint = { version = "0.15.0", path = "../../../substrate/utils/prometheus" }
 
 # Polkadot
-polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"], version = "=3.0.0-dev.1" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "=3.0.0-dev.1" }
-cumulus-client-cli = { version = "=0.3.0-dev.1", path = "../../client/cli" }
-cumulus-client-collator = { version = "=0.3.0-dev.1", path = "../../client/collator" }
-cumulus-client-consensus-aura = { version = "=0.3.0-dev.1", path = "../../client/consensus/aura" }
-cumulus-client-consensus-common = { version = "=0.3.0-dev.1", path = "../../client/consensus/common" }
-cumulus-client-consensus-proposer = { version = "=0.3.0-dev.1", path = "../../client/consensus/proposer" }
-cumulus-client-service = { version = "=0.3.0-dev.1", path = "../../client/service" }
-cumulus-primitives-core = { version = "=0.3.0-dev.1", path = "../../primitives/core" }
-cumulus-primitives-parachain-inherent = { version = "=0.3.0-dev.1", path = "../../primitives/parachain-inherent" }
-cumulus-relay-chain-interface = { version = "=0.3.0-dev.1", path = "../../client/relay-chain-interface" }
+polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"], version = "3.0.0" }
+polkadot-primitives = { version = "3.0.0", path = "../../../polkadot/primitives" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "3.0.0" }
+cumulus-client-cli = { version = "0.3.0", path = "../../client/cli" }
+cumulus-client-collator = { version = "0.3.0", path = "../../client/collator" }
+cumulus-client-consensus-aura = { version = "0.3.0", path = "../../client/consensus/aura" }
+cumulus-client-consensus-common = { version = "0.3.0", path = "../../client/consensus/common" }
+cumulus-client-consensus-proposer = { version = "0.3.0", path = "../../client/consensus/proposer" }
+cumulus-client-service = { version = "0.3.0", path = "../../client/service" }
+cumulus-primitives-core = { version = "0.3.0", path = "../../primitives/core" }
+cumulus-primitives-parachain-inherent = { version = "0.3.0", path = "../../primitives/parachain-inherent" }
+cumulus-relay-chain-interface = { version = "0.3.0", path = "../../client/relay-chain-interface" }
 color-print = "0.3.4"
 
 [build-dependencies]
-substrate-build-script-utils = { version = "=8.0.0-dev.1", path = "../../../substrate/utils/build-script-utils" }
+substrate-build-script-utils = { version = "8.0.0", path = "../../../substrate/utils/build-script-utils" }
 
 [features]
 default = []

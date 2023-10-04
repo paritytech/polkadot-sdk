@@ -15,11 +15,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 tracing = "0.1.29"
 tracing-core = "0.1.28"
-sc-executor = { version = "=0.28.0-dev.1", path = "../../../client/executor" }
-sc-executor-common = { version = "=0.25.0-dev.1", path = "../../../client/executor/common" }
-sp-io = { version = "=26.0.0-dev.1", path = "../../io" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../runtime" }
-sp-runtime-interface = { version = "=20.0.0-dev.1", path = ".." }
-sp-runtime-interface-test-wasm = { version = "=0.1.0", path = "../test-wasm" }
-sp-runtime-interface-test-wasm-deprecated = { version = "=0.1.0", path = "../test-wasm-deprecated" }
-sp-state-machine = { version = "=0.31.0-dev.1", path = "../../state-machine" }
+sc-executor = { version = "0.28.0", path = "../../../client/executor" }
+sc-executor-common = { version = "0.25.0", path = "../../../client/executor/common" }
+sp-io = { version = "26.0.0", path = "../../io" }
+sp-runtime = { version = "27.0.0", path = "../../runtime" }
+sp-runtime-interface = { version = "20.0.0", path = ".." }
+sp-runtime-interface-test-wasm = { version = "0.1.0", path = "../test-wasm" }
+sp-runtime-interface-test-wasm-deprecated = { version = "0.1.0", path = "../test-wasm-deprecated" }
+sp-state-machine = { version = "0.31.0", path = "../../state-machine" }

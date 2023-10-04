@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "2.0.0-dev.1"
+version = "2.0.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -20,75 +20,75 @@ hex-literal = "0.4.1"
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-rococo-parachain-runtime = { version = "=0.2.0-dev.1", path = "../parachains/runtimes/testing/rococo-parachain" }
-shell-runtime = { version = "=0.3.0-dev.1", path = "../parachains/runtimes/starters/shell" }
-glutton-runtime = { version = "=3.0.0-dev.1", path = "../parachains/runtimes/glutton/glutton-kusama" }
-seedling-runtime = { version = "=0.3.0-dev.1", path = "../parachains/runtimes/starters/seedling" }
-asset-hub-polkadot-runtime = { version = "=0.11.0-dev.1", path = "../parachains/runtimes/assets/asset-hub-polkadot" }
-asset-hub-kusama-runtime = { version = "=0.11.0-dev.1", path = "../parachains/runtimes/assets/asset-hub-kusama" }
-asset-hub-westend-runtime = { version = "=0.11.0-dev.1", path = "../parachains/runtimes/assets/asset-hub-westend" }
-collectives-polkadot-runtime = { version = "=3.0.0-dev.1", path = "../parachains/runtimes/collectives/collectives-polkadot" }
-contracts-rococo-runtime = { version = "=0.4.0-dev.1", path = "../parachains/runtimes/contracts/contracts-rococo" }
-bridge-hub-rococo-runtime = { version = "=0.2.0-dev.1", path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
-bridge-hub-kusama-runtime = { version = "=0.3.0-dev.1", path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
-bridge-hub-polkadot-runtime = { version = "=0.3.0-dev.1", path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
-penpal-runtime = { version = "=0.10.0-dev.1", path = "../parachains/runtimes/testing/penpal" }
+rococo-parachain-runtime = { version = "0.2.0", path = "../parachains/runtimes/testing/rococo-parachain" }
+shell-runtime = { version = "0.3.0", path = "../parachains/runtimes/starters/shell" }
+glutton-runtime = { version = "3.0.0", path = "../parachains/runtimes/glutton/glutton-kusama" }
+seedling-runtime = { version = "0.3.0", path = "../parachains/runtimes/starters/seedling" }
+asset-hub-polkadot-runtime = { version = "0.11.0", path = "../parachains/runtimes/assets/asset-hub-polkadot" }
+asset-hub-kusama-runtime = { version = "0.11.0", path = "../parachains/runtimes/assets/asset-hub-kusama" }
+asset-hub-westend-runtime = { version = "0.11.0", path = "../parachains/runtimes/assets/asset-hub-westend" }
+collectives-polkadot-runtime = { version = "3.0.0", path = "../parachains/runtimes/collectives/collectives-polkadot" }
+contracts-rococo-runtime = { version = "0.4.0", path = "../parachains/runtimes/contracts/contracts-rococo" }
+bridge-hub-rococo-runtime = { version = "0.2.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
+bridge-hub-kusama-runtime = { version = "0.3.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
+bridge-hub-polkadot-runtime = { version = "0.3.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
+penpal-runtime = { version = "0.10.0", path = "../parachains/runtimes/testing/penpal" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
-parachains-common = { version = "=3.0.0-dev.1", path = "../parachains/common" }
-frame-benchmarking = { version = "=24.0.0-dev.1", path = "../../substrate/frame/benchmarking" }
-frame-benchmarking-cli = { version = "=28.0.0-dev.1", path = "../../substrate/utils/frame/benchmarking-cli" }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-io = { version = "=26.0.0-dev.1", path = "../../substrate/primitives/io" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../substrate/primitives/core" }
-sp-session = { version = "=23.0.0-dev.1", path = "../../substrate/primitives/session" }
-sc-consensus = { version = "=0.29.0-dev.1", path = "../../substrate/client/consensus/common" }
-sc-cli = { version = "=0.32.0-dev.1", path = "../../substrate/client/cli" }
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../substrate/client/api" }
-sc-executor = { version = "=0.28.0-dev.1", path = "../../substrate/client/executor" }
-sc-service = { version = "=0.31.0-dev.1", path = "../../substrate/client/service" }
-sc-telemetry = { version = "=11.0.0-dev.1", path = "../../substrate/client/telemetry" }
-sc-transaction-pool = { version = "=24.0.0-dev.1", path = "../../substrate/client/transaction-pool" }
-sp-transaction-pool = { version = "=22.0.0-dev.1", path = "../../substrate/primitives/transaction-pool" }
-sc-network = { version = "=0.30.0-dev.1", path = "../../substrate/client/network" }
-sc-network-sync = { version = "=0.29.0-dev.1", path = "../../substrate/client/network/sync" }
-sc-basic-authorship = { version = "=0.30.0-dev.1", path = "../../substrate/client/basic-authorship" }
-sp-timestamp = { version = "=22.0.0-dev.1", path = "../../substrate/primitives/timestamp" }
-sp-blockchain = { version = "=24.0.0-dev.1", path = "../../substrate/primitives/blockchain" }
-sp-block-builder = { version = "=22.0.0-dev.1", path = "../../substrate/primitives/block-builder" }
-sp-keystore = { version = "=0.30.0-dev.1", path = "../../substrate/primitives/keystore" }
-sc-chain-spec = { version = "=23.0.0-dev.1", path = "../../substrate/client/chain-spec" }
-sc-rpc = { version = "=25.0.0-dev.1", path = "../../substrate/client/rpc" }
-sc-tracing = { version = "=24.0.0-dev.1", path = "../../substrate/client/tracing" }
-sp-offchain = { version = "=22.0.0-dev.1", path = "../../substrate/primitives/offchain" }
-sp-api = { version = "=22.0.0-dev.1", path = "../../substrate/primitives/api" }
-sp-consensus-aura = { version = "=0.28.0-dev.1", path = "../../substrate/primitives/consensus/aura" }
-sc-sysinfo = { version = "=23.0.0-dev.1", path = "../../substrate/client/sysinfo" }
-substrate-prometheus-endpoint = { version = "=0.15.0-dev.1", path = "../../substrate/utils/prometheus" }
-sc-transaction-pool-api = { version = "=24.0.0-dev.1", path = "../../substrate/client/transaction-pool/api" }
-frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system", version = "=24.0.0-dev.1" }
-pallet-transaction-payment-rpc = { version = "=26.0.0-dev.1", path = "../../substrate/frame/transaction-payment/rpc" }
-substrate-state-trie-migration-rpc = { version = "=23.0.0-dev.1", path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }
+parachains-common = { version = "3.0.0", path = "../parachains/common" }
+frame-benchmarking = { version = "24.0.0", path = "../../substrate/frame/benchmarking" }
+frame-benchmarking-cli = { version = "28.0.0", path = "../../substrate/utils/frame/benchmarking-cli" }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+sp-io = { version = "26.0.0", path = "../../substrate/primitives/io" }
+sp-core = { version = "24.0.0", path = "../../substrate/primitives/core" }
+sp-session = { version = "23.0.0", path = "../../substrate/primitives/session" }
+sc-consensus = { version = "0.29.0", path = "../../substrate/client/consensus/common" }
+sc-cli = { version = "0.32.0", path = "../../substrate/client/cli" }
+sc-client-api = { version = "24.0.0", path = "../../substrate/client/api" }
+sc-executor = { version = "0.28.0", path = "../../substrate/client/executor" }
+sc-service = { version = "0.31.0", path = "../../substrate/client/service" }
+sc-telemetry = { version = "11.0.0", path = "../../substrate/client/telemetry" }
+sc-transaction-pool = { version = "24.0.0", path = "../../substrate/client/transaction-pool" }
+sp-transaction-pool = { version = "22.0.0", path = "../../substrate/primitives/transaction-pool" }
+sc-network = { version = "0.30.0", path = "../../substrate/client/network" }
+sc-network-sync = { version = "0.29.0", path = "../../substrate/client/network/sync" }
+sc-basic-authorship = { version = "0.30.0", path = "../../substrate/client/basic-authorship" }
+sp-timestamp = { version = "22.0.0", path = "../../substrate/primitives/timestamp" }
+sp-blockchain = { version = "24.0.0", path = "../../substrate/primitives/blockchain" }
+sp-block-builder = { version = "22.0.0", path = "../../substrate/primitives/block-builder" }
+sp-keystore = { version = "0.30.0", path = "../../substrate/primitives/keystore" }
+sc-chain-spec = { version = "23.0.0", path = "../../substrate/client/chain-spec" }
+sc-rpc = { version = "25.0.0", path = "../../substrate/client/rpc" }
+sc-tracing = { version = "24.0.0", path = "../../substrate/client/tracing" }
+sp-offchain = { version = "22.0.0", path = "../../substrate/primitives/offchain" }
+sp-api = { version = "22.0.0", path = "../../substrate/primitives/api" }
+sp-consensus-aura = { version = "0.28.0", path = "../../substrate/primitives/consensus/aura" }
+sc-sysinfo = { version = "23.0.0", path = "../../substrate/client/sysinfo" }
+substrate-prometheus-endpoint = { version = "0.15.0", path = "../../substrate/utils/prometheus" }
+sc-transaction-pool-api = { version = "24.0.0", path = "../../substrate/client/transaction-pool/api" }
+frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system", version = "24.0.0" }
+pallet-transaction-payment-rpc = { version = "26.0.0", path = "../../substrate/frame/transaction-payment/rpc" }
+substrate-state-trie-migration-rpc = { version = "23.0.0", path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }
 
 # Polkadot
 # Use rococo-native as this is currently the default "local" relay chain
-polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"], version = "=3.0.0-dev.1" }
-polkadot-primitives = { version = "=3.0.0-dev.1", path = "../../polkadot/primitives" }
-polkadot-service = { version = "=3.0.0-dev.1", path = "../../polkadot/node/service" }
-xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "=3.0.0-dev.1" }
-cumulus-client-cli = { version = "=0.3.0-dev.1", path = "../client/cli" }
-cumulus-client-collator = { version = "=0.3.0-dev.1", path = "../client/collator" }
-cumulus-client-consensus-aura = { version = "=0.3.0-dev.1", path = "../client/consensus/aura" }
-cumulus-client-consensus-relay-chain = { version = "=0.3.0-dev.1", path = "../client/consensus/relay-chain" }
-cumulus-client-consensus-common = { version = "=0.3.0-dev.1", path = "../client/consensus/common" }
-cumulus-client-consensus-proposer = { version = "=0.3.0-dev.1", path = "../client/consensus/proposer" }
-cumulus-client-service = { version = "=0.3.0-dev.1", path = "../client/service" }
-cumulus-primitives-core = { version = "=0.3.0-dev.1", path = "../primitives/core" }
-cumulus-primitives-parachain-inherent = { version = "=0.3.0-dev.1", path = "../primitives/parachain-inherent" }
-cumulus-relay-chain-interface = { version = "=0.3.0-dev.1", path = "../client/relay-chain-interface" }
+polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"], version = "3.0.0" }
+polkadot-primitives = { version = "3.0.0", path = "../../polkadot/primitives" }
+polkadot-service = { version = "3.0.0", path = "../../polkadot/node/service" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "3.0.0" }
+cumulus-client-cli = { version = "0.3.0", path = "../client/cli" }
+cumulus-client-collator = { version = "0.3.0", path = "../client/collator" }
+cumulus-client-consensus-aura = { version = "0.3.0", path = "../client/consensus/aura" }
+cumulus-client-consensus-relay-chain = { version = "0.3.0", path = "../client/consensus/relay-chain" }
+cumulus-client-consensus-common = { version = "0.3.0", path = "../client/consensus/common" }
+cumulus-client-consensus-proposer = { version = "0.3.0", path = "../client/consensus/proposer" }
+cumulus-client-service = { version = "0.3.0", path = "../client/service" }
+cumulus-primitives-core = { version = "0.3.0", path = "../primitives/core" }
+cumulus-primitives-parachain-inherent = { version = "0.3.0", path = "../primitives/parachain-inherent" }
+cumulus-relay-chain-interface = { version = "0.3.0", path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
 
 [build-dependencies]
-substrate-build-script-utils = { version = "=8.0.0-dev.1", path = "../../substrate/utils/build-script-utils" }
+substrate-build-script-utils = { version = "8.0.0", path = "../../substrate/utils/build-script-utils" }
 
 [dev-dependencies]
 assert_cmd = "2.0"

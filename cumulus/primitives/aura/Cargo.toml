@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-aura"
-version = "0.3.0-dev.1"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,14 +10,14 @@ description = "cumulus-primitives-aura"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
 
 # Substrate
-sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "=22.0.0-dev.1" }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false, version = "=0.28.0-dev.1" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "22.0.0" }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false, version = "0.28.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "11.0.0" }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false, version = "=3.0.0-dev.1" }
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "=3.0.0-dev.1" }
+polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false, version = "3.0.0" }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "3.0.0" }
 
 [features]
 default = [ "std" ]

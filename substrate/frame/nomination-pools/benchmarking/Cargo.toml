@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nomination-pools-benchmarking"
-version = "22.0.0-dev.1"
+version = "22.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,19 +18,19 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 # FRAME
-frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "=24.0.0-dev.1" }
-frame-election-provider-support = { path = "../../election-provider-support", default-features = false, version = "=24.0.0-dev.1" }
-frame-support = { path = "../../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../../system", default-features = false, version = "=24.0.0-dev.1" }
-pallet-bags-list = { path = "../../bags-list", default-features = false, version = "=23.0.0-dev.1" }
-pallet-staking = { path = "../../staking", default-features = false, version = "=24.0.0-dev.1" }
-pallet-nomination-pools = { path = "..", default-features = false, version = "=21.0.0-dev.1" }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "24.0.0" }
+frame-election-provider-support = { path = "../../election-provider-support", default-features = false, version = "24.0.0" }
+frame-support = { path = "../../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "24.0.0" }
+pallet-bags-list = { path = "../../bags-list", default-features = false, version = "23.0.0" }
+pallet-staking = { path = "../../staking", default-features = false, version = "24.0.0" }
+pallet-nomination-pools = { path = "..", default-features = false, version = "21.0.0" }
 
 # Substrate Primitives
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "=27.0.0-dev.1" }
-sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false, version = "=20.0.0-dev.1" }
-sp-staking = { path = "../../../primitives/staking", default-features = false, version = "=22.0.0-dev.1" }
-sp-std = { path = "../../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "27.0.0" }
+sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false, version = "20.0.0" }
+sp-staking = { path = "../../../primitives/staking", default-features = false, version = "22.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "11.0.0" }
 
 [dev-dependencies]
 pallet-balances = { path = "../../balances", default-features = false }

@@ -1,18 +1,18 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-interface"
-version = "0.3.0-dev.1"
+version = "0.3.0"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 description = "cumulus-relay-chain-interface"
 
 [dependencies]
-polkadot-overseer = { version = "=3.0.0-dev.1", path = "../../../polkadot/node/overseer" }
-cumulus-primitives-core = { version = "=0.3.0-dev.1", path = "../../primitives/core" }
-sp-api = { version = "=22.0.0-dev.1", path = "../../../substrate/primitives/api" }
-sp-blockchain = { version = "=24.0.0-dev.1", path = "../../../substrate/primitives/blockchain" }
-sp-state-machine = { version = "=0.31.0-dev.1", path = "../../../substrate/primitives/state-machine" }
-sc-client-api = { version = "=24.0.0-dev.1", path = "../../../substrate/client/api" }
+polkadot-overseer = { version = "3.0.0", path = "../../../polkadot/node/overseer" }
+cumulus-primitives-core = { version = "0.3.0", path = "../../primitives/core" }
+sp-api = { version = "22.0.0", path = "../../../substrate/primitives/api" }
+sp-blockchain = { version = "24.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-state-machine = { version = "0.31.0", path = "../../../substrate/primitives/state-machine" }
+sc-client-api = { version = "24.0.0", path = "../../../substrate/client/api" }
 
 futures = "0.3.28"
 async-trait = "0.1.73"

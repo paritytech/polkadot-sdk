@@ -4,31 +4,31 @@ description = "Examples of xcm-simulator usage."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "3.0.0-dev.1"
+version = "3.0.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.5.0", features = ["derive"] }
 log = { version = "0.4.14", default-features = false }
-frame-system = { version = "=24.0.0-dev.1", path = "../../../../substrate/frame/system" }
-frame-support = { version = "=24.0.0-dev.1", path = "../../../../substrate/frame/support" }
-pallet-balances = { version = "=24.0.0-dev.1", path = "../../../../substrate/frame/balances" }
-pallet-message-queue = { version = "=27.0.0-dev.1", path = "../../../../substrate/frame/message-queue" }
-pallet-uniques = { version = "=24.0.0-dev.1", path = "../../../../substrate/frame/uniques" }
-sp-std = { version = "=11.0.0-dev.1", path = "../../../../substrate/primitives/std" }
-sp-core = { version = "=24.0.0-dev.1", path = "../../../../substrate/primitives/core" }
-sp-runtime = { version = "=27.0.0-dev.1", path = "../../../../substrate/primitives/runtime" }
-sp-io = { version = "=26.0.0-dev.1", path = "../../../../substrate/primitives/io" }
-sp-tracing = { version = "=13.0.0-dev.1", path = "../../../../substrate/primitives/tracing" }
+frame-system = { version = "24.0.0", path = "../../../../substrate/frame/system" }
+frame-support = { version = "24.0.0", path = "../../../../substrate/frame/support" }
+pallet-balances = { version = "24.0.0", path = "../../../../substrate/frame/balances" }
+pallet-message-queue = { version = "27.0.0", path = "../../../../substrate/frame/message-queue" }
+pallet-uniques = { version = "24.0.0", path = "../../../../substrate/frame/uniques" }
+sp-std = { version = "11.0.0", path = "../../../../substrate/primitives/std" }
+sp-core = { version = "24.0.0", path = "../../../../substrate/primitives/core" }
+sp-runtime = { version = "27.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-io = { version = "26.0.0", path = "../../../../substrate/primitives/io" }
+sp-tracing = { version = "13.0.0", path = "../../../../substrate/primitives/tracing" }
 
-xcm = { package = "staging-xcm", path = "../..", version = "=3.0.0-dev.1" }
-xcm-simulator = { version = "=3.0.0-dev.1", path = ".." }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "=3.0.0-dev.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "=3.0.0-dev.1" }
-pallet-xcm = { version = "=3.0.0-dev.1", path = "../../pallet-xcm" }
-polkadot-core-primitives = { version = "=3.0.0-dev.1", path = "../../../core-primitives" }
-polkadot-runtime-parachains = { version = "=3.0.0-dev.1", path = "../../../runtime/parachains" }
-polkadot-parachain-primitives = { version = "=2.0.0-dev.1", path = "../../../parachain" }
+xcm = { package = "staging-xcm", path = "../..", version = "3.0.0" }
+xcm-simulator = { version = "3.0.0", path = ".." }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "3.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "3.0.0" }
+pallet-xcm = { version = "3.0.0", path = "../../pallet-xcm" }
+polkadot-core-primitives = { version = "3.0.0", path = "../../../core-primitives" }
+polkadot-runtime-parachains = { version = "3.0.0", path = "../../../runtime/parachains" }
+polkadot-parachain-primitives = { version = "2.0.0", path = "../../../parachain" }
 
 [features]
 default = []

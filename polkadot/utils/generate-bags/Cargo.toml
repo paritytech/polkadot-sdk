@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-voter-bags"
-version = "3.0.0-dev.1"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,8 +8,8 @@ description = "polkadot-voter-bags"
 
 [dependencies]
 clap = { version = "4.4.4", features = ["derive"] }
-generate-bags = { version = "=24.0.0-dev.1", path = "../../../substrate/utils/frame/generate-bags" }
-sp-io = { version = "=26.0.0-dev.1", path = "../../../substrate/primitives/io" }
-westend-runtime = { version = "=3.0.0-dev.1", path = "../../runtime/westend" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", version = "=3.0.0-dev.1" }
-polkadot-runtime = { version = "=3.0.0-dev.1", path = "../../runtime/polkadot" }
+generate-bags = { version = "24.0.0", path = "../../../substrate/utils/frame/generate-bags" }
+sp-io = { version = "26.0.0", path = "../../../substrate/primitives/io" }
+westend-runtime = { version = "3.0.0", path = "../../runtime/westend" }
+kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", version = "3.0.0" }
+polkadot-runtime = { version = "3.0.0", path = "../../runtime/polkadot" }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-staking"
-version = "24.0.0-dev.1"
+version = "24.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,20 +18,20 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
-sp-io = { path = "../../primitives/io", default-features = false, version = "=26.0.0-dev.1" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "=27.0.0-dev.1" }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"], version = "=22.0.0-dev.1" }
-sp-std = { path = "../../primitives/std", default-features = false, version = "=11.0.0-dev.1" }
-frame-support = { path = "../support", default-features = false, version = "=24.0.0-dev.1" }
-frame-system = { path = "../system", default-features = false, version = "=24.0.0-dev.1" }
-pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "=24.0.0-dev.1" }
-pallet-authorship = { path = "../authorship", default-features = false, version = "=24.0.0-dev.1" }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"], version = "=26.0.0-dev.1" }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "=24.0.0-dev.1" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "26.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "27.0.0" }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"], version = "22.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "11.0.0" }
+frame-support = { path = "../support", default-features = false, version = "24.0.0" }
+frame-system = { path = "../system", default-features = false, version = "24.0.0" }
+pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "24.0.0" }
+pallet-authorship = { path = "../authorship", default-features = false, version = "24.0.0" }
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"], version = "26.0.0" }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "24.0.0" }
 log = { version = "0.4.17", default-features = false }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "=24.0.0-dev.1" }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "24.0.0" }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]

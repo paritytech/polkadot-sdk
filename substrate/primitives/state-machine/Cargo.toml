@@ -1,6 +1,6 @@
 [package]
 name = "sp-state-machine"
-version = "0.31.0-dev.1"
+version = "0.31.0"
 authors.workspace = true
 description = "Substrate State Machine"
 edition.workspace = true
@@ -22,11 +22,11 @@ rand = { version = "0.8.5", optional = true }
 smallvec = "1.11.0"
 thiserror = { version = "1.0.48", optional = true }
 tracing = { version = "0.1.29", optional = true }
-sp-core = { path = "../core", default-features = false, version = "=24.0.0-dev.1" }
-sp-externalities = { path = "../externalities", default-features = false, version = "=0.22.0-dev.1" }
-sp-panic-handler = { path = "../panic-handler", optional = true, version = "=11.0.0-dev.1" }
-sp-std = { path = "../std", default-features = false, version = "=11.0.0-dev.1" }
-sp-trie = { path = "../trie", default-features = false, version = "=25.0.0-dev.1" }
+sp-core = { path = "../core", default-features = false, version = "24.0.0" }
+sp-externalities = { path = "../externalities", default-features = false, version = "0.22.0" }
+sp-panic-handler = { path = "../panic-handler", optional = true, version = "11.0.0" }
+sp-std = { path = "../std", default-features = false, version = "11.0.0" }
+sp-trie = { path = "../trie", default-features = false, version = "25.0.0" }
 trie-db = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
