@@ -274,44 +274,35 @@ fn check_event_type(
 	}
 }
 
+/// Check that the path to `frame_system::Config` is valid, this is that the path is just
+/// `frame_system::Config` or when using the `frame` crate it is `frame::xyz::frame_system::Config`.
 fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
-	// check if `frame_system` is actually 'frame_system'.
+	// Check if `frame_system` is actually 'frame_system'.
 	if path.segments.iter().all(|s| s.ident != "frame_system") {
 		return false
 	}
 
-	// TODO: WIP. Do we need `if is_using_frame_crate` at all? By having it, things this wouldn't work
-	// ```
-	// #[pallet::config]
-	// pub trait Config: frame::deps::frame_system::Config {}
-	// ```
-	// Instead this would be needed
-	// ```
-	// pub trait Config: frame_system::Config {}
-	// ```
-	//
-	// On the other hand, with it the test `has_expected_system_config_works_with_frame` does not work.
-	let mut expected_system_config = 
-	// if is_using_frame_crate(&frame_system) {
-	// 	// in this case, we know that the only valid frame_system path is one that
-	// 	// is `frame_system`, as `frame` re-exports it as such.
-	// 	let fixed_frame_system =
-	// 		syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed");
-	// 	fixed_frame_system
-	// } else {
-		// a possibly renamed frame-system, which is a direct dependency.
-		frame_system.clone();
-	// };
+	let mut expected_system_config =
+		match (is_using_frame_crate(&path), is_using_frame_crate(&frame_system)) {
+			(true, false) =>
+			// We can't use the path to `frame_system` from `frame` if `frame_system` is not being
+			// in scope through `frame`.
+				return false,
+			(false, true) =>
+			// We know that the only valid frame_system path is one that is `frame_system`, as
+			// `frame` re-exports it as such.
+				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed"),
+			(_, _) =>
+			// They are either both `frame_system` or both `frame::xyz::frame_system`.
+				frame_system.clone(),
+		};
 
 	expected_system_config
 		.segments
 		.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
+
 	// the parse path might be something like `frame_system::Config<...>`, so we
 	// only compare the idents along the path.
-	println!("path: {}", path.to_token_stream());
-	println!("frame_system: {}", frame_system.to_token_stream());
-	println!("expected_system_config: {}", expected_system_config.to_token_stream());
-	// TODO: end WIP.
 	expected_system_config
 		.segments
 		.into_iter()
@@ -529,6 +520,50 @@ mod tests {
 			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
 		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_other_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_other_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_work_with_frame_full_path_if_not_frame_crate() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
 	}
 
 	#[test]

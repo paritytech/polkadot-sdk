@@ -5495,7 +5495,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "frame-support-test-pallet-no-support"
+name = "frame-support-test-pallet-frame-crate"
 version = "4.0.0-dev"
 dependencies = [
  "frame",
