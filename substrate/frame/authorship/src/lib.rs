@@ -22,9 +22,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::FindAuthor;
-use sp_std::prelude::*;
-
 pub use pallet::*;
+use sp_std::prelude::*;
 
 /// An event handler for the authorship pallet. There is a dummy implementation
 /// for `()`, which does nothing.
@@ -36,9 +35,10 @@ pub trait EventHandler<Author, BlockNumber> {
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+
+	use super::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -94,17 +94,17 @@ impl<T: Config> Pallet<T> {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
+
 	use frame_support::{derive_impl, ConsensusEngineId};
 	use sp_core::H256;
 	use sp_runtime::{
-		generic::DigestItem,
-		testing::Header,
-		traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
-		BuildStorage,
+		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
 	};
+
+	use crate as pallet_authorship;
+
+	use super::*;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
