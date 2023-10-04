@@ -178,14 +178,14 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		)),
 
 		// -- Glutton Westend
-		"glutton-westend-dev" => Box::new(chain_spec::glutton::glutton_development_config(
+		"glutton-westend-dev" => Box::new(chain_spec::glutton::glutton_westend_development_config(
 			para_id.expect("Must specify parachain id"),
 		)),
-		"glutton-westend-local" => Box::new(chain_spec::glutton::glutton_local_config(
+		"glutton-westend-local" => Box::new(chain_spec::glutton::glutton_westend_local_config(
 			para_id.expect("Must specify parachain id"),
 		)),
 		// the chain spec as used for generating the upgrade genesis values
-		"glutton-westend-genesis" => Box::new(chain_spec::glutton::glutton_config(
+		"glutton-westend-genesis" => Box::new(chain_spec::glutton::glutton_westend_config(
 			para_id.expect("Must specify parachain id"),
 		)),
 
