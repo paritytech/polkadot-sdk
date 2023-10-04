@@ -307,4 +307,6 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
 	pub type BridgeHubChainSpec = rococo::BridgeHubChainSpec;
 	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
+
+	unimplemented!("TODO: fix BridgeHubWestend");
 }
