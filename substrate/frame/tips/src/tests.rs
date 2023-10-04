@@ -127,7 +127,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
 	pub TreasuryAccount: u128 = Treasury::account_id();
-	pub TreasuryAccount1: u128 = Treasury1::account_id();
+	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
 impl pallet_treasury::Config for Test {
@@ -177,7 +177,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayFromAccount<Balances, TreasuryAccount1>;
+	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	#[cfg(feature = "runtime-benchmarks")]

@@ -90,7 +90,10 @@ fn create_and_claim_treasury_spend() {
 		type RuntimeEvent = <AssetHubKusama as Chain>::RuntimeEvent;
 		type Assets = <AssetHubKusama as AssetHubKusamaPallet>::Assets;
 
-		// assets transferred, response sent back via UMP.
+		// assert events triggered by xcm pay program
+		// 1. treasury asset transferred to spend beneficiary
+		// 2. response to Relay Chain treasury pallet instance sent back
+		// 3. XCM program completed
 		assert_expected_events!(
 			AssetHubKusama,
 			vec![
