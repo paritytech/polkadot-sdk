@@ -4385,11 +4385,37 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "docify"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af1b04e6ef3d21119d3eb7b032bca17f99fe041e9c072f30f32cc0e1a2b1f3c4"
+dependencies = [
+ "docify_macros 0.1.16",
+]
+
+[[package]]
+name = "docify"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76ee528c501ddd15d5181997e9518e59024844eac44fd1e40cb20ddb2a8562fa"
 dependencies = [
- "docify_macros",
+ "docify_macros 0.2.4",
+]
+
+[[package]]
+name = "docify_macros"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b5610df7f2acf89a1bb5d1a66ae56b1c7fcdcfe3948856fb3ace3f644d70eb7"
+dependencies = [
+ "common-path",
+ "derive-syn-parse",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.37",
+ "termcolor",
+ "walkdir",
 ]
 
 [[package]]
@@ -5194,6 +5220,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "sp-storage",
  "sp-tracing",
  "sp-version",
 ]
@@ -5240,7 +5267,7 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "bitflags 1.3.2",
- "docify",
+ "docify 0.2.4",
  "environmental",
  "frame-metadata",
  "frame-support-procedural",
@@ -6685,6 +6712,7 @@ dependencies = [
  "pallet-lottery",
  "pallet-membership",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nft-fractionalization",
@@ -6735,7 +6763,6 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-grandpa",
  "sp-core",
- "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -8906,7 +8933,7 @@ name = "pallet-bags-list"
 version = "4.0.0-dev"
 dependencies = [
  "aquamarine",
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -9532,7 +9559,7 @@ dependencies = [
 name = "pallet-fast-unstake"
 version = "4.0.0-dev"
 dependencies = [
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -9723,6 +9750,30 @@ dependencies = [
  "sp-std",
  "sp-tracing",
  "sp-weights",
+]
+
+[[package]]
+name = "pallet-migrations"
+version = "1.0.0"
+dependencies = [
+ "docify 0.1.16",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "pretty_assertions",
+ "scale-info",
+ "sp-api",
+ "sp-block-builder",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
+ "sp-version",
 ]
 
 [[package]]
@@ -9995,7 +10046,7 @@ dependencies = [
 name = "pallet-paged-list"
 version = "0.1.0"
 dependencies = [
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10214,7 +10265,7 @@ dependencies = [
 name = "pallet-scheduler"
 version = "4.0.0-dev"
 dependencies = [
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10413,7 +10464,7 @@ dependencies = [
 name = "pallet-sudo"
 version = "4.0.0-dev"
 dependencies = [
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10444,7 +10495,7 @@ dependencies = [
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 dependencies = [
- "docify",
+ "docify 0.2.4",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

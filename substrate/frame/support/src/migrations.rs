@@ -16,11 +16,14 @@
 // limitations under the License.
 
 use crate::{
+	storage::transactional::with_transaction_opaque_err,
 	traits::{GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, StorageVersion},
-	weights::{RuntimeDbWeight, Weight},
+	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
+use sp_std::vec::Vec;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_std::marker::PhantomData;
 
@@ -73,7 +76,7 @@ pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Wei
 
 /// A helper enum to wrap the pre_upgrade bytes like an Option before passing them to post_upgrade.
 /// This enum is used rather than an Option to make the API clearer to the developer.
-#[derive(codec::Encode, codec::Decode)]
+#[derive(Encode, Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
 	MigrationExecuted(sp_std::vec::Vec<u8>),
@@ -100,7 +103,6 @@ impl<
 	/// migration ran or not.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		use codec::Encode;
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			Ok(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()?).encode())
@@ -342,5 +344,364 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
 		};
 		Ok(())
+	}
+}
+
+/// A migration that can proceed in multiple steps.
+pub trait SteppedMigration {
+	/// The cursor type that stores the progress (aka. state) of this migration.
+	type Cursor: codec::FullCodec + codec::MaxEncodedLen;
+
+	/// The unique identifier type of this migration.
+	type Identifier: codec::FullCodec + codec::MaxEncodedLen;
+
+	/// The unique identifier of this migration.
+	///
+	/// If two migrations have the same identifier, then they are assumed to be identical.
+	fn id() -> Self::Identifier;
+
+	/// The maximum number of steps that this migration can take at most.
+	///
+	/// This can be used to enforce progress and prevent migrations to be stuck forever. A migration
+	/// that exceeds its max steps is treated as failed. `None` means that there is no limit.
+	fn max_steps() -> Option<u32> {
+		None
+	}
+
+	/// Try to migrate as much as possible with the given weight.
+	///
+	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
+	/// since the caller cannot return a cursor in the error case. `Self::transactional_step` is
+	/// provided as convenience for a caller. A cursor of `None` implies that the migration is at
+	/// its end. TODO: Think about iterator `fuse` requirement.
+	fn step(
+		cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError>;
+
+	/// Same as [`Self::step`], but rolls back pending changes in the error case.
+	fn transactional_step(
+		mut cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		with_transaction_opaque_err(move || match Self::step(cursor, meter) {
+			Ok(new_cursor) => {
+				cursor = new_cursor;
+				sp_api::TransactionOutcome::Commit(Ok(cursor))
+			},
+			Err(err) => sp_api::TransactionOutcome::Rollback(Err(err)),
+		})
+		.map_err(|()| SteppedMigrationError::Failed)?
+	}
+}
+
+#[derive(Debug, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+pub enum SteppedMigrationError {
+	// Transient errors:
+	/// The remaining weight is not enough to do anything.
+	///
+	/// Can be resolved by calling with at least `required` weight. Note that calling it with
+	/// exactly `required` weight could cause it to not make any progress.
+	InsufficientWeight { required: Weight },
+	// Permanent errors:
+	/// The migration cannot decode its cursor and therefore not proceed.
+	///
+	/// This should not happen unless (1) the migration itself returned an invalid cursor in a
+	/// previous iteration, (2) the storage got corrupted or (3) there is a bug in the caller's
+	/// code.
+	InvalidCursor,
+	/// The migration encountered a permanent error and cannot continue.
+	Failed,
+}
+
+/// Notification handler for status updates regarding runtime upgrades.
+pub trait OnMigrationUpdate {
+	/// Notifies of the start of a runtime upgrade.
+	fn started() {}
+
+	/// Notifies of the completion of a runtime upgrade.
+	fn completed() {}
+
+	/// Infallibly handle a failed runtime upgrade.
+	///
+	/// Gets passed in the optional index of the migration that caused the failure.
+	fn failed(migration: Option<u32>) -> FailedUpgradeHandling;
+}
+
+/// How to proceed after a runtime upgrade failed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FailedUpgradeHandling {
+	/// Resume extrinsic processing of the chain. This will not resume the upgrade.
+	///
+	/// This should be supplemented with additional measures to ensure that the broken chain state
+	/// does not get further messed up by user extrinsics.
+	ForceUnstuck,
+	/// Do nothing and keep blocking extrinsics.
+	KeepStuck,
+}
+
+impl OnMigrationUpdate for () {
+	fn failed(_migration: Option<u32>) -> FailedUpgradeHandling {
+		FailedUpgradeHandling::KeepStuck
+	}
+}
+
+/// Something that can do multi step migrations.
+pub trait MultiStepMigrator {
+	/// Hint for whether [`step`] should be called.
+	fn is_upgrading() -> bool;
+	/// Do the next step in the MBM process.
+	///
+	/// Must gracefully handle the case that it is currently not upgrading.
+	fn step() -> Weight;
+}
+
+impl MultiStepMigrator for () {
+	fn is_upgrading() -> bool {
+		false
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
+}
+
+/// Multiple [`SteppedMigration`].
+pub trait SteppedMigrations {
+	fn len() -> u32;
+
+	fn nth_id(n: u32) -> Option<Vec<u8>>;
+
+	fn nth_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
+
+	fn nth_transactional_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
+
+	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
+}
+
+impl<T: SteppedMigration> SteppedMigrations for T {
+	fn len() -> u32 {
+		1
+	}
+
+	fn nth_id(_: u32) -> Option<Vec<u8>> {
+		Some(T::id().encode())
+	}
+
+	fn nth_step(
+		_: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		Some(
+			T::step(cursor.map(|c| Decode::decode(&mut &c[..]).unwrap()), meter)
+				.map(|v| v.map(|v| v.encode())),
+		)
+	}
+
+	fn nth_transactional_step(
+		_: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		Some(
+			// FAIL-CI unwrap
+			T::transactional_step(cursor.map(|c| Decode::decode(&mut &c[..]).unwrap()), meter)
+				.map(|v| v.map(|v| v.encode())),
+		)
+	}
+
+	fn nth_max_steps(_: u32) -> Option<Option<u32>> {
+		Some(T::max_steps())
+	}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+impl SteppedMigrations for Tuple {
+	fn len() -> u32 {
+		for_tuples!( #( Tuple::len() )+* )
+	}
+
+	fn nth_id(n: u32) -> Option<Vec<u8>> {
+		let mut i = 0;
+
+		for_tuples!( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_id(n - i)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
+	fn nth_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		let mut i = 0;
+
+		for_tuples!( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_step(n - i, cursor, meter)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
+	fn nth_transactional_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		let mut i = 0;
+
+		for_tuples! ( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_transactional_step(n - i, cursor, meter)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+		let mut i = 0;
+
+		for_tuples!( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_max_steps(n - i)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
+	pub enum Either<L, R> {
+		Left(L),
+		Right(R),
+	}
+
+	pub struct M0;
+	impl SteppedMigration for M0 {
+		type Cursor = ();
+		type Identifier = u8;
+
+		fn id() -> Self::Identifier {
+			0
+		}
+
+		fn step(
+			_cursor: Option<Self::Cursor>,
+			_meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			log::info!("M0");
+			Ok(None)
+		}
+	}
+
+	pub struct M1;
+	impl SteppedMigration for M1 {
+		type Cursor = ();
+		type Identifier = u8;
+
+		fn id() -> Self::Identifier {
+			1
+		}
+
+		fn step(
+			_cursor: Option<Self::Cursor>,
+			_meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			log::info!("M1");
+			Ok(None)
+		}
+
+		fn max_steps() -> Option<u32> {
+			Some(1)
+		}
+	}
+
+	pub struct M2;
+	impl SteppedMigration for M2 {
+		type Cursor = ();
+		type Identifier = u8;
+
+		fn id() -> Self::Identifier {
+			2
+		}
+
+		fn step(
+			_cursor: Option<Self::Cursor>,
+			_meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			log::info!("M2");
+			Ok(None)
+		}
+
+		fn max_steps() -> Option<u32> {
+			Some(2)
+		}
+	}
+
+	#[test]
+	fn singular_migrations_work() {
+		assert_eq!(M0::max_steps(), None);
+		assert_eq!(M1::max_steps(), Some(1));
+		assert_eq!(M2::max_steps(), Some(2));
+
+		assert_eq!(<(M0, M1)>::nth_max_steps(0), Some(None));
+		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(Some(1)));
+		assert_eq!(<(M0, M1, M2)>::nth_max_steps(2), Some(Some(2)));
+
+		assert_eq!(<(M0, M1)>::nth_max_steps(2), None);
+	}
+
+	#[test]
+	fn tuple_migrations_work() {
+		sp_tracing::init_for_tests();
+		// Three migrations combined to execute in order:
+		type Triple = (M0, (M1, M2));
+		assert_eq!(<Triple as SteppedMigrations>::len(), 3);
+		// Six migrations, just concatenating the ones from before:
+		type Hextuple = (Triple, Triple);
+		assert_eq!(<Hextuple as SteppedMigrations>::len(), 6);
+
+		// Check the IDs. The index specific functions all return an Option,
+		// to account for the out-of-range case.
+		assert_eq!(<Triple as SteppedMigrations>::nth_id(0), Some(0u8.encode()));
+		assert_eq!(<Triple as SteppedMigrations>::nth_id(1), Some(1u8.encode()));
+		assert_eq!(<Triple as SteppedMigrations>::nth_id(2), Some(2u8.encode()));
+
+		for n in 0..3 {
+			<Triple as SteppedMigrations>::nth_step(
+				n,
+				Default::default(),
+				&mut WeightMeter::new(),
+			);
+		}
 	}
 }

@@ -30,18 +30,16 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit, HoldConsideration, ItemOf},
+		fungible::{Balanced, Credit, ItemOf},
 		tokens::{nonfungibles_v2::Inspect, GetSalary, PayFromAccount},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
-		WithdrawReasons,
+		KeyOwnerProofSystem, LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -59,7 +57,7 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
-use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
+use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
@@ -1949,6 +1947,35 @@ impl pallet_statement::Config for Runtime {
 }
 
 parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	// FAIL-CI remove
+	pub Mbms: pallet_migrations::MigrationsOf<Runtime> = vec![
+		Box::new(pallet_migrations::mock_helpers::MockedMigration(
+			pallet_migrations::mock_helpers::MockedMigrationKind::SucceedAfter, 0
+		)),
+		Box::new(pallet_migrations::mock_helpers::MockedMigration(
+			pallet_migrations::mock_helpers::MockedMigrationKind::SucceedAfter, 2
+		)),
+		Box::new(pallet_migrations::mock_helpers::MockedMigration(
+			pallet_migrations::mock_helpers::MockedMigrationKind::SucceedAfter, 3
+		)),
+		Box::new(pallet_migrations::mock_helpers::MockedMigration(
+			pallet_migrations::mock_helpers::MockedMigrationKind::SucceedAfter, 20
+		))
+	];
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Migrations = Mbms;
+	type Cursor = pallet_migrations::mock_helpers::MockedCursor;
+	type Identifier = pallet_migrations::mock_helpers::MockedIdentifier;
+	type OnMigrationUpdate = ();
+	type ServiceWeight = MbmServiceWeight;
+	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 }
 
@@ -2094,6 +2121,7 @@ construct_runtime!(
 		TxPause: pallet_tx_pause,
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
+		MultiBlockMigrations: pallet_migrations,
 		Broker: pallet_broker,
 	}
 );
@@ -2139,6 +2167,7 @@ pub type Executive = frame_executive::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 	Migrations,
+	MultiBlockMigrations,
 >;
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
@@ -2195,6 +2224,7 @@ mod benches {
 		[pallet_lottery, Lottery]
 		[pallet_membership, TechnicalMembership]
 		[pallet_message_queue, MessageQueue]
+		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]

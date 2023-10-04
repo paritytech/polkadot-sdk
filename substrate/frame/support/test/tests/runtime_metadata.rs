@@ -100,7 +100,7 @@ sp_api::impl_runtime_apis! {
 		fn execute_block(_: Block) {
 			unimplemented!()
 		}
-		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
+		fn initialize_block(_: &<Block as BlockT>::Header) {
 			unimplemented!()
 		}
 	}
@@ -200,7 +200,7 @@ fn runtime_metadata() {
 						ty: meta_type::<&<Block as BlockT>::Header>(),
 					}],
 					output: meta_type::<()>(),
-					docs: maybe_docs(vec![" Initialize a block with the given header and return the runtime executive mode.."]),
+					docs: maybe_docs(vec![" Initialize a block with the given header."]),
 				},
 			],
 			docs: maybe_docs(vec![

@@ -34,6 +34,7 @@ use frame_support::{
 	assert_err, assert_ok, parameter_types,
 	traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
+	migrations::MultiStepMigrator,
 };
 use frame_system::{ChainContext, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
@@ -281,12 +282,22 @@ type Executive = super::Executive<
 	Runtime,
 	AllPalletsWithSystem,
 	CustomOnRuntimeUpgrade,
-	MockedMode,
+	MockedModeGetter,
 >;
 
-frame_support::parameter_types! {
-	/// Provides the runtime-mode to frame-executive.
-	pub static MockedMode: ExtrinsicInclusionMode = ExtrinsicInclusionMode::AllExtrinsics;
+parameter_types! {
+	pub static MbmActive: bool = false;
+}
+
+struct MockedModeGetter;
+impl MultiStepMigrator for MockedModeGetter {
+	fn is_upgrading() -> bool {
+		MbmActive::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
 }
 
 fn extra(nonce: u64, fee: Balance) -> SignedExtra {
@@ -974,7 +985,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		// Tell `after_inherents` to forbid extrinsics:
+		// Tell `initialize_block` to forbid extrinsics:
 		Executive::execute_block(Block::new(header, vec![xt1]));
 	});
 }
@@ -1002,7 +1013,7 @@ fn transactions_in_only_inherents_block_errors() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		MockedMode::set(ExtrinsicInclusionMode::OnlyInherents);
+		MbmActive::set(true);
 		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
 	});
 }
@@ -1029,7 +1040,7 @@ fn transactions_in_normal_block_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		// Tell `after_inherents` to forbid extrinsics:
+		// Tell `initialize_block` to forbid extrinsics:
 		Executive::execute_block(Block::new(header, vec![xt1, xt2]));
 	});
 }
@@ -1092,7 +1103,7 @@ fn try_execute_tx_forbidden_errors() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		MockedMode::set(ExtrinsicInclusionMode::OnlyInherents);
+		MbmActive::set(true);
 		Executive::try_execute_block(
 			Block::new(header, vec![xt1, xt2]),
 			true,
