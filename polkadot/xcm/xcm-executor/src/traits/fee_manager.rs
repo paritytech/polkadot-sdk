@@ -53,7 +53,7 @@ pub enum FeeReason {
 
 impl FeeManager for () {
 	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
-		true
+		false
 	}
 	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>) {}
 }
