@@ -123,7 +123,7 @@ pub mod pallet {
 
 			Accounts::<T>::try_mutate(index, |maybe_value| {
 				ensure!(maybe_value.is_none(), Error::<T>::InUse);
-				*maybe_value = Some((who.clone(), T::Deposit::get(), false));
+				*maybe_value = Some((who.clone(), false));
 				T::Currency::hold(&HoldReason::ClaimedIndex.into(), &who, T::Deposit::get())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who, index });
@@ -154,20 +154,18 @@ pub mod pallet {
 			ensure!(who != new, Error::<T>::NotTransfer);
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 
-				T::Currency::transfer_on_hold(
+				// Done in two steps as `transfer_all_on_hold` does not exist
+				// Alternatively `transfer_all_on_hold` could be created
+				let amount = T::Currency::release_all(
 					&HoldReason::ClaimedIndex.into(),
 					&who,
-					&new,
-					amount,
 					Precision::BestEffort,
-					Restriction::OnHold,
-					Fortitude::Polite,
 				)?;
-				Ok(())
+				T::Currency::hold(&HoldReason::ClaimedIndex.into(), &who, amount)
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
 			Ok(())
@@ -191,7 +189,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 				T::Currency::release_all(
@@ -230,14 +228,14 @@ pub mod pallet {
 			let new = T::Lookup::lookup(new)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| {
-				if let Some((account, amount, _)) = maybe_value.take() {
+				if let Some((account, _)) = maybe_value.take() {
 					T::Currency::release_all(
 						&HoldReason::ClaimedIndex.into(),
 						&account,
 						Precision::BestEffort,
 					)?;
 				}
-				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
+				*maybe_value = Some((new.clone(), freeze));
 				Ok::<(), DispatchError>(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
@@ -262,7 +260,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 				// T::Currency::slash_reserved(&who, amount);
@@ -272,7 +270,7 @@ pub mod pallet {
 					Precision::BestEffort,
 					Fortitude::Polite,
 				)?;
-				*maybe_value = Some((account, Zero::zero(), true));
+				*maybe_value = Some((account, true));
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFrozen { index, who });
@@ -308,7 +306,7 @@ pub mod pallet {
 	/// The lookup from index to account.
 	#[pallet::storage]
 	pub type Accounts<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)>;
+		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, bool)>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -320,7 +318,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (a, b) in &self.indices {
-				<Accounts<T>>::insert(a, (b, <BalanceOf<T>>::zero(), false))
+				<Accounts<T>>::insert(a, (b, false))
 			}
 		}
 	}
