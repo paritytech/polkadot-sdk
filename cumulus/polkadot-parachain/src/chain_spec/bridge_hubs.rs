@@ -301,6 +301,6 @@ pub mod westend {
 	use crate::chain_spec::bridge_hubs::rococo;
 
 	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
-	pub type BridgeHubChainSpec = kusama::BridgeHubChainSpec;
-	pub type RuntimeApi = bridge_hub_kusama_runtime::RuntimeApi;
+	pub type BridgeHubChainSpec = rococo::BridgeHubChainSpec;
+	pub type RuntimeApi = bridge_hub_rococo_runtime::RuntimeApi;
 }
