@@ -136,11 +136,18 @@ impl Def {
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
 				Some(PalletAttr::Tasks(_)) if tasks.is_none() =>
 					tasks = Some(syn::parse2::<tasks::TasksDef>(get_tokens(item))?),
-				Some(
-					PalletAttr::TaskCondition(_) |
-					PalletAttr::TaskIndex(_) |
-					PalletAttr::TaskList(_),
-				) => (),
+				Some(PalletAttr::TaskCondition(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_condition]` can only be used on items within an `impl` statement."
+				)),
+				Some(PalletAttr::TaskIndex(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_index]` can only be used on items within an `impl` statement."
+				)),
+				Some(PalletAttr::TaskList(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_list]` can only be used on items within an `impl` statement."
+				)),
 				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
 					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(get_tokens(item))?),
 				Some(PalletAttr::Error(span)) if error.is_none() =>
@@ -215,6 +222,8 @@ impl Def {
 			return Err(syn::Error::new(item_span, msg))
 		}
 
+		Self::resolve_manual_task_enum(&tasks, &mut task_enum, &items)?;
+
 		// ensure either both or none of `(task_enum, tasks)` are specified
 		match (&task_enum, &tasks) {
 			(Some(_), None) =>
@@ -254,6 +263,30 @@ impl Def {
 		def.check_event_usage()?;
 
 		Ok(def)
+	}
+
+	/// Tries to locate task enum based on the tasks impl target if attribute is not specified
+	/// but impl is present. If one is found, `task_enum` is set appropriately.
+	fn resolve_manual_task_enum(
+		tasks: &Option<tasks::TasksDef>,
+		task_enum: &mut Option<tasks::TaskEnumDef>,
+		items: &Vec<syn::Item>,
+	) -> syn::Result<()> {
+		let (None, Some(tasks)) = (&task_enum, &tasks) else { return Ok(()) };
+		let syn::Type::Path(type_path) = &*tasks.item_impl.self_ty else { return Ok(()) };
+		let type_path = type_path.path.segments.iter().collect::<Vec<_>>();
+		let (Some(seg), None) = (type_path.get(0), type_path.get(1)) else { return Ok(()) };
+		let mut result = None;
+		for item in items {
+			if let syn::Item::Enum(item_enum) = item {
+				if item_enum.ident == seg.ident {
+					result = Some(syn::parse2::<tasks::TaskEnumDef>(item_enum.to_token_stream())?);
+					break
+				}
+			}
+		}
+		*task_enum = result;
+		Ok(())
 	}
 
 	/// Check that usage of trait `Event` is consistent with the definition, i.e. it is declared

@@ -29,12 +29,6 @@ fn test_parse_pallet_with_task_enum_missing_impl() {
 				Something,
 			}
 
-			#[pallet::task_list]
-			impl<T: Config> frame_support::traits::Task for Task<T>
-			where
-				T: TypeInfo,
-			{}
-
 			#[pallet::config]
 			pub trait Config: frame_system::Config {}
 
@@ -80,6 +74,82 @@ fn test_parse_pallet_missing_task_enum() {
 		pub mod pallet {
 			#[pallet::tasks]
 			impl<T: Config> frame_support::traits::Task for Task<T>
+			where
+				T: TypeInfo,
+			{}
+
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
+}
+
+#[test]
+fn test_parse_pallet_task_list_in_wrong_place() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("can only be used on items within an `impl` statement.")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			pub enum MyCustomTaskEnum<T: Config> {
+				Something,
+			}
+
+			#[pallet::task_list]
+			pub fn something() {
+				println!("hey");
+			}
+
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
+}
+
+#[test]
+fn test_parse_pallet_manual_task_enum_non_manual_impl() {
+	assert_pallet_parses! {
+		#[manifest_dir("../../examples/basic")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			pub enum MyCustomTaskEnum<T: Config> {
+				Something,
+			}
+
+			#[pallet::tasks]
+			impl<T: Config> frame_support::traits::Task for MyCustomTaskEnum<T>
+			where
+				T: TypeInfo,
+			{}
+
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
+}
+
+#[test]
+fn test_parse_pallet_manual_task_enum_mismatch_ident() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("Missing `\\#\\[pallet::task_enum\\]` enum")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			pub enum WrongIdent<T: Config> {
+				Something,
+			}
+
+			#[pallet::tasks]
+			impl<T: Config> frame_support::traits::Task for MyCustomTaskEnum<T>
 			where
 				T: TypeInfo,
 			{}

@@ -44,9 +44,9 @@ pub mod keywords {
 
 #[derive(Clone, Debug)]
 pub struct TasksDef {
-	tasks_attr: Option<PalletTasksAttr>,
-	tasks: Vec<TaskDef>,
-	item_impl: ItemImpl,
+	pub tasks_attr: Option<PalletTasksAttr>,
+	pub tasks: Vec<TaskDef>,
+	pub item_impl: ItemImpl,
 }
 
 impl syn::parse::Parse for TasksDef {
@@ -101,8 +101,8 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
 #[derive(Clone, Debug)]
 pub struct TaskEnumDef {
-	attr: Option<PalletTaskEnumAttr>,
-	item_enum: ItemEnum,
+	pub attr: Option<PalletTaskEnumAttr>,
+	pub item_enum: ItemEnum,
 }
 
 impl syn::parse::Parse for TaskEnumDef {
@@ -136,10 +136,10 @@ impl syn::parse::Parse for TaskEnumDef {
 
 #[derive(Debug, Clone)]
 pub struct TaskDef {
-	index_attr: TaskIndexAttr,
-	condition_attr: TaskConditionAttr,
-	list_attr: TaskListAttr,
-	normal_attrs: Vec<Attribute>,
+	pub index_attr: TaskIndexAttr,
+	pub condition_attr: TaskConditionAttr,
+	pub list_attr: TaskListAttr,
+	pub normal_attrs: Vec<Attribute>,
 }
 
 impl syn::parse::Parse for TaskDef {
@@ -256,48 +256,48 @@ pub enum TaskAttrMeta {
 
 #[derive(Parse, Debug, Clone)]
 pub struct TaskListAttrMeta {
-	task_list: keywords::task_list,
+	pub task_list: keywords::task_list,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
-	expr: Expr,
+	pub expr: Expr,
 }
 
 #[derive(Parse, Debug, Clone)]
 pub struct TaskIndexAttrMeta {
-	task_index: keywords::task_index,
+	pub task_index: keywords::task_index,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
-	index: LitInt,
+	pub index: LitInt,
 }
 
 #[derive(Parse, Debug, Clone)]
 pub struct TaskConditionAttrMeta {
-	task_condition: keywords::task_condition,
+	pub task_condition: keywords::task_condition,
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
-	pipe1: Token![|],
+	pub pipe1: Token![|],
 	#[inside(_paren)]
-	ident: Ident,
+	pub ident: Ident,
 	#[inside(_paren)]
-	pipe2: Token![|],
+	pub pipe2: Token![|],
 	#[inside(_paren)]
-	expr: Expr,
+	pub expr: Expr,
 }
 
 #[derive(Parse, Debug, Clone)]
 pub struct PalletTaskAttr<T: syn::parse::Parse + core::fmt::Debug + ToTokens> {
-	pound: Pound,
+	pub pound: Pound,
 	#[bracket]
 	_bracket: Bracket,
 	#[inside(_bracket)]
-	pallet: keywords::pallet,
+	pub pallet: keywords::pallet,
 	#[inside(_bracket)]
-	colons: PathSep,
+	pub colons: PathSep,
 	#[inside(_bracket)]
-	meta: T,
+	pub meta: T,
 }
 
 impl ToTokens for TaskListAttrMeta {
