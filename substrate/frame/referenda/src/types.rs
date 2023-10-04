@@ -20,7 +20,9 @@
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{
-	traits::{fungible::Inspect as FnInspect, schedule::v3::Anon, Bounded},
+	traits::{
+		fungible::Inspect as FnInspect, schedule::v3::Anon, tokens::fungible::Credit, Bounded,
+	},
 	Parameter,
 };
 use scale_info::TypeInfo;
@@ -30,9 +32,8 @@ use sp_std::fmt::Debug;
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
-pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+pub type CreditOf<T, I> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>;
 pub type CallOf<T, I> = <T as Config<I>>::RuntimeCall;
 pub type BoundedCallOf<T, I> =
 	Bounded<<T as Config<I>>::RuntimeCall, <T as frame_system::Config>::Hashing>;

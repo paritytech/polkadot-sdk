@@ -75,8 +75,8 @@ use frame_support::{
 			DispatchTime,
 		},
 		tokens::Precision,
-		Currency, LockIdentifier, OriginTrait, PollStatus, Polling, QueryPreimage, StorePreimage,
-		VoteTally,
+		LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+		StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -97,10 +97,10 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf, Deposit,
-		InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex, ReferendumInfo,
-		ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf,
-		TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		BalanceOf, BoundedCallOf, CallOf, CreditOf, Curve, DecidingStatus, DecidingStatusOf,
+		Deposit, InsertSorted, PalletsOriginOf, ReferendumIndex, ReferendumInfo, ReferendumInfoOf,
+		ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -207,6 +207,9 @@ pub mod pallet {
 
 		/// Origin from which any vote may be killed.
 		type KillOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Handler for the unbalanced reduction when slashing a preimage deposit.
+		type OnSlash: OnUnbalanced<CreditOf<Self, I>>;
 
 		/// The counting type for votes. Usually just balance.
 		type Votes: AtLeast32BitUnsigned + Copy + Parameter + Member + MaxEncodedLen;
@@ -1293,7 +1296,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Slash a deposit, if `Some`.
 	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
 		if let Some(Deposit { who, amount }) = deposit {
-			let (_, non_slashed) = T::Currency::slash(&HoldReason::Referendum.into(), &who, amount);
+			let (imbalance, non_slashed) = <T::Currency as FnBalanced<T::AccountId>>::slash(
+				&HoldReason::Referendum.into(),
+				&who,
+				amount,
+			);
+			T::OnSlash::on_unbalanced(imbalance);
+
 			Self::deposit_event(Event::<T, I>::DepositSlashed {
 				who,
 				amount: amount.saturating_sub(non_slashed),

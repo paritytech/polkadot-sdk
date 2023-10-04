@@ -216,6 +216,7 @@ impl Config for Test {
 	type SubmitOrigin = frame_system::EnsureSigned<u64>;
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
+	type OnSlash = ();
 	type Votes = u32;
 	type Tally = Tally;
 	type SubmissionDeposit = ConstU64<2>;
