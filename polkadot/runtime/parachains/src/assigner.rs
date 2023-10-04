@@ -28,7 +28,7 @@ use sp_runtime::{
 use primitives::{CoreIndex, Id as ParaId};
 
 use crate::{
-	configuration, paras,
+	assigner_on_demand, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
 	},
@@ -45,28 +45,19 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
-		type ParachainsAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
-		type OnDemandAssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
-
-		/// One time conversion function needed for the initial migration.
-		///
-		/// Won't be needed in future migrations.
-		fn v0_assignment_to_on_demand_old(old: V0Assignment) -> <Self::OnDemandAssignmentProvider as AssignmentProvider<BlockNumberFor<Self>>>::OldAssignmentType;
-
-		/// One time conversion function needed for the initial migration.
-		///
-		/// Won't be needed in future migrations.
-		fn v0_assignment_to_parachain_old(old: V0Assignment) -> <Self::ParachainsAssignmentProvider as AssignmentProvider<BlockNumberFor<Self>>>::OldAssignmentType;
+	pub trait Config:
+		frame_system::Config
+		+ configuration::Config
+		+ paras::Config
+		+ assigner_on_demand::Config
+		+ assigner_legacy::Config
+	{
 	}
 }
 
-// Aliases to make the impl more readable.
-type ParachainAssigner<T> = <T as Config>::ParachainsAssignmentProvider;
-type OnDemandAssigner<T> = <T as Config>::OnDemandAssignmentProvider;
-
 /// Assignments as of this top-level assignment provider.
 #[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+// Generic arguments, because instance generation of above traits breaks with generic `T` parameter.
 pub enum UnifiedAssignment<OnDemand, Legacy> {
 	/// Assignment came from on-demand assignment provider.
 	#[codec(index = 0)]
@@ -80,8 +71,8 @@ pub enum UnifiedAssignment<OnDemand, Legacy> {
 
 /// Convenience type definition for `UnifiedAssignmentType`.
 pub type UnifiedAssignmentType<T> = UnifiedAssignment<
-	<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
-	<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
+	<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
+	<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 >;
 
 impl<OnDemand: Assignment, Legacy: Assignment> Assignment for UnifiedAssignment<OnDemand, Legacy> {
@@ -100,8 +91,9 @@ impl<T: Config> Pallet<T> {
 	// This function will return false if there are no cores assigned to the bulk parachain
 	// assigner.
 	fn is_legacy_core(core_idx: &CoreIndex) -> bool {
-		let parachain_cores =
-			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count();
+		let parachain_cores = <assigner_legacy::Pallet<T> as AssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
 		(0..parachain_cores).contains(&core_idx.0)
 	}
 }
@@ -113,33 +105,31 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	// Sum of underlying versions ensures this version will always get increased on changes.
 	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion =
-		<ParachainAssigner<T>>::ASSIGNMENT_STORAGE_VERSION
-			.saturating_add(<OnDemandAssigner<T>>::ASSIGNMENT_STORAGE_VERSION);
+		<assigner_legacy::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION
+			.saturating_add(<assigner_on_demand::Pallet<T>>::ASSIGNMENT_STORAGE_VERSION);
 
 	fn migrate_old_to_current(
 		old: Self::OldAssignmentType,
 		core: CoreIndex,
 	) -> Self::AssignmentType {
 		if Self::is_legacy_core(&core) {
-			UnifiedAssignment::LegacyAuction(<ParachainAssigner<T> as AssignmentProvider<
+			UnifiedAssignment::LegacyAuction(<assigner_legacy::Pallet<T> as AssignmentProvider<
 				BlockNumberFor<T>,
-			>>::migrate_old_to_current(
-				T::v0_assignment_to_parachain_old(old), core
-			))
+			>>::migrate_old_to_current(old, core))
 		} else {
-			UnifiedAssignment::OnDemand(<OnDemandAssigner<T> as AssignmentProvider<
+			UnifiedAssignment::OnDemand(<assigner_on_demand::Pallet<T> as AssignmentProvider<
 				BlockNumberFor<T>,
-			>>::migrate_old_to_current(
-				T::v0_assignment_to_on_demand_old(old), core
-			))
+			>>::migrate_old_to_current(old, core))
 		}
 	}
 
 	fn session_core_count() -> u32 {
-		let parachain_cores =
-			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count();
-		let on_demand_cores =
-			<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count();
+		let parachain_cores = <assigner_legacy::Pallet<T> as AssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
+		let on_demand_cores = <assigner_on_demand::Pallet<T> as AssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
 
 		parachain_cores.saturating_add(on_demand_cores)
 	}
@@ -147,11 +137,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// Pops an `Assignment` from a specified `CoreIndex`
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		if Pallet::<T>::is_legacy_core(&core_idx) {
-			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
+			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
 				core_idx,
 			).map(UnifiedAssignment::LegacyAuction)
 		} else {
-			<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
+			<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
 				core_idx,
 			)
 			.map(UnifiedAssignment::OnDemand)
@@ -161,11 +151,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn report_processed(assignment: Self::AssignmentType) {
 		match assignment {
 			UnifiedAssignment::LegacyAuction(assignment) =>
-				<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
+				<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
 					assignment,
 				),
 			UnifiedAssignment::OnDemand(assignment) =>
-				<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
+				<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
 					assignment,
 				),
 		}
@@ -174,11 +164,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn push_back_assignment(assignment: Self::AssignmentType) {
 		match assignment {
 			UnifiedAssignment::LegacyAuction(assignment) =>
-				<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
+				<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
 					assignment,
 			),
 			UnifiedAssignment::OnDemand(assignment) =>
-				<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
+				<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
 				assignment,
 			),
 		}
@@ -186,11 +176,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		if Pallet::<T>::is_legacy_core(&core_idx) {
-			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
+			<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
 				core_idx,
 			)
 		} else {
-			<OnDemandAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
+			<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
 				core_idx,
 			)
 		}

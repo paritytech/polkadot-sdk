@@ -941,10 +941,7 @@ impl parachains_assigner_on_demand::Config for Runtime {
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner::Config for Runtime {
-	type OnDemandAssignmentProvider = OnDemandAssignmentProvider;
-	type ParachainsAssignmentProvider = ParachainsAssignmentProvider;
-}
+impl parachains_assigner::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1374,6 +1371,8 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::VersionCheckedMigrateToV1<Runtime>,
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
+		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
