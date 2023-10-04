@@ -41,10 +41,12 @@ mod v1 {
 	use super::*;
 	use frame_support::traits::ReservableCurrency;
 
+	/// Balance type of OldCurrency.
 	pub type OldBalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
+	/// Alias to leases storage map with old currency.
 	#[frame_support::storage_alias]
 	pub type Leases<T: Config, OldCurrency> =
 	StorageMap<Pallet<T>, Twox64Concat, ParaId, Vec<Option<(<T as frame_system::Config>::AccountId, OldBalanceOf<T, OldCurrency>)>>, ValueQuery>;
