@@ -12023,7 +12023,6 @@ dependencies = [
  "sc-executor",
  "sc-executor-common",
  "sc-executor-wasmtime",
- "serde",
  "sp-core",
  "sp-externalities",
  "sp-io",
@@ -12055,7 +12054,7 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
- "bincode",
+ "bytes",
  "cfg-if",
  "futures",
  "libc",
@@ -12069,7 +12068,6 @@ dependencies = [
  "sc-executor",
  "sc-executor-common",
  "sc-executor-wasmtime",
- "serde",
  "sp-io",
  "sp-maybe-compressed-blob",
  "sp-tracing",

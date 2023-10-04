@@ -37,18 +37,16 @@ use polkadot_node_core_pvf_common::{error::{PrepareError, PrepareResult}, execut
 	worker_event_loop,
 }, worker_dir};
 use polkadot_primitives::ExecutorParams;
-use std::{mem, path::PathBuf, process, time::Duration};
+use std::{path::PathBuf, process, time::Duration};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::sync::Arc;
 use nix::sys::resource::Resource;
-use os_pipe::PipeWriter;
-use serde::{Deserialize, Serialize};
 use polkadot_node_core_pvf_common::worker::thread::{spawn_worker_thread};
 use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
-#[derive(Serialize, Deserialize)]
+#[derive(Encode, Decode)]
 pub struct CompiledArtifact(Vec<u8>);
 
 impl CompiledArtifact {
@@ -101,11 +99,9 @@ fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<(
 ///
 /// 2. Start a new child process
 ///
-/// 3. Start a memory tracker in a separate thread.
+/// 3. Start the memory tracker and the actual preparation in two separate threads.
 ///
-/// 3. Start the actual preparation in a separate thread.
-///
-/// 4. Wait on the thread created in step 3.
+/// 4. Wait on the two threads created in step 3.
 ///
 /// 5. Stop the memory tracker and get the stats.
 ///
@@ -159,14 +155,17 @@ pub fn worker_entrypoint(
 						)
 						.await,
 					// parent
-					_ => handle_parent_process(
+					_ => {
+						// the read end will wait until all ends have been closed,
+						// this drop is necessary to avoid deadlock
+						drop(pipe_writer);
+						handle_parent_process(
 							pipe_reader,
-							pipe_writer,
 							temp_artifact_dest.clone(),
-							preparation_timeout,
 							worker_pid,
 						)
-						.await
+							.await
+					}
 				};
 				send_response(&mut stream, result)?;
 			}
@@ -201,7 +200,7 @@ fn runtime_construction_check(
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Encode, Decode)]
 struct Response {
 	artifact_result: Result<CompiledArtifact, PrepareError>,
 	memory_stats: MemoryStats,
@@ -214,8 +213,6 @@ async fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: ExecutorParams,
 ) -> ! {
-
-	let worker_pid = std::process::id();
 
 	nix::sys::resource::setrlimit(
 		Resource::RLIMIT_CPU,
@@ -270,9 +267,7 @@ async fn handle_child_process(
 	match outcome {
 		WaitOutcome::Finished => {
 			 let result = prepare_thread.join().unwrap_or_else(|_| {
-				(
 					process::exit(libc::EXIT_FAILURE)
-				)
 			});
             cfg_if::cfg_if! {
 				if #[cfg(target_os = "linux")] {
@@ -284,22 +279,18 @@ async fn handle_child_process(
 
 			// Stop the memory stats worker and get its observed memory stats.
 			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, worker_pid).await;
+				let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
 
 			let memory_stats = MemoryStats {
 				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 				memory_tracker_stats,
 				#[cfg(target_os = "linux")]
-				max_rss: extract_max_rss_stat(max_rss, worker_pid),
+				max_rss: extract_max_rss_stat(max_rss, process::id()),
 			};
 
 			let response = Response { artifact_result, memory_stats };
 
-			let bytes = bincode::serialize(&response).unwrap_or_else(|_| {
-				process::exit(libc::EXIT_FAILURE)
-			});
-
-			pipe_write.write_all(bytes.as_slice()).unwrap_or_else(|_| {
+			pipe_write.write_all(response.encode().as_slice()).unwrap_or_else(|_| {
 				process::exit(libc::EXIT_FAILURE)
 			});
 
@@ -314,28 +305,21 @@ async fn handle_child_process(
 
 async fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
-	pipe_write: PipeWriter,
 	temp_artifact_dest: PathBuf,
-	preparation_timeout: Duration,
 	worker_pid: u32,
 ) -> Result<PrepareStats, PrepareError> {
-	drop(pipe_write);
 
 	return match nix::sys::wait::wait() {
 		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
-			let data_size = mem::size_of::<Response>();
-
 			let mut received_data = Vec::new();
 
 			pipe_read.read_to_end(&mut received_data).map_err(|_| {
 				PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
 			})?;
 
-			let result: Response = bincode::deserialize(received_data.as_slice()).map_err(|e| {
+			let result: Response = parity_scale_codec::decode_from_bytes(bytes::Bytes::copy_from_slice(received_data.as_slice())).map_err(|e| {
 				PrepareError::Panic(e.to_string())
 			})?;
-
-			drop(pipe_read);
 
 			match result.artifact_result {
 				Err(err) => Err(err),
