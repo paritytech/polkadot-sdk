@@ -23,9 +23,8 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
-use sp_std::vec::Vec;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Handles storage migration pallet versioning.
 ///
@@ -395,6 +394,22 @@ pub trait SteppedMigration {
 	}
 }
 
+impl SteppedMigration for () {
+	type Cursor = ();
+	type Identifier = ();
+
+	fn id() -> Self::Identifier {
+		()
+	}
+
+	fn step(
+		_cursor: Option<Self::Cursor>,
+		_meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		Ok(None)
+	}
+}
+
 #[derive(Debug, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
 pub enum SteppedMigrationError {
 	// Transient errors:
@@ -697,11 +712,7 @@ mod tests {
 		assert_eq!(<Triple as SteppedMigrations>::nth_id(2), Some(2u8.encode()));
 
 		for n in 0..3 {
-			<Triple as SteppedMigrations>::nth_step(
-				n,
-				Default::default(),
-				&mut WeightMeter::new(),
-			);
+			<Triple as SteppedMigrations>::nth_step(n, Default::default(), &mut WeightMeter::new());
 		}
 	}
 }

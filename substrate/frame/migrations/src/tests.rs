@@ -27,8 +27,11 @@ use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 #[test]
 #[docify::export]
 fn simple_works() {
-	use Event::*;	
+	use Event::*;
 	test_closure(|| {
+		// Add three migrations, each taking one block longer than the last.
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
+
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
@@ -37,9 +40,9 @@ fn simple_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(0, 0),
-				mocked_id(0, 1),
-				mocked_id(0, 2),
+				mocked_id(SucceedAfter, 0),
+				mocked_id(SucceedAfter, 1),
+				mocked_id(SucceedAfter, 2),
 			]
 		);
 		// Check that we got all events.
@@ -59,6 +62,8 @@ fn simple_works() {
 #[test]
 fn basic_works() {
 	test_closure(|| {
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
+
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
@@ -67,9 +72,9 @@ fn basic_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(0, 0),
-				mocked_id(0, 1),
-				mocked_id(0, 2),
+				mocked_id(SucceedAfter, 0),
+				mocked_id(SucceedAfter, 1),
+				mocked_id(SucceedAfter, 2),
 			]
 		);
 		// Check that we got all events.
@@ -90,6 +95,7 @@ fn basic_works() {
 fn failing_migration_keep_stuck_the_chain() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedUpgradeHandling::KeepStuck);
+		MigrationsStorage::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -119,6 +125,7 @@ fn failing_migration_keep_stuck_the_chain() {
 fn failing_migration_force_unstuck_the_chain() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedUpgradeHandling::ForceUnstuck);
+		MigrationsStorage::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -149,6 +156,8 @@ fn failing_migration_force_unstuck_the_chain() {
 #[test]
 fn high_weight_migration_singular_fails() {
 	test_closure(|| {
+		MigrationsStorage::set(vec![(HightWeightAfter(Weight::zero()), 2)]);
+
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
@@ -175,11 +184,13 @@ fn high_weight_migration_singular_fails() {
 #[test]
 fn high_weight_migration_retries_once() {
 	test_closure(|| {
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (HightWeightAfter(Weight::zero()), 0)]);
+
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
 
-		assert_eq!(historic(), vec![mocked_id(0, 0)]);
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0)]);
 		// Check that we got all events.
 		assert_events::<Event<T>>(vec![
 			Event::UpgradeStarted { migrations: 2 },
@@ -202,13 +213,13 @@ fn high_weight_migration_retries_once() {
 #[test]
 fn high_weight_migration_permanently_overweight_fails() {
 	test_closure(|| {
-		//MigrationsStorage::set(vec![(0, 0), (HightWeightAfter(Weight::MAX), 0)]);
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (HightWeightAfter(Weight::MAX), 0)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
 		run_to_block(10);
 
-		assert_eq!(historic(), vec![mocked_id(0, 0)]);
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 0)]);
 		// Check that we got all events.
 		assert_events::<Event<T>>(vec![
 			Event::UpgradeStarted { migrations: 2 },
@@ -227,13 +238,13 @@ fn high_weight_migration_permanently_overweight_fails() {
 #[test]
 fn historic_skipping_works() {
 	test_closure(|| {
-		/*MigrationsStorage::set(vec![
-			(0, 0),
-			(0, 0), // duplicate
-			(0, 1),
-			(0, 2),
-			(0, 1), // duplicate
-		]);*/
+		MigrationsStorage::set(vec![
+			(SucceedAfter, 0),
+			(SucceedAfter, 0), // duplicate
+			(SucceedAfter, 1),
+			(SucceedAfter, 2),
+			(SucceedAfter, 1), // duplicate
+		]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -243,9 +254,9 @@ fn historic_skipping_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(0, 0),
-				mocked_id(0, 1),
-				mocked_id(0, 2),
+				mocked_id(SucceedAfter, 0),
+				mocked_id(SucceedAfter, 1),
+				mocked_id(SucceedAfter, 2),
 			]
 		);
 		// Events received.
@@ -272,9 +283,9 @@ fn historic_skipping_works() {
 		assert_eq!(
 			historic(),
 			vec![
-				mocked_id(0, 0),
-				mocked_id(0, 1),
-				mocked_id(0, 2),
+				mocked_id(SucceedAfter, 0),
+				mocked_id(SucceedAfter, 1),
+				mocked_id(SucceedAfter, 2),
 			]
 		);
 
@@ -297,7 +308,7 @@ fn historic_skipping_works() {
 #[test]
 fn upgrade_fails_when_migration_active() {
 	test_closure(|| {
-		//MigrationsStorage::set(vec![(0, 10)]);
+		MigrationsStorage::set(vec![(SucceedAfter, 10)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -305,7 +316,7 @@ fn upgrade_fails_when_migration_active() {
 
 		//assert_eq!( // TODO
 		//	historic(),
-		//	vec![mocked_id(0, 0)]
+		//	vec![mocked_id(SucceedAfter, 0)]
 		//);
 		// Events received.
 		assert_events(vec![
@@ -327,7 +338,7 @@ fn upgrade_fails_when_migration_active() {
 #[test]
 fn migration_timeout_errors() {
 	test_closure(|| {
-		//MigrationsStorage::set(vec![(TimeoutAfter, 3)]);
+		MigrationsStorage::set(vec![(TimeoutAfter, 3)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();

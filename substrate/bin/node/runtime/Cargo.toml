@@ -35,6 +35,7 @@ sp-block-builder = { path = "../../../primitives/block-builder", default-feature
 sp-inherents = { version = "4.0.0-dev", default-features = false, path = "../../../primitives/inherents" }
 node-primitives = { version = "2.0.0", default-features = false, path = "../primitives" }
 sp-offchain = { version = "4.0.0-dev", default-features = false, path = "../../../primitives/offchain" }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
 sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
 sp-std = { version = "8.0.0", default-features = false, path = "../../../primitives/std" }
 sp-api = { version = "4.0.0-dev", default-features = false, path = "../../../primitives/api" }
@@ -233,6 +234,7 @@ std = [
 	"sp-consensus-babe/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-offchain/std",

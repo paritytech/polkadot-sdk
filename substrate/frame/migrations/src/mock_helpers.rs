@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Helpers for std and no-std testing. Can be re-used by other crates.
+//! Helpers for std and no-std testing. Can be re-used by other crates and benchmarking.
 
 use super::*;
 
@@ -55,58 +55,23 @@ impl From<u8> for MockedMigrationKind {
 	}
 }
 
-/// A migration that does something after a certain number of steps.
-pub struct MockedMigration<const KIND: u8, const STEPS: u32>;
-
-impl<const KIND: u8, const STEPS: u32> MockedMigration<KIND, STEPS> {
-	fn kind() -> MockedMigrationKind {
-		MockedMigrationKind::from(KIND)
-	}
-}
-
-impl<const KIND: u8, const STEPS: u32> SteppedMigration for MockedMigration<KIND, STEPS> {
-	type Cursor = MockedCursor;
-	type Identifier = MockedIdentifier;
-
-	fn id() -> Self::Identifier {
-		mocked_id(KIND, STEPS)
-	}
-
-	fn max_steps() -> Option<u32> {
-		matches!(Self::kind(), TimeoutAfter).then(|| STEPS)
-	}
-
-	fn step(
-		cursor: Option<Self::Cursor>,
-		_meter: &mut WeightMeter,
-	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let mut count: u32 =
-			cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
-		log::debug!("MockedMigration: Step {}", count);
-		if count != STEPS || matches!(Self::kind(), TimeoutAfter) {
-			count += 1;
-			return Ok(Some(count.encode().try_into().unwrap()))
-		}
-
-		match Self::kind() {
-			SucceedAfter => {
-				log::debug!("MockedMigration: Succeeded after {} steps", count);
-				Ok(None)
-			},
-			HightWeightAfter(required) => {
-				log::debug!("MockedMigration: Not enough weight after {} steps", count);
-				Err(SteppedMigrationError::InsufficientWeight { required })
-			},
-			FailAfter => {
-				log::debug!("MockedMigration: Failed after {} steps", count);
-				Err(SteppedMigrationError::Failed)
-			},
-			TimeoutAfter => unreachable!(),
+impl Into<u8> for MockedMigrationKind {
+	fn into(self) -> u8 {
+		match self {
+			SucceedAfter => 0,
+			FailAfter => 1,
+			TimeoutAfter => 2,
+			HightWeightAfter(_) => 3,
 		}
 	}
 }
 
 /// Calculate the identifier of a mocked migration.
-pub fn mocked_id(kind: u8, steps: u32) -> MockedIdentifier {
+pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
+	raw_mocked_id(kind.into(), steps)
+}
+
+/// FAIL-CI
+pub fn raw_mocked_id(kind: u8, steps: u32) -> MockedIdentifier {
 	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
 }

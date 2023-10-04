@@ -31,10 +31,11 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err, assert_ok, parameter_types,
+	assert_err, assert_ok,
+	migrations::MultiStepMigrator,
+	parameter_types,
 	traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
-	migrations::MultiStepMigrator,
 };
 use frame_system::{ChainContext, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;

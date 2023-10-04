@@ -17,30 +17,27 @@
 
 #![cfg(test)]
 
-use crate::{mock_helpers::*, Event, Historic};
+use crate::{
+	mock_helpers::{MockedMigrationKind::*, *},
+	Event, Historic, WeightMeter,
+};
 
+use codec::{Decode, Encode};
 use core::cell::RefCell;
-#[use_attr]
-use frame_support::derive_impl;
 use frame_support::{
-	macro_magic::use_attr,
+	derive_impl,
 	migrations::*,
 	traits::{OnFinalize, OnInitialize},
 	weights::Weight,
 };
 use frame_system::EventRecord;
-use sp_core::{Get, ConstU32, H256};
+use sp_core::{ConstU32, H256};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
+	pub enum Test {
 		System: frame_system,
 		Migrations: crate,
 	}
@@ -61,12 +58,88 @@ frame_support::parameter_types! {
 	pub const ServiceWeight: Weight = Weight::MAX.div(10);
 }
 
+thread_local! {
+	/// The configs for the migrations to run.
+	pub static MIGRATIONS: RefCell<Vec<(MockedMigrationKind, u32)>> = RefCell::new(vec![]);
+}
+
+/// Allows to set the migrations to run at runtime instead of compile-time.
+///
+/// It achieves this by using a thread-local storage to store the migrations to run.
+pub struct MigrationsStorage;
+impl SteppedMigrations for MigrationsStorage {
+	fn len() -> u32 {
+		MIGRATIONS.with(|m| m.borrow().len()) as u32
+	}
+
+	fn nth_id(n: u32) -> Option<Vec<u8>> {
+		let k = MIGRATIONS.with(|m| m.borrow().get(n as usize).map(|k| k.clone()));
+		k.map(|(kind, steps)| mocked_id(kind, steps).into_inner())
+	}
+
+	fn nth_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		_meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		Some(MIGRATIONS.with(|m| {
+			let (kind, steps) = m.borrow()[n as usize];
+
+			let mut count: u32 =
+				cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
+			log::debug!("MockedMigration: Step {}", count);
+			if count != steps || matches!(kind, TimeoutAfter) {
+				count += 1;
+				return Ok(Some(count.encode().try_into().unwrap()))
+			}
+
+			match kind {
+				SucceedAfter => {
+					log::debug!("MockedMigration: Succeeded after {} steps", count);
+					Ok(None)
+				},
+				HightWeightAfter(required) => {
+					log::debug!("MockedMigration: Not enough weight after {} steps", count);
+					Err(SteppedMigrationError::InsufficientWeight { required })
+				},
+				FailAfter => {
+					log::debug!("MockedMigration: Failed after {} steps", count);
+					Err(SteppedMigrationError::Failed)
+				},
+				TimeoutAfter => unreachable!(),
+			}
+		}))
+	}
+
+	fn nth_transactional_step(
+		n: u32,
+		cursor: Option<Vec<u8>>,
+		meter: &mut WeightMeter,
+	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		// FAIL-CI
+		Self::nth_step(n, cursor, meter)
+	}
+
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+		MIGRATIONS
+			.with(|m| m.borrow().get(n as usize).map(|s| *s))
+			.map(|(_, s)| Some(s))
+	}
+}
+
+impl MigrationsStorage {
+	/// Set the migrations to run.
+	pub fn set(migrations: Vec<(MockedMigrationKind, u32)>) {
+		MIGRATIONS.with(|m| *m.borrow_mut() = migrations);
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Migrations = (MockedMigration<1, 10>);
-	type OnMigrationUpdate = MockedOnMigrationUpdate;
+	type Migrations = MigrationsStorage;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
+	type OnMigrationUpdate = MockedOnMigrationUpdate;
 	type ServiceWeight = ServiceWeight;
 	type WeightInfo = ();
 }

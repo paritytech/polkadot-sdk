@@ -143,19 +143,18 @@ pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
+	defensive,
 	migrations::*,
 	traits::Get,
-	defensive,
-	BoundedVec,
 	weights::{Weight, WeightMeter},
+	BoundedVec,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-use frame_system::Pallet as System;
+use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::vec::Vec;
 
 const LOG: &'static str = "runtime::migrations";
 
@@ -204,20 +203,16 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 }
 
 /// Convenience alias for [`MigrationCursor`].
-pub type CursorOf<T> =
-	MigrationCursor<RawCursorOf<T>, BlockNumberFor<T>>;
+pub type CursorOf<T> = MigrationCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
 /// TODO FAIL-CI
-pub type RawCursorOf<T> =
-	BoundedVec<u8, <T as Config>::CursorMaxLen>;
+pub type RawCursorOf<T> = BoundedVec<u8, <T as Config>::CursorMaxLen>;
 
 /// TODO FAIL-CI
-pub type IdentifierOf<T> =
-	BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
+pub type IdentifierOf<T> = BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
 
 /// Convenience alias for [`ActiveCursor`].
-pub type ActiveCursorOf<T> =
-	ActiveCursor<RawCursorOf<T>, BlockNumberFor<T>>;
+pub type ActiveCursorOf<T> = ActiveCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -408,7 +403,7 @@ impl<T: Config> Pallet<T> {
 	/// Tries to make progress on the Multi-Block-Migrations process.
 	fn progress_mbms(n: BlockNumberFor<T>) -> Weight {
 		let mut meter = WeightMeter::with_limit(T::ServiceWeight::get());
-		meter.defensive_saturating_accrue(T::WeightInfo::on_init_base());
+		meter.consume(T::WeightInfo::on_init_base());
 
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
@@ -477,7 +472,8 @@ impl<T: Config> Pallet<T> {
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
 			meter,
-		).expect("FAIL-CI");
+		)
+		.expect("FAIL-CI");
 
 		let blocks = System::<T>::block_number().saturating_sub(cursor.started_at);
 		match next_cursor {

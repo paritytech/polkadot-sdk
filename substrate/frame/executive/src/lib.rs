@@ -131,14 +131,13 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
-	ExtrinsicInclusionMode,
 	generic::Digest,
 	traits::{
 		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, NumberFor, One,
 		ValidateUnsigned, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -469,7 +468,9 @@ impl<
 	}
 
 	/// Start the execution of a particular block.
-	pub fn initialize_block(header: &frame_system::pallet_prelude::HeaderFor<System>) -> ExtrinsicInclusionMode {
+	pub fn initialize_block(
+		header: &frame_system::pallet_prelude::HeaderFor<System>,
+	) -> ExtrinsicInclusionMode {
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "init_block");
 		let digests = Self::extract_pre_digest(header);
@@ -640,7 +641,7 @@ impl<
 	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if MultiStepMigrator::is_upgrading() {
-			return;
+			return
 		}
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
@@ -672,7 +673,10 @@ impl<
 		Self::apply_extrinsic_with_mode(uxt, Self::extrinsic_mode())
 	}
 
-	pub fn apply_extrinsic_with_mode(uxt: Block::Extrinsic, mode: ExtrinsicInclusionMode) -> ApplyExtrinsicResult {
+	pub fn apply_extrinsic_with_mode(
+		uxt: Block::Extrinsic,
+		mode: ExtrinsicInclusionMode,
+	) -> ApplyExtrinsicResult {
 		sp_io::init_tracing();
 		let encoded = uxt.encode();
 		let encoded_len = encoded.len();
@@ -690,7 +694,9 @@ impl<
 
 		// Decode parameters and dispatch
 		let dispatch_info = xt.get_dispatch_info();
-		if dispatch_info.class != DispatchClass::Mandatory && mode == ExtrinsicInclusionMode::OnlyInherents {
+		if dispatch_info.class != DispatchClass::Mandatory &&
+			mode == ExtrinsicInclusionMode::OnlyInherents
+		{
 			// The block builder respects this by using the mode returned by `after_inherents`.
 			panic!("Only Mandatory extrinsics are allowed during Multi-Block-Migrations");
 		}
