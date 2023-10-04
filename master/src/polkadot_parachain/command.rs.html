@@ -1204,6 +1204,8 @@
 <a href="#1204" id="1204">1204</a>
 <a href="#1205" id="1205">1205</a>
 <a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2082,12 +2084,17 @@
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::Seedling =&gt; <span class="kw">crate</span>::service::start_shell_node::&lt;
-						seedling_runtime::RuntimeApi,
-					&gt;(config, polkadot_config, collator_options, id, hwbench)
-					.<span class="kw">await
-					</span>.map(|r| r.<span class="number">0</span>)
-					.map_err(Into::into),
+					Runtime::Seedling =&gt;
+						<span class="kw">crate</span>::service::start_shell_node::&lt;seedling_runtime::RuntimeApi&gt;(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench
+						)
+						.<span class="kw">await
+						</span>.map(|r| r.<span class="number">0</span>)
+						.map_err(Into::into),
 					Runtime::ContractsRococo =&gt; <span class="kw">crate</span>::service::start_contracts_rococo_node(
 						config,
 						polkadot_config,
@@ -2155,13 +2162,10 @@
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
 					Runtime::Glutton =&gt;
-						<span class="kw">crate</span>::service::start_shell_node::&lt;glutton_runtime::RuntimeApi&gt;(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
+						<span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;
+							glutton_runtime::RuntimeApi,
+							AuraId,
+						&gt;(config, polkadot_config, collator_options, id, hwbench)
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
