@@ -19,10 +19,7 @@
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
-		fungible::{
-			hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-			Inspect as FunInspect, Mutate as FunMutate,
-		},
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
 		Currency, ReservableCurrency,
 	},
 };

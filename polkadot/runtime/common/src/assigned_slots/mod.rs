@@ -30,7 +30,7 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
-use frame_support::{pallet_prelude::*, traits::{Currency, fungible::Inspect as FunInspect}};
+use frame_support::{pallet_prelude::*, traits::fungible::Inspect as FunInspect};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -98,9 +98,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+type BalanceOf<T> =
+	<<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 
 type LeasePeriodOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::LeasePeriod;
 
@@ -783,7 +784,7 @@ mod tests {
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+			balances: vec![(0, 5), (1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

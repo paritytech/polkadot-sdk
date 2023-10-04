@@ -28,10 +28,7 @@ use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
-	traits::fungible::{
-		hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-		Inspect as FunInspect, Mutate as FunMutate,
-	},
+	traits::fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::*;

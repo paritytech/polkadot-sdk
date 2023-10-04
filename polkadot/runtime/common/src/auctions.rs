@@ -25,7 +25,7 @@ use crate::{
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{{Currency, Get, Randomness, ReservableCurrency}, fungible::Inspect as FunInspect},
+	traits::{fungible::Inspect as FunInspect, Get, Randomness, ReservableCurrency},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -36,9 +36,10 @@ use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 use sp_std::{mem::swap, prelude::*};
 
 type CurrencyOf<T> = <T as Config>::Currency;
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+type BalanceOf<T> =
+	<<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 
 pub trait WeightInfo {
 	fn new_auction() -> Weight;
@@ -98,7 +99,12 @@ pub mod pallet {
 			LeasePeriod = BlockNumberFor<Self>,
 		>;
 
-		type Currency: ReservableCurrency<Self::AccountId, Balance = <<Self::Leaser as Leaser<BlockNumberFor<Self>>>::Currency as FunInspect<Self::AccountId>>::Balance>;
+		type Currency: ReservableCurrency<
+			Self::AccountId,
+			Balance = <<Self::Leaser as Leaser<BlockNumberFor<Self>>>::Currency as FunInspect<
+				Self::AccountId,
+			>>::Balance,
+		>;
 
 		/// The parachain registrar type.
 		type Registrar: Registrar<AccountId = Self::AccountId>;
