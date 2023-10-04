@@ -199,8 +199,8 @@ fn runtime_metadata() {
 						name: "header",
 						ty: meta_type::<&<Block as BlockT>::Header>(),
 					}],
-					output: meta_type::<()>(),
-					docs: maybe_docs(vec![" Initialize a block with the given header."]),
+					output: meta_type::<sp_runtime::ExtrinsicInclusionMode>(),
+					docs: maybe_docs(vec![" Initialize a block with the given header and return the runtime executive mode."]),
 				},
 			],
 			docs: maybe_docs(vec![
