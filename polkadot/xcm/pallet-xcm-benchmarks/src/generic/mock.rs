@@ -40,6 +40,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmGenericBenchmarks: generic::{Pallet},
 	}
 );
@@ -139,6 +140,7 @@ impl xcm_executor::Config for XcmConfig {
 
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
+	type TransactAsset = Balances;
 	type AccountIdConverter = AccountIdConverter;
 	type DeliveryHelper = ();
 	fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
