@@ -19924,6 +19924,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "pallet-asset-rate",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
