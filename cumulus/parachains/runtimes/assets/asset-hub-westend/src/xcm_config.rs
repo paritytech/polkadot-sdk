@@ -38,7 +38,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use westend_runtime_constants::system_parachains::{ASSET_HUB_ID, COLLECTIVES_ID, BRIDGE_HUB_ID};
+use westend_runtime_constants::system_parachain;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -481,7 +481,14 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 
 match_types! {
 	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID ))}
+		MultiLocation {
+			parents: 1,
+			interior: X1(Parachain(
+				system_parachain::ASSET_HUB_ID |
+				system_parachain::COLLECTIVES_ID |
+				system_parachain::BRIDGE_HUB_ID
+			)),
+		}
 	};
 }
 
