@@ -194,6 +194,7 @@ impl Config for Test {
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = ConstU64<1>;
 	type DataDepositPerByte = ConstU64<1>;
+	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -205,6 +206,7 @@ impl Config<Instance1> for Test {
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = ConstU64<1>;
 	type DataDepositPerByte = ConstU64<1>;
+	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -419,6 +421,23 @@ fn tip_median_calculation_works() {
 }
 
 #[test]
+fn tip_large_should_fail() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 0));
+		let h = tip_hash();
+		assert_noop!(
+			Tips::tip(
+				RuntimeOrigin::signed(12),
+				h,
+				<<Test as Config>::MaxTipAmount as Get<u64>>::get() + 1
+			),
+			Error::<Test>::MaxTipAmountExceeded
+		);
+	});
+}
+
+#[test]
 fn tip_changing_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -492,7 +511,7 @@ fn test_last_reward_migration() {
 	s.top = data.into_iter().collect();
 
 	sp_io::TestExternalities::new(s).execute_with(|| {
-		let module = pallet_tips::Tips::<Test>::module_prefix();
+		let module = pallet_tips::Tips::<Test>::pallet_prefix();
 		let item = pallet_tips::Tips::<Test>::storage_prefix();
 		Tips::migrate_retract_tip_for_tip_new(module, item);
 
