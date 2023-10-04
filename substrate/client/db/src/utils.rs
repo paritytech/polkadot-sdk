@@ -306,7 +306,7 @@ fn open_parity_db<Block: BlockT>(path: &Path, db_type: DatabaseType, create: boo
 }
 
 #[cfg(any(feature = "rocksdb", test))]
-fn open_kvdb_rocksdb<Block: BlockT>(
+pub(crate) fn open_kvdb_rocksdb<Block: BlockT>(
 	path: &Path,
 	db_type: DatabaseType,
 	create: bool,
@@ -607,6 +607,7 @@ mod tests {
 			db_type: DatabaseType,
 			mut source: DatabaseSource,
 			db_check_file: &str,
+			create_db: impl FnOnce(&Path) -> OpenDbResult,
 		) {
 			let base_path = tempfile::TempDir::new().unwrap();
 			let old_db_path = base_path.path().join("chains/dev/db");
@@ -614,7 +615,7 @@ mod tests {
 			source.set_path(&old_db_path);
 
 			{
-				let db_res = open_database::<Block>(&source, db_type, true);
+				let db_res = create_db(&old_db_path);
 				assert!(db_res.is_ok(), "New database should be created.");
 				assert!(old_db_path.join(db_check_file).exists());
 				assert!(!old_db_path.join(db_type.as_str()).join("db_version").exists());
@@ -633,12 +634,20 @@ mod tests {
 			DatabaseType::Full,
 			DatabaseSource::RocksDb { path: PathBuf::new(), cache_size: 128 },
 			"db_version",
+			|path| open_kvdb_rocksdb::<Block>(path, DatabaseType::Full, true, 128),
 		);
 
 		check_dir_for_db_type(
 			DatabaseType::Full,
 			DatabaseSource::ParityDb { path: PathBuf::new() },
 			"metadata",
+			|path| {
+				open_database::<Block>(
+					&DatabaseSource::ParityDb { path: path.into() },
+					DatabaseType::Full,
+					true,
+				)
+			},
 		);
 
 		// check failure on reopening with wrong role
@@ -646,9 +655,9 @@ mod tests {
 			let base_path = tempfile::TempDir::new().unwrap();
 			let old_db_path = base_path.path().join("chains/dev/db");
 
-			let source = DatabaseSource::RocksDb { path: old_db_path.clone(), cache_size: 128 };
 			{
-				let db_res = open_database::<Block>(&source, DatabaseType::Full, true);
+				let db_res =
+					open_kvdb_rocksdb::<Block>(&old_db_path, DatabaseType::Full, true, 128);
 				assert!(db_res.is_ok(), "New database should be created.");
 
 				// check if the database dir had been migrated
@@ -729,7 +738,7 @@ mod tests {
 				DatabaseType::Full,
 				true,
 			);
-			assert!(db_res.is_ok(), "New database should be opened.");
+			assert!(db_res.is_err(), "New rocksdb database should not be opened.");
 		}
 
 		// it should reopen existing auto (pairtydb) database
@@ -745,19 +754,25 @@ mod tests {
 
 	#[cfg(feature = "rocksdb")]
 	#[test]
-	fn test_open_database_rocksdb_new() {
+	fn test_open_new_rocksdb_should_fail() {
+		let db_dir = tempfile::TempDir::new().unwrap();
+		let db_path = db_dir.path().to_owned();
+		let rocksdb_path = db_path.join("rocksdb_path");
+		let source = DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 };
+		let db_res = open_database::<Block>(&source, DatabaseType::Full, true);
+		assert!(db_res.is_err(), "New rocksdb database should not be created");
+	}
+
+	#[cfg(feature = "rocksdb")]
+	#[test]
+	fn test_open_existing_rocksdb_should_work() {
 		let db_dir = tempfile::TempDir::new().unwrap();
 		let db_path = db_dir.path().to_owned();
 		let paritydb_path = db_path.join("paritydb");
 		let rocksdb_path = db_path.join("rocksdb_path");
 
-		let source = DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 };
-
-		// it should create new rocksdb database
-		{
-			let db_res = open_database::<Block>(&source, DatabaseType::Full, true);
-			assert!(db_res.is_ok(), "New rocksdb database should be created");
-		}
+		// Forcefully create a new RocksDB database.
+		assert!(open_kvdb_rocksdb::<Block>(&rocksdb_path, DatabaseType::Full, true, 128).is_ok());
 
 		// it should reopen existing auto (rocksdb) database
 		{
@@ -823,7 +838,7 @@ mod tests {
 				DatabaseType::Full,
 				true,
 			);
-			assert!(db_res.is_ok(), "New rocksdb database should be created");
+			assert!(db_res.is_err(), "New rocksdb database should not be created");
 		}
 
 		// it should reopen existing auto (pairtydb) database

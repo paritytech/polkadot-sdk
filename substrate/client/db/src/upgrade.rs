@@ -204,13 +204,9 @@ mod tests {
 	}
 
 	fn open_database(db_path: &Path, db_type: DatabaseType) -> sp_blockchain::Result<()> {
-		crate::utils::open_database::<Block>(
-			&DatabaseSource::RocksDb { path: db_path.to_owned(), cache_size: 128 },
-			db_type,
-			true,
-		)
-		.map(|_| ())
-		.map_err(|e| sp_blockchain::Error::Backend(e.to_string()))
+		crate::utils::open_kvdb_rocksdb::<Block>(db_path, db_type, true, 128)
+			.map(|_| ())
+			.map_err(|e| sp_blockchain::Error::Backend(e.to_string()))
 	}
 
 	#[test]
