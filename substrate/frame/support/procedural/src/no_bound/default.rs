@@ -32,7 +32,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 			Fields::Named(named) => {
 				let fields = named.named.iter().map(|field| &field.ident).map(|ident| {
 					quote_spanned! {ident.span() =>
-						#ident: core::default::Default::default()
+						#ident: ::core::default::Default::default()
 					}
 				});
 
@@ -41,7 +41,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 			Fields::Unnamed(unnamed) => {
 				let fields = unnamed.unnamed.iter().map(|field| {
 					quote_spanned! {field.span()=>
-						core::default::Default::default()
+						::core::default::Default::default()
 					}
 				});
 
@@ -105,7 +105,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 							let fields =
 								named.named.iter().map(|field| &field.ident).map(|ident| {
 									quote_spanned! {ident.span()=>
-										#ident: core::default::Default::default()
+										#ident: ::core::default::Default::default()
 									}
 								});
 
@@ -114,7 +114,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 						Fields::Unnamed(unnamed) => {
 							let fields = unnamed.unnamed.iter().map(|field| {
 								quote_spanned! {field.span()=>
-									core::default::Default::default()
+									::core::default::Default::default()
 								}
 							});
 
@@ -149,7 +149,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 
 	quote!(
 		const _: () = {
-			impl #impl_generics core::default::Default for #name #ty_generics #where_clause {
+			impl #impl_generics ::core::default::Default for #name #ty_generics #where_clause {
 				fn default() -> Self {
 					#impl_
 				}
