@@ -46,8 +46,8 @@ pub enum ExecutorParam {
 	#[codec(index = 2)]
 	StackLogicalMax(u32),
 	/// Executor machine stack size limit, in bytes.
-	/// If `StackLogicalMax` is also present, a valid value ranges from 128 * `logical_max`
-	/// to 512 * `logical_max`.
+	/// If `StackLogicalMax` is also present, a valid value should not fall below
+	/// 128 * `logical_max`.
 	#[codec(index = 3)]
 	StackNativeMax(u32),
 	/// Max. amount of memory the preparation worker is allowed to use during
@@ -55,14 +55,14 @@ pub enum ExecutorParam {
 	/// Valid max. memory ranges from 256MB to 16GB.
 	#[codec(index = 4)]
 	PrecheckingMaxMemory(u64),
-	/// PVF preparation timeouts, millisec
-	/// If both `PvfPrepTimeoutKind::Precheck` and `PvfPrepTimeoutKind::Lenient` are present,
-	/// ensure that `precheck` < `lenient`.
+	/// PVF preparation timeouts, in millisecond.
+	/// Always ensure that `precheck_timeout` < `lenient_timeout`.
+	/// If not set, the default values will be used, 60,000 and 360,000 respectively.
 	#[codec(index = 5)]
 	PvfPrepTimeout(PvfPrepTimeoutKind, u64),
-	/// PVF execution timeouts, millisec
-	/// If both `PvfExecTimeoutKind::Backing` and `PvfExecTimeoutKind::Approval` are present,
-	/// ensure that `backing` < `approval`.
+	/// PVF execution timeouts, in millisecond.
+	/// Always ensure that `backing_timeout` < `approval_timeout`.
+	/// If not set, the default values will be used, 2,000 and 12,000 respectively.
 	#[codec(index = 6)]
 	PvfExecTimeout(PvfExecTimeoutKind, u64),
 	/// Enables WASM bulk memory proposal
@@ -172,6 +172,7 @@ impl ExecutorParams {
 				seen.insert($param, $val as u64);
 			};
 
+			// should check existence before range
 			($param:ident, $val:expr, $out_of_limit:expr $(,)?) => {
 				if seen.contains_key($param) {
 					return Err(DuplicatedParam($param));
@@ -231,7 +232,8 @@ impl ExecutorParams {
 				},
 
 				WasmExtBulkMemory => {
-					check!(param_ident, 0);
+					// 1 is a dummy for inserting the key into the map
+					check!(param_ident, 1);
 				},
 			}
 
@@ -243,26 +245,60 @@ impl ExecutorParams {
 				}
 			}
 
-			if let (Some(precheck), Some(lenient)) =
-				(seen.get("PvfPrepTimeoutKind::Precheck"), seen.get("PvfPrepTimeoutKind::Lenient"))
-			{
-				if *precheck >= *lenient {
+			match (
+				seen.get("PvfPrepTimeoutKind::Precheck"),
+				seen.get("PvfPrepTimeoutKind::Lenient"),
+			) {
+				(Some(precheck), Some(lenient)) if *precheck >= *lenient => {
 					return Err(IncompatibleValues(
 						"PvfPrepTimeoutKind::Precheck",
 						"PvfPrepTimeoutKind::Lenient",
 					));
-				}
+				},
+
+				(Some(precheck), None) if *precheck >= 360000 => {
+					return Err(IncompatibleValues(
+						"PvfPrepTimeoutKind::Precheck",
+						"PvfPrepTimeoutKind::Lenient default",
+					));
+				},
+
+				(None, Some(lenient)) if *lenient <= 60000 => {
+					return Err(IncompatibleValues(
+						"PvfPrepTimeoutKind::Precheck default",
+						"PvfPrepTimeoutKind::Lenient",
+					));
+				},
+
+				(_, _) => {},
 			}
 
-			if let (Some(backing), Some(approval)) =
-				(seen.get("PvfExecTimeoutKind::Backing"), seen.get("PvfExecTimeoutKind::Approval"))
-			{
-				if *backing >= *approval {
+			match (
+				seen.get("PvfExecTimeoutKind::Backing"),
+				seen.get("PvfExecTimeoutKind::Approval"),
+			) {
+				(Some(backing), Some(approval)) if *backing >= *approval => {
 					return Err(IncompatibleValues(
 						"PvfExecTimeoutKind::Backing",
 						"PvfExecTimeoutKind::Approval",
 					));
-				}
+				},
+
+				(Some(backing), None) if *backing >= 12000 => {
+					return Err(IncompatibleValues(
+						"PvfExecTimeoutKind::Backing",
+						"PvfExecTimeoutKind::Approval default",
+					));
+				},
+
+				(None, Some(approval)) if *approval <= 2000 => {
+					return Err(IncompatibleValues(
+						"PvfExecTimeoutKind::Backing default",
+						"PvfExecTimeoutKind::Approval",
+					));
+				},
+
+				(_, _) => {},
 			}
 		}
 
