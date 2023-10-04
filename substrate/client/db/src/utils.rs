@@ -190,27 +190,32 @@ fn open_database_at<Block: BlockT>(
 	db_type: DatabaseType,
 	create: bool,
 ) -> OpenDbResult {
-	let db: Arc<dyn Database<DbHash>> = match &db_source {
-		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
+	let (db, is_rocks_db): (Arc<dyn Database<DbHash>>, bool) = match &db_source {
+		DatabaseSource::ParityDb { path } =>
+			(open_parity_db::<Block>(path, db_type, create)?, false),
 		#[cfg(feature = "rocksdb")]
 		DatabaseSource::RocksDb { path, cache_size } =>
-			open_kvdb_rocksdb::<Block>(path, db_type, false, *cache_size)?,
+			(open_kvdb_rocksdb::<Block>(path, db_type, false, *cache_size)?, true),
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
 				return Err(OpenDbError::DoesNotExist)
 			}
-			db.clone()
+			(db.clone(), false)
 		},
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size } => {
 			// check if rocksdb exists first, if not, open paritydb
 			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
-				Ok(db) => db,
+				Ok(db) => (db, true),
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
-					open_parity_db::<Block>(paritydb_path, db_type, create)?,
+					(open_parity_db::<Block>(paritydb_path, db_type, create)?, false),
 				Err(as_is) => return Err(as_is),
 			}
 		},
 	};
+
+	if is_rocks_db {
+		log::warn!("💀 RocksDB support is deprecated and will be removed on 2024-04-01; please switch to ParityDB");
+	}
 
 	check_database_type(&*db, db_type)?;
 	Ok(db)
