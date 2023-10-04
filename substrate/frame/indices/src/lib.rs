@@ -28,7 +28,12 @@ pub mod weights;
 use codec::Codec;
 use frame_support::traits::{
 	fungible::MutateHold as FunMutateHold,
-	BalanceStatus::Reserved, Currency, ReservableCurrency, StorageVersion,
+	tokens::{
+		Fortitude,
+		Precision,
+		Restriction,
+	},
+	StorageVersion,
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
@@ -38,7 +43,9 @@ use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as frame_support::traits::fungible::Inspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
@@ -117,7 +124,7 @@ pub mod pallet {
 			Accounts::<T>::try_mutate(index, |maybe_value| {
 				ensure!(maybe_value.is_none(), Error::<T>::InUse);
 				*maybe_value = Some((who.clone(), T::Deposit::get(), false));
-				T::Currency::reserve(&who, T::Deposit::get())
+				T::Currency::hold(&HoldReason::ClaimedIndex.into(), &who, T::Deposit::get())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who, index });
 			Ok(())
@@ -150,8 +157,16 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				let lost = T::Currency::repatriate_reserved(&who, &new, amount, Reserved)?;
-				*maybe_value = Some((new.clone(), amount.saturating_sub(lost), false));
+
+				T::Currency::transfer_on_hold(
+					&HoldReason::ClaimedIndex.into(),
+					&who,
+					&new,
+					amount,
+					Precision::BestEffort,
+					Restriction::OnHold,
+					Fortitude::Polite,
+				)?;
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
@@ -179,7 +194,11 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::unreserve(&who, amount);
+				T::Currency::release_all(
+					&HoldReason::ClaimedIndex.into(),
+					&who,
+					Precision::BestEffort,
+				)?;
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFreed { index });
@@ -210,12 +229,17 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let new = T::Lookup::lookup(new)?;
 
-			Accounts::<T>::mutate(index, |maybe_value| {
+			Accounts::<T>::try_mutate(index, |maybe_value| {
 				if let Some((account, amount, _)) = maybe_value.take() {
-					T::Currency::unreserve(&account, amount);
+					T::Currency::release_all(
+						&HoldReason::ClaimedIndex.into(),
+						&account,
+						Precision::BestEffort,
+					)?;
 				}
 				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
-			});
+				Ok::<(), DispatchError>(())
+			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
 			Ok(())
 		}
@@ -241,7 +265,13 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::slash_reserved(&who, amount);
+				// T::Currency::slash_reserved(&who, amount);
+				T::Currency::burn_all_held(
+					&HoldReason::ClaimedIndex.into(),
+					&who,
+					Precision::BestEffort,
+					Fortitude::Polite,
+				)?;
 				*maybe_value = Some((account, Zero::zero(), true));
 				Ok(())
 			})?;
@@ -327,29 +357,8 @@ impl<T: Config> Pallet<T> {
 	/// The following assertions must always apply.
 	///
 	/// General assertions:
-	///
-	/// * [`ReferendumCount`] must always be equal to the number of referenda in
-	///   [`ReferendumInfoFor`].
-	/// * Referendum indices in [`MetadataOf`] must also be stored in [`ReferendumInfoFor`].
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		ensure!(
-			ReferendumCount::<T, I>::get() as usize ==
-				ReferendumInfoFor::<T, I>::iter_keys().count(),
-			"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
-		);
-
-		MetadataOf::<T, I>::iter_keys().try_for_each(|referendum_index| -> DispatchResult {
-			ensure!(
-				ReferendumInfoFor::<T, I>::contains_key(referendum_index),
-				"Referendum indices in `MetadataOf` must also be stored in `ReferendumInfoOf`"
-			);
-			Ok(())
-		})?;
-
-		Self::try_state_referenda_info()?;
-		Self::try_state_tracks()?;
-
 		Ok(())
 	}
 }
