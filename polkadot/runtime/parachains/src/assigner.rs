@@ -66,7 +66,7 @@ type ParachainAssigner<T> = <T as Config>::ParachainsAssignmentProvider;
 type OnDemandAssigner<T> = <T as Config>::OnDemandAssignmentProvider;
 
 /// Assignments as of this top-level assignment provider.
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
 pub enum UnifiedAssignment<OnDemand, Legacy> {
 	/// Assignment came from on-demand assignment provider.
 	#[codec(index = 0)]

@@ -44,13 +44,13 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 }
 
-#[derive(Debug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone)]
 pub struct ParachainsAssignment {
 	pub para_id: ParaId,
 }
 
 impl ParachainsAssignment {
-	fn new(para_id: ParaId) -> Self {
+	pub fn new(para_id: ParaId) -> Self {
 		Self { para_id }
 	}
 }

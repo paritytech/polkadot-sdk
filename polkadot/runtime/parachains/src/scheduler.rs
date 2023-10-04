@@ -106,7 +106,7 @@ pub mod pallet {
 	/// This is not to be confused with `CoreState` which is an enriched variant of this and exposed
 	/// to the node side. It also provides information about scheduled/upcoming assignments for
 	/// example and is computed on the fly in the `availability_cores` runtime call.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
 	pub enum CoreOccupied<N, A> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
@@ -160,7 +160,7 @@ pub mod pallet {
 	>>::AssignmentType;
 
 	/// Assignments as tracked in the claim queue.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
 	pub struct ParasEntry<N, A> {
 		/// The underlying `Assignment`
 		pub assignment: A,
@@ -292,7 +292,7 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match std::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
+					match core::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
 					{
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
@@ -538,7 +538,7 @@ impl<T: Config> Pallet<T> {
 	fn push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::<T>::mutate(|cores| {
 			for core in cores.iter_mut() {
-				match std::mem::replace(core, CoreOccupied::Free) {
+				match core::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free => continue,
 					CoreOccupied::Paras(entry) => {
 						Self::maybe_push_assignment(entry);
@@ -672,15 +672,6 @@ impl<T: Config> Pallet<T> {
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
-
-	/// Internal access to entries at the top of the claim queue.
-	// fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParaId, )> {
-	//     let claimqueue = ClaimQueue::<T>::get();
-
-	//     claimqueue
-	//         .iter()
-	//         .filter_map(|(core_idx, v)| v.front().cloned().flatten().map(|e| (core_idx, e)))
-	// }
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn assignment_provider_config(

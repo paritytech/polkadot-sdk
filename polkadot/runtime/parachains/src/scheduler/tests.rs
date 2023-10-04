@@ -22,14 +22,17 @@ use primitives::{BlockNumber, SessionIndex, ValidationCode, ValidatorId};
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use crate::{
-	assigner_on_demand::QueuePushDirection,
+	assigner_on_demand::{ QueuePushDirection, OnDemandAssignment, EnqueuedOrder },
+	assigner_parachains::ParachainsAssignment,
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
+	assigner::UnifiedAssignmentType,
 	mock::{
 		new_test_ext, MockGenesisConfig, OnDemandAssigner, Paras, ParasShared, RuntimeOrigin,
 		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
+	scheduler::ClaimQueue,
 };
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -124,22 +127,13 @@ fn genesis_config(config: &HostConfiguration<BlockNumber>) -> MockGenesisConfig 
 	}
 }
 
-pub(crate) fn claimqueue_contains_only_none() -> bool {
-	let mut cq = Scheduler::claimqueue();
-	for (_, v) in cq.iter_mut() {
-		v.retain(|e| e.is_some());
-	}
-
-	cq.values().map(|v| v.len()).sum::<usize>() == 0
-}
-
 pub(crate) fn claimqueue_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
 	let set: BTreeSet<ParaId> = ClaimQueue::<T>::get()
 		.into_iter()
-		.flat_map(|(_, assignments)| {
-			assignments
+		.flat_map(|(_, paras_entries)| {
+			paras_entries
 				.into_iter()
-				.filter_map(|assignment| assignment.and_then(|pe| Some(pe.para_id())))
+				.map(|pe| pe.assignment.para_id())
 		})
 		.collect();
 
@@ -156,6 +150,16 @@ pub(crate) fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>)
 		.collect();
 
 	pids.into_iter().all(|pid| set.contains(&pid))
+}
+
+/// Internal access to entries at the top of the claim queue.
+pub(crate) fn scheduled_entries(
+) -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>, UnifiedAssignmentType<Test>>)>
+{
+	let claimqueue = ClaimQueue::<Test>::get();
+		claimqueue
+			.into_iter()
+			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx.clone(), e.clone())))
 }
 
 #[test]
@@ -175,7 +179,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
 		// Add a claim on core 0 with a ttl in the past.
-		let paras_entry = ParasEntry::new(Assignment::new(para_id), now - 5);
+		let paras_entry = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx)), now - 5 as u32);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue prior to call.
@@ -186,7 +190,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl in the future (15).
-		let paras_entry = ParasEntry::new(Assignment::new(para_id), now + 5);
+		let paras_entry = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx)), now + 5);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -201,7 +205,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl == now (16)
-		let paras_entry = ParasEntry::new(Assignment::new(para_id), now);
+		let paras_entry = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx)), now);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -215,8 +219,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::drop_expired_claims_from_claimqueue();
 
 		// Add a claim on core 0 with a ttl == now (17)
-		let paras_entry_non_expired = ParasEntry::new(Assignment::new(para_id), now);
-		let paras_entry_expired = ParasEntry::new(Assignment::new(para_id), now - 2);
+		let paras_entry_non_expired = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx)), now);
+		let paras_entry_expired = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx)), now - 2);
 		// ttls = [17, 15, 17]
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
@@ -225,15 +229,15 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(cq.get(&core_idx).unwrap().len() == 3);
 
 		// Add claims to on demand assignment provider.
-		let assignment = Assignment::new(para_id);
+		let assignment = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(para_id, core_idx));
 
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment.clone(),
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment.para_id()),
 			QueuePushDirection::Back
 		));
 
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -252,8 +256,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		// ttls = [17, 17, 22]
 		assert!(cqc.iter().enumerate().all(|(index, entry)| {
 			match index {
-				0 | 1 => return entry.clone().unwrap().ttl == 17,
-				2 => return entry.clone().unwrap().ttl == 22,
+				0 | 1 => return entry.clone().ttl == 17,
+				2 => return entry.clone().ttl == 22,
 				_ => return false,
 			}
 		}))
@@ -278,12 +282,12 @@ fn add_parathread_claim_works() {
 
 		assert!(Paras::is_parathread(thread_id));
 
-		let pe = ParasEntry::new(Assignment::new(thread_id), entry_ttl);
+		let pe = ParasEntry::new(UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_id, core_index)), entry_ttl);
 		Scheduler::add_to_claimqueue(core_index, pe.clone());
 
 		let cq = Scheduler::claimqueue();
 		assert_eq!(Scheduler::claimqueue_len(), 1);
-		assert_eq!(*(cq.get(&core_index).unwrap().front().unwrap()), Some(pe));
+		assert_eq!(*(cq.get(&core_index).unwrap().front().unwrap()), pe);
 	})
 }
 
@@ -393,9 +397,9 @@ fn fill_claimqueue_fills() {
 	let thread_b = ParaId::from(4_u32);
 	let thread_c = ParaId::from(5_u32);
 
-	let assignment_a = Assignment { para_id: thread_a };
-	let assignment_b = Assignment { para_id: thread_b };
-	let assignment_c = Assignment { para_id: thread_c };
+	let assignment_a = OnDemandAssignment::new(thread_a, CoreIndex(2));
+	let assignment_b = OnDemandAssignment::new(thread_b, CoreIndex(2));
+	let assignment_c = OnDemandAssignment::new(thread_c, CoreIndex(3));
 
 	new_test_ext(genesis_config).execute_with(|| {
 		assert_eq!(default_config().on_demand_cores, 3);
@@ -427,7 +431,7 @@ fn fill_claimqueue_fills() {
 
 		{
 			assert_eq!(Scheduler::claimqueue_len(), 2 * lookahead);
-			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
+			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
 			// Cannot assert on indices anymore as they depend on the assignment providers
 			assert!(claimqueue_contains_para_ids::<Test>(vec![chain_a, chain_b]));
@@ -435,7 +439,7 @@ fn fill_claimqueue_fills() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: chain_a },
+					assignment: UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)),
 					availability_timeouts: 0,
 					ttl: 6
 				},
@@ -444,7 +448,7 @@ fn fill_claimqueue_fills() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: chain_b },
+					assignment: UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_b)),
 					availability_timeouts: 0,
 					ttl: 6
 				},
@@ -452,16 +456,16 @@ fn fill_claimqueue_fills() {
 		}
 
 		// add a couple of parathread assignments.
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_b,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_b.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_c,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_c.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -475,12 +479,12 @@ fn fill_claimqueue_fills() {
 
 		{
 			assert_eq!(Scheduler::claimqueue_len(), 5);
-			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
+			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: chain_a },
+					assignment: UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)),
 					availability_timeouts: 0,
 					ttl: 6
 				},
@@ -488,7 +492,7 @@ fn fill_claimqueue_fills() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: chain_b },
+					assignment: UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_b)),
 					availability_timeouts: 0,
 					ttl: 6
 				},
@@ -498,7 +502,7 @@ fn fill_claimqueue_fills() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_a },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(2))),
 					availability_timeouts: 0,
 					ttl: 7
 				},
@@ -506,16 +510,16 @@ fn fill_claimqueue_fills() {
 			// Sits on the same core as `thread_a`
 			assert_eq!(
 				Scheduler::claimqueue().get(&CoreIndex(2)).unwrap()[1],
-				Some(ParasEntry {
-					assignment: Assignment { para_id: thread_b },
+				ParasEntry {
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(2))),
 					availability_timeouts: 0,
 					ttl: 7
-				})
+				}
 			);
 			assert_eq!(
 				scheduled.get(&CoreIndex(3)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_c },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_c, CoreIndex(2))),
 					availability_timeouts: 0,
 					ttl: 7
 				},
@@ -541,11 +545,11 @@ fn schedule_schedules_including_just_freed() {
 	let thread_d = ParaId::from(6_u32);
 	let thread_e = ParaId::from(7_u32);
 
-	let assignment_a = Assignment { para_id: thread_a };
-	let assignment_b = Assignment { para_id: thread_b };
-	let assignment_c = Assignment { para_id: thread_c };
-	let assignment_d = Assignment { para_id: thread_d };
-	let assignment_e = Assignment { para_id: thread_e };
+	let assignment_a = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(0)));
+	let assignment_b = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(1)));
+	let assignment_c = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_c, CoreIndex(2)));
+	let assignment_d = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_d, CoreIndex(3)));
+	let assignment_e = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_e, CoreIndex(4)));
 
 	new_test_ext(genesis_config).execute_with(|| {
 		assert_eq!(default_config().on_demand_cores, 3);
@@ -578,12 +582,12 @@ fn schedule_schedules_including_just_freed() {
 		});
 
 		// add a couple of parathread claims now that the parathreads are live.
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_c,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_c.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -614,32 +618,32 @@ fn schedule_schedules_including_just_freed() {
 
 			assert!(Scheduler::scheduled_paras().collect::<Vec<_>>().is_empty());
 
-			// All core index entries in the claimqueue should have `None` in them.
+			// All `core_queue`s should be empty
 			Scheduler::claimqueue().iter().for_each(|(_core_idx, core_queue)| {
-				assert!(core_queue.iter().all(|claim| claim.is_none()))
+				assert!(core_queue.len() == 0)
 			})
 		}
 
 		// add a couple more parathread claims - the claim on `b` will go to the 3rd parathread core
 		// (4) and the claim on `d` will go back to the 1st parathread core (2). The claim on `e`
 		// then will go for core `3`.
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_b,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_b.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_d,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_d.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_e.clone(),
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_e.para_id()),
 			QueuePushDirection::Back
 		));
 		now = 3;
 		run_to_block(now, |_| None);
 
 		{
-			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
+			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
 			// cores 0 and 1 are occupied by lease holding parachains. cores 2 and 3 are occupied by
 			// on-demand parachain claims. core 4 was free.
@@ -647,7 +651,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(4)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_b },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(4))),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -665,14 +669,14 @@ fn schedule_schedules_including_just_freed() {
 		Scheduler::free_cores_and_fill_claimqueue(just_updated, now);
 
 		{
-			let scheduled: BTreeMap<_, _> = Scheduler::scheduled_entries().collect();
+			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
 			// 1 thing scheduled before, + 3 cores freed.
 			assert_eq!(scheduled.len(), 4);
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: chain_a },
+					assignment: UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -680,7 +684,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_d },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_d, CoreIndex(3))),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -689,7 +693,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(3)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_c },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_c, CoreIndex(4))),
 					availability_timeouts: 1,
 					ttl: 8
 				},
@@ -697,7 +701,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(4)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment { para_id: thread_b },
+					assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(0))),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -707,7 +711,7 @@ fn schedule_schedules_including_just_freed() {
 			// This is due to `thread_c` timing out.
 			let order_queue = OnDemandAssigner::get_queue();
 			assert!(order_queue.len() == 1);
-			assert!(order_queue[0] == assignment_e);
+			assert!(order_queue[0] == EnqueuedOrder::new(assignment_e.para_id()));
 
 			// Chain B's core was not marked concluded or timed out, it should be on an
 			// availability core
@@ -772,7 +776,10 @@ fn schedule_clears_availability_cores() {
 			assert_eq!(cores[1].is_free(), false);
 			assert_eq!(cores[2].is_free(), false);
 
-			assert!(claimqueue_contains_only_none());
+			// All `core_queue`s should be empty
+			Scheduler::claimqueue().iter().for_each(|(_core_idx, core_queue)| {
+				assert!(core_queue.len() == 0)
+			})
 		}
 
 		run_to_block(3, |_| None);
@@ -786,19 +793,25 @@ fn schedule_clears_availability_cores() {
 		);
 
 		{
-			let claimqueue = Scheduler::claimqueue();
+			let claimqueue = ClaimQueue::<Test>::get();
 			let claimqueue_0 = claimqueue.get(&CoreIndex(0)).unwrap().clone();
 			let claimqueue_2 = claimqueue.get(&CoreIndex(2)).unwrap().clone();
 			let entry_ttl = 8;
 			assert_eq!(claimqueue_0.len(), 1);
 			assert_eq!(claimqueue_2.len(), 1);
+			let queue_0_expectation: VecDeque<ParasEntryType<Test>> = vec![ParasEntry::new(UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)), entry_ttl as u32)]
+				.into_iter()
+				.collect();
+			let queue_2_expectation: VecDeque<ParasEntryType<Test>> = vec![ParasEntry::new(UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_c)), entry_ttl as u32)]
+				.into_iter()
+				.collect();
 			assert_eq!(
 				claimqueue_0,
-				vec![Some(ParasEntry::new(Assignment::new(chain_a), entry_ttl))],
+				queue_0_expectation,
 			);
 			assert_eq!(
 				claimqueue_2,
-				vec![Some(ParasEntry::new(Assignment::new(chain_c), entry_ttl))],
+				queue_2_expectation,
 			);
 
 			// The freed cores should be `Free` in `AvailabilityCores`.
@@ -829,11 +842,11 @@ fn schedule_rotates_groups() {
 	let thread_a = ParaId::from(1_u32);
 	let thread_b = ParaId::from(2_u32);
 
-	let assignment_a = Assignment { para_id: thread_a };
-	let assignment_b = Assignment { para_id: thread_b };
+	let assignment_a = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(0)));
+	let assignment_b = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(1)));
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(default_config().on_demand_cores, 3);
+		assert_eq!(config.on_demand_cores, 2);
 
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
@@ -854,12 +867,12 @@ fn schedule_rotates_groups() {
 		let session_start_block = Scheduler::session_start_block();
 		assert_eq!(session_start_block, 1);
 
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_b,
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_b.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -915,7 +928,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 	let thread_a = ParaId::from(1_u32);
 
-	let assignment_a = Assignment { para_id: thread_a };
+	let assignment_a = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(0)));
 
 	new_test_ext(genesis_config).execute_with(|| {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
@@ -934,8 +947,8 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			_ => None,
 		});
 
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a.clone(),
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -989,8 +1002,8 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		now += max_retries + 2;
 
 		// Add assignment back to the mix.
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a.clone(),
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
 		run_to_block(now, |_| None);
@@ -1070,14 +1083,17 @@ fn availability_predicate_works() {
 			_ => None,
 		});
 
+		let parachain_assignment = UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a));
+		let on_demand_assignment = UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(1)));
+
 		// assign some availability cores.
 		{
 			let entry_ttl = 10_000;
 			AvailabilityCores::<Test>::mutate(|cores| {
 				cores[0] =
-					CoreOccupied::Paras(ParasEntry::new(Assignment::new(chain_a), entry_ttl));
+					CoreOccupied::Paras(ParasEntry::new(parachain_assignment, entry_ttl));
 				cores[1] =
-					CoreOccupied::Paras(ParasEntry::new(Assignment::new(thread_a), entry_ttl));
+					CoreOccupied::Paras(ParasEntry::new(on_demand_assignment, entry_ttl));
 			});
 		}
 
@@ -1136,14 +1152,14 @@ fn next_up_on_available_uses_next_scheduled_or_none_for_thread() {
 		});
 
 		let thread_entry_a = ParasEntry {
-			assignment: Assignment { para_id: thread_a },
-			availability_timeouts: 0,
-			ttl: 5,
+			assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_a, CoreIndex(0))),
+			availability_timeouts: 0 as u32,
+			ttl: 5 as u32,
 		};
 		let thread_entry_b = ParasEntry {
-			assignment: Assignment { para_id: thread_b },
-			availability_timeouts: 0,
-			ttl: 5,
+			assignment: UnifiedAssignmentType::<Test>::OnDemand(OnDemandAssignment::new(thread_b, CoreIndex(0))),
+			availability_timeouts: 0 as u32,
+			ttl: 5 as u32,
 		};
 
 		Scheduler::add_to_claimqueue(CoreIndex(0), thread_entry_a.clone());
@@ -1186,8 +1202,8 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 	let thread_a = ParaId::from(1_u32);
 	let thread_b = ParaId::from(2_u32);
 
-	let assignment_a = Assignment { para_id: thread_a };
-	let assignment_b = Assignment { para_id: thread_b };
+	let assignment_a = OnDemandAssignment::new(thread_a, CoreIndex(0));
+	let assignment_b = OnDemandAssignment::new(thread_b, CoreIndex(0));
 
 	new_test_ext(genesis_config).execute_with(|| {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
@@ -1206,8 +1222,8 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 			_ => None,
 		});
 
-		assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-			assignment_a.clone(),
+		assert_ok!(OnDemandAssigner::add_on_demand_order(
+			EnqueuedOrder::new(assignment_a.para_id()),
 			QueuePushDirection::Back
 		));
 
@@ -1223,13 +1239,15 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 
 			let cores = Scheduler::availability_cores();
 			match cores.get(0).unwrap() {
-				CoreOccupied::Paras(entry) => assert_eq!(entry.assignment, assignment_a.clone()),
+				CoreOccupied::Paras(entry) => {
+					assert_eq!(entry.assignment, UnifiedAssignmentType::<Test>::OnDemand(assignment_a.clone()));
+				},
 				_ => panic!("with no chains, only core should be a thread core"),
 			}
 
 			// There's nothing more to pop for core 0 from the assignment provider.
 			assert!(
-				OnDemandAssigner::pop_assignment_for_core(CoreIndex(0), Some(thread_a)).is_none()
+				OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).is_none()
 			);
 
 			assert_eq!(
@@ -1237,8 +1255,8 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 				ScheduledCore { para_id: thread_a, collator: None }
 			);
 
-			assert_ok!(OnDemandAssigner::add_on_demand_assignment(
-				assignment_b.clone(),
+			assert_ok!(OnDemandAssigner::add_on_demand_order(
+				EnqueuedOrder::new(assignment_b.para_id()),
 				QueuePushDirection::Back
 			));
 
@@ -1411,11 +1429,11 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			Scheduler::claimqueue(),
 			vec![(
 				CoreIndex(0),
-				vec![Some(ParasEntry::new(
-					Assignment::new(chain_a),
+				vec![ParasEntry::new(
+					UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)),
 					// At end of block 2
 					config.on_demand_ttl + 2
-				))]
+				)]
 				.into_iter()
 				.collect()
 			)]
@@ -1456,21 +1474,21 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			vec![
 				(
 					CoreIndex(0),
-					vec![Some(ParasEntry::new(
-						Assignment::new(chain_a),
+					vec![ParasEntry::new(
+						UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_a)),
 						// At block 3
 						config.on_demand_ttl + 3
-					))]
+					)]
 					.into_iter()
 					.collect()
 				),
 				(
 					CoreIndex(1),
-					vec![Some(ParasEntry::new(
-						Assignment::new(chain_b),
+					vec![ParasEntry::new(
+						UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(chain_b)),
 						// At block 3
 						config.on_demand_ttl + 3
-					))]
+					)]
 					.into_iter()
 					.collect()
 				),
