@@ -16,7 +16,114 @@
 
 use super::*;
 use crate::crowdloan;
+use frame_support::traits::OnRuntimeUpgrade;
 use sp_runtime::traits::AccountIdConversion;
+
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
+pub mod versioned {
+	use super::*;
+
+	/// Wrapper over `MigrateToV1` with convenience version checks.
+	///
+	/// This migration would move reserves into Named holds.
+	pub type ToV1<T, OldCurrency> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		v1::MigrateToV1<T, OldCurrency>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
+mod v1 {
+	use super::*;
+	use frame_support::traits::ReservableCurrency;
+
+	pub type OldBalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
+
+	#[frame_support::storage_alias]
+	pub type Leases<T: Config, OldCurrency> =
+	StorageMap<Pallet<T>, Twox64Concat, ParaId, Vec<Option<(<T as frame_system::Config>::AccountId, OldBalanceOf<T, OldCurrency>)>>, ValueQuery>;
+
+	/// This migration would move funds for lease from reserved to hold.
+	pub struct MigrateToV1<T, OldCurrency>(
+		sp_std::marker::PhantomData<(T, OldCurrency)>,
+	);
+
+	impl<T, OldCurrency> OnRuntimeUpgrade for MigrateToV1<T, OldCurrency>
+	where
+		T: Config,
+		OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
+		BalanceOf<T>: From<OldCurrency::Balance>,
+	{
+		fn on_runtime_upgrade() -> Weight {
+			for (_, lease_periods) in Leases::<T, OldCurrency>::iter() {
+				let mut max_deposits: sp_std::collections::btree_map::BTreeMap<
+					T::AccountId,
+					OldBalanceOf<T, OldCurrency>,
+				> = sp_std::collections::btree_map::BTreeMap::new();
+
+				lease_periods.iter().for_each(|lease| {
+					if let Some((who, amount)) = lease {
+						max_deposits
+							.entry(who.clone())
+							.and_modify(|deposit| *deposit = *amount.max(deposit))
+							.or_insert(*amount);
+					}
+				});
+
+				max_deposits.iter().for_each(|(leaser, deposit)| {
+					OldCurrency::unreserve(leaser, *deposit);
+					let hold_result = Pallet::<T>::hold(leaser, BalanceOf::<T>::from(*deposit));
+					defensive_assert!(
+						hold_result.is_ok(),
+						"hold should not fail, since we just unreserved the same amount; qed"
+					);
+				})
+			}
+
+			// weight: all active lease periods * rw
+			todo!("weights")
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// let mut para_leasers = sp_std::collections::btree_set::BTreeSet::<(ParaId,
+			// T::AccountId)>::new(); for (para, lease_periods) in Leases::<T>::iter() {
+			// 	lease_periods.into_iter().for_each(|maybe_lease| {
+			// 		if let Some((who, _)) = maybe_lease {
+			// 			para_leasers.insert((para, who));
+			// 		}
+			// 	});
+			// }
+			//
+			// // for each pair assert ReservedAmount is what we expect
+			// para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
+			// 	let migrated_entry = ReservedAmounts::<T>::get(para, who)
+			// 		.expect("Migration should have inserted this entry");
+			// 	let expected = Pallet::<T>::required_deposit(*para, who);
+			// 	let reserved_balance = T::Currency::reserved_balance(who);
+			//
+			// 	ensure!(
+			// 		migrated_entry == expected,
+			// 		"ReservedAmount value not same as required deposit"
+			// 	);
+			// 	// fixme(ank4n) if there is another reserve on the account, this might be possible.
+			// 	ensure!(
+			// 		migrated_entry == reserved_balance,
+			// 		"ReservedAmount value not same as actual reserved balance"
+			// 	);
+			//
+			// 	Ok(())
+			// })
+			todo!()
+		}
+	}
+}
 
 /// Migrations for using fund index to create fund accounts instead of para ID.
 pub mod slots_crowdloan_index_migration {
