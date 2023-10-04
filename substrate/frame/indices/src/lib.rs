@@ -26,7 +26,10 @@ mod tests;
 pub mod weights;
 
 use codec::Codec;
-use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
+use frame_support::traits::{
+	fungible::MutateHold as FunMutateHold,
+	BalanceStatus::Reserved, Currency, ReservableCurrency, StorageVersion,
+};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
@@ -39,6 +42,9 @@ type BalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
+
+/// The current storage version.
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -61,7 +67,10 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -75,7 +84,16 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for claiming an index.
+		#[codec(index = 0)]
+		ClaimedIndex,
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -276,6 +294,15 @@ pub mod pallet {
 			}
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -293,6 +320,37 @@ impl<T: Config> Pallet<T> {
 			MultiAddress::Index(i) => Self::lookup_index(i),
 			_ => None,
 		}
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// The following assertions must always apply.
+	///
+	/// General assertions:
+	///
+	/// * [`ReferendumCount`] must always be equal to the number of referenda in
+	///   [`ReferendumInfoFor`].
+	/// * Referendum indices in [`MetadataOf`] must also be stored in [`ReferendumInfoFor`].
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			ReferendumCount::<T, I>::get() as usize ==
+				ReferendumInfoFor::<T, I>::iter_keys().count(),
+			"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
+		);
+
+		MetadataOf::<T, I>::iter_keys().try_for_each(|referendum_index| -> DispatchResult {
+			ensure!(
+				ReferendumInfoFor::<T, I>::contains_key(referendum_index),
+				"Referendum indices in `MetadataOf` must also be stored in `ReferendumInfoOf`"
+			);
+			Ok(())
+		})?;
+
+		Self::try_state_referenda_info()?;
+		Self::try_state_tracks()?;
+
+		Ok(())
 	}
 }
 
