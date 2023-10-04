@@ -23,6 +23,7 @@ members = [
 	"bridges/primitives/chain-bridge-hub-wococo",
 	"bridges/primitives/chain-kusama",
 	"bridges/primitives/chain-polkadot",
+	"bridges/primitives/chain-polkadot-bulletin",
 	"bridges/primitives/chain-rococo",
 	"bridges/primitives/chain-wococo",
 	"bridges/primitives/header-chain",
