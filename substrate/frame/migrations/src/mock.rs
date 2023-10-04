@@ -73,7 +73,7 @@ impl SteppedMigrations for MigrationsStorage {
 	}
 
 	fn nth_id(n: u32) -> Option<Vec<u8>> {
-		let k = MIGRATIONS.with(|m| m.borrow().get(n as usize).map(|k| k.clone()));
+		let k = MIGRATIONS.with(|m| m.borrow().get(n as usize).map(|k| *k));
 		k.map(|(kind, steps)| mocked_id(kind, steps).into_inner())
 	}
 
