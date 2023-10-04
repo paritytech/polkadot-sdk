@@ -1655,6 +1655,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-polkadot-bulletin"
+version = "0.1.0"
+dependencies = [
+ "bp-header-chain",
+ "bp-messages",
+ "bp-polkadot-core",
+ "bp-runtime",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "bp-polkadot-core"
 version = "0.1.0"
 dependencies = [
@@ -5289,6 +5306,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
+ "sp-core-hashing",
  "syn 2.0.37",
 ]
 
