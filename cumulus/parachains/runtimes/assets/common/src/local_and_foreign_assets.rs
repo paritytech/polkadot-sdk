@@ -248,7 +248,8 @@ where
 		}
 	}
 
-	/// Returns `Some(true)` if an `asset` exists and is sufficient.
+	/// Returns `Some(true)` if an `asset` exists and is sufficient. Returns `Some(false)`
+	/// if an `asset` exists, but is not sufficient. Returns `None` if an `asset` does not exist.
 	fn asset_sufficient(asset: Self::AssetId) -> Option<bool> {
 		if let Some(asset) = LocalAssetIdConverter::convert(&asset) {
 			Assets::asset_sufficient(asset)

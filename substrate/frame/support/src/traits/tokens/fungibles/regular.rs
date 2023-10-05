@@ -118,7 +118,8 @@ pub trait Inspect<AccountId>: Sized {
 	/// Returns `true` if an `asset` exists.
 	fn asset_exists(asset: Self::AssetId) -> bool;
 
-	/// Returns `Some(true)` if an `asset` exists and is sufficient.
+	/// Returns `Some(true)` if an `asset` exists and is sufficient. Returns `Some(false)`
+	/// if an `asset` exists, but is not sufficient. Returns `None` if an `asset` does not exist.
 	fn asset_sufficient(asset: Self::AssetId) -> Option<bool>;
 }
 
