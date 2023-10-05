@@ -209,7 +209,7 @@ fn runtime_construction_check(
 
 #[derive(Encode, Decode)]
 struct Response {
-	artifact_result: Result<CompiledArtifact, PrepareError>,
+	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
 }
 
@@ -253,7 +253,7 @@ async fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.as_ref(), executor_params)?;
+					runtime_construction_check(output.0.as_ref(), executor_params)?;
 					Ok(output)
 				});
 			}
@@ -270,31 +270,41 @@ async fn handle_child_process(
 		WaitOutcome::Finished => {
 			let result =
 				prepare_thread.join().unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
-			cfg_if::cfg_if! {
-				if #[cfg(target_os = "linux")] {
-					let (artifact_result, max_rss) = result;
-				} else {
-					let artifact_result = result;
-				}
+			match result {
+				Ok(ok) => {
+					cfg_if::cfg_if! {
+						if #[cfg(target_os = "linux")] {
+							let (artifact, max_rss) = ok;
+						} else {
+							let artifact = ok;
+						}
+					}
+
+					// Stop the memory stats worker and get its observed memory stats.
+					#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+					let memory_tracker_stats =
+						get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
+
+					let memory_stats = MemoryStats {
+						#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+						memory_tracker_stats,
+						#[cfg(target_os = "linux")]
+						max_rss: extract_max_rss_stat(max_rss, process::id()),
+					};
+
+					let response: Result<Response, PrepareError> =
+						Ok(Response { artifact, memory_stats });
+
+					pipe_write
+						.write_all(response.encode().as_slice())
+						.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+				},
+				Err(err) => {
+					pipe_write
+						.write_all(Err::<Response, PrepareError>(err).encode().as_slice())
+						.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+				},
 			}
-
-			// Stop the memory stats worker and get its observed memory stats.
-			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-			let memory_tracker_stats =
-				get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
-
-			let memory_stats = MemoryStats {
-				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				memory_tracker_stats,
-				#[cfg(target_os = "linux")]
-				max_rss: extract_max_rss_stat(max_rss, process::id()),
-			};
-
-			let response = Response { artifact_result, memory_stats };
-
-			pipe_write
-				.write_all(response.encode().as_slice())
-				.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 			process::exit(libc::EXIT_SUCCESS);
 		},
@@ -315,14 +325,14 @@ async fn handle_parent_process(
 				PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
 			})?;
 
-			let result: Response = parity_scale_codec::decode_from_bytes(
+			let result: Result<Response, PrepareError> = parity_scale_codec::decode_from_bytes(
 				bytes::Bytes::copy_from_slice(received_data.as_slice()),
 			)
 			.map_err(|e| PrepareError::Panic(e.to_string()))?;
 
-			match result.artifact_result {
+			match result {
 				Err(err) => Err(err),
-				Ok(artifact) => {
+				Ok(response) => {
 					// Write the serialized artifact into a temp file.
 					//
 					// PVF host only keeps artifacts statuses in its memory,
@@ -336,11 +346,13 @@ async fn handle_parent_process(
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
-					if let Err(err) = tokio::fs::write(&temp_artifact_dest, &artifact).await {
+					if let Err(err) =
+						tokio::fs::write(&temp_artifact_dest, &response.artifact).await
+					{
 						return Err(PrepareError::Panic(format!("{:?}", err)))
 					};
 
-					Ok(PrepareStats { memory_stats: result.memory_stats })
+					Ok(PrepareStats { memory_stats: response.memory_stats })
 				},
 			}
 		},
