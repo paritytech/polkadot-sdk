@@ -20,7 +20,7 @@ use crate::{
 	paras_inherent,
 	scheduler::{
 		self,
-		common::{Assignment, AssignmentProviderConfig},
+		common::{AssignmentProvider, AssignmentProviderConfig},
 		CoreOccupied, ParasEntry,
 	},
 	session_info, shared,
@@ -702,10 +702,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.map(|i| {
 				let AssignmentProviderConfig { ttl, .. } =
 					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				CoreOccupied::Paras(ParasEntry::new(
-					Assignment::new(ParaId::from(i as u32)),
-					now + ttl,
-				))
+				let assignment =
+					T::AssignmentProvider::pop_assignment_for_core(CoreIndex(i)).unwrap();
+				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
