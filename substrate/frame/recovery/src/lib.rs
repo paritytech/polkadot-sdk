@@ -160,7 +160,13 @@ use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	traits::{BalanceStatus, Currency, ReservableCurrency},
+	traits::{
+		fungible::{
+			hold::Balanced as FnBalanced, Inspect as FnInspect, MutateHold as FnMutateHold,
+		},
+		tokens::Precision,
+		StorageVersion,
+	},
 	BoundedVec,
 };
 
@@ -176,8 +182,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+// <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -209,6 +216,9 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	threshold: u16,
 }
 
+/// The current storage version.
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -217,7 +227,16 @@ pub mod pallet {
 	use sp_runtime::ArithmeticError;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for initiating an account recovery.
+		#[codec(index = 0)]
+		Recovery,
+	}
 
 	/// Configuration trait.
 	#[pallet::config]
@@ -235,7 +254,11 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FnBalanced<Self::AccountId>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The base amount of currency needed to reserve for creating a recovery configuration.
 		///
@@ -463,7 +486,8 @@ pub mod pallet {
 				.checked_add(&friend_deposit)
 				.ok_or(ArithmeticError::Overflow)?;
 			// Reserve the deposit
-			T::Currency::reserve(&who, total_deposit)?;
+			// T::Currency::reserve(&who, total_deposit)?;
+			T::Currency::hold(&HoldReason::Recovery.into(), &who, total_deposit)?;
 			// Create the recovery configuration
 			let recovery_config = RecoveryConfig {
 				delay_period,
@@ -506,7 +530,8 @@ pub mod pallet {
 			);
 			// Take recovery deposit
 			let recovery_deposit = T::RecoveryDeposit::get();
-			T::Currency::reserve(&who, recovery_deposit)?;
+			// T::Currency::reserve(&who, recovery_deposit)?;
+			T::Currency::hold(&HoldReason::Recovery.into(), &who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
 				created: <frame_system::Pallet<T>>::block_number(),
@@ -635,17 +660,22 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let rescuer = T::Lookup::lookup(rescuer)?;
 			// Take the active recovery process started by the rescuer for this account.
-			let active_recovery =
+			let _active_recovery =
 				<ActiveRecoveries<T>>::take(&who, &rescuer).ok_or(Error::<T>::NotStarted)?;
 			// Move the reserved funds from the rescuer to the rescued account.
 			// Acts like a slashing mechanism for those who try to maliciously recover accounts.
-			let res = T::Currency::repatriate_reserved(
+			// let res = T::Currency::repatriate_reserved(
+			// 	&rescuer,
+			// 	&who,
+			// 	active_recovery.deposit,
+			// 	BalanceStatus::Free,
+			// );
+			let amount = T::Currency::release_all(
+				&HoldReason::Recovery.into(),
 				&rescuer,
-				&who,
-				active_recovery.deposit,
-				BalanceStatus::Free,
-			);
-			debug_assert!(res.is_ok());
+				Precision::BestEffort,
+			)?;
+			T::Currency::hold(&HoldReason::Recovery.into(), &who, amount)?;
 			Self::deposit_event(Event::<T>::RecoveryClosed {
 				lost_account: who,
 				rescuer_account: rescuer,
@@ -675,7 +705,13 @@ pub mod pallet {
 			let recovery_config = <Recoverable<T>>::take(&who).ok_or(Error::<T>::NotRecoverable)?;
 
 			// Unreserve the initial deposit for the recovery configuration.
-			T::Currency::unreserve(&who, recovery_config.deposit);
+			// T::Currency::unreserve(&who, recovery_config.deposit);
+			T::Currency::release(
+				&HoldReason::Recovery.into(),
+				&who,
+				recovery_config.deposit,
+				Precision::Exact,
+			)?;
 			Self::deposit_event(Event::<T>::RecoveryRemoved { lost_account: who });
 			Ok(())
 		}
@@ -703,6 +739,15 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -714,5 +759,10 @@ impl<T: Config> Pallet<T> {
 	/// Check that a user is a friend in the friends list.
 	fn is_friend(friends: &Vec<T::AccountId>, friend: &T::AccountId) -> bool {
 		friends.binary_search(&friend).is_ok()
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
 	}
 }
