@@ -138,7 +138,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout));
+					return Some(Duration::from_millis(*timeout))
 				}
 			}
 		}
@@ -150,7 +150,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout));
+					return Some(Duration::from_millis(*timeout))
 				}
 			}
 		}
@@ -167,7 +167,7 @@ impl ExecutorParams {
 		macro_rules! check {
 			($param:ident, $val:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param));
+					return Err(DuplicatedParam($param))
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -175,10 +175,10 @@ impl ExecutorParams {
 			// should check existence before range
 			($param:ident, $val:expr, $out_of_limit:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param));
+					return Err(DuplicatedParam($param))
 				}
 				if $out_of_limit {
-					return Err(LimitExceeded($param));
+					return Err(LimitExceeded($param))
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -241,7 +241,7 @@ impl ExecutorParams {
 			if let (Some(lm), Some(nm)) = (seen.get("StackLogicalMax"), seen.get("StackNativeMax"))
 			{
 				if *nm < 128 * *lm {
-					return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"));
+					return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"))
 				}
 			}
 
@@ -253,21 +253,21 @@ impl ExecutorParams {
 					return Err(IncompatibleValues(
 						"PvfPrepTimeoutKind::Precheck",
 						"PvfPrepTimeoutKind::Lenient",
-					));
+					))
 				},
 
 				(Some(precheck), None) if *precheck >= 360000 => {
 					return Err(IncompatibleValues(
 						"PvfPrepTimeoutKind::Precheck",
 						"PvfPrepTimeoutKind::Lenient default",
-					));
+					))
 				},
 
 				(None, Some(lenient)) if *lenient <= 60000 => {
 					return Err(IncompatibleValues(
 						"PvfPrepTimeoutKind::Precheck default",
 						"PvfPrepTimeoutKind::Lenient",
-					));
+					))
 				},
 
 				(_, _) => {},
@@ -281,21 +281,21 @@ impl ExecutorParams {
 					return Err(IncompatibleValues(
 						"PvfExecTimeoutKind::Backing",
 						"PvfExecTimeoutKind::Approval",
-					));
+					))
 				},
 
 				(Some(backing), None) if *backing >= 12000 => {
 					return Err(IncompatibleValues(
 						"PvfExecTimeoutKind::Backing",
 						"PvfExecTimeoutKind::Approval default",
-					));
+					))
 				},
 
 				(None, Some(approval)) if *approval <= 2000 => {
 					return Err(IncompatibleValues(
 						"PvfExecTimeoutKind::Backing default",
 						"PvfExecTimeoutKind::Approval",
-					));
+					))
 				},
 
 				(_, _) => {},
