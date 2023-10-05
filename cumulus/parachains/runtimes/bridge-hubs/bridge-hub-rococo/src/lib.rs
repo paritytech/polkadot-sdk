@@ -101,7 +101,8 @@ use parachains_common::{
 };
 use xcm_executor::XcmExecutor;
 
-/// Enum for handling differences in the runtime configuration for AssetHubRococo vs AssetHubWococo.
+/// Enum for handling differences in the runtime configuration for BridgeHubRococo vs
+/// BridgeHubWococo.
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
 pub enum RuntimeFlavor {
 	#[default]
