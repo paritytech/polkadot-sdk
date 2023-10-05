@@ -28,12 +28,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - runtime: asset-hub-kusama
+            local: asset-hub-kusama-local
+            relay: kusama-local
+          - runtime: asset-hub-polkadot
+            local: asset-hub-polkadot-local
+            relay: polkadot-local
           - runtime: asset-hub-westend
             local: asset-hub-westend-local
-            relay: westend-local
+            relay: polkadot-local
           - runtime: contracts-rococo
             local: contracts-rococo-local
-            relay: westend-local
+            relay: polkadot-local
 
     steps:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
