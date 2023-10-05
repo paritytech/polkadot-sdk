@@ -406,8 +406,8 @@ where
 		if data.len() != LEFT_PLUS_RIGHT_LEN {
 			return Err(());
 		}
-		let Ok(left) : Result<LeftSignature, _> = data[0..Self::LEFT_SIGNATURE_LEN].try_into() else { panic!("invalid signature") };
-		let Ok(right) : Result<RightSignature, _>= data[Self::LEFT_SIGNATURE_LEN..LEFT_PLUS_RIGHT_LEN].try_into() else { panic!("invalid signature") };
+		let left: LeftSignature = data[0..Self::LEFT_SIGNATURE_LEN].try_into().map_err(|_| ())?;
+		let right: RightSignature = data[Self::LEFT_SIGNATURE_LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
 
 		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
 		inner[..Self::LEFT_SIGNATURE_LEN].copy_from_slice(left.as_ref());
