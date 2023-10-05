@@ -823,4 +823,25 @@ mod test {
 		// Poorly-sized
 		assert!(deserialize_signature("\"abc123\"").is_err());
 	}
+
+    #[test]
+    fn encode_and_decode_public_key_works() {
+		let pair =
+			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
+		let public = pair.public();
+        let encoded_public = public.encode();
+        let decoded_public = Public::decode(&mut encoded_public.as_slice()).unwrap();
+        assert_eq!(public, decoded_public)
+    }
+
+    #[test]
+    fn encode_and_decode_signature_works() {
+		let pair =
+			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
+		let message = b"Something important";
+		let signature = pair.sign(&message[..]);
+        let encoded_signature = signature.encode();
+        let decoded_signature = Signature::decode(&mut encoded_signature.as_slice()).unwrap();
+        assert_eq!(signature, decoded_signature)
+    }
 }
