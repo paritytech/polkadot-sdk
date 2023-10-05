@@ -39,6 +39,7 @@ use substrate_test_runtime_client::{
 
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
+const MAX_PAGINATION_LIMIT: usize = 5;
 
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
@@ -48,7 +49,7 @@ fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Clien
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api = Archive::new(client.clone(), backend, CHAIN_GENESIS).into_rpc();
+	let api = Archive::new(client.clone(), backend, CHAIN_GENESIS, MAX_PAGINATION_LIMIT).into_rpc();
 
 	(client, api)
 }
