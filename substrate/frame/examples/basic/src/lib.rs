@@ -44,7 +44,7 @@
 //!   of `mutate` on:
 //! 	- A storage value that stores some `Balance` and uses the default
 //!    [`OptionQuery`](frame_support::storage::types::OptionQuery) which will always either return
-//!    `Option<T>` or `None` when queried
+//!    `Option<T>` or `None` when queried.
 //! 	- A storage value that stores a `u32` and uses
 //!    [`ValueQuery`](frame_support::storage::types::ValueQuery) to always return `T` or
 //!    `Default::default` if the stored value is removed, which in this case will be `0`
