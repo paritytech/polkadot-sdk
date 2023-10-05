@@ -58,9 +58,11 @@ use xcm_executor::{
 
 pub trait WeightInfo {
 	fn send() -> Weight;
+	fn send_raw() -> Weight;
 	fn teleport_assets() -> Weight;
 	fn reserve_transfer_assets() -> Weight;
 	fn execute() -> Weight;
+	fn execute_raw() -> Weight;
 	fn force_xcm_version() -> Weight;
 	fn force_default_xcm_version() -> Weight;
 	fn force_subscribe_version_notify() -> Weight;
@@ -82,6 +84,10 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
+	fn send_raw() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
 	fn teleport_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
@@ -91,6 +97,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn execute() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn execute_raw() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 
@@ -159,6 +169,7 @@ pub mod pallet {
 		/// An implementation of `Get<u32>` which just returns the latest XCM version which we can
 		/// support.
 		pub const CurrentXcmVersion: u32 = XCM_VERSION;
+		pub const MaxXcmEncodedSize: u32 = 500;
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -442,6 +453,8 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
+		/// Could not decode
+		UnableToDecode,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -764,6 +777,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// WARNING: This call is DEPRECATED! Use `execute_raw` instead.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::send())]
 		pub fn send(
@@ -897,6 +911,8 @@ pub mod pallet {
 		///
 		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
 		/// successfully to completion; only that *some* of it was executed.
+		///
+		/// WARNING: This call is DEPRECATED! Use `execute_raw` instead.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
@@ -1125,6 +1141,70 @@ pub mod pallet {
 		pub fn force_suspension(origin: OriginFor<T>, suspended: bool) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			XcmExecutionSuspended::<T>::set(suspended);
+			Ok(())
+		}
+
+		/// Execute an XCM message from a local, signed, origin.
+		///
+		/// An event is deposited indicating whether `msg` could be executed completely or only
+		/// partially.
+		///
+		/// No more than `max_weight` will be used in its attempted execution. If this is less than
+		/// the maximum amount of weight that the message could take to be executed, then no
+		/// execution attempt will be made.
+		///
+		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
+		/// successfully to completion; only that *some* of it was executed.
+		///
+		#[pallet::call_index(11)]
+		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute_raw()))]
+		pub fn execute_raw(
+			origin: OriginFor<T>,
+			message: BoundedVec<u8, MaxXcmEncodedSize>,
+			max_weight: Weight,
+		) -> DispatchResultWithPostInfo {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let message = VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &message[..])
+				.map_err(|_| Error::<T>::UnableToDecode)?;
+			let hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let message = message.try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let value = (origin_location, message);
+			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+			let (origin_location, message) = value;
+			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+				origin_location,
+				message,
+				hash,
+				max_weight,
+				max_weight,
+			);
+			let result =
+				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
+			Self::deposit_event(Event::Attempted { outcome });
+			result
+		}
+
+		/// Send an XCM to a particular destination
+		/// It will descend to the location of the `origin` calling this extrinsic
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::send_raw())]
+		pub fn send_raw(
+			origin: OriginFor<T>,
+			dest: Box<VersionedMultiLocation>,
+			message: BoundedVec<u8, MaxXcmEncodedSize>,
+		) -> DispatchResult {
+			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
+			let interior: Junctions =
+				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+			let message = VersionedXcm::<()>::decode(&mut &message[..])
+				.map_err(|_| Error::<T>::UnableToDecode)?;
+			let message: Xcm<()> = message.try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+			let message_id =
+				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
+			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
+			Self::deposit_event(e);
 			Ok(())
 		}
 	}

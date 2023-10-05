@@ -1214,3 +1214,45 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		);
 	});
 }
+
+#[test]
+fn execute_raw_works() {
+	use codec::Encode;
+	use bounded_collections::BoundedVec;
+	let message = VersionedXcm::V3(Xcm::<RuntimeCall>(vec![
+		TransferAsset {
+			assets: (Here, 1u128).into(),
+			beneficiary: AccountId32 { id: [0u8; 32], network: None }.into(),
+		},
+	]));
+	let encoded_message = BoundedVec::try_from(message.encode()).unwrap();
+	let max_weight = Weight::from_parts(1_000_000_000_000, 1024 * 1024);
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let _ = XcmPallet::execute_raw(
+			RuntimeOrigin::signed(ALICE),
+			encoded_message,
+			max_weight,
+		);
+	});
+}
+
+#[test]
+fn send_raw_works() {
+	use codec::Encode;
+	use bounded_collections::BoundedVec;
+	let message = VersionedXcm::V3(Xcm::<RuntimeCall>(vec![
+		TransferAsset {
+			assets: (Here, 1u128).into(),
+			beneficiary: AccountId32 { id: [0u8; 32], network: None }.into(),
+		},
+	]));
+	let encoded_message = BoundedVec::try_from(message.encode()).unwrap();
+	let destination: VersionedMultiLocation = (Parent, Parachain(1000)).into();
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let _ = XcmPallet::send_raw(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(destination),
+			encoded_message,
+		);
+	});
+}
