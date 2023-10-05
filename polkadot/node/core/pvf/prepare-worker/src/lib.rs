@@ -30,19 +30,29 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use parity_scale_codec::{Decode, Encode};
-use polkadot_node_core_pvf_common::{error::{PrepareError, PrepareResult}, executor_intf::Executor, framed_recv_blocking, framed_send_blocking, prepare::{MemoryStats, PrepareJobKind, PrepareStats}, pvf::PvfPrepData, SecurityStatus, worker::{
-	thread::{self, WaitOutcome},
-	WorkerKind,
-	worker_event_loop,
-}, worker_dir};
-use polkadot_primitives::ExecutorParams;
-use std::{path::PathBuf, process, time::Duration};
-use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
-use std::sync::Arc;
 use nix::sys::resource::Resource;
-use polkadot_node_core_pvf_common::worker::thread::{spawn_worker_thread};
+use parity_scale_codec::{Decode, Encode};
+use polkadot_node_core_pvf_common::{
+	error::{PrepareError, PrepareResult},
+	executor_intf::Executor,
+	framed_recv_blocking, framed_send_blocking,
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	pvf::PvfPrepData,
+	worker::{
+		thread::{self, spawn_worker_thread, WaitOutcome},
+		worker_event_loop, WorkerKind,
+	},
+	worker_dir, SecurityStatus,
+};
+use polkadot_primitives::ExecutorParams;
+use std::{
+	io::{Read, Write},
+	os::unix::net::UnixStream,
+	path::PathBuf,
+	process,
+	sync::Arc,
+	time::Duration,
+};
 use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
@@ -146,7 +156,8 @@ pub fn worker_entrypoint(
 					// error
 					-1 => Err(PrepareError::Panic(String::from("error forking"))),
 					// child
-					0 => handle_child_process(
+					0 =>
+						handle_child_process(
 							pvf,
 							pipe_writer,
 							preparation_timeout,
@@ -159,13 +170,9 @@ pub fn worker_entrypoint(
 						// the read end will wait until all ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
-						handle_parent_process(
-							pipe_reader,
-							temp_artifact_dest.clone(),
-							worker_pid,
-						)
+						handle_parent_process(pipe_reader, temp_artifact_dest.clone(), worker_pid)
 							.await
-					}
+					},
 				};
 				send_response(&mut stream, result)?;
 			}
@@ -213,35 +220,31 @@ async fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: ExecutorParams,
 ) -> ! {
-
 	nix::sys::resource::setrlimit(
 		Resource::RLIMIT_CPU,
 		preparation_timeout.as_secs(),
-		preparation_timeout.as_secs()
-	).unwrap_or_else(|_| {
-		process::exit(libc::EXIT_FAILURE)
-	});
+		preparation_timeout.as_secs(),
+	)
+	.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-    // Conditional variable to notify us when a thread is done.
+	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
 
 	// Run the memory tracker in a regular, non-worker thread.
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-		let condvar_memory = Arc::clone(&condvar);
+	let condvar_memory = Arc::clone(&condvar);
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-		let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
+	let memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
 	let prepare_thread = spawn_worker_thread(
 		"prepare worker",
 		move || {
-
 			#[allow(unused_mut)]
-				let mut result = prepare_artifact(pvf);
+			let mut result = prepare_artifact(pvf);
 
-            // Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-            #[cfg(target_os = "linux")]
-                let mut result = result
-                .map(|artifact| (artifact, elapsed, get_max_rss_thread()));
+			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
+			#[cfg(target_os = "linux")]
+			let mut result = result.map(|artifact| (artifact, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
@@ -257,19 +260,17 @@ async fn handle_child_process(
 			result
 		},
 		Arc::clone(&condvar),
-		WaitOutcome::Finished
-	).unwrap_or_else(|_| {
-		process::exit(libc::EXIT_FAILURE)
-	});
+		WaitOutcome::Finished,
+	)
+	.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	let outcome = thread::wait_for_threads(condvar);
 
 	match outcome {
 		WaitOutcome::Finished => {
-			 let result = prepare_thread.join().unwrap_or_else(|_| {
-					process::exit(libc::EXIT_FAILURE)
-			});
-            cfg_if::cfg_if! {
+			let result =
+				prepare_thread.join().unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+			cfg_if::cfg_if! {
 				if #[cfg(target_os = "linux")] {
 					let (artifact_result, max_rss) = result;
 				} else {
@@ -279,7 +280,8 @@ async fn handle_child_process(
 
 			// Stop the memory stats worker and get its observed memory stats.
 			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-				let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
+			let memory_tracker_stats =
+				get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
 
 			let memory_stats = MemoryStats {
 				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -290,16 +292,13 @@ async fn handle_child_process(
 
 			let response = Response { artifact_result, memory_stats };
 
-			pipe_write.write_all(response.encode().as_slice()).unwrap_or_else(|_| {
-				process::exit(libc::EXIT_FAILURE)
-			});
+			pipe_write
+				.write_all(response.encode().as_slice())
+				.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 			process::exit(libc::EXIT_SUCCESS);
-
 		},
-		_ => {
-			process::exit(libc::EXIT_FAILURE)
-		}
+		_ => process::exit(libc::EXIT_FAILURE),
 	}
 }
 
@@ -308,7 +307,6 @@ async fn handle_parent_process(
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
 ) -> Result<PrepareStats, PrepareError> {
-
 	return match nix::sys::wait::wait() {
 		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let mut received_data = Vec::new();
@@ -317,9 +315,10 @@ async fn handle_parent_process(
 				PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
 			})?;
 
-			let result: Response = parity_scale_codec::decode_from_bytes(bytes::Bytes::copy_from_slice(received_data.as_slice())).map_err(|e| {
-				PrepareError::Panic(e.to_string())
-			})?;
+			let result: Response = parity_scale_codec::decode_from_bytes(
+				bytes::Bytes::copy_from_slice(received_data.as_slice()),
+			)
+			.map_err(|e| PrepareError::Panic(e.to_string()))?;
 
 			match result.artifact_result {
 				Err(err) => Err(err),
@@ -341,17 +340,12 @@ async fn handle_parent_process(
 						return Err(PrepareError::Panic(format!("{:?}", err)))
 					};
 
-					Ok(PrepareStats {
-						memory_stats: result.memory_stats,
-					})
+					Ok(PrepareStats { memory_stats: result.memory_stats })
 				},
 			}
 		},
-		Ok(nix::sys::wait::WaitStatus::Signaled(_, nix::sys::signal::Signal::SIGXCPU, _)) => {
-			Err(PrepareError::TimedOut)
-		},
-		_ => {
-			Err(PrepareError::Panic(format!("child failed")))
-		},
+		Ok(nix::sys::wait::WaitStatus::Signaled(_, nix::sys::signal::Signal::SIGXCPU, _)) =>
+			Err(PrepareError::TimedOut),
+		_ => Err(PrepareError::Panic(format!("child failed"))),
 	}
 }
