@@ -18,6 +18,7 @@ use crate::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
 use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
+use bp_runtime::OwnedBridgeModule;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -278,7 +279,17 @@ impl<
 	}
 
 	fn check_obsolete_call(&self) -> TransactionValidity {
+		let is_pallet_halted = Pallet::<T, I>::ensure_not_halted().is_err();
 		match self.call_info() {
+			Some(proof_info) if is_pallet_halted => {
+				log::trace!(
+					target: pallet_bridge_messages::LOG_TARGET,
+					"Rejecting messages transaction on halted pallet: {:?}",
+					proof_info
+				);
+
+				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
+			},
 			Some(CallInfo::ReceiveMessagesProof(proof_info))
 				if proof_info.is_obsolete(T::MessageDispatch::is_active()) =>
 			{
@@ -291,7 +302,7 @@ impl<
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
 			},
 			Some(CallInfo::ReceiveMessagesDeliveryProof(proof_info))
-				if proof_info.is_obsolete() =>
+				if is_pallet_halted || proof_info.is_obsolete() =>
 			{
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
