@@ -69,7 +69,7 @@ impl BridgeHubRuntimeType {
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			BridgeHubRuntimeType::Westend => unimplemented!("TODO: fix BridgeHubWestend"),
+			BridgeHubRuntimeType::Westend => unimplemented!("TODO: fix BridgeHubWestend: https://github.com/paritytech/parity-bridges-common/issues/2602"),
 			BridgeHubRuntimeType::Rococo =>
 				Ok(Box::new(rococo::BridgeHubChainSpec::from_json_bytes(
 					&include_bytes!("../../chain-specs/bridge-hub-rococo.json")[..],
