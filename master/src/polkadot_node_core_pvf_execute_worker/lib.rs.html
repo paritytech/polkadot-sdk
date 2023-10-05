@@ -279,6 +279,10 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -392,6 +396,8 @@
 ///
 /// # Parameters
 ///
+/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
 /// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
@@ -402,6 +408,7 @@
 ///
 /// - `security_status`: contains the detected status of security features.
 </span><span class="kw">pub fn </span>worker_entrypoint(
+	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
@@ -409,6 +416,7 @@
 ) {
 	worker_event_loop(
 		WorkerKind::Execute,
+		socket_path,
 		worker_dir_path,
 		node_version,
 		worker_version,

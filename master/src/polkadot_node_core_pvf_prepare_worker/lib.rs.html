@@ -324,6 +324,10 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -413,6 +417,8 @@
 ///
 /// # Parameters
 ///
+/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
 /// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
@@ -442,6 +448,7 @@
 /// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 </span><span class="kw">pub fn </span>worker_entrypoint(
+	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
@@ -449,6 +456,7 @@
 ) {
 	worker_event_loop(
 		WorkerKind::Prepare,
+		socket_path,
 		worker_dir_path,
 		node_version,
 		worker_version,
