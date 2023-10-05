@@ -557,15 +557,6 @@ pub struct Pair<
 }
 
 
-#[cfg(feature = "full_crypto")]
-impl<
-		LeftPair: TraitPair,
-		RightPair: TraitPair,
-		const PUBLIC_KEY_LEN: usize,
-		const SIGNATURE_LEN: usize,
-	> Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
-{
-}
 
 #[cfg(feature = "full_crypto")]
 impl<
