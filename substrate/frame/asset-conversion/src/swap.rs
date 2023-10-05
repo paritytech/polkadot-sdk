@@ -20,7 +20,12 @@
 use super::*;
 
 /// Trait for providing methods to swap between the various asset classes.
-pub trait Swap<AccountId, Balance, MultiAssetId> {
+pub trait Swap<AccountId> {
+	/// Measure units of the asset classes for swapping.
+	type Balance;
+	/// Kind of assets that are going to be swapped.
+	type MultiAssetId;
+
 	/// Returns the upper limit on the length of the swap path.
 	fn max_path_len() -> u32;
 
@@ -34,12 +39,12 @@ pub trait Swap<AccountId, Balance, MultiAssetId> {
 	/// If successful, returns the amount of `path[last]` acquired for the `amount_in`.
 	fn swap_exact_tokens_for_tokens(
 		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_in: Balance,
-		amount_out_min: Option<Balance>,
+		path: Vec<Self::MultiAssetId>,
+		amount_in: Self::Balance,
+		amount_out_min: Option<Self::Balance>,
 		send_to: AccountId,
 		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
+	) -> Result<Self::Balance, DispatchError>;
 
 	/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[last]`. If an
 	/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
@@ -51,12 +56,12 @@ pub trait Swap<AccountId, Balance, MultiAssetId> {
 	/// If successful returns the amount of the `path[0]` taken to provide `path[last]`.
 	fn swap_tokens_for_exact_tokens(
 		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_out: Balance,
-		amount_in_max: Option<Balance>,
+		path: Vec<Self::MultiAssetId>,
+		amount_out: Self::Balance,
+		amount_in_max: Option<Self::Balance>,
 		send_to: AccountId,
 		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
+	) -> Result<Self::Balance, DispatchError>;
 }
 
 /// Trait providing methods to swap between the various asset classes.
@@ -99,19 +104,22 @@ pub trait SwapCredit<AccountId> {
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
 }
 
-impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> for Pallet<T> {
+impl<T: Config> Swap<T::AccountId> for Pallet<T> {
+	type Balance = T::HigherPrecisionBalance;
+	type MultiAssetId = T::MultiAssetId;
+
 	fn max_path_len() -> u32 {
 		T::MaxSwapPathLength::get()
 	}
 
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_in: T::HigherPrecisionBalance,
-		amount_out_min: Option<T::HigherPrecisionBalance>,
+		path: Vec<Self::MultiAssetId>,
+		amount_in: Self::Balance,
+		amount_out_min: Option<Self::Balance>,
 		send_to: T::AccountId,
 		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
+	) -> Result<Self::Balance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
 		let amount_out_min = amount_out_min.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_out = with_storage_layer(|| {
@@ -129,12 +137,12 @@ impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> f
 
 	fn swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
-		path: Vec<T::MultiAssetId>,
-		amount_out: T::HigherPrecisionBalance,
-		amount_in_max: Option<T::HigherPrecisionBalance>,
+		path: Vec<Self::MultiAssetId>,
+		amount_out: Self::Balance,
+		amount_in_max: Option<Self::Balance>,
 		send_to: T::AccountId,
 		keep_alive: bool,
-	) -> Result<T::HigherPrecisionBalance, DispatchError> {
+	) -> Result<Self::Balance, DispatchError> {
 		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
 		let amount_in_max = amount_in_max.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_in = with_storage_layer(|| {

@@ -1975,7 +1975,7 @@ fn swap_transactional() {
 
 		// swap with `swap_exact_tokens_for_tokens` transactional
 		assert_noop!(
-			<AssetConversion as Swap<_, _, _>>::swap_exact_tokens_for_tokens(
+			<AssetConversion as Swap<_>>::swap_exact_tokens_for_tokens(
 				user2,
 				bvec![token_2, token_1, token_3],
 				amount_in.into(),
@@ -1988,7 +1988,7 @@ fn swap_transactional() {
 
 		// swap with `swap_exact_tokens_for_tokens` transactional
 		assert_noop!(
-			<AssetConversion as Swap<_, _, _>>::swap_tokens_for_exact_tokens(
+			<AssetConversion as Swap<_>>::swap_tokens_for_exact_tokens(
 				user2,
 				bvec![token_2, token_1, token_3],
 				expected_out.into(),
