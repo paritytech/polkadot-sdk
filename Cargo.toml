@@ -287,7 +287,6 @@ members = [
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
 	"substrate/frame/examples/basic",
-	"substrate/frame/examples/dummy-storage-value",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",
 	"substrate/frame/examples/kitchensink",

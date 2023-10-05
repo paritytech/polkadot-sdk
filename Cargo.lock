@@ -9549,24 +9549,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-example-dummy-storage-value"
-version = "4.0.0-dev"
-dependencies = [
- "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-example-kitchensink"
 version = "4.0.0-dev"
 dependencies = [
