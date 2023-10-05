@@ -38,8 +38,8 @@
 //!
 //! This pallet provides basic examples of using:
 //!
-//! - Pallet hooks to implement some logic to be executed at the start and end of block execution
-//!   (see: [`frame_support::traits::Hooks`])
+//! - Pallet hooks to implement some logic to be executed at the start and end of block import (see:
+//!   [`frame_support::traits::Hooks`])
 //! - The [`StorageValue`](frame_support::storage::types::StorageValue) API to demonstrate it's use
 //!   of `mutate` on:
 //! 	- A storage value that stores some `Balance` and uses the default
@@ -49,15 +49,13 @@
 //!    [`ValueQuery`](frame_support::storage::types::ValueQuery) to always return `T` or
 //!    `Default::default` if the stored value is removed, which in this case will be `0`
 //!    (`u32::default()`)
-//! - A storage map of AccountIds and Balances
-//! - A custom weight calculator able to classify a call's dispatch class (see:
-//!   [`frame_support::dispatch::DispatchClass`])
+//! - A storage map of `AccountIds` and `Balances`
 //! - Inherited weight annotation for pallet calls, used to create less repetition for calls that
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
 //! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
 //!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
-//!   with an encoded length higher than 200 bytes.
+//!   with an encoded length larger than 200 bytes.
 //!
 //! ## Examples
 //!
@@ -69,16 +67,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
-	traits::IsSubType,
-	weights::Weight,
-};
+use frame_support::{dispatch::DispatchResult, traits::IsSubType, weights::Weight};
 use frame_system::ensure_signed;
 use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
+	traits::{Bounded, DispatchInfoOf, Saturating, SignedExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -106,12 +100,12 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// Our pallet's configuration trait.
-	///
-	/// Because all FRAME pallets depend on some core utility types from the System pallet,
-	/// [`frame_system::Config`] should always be included. This pallet example uses the `Balances`
-	/// type from `pallet_balances` which we make available by bounding this trait with
-	/// `pallet_balances::Config`.
+	// Our pallet's configuration trait.
+	//
+	// Because all FRAME pallets depend on some core utility types from the System pallet,
+	// [`frame_system::Config`] should always be included. This pallet example uses the `Balances`
+	// type from `pallet_balances` which we make available by bounding this trait with
+	// `pallet_balances::Config`.
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
 		/// The overarching event type.
@@ -152,8 +146,6 @@ pub mod pallet {
 	///
 	/// The getter attribute generates a function on the `Pallet` struct that we can use to
 	/// conveniently retrieve the current value stored.
-	/// For example: 
-	#[doc = docify::embed!("src/tests.rs", accumulate_dummy_works)]
 	#[pallet::storage]
 	#[pallet::getter(fn dummy)]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
@@ -161,8 +153,6 @@ pub mod pallet {
 	/// An example storage item that stores a `u32` value.
 	/// Here, we're using [`ValueQuery`] instead of the default [`OptionQuery`]. If a value exists
 	/// in state, it will return that raw `u32` value, otherwise it will return `u32::default()`.
-	/// For example:
-	#[doc = docify::embed!("src/tests.rs", accumulate_dummy_value_query_works)]
 	#[pallet::storage]
 	#[pallet::getter(fn dummy_value_query)]
 	pub(super) type DummyValueQuery<T: Config> = StorageValue<_, u32, ValueQuery>;
@@ -197,9 +187,10 @@ pub mod pallet {
 		}
 	}
 
-	/// Events are a simple means of reporting specific conditions and
-	/// circumstances that have happened that users, Dapps and/or chain explorers would find
-	/// interesting and otherwise difficult to detect.
+	/// Events are a simple means of providing some metadata about specific state changes that have
+	/// been made that can be useful to the outside world (for e.g. apps or chain explorers).
+	///
+	/// All events are stored in the System pallet at the end of each block.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -223,21 +214,11 @@ pub mod pallet {
 	// this information to properly execute transaction, whilst keeping the total load of
 	// the chain in a moderate rate.
 	//
-	// The parenthesized value of the `#[pallet::weight(..)]` attribute can be any type that
-	// implements the following traits:
-	// - [`WeighData`]: conveys the weight (a numeric representation of pure
-	// execution time and difficulty) of the transaction
-	// - [`ClassifyDispatch`]: demonstrates the [`DispatchClass`] of the call
-	// - [`PaysFee`]: indicates whether an extrinsic must pay transaction fees or not
-	//
-	// Larger weights imply larger execution time a block can handle (less of which can be placed in
-	// a single block).
-	//
-	// The weight for these calls relies on `WeightInfo`, which is auto-generated from the
+	// The weight for this call block relies on `WeightInfo`, which is auto-generated from the
 	// benchmark toolchain.
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
-		/// A public call that increases the value of `Dummy` in storage.
+		/// A public call that increases the value in `Dummy`.
 		///
 		/// This can be called by any signed origin. The example uses the [`StorageValue::mutate`]
 		/// method to demonstrate a safe and elegant way to accumulate the stored value.
@@ -277,6 +258,7 @@ pub mod pallet {
 		/// can assume it's a one-off operation and substantial processing/storage/memory can be
 		/// used without worrying about gameability or attack scenarios.
 		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
 		pub fn set_dummy(
 			origin: OriginFor<T>,
 			#[pallet::compact] new_value: T::Balance,
@@ -320,7 +302,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This demonstrates using the `mutate` method from the [`StorageValue`] API.
 	#[warn(dead_code)]
-	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: u32) -> DispatchResult {
+	fn accumulate_value_query(origin: T::RuntimeOrigin, increase_by: u32) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
 		let prev = DummyValueQuery::<T>::get();

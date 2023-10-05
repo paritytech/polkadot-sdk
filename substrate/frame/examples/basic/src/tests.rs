@@ -142,8 +142,8 @@ fn accumulate_dummy_value_query_works() {
 		assert_eq!(Example::dummy_value_query(), genesis_val);
 
 		// accumulate the value in DummyValueQuery by 1
-		let _ = Example::accumulate_foo(RuntimeOrigin::signed(1), 1);
-		assert_eq!(Example::dummy_value_query(), val1 + 1);
+		let _ = Example::accumulate_value_query(RuntimeOrigin::signed(1), 1);
+		assert_eq!(Example::dummy_value_query(), genesis_val + 1);
 
 		// when we reset the storage, the value in state will be `u32::default()`
 		let _ = Example::do_reset_dummy(RuntimeOrigin::signed(1));
