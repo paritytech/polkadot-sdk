@@ -97,16 +97,10 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame_support::{
-		traits::{ConstU32, ConstU64},
-		ConsensusEngineId,
-	};
+	use frame_support::{derive_impl, ConsensusEngineId};
 	use sp_core::H256;
 	use sp_runtime::{
-		generic::DigestItem,
-		testing::Header,
-		traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
-		BuildStorage,
+		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
