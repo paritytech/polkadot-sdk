@@ -936,12 +936,17 @@ pub fn run() -> Result<()> {
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
-					Runtime::Seedling => crate::service::start_shell_node::<
-						seedling_runtime::RuntimeApi,
-					>(config, polkadot_config, collator_options, id, hwbench)
-					.await
-					.map(|r| r.0)
-					.map_err(Into::into),
+					Runtime::Seedling =>
+						crate::service::start_shell_node::<seedling_runtime::RuntimeApi>(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench
+						)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
 					Runtime::ContractsRococo => crate::service::start_contracts_rococo_node(
 						config,
 						polkadot_config,
@@ -1009,13 +1014,10 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::Glutton =>
-						crate::service::start_shell_node::<glutton_runtime::RuntimeApi>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
+						crate::service::start_basic_lookahead_node::<
+							glutton_runtime::RuntimeApi,
+							AuraId,
+						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
