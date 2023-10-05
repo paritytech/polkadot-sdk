@@ -107,7 +107,7 @@ mod voting;
 pub use voting::{ClassCountOf, PollStatus, Polling, VoteTally};
 
 mod preimages;
-pub use preimages::{Bounded, BoundedInline, FetchResult, Hash, QueryPreimage, StorePreimage};
+pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};
 
 mod messages;
 pub use messages::{

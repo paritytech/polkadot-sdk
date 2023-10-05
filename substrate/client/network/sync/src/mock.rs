@@ -20,13 +20,13 @@
 
 use crate::block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResponseError};
 
-use futures::{channel::oneshot, task::Poll};
+use futures::channel::oneshot;
 use libp2p::PeerId;
 use sc_network::RequestFailure;
 use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, PeerInfo,
-	SyncStatus,
+	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
+	OnBlockJustification, PeerInfo, SyncStatus,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -39,7 +39,6 @@ mockall::mock! {
 		fn num_sync_requests(&self) -> usize;
 		fn num_downloaded_blocks(&self) -> usize;
 		fn num_peers(&self) -> usize;
-		fn num_active_peers(&self) -> usize;
 		fn new_peer(
 			&mut self,
 			who: PeerId,
@@ -79,17 +78,8 @@ mockall::mock! {
 			who: PeerId,
 			announce: &BlockAnnounce<Block::Header>,
 		);
-		fn peer_disconnected(&mut self, who: &PeerId);
+		fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
 		fn metrics(&self) -> Metrics;
-		fn poll<'a>(
-			&mut self,
-			cx: &mut std::task::Context<'a>,
-		) -> Poll<()>;
-		fn send_block_request(
-			&mut self,
-			who: PeerId,
-			request: BlockRequest<Block>,
-		);
 	}
 }
 
