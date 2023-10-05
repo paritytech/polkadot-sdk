@@ -1,0 +1,862 @@
+diff --git a/bin/node-template/runtime/src/lib.rs b/bin/node-template/runtime/src/lib.rs
+index 133bae7ae7..216be9588b 100644
+--- a/bin/node-template/runtime/src/lib.rs
++++ b/bin/node-template/runtime/src/lib.rs
+@@ -311,14 +311,6 @@ pub type SignedExtra = (
+ 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+ );
+ 
+-/// All migrations of the runtime, aside from the ones declared in the pallets.
+-///
+-/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`. Add other migration types
+-/// before `EnsureStateDecodes` as needed -- this is only for testing, and
+-// should come last.
+-#[allow(unused_parens)]
+-type Migrations = (frame_support::migration::EnsureStateDecodes<AllPalletsWithSystem>);
+-
+ /// Unchecked extrinsic type as expected by this runtime.
+ pub type UncheckedExtrinsic =
+ 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+@@ -331,7 +323,6 @@ pub type Executive = frame_executive::Executive<
+ 	frame_system::ChainContext<Runtime>,
+ 	Runtime,
+ 	AllPalletsWithSystem,
+-	Migrations,
+ >;
+ 
+ #[cfg(feature = "runtime-benchmarks")]
+diff --git a/bin/node/runtime/src/lib.rs b/bin/node/runtime/src/lib.rs
+index dd21c53397..4f34e4ecd8 100644
+--- a/bin/node/runtime/src/lib.rs
++++ b/bin/node/runtime/src/lib.rs
+@@ -2137,8 +2137,6 @@ type Migrations = (
+ 	pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
+ 	pallet_alliance::migration::Migration<Runtime>,
+ 	pallet_contracts::Migration<Runtime>,
+-	// This should always be the last migration item.
+-	frame_support::storage::migration::EnsureStateDecodes<AllPalletsWithSystem>,
+ );
+ 
+ type EventRecord = frame_system::EventRecord<
+diff --git a/frame/glutton/src/lib.rs b/frame/glutton/src/lib.rs
+index 176cd566d9..c76cc30017 100644
+--- a/frame/glutton/src/lib.rs
++++ b/frame/glutton/src/lib.rs
+@@ -21,8 +21,9 @@
+ //!
+ //! # Glutton Pallet
+ //!
+-//! Pallet that consumes `ref_time` and `proof_size` of a block. Based on the `Compute` and
+-//! `Storage` parameters the pallet consumes the adequate amount of weight.
++//! Pallet that consumes `ref_time` and `proof_size` of a block. Based on the
++//! `Compute` and `Storage` parameters the pallet consumes the adequate amount
++//! of weight.
+ 
+ #![deny(missing_docs)]
+ #![cfg_attr(not(feature = "std"), no_std)]
+diff --git a/frame/support/procedural/src/pallet/expand/event.rs b/frame/support/procedural/src/pallet/expand/event.rs
+index 2713f45fc3..fbb699b4d4 100644
+--- a/frame/support/procedural/src/pallet/expand/event.rs
++++ b/frame/support/procedural/src/pallet/expand/event.rs
+@@ -127,12 +127,11 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
+ 		let trait_use_gen = &def.trait_use_generics(event.attr_span);
+ 		let type_impl_gen = &def.type_impl_generics(event.attr_span);
+ 		let type_use_gen = &def.type_use_generics(event.attr_span);
+-		let pallet_ident = &def.pallet_struct.pallet;
+ 
+ 		let PalletEventDepositAttr { fn_vis, fn_span, .. } = deposit_event;
+ 
+ 		quote::quote_spanned!(*fn_span =>
+-			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
++			impl<#type_impl_gen> Pallet<#type_use_gen> #completed_where_clause {
+ 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
+ 					let event = <
+ 						<T as Config #trait_use_gen>::RuntimeEvent as
+diff --git a/frame/support/procedural/src/pallet/expand/storage.rs b/frame/support/procedural/src/pallet/expand/storage.rs
+index 2e9c4ba6d3..1a941f6cb3 100644
+--- a/frame/support/procedural/src/pallet/expand/storage.rs
++++ b/frame/support/procedural/src/pallet/expand/storage.rs
+@@ -780,43 +780,12 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
+ 		)
+ 	});
+ 
+-	// aggregated where clause of all storage types and the whole pallet.
+ 	let mut where_clauses = vec![&def.config.where_clause];
+ 	where_clauses.extend(def.storages.iter().map(|storage| &storage.where_clause));
+ 	let completed_where_clause = super::merge_where_clauses(&where_clauses);
+ 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
+ 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
+ 
+-	let try_decode_entire_state = {
+-		let storage_names = def
+-			.storages
+-			.iter()
+-			.filter_map(|storage| {
+-				if storage.cfg_attrs.is_empty() {
+-					let ident = &storage.ident;
+-					let gen = &def.type_use_generics(storage.attr_span);
+-					Some(quote::quote_spanned!(storage.attr_span => #ident<#gen> ))
+-				} else {
+-					None
+-				}
+-			})
+-			.collect::<Vec<_>>();
+-
+-		quote::quote!(
+-			#[cfg(feature = "try-runtime")]
+-			impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
+-			for #pallet_ident<#type_use_gen> #completed_where_clause
+-			{
+-				fn try_decode_entire_state() -> Result<usize, &'static str> {
+-					// simply delegate impl to a tuple of all storage items we have.
+-					//
+-					// NOTE: for now, we have to exclude storage items that are feature gated.
+-					<( #( #storage_names ),*) as frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()
+-				}
+-			}
+-		)
+-	};
+-
+ 	quote::quote!(
+ 		impl<#type_impl_gen> #pallet_ident<#type_use_gen>
+ 			#completed_where_clause
+@@ -842,7 +811,5 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
+ 		#( #getters )*
+ 		#( #prefix_structs )*
+ 		#( #on_empty_structs )*
+-
+-		#try_decode_entire_state
+ 	)
+ }
+diff --git a/frame/support/procedural/src/pallet/parse/storage.rs b/frame/support/procedural/src/pallet/parse/storage.rs
+index d1c7ba2e5e..3a0ec47471 100644
+--- a/frame/support/procedural/src/pallet/parse/storage.rs
++++ b/frame/support/procedural/src/pallet/parse/storage.rs
+@@ -151,7 +151,7 @@ pub enum QueryKind {
+ /// `type MyStorage = StorageValue<MyStorageP, u32>`
+ /// The keys and values types are parsed in order to get metadata
+ pub struct StorageDef {
+-	/// The index of storage item in pallet module.
++	/// The index of error item in pallet module.
+ 	pub index: usize,
+ 	/// Visibility of the storage type.
+ 	pub vis: syn::Visibility,
+diff --git a/frame/support/src/storage/generator/mod.rs b/frame/support/src/storage/generator/mod.rs
+index 2b2abdc2e8..bac9f642e3 100644
+--- a/frame/support/src/storage/generator/mod.rs
++++ b/frame/support/src/storage/generator/mod.rs
+@@ -24,10 +24,10 @@
+ //!
+ //! This is internal api and is subject to change.
+ 
+-pub(crate) mod double_map;
++mod double_map;
+ pub(crate) mod map;
+-pub(crate) mod nmap;
+-pub(crate) mod value;
++mod nmap;
++mod value;
+ 
+ pub use double_map::StorageDoubleMap;
+ pub use map::StorageMap;
+diff --git a/frame/support/src/storage/migration.rs b/frame/support/src/storage/migration.rs
+index e581c8a00a..568c475bdc 100644
+--- a/frame/support/src/storage/migration.rs
++++ b/frame/support/src/storage/migration.rs
+@@ -385,39 +385,6 @@ pub fn move_prefix(from_prefix: &[u8], to_prefix: &[u8]) {
+ 	}
+ }
+ 
+-/// A phony migration that does nothing, except executing `TryDecodeEntireStorage` on
+-/// `post_upgrade`, which implies it is only available if `try-state` feature is used.
+-///
+-/// This can be used typically in the top level runtime, where `AllPallets` typically comes from
+-/// `construct_runtime!`.
+-pub struct EnsureStateDecodes<AllPallets>(sp_std::marker::PhantomData<AllPallets>);
+-
+-#[cfg(not(feature = "try-runtime"))]
+-impl<AllPallets> crate::traits::OnRuntimeUpgrade for EnsureStateDecodes<AllPallets> {
+-	fn on_runtime_upgrade() -> crate::weights::Weight {
+-		Default::default()
+-	}
+-}
+-
+-#[cfg(feature = "try-runtime")]
+-impl<AllPallets: crate::traits::TryDecodeEntireStorage> crate::traits::OnRuntimeUpgrade
+-	for EnsureStateDecodes<AllPallets>
+-{
+-	fn on_runtime_upgrade() -> sp_weights::Weight {
+-		Default::default()
+-	}
+-
+-	fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+-		let decoded = AllPallets::try_decode_entire_state()?;
+-		crate::log::info!(
+-			target: crate::LOG_TARGET,
+-			"decoded the entire state, total size = {} bytes",
+-			decoded
+-		);
+-		Ok(())
+-	}
+-}
+-
+ #[cfg(test)]
+ mod tests {
+ 	use super::{
+diff --git a/frame/support/src/storage/types/counted_map.rs b/frame/support/src/storage/types/counted_map.rs
+index 4a022b4403..5b750a7409 100644
+--- a/frame/support/src/storage/types/counted_map.rs
++++ b/frame/support/src/storage/types/counted_map.rs
+@@ -74,11 +74,7 @@ impl<P: CountedStorageMapInstance, H, K, V, Q, O, M> MapWrapper
+ 	type Map = StorageMap<P, H, K, V, Q, O, M>;
+ }
+ 
+-/// The numeric counter type.
+-pub type Counter = u32;
+-
+-type CounterFor<P> =
+-	StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, Counter, ValueQuery>;
++type CounterFor<P> = StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
+ 
+ /// On removal logic for updating counter while draining upon some prefix with
+ /// [`crate::storage::PrefixIterator`].
+@@ -382,14 +378,14 @@ where
+ 	/// can be very heavy, so use with caution.
+ 	///
+ 	/// Returns the number of items in the map which is used to set the counter.
+-	pub fn initialize_counter() -> Counter {
+-		let count = Self::iter_values().count() as Counter;
++	pub fn initialize_counter() -> u32 {
++		let count = Self::iter_values().count() as u32;
+ 		CounterFor::<Prefix>::set(count);
+ 		count
+ 	}
+ 
+ 	/// Return the count.
+-	pub fn count() -> Counter {
++	pub fn count() -> u32 {
+ 		CounterFor::<Prefix>::get()
+ 	}
+ }
+@@ -1166,7 +1162,7 @@ mod test {
+ 				StorageEntryMetadataIR {
+ 					name: "counter_for_foo",
+ 					modifier: StorageEntryModifierIR::Default,
+-					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<Counter>()),
++					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
+ 					default: vec![0, 0, 0, 0],
+ 					docs: if cfg!(feature = "no-metadata-docs") {
+ 						vec![]
+diff --git a/frame/support/src/storage/types/counted_nmap.rs b/frame/support/src/storage/types/counted_nmap.rs
+index 1dc8af22ae..7dbcb74f00 100644
+--- a/frame/support/src/storage/types/counted_nmap.rs
++++ b/frame/support/src/storage/types/counted_nmap.rs
+@@ -71,10 +71,8 @@ impl<P: CountedStorageNMapInstance, K, V, Q, O, M> MapWrapper
+ 	type Map = StorageNMap<P, K, V, Q, O, M>;
+ }
+ 
+-type Counter = super::counted_map::Counter;
+-
+ type CounterFor<P> =
+-	StorageValue<<P as CountedStorageNMapInstance>::CounterPrefix, Counter, ValueQuery>;
++	StorageValue<<P as CountedStorageNMapInstance>::CounterPrefix, u32, ValueQuery>;
+ 
+ /// On removal logic for updating counter while draining upon some prefix with
+ /// [`crate::storage::PrefixIterator`].
+@@ -431,7 +429,7 @@ where
+ 	}
+ 
+ 	/// Return the count.
+-	pub fn count() -> Counter {
++	pub fn count() -> u32 {
+ 		CounterFor::<Prefix>::get()
+ 	}
+ }
+diff --git a/frame/support/src/storage/types/mod.rs b/frame/support/src/storage/types/mod.rs
+index 3d8d53bb16..c7f2557099 100644
+--- a/frame/support/src/storage/types/mod.rs
++++ b/frame/support/src/storage/types/mod.rs
+@@ -30,7 +30,7 @@ mod map;
+ mod nmap;
+ mod value;
+ 
+-pub use counted_map::{CountedStorageMap, CountedStorageMapInstance, Counter};
++pub use counted_map::{CountedStorageMap, CountedStorageMapInstance};
+ pub use counted_nmap::{CountedStorageNMap, CountedStorageNMapInstance};
+ pub use double_map::StorageDoubleMap;
+ pub use key::{
+diff --git a/frame/support/src/storage/types/value.rs b/frame/support/src/storage/types/value.rs
+index eaf0a841a4..3c7f24715a 100644
+--- a/frame/support/src/storage/types/value.rs
++++ b/frame/support/src/storage/types/value.rs
+@@ -23,7 +23,7 @@ use crate::{
+ 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
+ 		StorageAppend, StorageDecodeLength, StorageTryAppend,
+ 	},
+-	traits::{Get, GetDefault, StorageInfo, StorageInstance},
++	traits::{GetDefault, StorageInfo, StorageInstance},
+ };
+ use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+ use sp_arithmetic::traits::SaturatedConversion;
+@@ -46,7 +46,7 @@ where
+ 	Prefix: StorageInstance,
+ 	Value: FullCodec,
+ 	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
++	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+ {
+ 	type Query = QueryKind::Query;
+ 	fn module_prefix() -> &'static [u8] {
+diff --git a/frame/support/src/traits.rs b/frame/support/src/traits.rs
+index eb6527d38a..f669046f85 100644
+--- a/frame/support/src/traits.rs
++++ b/frame/support/src/traits.rs
+@@ -125,6 +125,4 @@ pub use tx_pause::{TransactionPause, TransactionPauseError};
+ #[cfg(feature = "try-runtime")]
+ mod try_runtime;
+ #[cfg(feature = "try-runtime")]
+-pub use try_runtime::{
+-	Select as TryStateSelect, TryDecodeEntireStorage, TryState, UpgradeCheckSelect,
+-};
++pub use try_runtime::{Select as TryStateSelect, TryState, UpgradeCheckSelect};
+diff --git a/frame/support/src/traits/try_runtime.rs b/frame/support/src/traits/try_runtime.rs
+index 130e3f1672..31aebeeb4d 100644
+--- a/frame/support/src/traits/try_runtime.rs
++++ b/frame/support/src/traits/try_runtime.rs
+@@ -17,19 +17,8 @@
+ 
+ //! Try-runtime specific traits and types.
+ 
+-use super::StorageInstance;
+-use crate::{
+-	storage::types::{
+-		CountedStorageMapInstance, CountedStorageNMapInstance, Counter, KeyGenerator,
+-		QueryKindTrait,
+-	},
+-	traits::{PartialStorageInfoTrait, StorageInfo},
+-	StorageHasher,
+-};
+-use codec::{Decode, DecodeAll, FullCodec};
+ use impl_trait_for_tuples::impl_for_tuples;
+ use sp_arithmetic::traits::AtLeast32BitUnsigned;
+-use sp_core::Get;
+ use sp_runtime::TryRuntimeError;
+ use sp_std::prelude::*;
+ 
+@@ -54,203 +43,6 @@ impl Default for Select {
+ 	}
+ }
+ 
+-/// Decode the entire data under the given storage type.
+-///
+-/// For values, this is trivial. For all kinds of maps, it should decode all the values associated
+-/// with all keys existing in the map.
+-///
+-/// Tuple implementations are provided and simply decode each type in the tuple, summing up the
+-/// decoded bytes if `Ok(_)`.
+-pub trait TryDecodeEntireStorage {
+-	/// Decode the entire data under the given storage, returning `Ok(bytes_decoded)` if success.
+-	fn try_decode_entire_state() -> Result<usize, &'static str>;
+-}
+-
+-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+-impl TryDecodeEntireStorage for Tuple {
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let mut len = 0usize;
+-		for_tuples!( #( len = len.saturating_add(Tuple::try_decode_entire_state()?); )* );
+-		Ok(len)
+-	}
+-}
+-
+-/// Decode all the values based on the prefix of `info` to `V`.
+-///
+-/// Basically, it decodes and sums up all the values who's key start with `info.prefix`. For values,
+-/// this would be the value itself. For all sorts of maps, this should be all map items in the
+-/// absence of key collision.
+-fn decode_storage_info<V: Decode>(info: StorageInfo) -> Result<usize, &'static str> {
+-	let mut next_key = info.prefix.clone();
+-	let mut decoded = 0;
+-
+-	let decode_key = |key: &[u8]| match sp_io::storage::get(key) {
+-		None => Ok(0),
+-		Some(bytes) => {
+-			let len = bytes.len();
+-			let _ = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
+-				log::error!(target: crate::LOG_TARGET, "failed to decoded {:?}", info,);
+-				"failed to decode value under existing key"
+-			})?;
+-			Ok::<usize, &'static str>(len)
+-		},
+-	};
+-
+-	decoded += decode_key(&next_key)?;
+-	loop {
+-		match sp_io::storage::next_key(&next_key) {
+-			Some(key) if key.starts_with(&info.prefix) => {
+-				decoded += decode_key(&key)?;
+-				next_key = key;
+-			},
+-			_ => break,
+-		}
+-	}
+-
+-	Ok(decoded)
+-}
+-
+-impl<Prefix, Value, QueryKind, OnEmpty> TryDecodeEntireStorage
+-	for crate::storage::types::StorageValue<Prefix, Value, QueryKind, OnEmpty>
+-where
+-	Prefix: StorageInstance,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let info = Self::partial_storage_info()
+-			.first()
+-			.cloned()
+-			.expect("Value has only one storage info; qed");
+-		decode_storage_info::<Value>(info)
+-	}
+-}
+-
+-impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
+-	for crate::storage::types::StorageMap<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues>
+-where
+-	Prefix: StorageInstance,
+-	Hasher: StorageHasher,
+-	Key: FullCodec,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-	MaxValues: Get<Option<u32>>,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let info = Self::partial_storage_info()
+-			.first()
+-			.cloned()
+-			.expect("Map has only one storage info; qed");
+-		decode_storage_info::<Value>(info)
+-	}
+-}
+-
+-impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
+-	for crate::storage::types::CountedStorageMap<
+-		Prefix,
+-		Hasher,
+-		Key,
+-		Value,
+-		QueryKind,
+-		OnEmpty,
+-		MaxValues,
+-	> where
+-	Prefix: CountedStorageMapInstance,
+-	Hasher: StorageHasher,
+-	Key: FullCodec,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-	MaxValues: Get<Option<u32>>,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let (map_info, counter_info) = match &Self::partial_storage_info()[..] {
+-			[a, b] => (a.clone(), b.clone()),
+-			_ => panic!("Counted map has two storage info items; qed"),
+-		};
+-		let mut decoded = decode_storage_info::<Counter>(counter_info)?;
+-		decoded += decode_storage_info::<Value>(map_info)?;
+-		Ok(decoded)
+-	}
+-}
+-
+-impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
+-	TryDecodeEntireStorage
+-	for crate::storage::types::StorageDoubleMap<
+-		Prefix,
+-		Hasher1,
+-		Key1,
+-		Hasher2,
+-		Key2,
+-		Value,
+-		QueryKind,
+-		OnEmpty,
+-		MaxValues,
+-	> where
+-	Prefix: StorageInstance,
+-	Hasher1: StorageHasher,
+-	Key1: FullCodec,
+-	Hasher2: StorageHasher,
+-	Key2: FullCodec,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-	MaxValues: Get<Option<u32>>,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let info = Self::partial_storage_info()
+-			.first()
+-			.cloned()
+-			.expect("Double-map has only one storage info; qed");
+-		decode_storage_info::<Value>(info)
+-	}
+-}
+-
+-impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
+-	for crate::storage::types::StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
+-where
+-	Prefix: StorageInstance,
+-	Key: KeyGenerator,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-	MaxValues: Get<Option<u32>>,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let info = Self::partial_storage_info()
+-			.first()
+-			.cloned()
+-			.expect("N-map has only one storage info; qed");
+-		decode_storage_info::<Value>(info)
+-	}
+-}
+-
+-impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
+-	for crate::storage::types::CountedStorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
+-where
+-	Prefix: CountedStorageNMapInstance,
+-	Key: KeyGenerator,
+-	Value: FullCodec,
+-	QueryKind: QueryKindTrait<Value, OnEmpty>,
+-	OnEmpty: Get<QueryKind::Query> + 'static,
+-	MaxValues: Get<Option<u32>>,
+-{
+-	fn try_decode_entire_state() -> Result<usize, &'static str> {
+-		let (map_info, counter_info) = match &Self::partial_storage_info()[..] {
+-			[a, b] => (a.clone(), b.clone()),
+-			_ => panic!("Counted NMap has two storage info items; qed"),
+-		};
+-
+-		let mut decoded = decode_storage_info::<Counter>(counter_info)?;
+-		decoded += decode_storage_info::<Value>(map_info)?;
+-		Ok(decoded)
+-	}
+-}
+-
+ impl sp_std::fmt::Debug for Select {
+ 	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+ 		match self {
+@@ -395,232 +187,3 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
+ 		}
+ 	}
+ }
+-
+-#[cfg(test)]
+-mod tests {
+-	use super::*;
+-	use crate::{
+-		storage::types::{self, Key},
+-		Blake2_128Concat,
+-	};
+-
+-	type H = Blake2_128Concat;
+-
+-	macro_rules! build_prefix {
+-		($name:ident) => {
+-			struct $name;
+-			impl StorageInstance for $name {
+-				fn pallet_prefix() -> &'static str {
+-					"test_pallet"
+-				}
+-				const STORAGE_PREFIX: &'static str = stringify!($name);
+-			}
+-		};
+-	}
+-
+-	build_prefix!(ValuePrefix);
+-	type Value = types::StorageValue<ValuePrefix, u32>;
+-
+-	build_prefix!(MapPrefix);
+-	type Map = types::StorageMap<MapPrefix, H, u32, u32>;
+-
+-	build_prefix!(CMapCounterPrefix);
+-	build_prefix!(CMapPrefix);
+-	impl CountedStorageMapInstance for CMapPrefix {
+-		type CounterPrefix = CMapCounterPrefix;
+-	}
+-	type CMap = types::CountedStorageMap<CMapPrefix, H, u8, u16>;
+-
+-	build_prefix!(DMapPrefix);
+-	type DMap = types::StorageDoubleMap<DMapPrefix, H, u32, H, u32, u32>;
+-
+-	build_prefix!(NMapPrefix);
+-	type NMap = types::StorageNMap<NMapPrefix, (Key<H, u8>, Key<H, u8>), u128>;
+-
+-	build_prefix!(CountedNMapCounterPrefix);
+-	build_prefix!(CountedNMapPrefix);
+-	impl CountedStorageNMapInstance for CountedNMapPrefix {
+-		type CounterPrefix = CountedNMapCounterPrefix;
+-	}
+-	type CNMap = types::CountedStorageNMap<CountedNMapPrefix, (Key<H, u8>, Key<H, u8>), u128>;
+-
+-	#[test]
+-	fn try_decode_entire_state_value_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(Value::try_decode_entire_state(), Ok(0));
+-
+-			Value::put(42);
+-			assert_eq!(Value::try_decode_entire_state(), Ok(4));
+-
+-			Value::kill();
+-			assert_eq!(Value::try_decode_entire_state(), Ok(0));
+-
+-			// two bytes, cannot be decoded into u32.
+-			sp_io::storage::set(&Value::hashed_key(), &[0u8, 1]);
+-			assert!(Value::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_map_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(Map::try_decode_entire_state(), Ok(0));
+-
+-			Map::insert(0, 42);
+-			assert_eq!(Map::try_decode_entire_state(), Ok(4));
+-
+-			Map::insert(0, 42);
+-			assert_eq!(Map::try_decode_entire_state(), Ok(4));
+-
+-			Map::insert(1, 42);
+-			assert_eq!(Map::try_decode_entire_state(), Ok(8));
+-
+-			Map::remove(0);
+-			assert_eq!(Map::try_decode_entire_state(), Ok(4));
+-
+-			// two bytes, cannot be decoded into u32.
+-			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1]);
+-			assert!(Map::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_counted_map_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			// counter is not even initialized;
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(0 + 0));
+-
+-			let counter = 4;
+-			let value_size = std::mem::size_of::<u16>();
+-
+-			CMap::insert(0, 42);
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(value_size + counter));
+-
+-			CMap::insert(0, 42);
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(value_size + counter));
+-
+-			CMap::insert(1, 42);
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(value_size * 2 + counter));
+-
+-			CMap::remove(0);
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(value_size + counter));
+-
+-			// counter is cleared again.
+-			let _ = CMap::clear(u32::MAX, None);
+-			assert_eq!(CMap::try_decode_entire_state(), Ok(0 + 0));
+-
+-			// 1 bytes, cannot be decoded into u16.
+-			sp_io::storage::set(&CMap::hashed_key_for(2), &[0u8]);
+-			assert!(CMap::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_double_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(0));
+-
+-			DMap::insert(0, 0, 42);
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(4));
+-
+-			DMap::insert(0, 0, 42);
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(4));
+-
+-			DMap::insert(0, 1, 42);
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(8));
+-
+-			DMap::insert(1, 0, 42);
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(12));
+-
+-			DMap::remove(0, 0);
+-			assert_eq!(DMap::try_decode_entire_state(), Ok(8));
+-
+-			// two bytes, cannot be decoded into u32.
+-			sp_io::storage::set(&DMap::hashed_key_for(1, 1), &[0u8, 1]);
+-			assert!(DMap::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_n_map_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(0));
+-
+-			let value_size = std::mem::size_of::<u128>();
+-
+-			NMap::insert((0u8, 0), 42);
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(value_size));
+-
+-			NMap::insert((0, 0), 42);
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(value_size));
+-
+-			NMap::insert((0, 1), 42);
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(value_size * 2));
+-
+-			NMap::insert((1, 0), 42);
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(value_size * 3));
+-
+-			NMap::remove((0, 0));
+-			assert_eq!(NMap::try_decode_entire_state(), Ok(value_size * 2));
+-
+-			// two bytes, cannot be decoded into u128.
+-			sp_io::storage::set(&NMap::hashed_key_for((1, 1)), &[0u8, 1]);
+-			assert!(NMap::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_counted_n_map_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			sp_io::TestExternalities::new_empty().execute_with(|| {
+-				assert_eq!(NMap::try_decode_entire_state(), Ok(0));
+-
+-				let value_size = std::mem::size_of::<u128>();
+-				let counter = 4;
+-
+-				CNMap::insert((0u8, 0), 42);
+-				assert_eq!(CNMap::try_decode_entire_state(), Ok(value_size + counter));
+-
+-				CNMap::insert((0, 0), 42);
+-				assert_eq!(CNMap::try_decode_entire_state(), Ok(value_size + counter));
+-
+-				CNMap::insert((0, 1), 42);
+-				assert_eq!(CNMap::try_decode_entire_state(), Ok(value_size * 2 + counter));
+-
+-				CNMap::insert((1, 0), 42);
+-				assert_eq!(CNMap::try_decode_entire_state(), Ok(value_size * 3 + counter));
+-
+-				CNMap::remove((0, 0));
+-				assert_eq!(CNMap::try_decode_entire_state(), Ok(value_size * 2 + counter));
+-
+-				// two bytes, cannot be decoded into u128.
+-				sp_io::storage::set(&CNMap::hashed_key_for((1, 1)), &[0u8, 1]);
+-				assert!(CNMap::try_decode_entire_state().is_err());
+-			})
+-		})
+-	}
+-
+-	#[test]
+-	fn extra_bytes_are_rejected() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(Map::try_decode_entire_state(), Ok(0));
+-
+-			// 6bytes, too many to fit in u32, should be rejected.
+-			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1, 3, 4, 5, 6]);
+-			assert!(Map::try_decode_entire_state().is_err());
+-		})
+-	}
+-
+-	#[test]
+-	fn try_decode_entire_state_tuple_of_storage_works() {
+-		sp_io::TestExternalities::new_empty().execute_with(|| {
+-			assert_eq!(<(Value, Map) as TryDecodeEntireStorage>::try_decode_entire_state(), Ok(0));
+-
+-			Value::put(42);
+-			assert_eq!(<(Value, Map) as TryDecodeEntireStorage>::try_decode_entire_state(), Ok(4));
+-
+-			Map::insert(0, 42);
+-			assert_eq!(<(Value, Map) as TryDecodeEntireStorage>::try_decode_entire_state(), Ok(8));
+-		});
+-	}
+-}
+diff --git a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound.stderr b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound.stderr
+index cc8c4fda76..d10bf13590 100644
+--- a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound.stderr
++++ b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound.stderr
+@@ -19,7 +19,7 @@ error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
+    = note: required for `&<T as pallet::Config>::Bar` to implement `std::fmt::Debug`
+-   = note: required for the cast from `&&<T as pallet::Config>::Bar` to `&dyn std::fmt::Debug`
++   = note: required for the cast from `&<T as pallet::Config>::Bar` to the object type `dyn std::fmt::Debug`
+ 
+ error[E0277]: the trait bound `<T as pallet::Config>::Bar: Clone` is not satisfied
+   --> tests/pallet_ui/call_argument_invalid_bound.rs:21:36
+diff --git a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_2.stderr b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_2.stderr
+index b8d0bbf347..7173cdcd47 100644
+--- a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_2.stderr
++++ b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_2.stderr
+@@ -19,7 +19,7 @@ error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
+    = note: required for `&<T as pallet::Config>::Bar` to implement `std::fmt::Debug`
+-   = note: required for the cast from `&&<T as pallet::Config>::Bar` to `&dyn std::fmt::Debug`
++   = note: required for the cast from `&<T as pallet::Config>::Bar` to the object type `dyn std::fmt::Debug`
+ 
+ error[E0277]: the trait bound `<T as pallet::Config>::Bar: Clone` is not satisfied
+   --> tests/pallet_ui/call_argument_invalid_bound_2.rs:21:36
+diff --git a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_3.stderr b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_3.stderr
+index 158d0c7638..4cbed37096 100644
+--- a/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_3.stderr
++++ b/frame/support/test/tests/pallet_ui/call_argument_invalid_bound_3.stderr
+@@ -20,7 +20,7 @@ error[E0277]: `Bar` doesn't implement `std::fmt::Debug`
+    = help: the trait `std::fmt::Debug` is not implemented for `Bar`
+    = note: add `#[derive(Debug)]` to `Bar` or manually `impl std::fmt::Debug for Bar`
+    = note: required for `&Bar` to implement `std::fmt::Debug`
+-   = note: required for the cast from `&&Bar` to `&dyn std::fmt::Debug`
++   = note: required for the cast from `&Bar` to the object type `dyn std::fmt::Debug`
+ help: consider annotating `Bar` with `#[derive(Debug)]`
+    |
+ 17 +     #[derive(Debug)]
+diff --git a/frame/support/test/tests/pallet_ui/event_field_not_member.stderr b/frame/support/test/tests/pallet_ui/event_field_not_member.stderr
+index d853406c95..1161f4a190 100644
+--- a/frame/support/test/tests/pallet_ui/event_field_not_member.stderr
++++ b/frame/support/test/tests/pallet_ui/event_field_not_member.stderr
+@@ -18,4 +18,4 @@ error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
+    = note: required for `&<T as pallet::Config>::Bar` to implement `std::fmt::Debug`
+-   = note: required for the cast from `&&<T as pallet::Config>::Bar` to `&dyn std::fmt::Debug`
++   = note: required for the cast from `&<T as pallet::Config>::Bar` to the object type `dyn std::fmt::Debug`
+diff --git a/frame/support/test/tests/pallet_ui/inherent_check_inner_span.stderr b/frame/support/test/tests/pallet_ui/inherent_check_inner_span.stderr
+index 4acf57fb3e..bc34c55241 100644
+--- a/frame/support/test/tests/pallet_ui/inherent_check_inner_span.stderr
++++ b/frame/support/test/tests/pallet_ui/inherent_check_inner_span.stderr
+@@ -1,11 +1,11 @@
+ error[E0046]: not all trait items implemented, missing: `Call`, `Error`, `INHERENT_IDENTIFIER`, `create_inherent`, `is_inherent`
+-  --> tests/pallet_ui/inherent_check_inner_span.rs:19:2
++  --> $DIR/inherent_check_inner_span.rs:19:2
+    |
+ 19 |     impl<T: Config> ProvideInherent for Pallet<T> {}
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Call`, `Error`, `INHERENT_IDENTIFIER`, `create_inherent`, `is_inherent` in implementation
+    |
+-   = help: implement the missing item: `type Call = /* Type */;`
+-   = help: implement the missing item: `type Error = /* Type */;`
++   = help: implement the missing item: `type Call = Type;`
++   = help: implement the missing item: `type Error = Type;`
+    = help: implement the missing item: `const INHERENT_IDENTIFIER: [u8; 8] = value;`
+    = help: implement the missing item: `fn create_inherent(_: &InherentData) -> std::option::Option<<Self as ProvideInherent>::Call> { todo!() }`
+    = help: implement the missing item: `fn is_inherent(_: &<Self as ProvideInherent>::Call) -> bool { todo!() }`
+diff --git a/frame/support/test/tests/pallet_ui/storage_info_unsatisfied_nmap.stderr b/frame/support/test/tests/pallet_ui/storage_info_unsatisfied_nmap.stderr
+index bbbb3ed1b2..c34c796fe5 100644
+--- a/frame/support/test/tests/pallet_ui/storage_info_unsatisfied_nmap.stderr
++++ b/frame/support/test/tests/pallet_ui/storage_info_unsatisfied_nmap.stderr
+@@ -14,5 +14,5 @@ error[E0277]: the trait bound `Bar: MaxEncodedLen` is not satisfied
+              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
+              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
+            and $N others
+-   = note: required for `NMapKey<frame_support::Twox64Concat, Bar>` to implement `KeyGeneratorMaxEncodedLen`
+-   = note: required for `frame_support::pallet_prelude::StorageNMap<_GeneratedPrefixForStorageFoo<T>, NMapKey<frame_support::Twox64Concat, Bar>, u32>` to implement `StorageInfoTrait`
++   = note: required for `Key<frame_support::Twox64Concat, Bar>` to implement `KeyGeneratorMaxEncodedLen`
++   = note: required for `frame_support::pallet_prelude::StorageNMap<_GeneratedPrefixForStorageFoo<T>, Key<frame_support::Twox64Concat, Bar>, u32>` to implement `StorageInfoTrait`
