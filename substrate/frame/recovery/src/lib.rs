@@ -233,9 +233,12 @@ pub mod pallet {
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// The funds are held as deposit for initiating an account recovery.
+		/// The funds are held as deposit for creating an account recovery configuration.
 		#[codec(index = 0)]
-		Recovery,
+		RecoveryConfig,
+		/// The funds are held as deposit for initiating an account recovery.
+		#[codec(index = 1)]
+		InitiateRecovery,
 	}
 
 	/// Configuration trait.
@@ -487,7 +490,7 @@ pub mod pallet {
 				.ok_or(ArithmeticError::Overflow)?;
 			// Reserve the deposit
 			// T::Currency::reserve(&who, total_deposit)?;
-			T::Currency::hold(&HoldReason::Recovery.into(), &who, total_deposit)?;
+			T::Currency::hold(&HoldReason::RecoveryConfig.into(), &who, total_deposit)?;
 			// Create the recovery configuration
 			let recovery_config = RecoveryConfig {
 				delay_period,
@@ -531,7 +534,7 @@ pub mod pallet {
 			// Take recovery deposit
 			let recovery_deposit = T::RecoveryDeposit::get();
 			// T::Currency::reserve(&who, recovery_deposit)?;
-			T::Currency::hold(&HoldReason::Recovery.into(), &who, recovery_deposit)?;
+			T::Currency::hold(&HoldReason::InitiateRecovery.into(), &who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
 				created: <frame_system::Pallet<T>>::block_number(),
@@ -671,11 +674,11 @@ pub mod pallet {
 			// 	BalanceStatus::Free,
 			// );
 			let amount = T::Currency::release_all(
-				&HoldReason::Recovery.into(),
+				&HoldReason::InitiateRecovery.into(),
 				&rescuer,
 				Precision::BestEffort,
 			)?;
-			T::Currency::hold(&HoldReason::Recovery.into(), &who, amount)?;
+			T::Currency::hold(&HoldReason::TODO.into(), &who, amount)?;
 			Self::deposit_event(Event::<T>::RecoveryClosed {
 				lost_account: who,
 				rescuer_account: rescuer,
@@ -707,7 +710,7 @@ pub mod pallet {
 			// Unreserve the initial deposit for the recovery configuration.
 			// T::Currency::unreserve(&who, recovery_config.deposit);
 			T::Currency::release(
-				&HoldReason::Recovery.into(),
+				&HoldReason::RecoveryConfig.into(),
 				&who,
 				recovery_config.deposit,
 				Precision::Exact,
