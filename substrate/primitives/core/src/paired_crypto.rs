@@ -43,8 +43,8 @@ pub mod ecdsa_n_bls377 {
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb7");
 
-	const PUBLIC_KEY_LEN: usize = 33 + crate::bls::PUBLIC_KEY_SERIALIZED_SIZE;
-	const LEFT_SIGNATURE_LEN: usize = 65;
+	const PUBLIC_KEY_LEN: usize = crate::ecdsa::PUBLIC_KEY_SERIALIZED_SIZE  + crate::bls::PUBLIC_KEY_SERIALIZED_SIZE;
+	const LEFT_SIGNATURE_LEN: usize = crate::ecdsa::SIGNATURE_SERIALIZED_SIZE;
 	const RIGHT_SIGNATURE_LEN: usize = crate::bls::SIGNATURE_SERIALIZED_SIZE;
 	const SIGNATURE_LEN: usize = LEFT_SIGNATURE_LEN + RIGHT_SIGNATURE_LEN;
 
