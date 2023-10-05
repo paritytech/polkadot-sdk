@@ -856,6 +856,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "westend-runtime",
  "xcm-emulator",
 ]
 
