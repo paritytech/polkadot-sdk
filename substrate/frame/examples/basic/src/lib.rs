@@ -158,7 +158,7 @@ pub mod pallet {
 	pub(super) type DummyValueQuery<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// An example storage map that has enumerable entries. In our case this is a mapping of
-	/// AccountIds to Balances.
+	/// `AccountIds` to `Balances`.
 	///
 	/// We don't actually use this anywhere.
 	#[pallet::storage]
