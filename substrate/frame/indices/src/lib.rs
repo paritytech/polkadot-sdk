@@ -24,6 +24,7 @@ mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
+pub mod migrations;
 
 use codec::Codec;
 use frame_support::traits::{
@@ -49,6 +50,9 @@ type BalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
+
+/// The logging target of this pallet.
+pub const LOG_TARGET: &'static str = "runtime::indices";
 
 /// The current storage version.
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -263,7 +267,6 @@ pub mod pallet {
 				let (account, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				// T::Currency::slash_reserved(&who, amount);
 				T::Currency::burn_all_held(
 					&HoldReason::ClaimedIndex.into(),
 					&who,
