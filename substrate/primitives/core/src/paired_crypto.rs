@@ -62,12 +62,6 @@ pub mod ecdsa_n_bls377 {
 		const LEFT_PLUS_RIGHT_LEN: usize = SIGNATURE_LEN;
 	}
 
-	#[cfg(feature = "full_crypto")]
-	impl super::DoublePair for Pair {
-		const PUBLIC_KEY_LEN: usize = PUBLIC_KEY_LEN;
-		const SIGNATURE_LEN: usize = SIGNATURE_LEN;
-	}
-
 	impl super::CryptoType for Public {
 		#[cfg(feature = "full_crypto")]
 		type Pair = Pair;
@@ -566,7 +560,7 @@ impl<
 		const SIGNATURE_LEN: usize,
 	> TraitPair for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: DoublePair + CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType,
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
 	Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>: CryptoType,
