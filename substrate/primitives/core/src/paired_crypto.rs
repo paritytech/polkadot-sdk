@@ -110,7 +110,7 @@ pub trait PublicKeyBound:
 }
 
 impl<
-		PublicKeyTrait: TraitPublic
+		T: TraitPublic
 			+ Sized
 			+ Derive
 			+ sp_std::hash::Hash
@@ -118,13 +118,13 @@ impl<
 			+ for<'a> TryFrom<&'a [u8]>
 			+ AsMut<[u8]>
 			+ CryptoType,
-	> PublicKeyBound for PublicKeyTrait
+	> PublicKeyBound for T
 {
 }
 
 /// A public key.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-#[scale_info(skip_type_params(T))]
+#[scale_info(skip_type_params(LeftPublic, RightPublic))]
 pub struct Public<
 	LeftPublic: PublicKeyBound,
 	RightPublic: PublicKeyBound,
@@ -152,8 +152,7 @@ impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RI
 	sp_std::hash::Hash for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
 {
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.left.hash(state);
-		self.right.hash(state);
+		self.inner.hash(state);
 	}
 }
 
@@ -359,14 +358,11 @@ impl<
 /// trait characterizing a signature which could be used as individual component of an `paired_crypto:Signature` pair.
 pub trait SignatureBound: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> {}
 
-impl<SignatureTrait: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]>> SignatureBound
-	for SignatureTrait
-{
-}
+impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]>> SignatureBound for T {}
 
 /// A pair of signatures of different types
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
-#[scale_info(skip_type_params(T))]
+#[scale_info(skip_type_params(LeftSignature, RightSignature))]
 pub struct Signature<
 	LeftSignature: SignatureBound,
 	RightSignature: SignatureBound,
