@@ -137,6 +137,8 @@ fn end_memory_tracking() -> isize {
 ///
 /// # Parameters
 ///
+/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
 /// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
@@ -166,6 +168,7 @@ fn end_memory_tracking() -> isize {
 /// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 pub fn worker_entrypoint(
+	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
@@ -173,6 +176,7 @@ pub fn worker_entrypoint(
 ) {
 	worker_event_loop(
 		WorkerKind::Prepare,
+		socket_path,
 		worker_dir_path,
 		node_version,
 		worker_version,
