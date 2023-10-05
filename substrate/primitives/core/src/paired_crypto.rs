@@ -571,8 +571,8 @@ where
 	RightPair::Signature: SignatureBound,
 	Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>: CryptoType,
 	Signature<LeftPair::Signature, RightPair::Signature, SIGNATURE_LEN>: SignaturePair,
-	LeftPair::Seed: From<[u8; SECURE_SEED_LEN]> + Into<[u8; SECURE_SEED_LEN]>,
-	RightPair::Seed: From<[u8; SECURE_SEED_LEN]> + Into<[u8; SECURE_SEED_LEN]>,
+	LeftPair::Seed: From<Seed> + Into<Seed>,
+	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>;
