@@ -39,15 +39,18 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{Currency, OnUnbalanced, ReservableCurrency};
+use frame_support::traits::{
+	fungible::{hold::Balanced as FnBalanced, Inspect as FnInspect, MutateHold as FnMutateHold},
+	tokens::{fungible::Credit, Precision},
+	OnUnbalanced,
+};
 pub use pallet::*;
-use sp_runtime::traits::{StaticLookup, Zero};
+use sp_runtime::traits::{Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-type BalanceOf<T> = <<T as Config>::Currency as Currency<AccountIdOf<T>>>::Balance;
-type NegativeImbalanceOf<T> =
-	<<T as Config>::Currency as Currency<AccountIdOf<T>>>::NegativeImbalance;
+type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
+type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -56,20 +59,32 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit to start the referendum's decision phase.
+		/// The funds are held as deposit for doing a system-sponsored fast unstake.
+		Nicks,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FnBalanced<Self::AccountId>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Reservation fee.
 		#[pallet::constant]
 		type ReservationFee: Get<BalanceOf<Self>>;
 
 		/// What to do with slashed funds.
-		type Slashed: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type OnSlash: OnUnbalanced<CreditOf<Self>>;
 
 		/// The origin which may forcibly set or remove a name. Root can always do this.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -164,7 +179,7 @@ pub mod pallet {
 				deposit
 			} else {
 				let deposit = T::ReservationFee::get();
-				T::Currency::reserve(&sender, deposit)?;
+				T::Currency::hold(&HoldReason::Nicks.into(), &sender, deposit)?;
 				Self::deposit_event(Event::<T>::NameSet { who: sender.clone() });
 				deposit
 			};
@@ -186,10 +201,14 @@ pub mod pallet {
 
 			let deposit = <NameOf<T>>::take(&sender).ok_or(Error::<T>::Unnamed)?.1;
 
-			let err_amount = T::Currency::unreserve(&sender, deposit);
-			debug_assert!(err_amount.is_zero());
+			let released_deposit = T::Currency::release(
+				&HoldReason::Nicks.into(),
+				&sender,
+				deposit,
+				Precision::Exact,
+			)?;
 
-			Self::deposit_event(Event::<T>::NameCleared { who: sender, deposit });
+			Self::deposit_event(Event::<T>::NameCleared { who: sender, deposit: released_deposit });
 			Ok(())
 		}
 
@@ -212,9 +231,18 @@ pub mod pallet {
 			// Grab their deposit (and check that they have one).
 			let deposit = <NameOf<T>>::take(&target).ok_or(Error::<T>::Unnamed)?.1;
 			// Slash their deposit from them.
-			T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target, deposit).0);
+			let (imbalance, non_slashed) = <T::Currency as FnBalanced<T::AccountId>>::slash(
+				&HoldReason::Nicks.into(),
+				&target,
+				deposit,
+			);
+			// Handle slashed amount.
+			T::OnSlash::on_unbalanced(imbalance);
 
-			Self::deposit_event(Event::<T>::NameKilled { target, deposit });
+			Self::deposit_event(Event::<T>::NameKilled {
+				target,
+				deposit: deposit.saturating_sub(non_slashed),
+			});
 			Ok(())
 		}
 
@@ -261,6 +289,8 @@ mod tests {
 	use sp_runtime::{
 		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		BuildStorage,
+		DispatchError::Token,
+		TokenError::FundsUnavailable,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -312,8 +342,8 @@ mod tests {
 		type WeightInfo = ();
 		type FreezeIdentifier = ();
 		type MaxFreezes = ();
-		type RuntimeHoldReason = ();
-		type MaxHolds = ();
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type MaxHolds = ConstU32<1>;
 	}
 
 	ord_parameter_types! {
@@ -322,8 +352,9 @@ mod tests {
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type Currency = Balances;
+		type RuntimeHoldReason = RuntimeHoldReason;
 		type ReservationFee = ConstU64<2>;
-		type Slashed = ();
+		type OnSlash = ();
 		type ForceOrigin = EnsureSignedBy<One, u64>;
 		type MinLength = ConstU32<3>;
 		type MaxLength = ConstU32<16>;
@@ -400,7 +431,7 @@ mod tests {
 
 			assert_noop!(
 				Nicks::set_name(RuntimeOrigin::signed(3), b"Dave".to_vec()),
-				pallet_balances::Error::<Test, _>::InsufficientBalance
+				Token(FundsUnavailable)
 			);
 
 			assert_noop!(
