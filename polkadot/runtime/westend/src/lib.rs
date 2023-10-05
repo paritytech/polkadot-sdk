@@ -1255,6 +1255,7 @@ parameter_types! {
 impl slots::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
 	type LeaseOffset = ();
@@ -1294,6 +1295,7 @@ parameter_types! {
 impl auctions::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Leaser = Slots;
+	type Currency = Balances;
 	type Registrar = Registrar;
 	type EndingPeriod = EndingPeriod;
 	type SampleLength = SampleLength;
@@ -1432,7 +1434,7 @@ construct_runtime! {
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
-		Slots: slots::{Pallet, Call, Storage, Event<T>} = 61,
+		Slots: slots::{Pallet, Call, Storage, Event<T>, HoldReason} = 61,
 		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = 62,
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 63,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 64,
@@ -1509,6 +1511,7 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+		slots::migration::versioned::ToV1<Runtime, Balances>,
 	);
 }
 

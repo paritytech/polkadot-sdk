@@ -22,12 +22,15 @@ use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+/// The current storage version.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+
 pub mod versioned {
 	use super::*;
 
 	/// Wrapper over `MigrateToV1` with convenience version checks.
 	///
-	/// This migration would move reserves into Named holds.
+	/// This migration would move lease reserves into named holds.
 	pub type ToV1<T, OldCurrency> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
@@ -67,12 +70,16 @@ mod v1 {
 		BalanceOf<T>: From<OldCurrency::Balance>,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			let mut migrated = 0u32;
+			// useful for calculating weights later
+			let mut migrated = 0u64;
+			let mut leases_count = 0u64;
+
 			for (_, lease_periods) in OldLeases::<T, OldCurrency>::iter() {
+				leases_count += 1;
 				let mut deposit_held: BTreeMap<T::AccountId, OldBalanceOf<T, OldCurrency>> =
 					BTreeMap::new();
 
-				// go through each lease and find the max lease deposit required for each leaser.
+				// go through each lease and find the lease deposit required for each leaser.
 				lease_periods.iter().for_each(|lease| {
 					if let Some((who, amount)) = lease {
 						deposit_held
@@ -93,8 +100,11 @@ mod v1 {
 				})
 			}
 
-			// weight: all active lease periods * rw
-			T::DbWeight::get().reads_writes(migrated.saturating_mul(2).saturating_add(2).into(), 2)
+			T::DbWeight::get().reads_writes(
+				// reads: leases_count
+				leases_count,
+				// writes = migrated * (unreserve + hold)
+				migrated.saturating_mul(2))
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -113,7 +123,6 @@ mod v1 {
 			// for each pair assert hold amount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
 				// fixme(ank4n) there is a case where an account has a hold for multiple para-ids..
-				// TODO(ank4n) Add integrity check..
 				let actual_hold = T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), who)
 					.expect("Migration should have inserted this entry");
 				let expected_hold = Pallet::<T>::deposit_held(*para, who);
