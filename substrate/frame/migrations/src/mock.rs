@@ -174,6 +174,14 @@ impl SteppedMigrations for MigrationsStorage {
 			.with(|m| m.borrow().get(n as usize).map(|s| *s))
 			.map(|(_, s)| Some(s))
 	}
+
+	fn cursor_max_encoded_len() -> usize {
+		65_536
+	}
+
+	fn identifier_max_encoded_len() -> usize {
+		256
+	}
 }
 
 impl MigrationsStorage {

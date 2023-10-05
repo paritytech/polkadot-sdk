@@ -333,6 +333,27 @@ pub mod pallet {
 		fn on_runtime_upgrade() -> Weight {
 			Self::onboard_new_mbms()
 		}
+
+		fn integrity_test() {
+			// Cursor MEL
+			{
+				let mel = T::Migrations::cursor_max_encoded_len();
+				let max_mel = T::CursorMaxLen::get() as usize;
+				assert!(
+					mel <= max_mel,
+					"A Cursor is not guaranteed to fit into the storage: {mel} > {max_mel}",
+				);
+			}
+			// Identifier MEL
+			{
+				let mel = T::Migrations::identifier_max_encoded_len();
+				let max_mel = T::IdentifierMaxLen::get() as usize;
+				assert!(
+					mel <= max_mel,
+					"An Identifier is not guaranteed to fit into the storage: {mel} > {max_mel}",
+				);
+			}
+		}
 	}
 
 	#[pallet::call(weight = T::WeightInfo)]
@@ -461,7 +482,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let bounded_id: Result<IdentifierOf<T>, _> = id.try_into();
 		let Ok(bounded_id) = bounded_id else {
-			defensive!("Migration ID too long. Governance intervention required.");
+			defensive!("The integrity check ensures that all identifiers' MEL bound fits into CursorMaxLen; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};

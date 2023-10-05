@@ -463,7 +463,7 @@ impl OnMigrationUpdate for () {
 
 /// Something that can do multi step migrations.
 pub trait MultiStepMigrator {
-	/// Hint for whether [`step`] should be called.
+	/// Hint for whether [`Self::step`] should be called.
 	fn is_upgrading() -> bool;
 	/// Do the next step in the MBM process.
 	///
@@ -500,6 +500,10 @@ pub trait SteppedMigrations {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
+
+	fn cursor_max_encoded_len() -> usize;
+
+	fn identifier_max_encoded_len() -> usize;
 }
 
 impl<T: SteppedMigration> SteppedMigrations for T {
@@ -536,6 +540,14 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 
 	fn nth_max_steps(_: u32) -> Option<Option<u32>> {
 		Some(T::max_steps())
+	}
+
+	fn cursor_max_encoded_len() -> usize {
+		T::Cursor::max_encoded_len()
+	}
+
+	fn identifier_max_encoded_len() -> usize {
+		T::Identifier::max_encoded_len()
 	}
 }
 
@@ -607,6 +619,26 @@ impl SteppedMigrations for Tuple {
 		)* );
 
 		None
+	}
+
+	fn cursor_max_encoded_len() -> usize {
+		let mut max_len = 0;
+
+		for_tuples!( #(
+			max_len = max_len.max(Tuple::cursor_max_encoded_len());
+		)* );
+
+		max_len
+	}
+
+	fn identifier_max_encoded_len() -> usize {
+		let mut max_len = 0;
+
+		for_tuples!( #(
+			max_len = max_len.max(Tuple::identifier_max_encoded_len());
+		)* );
+
+		max_len
 	}
 }
 

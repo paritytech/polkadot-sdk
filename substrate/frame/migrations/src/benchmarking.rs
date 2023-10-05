@@ -21,6 +21,7 @@ use super::*;
 
 use frame_benchmarking::v2::*;
 use frame_system::{Pallet as System, RawOrigin};
+use sp_std::vec;
 
 #[benchmarks]
 mod benches {
