@@ -40,7 +40,7 @@ impl FromStr for BridgeHubRuntimeType {
 
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
-			westend::BRIDGE_HUB_WESTEND => unimplemented!("TODO: fix BridgeHubWestend"),
+			westend::BRIDGE_HUB_WESTEND => Ok(BridgeHubRuntimeType::Westend),
 			rococo::BRIDGE_HUB_ROCOCO => Ok(BridgeHubRuntimeType::Rococo),
 			rococo::BRIDGE_HUB_ROCOCO_LOCAL => Ok(BridgeHubRuntimeType::RococoLocal),
 			rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT => Ok(BridgeHubRuntimeType::RococoDevelopment),
@@ -56,7 +56,8 @@ impl BridgeHubRuntimeType {
 
 	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			BridgeHubRuntimeType::Westend => unimplemented!("TODO: fix BridgeHubWestend"),
+			BridgeHubRuntimeType::Westend =>
+				Ok(Box::new(westend::BridgeHubChainSpec::from_json_file(path)?)),
 			BridgeHubRuntimeType::Rococo |
 			BridgeHubRuntimeType::RococoLocal |
 			BridgeHubRuntimeType::RococoDevelopment =>
