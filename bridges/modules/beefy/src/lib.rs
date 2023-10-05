@@ -601,7 +601,7 @@ mod tests {
 				.is_some());
 				assert_eq!(
 					ImportedBlockNumbers::<TestRuntime>::get(index),
-					Some(index + 1).map(Into::into)
+					Some(Into::into(index + 1)),
 				);
 			}
 
@@ -619,7 +619,7 @@ mod tests {
 			.is_some());
 			assert_eq!(
 				ImportedBlockNumbers::<TestRuntime>::get(0),
-				Some(commitments_to_keep + 1).map(Into::into)
+				Some(Into::into(commitments_to_keep + 1)),
 			);
 			// the side effect of the import is that the commitment#1 is pruned
 			assert!(ImportedCommitments::<TestRuntime>::get(1).is_none());
@@ -638,7 +638,7 @@ mod tests {
 			.is_some());
 			assert_eq!(
 				ImportedBlockNumbers::<TestRuntime>::get(1),
-				Some(commitments_to_keep + 2).map(Into::into)
+				Some(Into::into(commitments_to_keep + 2)),
 			);
 			// the side effect of the import is that the commitment#2 is pruned
 			assert!(ImportedCommitments::<TestRuntime>::get(1).is_none());
