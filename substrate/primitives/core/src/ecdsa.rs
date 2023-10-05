@@ -51,7 +51,7 @@ use sp_std::vec::Vec;
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
 
 /// The byte length of public key
-pub const PUBLIC_KEY_SERIALIZED_SIZE :usize = 33;
+pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 
 /// The byte length of public key
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
@@ -139,7 +139,7 @@ impl TryFrom<&[u8]> for Public {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != Self::LEN {
-			return Err(())
+			return Err(());
 		}
 		let mut r = [0u8; Self::LEN];
 		r.copy_from_slice(data);
@@ -318,7 +318,7 @@ impl Signature {
 	/// you are certain that the array actually is a signature. GIGO!
 	pub fn from_slice(data: &[u8]) -> Option<Self> {
 		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return None
+			return None;
 		}
 		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(data);

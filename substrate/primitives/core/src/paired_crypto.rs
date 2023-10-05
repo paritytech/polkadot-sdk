@@ -43,7 +43,8 @@ pub mod ecdsa_n_bls377 {
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb7");
 
-	const PUBLIC_KEY_LEN: usize = crate::ecdsa::PUBLIC_KEY_SERIALIZED_SIZE  + crate::bls::PUBLIC_KEY_SERIALIZED_SIZE;
+	const PUBLIC_KEY_LEN: usize =
+		crate::ecdsa::PUBLIC_KEY_SERIALIZED_SIZE + crate::bls::PUBLIC_KEY_SERIALIZED_SIZE;
 	const LEFT_SIGNATURE_LEN: usize = crate::ecdsa::SIGNATURE_SERIALIZED_SIZE;
 	const RIGHT_SIGNATURE_LEN: usize = crate::bls::SIGNATURE_SERIALIZED_SIZE;
 	const SIGNATURE_LEN: usize = LEFT_SIGNATURE_LEN + RIGHT_SIGNATURE_LEN;
@@ -125,9 +126,8 @@ pub struct Public<
 	inner: [u8; LEFT_PLUS_RIGHT_LEN],
 }
 
-impl<
-        LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize
-	> Decode for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize>
+	Decode for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
 {
 	fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 		let buf = <[u8; LEFT_PLUS_RIGHT_LEN]>::decode(i)?;
@@ -148,7 +148,6 @@ impl<
 //     }
 
 // }
-
 
 #[cfg(feature = "full_crypto")]
 impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize>
@@ -359,9 +358,15 @@ impl<
 }
 
 /// trait characterizing a signature which could be used as individual component of an `paired_crypto:Signature` pair.
-pub trait SignatureBound: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray {}
+pub trait SignatureBound:
+	sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray
+{
+}
 
-impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray> SignatureBound for T {}
+impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray> SignatureBound
+	for T
+{
+}
 
 /// A pair of signatures of different types
 #[derive(Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
@@ -418,7 +423,8 @@ impl<
 			return Err(());
 		}
 		let left: LeftSignature = data[0..LeftSignature::LEN].try_into().map_err(|_| ())?;
-		let right: RightSignature = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
+		let right: RightSignature =
+			data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
 
 		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
 		inner[..LeftSignature::LEN].copy_from_slice(left.as_ref());
@@ -544,7 +550,9 @@ impl<
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
 		let Ok(left) = data[0..LeftSignature::LEN].try_into() else { panic!("invalid signature") };
-		let Ok(right) = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into() else { panic!("invalid signature") };
+		let Ok(right) = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into() else {
+			panic!("invalid signature")
+		};
 
 		Signature { left, right, inner: data }
 	}
@@ -562,8 +570,6 @@ pub struct Pair<
 	left: LeftPair,
 	right: RightPair,
 }
-
-
 
 #[cfg(feature = "full_crypto")]
 impl<
@@ -674,8 +680,9 @@ mod test {
 
 	#[test]
 	fn seed_and_derive_should_work() {
-		let seed_for_right_and_left: [u8; SECURE_SEED_LEN] =
-			array_bytes::hex2array_unchecked("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+		let seed_for_right_and_left: [u8; SECURE_SEED_LEN] = array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		);
 		let pair = Pair::from_seed(&seed_for_right_and_left);
 		// we are using hash to field so this is not going to work
 		// assert_eq!(pair.seed(), seed);
@@ -684,8 +691,12 @@ mod test {
 		assert_eq!(
 			derived.to_raw_vec(),
 			[
-				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>("b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61"),
-				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>("3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12")
+				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>(
+					"b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61"
+				),
+				array_bytes::hex2array_unchecked::<&str, SECURE_SEED_LEN>(
+					"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
+				)
 			]
 			.concat()
 		);
@@ -693,8 +704,9 @@ mod test {
 
 	#[test]
 	fn test_vector_should_work() {
-		let seed_left_and_right: [u8; SECURE_SEED_LEN] =
-			array_bytes::hex2array_unchecked("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+		let seed_left_and_right: [u8; SECURE_SEED_LEN] = array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		);
 		let pair = Pair::from_seed(&([seed_left_and_right].concat()[..].try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
@@ -824,24 +836,24 @@ mod test {
 		assert!(deserialize_signature("\"abc123\"").is_err());
 	}
 
-    #[test]
-    fn encode_and_decode_public_key_works() {
+	#[test]
+	fn encode_and_decode_public_key_works() {
 		let pair =
 			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
 		let public = pair.public();
-        let encoded_public = public.encode();
-        let decoded_public = Public::decode(&mut encoded_public.as_slice()).unwrap();
-        assert_eq!(public, decoded_public)
-    }
+		let encoded_public = public.encode();
+		let decoded_public = Public::decode(&mut encoded_public.as_slice()).unwrap();
+		assert_eq!(public, decoded_public)
+	}
 
-    #[test]
-    fn encode_and_decode_signature_works() {
+	#[test]
+	fn encode_and_decode_signature_works() {
 		let pair =
 			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
 		let message = b"Something important";
 		let signature = pair.sign(&message[..]);
-        let encoded_signature = signature.encode();
-        let decoded_signature = Signature::decode(&mut encoded_signature.as_slice()).unwrap();
-        assert_eq!(signature, decoded_signature)
-    }
+		let encoded_signature = signature.encode();
+		let decoded_signature = Signature::decode(&mut encoded_signature.as_slice()).unwrap();
+		assert_eq!(signature, decoded_signature)
+	}
 }
