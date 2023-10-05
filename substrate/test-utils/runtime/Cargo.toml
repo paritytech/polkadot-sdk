@@ -40,7 +40,7 @@ pallet-timestamp = { path = "../../frame/timestamp", default-features = false}
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-trie = { path = "../../primitives/trie", default-features = false}
 sp-transaction-pool = { path = "../../primitives/transaction-pool", default-features = false}
-trie-db = { version = "0.27.0", default-features = false }
+trie-db = { version = "0.28.0", default-features = false }
 sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], optional = true}
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false}
 sp-externalities = { path = "../../primitives/externalities", default-features = false}
@@ -49,7 +49,7 @@ sp-externalities = { path = "../../primitives/externalities", default-features =
 array-bytes = { version = "6.1", optional = true }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.107", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 futures = "0.3.21"
@@ -107,6 +107,3 @@ std = [
 ]
 # Special feature to disable logging
 disable-logging = [ "sp-api/disable-logging" ]
-
-#Enabling this flag will disable GenesisBuilder API implementation in runtime.
-disable-genesis-builder = []
