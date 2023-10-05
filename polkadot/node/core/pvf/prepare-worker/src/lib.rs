@@ -358,6 +358,6 @@ async fn handle_parent_process(
 		},
 		Ok(nix::sys::wait::WaitStatus::Signaled(_, nix::sys::signal::Signal::SIGXCPU, _)) =>
 			Err(PrepareError::TimedOut),
-		_ => Err(PrepareError::Panic(format!("child failed"))),
+		_ => Err(PrepareError::Panic("child failed".to_string())),
 	}
 }
