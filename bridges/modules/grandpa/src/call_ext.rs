@@ -16,7 +16,7 @@
 
 use crate::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
 use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
-use bp_runtime::BlockNumberOf;
+use bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 use sp_runtime::{
@@ -126,6 +126,10 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			_ => return Ok(ValidTransaction::default()),
 		};
 
+		if Pallet::<T, I>::ensure_not_halted().is_err() {
+			return InvalidTransaction::Call.into()
+		}
+
 		match SubmitFinalityProofHelper::<T, I>::check_obsolete(finality_target.block_number) {
 			Ok(_) => Ok(ValidTransaction::default()),
 			Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
@@ -192,10 +196,10 @@ mod tests {
 	use crate::{
 		call_ext::CallSubType,
 		mock::{run_test, test_header, RuntimeCall, TestBridgedChain, TestNumber, TestRuntime},
-		BestFinalized, Config, WeightInfo,
+		BestFinalized, Config, PalletOperatingMode, WeightInfo,
 	};
 	use bp_header_chain::ChainWithGrandpa;
-	use bp_runtime::HeaderId;
+	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,
 	};
@@ -235,6 +239,17 @@ mod tests {
 			// rejected
 			sync_to_header_10();
 			assert!(!validate_block_submit(10));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_pallet_is_halted() {
+		run_test(|| {
+			// when pallet is halted => tx is rejected
+			sync_to_header_10();
+			PalletOperatingMode::<TestRuntime, ()>::put(BasicOperatingMode::Halted);
+
+			assert!(!validate_block_submit(15));
 		});
 	}
 
