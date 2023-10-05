@@ -254,6 +254,9 @@ pub mod pallet {
 	#[pallet::getter(fn ring_context)]
 	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
+	#[pallet::storage]
+	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -369,19 +372,13 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
-			debug!(target: LOG_TARGET, "LOADING RING CTX");
-			let Some(ring_ctx) = RingContext::<T>::get() else {
+			debug!(target: LOG_TARGET, "Loading ring verifier");
+			let Some(verifier) = RingVerifierData::<T>::get().map(|vd| vd.into()) else {
+				warn!(target: LOG_TARGET, "Ring verifier not initialized");
 				return Err("Ring context not initialized".into())
 			};
-			debug!(target: LOG_TARGET, "... Loaded");
 
 			let next_authorities = Self::next_authorities();
-			// TODO @davxy this should be done once per epoch.
-			// For this we need the `ProofVerifier` to be serializable @svasilyev
-			let pks: Vec<_> = next_authorities.iter().map(|auth| *auth.as_ref()).collect();
-			debug!(target: LOG_TARGET, "Building verifier. Ring size {}", pks.len());
-			let verifier = ring_ctx.verifier(pks.as_slice()).unwrap();
-			debug!(target: LOG_TARGET, "... Built");
 
 			// Check tickets score
 			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
@@ -410,8 +407,12 @@ pub mod pallet {
 				};
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
 				if ticket_id >= ticket_threshold {
-					debug!(target: LOG_TARGET, "Over threshold");
+					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:16x} >= {:16x})", ticket_id, ticket_threshold);
 					continue
+				}
+
+				if TicketsData::<T>::contains_key(ticket_id) {
+					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:16x})", ticket_id);
 				}
 
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
@@ -595,12 +596,12 @@ impl<T: Config> Pallet<T> {
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
-		debug!(target: LOG_TARGET, "Building ring verifier (ring size {}", pks.len());
-		let _verifier = ring_ctx
-			.verifier(pks.as_slice())
+		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {}", pks.len());
+		let verifier_data = ring_ctx
+			.verifier_data(pks.as_slice())
 			.expect("Failed to build ring verifier. This is a bug");
 
-		// TODO: Persist the verifier...
+		RingVerifierData::<T>::put(verifier_data);
 	}
 
 	/// Enact an epoch change.
@@ -617,12 +618,15 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		if next_authorities != authorities {
-			Self::update_ring_verifier(&next_authorities);
-		}
+		// TODO: @davxy. This is expensive.
+		// Indeed it makes miss the slot deadline on first attempt.
+		// Retry when HF are integrated
+		// if next_authorities != authoritues {
+		Self::update_ring_verifier(&next_authorities);
+		// }
 
 		// Update authorities
-		Authorities::<T>::put(authorities);
+		Authorities::<T>::put(&authorities);
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update epoch index
@@ -662,7 +666,7 @@ impl<T: Config> Pallet<T> {
 		// After we update the current epoch, we signal the *next* epoch change
 		// so that nodes can track changes.
 		let next_epoch = NextEpochDescriptor {
-			authorities: next_authorities.to_vec(),
+			authorities: next_authorities.into_inner(),
 			randomness: next_randomness,
 			config: next_config,
 		};
@@ -760,14 +764,17 @@ impl<T: Config> Pallet<T> {
 
 		GenesisSlot::<T>::put(genesis_slot);
 
+		let next_authorities = Self::next_authorities().into_inner();
+		Self::update_ring_verifier(&next_authorities);
+
 		// Deposit a log because this is the first block in epoch #0.
 		// We use the same values as genesis because we haven't collected any randomness yet.
-		let next = NextEpochDescriptor {
-			authorities: Self::authorities().to_vec(),
-			randomness: Self::randomness(),
+		let next_epoch = NextEpochDescriptor {
+			authorities: next_authorities,
+			randomness: Self::next_randomness(),
 			config: None,
 		};
-		Self::deposit_consensus(ConsensusLog::NextEpochData(next));
+		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
 	}
 
 	/// Current epoch information.

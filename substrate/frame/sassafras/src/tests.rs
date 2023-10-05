@@ -125,7 +125,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-initialization status
 
-		assert!(RandomnessVrfOutput::<Test>::get().is_some());
+		assert!(RandomnessVrfOutput::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -139,7 +139,7 @@ fn on_first_block_after_genesis() {
 
 		// Post-finalization status
 
-		assert!(RandomnessVrfOutput::<Test>::get().is_none());
+		assert!(!RandomnessVrfOutput::<Test>::exists());
 		assert_eq!(Sassafras::genesis_slot(), start_slot);
 		assert_eq!(Sassafras::current_slot(), start_slot);
 		assert_eq!(Sassafras::epoch_index(), 0);
@@ -639,6 +639,8 @@ fn tickets_data_write(data: PreBuiltTickets) {
 // `submit_ticket` call which tests for ticket validity.
 #[test]
 fn submit_tickets_with_ring_proof_check_works() {
+	// env_logger::init();
+
 	use sp_core::Pair as _;
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(20, true);

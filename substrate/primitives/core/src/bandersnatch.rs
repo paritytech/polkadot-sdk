@@ -625,6 +625,107 @@ pub mod ring_vrf {
 	pub use bandersnatch_vrfs::ring::{RingProof, RingProver, RingVerifier, KZG};
 	use bandersnatch_vrfs::{CanonicalDeserialize, PublicKey};
 
+	/// TODO @davxy: Probably temporary stuff, waiting for serializable RingVerifier in the backend
+	pub mod temporary {
+		use super::*;
+		use bandersnatch_vrfs::ring::VerifierKey;
+
+		/// remove as soon as soon as serialization is impleented by the backend
+		pub struct RingVerifierData {
+			/// temp
+			pub domain_size: u32,
+			/// temp
+			pub h_seed: [u8; 32],
+			/// temp
+			pub verifier_key: VerifierKey,
+		}
+
+		impl From<RingVerifierData> for RingVerifier {
+			fn from(vd: RingVerifierData) -> RingVerifier {
+				bandersnatch_vrfs::ring::make_ring_verifier(
+					vd.verifier_key,
+					vd.h_seed,
+					vd.domain_size as usize,
+				)
+			}
+		}
+
+		impl Encode for RingVerifierData {
+			fn encode(&self) -> Vec<u8> {
+				const ERR_STR: &str = "serialization length is constant and checked by test; qed";
+				let mut buf = Vec::new();
+				self.domain_size.serialize_compressed(&mut buf).expect(ERR_STR);
+				self.h_seed.serialize_compressed(&mut buf).expect(ERR_STR);
+				self.verifier_key.serialize_compressed(&mut buf).expect(ERR_STR);
+				buf.encode()
+			}
+		}
+
+		impl Decode for RingVerifierData {
+			fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
+				const ERR_STR: &str = "serialization length is constant and checked by test; qed";
+				let buf = Vec::<u8>::decode(i).unwrap();
+				let domain_size =
+					<u32 as CanonicalDeserialize>::deserialize_compressed(&mut &buf[0..4])
+						.expect(ERR_STR);
+				let h_seed =
+					<[u8; 32] as CanonicalDeserialize>::deserialize_compressed(&mut &buf[4..36])
+						.expect(ERR_STR);
+				let verifier_key = <bandersnatch_vrfs::ring::VerifierKey as CanonicalDeserialize>::deserialize_compressed(&mut &buf[36..]).expect(ERR_STR);
+
+				Ok(RingVerifierData { domain_size, h_seed, verifier_key })
+			}
+		}
+
+		impl EncodeLike for RingVerifierData {}
+
+		impl MaxEncodedLen for RingVerifierData {
+			fn max_encoded_len() -> usize {
+				422
+			}
+		}
+
+		impl TypeInfo for RingVerifierData {
+			type Identity = [u8; 422];
+
+			fn type_info() -> scale_info::Type {
+				Self::Identity::type_info()
+			}
+		}
+
+		impl RingContext {
+			pub fn verifier_data(&self, public_keys: &[Public]) -> Option<RingVerifierData> {
+				let mut pks = Vec::with_capacity(public_keys.len());
+				for public_key in public_keys {
+					let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
+					pks.push(pk.0.into());
+				}
+				Some(RingVerifierData {
+					verifier_key: self.0.verifier_key(pks),
+					h_seed: self.0.h_seed,
+					domain_size: self.0.domain_size,
+				})
+			}
+		}
+
+		#[test]
+		fn encode_decode_verifier_data() {
+			let ring_ctx = RingContext::new_testing();
+			let pks: Vec<_> = (0..16).map(|i| Pair::from_seed(&[i as u8; 32]).public()).collect();
+			assert!(pks.len() <= ring_ctx.max_keyset_size());
+
+			let verifier_data = ring_ctx.verifier_data(&pks).unwrap();
+
+			let enc1 = verifier_data.encode();
+			println!("{}", enc1.len());
+
+			let vd2 = RingVerifierData::decode(&mut enc1.as_slice()).unwrap();
+			let enc2 = vd2.encode();
+
+			assert_eq!(enc1, enc2);
+		}
+	}
+
 	/// Context used to produce ring signatures.
 	#[derive(Clone)]
 	pub struct RingContext(KZG);
