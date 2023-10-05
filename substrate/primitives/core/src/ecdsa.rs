@@ -206,6 +206,10 @@ impl<'de> Deserialize<'de> for Public {
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
+impl ByteArray for Signature {
+	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
+}
+
 impl TryFrom<&[u8]> for Signature {
 	type Error = ();
 

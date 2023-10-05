@@ -317,6 +317,10 @@ impl<T> sp_std::hash::Hash for Signature<T> {
 	}
 }
 
+impl<T> ByteArray for Signature<T> {
+	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
+}
+
 impl<T> TryFrom<&[u8]> for Signature<T> {
 	type Error = ();
 

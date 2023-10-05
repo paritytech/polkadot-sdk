@@ -56,12 +56,6 @@ pub mod ecdsa_n_bls377 {
 	/// (ECDSA, BLS12-377) signature pair.
 	pub type Signature = super::Signature<ecdsa::Signature, bls377::Signature, SIGNATURE_LEN>;
 
-	impl super::SignaturePair for Signature {
-		const LEFT_SIGNATURE_LEN: usize = LEFT_SIGNATURE_LEN;
-		const RIGHT_SIGNATURE_LEN: usize = RIGHT_SIGNATURE_LEN;
-		const LEFT_PLUS_RIGHT_LEN: usize = SIGNATURE_LEN;
-	}
-
 	impl super::CryptoType for Public {
 		#[cfg(feature = "full_crypto")]
 		type Pair = Pair;
@@ -117,16 +111,30 @@ impl<
 }
 
 /// A public key.
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 #[scale_info(skip_type_params(LeftPublic, RightPublic))]
 pub struct Public<
 	LeftPublic: PublicKeyBound,
 	RightPublic: PublicKeyBound,
 	const LEFT_PLUS_RIGHT_LEN: usize,
 > {
+	#[codec(skip)]
 	left: LeftPublic,
+	#[codec(skip)]
 	right: RightPublic,
 	inner: [u8; LEFT_PLUS_RIGHT_LEN],
+}
+
+impl<
+        LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize
+	> Decode for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+{
+	fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
+		let buf = <[u8; LEFT_PLUS_RIGHT_LEN]>::decode(i)?;
+		buf.as_slice()
+			.try_into()
+			.map_err(|_| codec::Error::from("invalid public key data"))
+	}
 }
 
 // We essentially could implement the following instead of storing left and right but we are going to end up copying and deserializing left and right, to perform any operation and that will take a hit on performance.
@@ -140,6 +148,7 @@ pub struct Public<
 //     }
 
 // }
+
 
 #[cfg(feature = "full_crypto")]
 impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize>
@@ -350,27 +359,37 @@ impl<
 }
 
 /// trait characterizing a signature which could be used as individual component of an `paired_crypto:Signature` pair.
-pub trait SignatureBound: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> {}
+pub trait SignatureBound: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray {}
 
-impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]>> SignatureBound for T {}
+impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray> SignatureBound for T {}
 
 /// A pair of signatures of different types
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 #[scale_info(skip_type_params(LeftSignature, RightSignature))]
 pub struct Signature<
 	LeftSignature: SignatureBound,
 	RightSignature: SignatureBound,
 	const LEFT_PLUS_RIGHT_LEN: usize,
 > {
+	#[codec(skip)]
 	left: LeftSignature,
+	#[codec(skip)]
 	right: RightSignature,
 	inner: [u8; LEFT_PLUS_RIGHT_LEN],
 }
 
-trait SignaturePair {
-	const LEFT_SIGNATURE_LEN: usize;
-	const RIGHT_SIGNATURE_LEN: usize;
-	const LEFT_PLUS_RIGHT_LEN: usize;
+impl<
+		LeftSignature: SignatureBound,
+		RightSignature: SignatureBound,
+		const LEFT_PLUS_RIGHT_LEN: usize,
+	> Decode for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
+{
+	fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
+		let buf = <[u8; LEFT_PLUS_RIGHT_LEN]>::decode(i)?;
+		buf.as_slice()
+			.try_into()
+			.map_err(|_| codec::Error::from("invalid signature data"))
+	}
 }
 
 #[cfg(feature = "full_crypto")]
@@ -391,8 +410,6 @@ impl<
 		RightSignature: SignatureBound,
 		const LEFT_PLUS_RIGHT_LEN: usize,
 	> TryFrom<&[u8]> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-where
-	Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>: SignaturePair,
 {
 	type Error = ();
 
@@ -400,12 +417,12 @@ where
 		if data.len() != LEFT_PLUS_RIGHT_LEN {
 			return Err(());
 		}
-		let left: LeftSignature = data[0..Self::LEFT_SIGNATURE_LEN].try_into().map_err(|_| ())?;
-		let right: RightSignature = data[Self::LEFT_SIGNATURE_LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
+		let left: LeftSignature = data[0..LeftSignature::LEN].try_into().map_err(|_| ())?;
+		let right: RightSignature = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
 
 		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
-		inner[..Self::LEFT_SIGNATURE_LEN].copy_from_slice(left.as_ref());
-		inner[Self::LEFT_SIGNATURE_LEN..].copy_from_slice(right.as_ref());
+		inner[..LeftSignature::LEN].copy_from_slice(left.as_ref());
+		inner[LeftSignature::LEN..].copy_from_slice(right.as_ref());
 
 		Ok(Signature { left, right, inner })
 	}
@@ -466,8 +483,6 @@ impl<
 		RightSignature: SignatureBound,
 		const LEFT_PLUS_RIGHT_LEN: usize,
 	> Deserialize<'de> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-where
-	Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>: SignaturePair,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -526,12 +541,10 @@ impl<
 		const LEFT_PLUS_RIGHT_LEN: usize,
 	> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
 	for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-where
-	Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>: SignaturePair,
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		let Ok(left) = data[0..Self::LEFT_SIGNATURE_LEN].try_into() else { panic!("invalid signature") };
-		let Ok(right) = data[Self::LEFT_SIGNATURE_LEN..LEFT_PLUS_RIGHT_LEN].try_into() else { panic!("invalid signature") };
+		let Ok(left) = data[0..LeftSignature::LEN].try_into() else { panic!("invalid signature") };
+		let Ok(right) = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into() else { panic!("invalid signature") };
 
 		Signature { left, right, inner: data }
 	}
@@ -564,7 +577,6 @@ where
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
 	Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>: CryptoType,
-	Signature<LeftPair::Signature, RightPair::Signature, SIGNATURE_LEN>: SignaturePair,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
@@ -624,8 +636,8 @@ where
 
 	fn sign(&self, message: &[u8]) -> Self::Signature {
 		let mut r: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
-		r[..Self::Signature::LEFT_SIGNATURE_LEN].copy_from_slice(self.left.sign(message).as_ref());
-		r[Self::Signature::LEFT_SIGNATURE_LEN..].copy_from_slice(self.right.sign(message).as_ref());
+		r[..LeftPair::Signature::LEN].copy_from_slice(self.left.sign(message).as_ref());
+		r[LeftPair::Signature::LEN..].copy_from_slice(self.right.sign(message).as_ref());
 		Self::Signature::unchecked_from(r)
 	}
 
@@ -795,7 +807,7 @@ mod test {
 
 		let serialized_signature = serde_json::to_string(&signature).unwrap();
 		println!("{:?} -- {:}", signature.inner, serialized_signature);
-		// Signature is 177 bytes, hexify * 2, so 354  chars + 2 quote charsy
+		// Signature is 177 bytes, hexify * 2 + 2 quote charsy
 		assert_eq!(serialized_signature.len(), 356);
 		let signature = serde_json::from_str(&serialized_signature).unwrap();
 		assert!(Pair::verify(&signature, &message[..], &pair.public()));
