@@ -42,7 +42,7 @@ pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNam
 pub enum MethodResult {
 	/// Method generated a result.
 	Ok(MethodResultOk),
-	/// Method ecountered an error.
+	/// Method encountered an error.
 	Err(MethodResultErr),
 }
 

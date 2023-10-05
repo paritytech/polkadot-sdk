@@ -16,9 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::chain_head::{
-	event::{MethodResponse, StorageQuery, StorageQueryType, StorageResultType},
-	test_utils::ChainHeadMockClient,
+use crate::{
+	chain_head::{event::MethodResponse, test_utils::ChainHeadMockClient},
+	common::events::{StorageQuery, StorageQueryType, StorageResultType},
+	hex_string,
 };
 
 use super::*;

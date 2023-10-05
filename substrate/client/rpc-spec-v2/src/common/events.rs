@@ -85,6 +85,45 @@ pub enum StorageResultType {
 	ClosestDescendantMerkleValue(String),
 }
 
+/// The error of a storage call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageResultErr {
+	/// The hex-encoded key of the result.
+	pub key: String,
+	/// The result of the query.
+	#[serde(flatten)]
+	pub error: StorageResultType,
+}
+
+/// The result of a storage call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ArchiveStorageResult {
+	/// Query generated a result.
+	Ok(ArchiveStorageMethodOk),
+	/// Query encountered an error.
+	Err(ArchiveStorageMethodErr),
+}
+
+/// The result of a storage call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageMethodOk {
+	/// Reported results.
+	pub result: Vec<StorageResult>,
+	/// Number of discarded items.
+	pub discarded_items: usize,
+}
+
+/// The error of a storage call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageMethodErr {
+	/// Reported error.
+	pub error: String,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

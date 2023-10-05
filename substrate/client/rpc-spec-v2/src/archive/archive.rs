@@ -20,13 +20,15 @@
 
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
+	common::events::{ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType},
 	hex_string, MethodResult,
 };
 
 use codec::Encode;
 use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, StorageProvider,
+	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
+	StorageProvider,
 };
 use sp_api::{CallApiAt, CallContext, NumberFor};
 use sp_blockchain::{
@@ -38,6 +40,8 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+
+use super::archive_storage::ArchiveStorage;
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
@@ -183,5 +187,48 @@ where
 			Ok(result) => MethodResult::ok(hex_string(&result)),
 			Err(error) => MethodResult::err(error.to_string()),
 		})
+	}
+
+	fn archive_unstable_storage(
+		&self,
+		hash: Block::Hash,
+		items: Vec<PaginatedStorageQuery<String>>,
+		child_trie: Option<String>,
+	) -> RpcResult<ArchiveStorageResult> {
+		let items = items
+			.into_iter()
+			.map(|query| {
+				let key = StorageKey(parse_hex_param(query.key)?);
+				let pagination_start_key = query
+					.pagination_start_key
+					.map(|key| parse_hex_param(key).map(|key| StorageKey(key)))
+					.transpose()?;
+
+				// Paginated start key is only supported
+				if pagination_start_key.is_some() &&
+					(query.query_type != StorageQueryType::DescendantsValues ||
+						query.query_type != StorageQueryType::DescendantsHashes)
+				{
+					return Err(ArchiveError::InvalidParam(
+						"Pagination start key is only supported for descendants queries"
+							.to_string(),
+					))
+				}
+
+				Ok(PaginatedStorageQuery {
+					key,
+					query_type: query.query_type,
+					pagination_start_key,
+				})
+			})
+			.collect::<Result<Vec<_>, ArchiveError>>()?;
+
+		let child_trie = child_trie
+			.map(|child_trie| parse_hex_param(child_trie))
+			.transpose()?
+			.map(ChildInfo::new_default_from_vec);
+
+		let storage_client = ArchiveStorage::new(self.client.clone(), 5);
+		Ok(storage_client.handle_query(hash, items, child_trie))
 	}
 }

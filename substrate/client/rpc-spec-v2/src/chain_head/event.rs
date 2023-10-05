@@ -340,6 +340,8 @@ pub struct MethodResponseStarted {
 
 #[cfg(test)]
 mod tests {
+	use crate::common::events::StorageResultType;
+
 	use super::*;
 
 	#[test]
