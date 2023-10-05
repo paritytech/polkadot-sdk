@@ -204,6 +204,7 @@ pub fn worker_event_loop<F, Fut>(
 	gum::debug!(
 		target: LOG_TARGET,
 		%worker_pid,
+		?socket_path,
 		?worker_dir_path,
 		?security_status,
 		"starting pvf worker ({})",
@@ -253,7 +254,7 @@ pub fn worker_event_loop<F, Fut>(
 	// Connect to the socket.
 	let stream = || -> std::io::Result<UnixStream> {
 		let stream = UnixStream::connect(&socket_path)?;
-		std::fs::remove_file(&socket_path)?;
+		let _ = std::fs::remove_file(&socket_path);
 		Ok(stream)
 	}();
 	let stream = match stream {

@@ -67,8 +67,8 @@ pub async fn spawn_with_program_path(
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let program_path = program_path.into();
 	let worker_dir = WorkerDir::new(debug_id, cache_path).await?;
-
 	let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
+
 	with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
 
