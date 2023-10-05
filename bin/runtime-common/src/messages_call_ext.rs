@@ -188,8 +188,22 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
 	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo>;
 
-	/// Check that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call is trying
-	/// to deliver/confirm at least some messages that are better than the ones we know of.
+	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
+	///
+	/// - does not deliver already delivered messages. We require all messages in the
+	///   `ReceiveMessagesProof` call to be undelivered;
+	///
+	/// - does not submit empty `ReceiveMessagesProof` call with zero messages, unless the lane
+	///   needs to be unblocked by providing relayer rewards proof;
+	///
+	/// - brings no new delivery confirmations in a `ReceiveMessagesDeliveryProof` call. We require
+	///   at least one new delivery confirmation in the unrewarded relayers set;
+	///
+	/// - does not violate some basic (easy verifiable) messages pallet rules obsolete (like
+	///   submitting a call when a pallet is halted or delivering messages when a dispatcher is
+	///   inactive).
+	///
+	/// If one of above rules is violated, the transaction is treated as invalid.
 	fn check_obsolete_call(&self) -> TransactionValidity;
 }
 
