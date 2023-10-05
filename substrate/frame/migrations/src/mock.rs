@@ -17,10 +17,7 @@
 
 #![cfg(test)]
 
-use crate::{
-	mock_helpers::{MockedMigrationKind::*, *},
-	Event, Historic, WeightMeter,
-};
+use crate::{Event, Historic, WeightMeter};
 
 use codec::{Decode, Encode};
 use core::cell::RefCell;
@@ -32,6 +29,7 @@ use frame_support::{
 };
 use frame_system::EventRecord;
 use sp_core::{ConstU32, H256};
+use sp_runtime::BoundedVec;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -52,6 +50,57 @@ impl frame_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+}
+
+/// An opaque identifier of a migration.
+pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
+
+/// How a [`MockedMigration`] should behave.
+#[derive(Debug, Clone, Copy, Encode)]
+#[allow(dead_code)]
+pub enum MockedMigrationKind {
+	/// Succeed after its number of steps elapsed.
+	SucceedAfter,
+	/// Fail after its number of steps elapsed.
+	FailAfter,
+	/// Never terminate.
+	TimeoutAfter,
+	/// Cause an [`InsufficientWeight`] error after its number of steps elapsed.
+	HightWeightAfter(Weight),
+}
+use MockedMigrationKind::*; // C style
+
+impl From<u8> for MockedMigrationKind {
+	fn from(v: u8) -> Self {
+		match v {
+			0 => SucceedAfter,
+			1 => FailAfter,
+			2 => TimeoutAfter,
+			3 => HightWeightAfter(Weight::MAX),
+			_ => unreachable!(),
+		}
+	}
+}
+
+impl Into<u8> for MockedMigrationKind {
+	fn into(self) -> u8 {
+		match self {
+			SucceedAfter => 0,
+			FailAfter => 1,
+			TimeoutAfter => 2,
+			HightWeightAfter(_) => 3,
+		}
+	}
+}
+
+/// Calculate the identifier of a mocked migration.
+pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
+	raw_mocked_id(kind.into(), steps)
+}
+
+/// FAIL-CI
+pub fn raw_mocked_id(kind: u8, steps: u32) -> MockedIdentifier {
+	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
 }
 
 frame_support::parameter_types! {

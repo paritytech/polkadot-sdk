@@ -136,7 +136,6 @@
 
 mod benchmarking;
 mod mock;
-pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
@@ -205,10 +204,10 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 /// Convenience alias for [`MigrationCursor`].
 pub type CursorOf<T> = MigrationCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
-/// TODO FAIL-CI
+/// Convenience alias for the raw inner cursor of a migration.
 pub type RawCursorOf<T> = BoundedVec<u8, <T as Config>::CursorMaxLen>;
 
-/// TODO FAIL-CI
+/// Convenience alias for the identifier of a migration.
 pub type IdentifierOf<T> = BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
 
 /// Convenience alias for [`ActiveCursor`].
@@ -234,11 +233,17 @@ pub mod pallet {
 		/// (Check that `Cursor` is `None`).
 		type Migrations: SteppedMigrations;
 
-		/// TODO FAIL-CI
+		/// The maximal length of an encoded cursor.
+		///
+		/// A good default needs to selected such that no migration will ever have a cursor with MEL
+		/// above this limit. This is statically checked (FAIL-CI: TODO).
 		#[pallet::constant]
 		type CursorMaxLen: Get<u32>;
 
-		/// TODO FAIL-CI
+		/// The maximal length of an encoded identifier.
+		///
+		/// A good default needs to selected such that no migration will ever have an identifier
+		/// with MEL above this limit. This is statically checked (FAIL-CI: TODO).
 		#[pallet::constant]
 		type IdentifierMaxLen: Get<u32>;
 
@@ -467,18 +472,26 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Continue(cursor))
 		}
 
-		let max_steps = T::Migrations::nth_max_steps(cursor.index).expect("FAIL-CI");
+		let max_steps = T::Migrations::nth_max_steps(cursor.index);
 		let next_cursor = T::Migrations::nth_transactional_step(
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
 			meter,
-		)
-		.expect("FAIL-CI");
+		);
+		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
+			defensive!("nth_id returned Some(_). Therefore all other nth_* calls must return Some(_) as well; qed");
+			Self::upgrade_failed(Some(cursor.index));
+			return None
+		};
 
 		let blocks = System::<T>::block_number().saturating_sub(cursor.started_at);
 		match next_cursor {
 			Ok(Some(next_cursor)) => {
-				let bound_next_cursor = next_cursor.try_into().expect("FAIL-CI");
+				let Ok(bound_next_cursor) = next_cursor.try_into() else {
+					defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
+					Self::upgrade_failed(Some(cursor.index));
+					return None
+				};
 
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, blocks });
 				cursor.inner_cursor = Some(bound_next_cursor);

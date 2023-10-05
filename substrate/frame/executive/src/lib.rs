@@ -344,9 +344,8 @@ impl<
 
 		// post-extrinsics book-keeping
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
-		// TODO MBMs will conditionally skip this.
-		Self::on_idle_hook(*header.number());
 
+		Self::on_idle_hook(*header.number());
 		Self::on_finalize_hook(*header.number());
 
 		// run the try-state checks of all pallets, ensuring they don't alter any state.
@@ -585,9 +584,8 @@ impl<
 			Self::apply_extrinsics(extrinsics.iter().skip(num_inherents), mode);
 
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
-			// TODO MBMs will conditionally skip this.
-			Self::on_idle_hook(*header.number());
 
+			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
 			Self::final_checks(&header);
 		}
@@ -630,11 +628,8 @@ impl<
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		let block_number = <frame_system::Pallet<System>>::block_number();
 
-		// TODO MBMs will conditionally skip this.
 		Self::on_idle_hook(block_number);
-
 		Self::on_finalize_hook(block_number);
-
 		<frame_system::Pallet<System>>::finalize()
 	}
 

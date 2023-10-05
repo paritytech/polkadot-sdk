@@ -90,7 +90,7 @@ mod benches {
 		_(RawOrigin::Root, None, None);
 	}
 
-	fn cursor<T: Config>() -> MigrationCursor<T::Cursor, T::BlockNumber> {
+	fn cursor<T: Config>() -> CursorOf<T> {
 		// Note: The weight of a function can depend on the weight of reading the `inner_cursor`.
 		// `Cursor` is a user provided type. Now instead of requiring something like `Cursor:
 		// From<u32>`, we instead rely on the fact that it is MEL and the PoV benchmarking will
