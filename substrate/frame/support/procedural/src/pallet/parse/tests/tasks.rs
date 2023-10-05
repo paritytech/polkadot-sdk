@@ -138,6 +138,31 @@ fn test_parse_pallet_manual_task_enum_non_manual_impl() {
 }
 
 #[test]
+fn test_parse_pallet_non_manual_task_enum_manual_impl() {
+	assert_pallet_parses! {
+		#[manifest_dir("../../examples/basic")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::task_enum]
+			pub enum MyCustomTaskEnum<T: Config> {
+				Something,
+			}
+
+			impl<T: Config> frame_support::traits::Task for MyCustomTaskEnum<T>
+			where
+				T: TypeInfo,
+			{}
+
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
+}
+
+#[test]
 fn test_parse_pallet_manual_task_enum_mismatch_ident() {
 	assert_pallet_parse_error! {
 		#[manifest_dir("../../examples/basic")]

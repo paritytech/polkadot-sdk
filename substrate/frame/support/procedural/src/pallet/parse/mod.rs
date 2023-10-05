@@ -222,16 +222,7 @@ impl Def {
 			return Err(syn::Error::new(item_span, msg))
 		}
 
-		Self::resolve_manual_task_enum(&tasks, &mut task_enum, &items)?;
-
-		// ensure either both or none of `(task_enum, tasks)` are specified
-		match (&task_enum, &tasks) {
-			(Some(_), None) =>
-				return Err(syn::Error::new(item_span, "Missing `#[pallet::tasks]` impl")),
-			(None, Some(_)) =>
-				return Err(syn::Error::new(item_span, "Missing `#[pallet::task_enum]` enum")),
-			_ => (),
-		}
+		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, &items)?;
 
 		let def = Def {
 			item,
@@ -265,6 +256,30 @@ impl Def {
 		Ok(def)
 	}
 
+	/// Performs extra logic checks necessary for the `#[pallet::tasks]` feature.
+	fn resolve_tasks(
+		item_span: &proc_macro2::Span,
+		tasks: &mut Option<tasks::TasksDef>,
+		task_enum: &mut Option<tasks::TaskEnumDef>,
+		items: &Vec<syn::Item>,
+	) -> syn::Result<()> {
+		// fallback for manual (without macros) definition of tasks impl
+		Self::resolve_manual_tasks_impl(tasks, task_enum, items)?;
+
+		// fallback for manual (without macros) definition of task enum
+		Self::resolve_manual_task_enum(tasks, task_enum, items)?;
+
+		// ensure either both or none of `(task_enum, tasks)` are specified
+		match (&task_enum, &tasks) {
+			(Some(_), None) =>
+				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl")),
+			(None, Some(_)) =>
+				return Err(syn::Error::new(*item_span, "Missing `#[pallet::task_enum]` enum")),
+			_ => (),
+		}
+
+		Ok(())
+	}
 	/// Tries to locate task enum based on the tasks impl target if attribute is not specified
 	/// but impl is present. If one is found, `task_enum` is set appropriately.
 	fn resolve_manual_task_enum(
@@ -286,6 +301,38 @@ impl Def {
 			}
 		}
 		*task_enum = result;
+		Ok(())
+	}
+
+	/// Tries to locate a manual tasks impl (an impl impling a trait whose last path segment is
+	/// `Task`) in the event that one has not been found already via the attribute macro
+	pub fn resolve_manual_tasks_impl(
+		tasks: &mut Option<tasks::TasksDef>,
+		task_enum: &Option<tasks::TaskEnumDef>,
+		items: &Vec<syn::Item>,
+	) -> syn::Result<()> {
+		let None = tasks else { return Ok(()) };
+		let mut result = None;
+		for item in items {
+			if let syn::Item::Impl(item_impl) = item {
+				let Some((_, path, _)) = &item_impl.trait_ else { continue };
+				let Some(trait_last_seg) = path.segments.last() else { continue };
+				let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
+				let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
+				let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
+					continue
+				};
+				let matches_task_enum = match task_enum {
+					Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
+					None => true,
+				};
+				if trait_last_seg.ident == "Task" && matches_task_enum {
+					result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
+					break
+				}
+			}
+		}
+		*tasks = result;
 		Ok(())
 	}
 

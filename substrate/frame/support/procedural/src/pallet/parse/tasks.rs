@@ -28,7 +28,7 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
+	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
 };
 
 pub mod keywords {
@@ -70,12 +70,17 @@ impl syn::parse::Parse for TasksDef {
 				"unexpected extra `#[pallet::tasks]` attribute",
 			))
 		}
-		let tasks: Vec<TaskDef> = item_impl
-			.items
-			.clone()
-			.into_iter()
-			.map(|item| parse2::<TaskDef>(item.to_token_stream()))
-			.collect::<Result<_>>()?;
+		let tasks: Vec<TaskDef> = if tasks_attr.is_some() {
+			item_impl
+				.items
+				.clone()
+				.into_iter()
+				.filter(|impl_item| matches!(impl_item, ImplItem::Fn(_)))
+				.map(|item| parse2::<TaskDef>(item.to_token_stream()))
+				.collect::<Result<_>>()?
+		} else {
+			Vec::new()
+		};
 		let mut task_indices = HashSet::<LitInt>::new();
 		for task in tasks.iter() {
 			let task_index = &task.index_attr.meta.index;
