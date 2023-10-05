@@ -241,7 +241,7 @@ async fn handle_child_process(
             // Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
             #[cfg(target_os = "linux")]
                 let mut result = result
-                .map(|(artifact, elapsed)| (artifact, elapsed, get_max_rss_thread()));
+                .map(|artifact| (artifact, elapsed, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
