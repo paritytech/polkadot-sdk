@@ -28,11 +28,37 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_std::{collections::btree_map::BTreeMap, ops::Deref, time::Duration, vec, vec::Vec};
 
+/// Default maximum number of wasm values allowed for the stack during execution of a PVF.
+pub const DEFAULT_LOGICAL_STACK_MAX: u32 = 65536;
+/// Default maximum number of bytes devoted for the stack during execution of a PVF.
+pub const DEFAULT_NATIVE_STACK_MAX: u32 = 256 * 1024 * 1024;
+
 const MEMORY_PAGES_MAX: u32 = 65536;
 const LOGICAL_MAX_LO: u32 = 1024;
 const LOGICAL_MAX_HI: u32 = 2 * 65536;
 const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
 const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
+
+// Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
+// See also `PvfTimeoutKind` docs.
+
+/// Default PVF preparation timeout for prechecking requests.
+pub const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
+/// Default PVF preparation timeout for execution requests.
+pub const DEFAULT_LENIENT_PREPARATION_TIMEOUT: Duration = Duration::from_secs(360);
+/// Default PVF execution timeout for backing.
+pub const DEFAULT_BACKING_EXECUTION_TIMEOUT: Duration = Duration::from_secs(2);
+/// Default PVF execution timeout for approval or disputes.
+pub const DEFAULT_APPROVAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(12);
+
+const DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS: u64 =
+	DEFAULT_PRECHECK_PREPARATION_TIMEOUT.as_millis() as u64;
+const DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS: u64 =
+	DEFAULT_LENIENT_PREPARATION_TIMEOUT.as_millis() as u64;
+const DEFAULT_BACKING_EXECUTION_TIMEOUT_MS: u64 =
+	DEFAULT_BACKING_EXECUTION_TIMEOUT.as_millis() as u64;
+const DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS: u64 =
+	DEFAULT_APPROVAL_EXECUTION_TIMEOUT.as_millis() as u64;
 
 /// The different executor parameters for changing the execution environment semantics.
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
@@ -232,73 +258,45 @@ impl ExecutorParams {
 				},
 
 				WasmExtBulkMemory => {
-					// 1 is a dummy for inserting the key into the map
 					check!(param_ident, 1);
 				},
 			}
+		}
 
-			// FIXME is it valid if only one is present?
-			if let (Some(lm), Some(nm)) = (seen.get("StackLogicalMax"), seen.get("StackNativeMax"))
-			{
-				if *nm < 128 * *lm {
-					return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"))
-				}
+		if let (Some(lm), Some(nm)) = (
+			seen.get("StackLogicalMax").or(Some(&(DEFAULT_LOGICAL_STACK_MAX as u64))),
+			seen.get("StackNativeMax").or(Some(&(DEFAULT_NATIVE_STACK_MAX as u64))),
+		) {
+			if *nm < 128 * *lm {
+				return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"))
 			}
+		}
 
-			match (
-				seen.get("PvfPrepTimeoutKind::Precheck"),
-				seen.get("PvfPrepTimeoutKind::Lenient"),
-			) {
-				(Some(precheck), Some(lenient)) if *precheck >= *lenient => {
-					return Err(IncompatibleValues(
-						"PvfPrepTimeoutKind::Precheck",
-						"PvfPrepTimeoutKind::Lenient",
-					))
-				},
-
-				(Some(precheck), None) if *precheck >= 360000 => {
-					return Err(IncompatibleValues(
-						"PvfPrepTimeoutKind::Precheck",
-						"PvfPrepTimeoutKind::Lenient default",
-					))
-				},
-
-				(None, Some(lenient)) if *lenient <= 60000 => {
-					return Err(IncompatibleValues(
-						"PvfPrepTimeoutKind::Precheck default",
-						"PvfPrepTimeoutKind::Lenient",
-					))
-				},
-
-				(_, _) => {},
+		if let (Some(precheck), Some(lenient)) = (
+			seen.get("PvfPrepTimeoutKind::Precheck")
+				.or(Some(&DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
+			seen.get("PvfPrepTimeoutKind::Lenient")
+				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
+		) {
+			if *precheck >= *lenient {
+				return Err(IncompatibleValues(
+					"PvfPrepTimeoutKind::Precheck",
+					"PvfPrepTimeoutKind::Lenient",
+				))
 			}
+		}
 
-			match (
-				seen.get("PvfExecTimeoutKind::Backing"),
-				seen.get("PvfExecTimeoutKind::Approval"),
-			) {
-				(Some(backing), Some(approval)) if *backing >= *approval => {
-					return Err(IncompatibleValues(
-						"PvfExecTimeoutKind::Backing",
-						"PvfExecTimeoutKind::Approval",
-					))
-				},
-
-				(Some(backing), None) if *backing >= 12000 => {
-					return Err(IncompatibleValues(
-						"PvfExecTimeoutKind::Backing",
-						"PvfExecTimeoutKind::Approval default",
-					))
-				},
-
-				(None, Some(approval)) if *approval <= 2000 => {
-					return Err(IncompatibleValues(
-						"PvfExecTimeoutKind::Backing default",
-						"PvfExecTimeoutKind::Approval",
-					))
-				},
-
-				(_, _) => {},
+		if let (Some(backing), Some(approval)) = (
+			seen.get("PvfExecTimeoutKind::Backing")
+				.or(Some(&DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
+			seen.get("PvfExecTimeoutKind::Approval")
+				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
+		) {
+			if *backing >= *approval {
+				return Err(IncompatibleValues(
+					"PvfExecTimeoutKind::Backing",
+					"PvfExecTimeoutKind::Approval",
+				))
 			}
 		}
 

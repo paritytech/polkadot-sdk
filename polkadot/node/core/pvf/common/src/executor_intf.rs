@@ -16,7 +16,10 @@
 
 //! Interface to the Substrate Executor
 
-use polkadot_primitives::{ExecutorParam, ExecutorParams};
+use polkadot_primitives::{
+	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
+	ExecutorParam, ExecutorParams,
+};
 use sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
@@ -43,7 +46,7 @@ const DEFAULT_HEAP_PAGES_ESTIMATE: u32 = 32;
 const EXTRA_HEAP_PAGES: u32 = 2048;
 
 /// The number of bytes devoted for the stack during wasm execution of a PVF.
-pub const NATIVE_STACK_MAX: u32 = 256 * 1024 * 1024;
+pub const NATIVE_STACK_MAX: u32 = DEFAULT_NATIVE_STACK_MAX;
 
 // VALUES OF THE DEFAULT CONFIGURATION SHOULD NEVER BE CHANGED
 // They are used as base values for the execution environment parametrization.
@@ -73,8 +76,8 @@ pub const DEFAULT_CONFIG: Config = Config {
 		// also increase the native 256x. This hopefully should preclude wasm code from reaching
 		// the stack limit set by the wasmtime.
 		deterministic_stack_limit: Some(DeterministicStackLimit {
-			logical_max: 65536,
-			native_stack_max: NATIVE_STACK_MAX,
+			logical_max: DEFAULT_LOGICAL_STACK_MAX,
+			native_stack_max: DEFAULT_NATIVE_STACK_MAX,
 		}),
 		canonicalize_nans: true,
 		// Rationale for turning the multi-threaded compilation off is to make the preparation time
