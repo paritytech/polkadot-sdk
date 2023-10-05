@@ -163,6 +163,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::Balanced as FnBalanced, Inspect as FnInspect, MutateHold as FnMutateHold,
+			Unbalanced as FnUnbalanced,
 		},
 		tokens::Precision,
 		StorageVersion,
@@ -663,7 +664,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let rescuer = T::Lookup::lookup(rescuer)?;
 			// Take the active recovery process started by the rescuer for this account.
-			let _active_recovery =
+			let active_recovery =
 				<ActiveRecoveries<T>>::take(&who, &rescuer).ok_or(Error::<T>::NotStarted)?;
 			// Move the reserved funds from the rescuer to the rescued account.
 			// Acts like a slashing mechanism for those who try to maliciously recover accounts.
@@ -673,12 +674,13 @@ pub mod pallet {
 			// 	active_recovery.deposit,
 			// 	BalanceStatus::Free,
 			// );
-			let amount = T::Currency::release_all(
+			let amount = T::Currency::release(
 				&HoldReason::InitiateRecovery.into(),
 				&rescuer,
+				active_recovery.deposit,
 				Precision::BestEffort,
 			)?;
-			T::Currency::hold(&HoldReason::TODO.into(), &who, amount)?;
+			let _repatriated = T::Currency::increase_balance(&who, amount, Precision::BestEffort)?;
 			Self::deposit_event(Event::<T>::RecoveryClosed {
 				lost_account: who,
 				rescuer_account: rescuer,
