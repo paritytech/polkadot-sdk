@@ -556,10 +556,6 @@ pub struct Pair<
 	right: RightPair,
 }
 
-trait DoublePair {
-	const PUBLIC_KEY_LEN: usize;
-	const SIGNATURE_LEN: usize;
-}
 
 #[cfg(feature = "full_crypto")]
 impl<
