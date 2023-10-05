@@ -158,7 +158,6 @@ pub async fn start_work(
 						pid,
 						tmp_artifact_file,
 						artifact_path,
-						preparation_timeout,
 					)
 					.await,
 				Ok(Err(err)) => {
@@ -197,7 +196,6 @@ async fn handle_response(
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	artifact_path: PathBuf,
-	preparation_timeout: Duration,
 ) -> Outcome {
 	let PrepareStats { memory_stats } = match result.clone() {
 		Ok(result) => result,
