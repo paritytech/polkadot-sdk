@@ -72,6 +72,7 @@ pub mod v1 {
 				// update the version nonetheless.
 				current.put::<Pallet<T>>();
 
+				// TODO: Replace unbound storage iteration by lazy migration or multiblock migration
 				v0::Accounts::<T, OldCurrency>::iter().for_each(|(account_index, (account_id, deposit, frozen))| {
 					let remaining = OldCurrency::unreserve(&account_id, deposit);
 
@@ -106,13 +107,14 @@ pub mod v1 {
 					Accounts::<T>::set(account_index, Some((account_id, frozen)));
 				});
 
+				// TODO: Fix weight when lazy migration or multi block migration is in place
 				T::DbWeight::get().reads_writes(2, 3)
 			} else {
 				log::info!(
 					target: LOG_TARGET,
 					"Migration did not execute. This probably should be removed"
 				);
-				T::DbWeight::get().reads(1)
+				T::DbWeight::get().reads(2)
 			}
 		}
 
@@ -125,7 +127,15 @@ pub mod v1 {
 			// Count the number of `Accounts` and calculate the total reserved balance
 			let accounts_info = v0::Accounts::<T>::iter().fold((0, 0), |(count, total_reserved), account| {
 				let (account_id, deposit, _) = account;
-				(count + 1, total_reserved + deposit)
+				// Try to unreserve the deposit
+				//
+				// TODO: does the state persists between `pre_upgrade` and `post_upgrade`?
+				// If that's the case I should reserve back `unreserved_deposit` as `can_unreserve()` method
+				// does not exists
+				let remaining = OldCurrency::unreserve(&account_id, deposit);
+				let unreserved_deposit = deposit.saturating_sub(remaining);
+
+				(count + 1, total_reserved + unreserved_deposit)
 			});
 			let (accounts_count, total_reserved) = accounts_info;
 
@@ -150,6 +160,8 @@ pub mod v1 {
 				(count + 1, total_held + held)
 			});
 
+			let (post_accounts_count, post_total_held) = accounts_info;
+
 			// Number of accounts should remain the same
 			ensure!(
 				pre_accounts_count == post_accounts_count,
@@ -158,8 +170,8 @@ pub mod v1 {
 
 			// Total reserved/held amount should remain the same
 			ensure!(
-				pre_accounts_count == post_accounts_count,
-				"Total reserved/held amount should remain"
+				pre_total_reserved == post_total_held,
+				"Total real reserved/held amount should remain"
 			);
 
 			Ok(())

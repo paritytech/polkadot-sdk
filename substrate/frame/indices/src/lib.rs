@@ -28,11 +28,10 @@ pub mod migrations;
 
 use codec::Codec;
 use frame_support::traits::{
-	fungible::MutateHold as FunMutateHold,
+	fungible::{InspectHold as FunInspectHold, MutateHold as FunMutateHold},
 	tokens::{
 		Fortitude,
 		Precision,
-		Restriction,
 	},
 	StorageVersion,
 };
@@ -78,7 +77,8 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The currency trait.
-		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunInspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -357,9 +357,23 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The following assertions must always apply.
 	///
-	/// General assertions:
+	/// Invariants:
+	/// - If the index has been frozen, the held amount for `ClaimedIndex` reason should be zero.
+	/// - An `AccountId` can not be related to more than one `AccountIndex`
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// Check held amount is zero when an index is frozen
+		// TODO: Can we really assume it is true? I think we can assume `burn_all_held()` will be able
+		// to burn the whole amount at least for the tests.
+		let zero_held = Accounts::<T>::iter()
+			.filter(|(_, (_, frozen))| *frozen == true )
+			.all(
+				|(_, (account_id, _))|
+					T::Currency::balance_on_hold(&HoldReason::ClaimedIndex.into(), &account_id).is_zero()
+			);
+
+		frame_support::ensure!(zero_held, "Frozen indexes should hold zero balance");
+
 		Ok(())
 	}
 }
