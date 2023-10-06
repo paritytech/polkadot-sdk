@@ -693,6 +693,7 @@ pub mod pallet {
 			ensure!(active_recoveries.next().is_none(), Error::<T>::StillActive);
 			// Take the recovery configuration for this account.
 			let recovery_config = <Recoverable<T>>::take(&who).ok_or(Error::<T>::NotRecoverable)?;
+
 			// Release the initial deposit for the recovery configuration.
 			let _ = T::Currency::release(
 				&HoldReason::ConfigurationDeposit.into(),
