@@ -999,9 +999,11 @@ pub mod pallet {
 
 			// `take` any storage items keyed by `target`
 			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
+			let fields = id.info.additional.len() as u32;
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
 			// check witness data
-			ensure!(sub_ids.len() as u32 <= num_subs, Error::<T>::TooManySubAccounts);
+			let actual_subs = sub_ids.len() as u32;
+			ensure!(actual_subs <= num_subs, Error::<T>::TooManySubAccounts);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -1012,7 +1014,7 @@ pub mod pallet {
 			debug_assert!(err_amount.is_zero());
 
 			// Finally, call the handler.
-			T::ReapIdentityHandler::on_reap_identity(&who)?;
+			T::ReapIdentityHandler::on_reap_identity(&who, fields, actual_subs)?;
 			Self::deposit_event(Event::IdentityReaped { who });
 			Ok(())
 		}
@@ -1110,12 +1112,17 @@ pub trait OnReapIdentity<AccountId> {
 	/// program to another chain. Concretely, a type implementing this trait in the Polkadot
 	/// runtime would teleport enough DOT to the People Chain to cover the Identity deposit there.
 	///
-	/// This could also directly include `Transact { poke_deposit(..), ..}`
-	fn on_reap_identity(who: &AccountId) -> DispatchResult;
+	/// This could also directly include `Transact { poke_deposit(..), ..}`.
+	///
+	/// Inputs
+	/// - `who`: Whose identity was reaped.
+	/// - `fields`: The number of `additional_fields` they had.
+	/// - `subs`: The number of sub-accounts they had.
+	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult;
 }
 
 impl<AccountId> OnReapIdentity<AccountId> for () {
-	fn on_reap_identity(_who: &AccountId) -> DispatchResult {
+	fn on_reap_identity(_who: &AccountId, _fields: u32, _subs: u32) -> DispatchResult {
 		Ok(())
 	}
 }

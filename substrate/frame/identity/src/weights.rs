@@ -715,9 +715,9 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 11003))
 			// Standard Error: 481_670
 			.saturating_add(Weight::from_parts(14_580_194, 0).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(2))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
 	}
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
@@ -732,7 +732,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 525_039_000 picoseconds.
 		Weight::from_parts(554_552_000, 0)
 			.saturating_add(Weight::from_parts(0, 11003))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 }
