@@ -31,7 +31,7 @@ use frame_support::{
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_runtime::{traits::Saturating, SaturatedConversion};
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::{prelude::*, MAX_ITEMS_IN_MULTIASSETS, MAX_INSTRUCTIONS_TO_DECODE}, WrapVersion};
+use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 
@@ -563,6 +563,7 @@ impl<
 			traits::FeeManager,
 			FeesMode,
 		};
+		use xcm::latest::{MAX_ITEMS_IN_MULTIASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
