@@ -45,6 +45,7 @@ pub mod fellowship;
 pub use ambassador::pallet_ambassador_origins;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::ParaId;
 use fellowship::{
 	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
 	FellowshipCollectiveInstance,
@@ -424,7 +425,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Fellows>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<ParaId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
