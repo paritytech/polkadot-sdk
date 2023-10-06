@@ -114,8 +114,9 @@ impl TaskEnumDef {
 	pub fn generate(tasks: &TasksDef, type_decl_bounded_generics: TokenStream2) -> Self {
 		let variants = tasks.tasks.iter().map(|task| task.item.sig.ident.clone());
 		parse_quote! {
+			#[allow(non_camel_case_types)]
 			#[pallet::task_enum]
-			pub enum Task<#type_decl_bounded_generics> {
+			pub enum _Task<#type_decl_bounded_generics> {
 				#(
 					#[allow(non_camel_case_types)]
 					#variants
