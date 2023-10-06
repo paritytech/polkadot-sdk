@@ -194,7 +194,7 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
 
-		// Hold deposit for recovery
+		// Hold deposit for configuration
 		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
@@ -247,7 +247,7 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
 
-		// Hold deposit for recovery
+		// Hold deposit for configuration
 		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
@@ -298,7 +298,7 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&caller, recovery_config.clone());
 
-		// Hold deposit for recovery
+		// Hold deposit for configuration
 		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
@@ -346,7 +346,7 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&caller, recovery_config);
 
-		// Hold deposit for recovery
+		// Hold deposit for configuration
 		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 	}: _(
 		RawOrigin::Signed(caller.clone())
