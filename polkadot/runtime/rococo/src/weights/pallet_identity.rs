@@ -351,4 +351,42 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Storage: `Identity::IdentityOf` (r:1 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::SubsOf` (r:1 w:1)
+	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::SuperOf` (r:0 w:100)
+	/// Proof: `Identity::SuperOf` (`max_values`: None, `max_size`: Some(114), added: 2589, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[0, 100]`.
+	fn reap_identity(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `673 + s * (32 ±0)`
+		//  Estimated: `11003`
+		// Minimum execution time: 312_504_000 picoseconds.
+		Weight::from_parts(372_110_300, 0)
+			.saturating_add(Weight::from_parts(0, 11003))
+			// Standard Error: 481_670
+			.saturating_add(Weight::from_parts(14_580_194, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+	}
+	/// Storage: `Identity::IdentityOf` (r:1 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::SubsOf` (r:1 w:1)
+	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
+	fn poke_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `628`
+		//  Estimated: `11003`
+		// Minimum execution time: 525_039_000 picoseconds.
+		Weight::from_parts(554_552_000, 0)
+			.saturating_add(Weight::from_parts(0, 11003))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }

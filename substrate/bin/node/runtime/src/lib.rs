@@ -1467,6 +1467,8 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
+	type ReapOrigin = EnsureRoot<Self::AccountId>;
+	type ReapIdentityHandler = ();
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
