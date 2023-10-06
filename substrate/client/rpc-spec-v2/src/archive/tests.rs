@@ -40,7 +40,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{Blake2Hasher, Hasher};
 use sp_runtime::SaturatedConversion;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
@@ -338,4 +338,156 @@ async fn archive_storage_hashes_values() {
 		},
 		_ => panic!("Unexpected result"),
 	};
+}
+
+#[tokio::test]
+async fn archive_storage_closest_merkle_value() {
+	let (mut client, api) = setup_api();
+
+	/// The core of this test.
+	///
+	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// values.
+	///
+	/// Returns (key, merkle value) pairs.
+	async fn expect_merkle_request(
+		api: &RpcModule<Archive<Backend, Block, Client<Backend>>>,
+		block_hash: String,
+	) -> HashMap<String, String> {
+		let result: ArchiveStorageResult = api
+			.call(
+				"archive_unstable_storage",
+				rpc_params![
+					&block_hash,
+					vec![
+						PaginatedStorageQuery {
+							key: hex_string(b":AAAA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						PaginatedStorageQuery {
+							key: hex_string(b":AAAB"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						// Key with descedent.
+						PaginatedStorageQuery {
+							key: hex_string(b":A"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						PaginatedStorageQuery {
+							key: hex_string(b":AA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						// Keys below this comment do not produce a result.
+						// Key that exceed the keyspace of the trie.
+						PaginatedStorageQuery {
+							key: hex_string(b":AAAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						PaginatedStorageQuery {
+							key: hex_string(b":AAABX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						// Key that are not part of the trie.
+						PaginatedStorageQuery {
+							key: hex_string(b":AAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+						PaginatedStorageQuery {
+							key: hex_string(b":AAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue,
+							pagination_start_key: None,
+						},
+					]
+				],
+			)
+			.await
+			.unwrap();
+
+		let merkle_values: HashMap<_, _> = match result {
+			ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, .. }) => result
+				.into_iter()
+				.map(|res| {
+					let value = match res.result {
+						StorageResultType::ClosestDescendantMerkleValue(value) => value,
+						_ => panic!("Unexpected StorageResultType"),
+					};
+					(res.key, value)
+				})
+				.collect(),
+			_ => panic!("Unexpected result"),
+		};
+
+		// Response for AAAA, AAAB, A and AA.
+		assert_eq!(merkle_values.len(), 4);
+
+		// While checking for expected merkle values to align,
+		// the following will check that the returned keys are
+		// expected.
+
+		// Values for AAAA and AAAB are different.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":AAAA")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		// Values for A and AA should be on the same branch node.
+		assert_eq!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AA")).unwrap()
+		);
+		// The branch node value must be different than the leaf of either
+		// AAAA and AAAB.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAA")).unwrap()
+		);
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		merkle_values
+	}
+
+	// Import a new block with storage changes.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![2; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	let merkle_values_lhs = expect_merkle_request(&api, block_hash).await;
+
+	// Import a new block with and change AAAB value.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![3; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	let merkle_values_rhs = expect_merkle_request(&api, block_hash).await;
+
+	// Change propagated to the root.
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":A")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":A")).unwrap()
+	);
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":AAAB")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAB")).unwrap()
+	);
+	// However the AAAA branch leaf remains unchanged.
+	assert_eq!(
+		merkle_values_lhs.get(&hex_string(b":AAAA")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
+	);
 }
