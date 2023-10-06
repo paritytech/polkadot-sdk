@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Codec;
+use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::collators::{
@@ -43,7 +43,6 @@ use jsonrpsee::RpcModule;
 use crate::rpc;
 pub use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
 
-use cumulus_client_collator::Collator;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
 use sc_consensus::{
@@ -58,7 +57,10 @@ use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerH
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_consensus_aura::AuraApi;
 use sp_keystore::KeystorePtr;
-use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
+use sp_runtime::{
+	app_crypto::AppCrypto,
+	traits::{Block as BlockT, Header as HeaderT},
+};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
@@ -1437,61 +1439,24 @@ where
 		 collator_key,
 		 overseer_handle,
 		 announce_block| {
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool.clone(),
-				prometheus_registry,
-				telemetry.clone(),
-			);
 			let relay_chain_interface2 = relay_chain_interface.clone();
 
-			// Build the free-for-all consensus necessary for the initial `shell` runtime.
-			let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
-				cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
-					para_id,
-					proposer_factory,
-					block_import: block_import.clone(),
-					relay_chain_interface: relay_chain_interface.clone(),
-					create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
-						let relay_chain_interface = relay_chain_interface.clone();
-						async move {
-							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
-								relay_parent,
-								&relay_chain_interface,
-								&validation_data,
-								para_id,
-							).await;
-							let parachain_inherent = parachain_inherent.ok_or_else(|| {
-								Box::<dyn std::error::Error + Send + Sync>::from(
-									"Failed to create parachain inherent",
-								)
-							})?;
-							Ok(parachain_inherent)
-						}
-					},
-				},
+			let collator_service = CollatorService::new(
+				client.clone(),
+				Arc::new(task_manager.spawn_handle()),
+				announce_block,
+				client.clone(),
 			);
 
+			let spawner = task_manager.spawn_handle();
+
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
+				spawner,
 				client.clone(),
 				transaction_pool,
 				prometheus_registry,
 				telemetry.clone(),
 			);
-			let proposer = Proposer::new(proposer_factory);
-
-			let spawner = task_manager.spawn_handle();
-			let collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(spawner),
-				announce_block.clone(),
-				client.clone(),
-			);
-
-			let collator = Collator::new(collator_service.clone(), free_for_all);
 
 			let collation_future = Box::pin(async move {
 				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
@@ -1503,42 +1468,41 @@ where
 				)
 				.await;
 				while let Some(request) = request_stream.next().await {
-					let collation = {
-						let last_head_hash = match collator
-							.header_hash(request.persisted_validation_data().clone())
-						{
-							Some(header_hash) => header_hash,
-							None => {
+					let pvd = request.persisted_validation_data().clone();
+					let last_header =
+						match <Block as BlockT>::Header::decode(&mut &pvd.parent_head.0[..]) {
+							Ok(x) => x,
+							Err(e) => {
+								log::error!("Could not decode the head data: {e}");
 								request.complete(None);
 								continue
 							},
 						};
-						// Check if we have upgraded to an Aura compatible runtime and transition if
-						// necessary.
-						if client
-							.runtime_api()
-							.has_api::<dyn AuraApi<Block, AuraId>>(last_head_hash)
-							.unwrap_or(false)
-						{
-							// Respond to this request before transitioning to Aura.
-							request.complete(None);
-							break
-						}
 
-						collator
-							.clone()
-							.produce_candidate(
-								*request.relay_parent(),
-								request.persisted_validation_data().clone(),
-							)
-							.await
-					};
+					let last_head_hash = last_header.hash();
 
-					request.complete(collation);
+					if !collator_service.check_block_status(last_head_hash, &last_header) {
+						request.complete(None);
+						continue
+					}
+
+					// Check if we have upgraded to an Aura compatible runtime and transition if
+					// necessary.
+					if client
+						.runtime_api()
+						.has_api::<dyn AuraApi<Block, AuraId>>(last_head_hash)
+						.unwrap_or(false)
+					{
+						// Respond to this request before transitioning to Aura.
+						request.complete(None);
+						break
+					}
 				}
 
 				// Move to Aura consensus.
 				let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client).unwrap();
+
+				let proposer = Proposer::new(proposer_factory);
 
 				let params = BasicAuraParams {
 					create_inherent_data_providers: move |_, ()| async move { Ok(()) },

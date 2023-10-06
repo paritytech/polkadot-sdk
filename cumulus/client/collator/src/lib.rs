@@ -69,14 +69,14 @@ where
 	RA::Api: CollectCollationInfo<Block>,
 {
 	/// Create a new instance.
-	pub fn new(
+	fn new(
 		collator_service: CollatorService<Block, BS, RA>,
 		parachain_consensus: Box<dyn ParachainConsensus<Block>>,
 	) -> Self {
 		Self { service: collator_service, parachain_consensus }
 	}
 
-	pub async fn produce_candidate(
+	async fn produce_candidate(
 		mut self,
 		relay_parent: PHash,
 		validation_data: PersistedValidationData,
@@ -141,27 +141,6 @@ where
 		tracing::info!(target: LOG_TARGET, ?block_hash, "Produced proof-of-validity candidate.",);
 
 		Some(CollationResult { collation, result_sender: Some(result_sender) })
-	}
-
-	pub fn header_hash(&self, pvd: PersistedValidationData) -> Option<Block::Hash> {
-		let header = match Block::Header::decode(&mut &pvd.parent_head.0[..]) {
-			Ok(x) => x,
-			Err(e) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Could not decode the head data."
-				);
-				return None
-			},
-		};
-
-		let header_hash = header.hash();
-		if !self.service.check_block_status(header_hash, &header) {
-			return None
-		}
-
-		Some(header_hash)
 	}
 }
 
