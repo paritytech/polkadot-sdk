@@ -242,7 +242,6 @@ pub mod pallet {
 		/// The currency mechanism.
 		#[cfg(feature = "runtime-benchmarks")]
 		type Currency: Mutate<Self::AccountId>
-			+ Inspect<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The currency mechanism.
