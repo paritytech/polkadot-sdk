@@ -55,9 +55,4 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// This value should be unique within the current pallet and can overlap with task indices
 	/// in other pallets.
 	fn task_index(&self) -> u32;
-
-	/// Convenience method that provides access to `Self::iter()` on a particular task instance.
-	fn instance_iter(&self) -> Self::Enumeration {
-		Self::iter()
-	}
 }
