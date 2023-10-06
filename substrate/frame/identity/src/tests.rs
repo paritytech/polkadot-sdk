@@ -108,6 +108,8 @@ impl pallet_identity::Config for Test {
 	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
+	type ReapOrigin = EnsureOneOrRoot;
+	type ReapIdentityHandler = ();
 	type ForceOrigin = EnsureTwoOrRoot;
 	type WeightInfo = ();
 }
@@ -617,5 +619,57 @@ fn test_has_identity() {
 			&10,
 			IdentityField::Display as u64 | IdentityField::Legal as u64 | IdentityField::Web as u64
 		));
+	});
+}
+
+#[test]
+fn reap_identity_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
+		assert_ok!(Identity::set_subs(
+			RuntimeOrigin::signed(10),
+			vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))]
+		));
+		// 10 for identity, 10 for sub
+		assert_eq!(Balances::free_balance(10), 80);
+		assert_ok!(Identity::reap_identity(RuntimeOrigin::signed(1), 10, 1));
+		// no identity or subs
+		assert!(Identity::identity(10).is_none());
+		assert!(Identity::super_of(20).is_none());
+		// balance is unreserved
+		assert_eq!(Balances::free_balance(10), 100);
+	});
+}
+
+#[test]
+fn poke_deposit_works() {
+	new_test_ext().execute_with(|| {
+		// Set a custom registration with 0 deposit
+		IdentityOf::<Test>::insert(
+			&10,
+			Registration { judgements: BoundedVec::default(), deposit: Zero::zero(), info: ten() },
+		);
+		assert!(Identity::identity(10).is_some());
+		// Set a sub with zero deposit
+		SubsOf::<Test>::insert::<&u64, (u64, BoundedVec<u64, ConstU32<2>>)>(
+			&10,
+			(0, vec![20].try_into().unwrap()),
+		);
+		SuperOf::<Test>::insert(&20, (&10, Data::Raw(vec![1; 1].try_into().unwrap())));
+		// Balance is free
+		assert_eq!(Balances::free_balance(10), 100);
+
+		// poke
+		assert_ok!(Identity::poke_deposit(RuntimeOrigin::signed(1), 10));
+
+		// free balance reduced by 20
+		assert_eq!(Balances::free_balance(10), 80);
+		// new registration deposit is 10
+		assert_eq!(
+			Identity::identity(&10),
+			Some(Registration { judgements: BoundedVec::default(), deposit: 10, info: ten() })
+		);
+		// new subs deposit is 10          vv
+		assert_eq!(Identity::subs_of(10), (10, vec![20].try_into().unwrap()));
 	});
 }

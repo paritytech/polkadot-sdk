@@ -78,7 +78,10 @@ mod tests;
 mod types;
 pub mod weights;
 
-use frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
+use frame_support::{
+	pallet_prelude::DispatchResult,
+	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+};
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
@@ -146,6 +149,12 @@ pub mod pallet {
 
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The origin that can reap an account's identity info.
+		type ReapOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// A handler for what to do when an identity is reaped.
+		type ReapIdentityHandler: OnReapIdentity<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -265,6 +274,11 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
+		/// The identity and all sub accounts were reaped for `who`.
+		IdentityReaped { who: T::AccountId },
+		/// The deposits held for `who` were updated. `identity` is the new deposit held for
+		/// identity info, and `subs` is the new deposit held for the sub-accounts.
+		DepositUpdated { who: T::AccountId, identity: BalanceOf<T>, subs: BalanceOf<T> },
 	}
 
 	#[pallet::call]
@@ -407,7 +421,7 @@ pub mod pallet {
 			);
 
 			let (old_deposit, old_ids) = <SubsOf<T>>::get(&sender);
-			let new_deposit = T::SubAccountDeposit::get() * <BalanceOf<T>>::from(subs.len() as u32);
+			let new_deposit = Self::subs_deposit(subs.len() as u32);
 
 			let not_other_sub =
 				subs.iter().filter_map(|i| SuperOf::<T>::get(&i.0)).all(|i| i.0 == sender);
@@ -959,6 +973,98 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Reap an identity, clearing associated storage items and refunding any deposits. Calls
+		/// the `ReapIdentityHandler`, which can be implemented in the runtime. This function is
+		/// very similar to (a) `clear_identity`, but called on a `target` account instead of self;
+		/// and (b) `kill_identity`, but without imposing a slash.
+		///
+		/// Parameters:
+		/// - `target`: The account for which to reap identity state.
+		/// - `num_subs`: Witness data. The maximum number of sub accounts that `target` has.
+		///
+		/// Origin must be the `ReapOrigin`.
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::reap_identity(*num_subs))]
+		pub fn reap_identity(
+			origin: OriginFor<T>,
+			target: AccountIdLookupOf<T>,
+			num_subs: u32,
+		) -> DispatchResult {
+			// `ReapOrigin` to be set to `EnsureSigned<AccountId>` (i.e. anyone) on chain where we
+			// want to reap data (i.e. Relay) and `EnsureRoot` on chains where we want "normal"
+			// functionality (i.e. the People Chain).
+			T::ReapOrigin::ensure_origin(origin)?;
+			let who = T::Lookup::lookup(target)?;
+
+			// `take` any storage items keyed by `target`
+			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
+			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
+			// check witness data
+			ensure!(sub_ids.len() as u32 <= num_subs, Error::<T>::TooManySubAccounts);
+			for sub in sub_ids.iter() {
+				<SuperOf<T>>::remove(sub);
+			}
+
+			// unreserve any deposits
+			let deposit = id.total_deposit().saturating_add(subs_deposit);
+			let err_amount = T::Currency::unreserve(&who, deposit);
+			debug_assert!(err_amount.is_zero());
+
+			// Finally, call the handler.
+			T::ReapIdentityHandler::on_reap_identity(&who)?;
+			Self::deposit_event(Event::IdentityReaped { who });
+			Ok(())
+		}
+
+		/// Update the deposits held by `target` for its identity info.
+		///
+		/// Parameters:
+		/// - `target`: The account for which to update deposits.
+		///
+		/// May be called by any signed origin.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
+			// anyone or root (so that the system can call it for identity migration)
+			let _ = ensure_signed_or_root(origin)?;
+			let target = T::Lookup::lookup(target)?;
+
+			// Identity Deposit
+			ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
+			let new_id_deposit = IdentityOf::<T>::try_mutate(
+				&target,
+				|registration| -> Result<BalanceOf<T>, DispatchError> {
+					if let Some(reg) = registration {
+						// Calculate what deposit should be
+						let field_deposit = BalanceOf::<T>::from(reg.info.additional.len() as u32)
+							.saturating_mul(T::FieldDeposit::get());
+						let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
+
+						// Update account
+						let _ = Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
+
+						reg.deposit = new_id_deposit;
+						return Ok(new_id_deposit)
+					} else {
+						return Err(Error::<T>::NoIdentity.into())
+					}
+				},
+			)?;
+
+			// Subs Deposit
+			let (current_subs_deposit, subs_of) = SubsOf::<T>::take(&target);
+			let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+			let _ = Self::rejig_deposit(&target, current_subs_deposit, new_subs_deposit)?;
+			SubsOf::<T>::insert(&target, (new_subs_deposit, subs_of));
+
+			Self::deposit_event(Event::DepositUpdated {
+				who: target,
+				identity: new_id_deposit,
+				subs: new_subs_deposit,
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -972,9 +1078,44 @@ impl<T: Config> Pallet<T> {
 			.collect()
 	}
 
+	/// Calculate the deposit required for a number of `sub` accounts.
+	fn subs_deposit(subs: u32) -> BalanceOf<T> {
+		T::SubAccountDeposit::get().saturating_mul(<BalanceOf<T>>::from(subs))
+	}
+
+	/// Take the `current` deposit that `who` is holding, and update it to a `new` one.
+	fn rejig_deposit(
+		who: &T::AccountId,
+		current: BalanceOf<T>,
+		new: BalanceOf<T>,
+	) -> DispatchResult {
+		if new > current {
+			T::Currency::reserve(who, new - current)?;
+		} else if new < current {
+			let err_amount = T::Currency::unreserve(who, current - new);
+			debug_assert!(err_amount.is_zero());
+		}
+		Ok(())
+	}
+
 	/// Check if the account has corresponding identity information by the identity field.
 	pub fn has_identity(who: &T::AccountId, fields: u64) -> bool {
 		IdentityOf::<T>::get(who)
 			.map_or(false, |registration| (registration.info.fields().0.bits() & fields) == fields)
+	}
+}
+
+pub trait OnReapIdentity<AccountId> {
+	/// What to do when an identity is reaped. For example, the implementation could send an XCM
+	/// program to another chain. Concretely, a type implementing this trait in the Polkadot
+	/// runtime would teleport enough DOT to the People Chain to cover the Identity deposit there.
+	///
+	/// This could also directly include `Transact { poke_deposit(..), ..}`
+	fn on_reap_identity(who: &AccountId) -> DispatchResult;
+}
+
+impl<AccountId> OnReapIdentity<AccountId> for () {
+	fn on_reap_identity(_who: &AccountId) -> DispatchResult {
+		Ok(())
 	}
 }

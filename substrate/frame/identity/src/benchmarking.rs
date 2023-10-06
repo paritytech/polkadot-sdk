@@ -26,6 +26,7 @@ use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkE
 use frame_support::{
 	ensure,
 	traits::{EnsureOrigin, Get},
+	BoundedVec,
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -441,11 +442,77 @@ benchmarks! {
 		let sup = account("super", 0, SEED);
 		let _ = add_sub_accounts::<T>(&sup, s)?;
 		let sup_origin = RawOrigin::Signed(sup).into();
-		Identity::<T>::add_sub(sup_origin, T::Lookup::unlookup(caller.clone()), Data::Raw(vec![0; 32].try_into().unwrap()))?;
+		Identity::<T>::add_sub(
+			sup_origin,
+			T::Lookup::unlookup(caller.clone()),
+			Data::Raw(vec![0; 32].try_into().unwrap())
+		)?;
 		ensure!(SuperOf::<T>::contains_key(&caller), "Sub doesn't exists");
 	}: _(RawOrigin::Signed(caller.clone()))
 	verify {
 		ensure!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
+	}
+
+	reap_identity {
+		let s in 0 .. T::MaxSubAccounts::get();
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let origin =
+			T::ReapOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		// set identity
+		let info = create_identity_info::<T>(1);
+		Identity::<T>::set_identity(
+			RawOrigin::Signed(target.clone()).into(),
+			Box::new(info.clone())
+		)?;
+		// set `s` subs
+		let _ = add_sub_accounts::<T>(&target, s)?;
+	}: _<T::RuntimeOrigin>(origin, target_lookup, s)
+	verify {
+		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target }.into());
+	}
+
+	poke_deposit {
+		let caller: T::AccountId = whitelisted_caller();
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let additional_fields = 0;
+
+		// insert identity into storage with zero deposit
+		IdentityOf::<T>::insert(
+			&target,
+			Registration {
+				judgements: BoundedVec::default(),
+				deposit: Zero::zero(),
+				info: create_identity_info::<T>(additional_fields),
+			},
+		);
+
+		// insert subs into storage with zero deposit
+		let sub_account = account("sub", 0, SEED);
+		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub_account]).unwrap();
+		SubsOf::<T>::insert::<
+			&T::AccountId,
+			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>)
+		>(
+			&target,
+			(Zero::zero(), subs)
+		);
+
+		// expected deposits
+		let expected_id_deposit = T::FieldDeposit::get()
+			.saturating_mul(additional_fields.into())
+			.saturating_add(T::BasicDeposit::get());
+		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
+	}: _(RawOrigin::Signed(caller.clone()), target_lookup)
+	verify {
+		assert_last_event::<T>(Event::<T>::DepositUpdated {
+			who: target,
+			identity: expected_id_deposit,
+			subs: expected_sub_deposit
+		}.into());
 	}
 
 	impl_benchmark_test_suite!(Identity, crate::tests::new_test_ext(), crate::tests::Test);
