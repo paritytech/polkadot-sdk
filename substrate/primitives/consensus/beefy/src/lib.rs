@@ -155,7 +155,7 @@ pub mod bls_crypto {
 pub mod ecdsa_bls_crypto {
 	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
-	use sp_core::{ecdsa_bls377::Pair as EcdsaBlsPair, crypto::Wraps, Pair as _};
+	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair, Pair as _};
 	app_crypto!(ecdsa_bls377, BEEFY_KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
@@ -498,7 +498,7 @@ mod tests {
 		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
 
-    #[test]
+	#[test]
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls_beefy_verify_works() {
 		let msg = &b"test-message"[..];
@@ -513,5 +513,4 @@ mod tests {
 		let (other_pair, _) = ecdsa_bls_crypto::Pair::generate();
 		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
-
 }

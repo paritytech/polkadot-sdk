@@ -345,7 +345,7 @@ impl Keystore for MemoryKeystore {
 	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
 		self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
 	}
-    
+
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
 		self.keys
 			.write()
