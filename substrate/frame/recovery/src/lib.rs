@@ -68,10 +68,10 @@
 //!    configuration on the recovered account and reclaim the recovery configuration deposit they
 //!    placed.
 //! 9. Using `as_recovered`, the account owner is able to call any other pallets to clean up their
-//!    state and reclaim any reserved or locked funds. They can then transfer all funds from the
+//!    state and reclaim any held or locked funds. They can then transfer all funds from the
 //!    recovered account to the new account.
-//! 10. When the recovered account becomes reaped (i.e. its free and reserved balance drops to
-//!     zero), the final recovery link is removed.
+//! 10. When the recovered account becomes reaped (i.e. its free and held balance drops to zero),
+//!     the final recovery link is removed.
 //!
 //! ### Malicious Recovery Attempts
 //!
@@ -160,7 +160,10 @@ use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	traits::{BalanceStatus, Currency, ReservableCurrency},
+	traits::{
+		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude, Precision, Restriction},
+	},
 	BoundedVec,
 };
 
@@ -177,7 +180,7 @@ mod tests;
 pub mod weights;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -187,7 +190,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
 	created: BlockNumber,
-	/// The amount held in reserve of the `depositor`,
+	/// The amount held the `depositor`,
 	/// To be returned once this recovery process is closed.
 	deposit: Balance,
 	/// The friends which have vouched so far. Always sorted.
@@ -200,7 +203,7 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	/// The minimum number of blocks since the start of the recovery process before the account
 	/// can be recovered.
 	delay_period: BlockNumber,
-	/// The amount held in reserve of the `depositor`,
+	/// The amount held of the `depositor`,
 	/// to be returned once this configuration is removed.
 	deposit: Balance,
 	/// The list of friends which can help recover an account. Always sorted.
@@ -235,9 +238,10 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
-		/// The base amount of currency needed to reserve for creating a recovery configuration.
+		/// The base amount of currency needed to hold for creating a recovery configuration.
 		///
 		/// This is held for an additional storage item whose value size is
 		/// `2 + sizeof(BlockNumber, Balance)` bytes.
@@ -261,7 +265,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxFriends: Get<u32>;
 
-		/// The base amount of currency needed to reserve for starting a recovery.
+		/// The base amount of currency needed to hold for starting a recovery.
 		///
 		/// This is primarily held for deterring malicious recovery attempts, and should
 		/// have a value large enough that a bad actor would choose not to place this
@@ -270,6 +274,9 @@ pub mod pallet {
 		/// threshold.
 		#[pallet::constant]
 		type RecoveryDeposit: Get<BalanceOf<Self>>;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 	}
 
 	/// Events type.
@@ -328,6 +335,16 @@ pub mod pallet {
 		AlreadyProxy,
 		/// Some internal state is broken.
 		BadState,
+	}
+
+	/// The reasons for the pallet recovery placing holds on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The Pallet holds it as the initial Configuration Deposit, when the Recovery
+		/// Configuration is created.
+		ConfigurationDeposit,
+		/// The Pallet holds it as the Deposit for starting a Recovery Process.
+		RecoveryProcessDeposit,
 	}
 
 	/// The set of recoverable accounts and their recovery configuration.
@@ -424,7 +441,7 @@ pub mod pallet {
 		/// Create a recovery configuration for your account. This makes your account recoverable.
 		///
 		/// Payment: `ConfigDepositBase` + `FriendDepositFactor` * #_of_friends balance
-		/// will be reserved for storing the recovery configuration. This deposit is returned
+		/// will be held for storing the recovery configuration. This deposit is returned
 		/// in full when the user calls `remove_recovery`.
 		///
 		/// The dispatch origin for this call must be _Signed_.
@@ -462,8 +479,8 @@ pub mod pallet {
 			let total_deposit = T::ConfigDepositBase::get()
 				.checked_add(&friend_deposit)
 				.ok_or(ArithmeticError::Overflow)?;
-			// Reserve the deposit
-			T::Currency::reserve(&who, total_deposit)?;
+			// Hold the deposit
+			T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &who, total_deposit)?;
 			// Create the recovery configuration
 			let recovery_config = RecoveryConfig {
 				delay_period,
@@ -480,7 +497,7 @@ pub mod pallet {
 
 		/// Initiate the process for recovering a recoverable account.
 		///
-		/// Payment: `RecoveryDeposit` balance will be reserved for initiating the
+		/// Payment: `RecoveryDeposit` balance will be held for initiating the
 		/// recovery process. This deposit will always be repatriated to the account
 		/// trying to be recovered. See `close_recovery`.
 		///
@@ -506,7 +523,7 @@ pub mod pallet {
 			);
 			// Take recovery deposit
 			let recovery_deposit = T::RecoveryDeposit::get();
-			T::Currency::reserve(&who, recovery_deposit)?;
+			T::Currency::hold(&HoldReason::RecoveryProcessDeposit.into(), &who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
 				created: <frame_system::Pallet<T>>::block_number(),
@@ -637,13 +654,16 @@ pub mod pallet {
 			// Take the active recovery process started by the rescuer for this account.
 			let active_recovery =
 				<ActiveRecoveries<T>>::take(&who, &rescuer).ok_or(Error::<T>::NotStarted)?;
-			// Move the reserved funds from the rescuer to the rescued account.
+			// Move the held funds from the rescuer to the rescued account.
 			// Acts like a slashing mechanism for those who try to maliciously recover accounts.
-			let res = T::Currency::repatriate_reserved(
+			let res = T::Currency::transfer_on_hold(
+				&HoldReason::RecoveryProcessDeposit.into(),
 				&rescuer,
 				&who,
 				active_recovery.deposit,
-				BalanceStatus::Free,
+				Precision::BestEffort,
+				Restriction::Free,
+				Fortitude::Force,
 			);
 			debug_assert!(res.is_ok());
 			Self::deposit_event(Event::<T>::RecoveryClosed {
@@ -658,7 +678,7 @@ pub mod pallet {
 		/// NOTE: The user must make sure to call `close_recovery` on all active
 		/// recovery attempts before calling this function else it will fail.
 		///
-		/// Payment: By calling this function the recoverable account will unreserve
+		/// Payment: By calling this function the recoverable account will release
 		/// their recovery configuration deposit.
 		/// (`ConfigDepositBase` + `FriendDepositFactor` * #_of_friends)
 		///
@@ -671,11 +691,17 @@ pub mod pallet {
 			// Check there are no active recoveries
 			let mut active_recoveries = <ActiveRecoveries<T>>::iter_prefix_values(&who);
 			ensure!(active_recoveries.next().is_none(), Error::<T>::StillActive);
-			// Take the recovery configuration for this account.
-			let recovery_config = <Recoverable<T>>::take(&who).ok_or(Error::<T>::NotRecoverable)?;
 
-			// Unreserve the initial deposit for the recovery configuration.
-			T::Currency::unreserve(&who, recovery_config.deposit);
+			// Release the initial deposit for the recovery configuration.
+			// We can safely "release all" of the held balance under this reason because each
+			// account can set up a maximum of one recovery configuration. Meaning that all held
+			// balance on this account under this particular reason belongs to this specific
+			// configuration.
+			let _ = T::Currency::release_all(
+				&HoldReason::ConfigurationDeposit.into(),
+				&who,
+				Precision::BestEffort,
+			);
 			Self::deposit_event(Event::<T>::RecoveryRemoved { lost_account: who });
 			Ok(())
 		}

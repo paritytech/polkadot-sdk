@@ -18,10 +18,10 @@
 //! Tests for the module.
 
 use super::*;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_noop, assert_ok};
 use mock::{
-	new_test_ext, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
-	RuntimeCall, RuntimeOrigin, Test,
+	new_test_ext, run_to_block, BalancesCall, MaxFriends, Recovery, RecoveryCall, RuntimeCall,
+	RuntimeOrigin, Test,
 };
 use sp_runtime::{bounded_vec, traits::BadOrigin};
 
@@ -33,7 +33,7 @@ fn basic_setup_works() {
 		assert_eq!(Recovery::active_recovery(&1, &2), None);
 		assert_eq!(Recovery::recovery_config(&1), None);
 		// Everyone should have starting balance of 100
-		assert_eq!(Balances::free_balance(1), 100);
+		assert_eq!(<Test as Config>::Currency::free_balance(1), 100);
 	});
 }
 
@@ -51,8 +51,8 @@ fn set_recovered_works() {
 		}));
 		assert_ok!(Recovery::as_recovered(RuntimeOrigin::signed(1), 5, call));
 		// Account 1 has successfully drained the funds from account 5
-		assert_eq!(Balances::free_balance(1), 200);
-		assert_eq!(Balances::free_balance(5), 0);
+		assert_eq!(<Test as Config>::Currency::free_balance(1), 200);
+		assert_eq!(<Test as Config>::Currency::free_balance(5), 0);
 	});
 }
 
@@ -95,15 +95,15 @@ fn recovery_life_cycle_works() {
 		let call = Box::new(RuntimeCall::Recovery(RecoveryCall::remove_recovery {}));
 		assert_ok!(Recovery::as_recovered(RuntimeOrigin::signed(1), 5, call));
 		// Account 1 should now be able to make a call through account 5 to get all of their funds
-		assert_eq!(Balances::free_balance(5), 110);
+		assert_eq!(<Test as Config>::Currency::free_balance(5), 110);
 		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 			dest: 1,
 			value: 110,
 		}));
 		assert_ok!(Recovery::as_recovered(RuntimeOrigin::signed(1), 5, call));
 		// All funds have been fully recovered!
-		assert_eq!(Balances::free_balance(1), 200);
-		assert_eq!(Balances::free_balance(5), 0);
+		assert_eq!(<Test as Config>::Currency::free_balance(1), 200);
+		assert_eq!(<Test as Config>::Currency::free_balance(5), 0);
 		// Remove the proxy link.
 		assert_ok!(Recovery::cancel_recovered(RuntimeOrigin::signed(1), 5));
 
@@ -154,9 +154,9 @@ fn malicious_recovery_fails() {
 		// Account 5 can close the recovery process before account 1 can claim it
 		assert_ok!(Recovery::close_recovery(RuntimeOrigin::signed(5), 1));
 		// By doing so, account 5 has now claimed the deposit originally reserved by account 1
-		assert_eq!(Balances::total_balance(&1), 90);
+		assert_eq!(<Test as Config>::Currency::total_balance(&1), 90);
 		// Thanks for the free money!
-		assert_eq!(Balances::total_balance(&5), 110);
+		assert_eq!(<Test as Config>::Currency::total_balance(&5), 110);
 		// The recovery process has been closed, so account 1 can't make the claim
 		run_to_block(20);
 		assert_noop!(
@@ -236,7 +236,7 @@ fn create_recovery_works() {
 		));
 		// Deposit is taken, and scales with the number of friends they pick
 		// Base 10 + 1 per friends = 13 total reserved
-		assert_eq!(Balances::reserved_balance(5), 13);
+		assert_eq!(<Test as Config>::Currency::reserved_balance(5), 13);
 		// Recovery configuration is correctly stored
 		let recovery_config = RecoveryConfig {
 			delay_period,
@@ -273,7 +273,7 @@ fn initiate_recovery_handles_basic_errors() {
 			Error::<Test>::AlreadyStarted
 		);
 		// No double deposit
-		assert_eq!(Balances::reserved_balance(1), 10);
+		assert_eq!(<Test as Config>::Currency::reserved_balance(1), 10);
 	});
 }
 
@@ -293,7 +293,7 @@ fn initiate_recovery_works() {
 		// Recovery can be initiated
 		assert_ok!(Recovery::initiate_recovery(RuntimeOrigin::signed(1), 5));
 		// Deposit is reserved
-		assert_eq!(Balances::reserved_balance(1), 10);
+		assert_eq!(<Test as Config>::Currency::reserved_balance(1), 10);
 		// Recovery status object is created correctly
 		let recovery_status =
 			ActiveRecovery { created: 0, deposit: 10, friends: Default::default() };

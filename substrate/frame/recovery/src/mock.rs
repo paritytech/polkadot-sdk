@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Recovery: recovery::{Pallet, Call, Storage, Event<T>},
+		Recovery: recovery::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -83,7 +83,7 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 }
 
@@ -104,6 +104,7 @@ impl Config for Test {
 	type FriendDepositFactor = FriendDepositFactor;
 	type MaxFriends = MaxFriends;
 	type RecoveryDeposit = RecoveryDeposit;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub type BalancesCall = pallet_balances::Call<Test>;
