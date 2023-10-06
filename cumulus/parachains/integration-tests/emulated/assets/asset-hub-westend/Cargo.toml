@@ -26,6 +26,7 @@ polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parac
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false }
+westend-runtime = { path = "../../../../../../polkadot/runtime/westend", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../common" }
@@ -51,4 +52,5 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 ]

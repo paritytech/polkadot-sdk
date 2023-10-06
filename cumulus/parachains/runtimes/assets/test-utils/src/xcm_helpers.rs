@@ -20,7 +20,8 @@ use xcm::latest::prelude::*;
 
 /// Returns the delivery fees amount for pallet xcm's `teleport_assets` and
 /// `reserve_transfer_assets` extrinsics.
-/// It assumes delivery fees are only paid in one asset and that asset is known.
+/// Because it returns only a `u128`, it assumes delivery fees are only paid
+/// in one asset and that asset is known.
 pub fn transfer_assets_delivery_fees<S: SendXcm>(
 	assets: MultiAssets,
 	fee_asset_item: u32,
@@ -29,9 +30,13 @@ pub fn transfer_assets_delivery_fees<S: SendXcm>(
 	destination: MultiLocation,
 ) -> u128 {
 	let message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
-	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else { unreachable!("message can be validated; qed") };
-	let Fungible(delivery_fees_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed") };
-	delivery_fees_amount
+	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else { unreachable!("message can be sent; qed") };
+	if let Some(delivery_fee) = delivery_fees.inner().first() {
+		let Fungible(delivery_fee_amount) = delivery_fee.fun else { unreachable!("asset is fungible; qed"); };
+		delivery_fee_amount
+	} else {
+		0
+	}
 }
 
 /// Approximates the actual message sent by the teleport extrinsic.

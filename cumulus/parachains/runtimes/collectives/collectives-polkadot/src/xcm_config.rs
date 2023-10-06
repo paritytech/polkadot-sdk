@@ -27,15 +27,10 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{ConcreteNativeAssetFrom, RelayOrOtherSystemParachains},
-	TREASURY_PALLET_ID,
+	xcm_config::ConcreteNativeAssetFrom,
 };
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::AccountIdConversion;
-use westend_runtime_constants::{
-	system_parachain::SystemParachains, xcm::body::FELLOWSHIP_ADMIN_INDEX,
-};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -44,9 +39,11 @@ use xcm_builder::{
 	LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+
+const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();
@@ -56,7 +53,6 @@ parameter_types! {
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
 	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
@@ -273,12 +269,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<
-		Self,
-		RelayOrOtherSystemParachains<SystemParachains, Runtime>,
-		AccountId,
-		TreasuryAccount,
-	>;
+	type FeeManager = ();
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
