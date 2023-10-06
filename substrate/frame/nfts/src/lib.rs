@@ -50,8 +50,12 @@ pub mod weights;
 
 use codec::{Decode, Encode};
 use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
-	ReservableCurrency,
+	fungible::{
+		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
+	},
+	tokens::{Locker, Precision::BestEffort, Preservation::Preserve},
+	BalanceStatus::Reserved,
+	EnsureOriginWithArg, Incrementable,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
@@ -73,7 +77,7 @@ type AccountIdLookupOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Sourc
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -120,7 +124,12 @@ pub mod pallet {
 		type ItemId: Member + Parameter + MaxEncodedLen + Copy;
 
 		/// The currency mechanism, used for paying for reserves.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: InspectFungible<Self::AccountId>
+			+ MutateFungible<Self::AccountId>
+			+ HoldMutateFungible<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The origin which may forcibly create or destroy an item or otherwise alter privileged
 		/// attributes.
@@ -654,6 +663,23 @@ pub mod pallet {
 		WitnessRequired,
 	}
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Reserved for a collection's storage record.
+		#[codec(index = 0)]
+		CollectionOwnerDeposit,
+		/// Reserved for an item's storage record.
+		#[codec(index = 1)]
+		ItemDeposit,
+		/// Reserved for metadata storage.
+		#[codec(index = 2)]
+		MetadataDeposit,
+		/// Reserved for attribute storage.
+		#[codec(index = 3)]
+		AttributeDeposit,
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Issue a new collection of non-fungible items from a public origin.
@@ -888,12 +914,7 @@ pub mod pallet {
 							witness_data.clone().ok_or(Error::<T, I>::WitnessRequired)?;
 						let mint_price = mint_price.ok_or(Error::<T, I>::BadWitness)?;
 						ensure!(mint_price >= price, Error::<T, I>::BadWitness);
-						T::Currency::transfer(
-							&caller,
-							&collection_details.owner,
-							price,
-							ExistenceRequirement::KeepAlive,
-						)?;
+						T::Currency::transfer(&caller, &collection_details.owner, price, Preserve)?;
 					}
 
 					Ok(())
@@ -1049,9 +1070,20 @@ pub mod pallet {
 				};
 				let old = details.deposit.amount;
 				if old > deposit {
-					T::Currency::unreserve(&details.deposit.account, old - deposit);
+					T::Currency::release(
+						&HoldReason::CollectionOwnerDeposit.into(),
+						&details.deposit.account,
+						old - deposit,
+						BestEffort,
+					)?;
 				} else if deposit > old {
-					if T::Currency::reserve(&details.deposit.account, deposit - old).is_err() {
+					if T::Currency::hold(
+						&HoldReason::CollectionOwnerDeposit.into(),
+						&details.deposit.account,
+						deposit - old,
+					)
+					.is_err()
+					{
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
 						continue

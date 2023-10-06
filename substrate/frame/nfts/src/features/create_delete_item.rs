@@ -19,7 +19,7 @@
 //! items for the NFTs pallet.
 
 use crate::*;
-use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
+use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Mint a new unique item with the given `collection`, `item`, and other minting configuration
@@ -91,7 +91,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					collection_details.item_configs.saturating_inc();
 				}
 
-				T::Currency::reserve(&deposit_account, deposit_amount)?;
+				T::Currency::hold(
+					&HoldReason::ItemDeposit.into(),
+					&deposit_account,
+					deposit_amount,
+				)?;
 
 				let deposit = ItemDeposit { account: deposit_account, amount: deposit_amount };
 				let details = ItemDetails {
@@ -162,12 +166,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			item_config,
 			|collection_details, _| {
 				if let Some(price) = mint_price {
-					T::Currency::transfer(
-						&mint_to,
-						&collection_details.owner,
-						price,
-						ExistenceRequirement::KeepAlive,
-					)?;
+					T::Currency::transfer(&mint_to, &collection_details.owner, price, Preserve)?;
 				}
 				Ok(())
 			},
@@ -229,7 +228,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				with_details(&details)?;
 
 				// Return the deposit.
-				T::Currency::unreserve(&details.deposit.account, details.deposit.amount);
+				T::Currency::release(
+					&HoldReason::ItemDeposit.into(),
+					&details.deposit.account,
+					details.deposit.amount,
+					BestEffort,
+				)?;
 				collection_details.items.saturating_dec();
 
 				if remove_config {
@@ -242,7 +246,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let depositor_account =
 							metadata.deposit.account.unwrap_or(collection_details.owner.clone());
 
-						T::Currency::unreserve(&depositor_account, metadata.deposit.amount);
+						T::Currency::release(
+							&HoldReason::MetadataDeposit.into(),
+							&depositor_account,
+							metadata.deposit.amount,
+							BestEffort,
+						)?;
 						collection_details.item_metadatas.saturating_dec();
 
 						if depositor_account == collection_details.owner {

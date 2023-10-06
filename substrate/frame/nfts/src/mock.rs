@@ -36,9 +36,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Nfts: pallet_nfts,
 	}
 );
 
@@ -84,8 +84,8 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<1>;
 }
 
 parameter_types! {
@@ -97,6 +97,7 @@ impl Config for Test {
 	type CollectionId = u32;
 	type ItemId = u32;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type Locker = ();
