@@ -268,9 +268,9 @@ fn claimqueue_ttl_drop_fn_works() {
 		// ttls = [17, 17, 22]
 		assert!(cqc.iter().enumerate().all(|(index, entry)| {
 			match index {
-				0 | 1 => return entry.clone().ttl == 17,
-				2 => return entry.clone().ttl == 22,
-				_ => return false,
+				0 | 1 => entry.clone().ttl == 17,
+				2 => entry.clone().ttl == 22,
+				_ => false,
 			}
 		}))
 	});
@@ -779,6 +779,7 @@ fn schedule_schedules_including_just_freed() {
 fn schedule_clears_availability_cores() {
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
+	config.on_demand_cores = 2;
 	let genesis_config = genesis_config(&config);
 
 	let chain_a = ParaId::from(1_u32);
@@ -786,7 +787,7 @@ fn schedule_clears_availability_cores() {
 	let chain_c = ParaId::from(3_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(default_config().on_demand_cores, 3);
+		assert_eq!(config.on_demand_cores, 2);
 
 		// register 3 parachains
 		schedule_blank_para(chain_a, ParaKind::Parachain);
@@ -796,7 +797,7 @@ fn schedule_clears_availability_cores() {
 		// start a new session to activate, 5 validators for 5 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
-				new_config: default_config(),
+				new_config: config,
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
@@ -904,7 +905,7 @@ fn schedule_rotates_groups() {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),
@@ -1193,7 +1194,7 @@ fn next_up_on_available_uses_next_scheduled_or_none_for_thread() {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),
@@ -1237,7 +1238,7 @@ fn next_up_on_available_uses_next_scheduled_or_none_for_thread() {
 
 			let cores = Scheduler::availability_cores();
 			match &cores[0] {
-				CoreOccupied::Paras(entry) => assert_eq!(entry, &thread_entry_a),
+				CoreOccupied::Paras(entry) => assert_eq!(entry, thread_entry_a),
 				_ => panic!("with no chains, only core should be a thread core"),
 			}
 
@@ -1270,7 +1271,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),
@@ -1344,7 +1345,7 @@ fn next_up_on_available_is_parachain_always() {
 	new_test_ext(genesis_config).execute_with(|| {
 		schedule_blank_para(chain_a, ParaKind::Parachain);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),
@@ -1392,7 +1393,7 @@ fn next_up_on_time_out_is_parachain_always() {
 	new_test_ext(genesis_config).execute_with(|| {
 		schedule_blank_para(chain_a, ParaKind::Parachain);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),

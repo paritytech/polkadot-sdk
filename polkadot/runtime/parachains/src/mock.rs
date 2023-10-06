@@ -17,12 +17,16 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
+	assigner, assigner_parachains, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler, session_info, shared, ParaId,
+	scheduler::common::{AssignmentProvider, AssignmentProviderConfig, V0Assignment, AssignmentVersion},
+	assigner_on_demand::{self, QueuePushDirection},
 };
+use frame_support::pallet_prelude::DispatchError;
+use primitives::CoreIndex;
 
 use frame_support::{
 	assert_ok, parameter_types,
@@ -46,6 +50,7 @@ use sp_runtime::{
 	BuildStorage, FixedU128, Perbill, Permill,
 };
 use std::{cell::RefCell, collections::HashMap};
+use sp_std::collections::vec_deque::VecDeque;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -286,7 +291,7 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 }
 
 impl crate::scheduler::Config for Test {
-	type AssignmentProvider = Assigner;
+	type AssignmentProvider = MockAssigner;
 }
 
 pub struct TestMessageQueueWeight;
@@ -383,6 +388,65 @@ impl ValidatorSet<AccountId> for MockValidatorSet {
 impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type Identification = ();
 	type IdentificationOf = FoolIdentificationOf;
+}
+
+// An AssignmentProvider implementation for use with scheduler tests
+pub struct MockAssigner {
+	queue: VecDeque<V0Assignment>,
+}
+
+static MOCK_ASSIGNER_QUEUE: VecDeque<V0Assignment> = VecDeque::new();
+
+impl MockAssigner {
+	pub fn add_on_demand_order(
+		order: V0Assignment,
+		location: QueuePushDirection,
+	) -> Result<(), DispatchError> {
+		// Don't need to worry about max assignment queue size in scheduler tests
+		match location {
+			QueuePushDirection::Back => MOCK_ASSIGNER_QUEUE.push_back(order),
+			QueuePushDirection::Front => MOCK_ASSIGNER_QUEUE.push_front(order),
+		};
+		Ok(())
+	}
+
+	pub fn get_queue() -> VecDeque<V0Assignment> {
+		MOCK_ASSIGNER_QUEUE.clone()
+	}
+}
+
+impl AssignmentProvider<BlockNumber> for MockAssigner {
+	type AssignmentType = V0Assignment;
+	type OldAssignmentType = V0Assignment;
+	// Format has not changed for parachains, therefore still version 0.
+	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
+
+	fn migrate_old_to_current(
+		old: Self::OldAssignmentType,
+		core: CoreIndex,
+	) -> Self::AssignmentType {
+		old
+	}
+	
+	// This can matter, even in tests. Using condensed form of calculation from actual assigner.
+	fn session_core_count() -> u32 {
+		let config = <configuration::Pallet<Test>>::config();
+		(<paras::Pallet<Test>>::parachains().len() as u32).saturating_add(config.on_demand_cores)
+	}
+
+	//
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+		None
+	}
+
+	// These numbers are set via config in individual scheduler tests. Just pass them through here.
+	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
+		let config = <configuration::Pallet<Test>>::config();
+		AssignmentProviderConfig {
+			max_availability_timeouts: config.on_demand_retries,
+			ttl: config.on_demand_ttl,
+		}
+	}
 }
 
 pub struct FoolIdentificationOf;
