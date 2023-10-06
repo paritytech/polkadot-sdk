@@ -74,6 +74,9 @@ pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
 /// Polkadot chain id.
 pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
 
+/// Polkadot Bulletin chain id.
+pub const POLKADOT_BULLETIN_CHAIN_ID: ChainId = *b"pdbc";
+
 /// Kusama chain id.
 pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
 
