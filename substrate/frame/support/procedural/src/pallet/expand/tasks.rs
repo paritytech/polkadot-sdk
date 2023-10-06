@@ -14,5 +14,7 @@ pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
 		}
 	}
 	let _task_enum = &def.task_enum;
+	// TODO: add ToTokens impl for TaskEnumDef so we can output it here
+	// TODO: add ToTokens impl for TasksDef so we can output it here
 	quote!()
 }
