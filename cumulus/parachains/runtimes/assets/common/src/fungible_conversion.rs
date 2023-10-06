@@ -59,8 +59,8 @@ impl<
 	fn convert_ref(value: impl Borrow<(AssetId, Balance)>) -> Result<Asset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
 		match ConvertAssetId::convert_back(asset_id) {
-			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
-				Some(amount) => Ok((asset_id_as_multilocation, amount).into()),
+			Some(asset_id_as_location) => match ConvertBalance::convert_back(balance) {
+				Some(amount) => Ok((asset_id_as_location, amount).into()),
 				None => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
 			None => Err(FungiblesAccessError::AssetIdConversionFailed),
@@ -80,8 +80,8 @@ impl<
 	fn convert_ref(value: impl Borrow<(AssetId, Balance)>) -> Result<Asset, FungiblesAccessError> {
 		let (asset_id, balance) = value.borrow();
 		match ConvertAssetId::convert_back(asset_id) {
-			Some(asset_id_as_multilocation) => match ConvertBalance::convert_back(balance) {
-				Some(amount) => Ok((asset_id_as_multilocation, amount).into()),
+			Some(asset_id_as_location) => match ConvertBalance::convert_back(balance) {
+				Some(amount) => Ok((asset_id_as_location, amount).into()),
 				None => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
 			None => Err(FungiblesAccessError::AssetIdConversionFailed),

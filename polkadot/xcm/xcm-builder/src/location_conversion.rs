@@ -905,7 +905,7 @@ mod tests {
 	}
 
 	#[test]
-	fn remote_account_fails_with_bad_multilocation() {
+	fn remote_account_fails_with_bad_location() {
 		let mul = Location {
 			parents: 1,
 			interior: [AccountKey20 { network: None, key: [0u8; 20] }].into(),

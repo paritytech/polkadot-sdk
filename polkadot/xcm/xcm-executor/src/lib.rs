@@ -882,7 +882,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			RequestUnlock { asset, locker } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 				let remote_asset = Self::try_reanchor(asset.clone(), &locker)?.0;
-				let remote_target = Self::try_reanchor_multilocation(origin.clone(), &locker)?.0;
+				let remote_target = Self::try_reanchor_location(origin.clone(), &locker)?.0;
 				let reduce_ticket = Config::AssetLocker::prepare_reduce_unlockable(
 					locker.clone(),
 					asset,
@@ -1009,7 +1009,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok((asset, reanchor_context))
 	}
 
-	fn try_reanchor_multilocation(
+	fn try_reanchor_location(
 		location: Location,
 		destination: &Location,
 	) -> Result<(Location, InteriorLocation), XcmError> {

@@ -106,11 +106,11 @@ struct AssetTraderRefunder {
 	outstanding_concrete_asset: Asset,
 }
 
-/// Charges for execution in the first multiasset of those selected for fee payment
+/// Charges for execution in the first asset of those selected for fee payment
 /// Only succeeds for Concrete Fungible Assets
 /// First tries to convert the this Asset into a local assetId
 /// Then charges for this assetId as described by FeeCharger
-/// Weight, paid balance, local asset Id and the multilocation is stored for
+/// Weight, paid balance, local asset Id and the location is stored for
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
@@ -136,7 +136,7 @@ impl<
 	fn new() -> Self {
 		Self(None, PhantomData)
 	}
-	// We take first multiasset
+	// We take first asset
 	// Check whether we can convert fee to asset_fee (is_sufficient, min_deposit)
 	// If everything goes well, we charge.
 	fn buy_weight(
@@ -152,12 +152,12 @@ impl<
 			return Err(XcmError::NotWithdrawable)
 		}
 
-		// We take the very first multiasset from payment
+		// We take the very first asset from payment
 		// (assets are sorted by fungibility/amount after this conversion)
-		let multiassets: Assets = payment.clone().into();
+		let assets: Assets = payment.clone().into();
 
-		// Take the first multiasset from the selected Assets
-		let first = multiassets.get(0).ok_or(XcmError::AssetNotFound)?;
+		// Take the first asset from the selected Assets
+		let first = assets.get(0).ok_or(XcmError::AssetNotFound)?;
 
 		// Get the local asset id in which we can pay for fees
 		let (local_asset_id, _) =
@@ -179,13 +179,13 @@ impl<
 				.try_into()
 				.map_err(|_| XcmError::Overflow)?;
 
-		// Convert to the same kind of multiasset, with the required fungible balance
+		// Convert to the same kind of asset, with the required fungible balance
 		let required = first.id.clone().into_asset(asset_balance.into());
 
 		// Substract payment
 		let unused = payment.checked_sub(required.clone()).map_err(|_| XcmError::TooExpensive)?;
 
-		// record weight and multiasset
+		// record weight and asset
 		self.0 = Some(AssetTraderRefunder {
 			weight_outstanding: weight,
 			outstanding_concrete_asset: required,

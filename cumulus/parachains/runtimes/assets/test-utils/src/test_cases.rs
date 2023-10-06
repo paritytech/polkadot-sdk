@@ -352,7 +352,7 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consenus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_multilocation = Location {
+	let foreign_asset_id_location = Location {
 		parents: 1,
 		interior: [Parachain(foreign_para_id), GeneralIndex(1234567)].into(),
 	};
@@ -405,14 +405,14 @@ pub fn teleports_for_foreign_assets_works<
 			// check `CheckingAccount` before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.clone().into(),
+					foreign_asset_id_location.clone().into(),
 					&target_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.clone().into(),
+					foreign_asset_id_location.clone().into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -421,14 +421,14 @@ pub fn teleports_for_foreign_assets_works<
 			assert_total::<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
-			>(foreign_asset_id_multilocation.clone(), 0, 0);
+			>(foreign_asset_id_location.clone(), 0, 0);
 
 			// create foreign asset (0 total issuance)
 			let asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime>::root_origin(),
-					foreign_asset_id_multilocation.clone().into(),
+					foreign_asset_id_location.clone().into(),
 					asset_owner.into(),
 					false,
 					asset_minimum_asset_balance.into()
@@ -437,7 +437,7 @@ pub fn teleports_for_foreign_assets_works<
 			assert_total::<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
-			>(foreign_asset_id_multilocation.clone(), 0, 0);
+			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
 
 			// 1. process received teleported assets from relaychain
@@ -453,12 +453,12 @@ pub fn teleports_for_foreign_assets_works<
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
-					id: AssetId(foreign_asset_id_multilocation.clone()),
+					id: AssetId(foreign_asset_id_location.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
 				DepositAsset {
 					assets: Wild(AllOf {
-						id: AssetId(foreign_asset_id_multilocation.clone()),
+						id: AssetId(foreign_asset_id_location.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 					beneficiary: Location {
@@ -490,7 +490,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.clone().into(),
+					foreign_asset_id_location.clone().into(),
 					&target_account
 				),
 				teleported_foreign_asset_amount.into()
@@ -502,7 +502,7 @@ pub fn teleports_for_foreign_assets_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.clone().into(),
+					foreign_asset_id_location.clone().into(),
 					&CheckingAccount::get()
 				),
 				0.into()
@@ -512,7 +512,7 @@ pub fn teleports_for_foreign_assets_works<
 				pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 				AccountIdOf<Runtime>,
 			>(
-				foreign_asset_id_multilocation.clone(),
+				foreign_asset_id_location.clone(),
 				teleported_foreign_asset_amount,
 				teleported_foreign_asset_amount,
 			);
@@ -529,7 +529,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_multilocation.clone().into(),
+						foreign_asset_id_location.clone().into(),
 						&target_account,
 					);
 				let asset_to_teleport_away = asset_minimum_asset_balance * 3;
@@ -544,7 +544,7 @@ pub fn teleports_for_foreign_assets_works<
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
 					dest_beneficiary,
-					(foreign_asset_id_multilocation.clone(), asset_to_teleport_away),
+					(foreign_asset_id_location.clone(), asset_to_teleport_away),
 					Some((runtime_para_id, foreign_para_id)),
 					included_head,
 					&alice,
@@ -553,14 +553,14 @@ pub fn teleports_for_foreign_assets_works<
 				// check balances
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_multilocation.clone().into(),
+						foreign_asset_id_location.clone().into(),
 						&target_account
 					),
 					(target_account_balance_before_teleport - asset_to_teleport_away.into())
 				);
 				assert_eq!(
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-						foreign_asset_id_multilocation.clone().into(),
+						foreign_asset_id_location.clone().into(),
 						&CheckingAccount::get()
 					),
 					0.into()
@@ -570,7 +570,7 @@ pub fn teleports_for_foreign_assets_works<
 					pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>,
 					AccountIdOf<Runtime>,
 				>(
-					foreign_asset_id_multilocation,
+					foreign_asset_id_location,
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 					teleported_foreign_asset_amount - asset_to_teleport_away,
 				);
@@ -804,7 +804,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 		.execute_with(|| {
 			// create  some asset class
 			let asset_minimum_asset_balance = 3333333_u128;
-			let asset_id_as_multilocation = AssetIdConverter::convert_back(&asset_id).unwrap();
+			let asset_id_as_location = AssetIdConverter::convert_back(&asset_id).unwrap();
 			assert_ok!(<pallet_assets::Pallet<Runtime, AssetsPalletInstance>>::force_create(
 				RuntimeHelper::<Runtime>::root_origin(),
 				asset_id.clone().into(),
@@ -885,7 +885,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 						}]
 						.into(),
 					},
-					(asset_id_as_multilocation.clone(), asset_minimum_asset_balance),
+					(asset_id_as_location.clone(), asset_minimum_asset_balance),
 				),
 				XcmError::FailedToTransactAsset(Into::<&str>::into(
 					sp_runtime::TokenError::CannotCreate
@@ -905,7 +905,7 @@ pub fn asset_transactor_transfer_with_pallet_assets_instance_works<
 						interior: [AccountId32 { network: None, id: bob_account.clone().into() }]
 							.into(),
 					},
-					(asset_id_as_multilocation, asset_minimum_asset_balance),
+					(asset_id_as_location, asset_minimum_asset_balance),
 				),
 				Ok(_)
 			));
@@ -1062,9 +1062,9 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
 	// foreign parachain with the same consenus currency as asset
-	let foreign_asset_id_multilocation =
+	let foreign_asset_id_location =
 		Location { parents: 1, interior: [Parachain(2222), GeneralIndex(1234567)].into() };
-	let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
+	let asset_id = AssetIdConverter::convert(&foreign_asset_id_location).unwrap();
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
 	let foreign_creator = Location { parents: 1, interior: [Parachain(2222)].into() };
@@ -1248,9 +1248,9 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 
 			// lets try create asset for different parachain(3333) (foreign_creator(2222) can create
 			// just his assets)
-			let foreign_asset_id_multilocation =
+			let foreign_asset_id_location =
 				Location { parents: 1, interior: [Parachain(3333), GeneralIndex(1234567)].into() };
-			let asset_id = AssetIdConverter::convert(&foreign_asset_id_multilocation).unwrap();
+			let asset_id = AssetIdConverter::convert(&foreign_asset_id_location).unwrap();
 
 			// prepare data for xcm::Transact(create)
 			let foreign_asset_create = runtime_call_encode(pallet_assets::Call::<
