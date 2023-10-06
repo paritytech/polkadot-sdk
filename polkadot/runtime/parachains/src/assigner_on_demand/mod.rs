@@ -120,7 +120,7 @@ pub struct OnDemandAssignment {
 
 #[cfg(test)]
 impl OnDemandAssignment {
-	pub fn new(para_id: ParaId, core_index: CoreIndex) -> Self {
+	pub(crate) fn new(para_id: ParaId, core_index: CoreIndex) -> Self {
 		Self { para_id, core_index }
 	}
 }
@@ -132,16 +132,8 @@ impl Assignment for OnDemandAssignment {
 }
 
 /// Internal representation of an order after it has been enqueued already.
-#[cfg(not(test))]
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
 pub(super) struct EnqueuedOrder {
-	pub para_id: ParaId,
-}
-
-// Looser encapsulation for tests
-#[cfg(test)]
-#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
-pub(crate) struct EnqueuedOrder {
 	pub para_id: ParaId,
 }
 
@@ -486,29 +478,7 @@ where
 	/// Errors:
 	/// - `InvalidParaId`
 	/// - `QueueFull`
-	#[cfg(not(test))]
 	fn add_on_demand_order(
-		order: EnqueuedOrder,
-		location: QueuePushDirection,
-	) -> Result<(), DispatchError> {
-		// Only parathreads are valid paraids for on the go parachains.
-		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id), Error::<T>::InvalidParaId);
-
-		let config = <configuration::Pallet<T>>::config();
-
-		OnDemandQueue::<T>::try_mutate(|queue| {
-			// Abort transaction if queue is too large
-			ensure!(Self::queue_size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
-			match location {
-				QueuePushDirection::Back => queue.push_back(order),
-				QueuePushDirection::Front => queue.push_front(order),
-			};
-			Ok(())
-		})
-	}
-
-	#[cfg(test)]
-	pub fn add_on_demand_order(
 		order: EnqueuedOrder,
 		location: QueuePushDirection,
 	) -> Result<(), DispatchError> {
@@ -548,7 +518,7 @@ where
 
 	/// Getter for the order queue.
 	#[cfg(test)]
-	pub fn get_queue() -> VecDeque<EnqueuedOrder> {
+	fn get_queue() -> VecDeque<EnqueuedOrder> {
 		OnDemandQueue::<T>::get()
 	}
 

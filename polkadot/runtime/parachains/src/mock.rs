@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner, assigner_parachains, configuration, disputes, dmp, hrmp,
+	configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -25,7 +25,7 @@ use crate::{
 	scheduler::common::{AssignmentProvider, AssignmentProviderConfig, V0Assignment, AssignmentVersion},
 	assigner_on_demand::{self, QueuePushDirection},
 };
-use frame_support::pallet_prelude::DispatchError;
+use frame_support::pallet_prelude::*;
 use primitives::CoreIndex;
 
 use frame_support::{
@@ -67,9 +67,8 @@ frame_support::construct_runtime!(
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
-		Assigner: assigner,
+		MockAssigner: mock_assigner,
 		OnDemandAssigner: assigner_on_demand,
-		ParachainsAssigner: assigner_parachains,
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
@@ -345,10 +344,6 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 }
 
-impl assigner::Config for Test {}
-
-impl assigner_parachains::Config for Test {}
-
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
@@ -390,64 +385,100 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type IdentificationOf = FoolIdentificationOf;
 }
 
-// An AssignmentProvider implementation for use with scheduler tests
-pub struct MockAssigner {
-	queue: VecDeque<V0Assignment>,
-}
+pub mod mock_assigner {
+	pub use pallet::*;
+	use super::*;
+	#[frame_support::pallet]
+	pub mod pallet {
+		use super::*;
 
-static MOCK_ASSIGNER_QUEUE: VecDeque<V0Assignment> = VecDeque::new();
+		#[pallet::pallet]
+		#[pallet::without_storage_info]
+		pub struct Pallet<T>(_);
 
-impl MockAssigner {
-	pub fn add_on_demand_order(
-		order: V0Assignment,
-		location: QueuePushDirection,
-	) -> Result<(), DispatchError> {
-		// Don't need to worry about max assignment queue size in scheduler tests
-		match location {
-			QueuePushDirection::Back => MOCK_ASSIGNER_QUEUE.push_back(order),
-			QueuePushDirection::Front => MOCK_ASSIGNER_QUEUE.push_front(order),
-		};
-		Ok(())
+		#[pallet::config]
+		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
+
+		/// Creates an empty on demand queue if one isn't present in storage already.
+		#[pallet::type_value]
+		pub(super) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<V0Assignment> {
+			VecDeque::new()
+		}
+
+		#[pallet::storage]
+		pub(super) type MockAssignerQueue<T: Config> =
+			StorageValue<_, VecDeque<V0Assignment>, ValueQuery, OnDemandQueueOnEmpty<T>>;
 	}
 
-	pub fn get_queue() -> VecDeque<V0Assignment> {
-		MOCK_ASSIGNER_QUEUE.clone()
-	}
-}
-
-impl AssignmentProvider<BlockNumber> for MockAssigner {
-	type AssignmentType = V0Assignment;
-	type OldAssignmentType = V0Assignment;
-	// Format has not changed for parachains, therefore still version 0.
-	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
-
-	fn migrate_old_to_current(
-		old: Self::OldAssignmentType,
-		core: CoreIndex,
-	) -> Self::AssignmentType {
-		old
-	}
+	impl<T: Config> Pallet<T>{
+		pub fn add_on_demand_order(
+			order: V0Assignment,
+			location: QueuePushDirection,
+		) -> Result<(), DispatchError> {
+			MockAssignerQueue::<T>::try_mutate(|queue| {
+				// Don't need to worry about max assignment queue size in scheduler tests
+				match location {
+					QueuePushDirection::Back => queue.push_back(order),
+					QueuePushDirection::Front => queue.push_front(order),
+				};
+				Ok(())
+			})
+		}
 	
-	// This can matter, even in tests. Using condensed form of calculation from actual assigner.
-	fn session_core_count() -> u32 {
-		let config = <configuration::Pallet<Test>>::config();
-		(<paras::Pallet<Test>>::parachains().len() as u32).saturating_add(config.on_demand_cores)
+		pub fn get_queue() -> VecDeque<V0Assignment> {
+			MockAssignerQueue::<T>::get().clone()
+		}
 	}
 
-	//
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-		None
-	}
+	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
+		type AssignmentType = V0Assignment;
+		type OldAssignmentType = V0Assignment;
+		// Format has not changed for parachains, therefore still version 0.
+		const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
 
-	// These numbers are set via config in individual scheduler tests. Just pass them through here.
-	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
-		let config = <configuration::Pallet<Test>>::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
+		fn migrate_old_to_current(
+			old: Self::OldAssignmentType,
+			_core: CoreIndex,
+		) -> Self::AssignmentType {
+			old
+		}
+		
+		// This can matter, even in tests. Using condensed form of calculation from actual assigner.
+		fn session_core_count() -> u32 {
+			let config = <configuration::Pallet<Test>>::config();
+			(<paras::Pallet<Test>>::parachains().len() as u32).saturating_add(config.on_demand_cores)
+		}
+
+		// Scheduler tests don't make use of assigner core affinity
+		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+			let mut queue: VecDeque<Self::AssignmentType> = MockAssignerQueue::<T>::get();
+			let front = queue.pop_front();
+			// Write changes to storage.
+			MockAssignerQueue::<T>::set(queue);
+			front
+		}
+
+		fn report_processed(_assignment: Self::AssignmentType) {}
+
+		fn push_back_assignment(assignment: Self::AssignmentType) {
+			match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front) {
+				Ok(_) => {},
+				Err(_) => {},
+			}
+		}
+
+		// These numbers are set via config in individual scheduler tests. Just pass them through here.
+		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
+			let config = <configuration::Pallet<Test>>::config();
+			AssignmentProviderConfig {
+				max_availability_timeouts: config.on_demand_retries,
+				ttl: config.on_demand_ttl,
+			}
 		}
 	}
 }
+
+impl mock_assigner::pallet::Config for Test {}
 
 pub struct FoolIdentificationOf;
 impl sp_runtime::traits::Convert<AccountId, Option<()>> for FoolIdentificationOf {

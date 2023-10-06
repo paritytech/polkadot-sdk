@@ -24,7 +24,6 @@ use crate::{
 		System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::common::Assignment,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use pallet_balances::Error as BalancesError;
@@ -394,7 +393,7 @@ fn affinity_changes_work() {
 		// Affinity count is 1 after popping.
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
 
-		OnDemandAssigner::report_processed(assignment_a);
+		OnDemandAssigner::report_processed(assignment_a.clone());
 		OnDemandAssigner::pop_assignment_for_core(core_index);
 
 		// Affinity count is 1 after popping with a previous para.
@@ -410,7 +409,7 @@ fn affinity_changes_work() {
 		assert_eq!(OnDemandAssigner::queue_size(), 5);
 
 		for _ in 0..5 {
-			OnDemandAssigner::report_processed(assignment_a);
+			OnDemandAssigner::report_processed(assignment_a.clone());
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 
@@ -420,14 +419,14 @@ fn affinity_changes_work() {
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
-			OnDemandAssigner::report_processed(assignment_a); //TODO: Need to check that a report is actually processed when popping with an empty
+			OnDemandAssigner::report_processed(assignment_a.clone()); //TODO: Need to check that a report is actually processed when popping with an empty
 												  // queue.
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
 
 		// Decreasing affinity beyond 0 should still be None.
-		OnDemandAssigner::report_processed(assignment_a);
+		OnDemandAssigner::report_processed(assignment_a.clone());
 		OnDemandAssigner::pop_assignment_for_core(core_index);
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
 	});
@@ -438,7 +437,6 @@ fn affinity_prohibits_parallel_scheduling() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		let para_b = ParaId::from(222);
-		let core_index = CoreIndex(0);
 
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		schedule_blank_para(para_b, ParaKind::Parathread);
