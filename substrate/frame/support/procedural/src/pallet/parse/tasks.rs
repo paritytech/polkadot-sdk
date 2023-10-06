@@ -25,7 +25,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{
 	parse::ParseStream,
-	parse2,
+	parse2, parse_quote,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
 	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
@@ -110,6 +110,25 @@ pub struct TaskEnumDef {
 	pub item_enum: ItemEnum,
 }
 
+impl TaskEnumDef {
+	pub fn generate(tasks: &TasksDef, instance: bool) -> Self {
+		let variants = tasks.tasks.iter().map(|task| task.item.sig.ident.clone());
+		let type_impl_generics = match instance {
+			false => quote!(T: Config),
+			true => quote!(T: Config<I>, I: 'static),
+		};
+		parse_quote! {
+			#[pallet::task_enum]
+			pub enum Task<#type_impl_generics> {
+				#(
+					#[allow(non_camel_case_types)]
+					#variants
+				),*
+			}
+		}
+	}
+}
+
 impl syn::parse::Parse for TaskEnumDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_enum = input.parse::<ItemEnum>()?;
@@ -145,6 +164,7 @@ pub struct TaskDef {
 	pub condition_attr: TaskConditionAttr,
 	pub list_attr: TaskListAttr,
 	pub normal_attrs: Vec<Attribute>,
+	pub item: ImplItemFn,
 }
 
 impl syn::parse::Parse for TaskDef {
@@ -153,7 +173,7 @@ impl syn::parse::Parse for TaskDef {
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
 		let (task_attrs, normal_attrs): (Vec<_>, Vec<_>) =
-			item.attrs.into_iter().partition(|attr| {
+			item.attrs.clone().into_iter().partition(|attr| {
 				let mut path_segs = attr.path().segments.iter();
 				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
 					return false
@@ -245,7 +265,7 @@ impl syn::parse::Parse for TaskDef {
 		let condition_attr = condition_attr.try_into().expect("we check the type above; QED");
 		let list_attr = list_attr.try_into().expect("we check the type above; QED");
 
-		Ok(TaskDef { index_attr, condition_attr, list_attr, normal_attrs })
+		Ok(TaskDef { index_attr, condition_attr, list_attr, normal_attrs, item })
 	}
 }
 
