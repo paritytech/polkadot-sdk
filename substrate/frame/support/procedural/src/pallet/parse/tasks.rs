@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use crate::assert_error_matches;
 
 use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
 	parse::ParseStream,
@@ -111,15 +111,11 @@ pub struct TaskEnumDef {
 }
 
 impl TaskEnumDef {
-	pub fn generate(tasks: &TasksDef, instance: bool) -> Self {
+	pub fn generate(tasks: &TasksDef, type_decl_bounded_generics: TokenStream2) -> Self {
 		let variants = tasks.tasks.iter().map(|task| task.item.sig.ident.clone());
-		let type_impl_generics = match instance {
-			false => quote!(T: Config),
-			true => quote!(T: Config<I>, I: 'static),
-		};
 		parse_quote! {
 			#[pallet::task_enum]
-			pub enum Task<#type_impl_generics> {
+			pub enum Task<#type_decl_bounded_generics> {
 				#(
 					#[allow(non_camel_case_types)]
 					#variants

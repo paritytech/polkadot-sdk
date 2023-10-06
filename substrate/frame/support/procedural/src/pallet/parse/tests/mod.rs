@@ -48,11 +48,15 @@ macro_rules! assert_pallet_parses {
 		#[manifest_dir($manifest_dir:literal)]
 		$($tokens:tt)*
 	) => {
-		$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, || {
-			$crate::pallet::parse::Def::try_from(syn::parse_quote! {
-				$($tokens)*
-			}, false).unwrap();
-		});
+		{
+			let mut pallet: Option<$crate::pallet::parse::Def> = None;
+			$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, core::panic::AssertUnwindSafe(|| {
+				pallet = Some($crate::pallet::parse::Def::try_from(syn::parse_quote! {
+					$($tokens)*
+				}, false).unwrap());
+			}));
+			pallet.unwrap()
+		}
 	}
 }
 
@@ -87,7 +91,7 @@ macro_rules! assert_pallet_parse_error {
 ///
 /// This function uses a [`Mutex`] to avoid a race condition created when multiple tests try to
 /// modify and then restore the `CARGO_MANIFEST_DIR` ENV var in an overlapping way.
-pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnMut() + std::panic::UnwindSafe>(
+pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnOnce() + std::panic::UnwindSafe>(
 	path: P,
 	closure: F,
 ) {
@@ -121,7 +125,7 @@ mod tasks;
 
 #[test]
 fn test_parse_minimal_pallet() {
-	assert_pallet_parses!(
+	assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]
 		#[frame_support::pallet]
 		pub mod pallet {
@@ -131,7 +135,7 @@ fn test_parse_minimal_pallet() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	);
+	};
 }
 
 #[test]

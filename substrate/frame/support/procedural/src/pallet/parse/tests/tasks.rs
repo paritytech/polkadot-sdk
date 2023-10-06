@@ -67,9 +67,8 @@ fn test_parse_pallet_with_task_enum_wrong_attribute() {
 
 #[test]
 fn test_parse_pallet_missing_task_enum() {
-	assert_pallet_parse_error! {
+	assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]
-		#[error_regex("Missing `\\#\\[pallet::task_enum\\]` enum")]
 		#[frame_support::pallet]
 		pub mod pallet {
 			#[pallet::tasks]
@@ -84,7 +83,7 @@ fn test_parse_pallet_missing_task_enum() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	}
+	};
 }
 
 #[test]
@@ -134,7 +133,7 @@ fn test_parse_pallet_manual_task_enum_non_manual_impl() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	}
+	};
 }
 
 #[test]
@@ -159,7 +158,7 @@ fn test_parse_pallet_non_manual_task_enum_manual_impl() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	}
+	};
 }
 
 #[test]
@@ -183,14 +182,13 @@ fn test_parse_pallet_manual_task_enum_manual_impl() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	}
+	};
 }
 
 #[test]
 fn test_parse_pallet_manual_task_enum_mismatch_ident() {
-	assert_pallet_parse_error! {
+	let pallet = assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]
-		#[error_regex("Missing `\\#\\[pallet::task_enum\\]` enum")]
 		#[frame_support::pallet]
 		pub mod pallet {
 			pub enum WrongIdent<T: Config> {
@@ -209,5 +207,7 @@ fn test_parse_pallet_manual_task_enum_mismatch_ident() {
 			#[pallet::pallet]
 			pub struct Pallet<T>(_);
 		}
-	}
+	};
+	assert!(pallet.task_enum.is_none()); // note: will be filled in by expansion
+	assert!(pallet.tasks.is_some());
 }

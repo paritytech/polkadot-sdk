@@ -269,17 +269,14 @@ impl Def {
 		// fallback for manual (without macros) definition of task enum
 		Self::resolve_manual_task_enum(tasks, task_enum, items)?;
 
-		// ensure either both or none of `(task_enum, tasks)` are specified
-		match (&task_enum, &tasks) {
-			(Some(_), None) =>
-				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl")),
-			(None, Some(_)) =>
-				return Err(syn::Error::new(*item_span, "Missing `#[pallet::task_enum]` enum")),
-			_ => (),
+		// ensure that if `task_enum` is specified, `tasks` is also specified
+		if let (Some(_), None) = (&task_enum, &tasks) {
+			return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl"))
 		}
 
 		Ok(())
 	}
+
 	/// Tries to locate task enum based on the tasks impl target if attribute is not specified
 	/// but impl is present. If one is found, `task_enum` is set appropriately.
 	fn resolve_manual_task_enum(
