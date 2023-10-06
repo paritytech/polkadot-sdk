@@ -5160,7 +5160,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame"
-version = "4.0.0-dev"
+version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5496,13 +5496,15 @@ dependencies = [
 
 [[package]]
 name = "frame-support-test-pallet-frame-crate"
-version = "4.0.0-dev"
+version = "0.1.0"
 dependencies = [
  "frame",
  "parity-scale-codec",
+ "rustversion",
  "scale-info",
  "serde",
  "sp-runtime",
+ "trybuild",
 ]
 
 [[package]]

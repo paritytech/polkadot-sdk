@@ -86,6 +86,18 @@ pub fn generate_crate_access_from_frame_or_deps(def_crate: &str) -> Result<syn::
 pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream {
 	let mod_name = generate_hidden_includes_mod_name(unique_id);
 
+	// TODO: improve this to avoid code duplication with `generate_crate_access_from_frame_or_deps`.
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
+		let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
+		return quote::quote!(
+			#[doc(hidden)]
+			mod #mod_name {
+				pub use #path as hidden_include;
+			}
+		)
+	}
+
 	match crate_name(def_crate) {
 		Ok(FoundCrate::Itself) => quote!(),
 		Ok(FoundCrate::Name(name)) => {

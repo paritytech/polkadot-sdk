@@ -23,9 +23,12 @@
 
 pub use pallet::*;
 
-#[frame::deps::frame_support::pallet]
+use frame::deps::{frame_support, frame_system};
+
+#[frame_support::pallet]
 pub mod pallet {
-	use frame::deps::frame_support::pallet_prelude::*;
+	use super::*;
+	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -36,13 +39,13 @@ pub mod pallet {
 	// pub trait Config: frame_system::Config {}
 	// ```
 	// if `frame_system` is brought into scope.
-	pub trait Config: frame::deps::frame_system::Config {}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::storage]
 	pub type Value<T> = StorageValue<_, u32>;
 
 	#[pallet::genesis_config]
-	#[derive(frame::deps::frame_support::DefaultNoBound)]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
 		_config: core::marker::PhantomData<T>,

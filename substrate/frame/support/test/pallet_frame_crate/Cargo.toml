@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-test-pallet-frame-crate"
-version = "4.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -13,10 +13,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive"] }
 frame = { path = "frame", default-features = false}
+rustversion = "1.0.6"
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 sp-runtime = { path = "../../../../primitives/runtime", default-features = false}
+serde = { version = "1.0.188", default-features = false, features = ["derive"] }
+trybuild = { version = "1.0.74", features = [ "diff" ] }
 
 [features]
 default = [ "std" ]
