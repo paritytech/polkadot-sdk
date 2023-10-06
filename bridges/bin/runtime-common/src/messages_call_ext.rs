@@ -316,7 +316,7 @@ impl<
 				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
 			},
 			Some(CallInfo::ReceiveMessagesDeliveryProof(proof_info))
-				if is_pallet_halted || proof_info.is_obsolete() =>
+				if proof_info.is_obsolete() =>
 			{
 				log::trace!(
 					target: pallet_bridge_messages::LOG_TARGET,
