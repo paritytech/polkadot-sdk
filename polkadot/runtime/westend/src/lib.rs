@@ -1406,7 +1406,7 @@ construct_runtime! {
 
 		// OpenGov
 		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 31,
-		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 32,
+		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>, HoldReason} = 32,
 		Origins: pallet_custom_origins::{Origin} = 35,
 		Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 36,
 

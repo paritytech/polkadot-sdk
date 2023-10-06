@@ -74,9 +74,8 @@ use frame_support::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
-		tokens::Precision,
-		LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
-		StorePreimage, VoteTally,
+		tokens::{imbalance::OnUnbalanced, Precision},
+		LockIdentifier, OriginTrait, PollStatus, Polling, QueryPreimage, StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -141,6 +140,7 @@ const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
@@ -1302,6 +1302,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				amount,
 			);
 			T::OnSlash::on_unbalanced(imbalance);
+			//T::OnSlash::handle(imbalance);
 
 			Self::deposit_event(Event::<T, I>::DepositSlashed {
 				who,

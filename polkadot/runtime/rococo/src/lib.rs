@@ -1238,7 +1238,7 @@ construct_runtime! {
 		// Governance stuff; uncallable initially.
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
 		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 20,
-		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 21,
+		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>, HoldReason} = 21,
 		//	pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
 		FellowshipCollective: pallet_ranked_collective::<Instance1>::{
 			Pallet, Call, Storage, Event<T>

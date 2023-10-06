@@ -32,7 +32,7 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash, IdentityLookup},
-	BuildStorage, DispatchResult, Perbill,
+	BuildStorage, DispatchResult, Perbill, Permill,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
 		Referenda: pallet_referenda,
+		Treasury: pallet_treasury,
 	}
 );
 
@@ -84,6 +85,30 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+}
+
+parameter_types! {
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TreasuryPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/trsry");
+}
+impl pallet_treasury::Config for Test {
+	type PalletId = TreasuryPalletId;
+	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u64>;
+	type RejectOrigin = frame_system::EnsureRoot<u64>;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ();
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
+	type SpendPeriod = ConstU64<2>;
+	type Burn = ();
+	type BurnDestination = (); // Just gets burned.
+	type WeightInfo = ();
+	type SpendFunds = ();
+	type MaxApprovals = ConstU32<100>;
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 }
 
 impl pallet_preimage::Config for Test {
@@ -216,7 +241,7 @@ impl Config for Test {
 	type SubmitOrigin = frame_system::EnsureSigned<u64>;
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
-	type OnSlash = ();
+	type OnSlash = Treasury;
 	type Votes = u32;
 	type Tally = Tally;
 	type SubmissionDeposit = ConstU64<2>;

@@ -295,11 +295,12 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin =
 		pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 1>;
 	type CancelOrigin = FellowshipExperts;
 	type KillOrigin = FellowshipMasters;
-	type Slash = Treasury;
+	type OnSlash = Treasury;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = SubmissionDeposit;

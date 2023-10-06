@@ -33,6 +33,7 @@ assert_matches = { version = "1.5" }
 pallet-balances = { path = "../balances" }
 pallet-preimage = { path = "../preimage" }
 pallet-scheduler = { path = "../scheduler" }
+pallet-treasury = { path = "../treasury" }
 sp-core = { path = "../../primitives/core" }
 
 [features]

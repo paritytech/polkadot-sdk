@@ -10113,6 +10113,7 @@ dependencies = [
  "pallet-balances",
  "pallet-preimage",
  "pallet-scheduler",
+ "pallet-treasury",
  "parity-scale-codec",
  "scale-info",
  "serde",
