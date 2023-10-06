@@ -1,0 +1,464 @@
+stages:
+  - test
+  - build
+  - publish
+  - publish-docker-description
+  - deploy
+
+variables:
+  GIT_STRATEGY:                    fetch
+  GIT_DEPTH:                       100
+  CARGO_INCREMENTAL:               0
+  ARCH:                            "x86_64"
+  CI_IMAGE:                        "paritytech/bridges-ci:production"
+  RUST_BACKTRACE:                  full
+  BUILDAH_IMAGE:                   "quay.io/buildah/stable:v1.29"
+  BUILDAH_COMMAND:                 "buildah --storage-driver overlay2"
+
+default:
+  cache:                           {}
+  interruptible:                   true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - unknown_failure
+      - api_failure
+
+.collect-artifacts:                &collect-artifacts
+  artifacts:
+    name:                          "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
+    when:                          on_success
+    expire_in:                     7 days
+    paths:
+      - artifacts/
+
+.kubernetes-build:                 &kubernetes-build
+  tags:
+    - kubernetes-parity-build
+
+.docker-env:                       &docker-env
+  image:                           "${CI_IMAGE}"
+  before_script:
+    - rustup show
+    - cargo --version
+    - rustup +nightly show
+    - cargo +nightly --version
+  tags:
+    - linux-docker-vm-c2
+
+.test-refs:                        &test-refs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
+
+.test-only-refs:                   &test-only-refs
+  rules:
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+
+.publish-refs:                     &publish-refs
+  rules:
+    # won't run on the CI image update pipeline
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]{4}-[0-9]{2}-[0-9]{2}.*$/  # i.e. v2021-09-27, v2021-09-27-1
+    # there are two types of nightly pipelines:
+    # 1. this one is triggered by the schedule with $PIPELINE == "nightly", it's for releasing.
+    # this job runs only on nightly pipeline with the mentioned variable, against `master` branch
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $PIPELINE == "nightly"
+
+.nightly-test:                     &nightly-test
+  rules:
+    # 2. another is triggered by scripts repo $CI_PIPELINE_SOURCE == "pipeline" it's for the CI image
+    #    update, it also runs all the nightly checks.
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+
+.deploy-refs:                       &deploy-refs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $SCHEDULED_JOB
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
+      when: manual
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]{4}-[0-9]{2}-[0-9]{2}.*$/  # i.e. v2021-09-27, v2021-09-27-1
+      when: manual
+
+
+
+#### stage:                        test
+
+clippy-nightly:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  variables:
+    RUSTFLAGS:                     "-D warnings"
+  script:
+    # clippy currently is raising `derive-partial-eq-without-eq` warning even if `Eq` is actually derived
+    - SKIP_WASM_BUILD=1 cargo +nightly clippy --all-targets -- -A clippy::redundant_closure -A clippy::derive-partial-eq-without-eq -A clippy::or_fun_call
+
+fmt:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  script:
+    - cargo +nightly fmt --all -- --check
+
+spellcheck:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  script:
+    - cargo spellcheck check --cfg=.config/spellcheck.toml --checkers hunspell -m 1 $(find . -type f -name '*.rs' ! -path "./target/*" ! -path "./bin/millau/runtime/src/weights/*" ! -name 'codegen_runtime.rs' ! -name 'weights.rs')
+
+check:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  script:                          &check-script
+    - SKIP_WASM_BUILD=1 time cargo check --locked --verbose --workspace
+    # Check Rialto benchmarks runtime
+    - SKIP_WASM_BUILD=1 time cargo check -p rialto-runtime --locked --features runtime-benchmarks --verbose
+    # Check Millau benchmarks runtime
+    - SKIP_WASM_BUILD=1 time cargo check -p millau-runtime --locked --features runtime-benchmarks --verbose
+
+check-nightly:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *nightly-test
+  script:
+    - rustup default nightly
+    - *check-script
+
+test:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+#  variables:
+#    RUSTFLAGS:                     "-D warnings"
+  script:                          &test-script
+    - time cargo fetch
+    # Enable this, when you see: "`cargo metadata` can not fail on project `Cargo.toml`"
+    #- time cargo fetch --manifest-path=`cargo metadata --format-version=1 | jq --compact-output --raw-output  ".packages[] | select(.name == \"polkadot-runtime\").manifest_path"`
+    #- time cargo fetch --manifest-path=`cargo metadata --format-version=1 | jq --compact-output --raw-output  ".packages[] | select(.name == \"kusama-runtime\").manifest_path"`
+    - CARGO_NET_OFFLINE=true SKIP_WASM_BUILD=1 time cargo test --verbose --workspace --features runtime-benchmarks
+
+test-nightly:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *nightly-test
+  script:
+    - rustup default nightly
+    - *test-script
+
+deny:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *nightly-test
+  <<:                              *collect-artifacts
+  script:
+    - cargo deny check advisories --hide-inclusion-graph
+    - cargo deny check bans sources --hide-inclusion-graph
+  after_script:
+    - mkdir -p ./artifacts
+    - echo "___Complete logs can be found in the artifacts___"
+    - cargo deny check advisories 2> advisories.log
+    - cargo deny check bans sources 2> bans_sources.log
+  # this job is allowed to fail, only licenses check is important
+  allow_failure:                   true
+
+deny-licenses:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  <<:                              *collect-artifacts
+  script:
+    - cargo deny check licenses --hide-inclusion-graph
+  after_script:
+    - mkdir -p ./artifacts
+    - echo "___Complete logs can be found in the artifacts___"
+    - cargo deny check licenses 2> licenses.log
+
+benchmarks-test:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *nightly-test
+  script:
+    - time cargo run --release -p millau-bridge-node --features=runtime-benchmarks -- benchmark pallet --chain=dev --steps=2 --repeat=1 --pallet=pallet_bridge_messages --extrinsic=* --execution=wasm --wasm-execution=Compiled --heap-pages=4096
+    - time cargo run --release -p millau-bridge-node --features=runtime-benchmarks -- benchmark pallet --chain=dev --steps=2 --repeat=1 --pallet=pallet_bridge_grandpa --extrinsic=* --execution=wasm --wasm-execution=Compiled --heap-pages=4096
+    - time cargo run --release -p millau-bridge-node --features=runtime-benchmarks -- benchmark pallet --chain=dev --steps=2 --repeat=1 --pallet=pallet_bridge_parachains --extrinsic=* --execution=wasm --wasm-execution=Compiled --heap-pages=4096
+    - time cargo run --release -p millau-bridge-node --features=runtime-benchmarks -- benchmark pallet --chain=dev --steps=2 --repeat=1 --pallet=pallet_bridge_relayers --extrinsic=* --execution=wasm --wasm-execution=Compiled --heap-pages=4096
+    - time cargo run --release -p millau-bridge-node --features=runtime-benchmarks -- benchmark pallet --chain=dev --steps=2 --repeat=1 --pallet=pallet_xcm_bridge_hub_router --extrinsic=* --execution=wasm --wasm-execution=Compiled --heap-pages=4096
+  # we may live with failing benchmarks, it is just a signal for us
+  allow_failure:                   true
+
+check-rustdoc:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *test-refs
+  variables:
+    SKIP_WASM_BUILD:               1
+    RUSTDOCFLAGS:                  "-Dwarnings"
+  script:
+    - time cargo +nightly doc --workspace --verbose --no-deps --all-features --exclude relay-rialto-parachain-client
+
+partial-repo-pallets-build-test:
+  stage:                           test
+  <<:                              *docker-env
+  <<:                              *nightly-test
+  script:
+    - ./scripts/verify-pallets-build.sh --no-revert
+  # we may live with failing partial repo build, it is just a signal for us
+  allow_failure:                   true
+
+build:
+  stage:                           test
+  rules:
+    # won't run on the CI image update pipeline
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/              # i.e. v1.0, v2.1rc1
+    - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]{4}-[0-9]{2}-[0-9]{2}.*$/  # i.e. v2021-09-27, v2021-09-27-1
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $PIPELINE == "nightly"
+    - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/                         # PRs
+  <<:                              *docker-env
+  <<:                              *collect-artifacts
+  # master
+  script:                          &build-script
+    - time cargo fetch
+    # Enable this, when you see: "`cargo metadata` can not fail on project `Cargo.toml`"
+    #- time cargo fetch --manifest-path=`cargo metadata --format-version=1 | jq --compact-output --raw-output  ".packages[] | select(.name == \"polkadot-runtime\").manifest_path"`
+    #- time cargo fetch --manifest-path=`cargo metadata --format-version=1 | jq --compact-output --raw-output  ".packages[] | select(.name == \"kusama-runtime\").manifest_path"`
+    - CARGO_NET_OFFLINE=true time cargo build --release --verbose --workspace
+  after_script:
+    # Prepare artifacts
+    - mkdir -p ./artifacts
+    - strip ./target/release/rialto-bridge-node
+    - mv -v ./target/release/rialto-bridge-node ./artifacts/
+    - strip ./target/release/rialto-parachain-collator
+    - mv -v ./target/release/rialto-parachain-collator ./artifacts/
+    - strip ./target/release/millau-bridge-node
+    - mv -v ./target/release/millau-bridge-node ./artifacts/
+    - strip ./target/release/substrate-relay
+    - mv -v ./target/release/substrate-relay ./artifacts/
+    - mv -v ./deployments/local-scripts/bridge-entrypoint.sh ./artifacts/
+    - mv -v ./ci.Dockerfile ./artifacts/
+
+build-nightly:
+  stage:                           build
+  <<:                              *docker-env
+  <<:                              *collect-artifacts
+  <<:                              *nightly-test
+  script:
+    - rustup default nightly
+    - *build-script
+
+#### stage:                        publish
+
+# check that images can be built
+.build-image:                      &build-image
+  <<:                              *kubernetes-build
+  image:                           $BUILDAH_IMAGE
+  <<:                              *test-only-refs
+  variables:                       &build-image-variables
+    GIT_STRATEGY:                  none
+    DOCKERFILE:                    ci.Dockerfile
+  needs:
+    - job:                         build
+      artifacts:                   true
+  script:
+    # trim "-build-docker" from job name
+    - export DOCKER_IMAGE_NAME="${CI_JOB_NAME::-13}"
+    - if [[ "${CI_JOB_NAME::-13}" == "bridges-common-relay" ]]; then
+        export BRIDGES_PROJECT="substrate-relay";
+      else
+        export BRIDGES_PROJECT="${CI_JOB_NAME::-13}";
+      fi
+    - export IMAGE_NAME=docker.io/paritytech/${DOCKER_IMAGE_NAME}
+    - echo "Building ${IMAGE_NAME}"
+    - cd ./artifacts
+    - $BUILDAH_COMMAND build
+        --format=docker
+        --build-arg VCS_REF="${CI_COMMIT_SHORT_SHA}"
+        --build-arg BUILD_DATE="$(date +%d-%m-%Y)"
+        --build-arg PROJECT="${BRIDGES_PROJECT}"
+        --build-arg VERSION="${VERSION}"
+        --tag "${IMAGE_NAME}:latest"
+        --file "${DOCKERFILE}" .
+
+rialto-bridge-node-build-docker:
+  stage:                           publish
+  <<:                              *build-image
+
+rialto-parachain-collator-build-docker:
+  stage:                           publish
+  <<:                              *build-image
+
+millau-bridge-node-build-docker:
+  stage:                           publish
+  <<:                              *build-image
+
+substrate-relay-build-docker:
+  stage:                           publish
+  <<:                              *build-image
+
+bridges-common-relay-build-docker:
+  stage:                           publish
+  <<:                              *build-image
+  variables:
+    <<:                            *build-image-variables
+    BRIDGES_PROJECT:               substrate-relay
+    DOCKER_IMAGE_NAME:             bridges-common-relay
+
+# build and publish images
+.build-push-image:                 &build-push-image
+  <<:                              *kubernetes-build
+  image:                           $BUILDAH_IMAGE
+  <<:                              *publish-refs
+  variables:                       &image-variables
+    GIT_STRATEGY:                  none
+    DOCKERFILE:                    ci.Dockerfile
+    BRIDGES_PROJECT:               "${CI_JOB_NAME}"
+    DOCKER_IMAGE_NAME:             "${CI_JOB_NAME}"
+    IMAGE_NAME:                    docker.io/paritytech/$DOCKER_IMAGE_NAME
+  needs:
+    - job:                         build
+      artifacts:                   true
+  before_script:
+    - echo "Starting docker image build/push with name '${IMAGE_NAME}' for '${BRIDGES_PROJECT}' with Dockerfile = '${DOCKERFILE}'"
+    - if [[ "${CI_COMMIT_TAG}" ]]; then
+        VERSION=${CI_COMMIT_TAG};
+      elif [[ "${CI_COMMIT_REF_NAME}" ]]; then
+        VERSION=$(echo ${CI_COMMIT_REF_NAME} | sed -r 's#/+#-#g');
+      fi
+    # When building from version tags (v1.0, v2.1rc1, ...) we'll use "production" to tag
+    # docker image. In all other cases, it'll be "latest".
+    - if [[ $CI_COMMIT_REF_NAME =~ ^v[0-9]+\.[0-9]+.*$ ]]; then
+        FLOATING_TAG="production";
+      else
+        FLOATING_TAG="latest";
+      fi
+    - echo "Effective tags = ${VERSION} sha-${CI_COMMIT_SHORT_SHA} ${FLOATING_TAG}"
+    - echo "Full docker image name = ${IMAGE_NAME}"
+  script:
+    - test "${Docker_Hub_User_Parity}" -a "${Docker_Hub_Pass_Parity}" ||
+        ( echo "no docker credentials provided"; exit 1 )
+    - cd ./artifacts
+    - $BUILDAH_COMMAND build
+        --format=docker
+        --build-arg VCS_REF="${CI_COMMIT_SHORT_SHA}"
+        --build-arg BUILD_DATE="$(date +%d-%m-%Y)"
+        --build-arg PROJECT="${BRIDGES_PROJECT}"
+        --build-arg VERSION="${VERSION}"
+        --tag "${IMAGE_NAME}:${VERSION}"
+        --tag "${IMAGE_NAME}:sha-${CI_COMMIT_SHORT_SHA}"
+        --tag "${IMAGE_NAME}:${FLOATING_TAG}"
+        --file "${DOCKERFILE}" .
+    # The job will success only on the protected branch
+    - echo "${Docker_Hub_Pass_Parity}" |
+        buildah login --username "${Docker_Hub_User_Parity}" --password-stdin docker.io
+    - $BUILDAH_COMMAND info
+    - $BUILDAH_COMMAND push --format=v2s2 "${IMAGE_NAME}:${VERSION}"
+    - $BUILDAH_COMMAND push --format=v2s2 "${IMAGE_NAME}:sha-${CI_COMMIT_SHORT_SHA}"
+    - $BUILDAH_COMMAND push --format=v2s2 "${IMAGE_NAME}:${FLOATING_TAG}"
+  after_script:
+    - env REGISTRY_AUTH_FILE= buildah logout --all
+
+rialto-bridge-node:
+  stage:                           publish
+  <<:                              *build-push-image
+
+rialto-parachain-collator:
+  stage:                           publish
+  <<:                              *build-push-image
+
+millau-bridge-node:
+  stage:                           publish
+  <<:                              *build-push-image
+
+substrate-relay:
+  stage:                           publish
+  <<:                              *build-push-image
+
+bridges-common-relay:
+  stage:                           publish
+  <<:                              *build-push-image
+  variables:
+    <<:                            *image-variables
+    BRIDGES_PROJECT:               substrate-relay
+    DOCKER_IMAGE_NAME:             bridges-common-relay
+
+# Publish Docker images description to hub.docker.com
+
+.publish-docker-image-description:
+  stage:                           publish-docker-description
+  image:                           paritytech/dockerhub-description
+  variables:
+    DOCKER_USERNAME:               $Docker_Hub_User_Parity
+    DOCKER_PASSWORD:               $Docker_Hub_Pass_Parity
+    README_FILEPATH:               $CI_PROJECT_DIR/docs/${CI_JOB_NAME}.README.md
+  rules:
+  - if: $CI_COMMIT_REF_NAME == "master"
+    changes:
+    - docs/${CI_JOB_NAME}.README.md
+  script:
+    - export DOCKERHUB_REPOSITORY="paritytech/${CI_JOB_NAME:10}"
+    - cd / && sh entrypoint.sh
+  tags:
+    - kubernetes-parity-build
+
+dockerhub-rialto-bridge-node:
+  extends:                .publish-docker-image-description
+  variables:
+    SHORT_DESCRIPTION:    "rialto-bridge-node"
+
+dockerhub-rialto-parachain-collator:
+  extends:                .publish-docker-image-description
+  variables:
+    SHORT_DESCRIPTION:    "rialto-parachain-collator"
+
+dockerhub-millau-bridge-node:
+  extends:                .publish-docker-image-description
+  variables:
+    SHORT_DESCRIPTION:    "millau-bridge-node"
+
+dockerhub-substrate-relay:
+  extends:                .publish-docker-image-description
+  variables:
+    SHORT_DESCRIPTION:    "substrate-relay"
+
+dockerhub-bridges-common-relay:
+  extends:                .publish-docker-image-description
+  variables:
+    SHORT_DESCRIPTION:    "bridges-common-relay"
+
+# FIXME: publish binaries
+
+deploy-bridges-common-relay-testnet:
+  <<: *deploy-refs
+  <<: *kubernetes-build
+  needs:
+    - job: bridges-common-relay
+  stage: deploy
+  image: argoproj/argocd:v2.5.5
+  environment: parity-testnet
+  variables:
+    ARGOCD_OPTS: --grpc-web --grpc-web-root-path /parity-testnet
+    APP: bridges-common-relay
+  before_script:
+    - if [[ "${CI_COMMIT_TAG}" ]]; then
+        VERSION=${CI_COMMIT_TAG};
+      elif [[ "${CI_COMMIT_REF_NAME}" ]]; then
+        VERSION=$(echo ${CI_COMMIT_REF_NAME} | sed -r 's#/+#-#g');
+      fi
+  script:
+    - echo "Starting deploy version=${VERSION}"
+    - argocd app list
+    - argocd app set  $APP --helm-set bridges-common-relay.image.tag=$VERSION
+    - argocd app sync $APP --async
