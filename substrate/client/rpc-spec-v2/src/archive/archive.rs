@@ -210,7 +210,7 @@ where
 
 				// Paginated start key is only supported
 				if pagination_start_key.is_some() &&
-					(query.query_type != StorageQueryType::DescendantsValues ||
+					(query.query_type != StorageQueryType::DescendantsValues &&
 						query.query_type != StorageQueryType::DescendantsHashes)
 				{
 					return Err(ArchiveError::InvalidParam(
