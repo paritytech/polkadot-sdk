@@ -49,6 +49,8 @@ pub mod bandersnatch;
 pub mod bls377;
 #[cfg(feature = "bls-experimental")]
 pub mod bls381;
+#[cfg(feature = "bls-experimental")]
+pub mod ecdsa_bls377;
 pub mod ecdsa;
 pub mod ed25519;
 pub mod sr25519;

@@ -31,12 +31,12 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use sp_runtime_interface::pass_by::PassByInner;
+use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 use sp_std::convert::TryFrom;
 
 /// ECDSA and BLS-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
-pub mod ecdsa_n_bls377 {
+pub mod ecdsa_bls377 {
 	use crate::crypto::CryptoTypeId;
 	use crate::{bls377, ecdsa};
 
@@ -227,6 +227,11 @@ impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RI
 	}
 }
 
+impl<LeftPublic: PublicKeyBound, RightPublic: PublicKeyBound, const LEFT_PLUS_RIGHT_LEN: usize> PassBy for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN> {
+	type PassBy = pass_by::Inner<Self, [u8; LEFT_PLUS_RIGHT_LEN]>;
+}
+
+
 #[cfg(feature = "full_crypto")]
 impl<
 		LeftPair: TraitPair,
@@ -369,7 +374,7 @@ impl<T: sp_std::hash::Hash + for<'a> TryFrom<&'a [u8]> + AsRef<[u8]> + ByteArray
 }
 
 /// A pair of signatures of different types
-#[derive(Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+#[derive(Clone, Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 #[scale_info(skip_type_params(LeftSignature, RightSignature))]
 pub struct Signature<
 	LeftSignature: SignatureBound,
@@ -666,7 +671,7 @@ where
 mod test {
 	use super::*;
 	use crate::crypto::DEV_PHRASE;
-	use ecdsa_n_bls377::{Pair, Signature};
+	use ecdsa_bls377::{Pair, Signature};
 
 	#[test]
 	fn default_phrase_should_be_used() {

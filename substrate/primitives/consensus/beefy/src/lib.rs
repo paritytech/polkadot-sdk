@@ -140,6 +140,45 @@ pub mod bls_crypto {
 		}
 	}
 }
+
+/// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
+///
+/// This module basically introduces four crypto types:
+/// - `bls_crypto::Pair`
+/// - `bls_crypto::Public`
+/// - `bls_crypto::Signature`
+/// - `bls_crypto::AuthorityId`
+///
+/// Your code should use the above types as concrete types for all crypto related
+/// functionality.
+#[cfg(feature = "bls-experimental")]
+pub mod ecdsa_bls_crypto {
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use sp_application_crypto::{app_crypto, ecdsa_bls377};
+	use sp_core::{ecdsa_bls377::Pair as EcdsaBlsPair, crypto::Wraps, Pair as _};
+	app_crypto!(ecdsa_bls377, BEEFY_KEY_TYPE);
+
+	/// Identity of a BEEFY authority using BLS as its crypto.
+	pub type AuthorityId = Public;
+
+	/// Signature for a BEEFY authority using BLS as its crypto.
+	pub type AuthoritySignature = Signature;
+
+	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
+	where
+		<MsgHash as Hash>::Output: Into<[u8; 32]>,
+	{
+		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
+			// `w3f-bls` library uses IETF hashing standard and as such does not exposes
+			// a choice of hash to field function.
+			// We are directly calling into the library to avoid introducing new host call.
+			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
+
+			EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
+		}
+	}
+}
+
 /// The `ConsensusEngineId` of BEEFY.
 pub const BEEFY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"BEEF";
 
@@ -458,4 +497,21 @@ mod tests {
 		let (other_pair, _) = bls_crypto::Pair::generate();
 		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
+
+    #[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls_beefy_verify_works() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa_bls_crypto::Pair::generate();
+
+		let signature: ecdsa_bls_crypto::Signature = pair.as_inner_ref().sign(&msg).into();
+
+		// Verification works if same hashing function is used when signing and verifying.
+		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
+
+		// Other public key doesn't work
+		let (other_pair, _) = ecdsa_bls_crypto::Pair::generate();
+		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
+	}
+
 }
