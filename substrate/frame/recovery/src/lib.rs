@@ -691,15 +691,13 @@ pub mod pallet {
 			// Check there are no active recoveries
 			let mut active_recoveries = <ActiveRecoveries<T>>::iter_prefix_values(&who);
 			ensure!(active_recoveries.next().is_none(), Error::<T>::StillActive);
-
+			// Take the recovery configuration for this account.
+			let recovery_config = <Recoverable<T>>::take(&who).ok_or(Error::<T>::NotRecoverable)?;
 			// Release the initial deposit for the recovery configuration.
-			// We can safely "release all" of the held balance under this reason because each
-			// account can set up a maximum of one recovery configuration. Meaning that all held
-			// balance on this account under this particular reason belongs to this specific
-			// configuration.
-			let _ = T::Currency::release_all(
+			let _ = T::Currency::release(
 				&HoldReason::ConfigurationDeposit.into(),
 				&who,
+				recovery_config.deposit,
 				Precision::BestEffort,
 			);
 			Self::deposit_event(Event::<T>::RecoveryRemoved { lost_account: who });
