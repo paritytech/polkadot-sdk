@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "ci-only-tests")]
-use assert_matches::assert_matches;
-use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion, SamplingMode};
 use polkadot_node_core_pvf::{
 	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PrepareStats, PvfPrepData,
 	ValidationHost,
@@ -28,8 +26,6 @@ use tokio::{runtime::Handle, sync::Mutex};
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
-	#[allow(unused)]
-	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
 
@@ -50,7 +46,7 @@ impl TestHost {
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default());
 		let _ = handle.spawn(task);
-		Self { cache_dir, host: Mutex::new(host) }
+		Self { host: Mutex::new(host) }
 	}
 
 	async fn precheck_pvf(
@@ -79,23 +75,12 @@ impl TestHost {
 			.unwrap();
 		result_rx.await.unwrap()
 	}
-
-	async fn prune_all_artifacts(&self) -> Result<usize, std::io::Error> {
-		let (result_tx, result_rx) = futures::channel::oneshot::channel();
-
-		self.host.lock().await.prune_all_artifacts(result_tx).await.unwrap();
-		result_rx.await.unwrap()
-	}
 }
 
 fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	polkadot_node_core_pvf_common::sp_tracing::try_init_simple();
 
 	let rt = tokio::runtime::Runtime::new().unwrap();
-
-	let host = TestHost::new_with_config(rt.handle(), |cfg| {
-		cfg.prepare_workers_hard_max_num = 1;
-	});
 
 	let blob = rococo_runtime::WASM_BINARY.unwrap();
 	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
@@ -114,18 +99,23 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	group.sampling_mode(SamplingMode::Flat);
 	group.sample_size(20);
 	group.measurement_time(Duration::from_secs(240));
-	// The host spinning up a worker will be done in criterion's "warmup" stage, and not counted in
-	// the results.
 	group.bench_function("host: prepare Rococo runtime", |b| {
-		b.to_async(&rt).iter(|| async {
-			// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
-			// benchmark accuracy
-			let _stats = host.precheck_pvf(&pvf.clone().code(), Default::default()).await.unwrap();
-
-			// Delete the prepared artifact. Otherwise the next iterations will immediately finish.
-			let num_deleted = host.prune_all_artifacts().await.unwrap();
-			assert_eq!(num_deleted, 1);
-		})
+		b.to_async(&rt).iter_batched(
+			|| {
+				(
+					TestHost::new_with_config(rt.handle(), |cfg| {
+						cfg.prepare_workers_hard_max_num = 1;
+					}),
+					pvf.clone().code(),
+				)
+			},
+			|(host, pvf_code)| async move {
+				// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
+				// benchmark accuracy
+				let _stats = host.precheck_pvf(&pvf_code, Default::default()).await.unwrap();
+			},
+			BatchSize::SmallInput,
+		)
 	});
 	group.finish();
 }

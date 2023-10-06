@@ -40,7 +40,8 @@ assert_matches = "1.4.0"
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "async_tokio"] }
 hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
-# For the puppet worker, depend on ourselves with the test-utils feature.
+# For benches and integration tests, depend on ourselves with the test-utils
+# feature.
 polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
 rococo-runtime = { path = "../../../runtime/rococo" }
 

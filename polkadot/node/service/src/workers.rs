@@ -305,7 +305,7 @@ echo {}
 			);
 
 			// Try with valid provided workers path that is a binary file.
-			let given_workers_path = tempdir.join("usr/local/bin/puppet-worker");
+			let given_workers_path = tempdir.join("usr/local/bin/test-worker");
 			write_worker_exe(&given_workers_path)?;
 			assert_matches!(
 				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),
@@ -461,7 +461,7 @@ echo {}
 			);
 
 			// Given worker binary returns bad version.
-			let given_workers_path = tempdir.join("usr/local/bin/puppet-worker");
+			let given_workers_path = tempdir.join("usr/local/bin/test-worker");
 			write_worker_exe_invalid_version(&given_workers_path, bad_version)?;
 			assert_matches!(
 				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),

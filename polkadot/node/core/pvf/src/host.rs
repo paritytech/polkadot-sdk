@@ -130,33 +130,12 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
-
-	/// TEST-ONLY: deletes all on-disk artifacts and resets the artifacts table.
-	#[cfg(feature = "test-utils")]
-	pub async fn prune_all_artifacts(
-		&mut self,
-		result_tx: oneshot::Sender<Result<usize, std::io::Error>>,
-	) -> Result<(), String> {
-		self.to_host_tx
-			.send(ToHost::PruneAllArtifacts { result_tx })
-			.await
-			.map_err(|_| "the inner loop hung up".to_string())
-	}
 }
 
 enum ToHost {
-	PrecheckPvf {
-		pvf: PvfPrepData,
-		result_tx: PrepareResultSender,
-	},
+	PrecheckPvf { pvf: PvfPrepData, result_tx: PrepareResultSender },
 	ExecutePvf(ExecutePvfInputs),
-	HeadsUp {
-		active_pvfs: Vec<PvfPrepData>,
-	},
-	#[cfg(feature = "test-utils")]
-	PruneAllArtifacts {
-		result_tx: oneshot::Sender<Result<usize, std::io::Error>>,
-	},
+	HeadsUp { active_pvfs: Vec<PvfPrepData> },
 }
 
 struct ExecutePvfInputs {
@@ -457,25 +436,6 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
-		#[cfg(feature = "test-utils")]
-		ToHost::PruneAllArtifacts { result_tx } => {
-			let to_remove = artifacts.prune(Duration::ZERO);
-			gum::debug!(
-				target: LOG_TARGET,
-				"pruning all artifacts: {:?}",
-				to_remove
-			);
-			let mut result_to_send = Ok(to_remove.len());
-			for artifact_id in to_remove {
-				let artifact_path = artifact_id.path(cache_path);
-				let result = tokio::fs::remove_file(&artifact_path).await;
-				if let Err(err) = result {
-					result_to_send = Err(err);
-					break
-				}
-			}
-			let _ = result_tx.send(result_to_send);
-		},
 	}
 
 	Ok(())
