@@ -574,7 +574,7 @@ impl<
 			if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
 				// Note: It would be possible to not explicitly panic here since the state-root
 				// check should already catch any mismatch, but this makes it easier to debug.
-				panic!("Only inherents are allowed in this blocks");
+				panic!("Only inherents are allowed in this block");
 			}
 
 			// Process inherents (if any).

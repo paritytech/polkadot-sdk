@@ -91,7 +91,7 @@ fn basic_works() {
 }
 
 #[test]
-fn failing_migration_keep_stuck_the_chain() {
+fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedUpgradeHandling::KeepStuck);
 		MigrationsStorage::set(vec![(FailAfter, 2)]);
@@ -121,7 +121,7 @@ fn failing_migration_keep_stuck_the_chain() {
 }
 
 #[test]
-fn failing_migration_force_unstuck_the_chain() {
+fn failing_migration_force_unstuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedUpgradeHandling::ForceUnstuck);
 		MigrationsStorage::set(vec![(FailAfter, 2)]);

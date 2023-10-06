@@ -66,7 +66,7 @@ pub enum MockedMigrationKind {
 	/// Never terminate.
 	TimeoutAfter,
 	/// Cause an [`InsufficientWeight`] error after its number of steps elapsed.
-	HightWeightAfter(Weight),
+	HeightWeightAfter(Weight),
 }
 use MockedMigrationKind::*; // C style
 
