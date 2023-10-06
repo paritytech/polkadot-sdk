@@ -16,7 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{hex_string, MethodResult};
+use crate::{
+	common::events::{
+		ArchiveStorageMethodOk, ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType,
+		StorageResultType,
+	},
+	hex_string, MethodResult,
+};
 
 use super::{archive::Archive, *};
 
@@ -24,12 +30,15 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use jsonrpsee::{
 	core::error::Error,
+	rpc_params,
 	types::{error::CallError, EmptyServerParams as EmptyParams},
 	RpcModule,
 };
 use sc_block_builder::BlockBuilderProvider;
+use sc_client_api::ChildInfo;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
+use sp_core::{Blake2Hasher, Hasher};
 use sp_runtime::SaturatedConversion;
 use std::sync::Arc;
 use substrate_test_runtime::Transfer;
@@ -40,12 +49,21 @@ use substrate_test_runtime_client::{
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
 const MAX_PAGINATION_LIMIT: usize = 5;
+const KEY: &[u8] = b":mock";
+const VALUE: &[u8] = b"hello world";
+const CHILD_STORAGE_KEY: &[u8] = b"child";
+const CHILD_VALUE: &[u8] = b"child value";
 
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
 fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
-	let builder = TestClientBuilder::new();
+	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
+	let builder = TestClientBuilder::new().add_extra_child_storage(
+		&child_info,
+		KEY.to_vec(),
+		CHILD_VALUE.to_vec(),
+	);
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
@@ -256,4 +274,68 @@ async fn archive_call() {
 		.unwrap();
 	let expected = MethodResult::ok("0x0000000000000000");
 	assert_eq!(result, expected);
+}
+
+#[tokio::test]
+async fn archive_storage_hashes_values() {
+	let (mut client, api) = setup_api();
+	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	let block_hash = format!("{:?}", block.header.hash());
+	let key = hex_string(&KEY);
+
+	let items: Vec<PaginatedStorageQuery<String>> = vec![
+		PaginatedStorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		},
+		PaginatedStorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		},
+	];
+
+	let result: ArchiveStorageResult = api
+		.call("archive_unstable_storage", rpc_params![&block_hash, items.clone()])
+		.await
+		.unwrap();
+
+	match result {
+		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+			// Key has not been imported yet.
+			assert_eq!(result.len(), 0);
+			assert_eq!(discarded_items, 0);
+		},
+		_ => panic!("Unexpected result"),
+	};
+
+	// Import a block with the given key value pair.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	let block_hash = format!("{:?}", block.header.hash());
+	let expected_hash = format!("{:?}", Blake2Hasher::hash(&VALUE));
+	let expected_value = hex_string(&VALUE);
+
+	let result: ArchiveStorageResult = api
+		.call("archive_unstable_storage", rpc_params![&block_hash, items])
+		.await
+		.unwrap();
+
+	match result {
+		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+			assert_eq!(result.len(), 2);
+			assert_eq!(discarded_items, 0);
+
+			assert_eq!(result[0].key, key);
+			assert_eq!(result[0].result, StorageResultType::Hash(expected_hash));
+			assert_eq!(result[1].key, key);
+			assert_eq!(result[1].result, StorageResultType::Value(expected_value));
+		},
+		_ => panic!("Unexpected result"),
+	};
 }
