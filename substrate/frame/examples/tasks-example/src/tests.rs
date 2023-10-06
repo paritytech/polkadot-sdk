@@ -53,29 +53,44 @@ fn incrementing_and_decrementing_works() {
 
 #[test]
 fn task_enumerate_works() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 2);
-	});
+	assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 2);
 }
 
 #[test]
 fn runtime_task_enumerate_works_via_frame_system_config() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(
-			<Runtime as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
-			2
-		);
-	});
+	assert_eq!(<Runtime as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(), 2);
 }
 
 #[test]
 fn runtime_task_enumerate_works_via_pallet_config() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(
-			<Runtime as crate::pallet::Config>::RuntimeTask::iter()
-				.collect::<Vec<_>>()
-				.len(),
-			2
-		);
-	});
+	assert_eq!(
+		<Runtime as crate::pallet::Config>::RuntimeTask::iter()
+			.collect::<Vec<_>>()
+			.len(),
+		2
+	);
+}
+
+#[test]
+fn task_index_works_at_pallet_level() {
+	assert_eq!(crate::pallet::Task::<Runtime>::Increment.task_index(), 1);
+	assert_eq!(crate::pallet::Task::<Runtime>::Decrement.task_index(), 2);
+}
+
+#[test]
+fn task_index_works_at_runtime_level() {
+	assert_eq!(
+		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
+			crate::pallet::Task::<Runtime>::Increment
+		)
+		.task_index(),
+		1
+	);
+	assert_eq!(
+		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
+			crate::pallet::Task::<Runtime>::Decrement
+		)
+		.task_index(),
+		2
+	);
 }

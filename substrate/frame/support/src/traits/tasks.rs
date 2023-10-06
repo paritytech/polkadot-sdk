@@ -37,11 +37,6 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// An [`Iterator`] over tasks of this type used as the return type for `enumerate`.
 	type Enumeration: Iterator;
 
-	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.
-	///
-	/// Set to [`None`] for the aggregated `RuntimeTask` type.
-	const TASK_INDEX: Option<u64>;
-
 	/// Inspects the pallet's state and enumerates tasks of this type.
 	fn iter() -> Self::Enumeration;
 
@@ -54,10 +49,15 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	/// Returns the weight of executing this `Task`.
 	fn weight(&self) -> Weight;
 
-	/// A unique value representing this `Task`. Analogous to `call_index`, but for tasks.'
+	/// A unique value representing this `Task` within the current pallet. Analogous to
+	/// `call_index`, but for tasks.'
 	///
-	/// Set to [`None`] for the aggregated `RuntimeTask` type.
-	fn task_index(&self) -> Option<u64> {
-		Self::TASK_INDEX
+	/// This value should be unique within the current pallet and can overlap with task indices
+	/// in other pallets.
+	fn task_index(&self) -> u32;
+
+	/// Convenience method that provides access to `Self::iter()` on a particular task instance.
+	fn instance_iter(&self) -> Self::Enumeration {
+		Self::iter()
 	}
 }

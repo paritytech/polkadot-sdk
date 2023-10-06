@@ -71,10 +71,16 @@ pub mod pallet {
 	{
 		type Enumeration = sp_std::vec::IntoIter<Task<T>>;
 
-		const TASK_INDEX: Option<u64> = Some(0);
-
 		fn iter() -> Self::Enumeration {
 			sp_std::vec![Task::Increment, Task::Decrement].into_iter()
+		}
+
+		fn task_index(&self) -> u32 {
+			match self {
+				Task::Increment => 1,
+				Task::Decrement => 2,
+				Task::__Ignore(_, _) => unreachable!(),
+			}
 		}
 
 		fn is_valid(&self) -> bool {
