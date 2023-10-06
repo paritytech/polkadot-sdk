@@ -254,8 +254,8 @@ pub mod pallet {
 
 		/// The maximum amount of friends allowed in a recovery configuration.
 		///
-		/// NOTE: The threshold programmed in this Pallet uses u16, so it does
-		/// not really make sense to have a limit here greater than u16::MAX.
+		/// NOTE: The threshold programmed in this Pallet uses u32, so it does
+		/// not really make sense to have a limit here greater than u32::MAX.
 		/// But also, that is a lot more than you should probably set this value
 		/// to anyway...
 		#[pallet::constant]
