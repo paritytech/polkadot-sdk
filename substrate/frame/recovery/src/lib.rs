@@ -158,10 +158,12 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible::Mutate;
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungible::{Inspect, Mutate, MutateHold},
+		fungible::{Inspect, MutateHold},
 		tokens::{Fortitude, Precision, Restriction},
 	},
 	BoundedVec,
@@ -238,8 +240,14 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency mechanism.
+		#[cfg(feature = "runtime-benchmarks")]
 		type Currency: Mutate<Self::AccountId>
+			+ Inspect<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The currency mechanism.
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The base amount of currency needed to hold for creating a recovery configuration.
 		///
