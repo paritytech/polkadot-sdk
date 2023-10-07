@@ -2326,6 +2326,53 @@
 <a href="#2326" id="2326">2326</a>
 <a href="#2327" id="2327">2327</a>
 <a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
+<a href="#2345" id="2345">2345</a>
+<a href="#2346" id="2346">2346</a>
+<a href="#2347" id="2347">2347</a>
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
+<a href="#2353" id="2353">2353</a>
+<a href="#2354" id="2354">2354</a>
+<a href="#2355" id="2355">2355</a>
+<a href="#2356" id="2356">2356</a>
+<a href="#2357" id="2357">2357</a>
+<a href="#2358" id="2358">2358</a>
+<a href="#2359" id="2359">2359</a>
+<a href="#2360" id="2360">2360</a>
+<a href="#2361" id="2361">2361</a>
+<a href="#2362" id="2362">2362</a>
+<a href="#2363" id="2363">2363</a>
+<a href="#2364" id="2364">2364</a>
+<a href="#2365" id="2365">2365</a>
+<a href="#2366" id="2366">2366</a>
+<a href="#2367" id="2367">2367</a>
+<a href="#2368" id="2368">2368</a>
+<a href="#2369" id="2369">2369</a>
+<a href="#2370" id="2370">2370</a>
+<a href="#2371" id="2371">2371</a>
+<a href="#2372" id="2372">2372</a>
+<a href="#2373" id="2373">2373</a>
+<a href="#2374" id="2374">2374</a>
+<a href="#2375" id="2375">2375</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2381,9 +2428,14 @@
 	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>runtime_common::{
-	assigned_slots, auctions, crowdloan, elections::OnChainAccuracy, impl_runtime_weights,
-	impls::ToAuthor, paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BalanceToU256,
-	BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
+	assigned_slots, auctions, crowdloan,
+	elections::OnChainAccuracy,
+	impl_runtime_weights,
+	impls::{
+		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	},
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BalanceToU256, BlockHashCount,
+	BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 <span class="kw">use </span>runtime_parachains::{
 	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
@@ -2405,7 +2457,7 @@
 	generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, ConvertInto, Extrinsic <span class="kw">as </span>ExtrinsicT,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
@@ -2415,7 +2467,11 @@
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm::latest::Junction;
+<span class="kw">use </span>xcm::{
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
+	VersionedMultiLocation,
+};
+<span class="kw">use </span>xcm_builder::PayOverXcm;
 
 <span class="kw">pub use </span>frame_system::Call <span class="kw">as </span>SystemCall;
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
@@ -3026,6 +3082,10 @@
 	<span class="kw">pub const </span>SpendPeriod: BlockNumber = <span class="number">6 </span>* DAYS;
 	<span class="kw">pub const </span>Burn: Permill = Permill::from_perthousand(<span class="number">2</span>);
 	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/trsry&quot;</span>);
+	<span class="kw">pub const </span>PayoutSpendPeriod: BlockNumber = <span class="number">30 </span>* DAYS;
+	<span class="comment">// The asset&#39;s interior location for the paying account. This is the Treasury
+	// pallet instance (which sits at index 37).
+	</span><span class="kw">pub </span>TreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(<span class="number">37</span>).into();
 
 	<span class="kw">pub const </span>TipCountdown: BlockNumber = <span class="number">1 </span>* DAYS;
 	<span class="kw">pub const </span>TipFindersFee: Percent = Percent::from_percent(<span class="number">20</span>);
@@ -3035,6 +3095,7 @@
 	<span class="kw">pub const </span>MaxAuthorities: u32 = <span class="number">100_000</span>;
 	<span class="kw">pub const </span>MaxKeys: u32 = <span class="number">10_000</span>;
 	<span class="kw">pub const </span>MaxPeerInHeartbeats: u32 = <span class="number">10_000</span>;
+	<span class="kw">pub const </span>MaxBalance: Balance = Balance::max_value();
 }
 
 <span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Runtime {
@@ -3054,6 +3115,23 @@
 	<span class="kw">type </span>WeightInfo = weights::pallet_treasury::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SpendFunds = ();
 	<span class="kw">type </span>SpendOrigin = TreasurySpender;
+	<span class="kw">type </span>AssetKind = VersionedLocatableAsset;
+	<span class="kw">type </span>Beneficiary = VersionedMultiLocation;
+	<span class="kw">type </span>BeneficiaryLookup = IdentityLookup&lt;<span class="self">Self</span>::Beneficiary&gt;;
+	<span class="kw">type </span>Paymaster = PayOverXcm&lt;
+		TreasuryInteriorLocation,
+		<span class="kw">crate</span>::xcm_config::XcmRouter,
+		<span class="kw">crate</span>::XcmPallet,
+		ConstU32&lt;{ <span class="number">6 </span>* HOURS }&gt;,
+		<span class="self">Self</span>::Beneficiary,
+		<span class="self">Self</span>::AssetKind,
+		LocatableAssetConverter,
+		VersionedMultiLocationConverter,
+	&gt;;
+	<span class="kw">type </span>BalanceConverter = AssetRate;
+	<span class="kw">type </span>PayoutPeriod = PayoutSpendPeriod;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
 }
 
 <span class="kw">impl </span>pallet_offences::Config <span class="kw">for </span>Runtime {
@@ -3659,6 +3737,18 @@
 	<span class="kw">pub const </span>MigrationMaxKeyLen: u32 = <span class="number">512</span>;
 }
 
+<span class="kw">impl </span>pallet_asset_rate::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = weights::pallet_asset_rate::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>CreateOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>RemoveOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>UpdateOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>AssetKind = &lt;Runtime <span class="kw">as </span>pallet_treasury::Config&gt;::AssetKind;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
 <span class="macro">construct_runtime! </span>{
 	<span class="kw">pub enum </span>Runtime
 	{
@@ -3771,6 +3861,9 @@
 
 		<span class="comment">// Generalized message queue
 		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">100</span>,
+
+		<span class="comment">// Asset rate.
+		</span>AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">101</span>,
 	}
 }
 
@@ -3902,6 +3995,7 @@
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
+		[pallet_asset_rate, AssetRate]
 		<span class="comment">// XCM
 		</span>[pallet_xcm, XcmPallet]
 		<span class="comment">// NOTE: Make sure you point to the individual modules below.

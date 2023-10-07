@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["era_payout"],"struct":["DealWithFees","ToAuthor"]};
+window.SIDEBAR_ITEMS = {"enum":["VersionedLocatableAsset"],"fn":["era_payout"],"struct":["DealWithFees","LocatableAssetConverter","ToAuthor","VersionedMultiLocationConverter"]};

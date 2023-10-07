@@ -309,6 +309,26 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -588,6 +608,26 @@
 		balance: AssetBalance,
 		asset_id: AssetId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;OutBalance, <span class="self">Self</span>::Error&gt;;
+	<span class="doccomment">/// Ensures that a conversion for the `asset_id` will be successful if done immediately after
+	/// this call.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>ensure_successful(asset_id: AssetId);
+}
+
+<span class="doccomment">/// Implements [`ConversionFromAssetBalance`], enabling a 1:1 conversion of the asset balance
+/// value to the balance.
+</span><span class="kw">pub struct </span>UnityAssetBalanceConversion;
+<span class="kw">impl</span>&lt;AssetBalance, AssetId, OutBalance&gt;
+	ConversionFromAssetBalance&lt;AssetBalance, AssetId, OutBalance&gt; <span class="kw">for </span>UnityAssetBalanceConversion
+<span class="kw">where
+	</span>AssetBalance: Into&lt;OutBalance&gt;,
+{
+	<span class="kw">type </span>Error = ();
+	<span class="kw">fn </span>from_asset_balance(balance: AssetBalance, <span class="kw">_</span>: AssetId) -&gt; <span class="prelude-ty">Result</span>&lt;OutBalance, <span class="self">Self</span>::Error&gt; {
+		<span class="prelude-val">Ok</span>(balance.into())
+	}
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>ensure_successful(<span class="kw">_</span>: AssetId) {}
 }
 
 <span class="doccomment">/// Trait to handle NFT locking mechanism to ensure interactions with the asset can be implemented

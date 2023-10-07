@@ -1500,6 +1500,20 @@
 <a href="#1500" id="1500">1500</a>
 <a href="#1501" id="1501">1501</a>
 <a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2132,6 +2146,13 @@
 	}
 }
 
+<span class="doccomment">/// Creates an [`AccountId32`] from the input, which should contain at least 32 bytes.
+</span><span class="kw">impl </span>FromEntropy <span class="kw">for </span>AccountId32 {
+	<span class="kw">fn </span>from_entropy(input: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>codec::Input) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+		<span class="prelude-val">Ok</span>(AccountId32::new(FromEntropy::from_entropy(input)<span class="question-mark">?</span>))
+	}
+}
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub use </span><span class="self">self</span>::dummy::<span class="kw-2">*</span>;
 
@@ -2670,6 +2691,13 @@
 <span class="kw">impl </span>FromEntropy <span class="kw">for </span>bool {
 	<span class="kw">fn </span>from_entropy(input: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>codec::Input) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="prelude-val">Ok</span>(input.read_byte()<span class="question-mark">? </span>% <span class="number">2 </span>== <span class="number">1</span>)
+	}
+}
+
+<span class="doccomment">/// Create the unit type for any given input.
+</span><span class="kw">impl </span>FromEntropy <span class="kw">for </span>() {
+	<span class="kw">fn </span>from_entropy(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>codec::Input) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
