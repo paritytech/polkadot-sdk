@@ -28,8 +28,12 @@ use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
+
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
+
 use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
 #[cfg(feature = "full_crypto")]
 use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};

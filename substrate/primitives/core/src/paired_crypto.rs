@@ -28,8 +28,10 @@ use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
 
 use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::convert::TryFrom;
