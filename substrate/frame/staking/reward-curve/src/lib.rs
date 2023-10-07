@@ -82,7 +82,7 @@ pub fn build(input: TokenStream) -> TokenStream {
 	let imports = match crate_name("sp-runtime") {
 		Ok(FoundCrate::Itself) => quote!(
 			#[doc(hidden)]
-			pub use crate as _sp_runtime;
+			pub use sp_runtime as _sp_runtime;
 		),
 		Ok(FoundCrate::Name(sp_runtime)) => {
 			let ident = syn::Ident::new(&sp_runtime, Span::call_site());
