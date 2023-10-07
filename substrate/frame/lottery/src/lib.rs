@@ -61,8 +61,8 @@ use frame_support::{
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
 	traits::{
-		fungible,
-		tokens::{fungible::Credit, Precision},
+		fungible::{self, Inspect as _, Mutate as _},
+		tokens::{fungible::Credit, Fortitude, Preservation},
 		ExistenceRequirement::KeepAlive,
 		Get, Randomness,
 	},
@@ -148,10 +148,7 @@ pub mod pallet {
 		// type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// The fungible currency used for deposits.
-		type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
-
-		/// The overarching runtime hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		type Currency: fungible::Balanced<Self::AccountId> + fungible::Mutate<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -243,14 +240,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type Tickets<T: Config> = StorageMap<_, Twox64Concat, u32, T::AccountId>;
 
-	/// A reason for this pallet placing a hold on funds.
-	#[pallet::composite_enum]
-	pub enum HoldReason {
-		/// The funds are held as deposit for a lottery.
-		Lottery,
-		FIXME_MORE_HERE,
-	}
-
 	/// The calls stored in this pallet to be used in an active lottery if configured
 	/// by `Config::ValidateCall`.
 	#[pallet::storage]
@@ -273,7 +262,7 @@ pub mod pallet {
 							&Self::account_id(),
 							&winner,
 							lottery_balance,
-							KeepAlive,
+							Preservation::Preserve,
 						);
 						debug_assert!(res.is_ok());
 
@@ -388,7 +377,7 @@ pub mod pallet {
 			// Make sure pot exists.
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
-				T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
+				let _ = T::Currency::mint_into(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())
@@ -426,7 +415,7 @@ impl<T: Config> Pallet<T> {
 	fn pot() -> (T::AccountId, BalanceOf<T>) {
 		let account_id = Self::account_id();
 		let balance =
-			T::Currency::free_balance(&account_id).saturating_sub(T::Currency::minimum_balance());
+			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite);
 
 		(account_id, balance)
 	}
@@ -483,7 +472,12 @@ impl<T: Config> Pallet<T> {
 				}
 				participating_calls.try_push(call_index).map_err(|_| Error::<T>::TooManyCalls)?;
 				// Check user has enough funds and send it to the Lottery account.
-				T::Currency::transfer(caller, &Self::account_id(), config.price, KeepAlive)?;
+				T::Currency::transfer(
+					caller,
+					&Self::account_id(),
+					config.price,
+					Preservation::Preserve,
+				)?;
 				// Create a new ticket.
 				TicketsCount::<T>::put(new_ticket_count);
 				Tickets::<T>::insert(ticket_count, caller.clone());
