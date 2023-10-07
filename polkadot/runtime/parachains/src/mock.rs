@@ -418,24 +418,18 @@ pub mod mock_assigner {
 			location: QueuePushDirection,
 		) -> Result<(), DispatchError> {
 			match order {
-				TestUnifiedAssignment::OnDemand(inner) =>
-					Self::add_on_demand_by_inner(inner, location),
+				TestUnifiedAssignment::OnDemand(inner) => {
+					MockAssignerQueue::<T>::try_mutate(|queue| {
+						// Don't need to worry about max assignment queue size in scheduler tests
+						match location {
+							QueuePushDirection::Back => queue.push_back(inner),
+							QueuePushDirection::Front => queue.push_front(inner),
+						};
+						Ok(())
+					})
+				}
 				_ => Ok(()),
 			}
-		}
-
-		pub fn add_on_demand_by_inner(
-			order: V0Assignment,
-			location: QueuePushDirection,
-		) -> Result<(), DispatchError> {
-			MockAssignerQueue::<T>::try_mutate(|queue| {
-				// Don't need to worry about max assignment queue size in scheduler tests
-				match location {
-					QueuePushDirection::Back => queue.push_back(order),
-					QueuePushDirection::Front => queue.push_front(order),
-				};
-				Ok(())
-			})
 		}
 
 		// Wraps queued assignments as TestUnifiedAssignments so we only have to deal with one
@@ -496,18 +490,15 @@ pub mod mock_assigner {
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
 		fn push_back_assignment(assignment: Self::AssignmentType) {
-			match assignment {
-				// Bulk assignment has no need to push the assignment back on a session change,
-				// this is a no-op in the case of a bulk assignment slot.
-				UnifiedAssignment::LegacyAuction(_assignment_inner) => {},
-				UnifiedAssignment::OnDemand(assignment_inner) =>
-					match Pallet::<T>::add_on_demand_by_inner(
-						assignment_inner.into(),
-						QueuePushDirection::Front,
-					) {
-						Ok(_) => {},
-						Err(_) => {},
-					},
+			if let TestUnifiedAssignment::LegacyAuction(_assignment_inner) = &assignment {}
+			else {
+				match Pallet::<T>::add_on_demand_order(
+					assignment.into(),
+					QueuePushDirection::Front,
+				) {
+					Ok(_) => {},
+					Err(_) => {},
+				}
 			}
 		}
 
