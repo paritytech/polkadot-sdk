@@ -17,7 +17,7 @@
 
 //! Simple BLS (Boneh–Lynn–Shacham) Signature API.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
