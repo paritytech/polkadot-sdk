@@ -5263,7 +5263,7 @@ dependencies = [
  "aquamarine",
  "array-bytes",
  "assert_matches",
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "docify",
  "environmental",
  "frame-metadata",
@@ -9251,7 +9251,7 @@ version = "4.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_matches",
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "env_logger 0.9.3",
  "environmental",
  "frame-benchmarking",
@@ -9288,7 +9288,7 @@ dependencies = [
 name = "pallet-contracts-primitives"
 version = "24.0.0"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -12549,7 +12549,7 @@ name = "polkadot-runtime-parachains"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "bitvec",
  "derive_more",
  "frame-benchmarking",
@@ -15066,7 +15066,7 @@ name = "sc-network-common"
 version = "0.10.0-dev"
 dependencies = [
  "async-trait",
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "futures",
  "libp2p-identity",
  "parity-scale-codec",
@@ -16823,7 +16823,7 @@ version = "21.0.0"
 dependencies = [
  "array-bytes",
  "bandersnatch_vrfs",
- "bitflags 1.3.2",
+ "bitflags 2.4.0",
  "blake2",
  "bounded-collections",
  "bs58 0.5.0",
