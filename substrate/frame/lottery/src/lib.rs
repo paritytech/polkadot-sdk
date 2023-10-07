@@ -144,10 +144,7 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// The currency trait.
-		// type Currency: ReservableCurrency<Self::AccountId>;
-
-		/// The fungible currency used for deposits.
+		/// The fungible currency used for the lottery pot.
 		type Currency: fungible::Balanced<Self::AccountId> + fungible::Mutate<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
