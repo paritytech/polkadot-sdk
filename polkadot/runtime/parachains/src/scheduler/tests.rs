@@ -725,7 +725,6 @@ fn schedule_schedules_including_just_freed() {
 fn schedule_clears_availability_cores() {
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
-	config.on_demand_cores = 2;
 	let genesis_config = genesis_config(&config);
 
 	let chain_a = ParaId::from(1_u32);
@@ -733,7 +732,7 @@ fn schedule_clears_availability_cores() {
 	let chain_c = ParaId::from(3_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(config.on_demand_cores, 2);
+		assert_eq!(config.on_demand_cores, 3);
 
 		// register 3 parachains
 		schedule_blank_para(chain_a, ParaKind::Parachain);
