@@ -407,15 +407,9 @@ pub mod mock_assigner {
 		#[pallet::config]
 		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 
-		/// Creates an empty on demand queue if one isn't present in storage already.
-		#[pallet::type_value]
-		pub(super) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<V0Assignment> {
-			VecDeque::new()
-		}
-
 		#[pallet::storage]
 		pub(super) type MockAssignerQueue<T: Config> =
-			StorageValue<_, VecDeque<V0Assignment>, ValueQuery, OnDemandQueueOnEmpty<T>>;
+			StorageValue<_, VecDeque<V0Assignment>, ValueQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {

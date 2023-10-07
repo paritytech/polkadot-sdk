@@ -152,7 +152,7 @@ pub(crate) fn scheduled_entries(
 	let claimqueue = ClaimQueue::<Test>::get();
 	claimqueue
 		.into_iter()
-		.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx.clone(), e.clone())))
+		.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.clone())))
 }
 
 #[test]
