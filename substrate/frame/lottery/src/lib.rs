@@ -60,7 +60,12 @@ use frame_support::{
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
-	traits::{Currency, ExistenceRequirement::KeepAlive, Get, Randomness, ReservableCurrency},
+	traits::{
+		fungible,
+		tokens::{fungible::Credit, Precision},
+		ExistenceRequirement::KeepAlive,
+		Get, Randomness,
+	},
 	PalletId,
 };
 pub use pallet::*;
@@ -71,8 +76,9 @@ use sp_runtime::{
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+type BalanceOf<T> = <<T as Config>::Currency as fungible::Inspect<AccountIdOf<T>>>::Balance;
+type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 // Any runtime call can be encoded into two bytes which represent the pallet and call index.
 // We use this to uniquely match someone's incoming call with the calls configured for the lottery.
@@ -139,7 +145,13 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		// type Currency: ReservableCurrency<Self::AccountId>;
+
+		/// The fungible currency used for deposits.
+		type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -230,6 +242,14 @@ pub mod pallet {
 	/// are actually valid ticket mappings.
 	#[pallet::storage]
 	pub(crate) type Tickets<T: Config> = StorageMap<_, Twox64Concat, u32, T::AccountId>;
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for a lottery.
+		Lottery,
+		FIXME_MORE_HERE,
+	}
 
 	/// The calls stored in this pallet to be used in an active lottery if configured
 	/// by `Config::ValidateCall`.
