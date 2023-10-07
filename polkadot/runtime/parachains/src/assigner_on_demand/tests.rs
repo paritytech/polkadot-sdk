@@ -419,8 +419,7 @@ fn affinity_changes_work() {
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
-			OnDemandAssigner::report_processed(assignment_a.clone()); //TODO: Need to check that a report is actually processed when popping with an empty
-												  // queue.
+			OnDemandAssigner::report_processed(assignment_a.clone());
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
@@ -485,9 +484,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		);
 
 		// Clear affinity
-		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
-		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
-		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
+		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(assignment_b.clone());
 
 		// Add 2 assignments for para_a for every para_b.
 		OnDemandAssigner::add_on_demand_order(
@@ -572,7 +571,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		));
 
 		// First pop is fine
-		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == Some(assignment));
+		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == Some(assignment.clone()));
 
 		// Deregister para
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
@@ -583,6 +582,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert!(!Paras::is_parathread(para_id));
 
 		// Second pop should be None.
+		OnDemandAssigner::report_processed(assignment.clone());
 		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == None);
 	});
 }
