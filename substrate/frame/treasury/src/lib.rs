@@ -397,8 +397,8 @@ pub mod pallet {
 		Paid { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
 		/// A payment failed and can be retried.
 		PaymentFailed { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
-		/// A spend was processed and removed from the storage. It might have been successfully paid or
-		/// it may have expired.
+		/// A spend was processed and removed from the storage. It might have been successfully
+		/// paid or it may have expired.
 		SpendProcessed { index: SpendIndex },
 	}
 
