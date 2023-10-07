@@ -456,6 +456,12 @@ pub mod pallet {
 				Weight::zero()
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: T::BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
+		
 	}
 
 	#[derive(Default)]
