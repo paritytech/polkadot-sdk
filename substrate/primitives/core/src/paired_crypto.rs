@@ -279,7 +279,6 @@ where
 {
 }
 
-// TODO: @skalman
 impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> Derive
 	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
 {
