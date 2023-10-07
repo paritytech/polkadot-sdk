@@ -363,19 +363,20 @@ impl<T: Config> Pallet<T> {
 				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
 					let mut i = 0;
 					while i < core_claimqueue.len() {
-						i += 1;
-
-						let dropped = if let Some(entry) = core_claimqueue.get(i) {
+						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
-								match core_claimqueue.remove(i) {
-									Some(dropped) => dropped,
-									_ => continue,
-								}
+								core_claimqueue.remove(i)
 							} else {
-								continue
+								None
 							}
 						} else {
-							continue
+							None
+						};
+						i += 1;
+
+						let dropped = match maybe_dropped {
+							Some(dropped) => dropped,
+							None => continue,
 						};
 
 						i -= 1;

@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	configuration, disputes, dmp, hrmp,
+	assigner, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -388,6 +388,10 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 pub mod mock_assigner {
 	pub use pallet::*;
 	use super::*;
+	use assigner::UnifiedAssignment;
+
+	pub type TestUnifiedAssignment = UnifiedAssignment<V0Assignment, V0Assignment>;
+
 	#[frame_support::pallet]
 	pub mod pallet {
 		use super::*;
@@ -412,6 +416,16 @@ pub mod mock_assigner {
 
 	impl<T: Config> Pallet<T>{
 		pub fn add_on_demand_order(
+			order: TestUnifiedAssignment,
+			location: QueuePushDirection,
+		) -> Result<(), DispatchError> {
+			match order {
+				TestUnifiedAssignment::OnDemand(inner) => Self::add_on_demand_by_inner(inner, location),
+				_ => Ok(()),
+			}
+		}
+
+		pub fn add_on_demand_by_inner(
 			order: V0Assignment,
 			location: QueuePushDirection,
 		) -> Result<(), DispatchError> {
@@ -425,13 +439,24 @@ pub mod mock_assigner {
 			})
 		}
 	
-		pub fn get_queue() -> VecDeque<V0Assignment> {
-			MockAssignerQueue::<T>::get().clone()
+		// Wraps queued assignments as TestUnifiedAssignments so we only have to deal with one 
+		// assignment type in tests
+		pub fn get_queue() -> VecDeque<TestUnifiedAssignment> {
+			MockAssignerQueue::<T>::get()
+				.clone()
+				.into_iter()
+				.map(|assignment| TestUnifiedAssignment::OnDemand(assignment))
+				.collect()
+		}
+
+		fn is_legacy_core(core_idx: &CoreIndex) -> bool {
+			let parachain_cores = <paras::Pallet<Test>>::parachains().len() as u32;
+			(0..parachain_cores).contains(&core_idx.0)
 		}
 	}
 
 	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		type AssignmentType = V0Assignment;
+		type AssignmentType = TestUnifiedAssignment;
 		type OldAssignmentType = V0Assignment;
 		// Format has not changed for parachains, therefore still version 0.
 		const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
@@ -440,7 +465,7 @@ pub mod mock_assigner {
 			old: Self::OldAssignmentType,
 			_core: CoreIndex,
 		) -> Self::AssignmentType {
-			old
+			TestUnifiedAssignment::LegacyAuction(old)
 		}
 		
 		// This can matter, even in tests. Using condensed form of calculation from actual assigner.
@@ -449,30 +474,57 @@ pub mod mock_assigner {
 			(<paras::Pallet<Test>>::parachains().len() as u32).saturating_add(config.on_demand_cores)
 		}
 
-		// Scheduler tests don't make use of assigner core affinity
-		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-			let mut queue: VecDeque<Self::AssignmentType> = MockAssignerQueue::<T>::get();
-			let front = queue.pop_front();
-			// Write changes to storage.
-			MockAssignerQueue::<T>::set(queue);
-			front
+		// Create a new assignment to pass if core belongs to bulk buyer, else pop
+		// on demand assignment from front of queue.
+		fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+			if Self::is_legacy_core(&core_idx) {
+				<paras::Pallet<T>>::parachains()
+				.get(core_idx.0 as usize)
+				.copied()
+				.map(|para_id| UnifiedAssignment::LegacyAuction(V0Assignment::new(para_id)))
+			} else {
+				let mut queue: VecDeque<V0Assignment> = MockAssignerQueue::<T>::get();
+				let front = queue
+					.pop_front()
+					.map(|assignment| UnifiedAssignment::OnDemand(assignment));
+				// Write changes to storage.
+				MockAssignerQueue::<T>::set(queue);
+				front
+			}
 		}
 
+		// We don't care about core affinity in the test assigner
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
 		fn push_back_assignment(assignment: Self::AssignmentType) {
-			match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front) {
-				Ok(_) => {},
-				Err(_) => {},
+			match assignment {
+				// Bulk assignment has no need to push the assignment back on a session change,
+				// this is a no-op in the case of a bulk assignment slot.
+				UnifiedAssignment::LegacyAuction(_assignment_inner) => {}
+				UnifiedAssignment::OnDemand(assignment_inner) => {
+					match Pallet::<T>::add_on_demand_by_inner(assignment_inner.into(), QueuePushDirection::Front) {
+						Ok(_) => {},
+						Err(_) => {},
+					}
+				}
 			}
 		}
 
 		// These numbers are set via config in individual scheduler tests. Just pass them through here.
-		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
-			let config = <configuration::Pallet<Test>>::config();
-			AssignmentProviderConfig {
-				max_availability_timeouts: config.on_demand_retries,
-				ttl: config.on_demand_ttl,
+		fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
+			if Self::is_legacy_core(&core_idx) {
+				// Bulk config
+				AssignmentProviderConfig {
+					max_availability_timeouts: 0,
+					ttl: BlockNumber::from(10u32),
+				}
+			} else {
+				// On demand config
+				let config = <configuration::Pallet<Test>>::config();
+				AssignmentProviderConfig {
+					max_availability_timeouts: config.on_demand_retries,
+					ttl: config.on_demand_ttl,
+				}
 			}
 		}
 	}
