@@ -120,7 +120,6 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
 		let amount_out_min = amount_out_min.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_out = with_storage_layer(|| {
 			Self::do_swap_exact_tokens_for_tokens(
@@ -143,7 +142,6 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let path = path.try_into().map_err(|_| Error::<T>::PathError)?;
 		let amount_in_max = amount_in_max.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_in = with_storage_layer(|| {
 			Self::do_swap_tokens_for_exact_tokens(
@@ -173,10 +171,6 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		credit_in: Self::Credit,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
-		let path = match path.try_into() {
-			Ok(p) => p,
-			Err(_) => return Err((credit_in, Error::<T>::PathError.into())),
-		};
 		let transaction_res =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let res =
@@ -200,10 +194,6 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		credit_in: Self::Credit,
 		amount_out: Self::Balance,
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
-		let path = match path.try_into() {
-			Ok(p) => p,
-			Err(_) => return Err((credit_in, Error::<T>::PathError.into())),
-		};
 		let transaction_res =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let res = Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);

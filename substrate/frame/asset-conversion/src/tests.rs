@@ -95,14 +95,8 @@ fn get_ed() -> u128 {
 }
 
 macro_rules! bvec {
-	($( $x:tt )*) => {
-		vec![$( $x )*].try_into().unwrap()
-	}
-}
-
-macro_rules! bbvec {
 	($( $x:ident ),*) => {
-		vec![$( Box::new( $x ), )*].try_into().unwrap()
+		vec![$( Box::new( $x ), )*]
 	}
 }
 
@@ -885,7 +879,7 @@ fn quote_price_exact_tokens_for_tokens_matches_execution() {
 		assert_eq!(prior_dot_balance, balance(user2, token_1));
 		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
 			RuntimeOrigin::signed(user2),
-			bbvec![token_2, token_1],
+			bvec![token_2, token_1],
 			amount,
 			1,
 			user2,
@@ -939,7 +933,7 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 		assert_eq!(prior_asset_balance, balance(user2, token_2));
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
 			RuntimeOrigin::signed(user2),
-			bbvec![token_2, token_1],
+			bvec![token_2, token_1],
 			amount,
 			1,
 			user2,
@@ -992,7 +986,7 @@ fn can_swap_with_native() {
 
 		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_2, token_1],
+			bvec![token_2, token_1],
 			input_amount,
 			1,
 			user,
@@ -1042,7 +1036,7 @@ fn can_swap_with_realistic_values() {
 
 		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![usd, dot],
+			bvec![usd, dot],
 			input_amount,
 			1,
 			user,
@@ -1054,7 +1048,7 @@ fn can_swap_with_realistic_values() {
 			send_to: user,
 			amount_in: 10 * UNIT,      // usd
 			amount_out: 1_993_980_120, // About 2 dot after div by UNIT.
-			path: bvec![(usd, 10 * UNIT), (dot, 1_993_980_120)],
+			path: vec![(usd, 10 * UNIT), (dot, 1_993_980_120)],
 		}));
 	});
 }
@@ -1077,7 +1071,7 @@ fn can_not_swap_in_pool_with_no_liquidity_added_yet() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				10,
 				1,
 				user,
@@ -1156,7 +1150,7 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				708 - ed + 1, // amount_out
 				500,          // amount_in_max
 				user,
@@ -1167,7 +1161,7 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_2, token_1],
+			bvec![token_2, token_1],
 			608, // amount_out
 			500, // amount_in_max
 			user,
@@ -1189,7 +1183,7 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				token_1_left - 1, // amount_out
 				1000,             // amount_in_max
 				user,
@@ -1202,7 +1196,7 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				token_1_left, // amount_out
 				1000,         // amount_in_max
 				user,
@@ -1249,7 +1243,7 @@ fn swap_should_not_work_if_too_much_slippage() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				exchange_amount, // amount_in
 				4000,            // amount_out_min
 				user,
@@ -1304,7 +1298,7 @@ fn can_swap_tokens_for_exact_tokens() {
 
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_1, token_2],
+			bvec![token_1, token_2],
 			exchange_out, // amount_out
 			3500,         // amount_in_max
 			user,
@@ -1378,7 +1372,7 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_1, token_2],
+			bvec![token_1, token_2],
 			exchange_out, // amount_out
 			3500,         // amount_in_max
 			user,
@@ -1452,7 +1446,7 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2],
+				bvec![token_1, token_2],
 				1,   // amount_out
 				101, // amount_in_max
 				user,
@@ -1464,7 +1458,7 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2],
+				bvec![token_1, token_2],
 				51, // amount_in
 				1,  // amount_out_min
 				user,
@@ -1476,7 +1470,7 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				51, // amount_out
 				2,  // amount_in_max
 				user,
@@ -1488,7 +1482,7 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_1],
+				bvec![token_2, token_1],
 				2, // amount_in
 				1, // amount_out_min
 				user,
@@ -1572,7 +1566,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2],
+				bvec![token_1, token_2],
 				110,   // amount_out
 				20000, // amount_in_max
 				user,
@@ -1585,7 +1579,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2],
+				bvec![token_1, token_2],
 				15000, // amount_in
 				110,   // amount_out_min
 				user,
@@ -1598,7 +1592,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_3, token_1],
+				bvec![token_3, token_1],
 				110,   // amount_out
 				20000, // amount_in_max
 				user,
@@ -1611,7 +1605,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_3, token_1],
+				bvec![token_3, token_1],
 				15000, // amount_in
 				110,   // amount_out_min
 				user,
@@ -1633,7 +1627,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_3, token_1, token_2],
+				bvec![token_3, token_1, token_2],
 				amount_in, // amount_in
 				1,         // amount_out_min
 				user,
@@ -1655,7 +1649,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2, token_3],
+				bvec![token_1, token_2, token_3],
 				amount_in, // amount_in
 				1,         // amount_out_min
 				user,
@@ -1702,7 +1696,7 @@ fn swap_tokens_for_exact_tokens_should_not_work_if_too_much_slippage() {
 		assert_noop!(
 			AssetConversion::swap_tokens_for_exact_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2],
+				bvec![token_1, token_2],
 				exchange_out, // amount_out
 				50,           // amount_in_max just greater than slippage.
 				user,
@@ -1776,7 +1770,7 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1],
+				bvec![token_1],
 				input_amount,
 				80,
 				user,
@@ -1788,7 +1782,7 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_2, token_3, token_2],
+				bvec![token_1, token_2, token_3, token_2],
 				input_amount,
 				80,
 				user,
@@ -1799,7 +1793,7 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 
 		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_1, token_2, token_3],
+			bvec![token_1, token_2, token_3],
 			input_amount, // amount_in
 			80,           // amount_out_min
 			user,
@@ -1882,7 +1876,7 @@ fn swap_tokens_for_exact_tokens_in_multi_hops() {
 
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
 			RuntimeOrigin::signed(user),
-			bbvec![token_1, token_2, token_3],
+			bvec![token_1, token_2, token_3],
 			exchange_out3, // amount_out
 			1000,          // amount_in_max
 			user,
@@ -1933,7 +1927,7 @@ fn can_not_swap_same_asset() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_1, token_1],
+				bvec![token_1, token_1],
 				exchange_amount,
 				1,
 				user,
@@ -1945,7 +1939,7 @@ fn can_not_swap_same_asset() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bbvec![token_2, token_2],
+				bvec![token_2, token_2],
 				exchange_amount,
 				1,
 				user,
@@ -2113,7 +2107,7 @@ fn swap_transactional() {
 		let error;
 		assert_storage_noop!(
 			error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-				bvec![token_2, token_1, token_3],
+				vec![token_2, token_1, token_3],
 				credit_in.into(),
 				expected_out,
 			)
@@ -2128,7 +2122,7 @@ fn swap_transactional() {
 		let error;
 		assert_storage_noop!(
 			error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-				bvec![token_2, token_1, token_3],
+				vec![token_2, token_1, token_3],
 				credit_in.into(),
 				Some(expected_out),
 			)
@@ -2140,7 +2134,7 @@ fn swap_transactional() {
 		assert_noop!(
 			<AssetConversion as Swap<_>>::swap_exact_tokens_for_tokens(
 				user2,
-				bvec![token_2, token_1, token_3],
+				vec![token_2, token_1, token_3],
 				amount_in.into(),
 				Some(expected_out.into()),
 				user2,
@@ -2153,7 +2147,7 @@ fn swap_transactional() {
 		assert_noop!(
 			<AssetConversion as Swap<_>>::swap_tokens_for_exact_tokens(
 				user2,
-				bvec![token_2, token_1, token_3],
+				vec![token_2, token_1, token_3],
 				expected_out.into(),
 				Some(amount_in.into()),
 				user2,
@@ -2211,7 +2205,7 @@ fn swap_credit_returns_change() {
 		let credit_in = Balances::issue(amount_in_max + expected_change.peek());
 		assert_ok!(
 			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-				bvec![token_1, token_2],
+				vec![token_1, token_2],
 				credit_in.into(),
 				expected_credit_out.peek(),
 			),
@@ -2264,7 +2258,7 @@ fn swap_credit_insufficient_amount_bounds() {
 		let credit_in = Balances::issue(amount_in);
 		let expected_credit_in = Balances::issue(amount_in);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in.into(),
 			Some(amount_out_min),
 		)
@@ -2281,7 +2275,7 @@ fn swap_credit_insufficient_amount_bounds() {
 		let credit_in = Balances::issue(amount_in_max);
 		let expected_credit_in = Balances::issue(amount_in_max);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in.into(),
 			amount_out,
 		)
@@ -2333,7 +2327,7 @@ fn swap_credit_zero_amount() {
 		let credit_in = Credit::native_zero();
 		let expected_credit_in = Credit::native_zero();
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in,
 			None,
 		)
@@ -2344,7 +2338,7 @@ fn swap_credit_zero_amount() {
 		let credit_in = Credit::native_zero();
 		let expected_credit_in = Credit::native_zero();
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in,
 			10,
 		)
@@ -2355,7 +2349,7 @@ fn swap_credit_zero_amount() {
 		let credit_in = Balances::issue(10);
 		let expected_credit_in = Balances::issue(10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in.into(),
 			Some(0),
 		)
@@ -2366,7 +2360,7 @@ fn swap_credit_zero_amount() {
 		let credit_in = Balances::issue(10);
 		let expected_credit_in = Balances::issue(10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in.into(),
 			0,
 		)
@@ -2415,7 +2409,7 @@ fn swap_credit_invalid_path() {
 		let credit_in = Balances::issue(10);
 		let expected_credit_in = Balances::issue(10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-			bvec![token_2, token_1],
+			vec![token_2, token_1],
 			credit_in.into(),
 			None,
 		)
@@ -2426,7 +2420,7 @@ fn swap_credit_invalid_path() {
 		let credit_in = Assets::issue(2, 10);
 		let expected_credit_in = Assets::issue(2, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-			bvec![token_1, token_2],
+			vec![token_1, token_2],
 			credit_in.into(),
 			10,
 		)
@@ -2437,7 +2431,7 @@ fn swap_credit_invalid_path() {
 		let credit_in = Balances::issue(10);
 		let expected_credit_in = Balances::issue(10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
-			bvec![token_2],
+			vec![token_2],
 			credit_in.into(),
 			None,
 		)
@@ -2448,7 +2442,7 @@ fn swap_credit_invalid_path() {
 		let credit_in = Assets::issue(2, 10);
 		let expected_credit_in = Assets::issue(2, 10);
 		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
-			bvec![],
+			vec![],
 			credit_in.into(),
 			10,
 		)

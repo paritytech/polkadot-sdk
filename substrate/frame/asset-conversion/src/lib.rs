@@ -86,7 +86,7 @@ use frame_support::{
 		},
 		AccountTouch, ContainsPair, Imbalance, Incrementable,
 	},
-	BoundedBTreeSet, PalletId,
+	PalletId,
 };
 use sp_core::Get;
 use sp_runtime::{
@@ -94,9 +94,9 @@ use sp_runtime::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
 		One, TrailingZeroInput, Zero,
 	},
-	BoundedVec, DispatchError, RuntimeDebug, Saturating, TokenError, TransactionOutcome,
+	DispatchError, RuntimeDebug, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -650,7 +650,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens())]
 		pub fn swap_exact_tokens_for_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<Box<T::MultiAssetId>, T::MaxSwapPathLength>,
+			path: Vec<Box<T::MultiAssetId>>,
 			amount_in: T::AssetBalance,
 			amount_out_min: T::AssetBalance,
 			send_to: T::AccountId,
@@ -659,11 +659,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_swap_exact_tokens_for_tokens(
 				sender,
-				path.into_iter()
-					.map(|a| *a)
-					.collect::<Vec<T::MultiAssetId>>()
-					.try_into()
-					.map_err(|_| Error::<T>::InvalidPath)?,
+				path.into_iter().map(|a| *a).collect(),
 				amount_in,
 				Some(amount_out_min),
 				send_to,
@@ -682,7 +678,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens())]
 		pub fn swap_tokens_for_exact_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<Box<T::MultiAssetId>, T::MaxSwapPathLength>,
+			path: Vec<Box<T::MultiAssetId>>,
 			amount_out: T::AssetBalance,
 			amount_in_max: T::AssetBalance,
 			send_to: T::AccountId,
@@ -691,11 +687,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_swap_tokens_for_exact_tokens(
 				sender,
-				path.into_iter()
-					.map(|a| *a)
-					.collect::<Vec<T::MultiAssetId>>()
-					.try_into()
-					.map_err(|_| Error::<T>::InvalidPath)?,
+				path.into_iter().map(|a| *a).collect(),
 				amount_out,
 				Some(amount_in_max),
 				send_to,
@@ -720,7 +712,7 @@ pub mod pallet {
 		/// rollback.
 		pub(crate) fn do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 			amount_in: T::AssetBalance,
 			amount_out_min: Option<T::AssetBalance>,
 			send_to: T::AccountId,
@@ -768,7 +760,7 @@ pub mod pallet {
 		/// rollback.
 		pub(crate) fn do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 			amount_out: T::AssetBalance,
 			amount_in_max: Option<T::AssetBalance>,
 			send_to: T::AccountId,
@@ -814,7 +806,7 @@ pub mod pallet {
 		/// only inside a transactional storage context and an Err result must imply a storage
 		/// rollback.
 		pub(crate) fn do_swap_exact_credit_tokens_for_tokens(
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 			credit_in: Credit<T>,
 			amount_out_min: Option<T::AssetBalance>,
 		) -> Result<Credit<T>, (Credit<T>, DispatchError)> {
@@ -862,7 +854,7 @@ pub mod pallet {
 		/// only inside a transactional storage context and an Err result must imply a storage
 		/// rollback.
 		pub(crate) fn do_swap_credit_tokens_for_exact_tokens(
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 			credit_in: Credit<T>,
 			amount_out: T::AssetBalance,
 		) -> Result<(Credit<T>, Credit<T>), (Credit<T>, DispatchError)> {
@@ -1152,7 +1144,7 @@ pub mod pallet {
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
 		pub(crate) fn balance_path_from_amount_out(
 			amount_out: T::AssetBalance,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 		) -> Result<BalancePath<T>, DispatchError> {
 			let mut balance_path: BalancePath<T> = Vec::with_capacity(path.len());
 			let mut amount_in: T::AssetBalance = amount_out;
@@ -1178,7 +1170,7 @@ pub mod pallet {
 		/// Following an amount into a `path`, get the corresponding amounts out.
 		pub(crate) fn balance_path_from_amount_in(
 			amount_in: T::AssetBalance,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: Vec<T::MultiAssetId>,
 		) -> Result<BalancePath<T>, DispatchError> {
 			let mut balance_path: BalancePath<T> = Vec::with_capacity(path.len());
 			let mut amount_out: T::AssetBalance = amount_in;
@@ -1391,18 +1383,16 @@ pub mod pallet {
 		}
 
 		/// Ensure that a path is valid.
-		fn validate_swap_path(
-			path: &BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
-		) -> Result<(), DispatchError> {
+		fn validate_swap_path(path: &Vec<T::MultiAssetId>) -> Result<(), DispatchError> {
 			ensure!(path.len() >= 2, Error::<T>::InvalidPath);
+			ensure!(path.len() as u32 <= T::MaxSwapPathLength::get(), Error::<T>::InvalidPath);
 
 			// validate all the pools in the path are unique
-			let mut pools = BoundedBTreeSet::<PoolIdOf<T>, T::MaxSwapPathLength>::new();
+			let mut pools = BTreeSet::<PoolIdOf<T>>::new();
 			for assets_pair in path.windows(2) {
 				if let [asset1, asset2] = assets_pair {
 					let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
-					let new_element =
-						pools.try_insert(pool_id).map_err(|_| Error::<T>::Overflow)?;
+					let new_element = pools.insert(pool_id);
 					if !new_element {
 						return Err(Error::<T>::NonUniquePath.into())
 					}
