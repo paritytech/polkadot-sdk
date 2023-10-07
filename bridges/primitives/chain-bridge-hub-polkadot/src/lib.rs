@@ -26,6 +26,7 @@ use bp_runtime::{
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
+use sp_std::prelude::Vec;
 
 /// BridgeHubPolkadot parachain.
 #[derive(RuntimeDebug)]

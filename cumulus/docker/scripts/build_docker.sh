@@ -6,7 +6,7 @@ cd "$(cd "$(dirname "$0")" && git rev-parse --show-toplevel)"
 
 dockerfile="$1"
 if [ -z "$dockerfile" ]; then
-    dockerfile="./docker/test-parachain-collator.Dockerfile"
+    dockerfile="./docker/test-parachain-collator.dockerfile"
 else
     shift 1
 fi

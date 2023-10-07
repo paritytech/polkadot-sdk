@@ -116,18 +116,11 @@ impl fmt::Display for BadPeer {
 
 impl std::error::Error for BadPeer {}
 
-/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportBlocksAction<B: BlockT> {
-	pub origin: BlockOrigin,
-	pub blocks: Vec<IncomingBlock<B>>,
-}
-
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
-	Import(ImportBlocksAction<Block>),
+	Import(BlockOrigin, Vec<IncomingBlock<Block>>),
 	/// A new block request needs to be made to the given peer.
 	Request(PeerId, BlockRequest<Block>),
 	/// Continue processing events.
@@ -141,7 +134,7 @@ pub enum OnBlockJustification<Block: BlockT> {
 	Nothing,
 	/// The justification should be imported.
 	Import {
-		peer_id: PeerId,
+		peer: PeerId,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justifications: Justifications,
@@ -316,7 +309,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
-	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -348,7 +340,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 	///
 	/// If this corresponds to a valid block, this outputs the block that
 	/// must be imported in the import queue.
-	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -359,7 +350,6 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a response from the remote to a justification request that we made.
 	///
 	/// `request` must be the original request that triggered `response`.
-	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,
@@ -389,8 +379,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
 	/// import, so this functions checks for such blocks and returns them.
-	#[must_use]
-	fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
+	fn peer_disconnected(&mut self, who: &PeerId);
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;

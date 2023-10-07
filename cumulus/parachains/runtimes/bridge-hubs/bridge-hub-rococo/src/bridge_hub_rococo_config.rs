@@ -29,8 +29,8 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
+		RefundableParachain,
 	},
 };
 use frame_support::{parameter_types, traits::PalletInfoAccess};
@@ -136,15 +136,13 @@ impl ThisChainWithMessages for BridgeHubRococo {
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Wococo parachain.
-pub type BridgeRefundBridgeHubWococoMessages = RefundSignedExtensionAdapter<
-	RefundBridgedParachainMessages<
-		Runtime,
-		RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
-		RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
-		ActualFeeRefund<Runtime>,
-		PriorityBoostPerMessage,
-		StrBridgeRefundBridgeHubWococoMessages,
-	>,
+pub type BridgeRefundBridgeHubWococoMessages = RefundBridgedParachainMessages<
+	Runtime,
+	RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
+	RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
+	ActualFeeRefund<Runtime>,
+	PriorityBoostPerMessage,
+	StrBridgeRefundBridgeHubWococoMessages,
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubWococoMessages);
 

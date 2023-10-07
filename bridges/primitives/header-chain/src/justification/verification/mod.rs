@@ -143,7 +143,6 @@ pub enum PrecommitError {
 }
 
 /// The context needed for validating GRANDPA finality proofs.
-#[derive(RuntimeDebug)]
 pub struct JustificationVerificationContext {
 	/// The authority set used to verify the justification.
 	pub voter_set: VoterSet<AuthorityId>,

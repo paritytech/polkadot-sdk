@@ -278,7 +278,6 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}

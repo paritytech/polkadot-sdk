@@ -292,9 +292,9 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<1>;
+	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -1311,7 +1311,6 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_nomination_pools::WeightInfo<Self>;
 	type Currency = Balances;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -1399,7 +1398,7 @@ construct_runtime! {
 		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>} = 25,
 
 		// Nomination pools for staking.
-		NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, Config<T>, FreezeReason} = 29,
+		NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, Config<T>} = 29,
 
 		// Fast unstake pallet: extension to staking.
 		FastUnstake: pallet_fast_unstake = 30,
@@ -1508,9 +1507,7 @@ pub mod migrations {
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
-		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
-		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
 	);
 }
 

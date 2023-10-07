@@ -111,8 +111,6 @@ fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> 
 ///
 /// # Parameters
 ///
-/// - `socket_path`: specifies the path to the socket used to communicate with the host.
-///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
 /// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
@@ -123,7 +121,6 @@ fn send_response(stream: &mut UnixStream, response: Response) -> io::Result<()> 
 ///
 /// - `security_status`: contains the detected status of security features.
 pub fn worker_entrypoint(
-	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
@@ -131,7 +128,6 @@ pub fn worker_entrypoint(
 ) {
 	worker_event_loop(
 		WorkerKind::Execute,
-		socket_path,
 		worker_dir_path,
 		node_version,
 		worker_version,
