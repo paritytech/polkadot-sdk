@@ -73,7 +73,7 @@ pub mod v1 {
 				current.put::<Pallet<T>>();
 
 				// TODO: Replace unbound storage iteration by lazy migration or multiblock migration
-				v0::Accounts::<T, OldCurrency>::iter().for_each(|(account_index, (account_id, deposit, frozen))| {
+				v0::Accounts::<T, OldCurrency>::iter().for_each(|(account_index, (account_id, deposit, perm))| {
 					let remaining = OldCurrency::unreserve(&account_id, deposit);
 
 					if remaining > Zero::zero() {
@@ -86,25 +86,27 @@ pub mod v1 {
 						);
 					}
 
-					let unreserved = deposit.saturating_sub(remaining);
-					let amount = BalanceOf::<T>::from(unreserved);
+					// let unreserved = deposit.saturating_sub(remaining);
+					// let amount = BalanceOf::<T>::from(unreserved);
 
-					T::Currency::hold(
-						&HoldReason::ClaimedIndex.into(),
+					// TODO: is there a way of calculating exactly the same deposit with a Footprint?
+					let ticket = T::Consideration::new(
 						&account_id,
-						amount,
-					)
-					.unwrap_or_else(|err| {
+						Footprint::from_parts(
+							1,
+							sp_std::mem::size_of::<<T as frame_system::Config>::AccountId>() as usize
+						)
+					).map_err(|err| {
 						log::error!(
 							target: LOG_TARGET,
-							"Failed to hold {:?} from the account {:?}, reason: {:?}.",
-							amount,
+							"Failed create new Consideration from the account {:?}, reason: {:?}.",
 							account_id,
 							err
 						);
-					});
+						err
+					}).ok();
 
-					Accounts::<T>::set(account_index, Some((account_id, frozen)));
+					Accounts::<T>::set(account_index, Some((account_id, ticket, perm)));
 				});
 
 				// TODO: Fix weight when lazy migration or multi block migration is in place
