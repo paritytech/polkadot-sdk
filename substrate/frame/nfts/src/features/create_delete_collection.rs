@@ -43,7 +43,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Collection::<T, I>::contains_key(collection), Error::<T, I>::CollectionIdInUse);
 
-		T::Currency::hold(&HoldReason::CollectionOwnerDeposit.into(), &owner, deposit)?;
+		T::Currency::hold(&HoldReason::CollectionOwnerAggregatedDeposit.into(), &owner, deposit)?;
 
 		Collection::<T, I>::insert(
 			collection,
@@ -142,7 +142,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			CollectionAccount::<T, I>::remove(&collection_details.owner, &collection);
 			T::Currency::release(
-				&HoldReason::CollectionOwnerDeposit.into(),
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&collection_details.owner,
 				collection_details.owner_deposit,
 				BestEffort,

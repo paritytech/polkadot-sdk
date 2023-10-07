@@ -666,9 +666,9 @@ pub mod pallet {
 	/// A reason for the pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Reserved for a collection's storage record.
+		/// An aggregated reserve for all the deposits made by collection's owner.
 		#[codec(index = 0)]
-		CollectionOwnerDeposit,
+		CollectionOwnerAggregatedDeposit,
 		/// Reserved for an item's storage record.
 		#[codec(index = 1)]
 		ItemDeposit,
@@ -1071,14 +1071,14 @@ pub mod pallet {
 				let old = details.deposit.amount;
 				if old > deposit {
 					T::Currency::release(
-						&HoldReason::CollectionOwnerDeposit.into(),
+						&HoldReason::ItemDeposit.into(),
 						&details.deposit.account,
 						old - deposit,
 						BestEffort,
 					)?;
 				} else if deposit > old {
 					if T::Currency::hold(
-						&HoldReason::CollectionOwnerDeposit.into(),
+						&HoldReason::ItemDeposit.into(),
 						&details.deposit.account,
 						deposit - old,
 					)
@@ -1543,10 +1543,15 @@ pub mod pallet {
 			item: T::ItemId,
 			delegate: AccountIdLookupOf<T>,
 			witness: CancelAttributesApprovalWitness,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			Self::do_cancel_item_attributes_approval(origin, collection, item, delegate, witness)
+			let details = Self::do_cancel_item_attributes_approval(
+				origin, collection, item, delegate, witness,
+			)?;
+
+			Ok(Some(T::WeightInfo::cancel_item_attributes_approval(details.account_attributes))
+				.into())
 		}
 
 		/// Set the metadata for an item.

@@ -246,8 +246,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let depositor_account =
 							metadata.deposit.account.unwrap_or(collection_details.owner.clone());
 
+						let reason = if depositor_account == collection_details.owner {
+							HoldReason::CollectionOwnerAggregatedDeposit
+						} else {
+							HoldReason::MetadataDeposit
+						};
 						T::Currency::release(
-							&HoldReason::MetadataDeposit.into(),
+							&reason.into(),
 							&depositor_account,
 							metadata.deposit.amount,
 							BestEffort,

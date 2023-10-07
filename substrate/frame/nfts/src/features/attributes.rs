@@ -110,6 +110,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let is_collection_owner_namespace = namespace == AttributeNamespace::CollectionOwner;
 		let is_depositor_collection_owner =
 			is_collection_owner_namespace && collection_details.owner == depositor;
+		let reason = if is_depositor_collection_owner {
+			HoldReason::CollectionOwnerAggregatedDeposit
+		} else {
+			HoldReason::AttributeDeposit
+		};
 
 		// NOTE: in the CollectionOwner namespace if the depositor is `None` that means the deposit
 		// was paid by the collection's owner.
@@ -126,23 +131,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// and return the deposit to the previous owner.
 		if depositor_has_changed {
 			if let Some(old_depositor) = old_depositor {
+				let release_reason = if old_depositor == collection_details.owner {
+					HoldReason::CollectionOwnerAggregatedDeposit
+				} else {
+					HoldReason::AttributeDeposit
+				};
 				T::Currency::release(
-					&HoldReason::AttributeDeposit.into(),
+					&release_reason.into(),
 					&old_depositor,
 					old_deposit.amount,
 					BestEffort,
 				)?;
 			}
-			T::Currency::hold(&HoldReason::AttributeDeposit.into(), &depositor, deposit)?;
+			T::Currency::hold(&reason.into(), &depositor, deposit)?;
 		} else if deposit > old_deposit.amount {
-			T::Currency::hold(
-				&HoldReason::AttributeDeposit.into(),
-				&depositor,
-				deposit - old_deposit.amount,
-			)?;
+			T::Currency::hold(&reason.into(), &depositor, deposit - old_deposit.amount)?;
 		} else if deposit < old_deposit.amount {
 			T::Currency::release(
-				&HoldReason::AttributeDeposit.into(),
+				&reason.into(),
 				&depositor,
 				old_deposit.amount - deposit,
 				BestEffort,
@@ -372,7 +378,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None if namespace == AttributeNamespace::CollectionOwner => {
 				collection_details.owner_deposit.saturating_reduce(deposit.amount);
 				T::Currency::release(
-					&HoldReason::AttributeDeposit.into(),
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 					&collection_details.owner,
 					deposit.amount,
 					BestEffort,
@@ -444,7 +450,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		item: T::ItemId,
 		delegate: T::AccountId,
 		witness: CancelAttributesApprovalWitness,
-	) -> DispatchResult {
+	) -> Result<CancelAttributesApprovalWitness, DispatchError> {
 		ensure!(
 			Self::is_pallet_feature_enabled(PalletFeature::Attributes),
 			Error::<T, I>::MethodDisabled
@@ -464,7 +470,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				AttributeNamespace::Account(delegate.clone()),
 			)) {
 				attributes.saturating_inc();
-				deposited = deposited.saturating_add(deposit.amount);
+				if deposit.account == Some(delegate.clone()) {
+					deposited = deposited.saturating_add(deposit.amount);
+				} else if let Some(depositor) = deposit.account {
+					T::Currency::release(
+						&HoldReason::AttributeDeposit.into(),
+						&depositor,
+						deposited,
+						BestEffort,
+					)?;
+				}
 			}
 			ensure!(attributes <= witness.account_attributes, Error::<T, I>::BadWitness);
 
@@ -482,7 +497,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				item,
 				delegate,
 			});
-			Ok(())
+
+			Ok(CancelAttributesApprovalWitness { account_attributes: attributes })
 		})
 	}
 
