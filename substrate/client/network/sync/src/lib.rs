@@ -1405,45 +1405,43 @@ where
 
 	/// Get the set of downloaded blocks that are ready to be queued for import.
 	fn ready_blocks(&mut self) -> Vec<IncomingBlock<B>> {
-		let target_block = self.best_queued_number + One::one();
+		let start_block = self.best_queued_number + One::one();
 
 		// Verify that the parent of the first available block is in the chain.
 		// If not, we are downloading from a fork. In this case, wait until
 		// the start block has a parent on chain.
-		let parent_on_chain =
-			self.blocks.first_ready_block_hdr(target_block).map_or(false, |hdr| {
-				let parent_status =
-					self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown);
-				parent_status == BlockStatus::InChainWithState ||
-					parent_status == BlockStatus::Queued
-			});
+		let parent_on_chain = self.blocks.first_ready_block_hdr(start_block).map_or(false, |hdr| {
+			let parent_status =
+				self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown);
+			parent_status == BlockStatus::InChainWithState || parent_status == BlockStatus::Queued
+		});
 
-		if parent_on_chain {
-			self.blocks
-				.ready_blocks(target_block)
-				.into_iter()
-				.map(|block_data| {
-					let justifications = block_data
-						.block
-						.justifications
-						.or_else(|| legacy_justification_mapping(block_data.block.justification));
-					IncomingBlock {
-						hash: block_data.block.hash,
-						header: block_data.block.header,
-						body: block_data.block.body,
-						indexed_body: block_data.block.indexed_body,
-						justifications,
-						origin: block_data.origin,
-						allow_missing_state: true,
-						import_existing: self.import_existing,
-						skip_execution: self.skip_execution(),
-						state: None,
-					}
-				})
-				.collect()
-		} else {
-			vec![]
+		if !parent_on_chain {
+			return vec![]
 		}
+
+		self.blocks
+			.ready_blocks(start_block)
+			.into_iter()
+			.map(|block_data| {
+				let justifications = block_data
+					.block
+					.justifications
+					.or_else(|| legacy_justification_mapping(block_data.block.justification));
+				IncomingBlock {
+					hash: block_data.block.hash,
+					header: block_data.block.header,
+					body: block_data.block.body,
+					indexed_body: block_data.block.indexed_body,
+					justifications,
+					origin: block_data.origin,
+					allow_missing_state: true,
+					import_existing: self.import_existing,
+					skip_execution: self.skip_execution(),
+					state: None,
+				}
+			})
+			.collect()
 	}
 
 	/// Set warp sync target block externally in case we skip warp proof downloading.
@@ -3425,7 +3423,7 @@ mod test {
 			client.clone(),
 			ProtocolName::from("test-block-announce-protocol"),
 			1,
-			64,
+			max_blocks_per_request,
 			None,
 			chain_sync_network_handle,
 		)
@@ -3613,7 +3611,7 @@ mod test {
 			client.clone(),
 			ProtocolName::from("test-block-announce-protocol"),
 			1,
-			64,
+			max_blocks_per_request,
 			None,
 			chain_sync_network_handle,
 		)
@@ -3647,7 +3645,7 @@ mod test {
 		}
 
 		// The response for the 64 blocks is returned in two parts:
-		// part 1: last 61 blocks [18..79], part 2: first 3 blocks [16-17].
+		// part 1: last 62 blocks [18..79], part 2: first 2 blocks [16-17].
 		// Even though the  first part extends the current chain ending at 18,
 		// it should not result in an import yet.
 		let resp_1_from = common_ancestor as u64 + max_blocks_per_request as u64;
