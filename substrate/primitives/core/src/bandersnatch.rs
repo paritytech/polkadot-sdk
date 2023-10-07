@@ -694,6 +694,7 @@ pub mod ring_vrf {
 		}
 
 		impl RingContext {
+			/// Information required to construct a ring verifier.
 			pub fn verifier_data(&self, public_keys: &[Public]) -> Option<RingVerifierData> {
 				let mut pks = Vec::with_capacity(public_keys.len());
 				for public_key in public_keys {

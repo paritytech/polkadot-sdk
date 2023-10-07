@@ -39,7 +39,7 @@ mod benchmarks {
 	const LOG_TARGET: &str = "sassafras::benchmark";
 
 	#[benchmark]
-	fn submit_tickets(x: Linear<1, 3>) {
+	fn submit_tickets(x: Linear<1, 20>) {
 		let tickets_count = x as usize;
 
 		let mut raw_data = TICKETS_DATA;
