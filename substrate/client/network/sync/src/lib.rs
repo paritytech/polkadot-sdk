@@ -1410,11 +1410,13 @@ where
 		// Verify that the parent of the first available block is in the chain.
 		// If not, we are downloading from a fork. In this case, wait until
 		// the start block has a parent on chain.
-		let parent_on_chain = self.blocks.first_ready_block_hdr(start_block).map_or(false, |hdr| {
-			let parent_status =
-				self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown);
-			parent_status == BlockStatus::InChainWithState || parent_status == BlockStatus::Queued
-		});
+		let parent_on_chain =
+			self.blocks.first_ready_block_header(start_block).map_or(false, |hdr| {
+				std::matches!(
+					self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown),
+					BlockStatus::InChainWithState | BlockStatus::Queued
+				)
+			});
 
 		if !parent_on_chain {
 			return vec![]
