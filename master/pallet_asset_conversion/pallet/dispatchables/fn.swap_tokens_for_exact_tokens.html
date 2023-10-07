@@ -2,7 +2,7 @@
     path: BoundedVec&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.MultiAssetId" title="type pallet_asset_conversion::pallet::Config::MultiAssetId">MultiAssetId</a>, T::<a class="associatedtype" href="../trait.Config.html#associatedtype.MaxSwapPathLength" title="type pallet_asset_conversion::pallet::Config::MaxSwapPathLength">MaxSwapPathLength</a>&gt;,
     amount_out: T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetBalance" title="type pallet_asset_conversion::pallet::Config::AssetBalance">AssetBalance</a>,
     amount_in_max: T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetBalance" title="type pallet_asset_conversion::pallet::Config::AssetBalance">AssetBalance</a>,
-    send_to: T::<a class="associatedtype" href="../../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>,
+    send_to: T::AccountId,
     keep_alive: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.bool.html">bool</a>
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Swap any amount of <code>asset1</code> to get the exact amount of <code>asset2</code>.
 <code>amount_in_max</code> param allows to specify the max amount of the <code>asset1</code>
