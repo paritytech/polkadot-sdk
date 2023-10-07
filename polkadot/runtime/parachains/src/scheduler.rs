@@ -292,8 +292,10 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match sp_std::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
-					{
+					match sp_std::mem::replace(
+						&mut cores[freed_index.0 as usize],
+						CoreOccupied::Free,
+					) {
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
 							match freed_reason {

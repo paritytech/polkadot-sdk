@@ -50,7 +50,7 @@ pub struct ParachainsAssignment {
 }
 
 impl ParachainsAssignment {
-	pub fn new(para_id: ParaId) -> Self {
+	fn new(para_id: ParaId) -> Self {
 		Self { para_id }
 	}
 }

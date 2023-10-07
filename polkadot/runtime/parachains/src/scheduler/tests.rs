@@ -26,12 +26,11 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, MockGenesisConfig, MockAssigner, Paras, ParasShared, RuntimeOrigin,
-		Scheduler, System, Test, mock_assigner::TestUnifiedAssignment,
+		mock_assigner::TestUnifiedAssignment, new_test_ext, MockAssigner, MockGenesisConfig, Paras,
+		ParasShared, RuntimeOrigin, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::ClaimQueue,
-	scheduler::common::V0Assignment,
+	scheduler::{common::V0Assignment, ClaimQueue},
 };
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -149,8 +148,7 @@ pub(crate) fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>)
 
 /// Internal access to entries at the top of the claim queue.
 pub(crate) fn scheduled_entries(
-) -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>, TestUnifiedAssignment>)>
-{
+) -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>, TestUnifiedAssignment>)> {
 	let claimqueue = ClaimQueue::<Test>::get();
 	claimqueue
 		.into_iter()
@@ -188,10 +186,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl in the future (15).
-		let paras_entry = ParasEntry::new(
-			TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)),
-			now + 5,
-		);
+		let paras_entry =
+			ParasEntry::new(TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)), now + 5);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -206,10 +202,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl == now (16)
-		let paras_entry = ParasEntry::new(
-			TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)),
-			now,
-		);
+		let paras_entry =
+			ParasEntry::new(TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)), now);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -223,14 +217,10 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::drop_expired_claims_from_claimqueue();
 
 		// Add a claim on core 0 with a ttl == now (17)
-		let paras_entry_non_expired = ParasEntry::new(
-			TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)),
-			now,
-		);
-		let paras_entry_expired = ParasEntry::new(
-			TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)),
-			now - 2,
-		);
+		let paras_entry_non_expired =
+			ParasEntry::new(TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)), now);
+		let paras_entry_expired =
+			ParasEntry::new(TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id)), now - 2);
 		// ttls = [17, 15, 17]
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
@@ -241,15 +231,9 @@ fn claimqueue_ttl_drop_fn_works() {
 		// Add claims to on demand assignment provider.
 		let assignment = TestUnifiedAssignment::OnDemand(V0Assignment::new(para_id));
 
-		assert_ok!(MockAssigner::add_on_demand_order(
-			assignment.clone(),
-			QueuePushDirection::Back
-		));
+		assert_ok!(MockAssigner::add_on_demand_order(assignment.clone(), QueuePushDirection::Back));
 
-		assert_ok!(MockAssigner::add_on_demand_order(
-			assignment.clone(),
-			QueuePushDirection::Back
-		));
+		assert_ok!(MockAssigner::add_on_demand_order(assignment.clone(), QueuePushDirection::Back));
 
 		// Drop expired claim.
 		Scheduler::drop_expired_claims_from_claimqueue();
@@ -942,8 +926,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 	let thread_a = ParaId::from(1_u32);
 
-	let assignment_a =
-	TestUnifiedAssignment::OnDemand(V0Assignment::new(thread_a));
+	let assignment_a = TestUnifiedAssignment::OnDemand(V0Assignment::new(thread_a));
 
 	new_test_ext(genesis_config).execute_with(|| {
 		schedule_blank_para(thread_a, ParaKind::Parathread);
@@ -1253,10 +1236,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 			let cores = Scheduler::availability_cores();
 			match cores.get(0).unwrap() {
 				CoreOccupied::Paras(entry) => {
-					assert_eq!(
-						entry.assignment,
-						assignment_a.clone()
-					);
+					assert_eq!(entry.assignment, assignment_a.clone());
 				},
 				_ => panic!("with no chains, only core should be a thread core"),
 			}
@@ -1489,9 +1469,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 				(
 					CoreIndex(0),
 					vec![ParasEntry::new(
-						TestUnifiedAssignment::LegacyAuction(V0Assignment::new(
-							chain_a
-						)),
+						TestUnifiedAssignment::LegacyAuction(V0Assignment::new(chain_a)),
 						// At block 3
 						config.on_demand_ttl + 3
 					)]
@@ -1501,9 +1479,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 				(
 					CoreIndex(1),
 					vec![ParasEntry::new(
-						TestUnifiedAssignment::LegacyAuction(V0Assignment::new(
-							chain_b
-						)),
+						TestUnifiedAssignment::LegacyAuction(V0Assignment::new(chain_b)),
 						// At block 3
 						config.on_demand_ttl + 3
 					)]
