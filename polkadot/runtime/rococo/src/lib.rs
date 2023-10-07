@@ -102,6 +102,10 @@ mod weights;
 // XCM configurations.
 pub mod xcm_config;
 
+// Implemented types.
+mod impls;
+use impls::ToParachainIdentityReaper;
+
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -150,7 +154,15 @@ pub fn native_version() -> NativeVersion {
 pub struct IdentityCalls;
 impl Contains<RuntimeCall> for IdentityCalls {
 	fn contains(c: &RuntimeCall) -> bool {
-		matches!(c, RuntimeCall::Identity(_))
+		match c {
+			// Allow calls to reap identity and poke deposit
+			RuntimeCall::Identity(pallet_identity::Call::reap_identity { .. }) |
+			RuntimeCall::Identity(pallet_identity::Call::poke_deposit { .. }) => false,
+			// Block all other calls to identity
+			RuntimeCall::Identity(_) => true,
+			// Allow all other calls
+			_ => false,
+		}
 	}
 }
 
@@ -589,8 +601,10 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type RegistrarOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
+	// Should be `EnsureRoot` until the parachain launches with Identity state. Then, it will be
+	// `EnsureSigned<Self::AccountId>` to allow deposit migration.
 	type ReapOrigin = EnsureRoot<Self::AccountId>;
-	type ReapIdentityHandler = ();
+	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 

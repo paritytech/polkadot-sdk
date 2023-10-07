@@ -1107,6 +1107,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+/// Trait to handle reaping identity from state.
 pub trait OnReapIdentity<AccountId> {
 	/// What to do when an identity is reaped. For example, the implementation could send an XCM
 	/// program to another chain. Concretely, a type implementing this trait in the Polkadot
