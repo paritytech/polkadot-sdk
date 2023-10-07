@@ -19,8 +19,8 @@
 use crate::{
 	artifacts::ArtifactPathId,
 	worker_intf::{
-		path_to_bytes, spawn_with_program_path, IdleWorker, SpawnErr, WorkerHandle,
-		JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
+		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
 	LOG_TARGET,
 };
@@ -30,7 +30,7 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
-	framed_recv, framed_send,
+	worker_dir, SecurityStatus,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
@@ -38,21 +38,30 @@ use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
-/// Sends a handshake message to the worker as soon as it is spawned.
 ///
-/// The program should be able to handle `<program-path> execute-worker <socket-path>` invocation.
+/// Sends a handshake message to the worker as soon as it is spawned.
 pub async fn spawn(
 	program_path: &Path,
+	cache_path: &Path,
 	executor_params: ExecutorParams,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
+	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let mut extra_args = vec!["execute-worker"];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
-	let (mut idle_worker, worker_handle) =
-		spawn_with_program_path("execute", program_path, &extra_args, spawn_timeout).await?;
+
+	let (mut idle_worker, worker_handle) = spawn_with_program_path(
+		"execute",
+		program_path,
+		cache_path,
+		&extra_args,
+		spawn_timeout,
+		security_status,
+	)
+	.await?;
 	send_handshake(&mut idle_worker.stream, Handshake { executor_params })
 		.await
 		.map_err(|error| {
@@ -104,89 +113,151 @@ pub async fn start_work(
 	execution_timeout: Duration,
 	validation_params: Vec<u8>,
 ) -> Outcome {
-	let IdleWorker { mut stream, pid } = worker;
+	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
+		?worker_dir,
 		validation_code_hash = ?artifact.id.code_hash,
 		"starting execute for {}",
 		artifact.path.display(),
 	);
 
-	if let Err(error) =
-		send_request(&mut stream, &artifact.path, &validation_params, execution_timeout).await
-	{
-		gum::warn!(
-			target: LOG_TARGET,
-			worker_pid = %pid,
-			validation_code_hash = ?artifact.id.code_hash,
-			?error,
-			"failed to send an execute request",
-		);
-		return Outcome::IoErr
-	}
-
-	// We use a generous timeout here. This is in addition to the one in the child process, in
-	// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
-	// in the child. We want to use CPU time because it varies less than wall clock time under
-	// load, but the CPU resources of the child can only be measured from the parent after the
-	// child process terminates.
-	let timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-	let response = futures::select! {
-		response = recv_response(&mut stream).fuse() => {
-			match response {
-				Err(error) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						worker_pid = %pid,
-						validation_code_hash = ?artifact.id.code_hash,
-						?error,
-						"failed to recv an execute response",
-					);
-					return Outcome::IoErr
-				},
-				Ok(response) => {
-					if let Response::Ok{duration, ..} = response {
-						if duration > execution_timeout {
-							// The job didn't complete within the timeout.
-							gum::warn!(
-								target: LOG_TARGET,
-								worker_pid = %pid,
-								"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
-								duration.as_millis(),
-								execution_timeout.as_millis(),
-							);
-
-							// Return a timeout error.
-							return Outcome::HardTimeout;
-						}
-					}
-
-					response
-				},
-			}
-		},
-		_ = Delay::new(timeout).fuse() => {
+	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
+		if let Err(error) = send_request(&mut stream, &validation_params, execution_timeout).await {
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %pid,
 				validation_code_hash = ?artifact.id.code_hash,
-				"execution worker exceeded lenient timeout for execution, child worker likely stalled",
+				?error,
+				"failed to send an execute request",
 			);
-			Response::TimedOut
-		},
-	};
+			return Outcome::IoErr
+		}
 
-	match response {
-		Response::Ok { result_descriptor, duration } =>
-			Outcome::Ok { result_descriptor, duration, idle_worker: IdleWorker { stream, pid } },
-		Response::InvalidCandidate(err) =>
-			Outcome::InvalidCandidate { err, idle_worker: IdleWorker { stream, pid } },
-		Response::TimedOut => Outcome::HardTimeout,
-		Response::Panic(err) => Outcome::Panic { err },
-		Response::InternalError(err) => Outcome::InternalError { err },
+		// We use a generous timeout here. This is in addition to the one in the child process, in
+		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
+		// in the child. We want to use CPU time because it varies less than wall clock time under
+		// load, but the CPU resources of the child can only be measured from the parent after the
+		// child process terminates.
+		let timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
+		let response = futures::select! {
+			response = recv_response(&mut stream).fuse() => {
+				match response {
+					Err(error) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							worker_pid = %pid,
+							validation_code_hash = ?artifact.id.code_hash,
+							?error,
+							"failed to recv an execute response",
+						);
+						return Outcome::IoErr
+					},
+					Ok(response) => {
+						if let Response::Ok{duration, ..} = response {
+							if duration > execution_timeout {
+								// The job didn't complete within the timeout.
+								gum::warn!(
+									target: LOG_TARGET,
+									worker_pid = %pid,
+									"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
+									duration.as_millis(),
+									execution_timeout.as_millis(),
+								);
+
+								// Return a timeout error.
+								return Outcome::HardTimeout;
+							}
+						}
+
+						response
+					},
+				}
+			},
+			_ = Delay::new(timeout).fuse() => {
+				gum::warn!(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					validation_code_hash = ?artifact.id.code_hash,
+					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
+				);
+				Response::TimedOut
+			},
+		};
+
+		match response {
+			Response::Ok { result_descriptor, duration } => Outcome::Ok {
+				result_descriptor,
+				duration,
+				idle_worker: IdleWorker { stream, pid, worker_dir },
+			},
+			Response::InvalidCandidate(err) => Outcome::InvalidCandidate {
+				err,
+				idle_worker: IdleWorker { stream, pid, worker_dir },
+			},
+			Response::TimedOut => Outcome::HardTimeout,
+			Response::Panic(err) => Outcome::Panic { err },
+			Response::InternalError(err) => Outcome::InternalError { err },
+		}
+	})
+	.await
+}
+
+/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
+/// passing the file path in, and clean up the worker cache.
+///
+/// Failure to clean up the worker cache results in an error - leaving any files here could be a
+/// security issue, and we should shut down the worker. This should be very rare.
+async fn with_worker_dir_setup<F, Fut>(
+	worker_dir: WorkerDir,
+	pid: u32,
+	artifact_path: &Path,
+	f: F,
+) -> Outcome
+where
+	Fut: futures::Future<Output = Outcome>,
+	F: FnOnce(WorkerDir) -> Fut,
+{
+	// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
+	// worker cache, and the child can't access any other artifacts or gain any information from the
+	// original filename.
+	let link_path = worker_dir::execute_artifact(&worker_dir.path);
+	if let Err(err) = tokio::fs::hard_link(artifact_path, link_path).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Outcome::InternalError {
+			err: InternalValidationError::CouldNotCreateLink(format!("{:?}", err)),
+		}
 	}
+
+	let worker_dir_path = worker_dir.path.clone();
+	let outcome = f(worker_dir).await;
+
+	// Try to clear the worker dir.
+	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir_path,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Outcome::InternalError {
+			err: InternalValidationError::CouldNotClearWorkerDir {
+				err: format!("{:?}", err),
+				path: worker_dir_path.to_str().map(String::from),
+			},
+		}
+	}
+
+	outcome
 }
 
 async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
@@ -195,11 +266,9 @@ async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Re
 
 async fn send_request(
 	stream: &mut UnixStream,
-	artifact_path: &Path,
 	validation_params: &[u8],
 	execution_timeout: Duration,
 ) -> io::Result<()> {
-	framed_send(stream, path_to_bytes(artifact_path)).await?;
 	framed_send(stream, validation_params).await?;
 	framed_send(stream, &execution_timeout.encode()).await
 }

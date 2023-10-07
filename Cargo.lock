@@ -229,9 +229,9 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.5.0"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f58811cfac344940f1a400b6e6231ce35171f614f26439e80f8c1465c5cc0c"
+checksum = "2ab91ebe16eb252986481c5b62f6098f3b698a45e34b5b98200cf20dd2484a44"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "2.1.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58f54d10c6dfa51283a066ceab3ec1ab78d13fae00aa49243a45e4571fb79dfd"
+checksum = "f0699d10d2f4d628a98ee7b57b289abbc98ff3bad977cb3152709d4bf2330628"
 dependencies = [
  "anstyle",
  "windows-sys 0.48.0",
@@ -707,30 +707,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
-name = "asset-hub-kusama-integration-tests"
-version = "1.0.0"
-dependencies = [
- "assert_matches",
- "asset-hub-kusama-runtime",
- "frame-support",
- "frame-system",
- "integration-tests-common",
- "pallet-asset-conversion",
- "pallet-assets",
- "pallet-balances",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime",
- "polkadot-runtime-parachains",
- "sp-runtime",
- "staging-xcm",
- "xcm-emulator",
-]
-
-[[package]]
 name = "asset-hub-kusama-runtime"
 version = "0.9.420"
 dependencies = [
@@ -752,7 +728,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "kusama-runtime-constants",
  "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-tx-payment",
@@ -805,29 +780,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asset-hub-polkadot-integration-tests"
-version = "1.0.0"
-dependencies = [
- "asset-hub-kusama-runtime",
- "frame-support",
- "frame-system",
- "integration-tests-common",
- "pallet-asset-conversion",
- "pallet-assets",
- "pallet-balances",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime",
- "polkadot-runtime-parachains",
- "sp-runtime",
- "staging-xcm",
- "xcm-emulator",
-]
-
-[[package]]
 name = "asset-hub-polkadot-runtime"
 version = "0.9.420"
 dependencies = [
@@ -874,7 +826,6 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
- "polkadot-runtime-constants",
  "scale-info",
  "smallvec",
  "sp-api",
@@ -914,7 +865,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
- "polkadot-runtime",
  "polkadot-runtime-parachains",
  "sp-runtime",
  "staging-xcm",
@@ -1166,7 +1116,7 @@ checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
 dependencies = [
  "async-stream-impl",
  "futures-core",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
 ]
 
 [[package]]
@@ -1207,7 +1157,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "memchr",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
 ]
 
 [[package]]
@@ -1721,6 +1671,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-polkadot-bulletin"
+version = "0.1.0"
+dependencies = [
+ "bp-header-chain",
+ "bp-messages",
+ "bp-polkadot-core",
+ "bp-runtime",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "bp-polkadot-core"
 version = "0.1.0"
 dependencies = [
@@ -1851,7 +1818,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "kusama-runtime-constants",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -1934,7 +1900,6 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
- "polkadot-runtime-constants",
  "scale-info",
  "serde",
  "smallvec",
@@ -1973,7 +1938,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
- "polkadot-runtime",
  "polkadot-runtime-parachains",
  "staging-xcm",
  "xcm-emulator",
@@ -2355,7 +2319,7 @@ name = "chain-spec-builder"
 version = "2.0.0"
 dependencies = [
  "ansi_term",
- "clap 4.4.4",
+ "clap 4.4.6",
  "node-cli",
  "rand 0.8.5",
  "sc-chain-spec",
@@ -2485,9 +2449,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.4"
+version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1d7b8d5ec32af0fadc644bf1fd509a688c2103b185644bb1e29d164e0703136"
+checksum = "d04704f56c2cde07f43e8e2c154b43f216dc5c92fc98ada720177362f953b956"
 dependencies = [
  "clap_builder",
  "clap_derive 4.4.2",
@@ -2495,9 +2459,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.4"
+version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5179bb514e4d7c2051749d8fcefa2ed6d06a9f4e6d69faf3805f5d80b8cf8d56"
+checksum = "0e231faeaca65ebd1ea3c737966bf858971cd38c3849107aa3ea7de90a804e45"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2511,7 +2475,7 @@ version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "586a385f7ef2f8b4d86bddaa0c094794e7ccbfe5ffef1f434fe928143fc783a5"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
 ]
 
 [[package]]
@@ -2577,32 +2541,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "collectives-polkadot-integration-tests"
-version = "0.1.0"
-dependencies = [
- "collectives-polkadot-runtime",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-xcmp-queue",
- "frame-support",
- "integration-tests-common",
- "pallet-assets",
- "pallet-balances",
- "pallet-core-fellowship",
- "pallet-salary",
- "pallet-xcm",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime",
- "polkadot-runtime-parachains",
- "sp-core",
- "sp-runtime",
- "staging-xcm",
- "xcm-emulator",
-]
-
-[[package]]
 name = "collectives-polkadot-runtime"
 version = "1.0.0"
 dependencies = [
@@ -2650,7 +2588,6 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
- "polkadot-runtime-constants",
  "scale-info",
  "smallvec",
  "sp-api",
@@ -2840,7 +2777,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "kusama-runtime-constants",
  "log",
  "pallet-aura",
  "pallet-authorship",
@@ -3111,7 +3047,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.4.4",
+ "clap 4.4.6",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -3276,7 +3212,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -3961,7 +3897,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.4.4",
+ "clap 4.4.6",
  "criterion 0.5.1",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -5168,7 +5104,7 @@ dependencies = [
  "Inflector",
  "array-bytes",
  "chrono",
- "clap 4.4.4",
+ "clap 4.4.6",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -5260,7 +5196,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
@@ -5386,6 +5322,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
+ "sp-core-hashing",
  "syn 2.0.38",
 ]
 
@@ -5617,7 +5554,7 @@ dependencies = [
  "futures-io",
  "memchr",
  "parking",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "waker-fn",
 ]
 
@@ -5674,7 +5611,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "pin-utils",
  "slab",
 ]
@@ -5818,6 +5755,7 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-timestamp",
  "frame-benchmarking",
@@ -6083,7 +6021,7 @@ checksum = "d5f38f16d184e36f2408a55281cd658ecbd3ca05cce6d6510a176eca393e26d1"
 dependencies = [
  "bytes",
  "http",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
 ]
 
 [[package]]
@@ -6126,7 +6064,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "socket2 0.4.9",
  "tokio",
  "tower-service",
@@ -6395,7 +6333,6 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
- "kusama-runtime-constants",
  "pallet-assets",
  "pallet-bridge-messages",
  "pallet-im-online",
@@ -6409,8 +6346,6 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "polkadot-runtime",
- "polkadot-runtime-constants",
  "polkadot-runtime-parachains",
  "polkadot-service",
  "rococo-runtime",
@@ -6421,7 +6356,6 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
- "staging-kusama-runtime",
  "staging-xcm",
  "westend-runtime",
  "westend-runtime-constants",
@@ -6850,19 +6784,6 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
-]
-
-[[package]]
-name = "kusama-runtime-constants"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "smallvec",
- "sp-core",
- "sp-runtime",
- "sp-weights",
 ]
 
 [[package]]
@@ -8169,7 +8090,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
- "clap 4.4.4",
+ "clap 4.4.6",
  "derive_more",
  "fs_extra",
  "futures",
@@ -8206,7 +8127,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes",
  "assert_cmd",
- "clap 4.4.4",
+ "clap 4.4.6",
  "clap_complete",
  "criterion 0.4.0",
  "frame-benchmarking-cli",
@@ -8332,7 +8253,7 @@ dependencies = [
 name = "node-inspect"
 version = "0.9.0-dev"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -8386,7 +8307,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -8395,7 +8316,7 @@ dependencies = [
 name = "node-template"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -8440,7 +8361,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "flate2",
  "fs_extra",
  "glob",
@@ -10873,7 +10794,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -10990,7 +10911,6 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
- "kusama-runtime-constants",
  "log",
  "num-traits",
  "pallet-asset-tx-payment",
@@ -11001,7 +10921,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",
- "polkadot-runtime-constants",
  "rococo-runtime-constants",
  "scale-info",
  "smallvec",
@@ -11404,9 +11323,9 @@ checksum = "257b64915a082f7811703966789728173279bdebb956b143dbcd23f6f970a777"
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cc1b0bf1727a77a54b6654e7b5f1af8604923edc8b81885f8ec92f9e3f0a05"
+checksum = "8afb450f006bf6385ca15ef45d71d2288452bc3683ce2e2cacc0d18e4be60b58"
 
 [[package]]
 name = "pin-utils"
@@ -11612,12 +11531,11 @@ dependencies = [
 name = "polkadot-cli"
 version = "1.1.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-benchmarking-cli",
  "futures",
  "log",
  "polkadot-node-metrics",
- "polkadot-performance-test",
  "polkadot-service",
  "pyroscope",
  "pyroscope_pprofrs",
@@ -12073,6 +11991,7 @@ version = "1.0.0"
 dependencies = [
  "always-assert",
  "assert_matches",
+ "cfg-if",
  "futures",
  "futures-timer",
  "hex-literal",
@@ -12129,6 +12048,7 @@ name = "polkadot-node-core-pvf-common"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
+ "cfg-if",
  "cpu-time",
  "futures",
  "landlock",
@@ -12170,6 +12090,7 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "futures",
  "libc",
  "parity-scale-codec",
@@ -12432,7 +12353,7 @@ dependencies = [
  "bridge-hub-kusama-runtime",
  "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
- "clap 4.4.4",
+ "clap 4.4.6",
  "collectives-polkadot-runtime",
  "color-print",
  "contracts-rococo-runtime",
@@ -12443,6 +12364,7 @@ dependencies = [
  "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-service",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
@@ -12520,23 +12442,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-performance-test"
-version = "1.0.0"
-dependencies = [
- "env_logger 0.9.3",
- "log",
- "polkadot-erasure-coding",
- "polkadot-node-core-pvf-prepare-worker",
- "polkadot-node-primitives",
- "polkadot-primitives",
- "quote",
- "sc-executor-common",
- "sp-maybe-compressed-blob",
- "staging-kusama-runtime",
- "thiserror",
-]
-
-[[package]]
 name = "polkadot-primitives"
 version = "1.0.0"
 dependencies = [
@@ -12605,111 +12510,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-runtime"
-version = "1.0.0"
-dependencies = [
- "bitvec",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-executive",
- "frame-remote-externalities",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "hex-literal",
- "log",
- "pallet-authority-discovery",
- "pallet-authorship",
- "pallet-babe",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-bounties",
- "pallet-child-bounties",
- "pallet-collective",
- "pallet-conviction-voting",
- "pallet-democracy",
- "pallet-election-provider-multi-phase",
- "pallet-election-provider-support-benchmarking",
- "pallet-elections-phragmen",
- "pallet-fast-unstake",
- "pallet-grandpa",
- "pallet-identity",
- "pallet-im-online",
- "pallet-indices",
- "pallet-membership",
- "pallet-message-queue",
- "pallet-multisig",
- "pallet-nomination-pools",
- "pallet-nomination-pools-benchmarking",
- "pallet-nomination-pools-runtime-api",
- "pallet-offences",
- "pallet-offences-benchmarking",
- "pallet-preimage",
- "pallet-proxy",
- "pallet-referenda",
- "pallet-scheduler",
- "pallet-session",
- "pallet-session-benchmarking",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "pallet-staking-runtime-api",
- "pallet-timestamp",
- "pallet-tips",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
- "pallet-utility",
- "pallet-vesting",
- "pallet-whitelist",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-constants",
- "polkadot-runtime-parachains",
- "rustc-hex",
- "scale-info",
- "separator",
- "serde",
- "serde_derive",
- "serde_json",
- "smallvec",
- "sp-api",
- "sp-arithmetic",
- "sp-authority-discovery",
- "sp-block-builder",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-mmr-primitives",
- "sp-npos-elections",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-staking",
- "sp-std 8.0.0",
- "sp-storage 13.0.0",
- "sp-tracing 10.0.0",
- "sp-transaction-pool",
- "sp-trie",
- "sp-version",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "static_assertions",
- "substrate-wasm-builder",
- "tiny-keccak",
- "tokio",
-]
-
-[[package]]
 name = "polkadot-runtime-common"
 version = "1.0.0"
 dependencies = [
@@ -12758,19 +12558,6 @@ dependencies = [
  "sp-std 8.0.0",
  "staging-xcm",
  "static_assertions",
-]
-
-[[package]]
-name = "polkadot-runtime-constants"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "smallvec",
- "sp-core",
- "sp-runtime",
- "sp-weights",
 ]
 
 [[package]]
@@ -13043,7 +12830,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.4",
+ "clap 4.4.6",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -13190,11 +12977,9 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "generate-bags",
- "polkadot-runtime",
  "sp-io",
- "staging-kusama-runtime",
  "westend-runtime",
 ]
 
@@ -13210,7 +12995,7 @@ dependencies = [
  "concurrent-queue",
  "libc",
  "log",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "windows-sys 0.48.0",
 ]
 
@@ -13952,16 +13737,12 @@ checksum = "e5ea92a5b6195c6ef2a0295ea818b312502c6fc94dde986c5553242e18fd4ce2"
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-system",
- "kusama-runtime-constants",
  "log",
  "pallet-bags-list-remote-tests",
- "polkadot-runtime",
- "polkadot-runtime-constants",
  "sp-core",
  "sp-tracing 10.0.0",
- "staging-kusama-runtime",
  "tokio",
  "westend-runtime",
  "westend-runtime-constants",
@@ -13989,7 +13770,7 @@ dependencies = [
  "mime",
  "once_cell",
  "percent-encoding",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "rustls 0.21.6",
  "rustls-pemfile",
  "serde",
@@ -14166,6 +13947,7 @@ dependencies = [
  "pallet-bounties",
  "pallet-child-bounties",
  "pallet-collective",
+ "pallet-conviction-voting",
  "pallet-democracy",
  "pallet-elections-phragmen",
  "pallet-grandpa",
@@ -14180,7 +13962,9 @@ dependencies = [
  "pallet-offences",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-ranked-collective",
  "pallet-recovery",
+ "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
  "pallet-society",
@@ -14194,6 +13978,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-vesting",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
@@ -14209,6 +13994,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "sp-api",
+ "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
@@ -14663,7 +14449,7 @@ version = "0.10.0-dev"
 dependencies = [
  "array-bytes",
  "chrono",
- "clap 4.4.4",
+ "clap 4.4.6",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -15413,6 +15199,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "thiserror",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -15765,7 +15552,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "fs4",
  "log",
  "sc-client-db",
@@ -17416,7 +17203,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "honggfuzz",
  "rand 0.8.5",
  "sp-npos-elections",
@@ -17916,120 +17703,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
-name = "staging-kusama-runtime"
-version = "1.0.0"
-dependencies = [
- "binary-merkle-tree",
- "bitvec",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-executive",
- "frame-remote-externalities",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "hex-literal",
- "kusama-runtime-constants",
- "log",
- "pallet-authority-discovery",
- "pallet-authorship",
- "pallet-babe",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-beefy",
- "pallet-beefy-mmr",
- "pallet-bounties",
- "pallet-child-bounties",
- "pallet-collective",
- "pallet-conviction-voting",
- "pallet-democracy",
- "pallet-election-provider-multi-phase",
- "pallet-election-provider-support-benchmarking",
- "pallet-elections-phragmen",
- "pallet-fast-unstake",
- "pallet-grandpa",
- "pallet-identity",
- "pallet-im-online",
- "pallet-indices",
- "pallet-membership",
- "pallet-message-queue",
- "pallet-mmr",
- "pallet-multisig",
- "pallet-nis",
- "pallet-nomination-pools",
- "pallet-nomination-pools-benchmarking",
- "pallet-nomination-pools-runtime-api",
- "pallet-offences",
- "pallet-offences-benchmarking",
- "pallet-preimage",
- "pallet-proxy",
- "pallet-ranked-collective",
- "pallet-recovery",
- "pallet-referenda",
- "pallet-scheduler",
- "pallet-session",
- "pallet-session-benchmarking",
- "pallet-society",
- "pallet-staking",
- "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
- "pallet-timestamp",
- "pallet-tips",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
- "pallet-utility",
- "pallet-vesting",
- "pallet-whitelist",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-common",
- "polkadot-runtime-parachains",
- "rustc-hex",
- "scale-info",
- "separator",
- "serde",
- "serde_derive",
- "serde_json",
- "smallvec",
- "sp-api",
- "sp-application-crypto",
- "sp-arithmetic",
- "sp-authority-discovery",
- "sp-block-builder",
- "sp-consensus-babe",
- "sp-consensus-beefy",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-mmr-primitives",
- "sp-npos-elections",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-staking",
- "sp-std 8.0.0",
- "sp-storage 13.0.0",
- "sp-tracing 10.0.0",
- "sp-transaction-pool",
- "sp-trie",
- "sp-version",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "static_assertions",
- "substrate-wasm-builder",
- "tiny-keccak",
- "tokio",
-]
-
-[[package]]
 name = "staging-xcm"
 version = "1.0.0"
 dependencies = [
@@ -18207,8 +17880,27 @@ dependencies = [
 name = "subkey"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "sc-cli",
+]
+
+[[package]]
+name = "substrate"
+version = "1.0.0"
+dependencies = [
+ "aquamarine",
+ "chain-spec-builder",
+ "frame-support",
+ "sc-cli",
+ "sc-consensus-aura",
+ "sc-consensus-babe",
+ "sc-consensus-beefy",
+ "sc-consensus-grandpa",
+ "sc-consensus-manual-seal",
+ "sc-consensus-pow",
+ "sc-service",
+ "sp-runtime",
+ "subkey",
 ]
 
 [[package]]
@@ -18249,7 +17941,7 @@ dependencies = [
 name = "substrate-frame-cli"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-support",
  "frame-system",
  "sc-cli",
@@ -18708,7 +18400,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "futures",
  "futures-timer",
  "log",
@@ -18756,7 +18448,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.4",
+ "clap 4.4.6",
  "futures",
  "futures-timer",
  "log",
@@ -19010,7 +18702,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "parking_lot 0.12.1",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "signal-hook-registry",
  "socket2 0.5.3",
  "tokio-macros",
@@ -19056,7 +18748,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
 dependencies = [
  "futures-core",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "tokio",
  "tokio-util",
 ]
@@ -19096,7 +18788,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "futures-sink",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "tokio",
  "tracing",
 ]
@@ -19168,7 +18860,7 @@ dependencies = [
  "http",
  "http-body",
  "http-range-header",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "tower-layer",
  "tower-service",
 ]
@@ -19193,7 +18885,7 @@ checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
  "cfg-if",
  "log",
- "pin-project-lite 0.2.12",
+ "pin-project-lite 0.2.13",
  "tracing-attributes",
  "tracing-core",
 ]
@@ -19402,7 +19094,7 @@ version = "0.10.0-dev"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.4.4",
+ "clap 4.4.6",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
@@ -19505,7 +19197,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -20478,6 +20170,7 @@ dependencies = [
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-collective",
+ "pallet-conviction-voting",
  "pallet-democracy",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -20499,6 +20192,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-recovery",
+ "pallet-referenda",
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
@@ -20514,6 +20208,7 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "pallet-vesting",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
@@ -20529,6 +20224,7 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-application-crypto",
+ "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
