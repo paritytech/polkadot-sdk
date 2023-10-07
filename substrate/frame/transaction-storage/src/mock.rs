@@ -18,10 +18,13 @@
 //! Test environment for transaction-storage pallet.
 
 use crate::{
-	self as pallet_transaction_storage, TransactionStorageProof, DEFAULT_MAX_BLOCK_TRANSACTIONS,
-	DEFAULT_MAX_TRANSACTION_SIZE,
+	self as pallet_transaction_storage, HoldReason, TransactionStorageProof,
+	DEFAULT_MAX_BLOCK_TRANSACTIONS, DEFAULT_MAX_TRANSACTION_SIZE,
 };
-use frame_support::traits::{ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -68,26 +71,20 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
 	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = HoldReason;
+	type MaxHolds = ConstU32<128>;
 }
 
 impl pallet_transaction_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
+	type RuntimeHoldReason = HoldReason;
 	type FeeDestination = ();
 	type WeightInfo = ();
 	type MaxBlockTransactions = ConstU32<{ DEFAULT_MAX_BLOCK_TRANSACTIONS }>;
