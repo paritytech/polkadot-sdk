@@ -381,14 +381,14 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::create_pool())]
 		pub fn create_pool(
 			origin: OriginFor<T>,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
+			asset1: Box<T::MultiAssetId>,
+			asset2: Box<T::MultiAssetId>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 			ensure!(asset1 != asset2, Error::<T>::EqualAssets);
 
 			// prepare pool_id
-			let pool_id = Self::get_pool_id(asset1, asset2);
+			let pool_id = Self::get_pool_id(*asset1, *asset2);
 			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
 			let (asset1, asset2) = &pool_id;
 			if !T::AllowMultiAssetPools::get() && !T::MultiAssetIdConverter::is_native(asset1) {
@@ -459,8 +459,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		pub fn add_liquidity(
 			origin: OriginFor<T>,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
+			asset1: Box<T::MultiAssetId>,
+			asset2: Box<T::MultiAssetId>,
 			amount1_desired: T::AssetBalance,
 			amount2_desired: T::AssetBalance,
 			amount1_min: T::AssetBalance,
@@ -469,10 +469,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = Self::get_pool_id(*asset1.clone(), *asset2);
 			// swap params if needed
 			let (amount1_desired, amount2_desired, amount1_min, amount2_min) =
-				if pool_id.0 == asset1 {
+				if pool_id.0 == *asset1 {
 					(amount1_desired, amount2_desired, amount1_min, amount2_min)
 				} else {
 					(amount2_desired, amount1_desired, amount2_min, amount1_min)
@@ -571,8 +571,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		pub fn remove_liquidity(
 			origin: OriginFor<T>,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
+			asset1: Box<T::MultiAssetId>,
+			asset2: Box<T::MultiAssetId>,
 			lp_token_burn: T::AssetBalance,
 			amount1_min_receive: T::AssetBalance,
 			amount2_min_receive: T::AssetBalance,
@@ -580,9 +580,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let pool_id = Self::get_pool_id(asset1.clone(), asset2.clone());
+			let pool_id = Self::get_pool_id(*asset1.clone(), *asset2);
 			// swap params if needed
-			let (amount1_min_receive, amount2_min_receive) = if pool_id.0 == asset1 {
+			let (amount1_min_receive, amount2_min_receive) = if pool_id.0 == *asset1 {
 				(amount1_min_receive, amount2_min_receive)
 			} else {
 				(amount2_min_receive, amount1_min_receive)
@@ -650,7 +650,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens())]
 		pub fn swap_exact_tokens_for_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: BoundedVec<Box<T::MultiAssetId>, T::MaxSwapPathLength>,
 			amount_in: T::AssetBalance,
 			amount_out_min: T::AssetBalance,
 			send_to: T::AccountId,
@@ -659,7 +659,11 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_swap_exact_tokens_for_tokens(
 				sender,
-				path,
+				path.into_iter()
+					.map(|a| *a)
+					.collect::<Vec<T::MultiAssetId>>()
+					.try_into()
+					.map_err(|_| Error::<T>::InvalidPath)?,
 				amount_in,
 				Some(amount_out_min),
 				send_to,
@@ -678,7 +682,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens())]
 		pub fn swap_tokens_for_exact_tokens(
 			origin: OriginFor<T>,
-			path: BoundedVec<T::MultiAssetId, T::MaxSwapPathLength>,
+			path: BoundedVec<Box<T::MultiAssetId>, T::MaxSwapPathLength>,
 			amount_out: T::AssetBalance,
 			amount_in_max: T::AssetBalance,
 			send_to: T::AccountId,
@@ -687,7 +691,11 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_swap_tokens_for_exact_tokens(
 				sender,
-				path,
+				path.into_iter()
+					.map(|a| *a)
+					.collect::<Vec<T::MultiAssetId>>()
+					.try_into()
+					.map_err(|_| Error::<T>::InvalidPath)?,
 				amount_out,
 				Some(amount_in_max),
 				send_to,
