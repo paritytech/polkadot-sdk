@@ -17,7 +17,7 @@
 
 //! API for using a pair of crypto schemes together.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as PublicT, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
