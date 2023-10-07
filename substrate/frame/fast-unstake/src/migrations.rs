@@ -106,6 +106,9 @@ pub mod v1 {
 /// 1. Named holds are used instead of `ReservableCurrency`.
 /// 2. Structure of both storage items [`UnstakeQueue`] and [`Head`] are changed to no longer
 ///    contain any deposit amounts.
+///
+/// TODO: move this migration to use MBMs when ready. For now it is only here for the sake of
+/// demonstration.
 pub mod v2 {
 	use frame_support::migrations::VersionedMigration;
 	use sp_runtime::BoundedVec;
