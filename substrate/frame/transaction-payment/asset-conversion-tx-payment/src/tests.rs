@@ -129,12 +129,16 @@ fn setup_lp(asset_id: u32, balance_factor: u64) {
 
 	let token_1 = NativeOrAssetId::Native;
 	let token_2 = NativeOrAssetId::Asset(asset_id);
-	assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(lp_provider), token_1, token_2));
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeOrigin::signed(lp_provider),
+		Box::new(token_1),
+		Box::new(token_2)
+	));
 
 	assert_ok!(AssetConversion::add_liquidity(
 		RuntimeOrigin::signed(lp_provider),
-		token_1,
-		token_2,
+		Box::new(token_1),
+		Box::new(token_2),
 		1_000 * balance_factor,  // 1 desired
 		10_000 * balance_factor, // 2 desired
 		1,                       // 1 min

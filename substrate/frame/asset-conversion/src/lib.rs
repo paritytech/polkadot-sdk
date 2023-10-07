@@ -96,7 +96,7 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
