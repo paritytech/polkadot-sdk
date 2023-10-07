@@ -52,9 +52,9 @@ where
 		}
 
 		if MultiLocationMatcher::contains(asset_id) {
-			MultiAssetIdConversionResult::Converted(asset_id.clone())
+			MultiAssetIdConversionResult::Converted(*asset_id)
 		} else {
-			MultiAssetIdConversionResult::Unsupported(asset_id.clone())
+			MultiAssetIdConversionResult::Unsupported(*asset_id)
 		}
 	}
 }
