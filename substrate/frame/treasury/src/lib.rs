@@ -1026,6 +1026,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Must never be less than 0 but better be safe.
 			.saturating_sub(T::Currency::minimum_balance())
 	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// 1. ProposalCount >= Proposals.len()
+		ensure!(
+			Self::proposal_count() as usize >= <Proposals<T, I>>::iter_keys().count(),
+			"Number of proposals exceeds proposal count!"
+		);
+
+		// 2.
+		let total_amount_bonded = <Proposals<T, I>>::iter().fold(<BalanceOf<T, I>>::zero(), |a, (_index, proposal)| a + proposal.bond);
+		let n: BalanceOf<T, I> = <Proposals<T, I>>::iter_keys().count().saturated_into();
+		print!("{:?}", total_amount_bonded);
+		print!("{:?}", n);
+		ensure!(
+			T::ProposalBondMinimum::get() * n <= total_amount_bonded,
+			"Total amount bonded falls short of required minimum."
+		);
+
+		// 3.
+
+		// 4. Each ProposalIndex contained in Approvals should exist in Proposals
+		Approvals::<T, I>::get().iter().try_for_each(|proposal_index| -> DispatchResult {
+			ensure!(
+				Proposals::<T, I>::contains_key(proposal_index),
+				"Proposal indices in `Approvals` must also be contained in `Proposals`"
+			);
+			Ok(())
+		})?;
+
+		Ok(())
+	}
 }
 
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
