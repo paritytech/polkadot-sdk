@@ -140,12 +140,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// Move the deposit to the new owner.
-			/*T::Currency::repatriate_reserved(
+			T::Currency::release(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&details.owner,
+				details.owner_deposit,
+				BestEffort,
+			)?;
+			T::Currency::hold(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&owner,
 				details.owner_deposit,
-				Reserved,
-			)?;*/
+			)?;
 
 			// Update account ownership information.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
@@ -213,12 +218,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// Move the deposit to the new owner.
-			/*T::Currency::repatriate_reserved(
+			T::Currency::release(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&details.owner,
+				details.owner_deposit,
+				BestEffort,
+			)?;
+			T::Currency::hold(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&owner,
 				details.owner_deposit,
-				Reserved,
-			)?;*/
+			)?;
 
 			// Update collection accounts and set the new owner.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
