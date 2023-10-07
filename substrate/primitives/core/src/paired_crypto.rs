@@ -570,16 +570,15 @@ where
 	}
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {
-		let mut vec_message = vec![0u8; message.as_ref().len()];
-		vec_message.clone_from_slice(message.as_ref());
-
-		LeftPair::verify(&sig.left, message, &pubkey.left) &&
-			RightPair::verify(&sig.right, vec_message, &pubkey.right)
+		LeftPair::verify(&sig.left, message.as_ref(), &pubkey.left) &&
+			RightPair::verify(&sig.right, message.as_ref(), &pubkey.right)
 	}
 
 	/// Get the seed/secret key for each key and then concatenate them.
 	fn to_raw_vec(&self) -> Vec<u8> {
-		[self.left.to_raw_vec(), self.right.to_raw_vec()].concat()
+		let mut raw = self.left.to_raw_vec();
+		raw.extend(self.right.to_raw_vec());
+		raw
 	}
 }
 
