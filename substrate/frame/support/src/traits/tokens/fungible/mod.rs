@@ -97,10 +97,14 @@ impl<
 		F: 'static + MutateFreeze<A>,
 		R: 'static + Get<F::Id>,
 		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for FreezeConsideration<A, F, R, D>
+	> Consideration<A, F::Balance> for FreezeConsideration<A, F, R, D>
 {
 	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
+		F::increase_frozen(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
+	}
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
 		F::increase_frozen(&R::get(), who, new)?;
 		Ok(Self(new, PhantomData))
 	}
@@ -139,10 +143,14 @@ impl<
 		F: 'static + MutateHold<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for HoldConsideration<A, F, R, D>
+	> Consideration<A, F::Balance> for HoldConsideration<A, F, R, D>
 {
 	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
+		F::hold(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
+	}
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
 		F::hold(&R::get(), who, new)?;
 		Ok(Self(new, PhantomData))
 	}
@@ -188,11 +196,15 @@ impl<
 		Fx: 'static + MutateFreeze<A>,
 		Rx: 'static + Get<Fx::Id>,
 		D: 'static + Convert<Footprint, Fx::Balance>,
-	> Consideration<A> for LoneFreezeConsideration<A, Fx, Rx, D>
+	> Consideration<A, Fx::Balance> for LoneFreezeConsideration<A, Fx, Rx, D>
 {
 	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
 		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
+	}
+	fn new_from_exact(who: &A, new: Fx::Balance) -> Result<Self, DispatchError> {
+		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
+		Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Self(PhantomData))
 	}
 	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
@@ -227,11 +239,15 @@ impl<
 		F: 'static + MutateHold<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Footprint, F::Balance>,
-	> Consideration<A> for LoneHoldConsideration<A, F, R, D>
+	> Consideration<A, F::Balance> for LoneHoldConsideration<A, F, R, D>
 {
 	fn new(who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
 		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
+	}
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
+		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
+		F::set_on_hold(&R::get(), who, new).map(|_| Self(PhantomData))
 	}
 	fn update(self, who: &A, footprint: Footprint) -> Result<Self, DispatchError> {
 		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))

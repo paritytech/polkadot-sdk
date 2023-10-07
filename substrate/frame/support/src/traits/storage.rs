@@ -208,10 +208,16 @@ where
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 #[must_use]
-pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
+pub trait Consideration<AccountId, Balance>: Member + FullCodec + TypeInfo + MaxEncodedLen {
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
 	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
+
+	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
+	/// be consumed through `update` or `drop` once the footprint changes or is removed.
+	/// This is useful when a new ticket needs to be created with a precise balance, instead of deriving
+	/// it from a footprint
+	fn new_from_exact(who: &AccountId, new: Balance) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
 	/// and returning the new ticket (or an error if there was an issue).
@@ -232,8 +238,11 @@ pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLe
 	}
 }
 
-impl<A> Consideration<A> for () {
+impl<A, B> Consideration<A, B> for () {
 	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+		Ok(())
+	}
+	fn new_from_exact(_: &A, _: B) -> Result<Self, DispatchError> {
 		Ok(())
 	}
 	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
