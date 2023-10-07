@@ -54,7 +54,6 @@ use frame_support::traits::{
 		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
 	},
 	tokens::{Locker, Precision::BestEffort, Preservation::Preserve},
-	BalanceStatus::Reserved,
 	EnsureOriginWithArg, Incrementable,
 };
 use frame_system::Config as SystemConfig;

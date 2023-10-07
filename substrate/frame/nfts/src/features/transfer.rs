@@ -19,7 +19,10 @@
 //! of the NFTs pallet.
 
 use crate::*;
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	pallet_prelude::*,
+	traits::tokens::{Fortitude, Restriction},
+};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer an NFT to the specified destination account.
@@ -116,7 +119,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// - `origin`: The account requesting the transfer.
 	/// - `collection`: The ID of the collection to transfer ownership.
-	/// - `owner`: The new account that will become the owner of the collection.
+	/// - `new_owner`: The account that will become the new owner of the collection.
 	///
 	/// This function transfers the ownership of a collection to the specified account.
 	/// It performs checks to ensure that the `origin` is the current owner and that the
@@ -124,10 +127,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(crate) fn do_transfer_ownership(
 		origin: T::AccountId,
 		collection: T::CollectionId,
-		owner: T::AccountId,
+		new_owner: T::AccountId,
 	) -> DispatchResult {
 		// Check if the new owner is acceptable based on the collection's acceptance settings.
-		let acceptable_collection = OwnershipAcceptance::<T, I>::get(&owner);
+		let acceptable_collection = OwnershipAcceptance::<T, I>::get(&new_owner);
 		ensure!(acceptable_collection.as_ref() == Some(&collection), Error::<T, I>::Unaccepted);
 
 		// Try to retrieve and mutate the collection details.
@@ -135,35 +138,34 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
 			// Check if the `origin` is the current owner of the collection.
 			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-			if details.owner == owner {
+			if details.owner == new_owner {
 				return Ok(())
 			}
 
 			// Move the deposit to the new owner.
-			T::Currency::release(
+			T::Currency::transfer_on_hold(
 				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&details.owner,
+				&new_owner,
 				details.owner_deposit,
 				BestEffort,
-			)?;
-			T::Currency::hold(
-				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
-				&owner,
-				details.owner_deposit,
+				Restriction::Free,
+				Fortitude::Force,
 			)?;
 
 			// Update account ownership information.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
-			CollectionAccount::<T, I>::insert(&owner, &collection, ());
+			CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
 
-			details.owner = owner.clone();
-			OwnershipAcceptance::<T, I>::remove(&owner);
+			details.owner = new_owner.clone();
+			OwnershipAcceptance::<T, I>::remove(&new_owner);
 
 			// Emit `OwnerChanged` event.
-			Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+			Self::deposit_event(Event::OwnerChanged { collection, new_owner });
 			Ok(())
 		})
 	}
+
 	/// Set or unset the ownership acceptance for an account regarding a specific collection.
 	///
 	/// - `who`: The account for which to set or unset the ownership acceptance.
@@ -201,42 +203,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Forcefully change the owner of a collection.
 	///
 	/// - `collection`: The ID of the collection to change ownership.
-	/// - `owner`: The new account that will become the owner of the collection.
+	/// - `new_owner`: The account that will become the new owner of the collection.
 	///
 	/// This function allows for changing the ownership of a collection without any checks.
 	/// It moves the deposit to the new owner, updates the collection's owner, and emits
 	/// an `OwnerChanged` event.
 	pub(crate) fn do_force_collection_owner(
 		collection: T::CollectionId,
-		owner: T::AccountId,
+		new_owner: T::AccountId,
 	) -> DispatchResult {
 		// Try to retrieve and mutate the collection details.
 		Collection::<T, I>::try_mutate(collection, |maybe_details| {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
-			if details.owner == owner {
+			if details.owner == new_owner {
 				return Ok(())
 			}
 
 			// Move the deposit to the new owner.
-			T::Currency::release(
+			T::Currency::transfer_on_hold(
 				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 				&details.owner,
+				&new_owner,
 				details.owner_deposit,
 				BestEffort,
-			)?;
-			T::Currency::hold(
-				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
-				&owner,
-				details.owner_deposit,
+				Restriction::Free,
+				Fortitude::Force,
 			)?;
 
 			// Update collection accounts and set the new owner.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
-			CollectionAccount::<T, I>::insert(&owner, &collection, ());
-			details.owner = owner.clone();
+			CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
+			details.owner = new_owner.clone();
 
 			// Emit `OwnerChanged` event.
-			Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+			Self::deposit_event(Event::OwnerChanged { collection, new_owner });
 			Ok(())
 		})
 	}
