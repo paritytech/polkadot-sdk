@@ -530,13 +530,13 @@ where
 		let (left_seed_option, right_seed_option) = match seed {
 			Some(seed) => {
 				let (left_seed, right_seed): (LeftPair::Seed, RightPair::Seed) =
-					(seed.clone().into(), seed.into());
+					(seed.into(), seed.into());
 				(Some(left_seed), Some(right_seed))
 			},
 			None => (None, None),
 		};
 
-		let left_path: Vec<_> = path.map(|p| p.clone()).collect();
+		let left_path: Vec<_> = path.collect();
 		let right_path = left_path.clone();
 		let derived_left = self.left.derive(left_path.into_iter(), left_seed_option)?;
 		let derived_right = self.right.derive(right_path.into_iter(), right_seed_option)?;
