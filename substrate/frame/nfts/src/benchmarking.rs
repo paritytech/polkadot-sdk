@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 };
 use frame_support::{
 	assert_ok,
-	traits::{EnsureOrigin, Get, UnfilteredDispatchable},
+	traits::{fungible::Inspect, EnsureOrigin, Get, UnfilteredDispatchable},
 	BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
@@ -35,18 +35,22 @@ use sp_runtime::{
 	traits::{Bounded, IdentifyAccount, One},
 	AccountId32, MultiSignature, MultiSigner,
 };
-use sp_std::prelude::*;
+use sp_std::{ops::Div, prelude::*};
 
 use crate::Pallet as Nfts;
 
 const SEED: u32 = 0;
+
+fn set_default_balance<T: Config<I>, I: 'static>(who: &T::AccountId) {
+	T::Currency::set_balance(&who, BalanceOf::<T, I>::max_value().div(1000u32.into()));
+}
 
 fn create_collection<T: Config<I>, I: 'static>(
 ) -> (T::CollectionId, T::AccountId, AccountIdLookupOf<T>) {
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
 	let collection = T::Helper::collection(0);
-	T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+	set_default_balance::<T, I>(&caller);
 	assert_ok!(Nfts::<T, I>::force_create(
 		SystemOrigin::Root.into(),
 		caller_lookup.clone(),
@@ -242,7 +246,7 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &collection).unwrap();
 		whitelist_account!(caller);
 		let admin = T::Lookup::unlookup(caller.clone());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&caller);
 		let call = Call::<T, I>::create { admin, config: default_collection_config::<T, I>() };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
@@ -250,9 +254,10 @@ benchmarks_instance_pallet! {
 	}
 
 	force_create {
-		let caller: T::AccountId = whitelisted_caller();
-		let caller_lookup = T::Lookup::unlookup(caller.clone());
-	}: _(SystemOrigin::Root, caller_lookup, default_collection_config::<T, I>())
+		let collection_owner: T::AccountId = whitelisted_caller();
+		let collection_owner_lookup = T::Lookup::unlookup(collection_owner.clone());
+		set_default_balance::<T, I>(&collection_owner);
+	}: _(SystemOrigin::Root, collection_owner_lookup, default_collection_config::<T, I>())
 	verify {
 		assert_last_event::<T, I>(Event::NextCollectionIdIncremented { next_id: Some(T::Helper::collection(1)) }.into());
 	}
@@ -314,7 +319,7 @@ benchmarks_instance_pallet! {
 
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::Currency::set_balance(&target, T::Currency::minimum_balance());
 	}: _(SystemOrigin::Signed(caller.clone()), collection, item, target_lookup)
 	verify {
 		assert_last_event::<T, I>(Event::Transferred { collection, item, from: caller, to: target }.into());
@@ -372,7 +377,7 @@ benchmarks_instance_pallet! {
 		let (collection, caller, _) = create_collection::<T, I>();
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::Currency::set_balance(&target, T::Currency::minimum_balance());
 		let origin = SystemOrigin::Signed(target.clone()).into();
 		Nfts::<T, I>::set_accept_ownership(origin, Some(collection))?;
 	}: _(SystemOrigin::Signed(caller), collection, target_lookup)
@@ -401,7 +406,7 @@ benchmarks_instance_pallet! {
 			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::Currency::set_balance(&target, T::Currency::minimum_balance());
 		let call = Call::<T, I>::force_collection_owner {
 			collection,
 			owner: target_lookup,
@@ -521,7 +526,7 @@ benchmarks_instance_pallet! {
 			item,
 			target_lookup.clone(),
 		)?;
-		T::Currency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&target);
 		let value: BoundedVec<_, _> = vec![0u8; T::ValueLimit::get() as usize].try_into().unwrap();
 		for i in 0..n {
 			let key = make_filled_vec(i as u16, T::KeyLimit::get() as usize);
@@ -622,7 +627,7 @@ benchmarks_instance_pallet! {
 
 	set_accept_ownership {
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&caller);
 		let collection = T::Helper::collection(0);
 	}: _(SystemOrigin::Signed(caller.clone()), Some(collection))
 	verify {
@@ -680,7 +685,7 @@ benchmarks_instance_pallet! {
 		let price = ItemPrice::<T, I>::from(0u32);
 		let origin = SystemOrigin::Signed(seller.clone()).into();
 		Nfts::<T, I>::set_price(origin, collection, item, Some(price), Some(buyer_lookup))?;
-		T::Currency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&buyer);
 	}: _(SystemOrigin::Signed(buyer.clone()), collection, item, price)
 	verify {
 		assert_last_event::<T, I>(Event::ItemBought {
@@ -696,6 +701,7 @@ benchmarks_instance_pallet! {
 		let n in 0 .. T::MaxTips::get() as u32;
 		let amount = BalanceOf::<T, I>::from(100u32);
 		let caller: T::AccountId = whitelisted_caller();
+		set_default_balance::<T, I>(&caller);
 		let collection = T::Helper::collection(0);
 		let item = T::Helper::item(0);
 		let tips: BoundedVec<_, _> = vec![
@@ -770,7 +776,7 @@ benchmarks_instance_pallet! {
 		let duration = T::MaxDeadlineDuration::get();
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::Currency::set_balance(&target, T::Currency::minimum_balance());
 		let origin = SystemOrigin::Signed(caller.clone());
 		frame_system::Pallet::<T>::set_block_number(One::one());
 		Nfts::<T, I>::transfer(origin.clone().into(), collection, item2, target_lookup)?;
@@ -802,7 +808,7 @@ benchmarks_instance_pallet! {
 		let n in 0 .. T::MaxAttributesPerCall::get() as u32;
 		let caller_public = sr25519_generate(0.into(), None);
 		let caller = MultiSigner::Sr25519(caller_public).into_account().into();
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&caller);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 
 		let collection = T::Helper::collection(0);
@@ -833,7 +839,7 @@ benchmarks_instance_pallet! {
 		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &caller_public, &message).unwrap());
 
 		let target: T::AccountId = account("target", 0, SEED);
-		T::Currency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&target);
 		frame_system::Pallet::<T>::set_block_number(One::one());
 	}: _(SystemOrigin::Signed(target.clone()), Box::new(mint_data), signature.into(), caller)
 	verify {
@@ -851,7 +857,7 @@ benchmarks_instance_pallet! {
 		let signer_public = sr25519_generate(0.into(), None);
 		let signer: T::AccountId = MultiSigner::Sr25519(signer_public).into_account().into();
 
-		T::Currency::make_free_balance_be(&item_owner, DepositBalanceOf::<T, I>::max_value());
+	  set_default_balance::<T, I>(&item_owner);
 
 		let item = T::Helper::item(0);
 		assert_ok!(Nfts::<T, I>::force_mint(
