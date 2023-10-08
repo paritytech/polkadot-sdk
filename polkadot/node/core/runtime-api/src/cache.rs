@@ -20,12 +20,12 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -61,14 +61,11 @@ pub(crate) struct RequestResultCache {
 		LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCodeHash>>,
 	version: LruMap<Hash, u32>,
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
-	unapplied_slashes:
-		LruMap<Hash, Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>,
-	key_ownership_proof:
-		LruMap<(Hash, ValidatorId), Option<vstaging::slashing::OpaqueKeyOwnershipProof>>,
+	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
-
-	staging_para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::BackingState>>,
-	staging_async_backing_params: LruMap<Hash, vstaging::AsyncBackingParams>,
+	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
+	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 }
 
 impl Default for RequestResultCache {
@@ -99,9 +96,8 @@ impl Default for RequestResultCache {
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-
-			staging_para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			staging_async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -401,14 +397,14 @@ impl RequestResultCache {
 	pub(crate) fn unapplied_slashes(
 		&mut self,
 		relay_parent: &Hash,
-	) -> Option<&Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>> {
+	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>> {
 		self.unapplied_slashes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_unapplied_slashes(
 		&mut self,
 		relay_parent: Hash,
-		value: Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>,
+		value: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		self.unapplied_slashes.insert(relay_parent, value);
 	}
@@ -416,14 +412,14 @@ impl RequestResultCache {
 	pub(crate) fn key_ownership_proof(
 		&mut self,
 		key: (Hash, ValidatorId),
-	) -> Option<&Option<vstaging::slashing::OpaqueKeyOwnershipProof>> {
+	) -> Option<&Option<slashing::OpaqueKeyOwnershipProof>> {
 		self.key_ownership_proof.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_key_ownership_proof(
 		&mut self,
 		key: (Hash, ValidatorId),
-		value: Option<vstaging::slashing::OpaqueKeyOwnershipProof>,
+		value: Option<slashing::OpaqueKeyOwnershipProof>,
 	) {
 		self.key_ownership_proof.insert(key, value);
 	}
@@ -431,7 +427,7 @@ impl RequestResultCache {
 	// This request is never cached, hence always returns `None`.
 	pub(crate) fn submit_report_dispute_lost(
 		&mut self,
-		_key: (Hash, vstaging::slashing::DisputeProof, vstaging::slashing::OpaqueKeyOwnershipProof),
+		_key: (Hash, slashing::DisputeProof, slashing::OpaqueKeyOwnershipProof),
 	) -> Option<&Option<()>> {
 		None
 	}
@@ -448,34 +444,34 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
-	pub(crate) fn staging_para_backing_state(
+	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-	) -> Option<&Option<vstaging::BackingState>> {
-		self.staging_para_backing_state.get(&key).map(|v| &*v)
+	) -> Option<&Option<async_backing::BackingState>> {
+		self.para_backing_state.get(&key).map(|v| &*v)
 	}
 
-	pub(crate) fn cache_staging_para_backing_state(
+	pub(crate) fn cache_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-		value: Option<vstaging::BackingState>,
+		value: Option<async_backing::BackingState>,
 	) {
-		self.staging_para_backing_state.insert(key, value);
+		self.para_backing_state.insert(key, value);
 	}
 
-	pub(crate) fn staging_async_backing_params(
+	pub(crate) fn async_backing_params(
 		&mut self,
 		key: &Hash,
-	) -> Option<&vstaging::AsyncBackingParams> {
-		self.staging_async_backing_params.get(key).map(|v| &*v)
+	) -> Option<&async_backing::AsyncBackingParams> {
+		self.async_backing_params.get(key).map(|v| &*v)
 	}
 
-	pub(crate) fn cache_staging_async_backing_params(
+	pub(crate) fn cache_async_backing_params(
 		&mut self,
 		key: Hash,
-		value: vstaging::AsyncBackingParams,
+		value: async_backing::AsyncBackingParams,
 	) {
-		self.staging_async_backing_params.insert(key, value);
+		self.async_backing_params.insert(key, value);
 	}
 }
 
@@ -515,16 +511,15 @@ pub(crate) enum RequestResult {
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
-	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>),
-	KeyOwnershipProof(Hash, ValidatorId, Option<vstaging::slashing::OpaqueKeyOwnershipProof>),
+	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
+	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
 	SubmitReportDisputeLost(
 		Hash,
-		vstaging::slashing::DisputeProof,
-		vstaging::slashing::OpaqueKeyOwnershipProof,
+		slashing::DisputeProof,
+		slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
-
-	StagingParaBackingState(Hash, ParaId, Option<vstaging::BackingState>),
-	StagingAsyncBackingParams(Hash, vstaging::AsyncBackingParams),
+	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
+	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 }

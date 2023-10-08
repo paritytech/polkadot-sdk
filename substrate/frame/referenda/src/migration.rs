@@ -99,8 +99,6 @@ pub mod v1 {
 	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateV0ToV1<T, I> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-			ensure!(onchain_version == 0, "migration from version 0 to 1.");
 			let referendum_count = v0::ReferendumInfoFor::<T, I>::iter().count();
 			log::info!(
 				target: TARGET,
