@@ -184,7 +184,7 @@ pub struct MulBy<N>(PhantomData<N>);
 impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 	type Error = ();
 	fn from_asset_balance(balance: u64, _asset_id: u32) -> Result<u64, Self::Error> {
-		return balance.checked_mul(N::get()).ok_or(())
+		return balance.checked_mul(N::get()).ok_or(());
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: u32) {}
@@ -217,24 +217,35 @@ impl Config for Test {
 	type BenchmarkHelper = ();
 }
 
-pub fn build_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		// Total issuance will be 200 with treasury account initialized at ED.
-		balances: vec![(0, 100), (1, 98), (2, 1)],
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
 	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
-	t.into()
 }
 
-pub fn build_ext_and_execute_test(test: impl FnOnce() -> ()) {
-	let mut ext = build_ext();
-	ext.execute_with(|| {
-		test();
-		Treasury::do_try_state().expect("Storage invariants should hold.")
-	});
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Test> {
+			// Total issuance will be 200 with treasury account initialized at ED.
+			balances: vec![(0, 100), (1, 98), (2, 1)],
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	pub fn build_ext_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Treasury::do_try_state().expect("Storage invariants should hold.")
+		});
+	}
 }
 
 fn get_payment_id(i: SpendIndex) -> Option<u64> {
@@ -247,7 +258,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 
 #[test]
 fn genesis_config_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(Treasury::proposal_count(), 0);
 	});
@@ -255,7 +266,7 @@ fn genesis_config_works() {
 
 #[test]
 fn spend_local_origin_permissioning_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_noop!(Treasury::spend_local(RuntimeOrigin::signed(1), 1, 1), BadOrigin);
 		assert_noop!(
 			Treasury::spend_local(RuntimeOrigin::signed(10), 6, 1),
@@ -279,7 +290,7 @@ fn spend_local_origin_permissioning_works() {
 #[docify::export]
 #[test]
 fn spend_local_origin_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		// approve spend of some amount to beneficiary `6`.
@@ -303,7 +314,7 @@ fn spend_local_origin_works() {
 
 #[test]
 fn minting_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
@@ -312,7 +323,7 @@ fn minting_works() {
 
 #[test]
 fn spend_proposal_takes_min_deposit() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_ok!({
 			#[allow(deprecated)]
 			Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3)
@@ -324,7 +335,7 @@ fn spend_proposal_takes_min_deposit() {
 
 #[test]
 fn spend_proposal_takes_proportional_deposit() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_ok!({
 			#[allow(deprecated)]
 			Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
@@ -336,7 +347,7 @@ fn spend_proposal_takes_proportional_deposit() {
 
 #[test]
 fn spend_proposal_fails_when_proposer_poor() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_noop!(
 			{
 				#[allow(deprecated)]
@@ -349,7 +360,7 @@ fn spend_proposal_fails_when_proposer_poor() {
 
 #[test]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({
@@ -369,7 +380,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 
 #[test]
 fn unused_pot_should_diminish() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		let init_total_issuance = Balances::total_issuance();
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
@@ -382,7 +393,7 @@ fn unused_pot_should_diminish() {
 
 #[test]
 fn rejected_spend_proposal_ignored_on_spend_period() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({
@@ -402,7 +413,7 @@ fn rejected_spend_proposal_ignored_on_spend_period() {
 
 #[test]
 fn reject_already_rejected_spend_proposal_fails() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({
@@ -425,7 +436,7 @@ fn reject_already_rejected_spend_proposal_fails() {
 
 #[test]
 fn reject_non_existent_spend_proposal_fails() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_noop!(
 			{
 				#[allow(deprecated)]
@@ -438,7 +449,7 @@ fn reject_non_existent_spend_proposal_fails() {
 
 #[test]
 fn accept_non_existent_spend_proposal_fails() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_noop!(
 			{
 				#[allow(deprecated)]
@@ -451,7 +462,7 @@ fn accept_non_existent_spend_proposal_fails() {
 
 #[test]
 fn accept_already_rejected_spend_proposal_fails() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({
@@ -474,7 +485,7 @@ fn accept_already_rejected_spend_proposal_fails() {
 
 #[test]
 fn accepted_spend_proposal_enacted_on_spend_period() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -495,7 +506,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 
 #[test]
 fn pot_underflow_should_not_diminish() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -522,7 +533,7 @@ fn pot_underflow_should_not_diminish() {
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
 fn treasury_account_doesnt_get_deleted() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
@@ -621,7 +632,7 @@ fn genesis_funding_works() {
 
 #[test]
 fn max_approvals_limited() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
 		Balances::make_free_balance_be(&0, u64::MAX);
 
@@ -653,7 +664,7 @@ fn max_approvals_limited() {
 
 #[test]
 fn remove_already_removed_approval_fails() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({
@@ -677,7 +688,7 @@ fn remove_already_removed_approval_fails() {
 
 #[test]
 fn spending_local_in_batch_respects_max_total() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		// Respect the `max_total` for the given origin.
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
 			calls: vec![
@@ -702,7 +713,7 @@ fn spending_local_in_batch_respects_max_total() {
 
 #[test]
 fn spending_in_batch_respects_max_total() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		// Respect the `max_total` for the given origin.
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
 			calls: vec![
@@ -747,7 +758,7 @@ fn spending_in_batch_respects_max_total() {
 
 #[test]
 fn spend_origin_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None));
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_noop!(
@@ -772,7 +783,7 @@ fn spend_origin_works() {
 
 #[test]
 fn spend_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 
@@ -804,7 +815,7 @@ fn spend_works() {
 
 #[test]
 fn spend_expires() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
 
 		// spend `0` expires in 5 blocks after the creating.
@@ -824,7 +835,7 @@ fn spend_expires() {
 #[docify::export]
 #[test]
 fn spend_payout_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		System::set_block_number(1);
 		// approve a `2` coins spend of asset `1` to beneficiary `6`, the spend valid from now.
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
@@ -846,7 +857,7 @@ fn spend_payout_works() {
 
 #[test]
 fn payout_retry_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
@@ -871,7 +882,7 @@ fn payout_retry_works() {
 
 #[test]
 fn spend_valid_from_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
 		System::set_block_number(1);
 
@@ -903,7 +914,7 @@ fn spend_valid_from_works() {
 
 #[test]
 fn void_spend_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		System::set_block_number(1);
 		// spend cannot be voided if already attempted.
 		assert_ok!(Treasury::spend(
@@ -934,7 +945,7 @@ fn void_spend_works() {
 
 #[test]
 fn check_status_works() {
-	 build_ext_and_execute_test(|| {
+	ExtBuilder::default().build_ext_and_execute(|| {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
 		System::set_block_number(1);
 
