@@ -321,7 +321,7 @@ pub mod pallet {
 
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, weights::NoFee};
+		use frame_support::derive_impl;
 
 		/// Default prelude sensible to be used in a testing environment.
 		///
@@ -339,8 +339,6 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
-			type LengthToFee = NoFee<u128>;
-			type WeightToFee = NoFee<u128>;
 		}
 	}
 
@@ -360,11 +358,11 @@ pub mod pallet {
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 
 		/// Convert a weight value into a deductible fee based on the currency type.
-		#[pallet::no_default_bounds]
+		#[pallet::no_default]
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Convert a length value into a deductible fee based on the currency type.
-		#[pallet::no_default_bounds]
+		#[pallet::no_default]
 		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Update the multiplier of the next block, based on the previous block's weight.

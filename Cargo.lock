@@ -16330,8 +16330,7 @@ dependencies = [
 [[package]]
 name = "simple-mermaid"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9292312e0707d1308f09befeb8d2a1fcadd590d0985a617edc8a381ef8f9424"
+source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
 
 [[package]]
 name = "siphasher"
@@ -17773,7 +17772,6 @@ dependencies = [
 name = "substrate"
 version = "1.0.0"
 dependencies = [
- "aquamarine",
  "chain-spec-builder",
  "frame-support",
  "sc-cli",

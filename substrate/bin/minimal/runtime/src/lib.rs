@@ -22,7 +22,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
-	deps::frame_support::weights::FixedFee, // TODO: needs to come from somewhere reasonable.
+	deps::frame_support::weights::{FixedFee, NoFee},
 	prelude::*,
 	runtime::{
 		apis::{
@@ -102,10 +102,9 @@ impl pallet_timestamp::Config for Runtime {}
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	// TODO: this a hack to make all transactions have a fixed amount of fee. We declare length to
-	// fee function as a constant of 1, and no weight to fee.
-	type WeightToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
+	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
