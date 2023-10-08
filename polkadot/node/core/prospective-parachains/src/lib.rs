@@ -22,7 +22,7 @@
 //! backing phases of parachain consensus.
 //!
 //! This is primarily an implementation of "Fragment Trees", as described in
-//! [`polkadot_node_subsystem_util::inclusion_emulator::staging`].
+//! [`polkadot_node_subsystem_util::inclusion_emulator`].
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
@@ -42,13 +42,14 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	inclusion_emulator::staging::{Constraints, RelayChainBlockInfo},
+	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 };
-use polkadot_primitives::vstaging::{
-	BlockNumber, CandidateHash, CandidatePendingAvailability, CommittedCandidateReceipt, CoreState,
-	Hash, HeadData, Header, Id as ParaId, PersistedValidationData,
+use polkadot_primitives::{
+	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
+	CommittedCandidateReceipt, CoreState, Hash, HeadData, Header, Id as ParaId,
+	PersistedValidationData,
 };
 
 use crate::{
@@ -792,7 +793,7 @@ async fn fetch_backing_state<Context>(
 	let (tx, rx) = oneshot::channel();
 	ctx.send_message(RuntimeApiMessage::Request(
 		relay_parent,
-		RuntimeApiRequest::StagingParaBackingState(para_id, tx),
+		RuntimeApiRequest::ParaBackingState(para_id, tx),
 	))
 	.await;
 

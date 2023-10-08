@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_core_pvf::testing::{spawn_with_program_path, SpawnErr};
-use std::time::Duration;
+use polkadot_node_core_pvf::{
+	testing::{spawn_with_program_path, SpawnErr},
+	SecurityStatus,
+};
+use std::{env, time::Duration};
 
 fn worker_path(name: &str) -> std::path::PathBuf {
 	let mut worker_path = std::env::current_exe().unwrap();
@@ -33,8 +36,10 @@ async fn spawn_immediate_exit() {
 	let result = spawn_with_program_path(
 		"integration-test",
 		worker_path("polkadot-prepare-worker"),
+		&env::temp_dir(),
 		&["exit"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await;
 	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
@@ -45,8 +50,10 @@ async fn spawn_timeout() {
 	let result = spawn_with_program_path(
 		"integration-test",
 		worker_path("polkadot-execute-worker"),
+		&env::temp_dir(),
 		&["test-sleep"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await;
 	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
@@ -57,8 +64,10 @@ async fn should_connect() {
 	let _ = spawn_with_program_path(
 		"integration-test",
 		worker_path("polkadot-prepare-worker"),
+		&env::temp_dir(),
 		&["prepare-worker"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await
 	.unwrap();
