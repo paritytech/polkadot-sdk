@@ -5,7 +5,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
+// the Free oSftware Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
 // This program is distributed in the hope that it will be useful,
@@ -16,28 +16,39 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::LOG_TARGET;
+use crate::{keystore::AuthorityIdBound, LOG_TARGET};
 
 use codec::{Decode, Encode};
 use log::debug;
+use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
 	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
 
+use smart_default::SmartDefault;
+
 /// Tracks for each round which validators have voted/signed and
 /// whether the local `self` validator has voted/signed.
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
-#[derive(Debug, Decode, Default, Encode, PartialEq)]
-pub(crate) struct RoundTracker {
-	votes: BTreeMap<AuthorityId, Signature>,
+#[derive(Debug, Decode, Encode, PartialEq, SmartDefault)]
+pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 }
 
-impl RoundTracker {
-	fn add_vote(&mut self, vote: (AuthorityId, Signature)) -> bool {
+impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	fn add_vote(
+		&mut self,
+		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
+	) -> bool {
 		if self.votes.contains_key(&vote.0) {
 			return false
 		}
@@ -58,10 +69,15 @@ pub fn threshold(authorities: usize) -> usize {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VoteImportResult<B: Block> {
+pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	Ok,
-	RoundConcluded(SignedCommitment<NumberFor<B>, Signature>),
-	Equivocation(EquivocationProof<NumberFor<B>, AuthorityId, Signature>),
+	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
+	Equivocation(
+		EquivocationProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	),
 	Invalid,
 	Stale,
 }
@@ -71,19 +87,26 @@ pub enum VoteImportResult<B: Block> {
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct Rounds<B: Block> {
-	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker>,
-	previous_votes:
-		BTreeMap<(AuthorityId, NumberFor<B>), VoteMessage<NumberFor<B>, AuthorityId, Signature>>,
+pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
+	previous_votes: BTreeMap<
+		(AuthorityId, NumberFor<B>),
+		VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
 
-impl<B> Rounds<B>
+impl<B, AuthorityId> Rounds<B, AuthorityId>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub(crate) fn new(
 		session_start: NumberFor<B>,
@@ -121,8 +144,8 @@ where
 
 	pub(crate) fn add_vote(
 		&mut self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
-	) -> VoteImportResult<B> {
+		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	) -> VoteImportResult<B, AuthorityId> {
 		let num = vote.commitment.block_number;
 		let vote_key = (vote.id.clone(), num);
 
@@ -177,8 +200,8 @@ where
 
 	fn signed_commitment(
 		&mut self,
-		round: (Commitment<NumberFor<B>>, RoundTracker),
-	) -> SignedCommitment<NumberFor<B>, Signature> {
+		round: (Commitment<NumberFor<B>>, RoundTracker<AuthorityId>),
+	) -> SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature> {
 		let votes = round.1.votes;
 		let signatures = self
 			.validators()
