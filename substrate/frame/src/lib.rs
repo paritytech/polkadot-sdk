@@ -15,9 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # FRAME
+//! > Made with *Substrate*, for *Polkadot*.
 //!
-//! > Substrate's State Transition Function (Runtime) Framework.
+//! [![github]](https://github.com/paritytech/polkadot-sdk/substrate/frame) -
+//! [![polkadot]](https://polkadot.network)
+//!
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//!
+//!
+//! # FRAME
 //!
 //! ```co_compile
 //!   ______   ______    ________   ___ __ __   ______
@@ -28,6 +35,9 @@
 //!     \:\ \    \ \ `\ \ \\:.\ \  \ \\. \  \  \ \\:\____/\
 //!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
 //! ```
+//!
+//! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
+//! > State Transition Function (Runtime) Framework.
 //!
 //! ## Warning: Experimental
 //!
@@ -59,18 +69,21 @@
 //! Most of these components are defined using macros, the full list of which can be found in
 //! [`frame_support::pallet_macros`]
 //!
+//! ###
+//!
+//! The following examples showcases a minimal pallet.
+#![doc = docify::embed!("src/lib.rs", pallet)]
+//!
 //! ## Runtime
 //!
 //! This crate also provides the ability to amalgamate multiple pallets into a single runtime. See
-//! [`runtime`].
+//! [`runtime`]. To do so, the `runtime` feature of this crate needs to be enabled.
 //!
-//! > To do so, the `runtime` feature of this crate needs to be enabled.
+//! ### Example
 //!
-//! ## Example
-//!
-//! This example showcases a very simple pallet that exposes a single dispatchable, and a minimal
-//! runtime that contains it.
-#![doc = docify::embed!("src/lib.rs", tests)]
+//! The following example shows a (test) runtime that is composing the pallet demonstrated above,
+//! next to the [`frame_system`] pallet, into a runtime.
+#![doc = docify::embed!("src/lib.rs", runtime)]
 //!
 //! ## Underlying dependencies
 //!
@@ -347,7 +360,6 @@ pub mod derive {
 /// Any time one uses this module to access a dependency, you can have a moment to think about
 /// whether this item could have been placed in any of the other modules and preludes in this crate.
 /// In most cases, hopefully the answer is yes.
-#[doc(hidden)]
 pub mod deps {
 	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
 	// these. For example, we prefer `frame::derive::CloneNoBound` rather than
@@ -382,12 +394,12 @@ pub mod deps {
 	pub use sp_version;
 }
 
-#[docify::export]
 #[cfg(test)]
 mod tests {
 	use crate as frame;
 	use frame::{prelude::*, testing_prelude::*};
 
+	#[docify::export]
 	#[frame::pallet(dev_mode)]
 	pub mod pallet {
 		use super::*;
@@ -415,7 +427,8 @@ mod tests {
 		}
 	}
 
-	mod runtime {
+	#[docify::export]
+	pub mod runtime {
 		use super::{frame, pallet as pallet_example};
 		use frame::{prelude::*, testing_prelude::*};
 
@@ -428,14 +441,7 @@ mod tests {
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 		impl frame_system::Config for Runtime {
-			type BaseCallFilter = frame::traits::Everything;
-			type RuntimeOrigin = RuntimeOrigin;
-			type RuntimeCall = RuntimeCall;
-			type RuntimeEvent = RuntimeEvent;
-			type PalletInfo = PalletInfo;
-			type OnSetCode = ();
 			type Block = MockBlock<Self>;
-			type BlockHashCount = ();
 		}
 
 		impl pallet_example::Config for Runtime {
