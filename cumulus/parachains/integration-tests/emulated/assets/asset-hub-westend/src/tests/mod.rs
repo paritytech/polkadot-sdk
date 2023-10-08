@@ -20,6 +20,7 @@ mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
+mod treasury;
 
 /// Relay Chain sends `Transact` instruction with `force_create_asset` to System Parachain.
 pub fn do_force_create_asset_from_relay_to_system_para(origin_kind: OriginKind) {
