@@ -64,8 +64,9 @@ pub mod benchmarking;
 const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T, I = ()> = <<T as Config<I>>::Currency as fungible::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
@@ -107,9 +108,7 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
-		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
-			+ fungible::Inspect<Self::AccountId>;
+		type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -136,6 +135,9 @@ pub mod pallet {
 		/// those successful voters are locked into the consequences that their votes entail.
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -199,6 +201,13 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
+	}
+
+	/// The reasons for the pallet recovery placing holds on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The Pallet holds funds for voting reasons.
+		VotingHold,
 	}
 
 	#[pallet::call]
@@ -393,6 +402,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		poll_index: PollIndexOf<T, I>,
 		vote: AccountVote<BalanceOf<T, I>>,
 	) -> DispatchResult {
+		use frame_support::traits::fungible::Inspect;
 		ensure!(
 			vote.balance() <= T::Currency::total_balance(who),
 			Error::<T, I>::InsufficientFunds
@@ -556,6 +566,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
+		use frame_support::traits::fungible::Inspect;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
@@ -644,12 +655,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-		T::Currency::extend_lock(
-			CONVICTION_VOTING_ID,
-			who,
-			amount,
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		use frame_support::traits::fungible::MutateHold;
+		T::Currency::hold(&HoldReason::VotingHold.into(), who, amount);
 	}
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
@@ -673,14 +680,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(CONVICTION_VOTING_ID, who);
-		} else {
-			T::Currency::set_lock(
-				CONVICTION_VOTING_ID,
+			use frame_support::traits::fungible::MutateHold;
+			T::Currency::release_all(
+				&HoldReason::VotingHold.into(),
 				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
+				frame_support::traits::tokens::Precision::BestEffort,
 			);
+		} else {
+			use frame_support::traits::fungible::MutateHold;
+			T::Currency::hold(&HoldReason::VotingHold.into(), who, lock_needed);
 		}
 	}
 }
