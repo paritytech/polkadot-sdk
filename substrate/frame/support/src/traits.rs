@@ -26,7 +26,7 @@ pub use tokens::{
 		ReservableCurrency, TotalIssuanceOf, VestingSchedule,
 	},
 	fungible, fungibles,
-	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
+	imbalance::{Imbalance, OnUnbalanced, OnUnbalancedOther, SignedImbalance},
 	nonfungible, nonfungibles, BalanceStatus, ExistenceRequirement, Locker, WithdrawReasons,
 };
 

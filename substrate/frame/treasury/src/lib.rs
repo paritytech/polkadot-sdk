@@ -63,6 +63,8 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+use core::marker::PhantomData;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -76,7 +78,7 @@ use frame_support::{
 	print,
 	traits::{
 		Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		ReservableCurrency, WithdrawReasons, fungible::{Credit, Balanced},
 	},
 	weights::Weight,
 	PalletId,
@@ -85,6 +87,7 @@ use frame_support::{
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
@@ -617,7 +620,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
+    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
 		let numeric_amount = amount.peek();
 
 		// Must resolve into existing but better to be safe.
@@ -626,3 +629,17 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
 	}
 }
+
+/// Type that implements the [`OnUnbalanced`] trait that is supported by the fungible traits.
+pub struct FunOnUnbalanced<T, F, I>(PhantomData<(T, F, I)>);
+
+impl<T: Config<I>, F, I: 'static> OnUnbalanced<Credit<AccountIdOf<T>, F>> for FunOnUnbalanced<T, F, I>
+    where F: Balanced<AccountIdOf<T>>
+{
+    fn on_nonzero_unbalanced(amount: Credit<<T as frame_system::Config>::AccountId, F>) {
+        let _ = F::resolve(&<Pallet<T, I>>::account_id(), amount);
+
+        //<Pallet<T, I>>::deposit_event(Event::Deposit { value: amount.peek() });
+    }
+}
+

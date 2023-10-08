@@ -191,6 +191,12 @@ pub mod pallet {
 		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FnBalanced<Self::AccountId>;
 
+		// also doesn't work
+		//type Currency: frame_support::traits::Currency<Self::AccountId, NegativeImbalance =
+		// CreditOf<Self, I>>
+		// 	+ FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		// 	+ FnBalanced<Self::AccountId>;
+
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -210,6 +216,9 @@ pub mod pallet {
 
 		/// Handler for the unbalanced reduction when slashing a preimage deposit.
 		type OnSlash: OnUnbalanced<CreditOf<Self, I>>;
+
+		// new
+		//type OnSlash: OnUnbalancedOther<Imbalance = CreditOf<Self, I>>;
 
 		/// The counting type for votes. Usually just balance.
 		type Votes: AtLeast32BitUnsigned + Copy + Parameter + Member + MaxEncodedLen;
@@ -1302,7 +1311,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				amount,
 			);
 			T::OnSlash::on_unbalanced(imbalance);
-			//T::OnSlash::handle(imbalance);
 
 			Self::deposit_event(Event::<T, I>::DepositSlashed {
 				who,

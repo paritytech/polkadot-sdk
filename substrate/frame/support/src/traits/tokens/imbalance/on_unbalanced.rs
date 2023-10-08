@@ -53,3 +53,27 @@ pub trait OnUnbalanced<Imbalance: TryDrop> {
 }
 
 impl<Imbalance: TryDrop> OnUnbalanced<Imbalance> for () {}
+
+// new
+use crate::traits::tokens::imbalance::Imbalance;
+pub trait OnUnbalancedOther {
+	type Imbalance: TryDrop;
+
+	fn on_unbalanceds<B>(amounts: impl Iterator<Item = Self::Imbalance>)
+	where
+		Self::Imbalance: frame_support::traits::Imbalance<B>,
+	{
+		Self::on_unbalanced(amounts.fold(Self::Imbalance::zero(), |i, x| x.merge(i)))
+	}
+
+	fn on_unbalanced(amount: Self::Imbalance) {
+		amount.try_drop().unwrap_or_else(Self::on_nonzero_unbalanced)
+	}
+
+	fn on_nonzero_unbalanced(amount: Self::Imbalance) {
+		drop(amount);
+	}
+}
+impl OnUnbalancedOther for () {
+	type Imbalance = ();
+}

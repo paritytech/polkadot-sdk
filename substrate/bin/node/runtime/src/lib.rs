@@ -983,7 +983,7 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = pallet_balances::Pallet<Self>;
-	//type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin = EnsureSigned<AccountId>;
 	type CancelOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
