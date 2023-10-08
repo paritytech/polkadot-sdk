@@ -50,8 +50,11 @@ parameter_types! {
 	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
 }
 
-pub struct CoretimeProvider;
-impl CoretimeInterface for CoretimeProvider {
+/// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
+/// from the parachain context. That is, the parachain provides a market (broker) for the sale of
+/// coretime, but assumes a `CoretimeProvider` (i.e. a Relay Chain) to actually provide cores.
+pub struct CoretimeAllocator;
+impl CoretimeInterface for CoretimeAllocator {
 	type AccountId = AccountId;
 	type Balance = Balance;
 	type BlockNumber = BlockNumber;
@@ -67,6 +70,17 @@ impl CoretimeInterface for CoretimeProvider {
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		_end_hint: Option<Self::BlockNumber>,
 	) {
+		// Send UMP to assign_core()
+		// let program = Xcm(vec![
+		// 	UnpaidExecution,
+		// 	Transact { 
+		// 		origin : OriginKind::Xcm,
+		// 		require_weight_at_most: Weight { ref_time: 1, proof_size: 1 },
+		// 		encoded: DoubleEncoded{CoretimeProvider::assign_core(..)}, 
+		// 	},
+
+		// ]);
+		// pallet_xcm::<T>::send_xcm(  );
 	}
 	fn check_notify_core_count() -> Option<u16> {
 		let count = CoreCount::get();
@@ -95,7 +109,7 @@ impl pallet_broker::Config for Runtime {
 	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
-	type Coretime = CoretimeProvider;
+	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
