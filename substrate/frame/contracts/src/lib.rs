@@ -231,9 +231,10 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
+		#[pallet::no_default]
 		type Time: Time;
 
 		/// The generator used to supply randomness to contracts through `seal_random`.
@@ -244,21 +245,29 @@ pub mod pallet {
 		/// be instantiated from existing codes that use this deprecated functionality. It will
 		/// be removed eventually. Hence for new `pallet-contracts` deployments it is okay
 		/// to supply a dummy implementation for this type (because it is never used).
+		#[pallet::no_default]
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
+		#[pallet::no_default]
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Filter that is applied to calls dispatched by contracts.
 		///
@@ -279,10 +288,12 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
+		#[pallet::no_default_bounds]
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
+		#[pallet::no_default]
 		type WeightPrice: Convert<Weight, BalanceOf<Self>>;
 
 		/// Describes the weights of the dispatchables of this module and is also used to
@@ -290,10 +301,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		#[pallet::no_default]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
 
 		/// Cost schedule and limits.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type Schedule: Get<Schedule<Self>>;
 
 		/// The type of the call stack determines the maximum nesting depth of contract calls.
@@ -304,6 +317,7 @@ pub mod pallet {
 		///
 		/// This setting along with [`MaxCodeLen`](#associatedtype.MaxCodeLen) directly affects
 		/// memory usage of your runtime.
+		#[pallet::no_default]
 		type CallStack: Array<Item = Frame<Self>>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
@@ -312,10 +326,12 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type DepositPerByte: Get<BalanceOf<Self>>;
 
 		/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type DefaultDepositLimit: Get<BalanceOf<Self>>;
 
 		/// The amount of balance a caller has to pay for each storage item.
@@ -324,6 +340,7 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
@@ -334,6 +351,7 @@ pub mod pallet {
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
 		/// The address generator used to generate the addresses of contracts.
+		#[pallet::no_default_bounds]
 		type AddressGenerator: AddressGenerator<Self>;
 
 		/// The maximum length of a contract code in bytes.
@@ -369,9 +387,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
 
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// The sequence of migration steps that will be applied during a migration.
 		///
 		/// # Examples
@@ -395,6 +410,7 @@ pub mod pallet {
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::contracts" is set to trace.
+		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
 		/// Type that bundles together all the runtime configurable interface types.
@@ -402,7 +418,50 @@ pub mod pallet {
 		/// This is not a real config. We just mention the type here as constant so that
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type Environment: Get<Environment<Self>>;
+	}
+
+	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{
+			derive_impl,
+			traits::{ConstBool, ConstU32},
+		};
+		use sp_core::parameter_types;
+
+		parameter_types! {
+				pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+		}
+
+		/// A type providing default configurations for this pallet in testing environment.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+
+			type CallFilter = ();
+			type AddressGenerator = DefaultAddressGenerator;
+			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+			type MaxStorageKeyLen = ConstU32<128>;
+			type UnsafeUnstableInterface = ConstBool<true>;
+			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+			type MaxDelegateDependencies = ConstU32<32>;
+			type Migrations = ();
+			type WeightInfo = ();
+			type Debug = ();
+		}
 	}
 
 	#[pallet::hooks]
