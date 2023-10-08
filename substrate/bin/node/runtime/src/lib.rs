@@ -1513,6 +1513,7 @@ impl pallet_society::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = SocietyPalletId;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Randomness = RandomnessCollectiveFlip;
 	type GraceStrikes = GraceStrikes;
 	type PeriodSpend = PeriodSpend;
