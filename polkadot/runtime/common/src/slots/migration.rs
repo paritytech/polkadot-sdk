@@ -45,6 +45,9 @@ mod v1 {
 	use frame_support::traits::ReservableCurrency;
 	use sp_std::collections::btree_map::BTreeMap;
 
+	#[cfg(feature = "try-runtime")]
+	use frame_support::traits::fungible::InspectHold;
+
 	/// Balance type of OldCurrency.
 	pub type OldBalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
 		<T as frame_system::Config>::AccountId,
@@ -123,8 +126,7 @@ mod v1 {
 			// for each pair assert hold amount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
 				// fixme(ank4n) there is a case where an account has a hold for multiple para-ids..
-				let actual_hold = T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), who)
-					.expect("Migration should have inserted this entry");
+				let actual_hold = T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), who);
 				let expected_hold = Pallet::<T>::deposit_held(*para, who);
 
 				ensure!(

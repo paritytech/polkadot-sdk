@@ -19,7 +19,7 @@
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
-		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
 		Currency, ReservableCurrency,
 	},
 };
@@ -112,7 +112,7 @@ pub trait Leaser<BlockNumber> {
 	type LeasePeriod;
 
 	/// The currency type in which the lease is taken.
-	type Currency: FunHoldMutate<Self::AccountId>;
+	type Currency: FunHoldMutate<Self::AccountId> + FunMutate<Self::AccountId>;
 
 	/// Lease a new parachain slot for `para`.
 	///

@@ -28,7 +28,10 @@ use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
-	traits::fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+	traits::fungible::{
+		hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
+		Inspect as FunInspect, Mutate as FunMutate,
+	},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::*;
@@ -80,7 +83,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency type used for bidding.
-		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunMutate<Self::AccountId>;
 
 		/// The hold reason when reserving funds for the lease.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -1159,7 +1163,7 @@ mod benchmarking {
 
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
-				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into, &leaser), T::Currency::minimum_balance());
+				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), &leaser), T::Currency::minimum_balance());
 			}
 
 			let origin =
@@ -1168,8 +1172,7 @@ mod benchmarking {
 		verify {
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
-				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into, &leaser), 0u32.into());
-				assert_eq!(T::Currency::reserved_balance(&leaser), 0u32.into());
+				assert_eq!(T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), &leaser), 0u32.into());
 			}
 		}
 

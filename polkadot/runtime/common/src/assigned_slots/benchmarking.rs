@@ -20,19 +20,18 @@
 use super::*;
 
 use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use primitives::Id as ParaId;
 use sp_runtime::traits::Bounded;
 
 type CurrencyOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency;
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as Currency<
+type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 #[benchmarks(where T: Config)]
 mod benchmarks {
 	use super::*;
-
+	use frame_support::{assert_ok, traits::fungible::Mutate};
 	use crate::assigned_slots::Pallet as AssignedSlots;
 
 	fn register_parachain<T: Config>(para_id: ParaId) {
@@ -40,7 +39,7 @@ mod benchmarks {
 		let worst_validation_code = T::Registrar::worst_validation_code();
 		let worst_head_data = T::Registrar::worst_head_data();
 
-		CurrencyOf::<T>::make_free_balance_be(&who, BalanceOf::<T>::max_value());
+		CurrencyOf::<T>::set_balance(&who, BalanceOf::<T>::max_value());
 
 		assert_ok!(T::Registrar::register(
 			who,

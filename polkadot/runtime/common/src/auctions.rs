@@ -25,7 +25,7 @@ use crate::{
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	traits::{fungible::Inspect as FunInspect, Get, Randomness, ReservableCurrency},
+	traits::{fungible::Inspect as FunInspect, Currency, Get, Randomness, ReservableCurrency},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -37,9 +37,7 @@ use sp_std::{mem::swap, prelude::*};
 
 type CurrencyOf<T> = <T as Config>::Currency;
 type BalanceOf<T> =
-	<<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
-		<T as frame_system::Config>::AccountId,
-	>>::Balance;
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
 	fn new_auction() -> Weight;
@@ -686,7 +684,7 @@ mod tests {
 	use ::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, ord_parameter_types, parameter_types,
-		traits::{ConstU32, EitherOfDiverse, OnFinalize, OnInitialize, Currency},
+		traits::{ConstU32, Currency, EitherOfDiverse, OnFinalize, OnInitialize},
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
