@@ -15,14 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! > Made with *Substrate*, for *Polkadot*.
-//!
-//! [![github]](https://github.com/paritytech/polkadot-sdk/substrate/frame) -
-//! [![polkadot]](https://polkadot.network)
+//! > Made for [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
-//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
-//!
 //!
 //! # FRAME
 //!
@@ -54,8 +49,9 @@
 //! FRAME is the Substrate's framework of choice to build a runtime.
 //!
 //! FRAME is composed of two major components, **pallets** and a **runtime**. Pallets are isolated
-//! pieces of logic that can be composed together to form a runtime.
-//!
+//! pieces of logic that can be composed together to form a runtime. Recall from the [`substrate`]'s
+//! architecture that a FRAME-based runtime would be part of a substrate client.
+#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
 //! ## Pallets
 //!
 //! A pallet is analogous to a module in the runtime, which can itself be composed of multiple
@@ -92,6 +88,8 @@
 //!
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
+//!
+//! [`substrate`]: ../substrate/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

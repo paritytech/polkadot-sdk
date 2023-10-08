@@ -11,6 +11,7 @@ version = "1.0.0"
 # The dependencies are only needed for docs.
 [dependencies]
 aquamarine = "0.3.2"
+simple-mermaid = "0.1.0"
 
 subkey = { path = "bin/utils/subkey" }
 chain-spec-builder = { path = "bin/utils/chain-spec-builder" }

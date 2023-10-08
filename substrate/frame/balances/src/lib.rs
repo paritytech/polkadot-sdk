@@ -287,12 +287,7 @@ pub mod pallet {
 		///
 		/// Bottom line: Do yourself a favour and make it at least one!
 		#[pallet::constant]
-<<<<<<< HEAD
-||||||| cfc6cc65cc
-		#[pallet::no_default]
-=======
 		#[pallet::no_default_bounds]
->>>>>>> cb944dc54882222453071fc99f2e5014c51823ef
 		type ExistentialDeposit: Get<Self::Balance>;
 
 		/// The means of storing the balances of an account.
