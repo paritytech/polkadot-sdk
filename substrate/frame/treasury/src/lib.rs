@@ -83,12 +83,16 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
+	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero, SaturatedConversion},
 	Permill, RuntimeDebug,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
+	dispatch::{
+		DispatchResult, DispatchResultWithPostInfo,
+	},
+	ensure,
 	print,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
@@ -461,7 +465,7 @@ pub mod pallet {
 		fn try_state(_: T::BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
-		
+		}
 	}
 
 	#[derive(Default)]
@@ -1027,31 +1031,61 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.saturating_sub(T::Currency::minimum_balance())
 	}
 
+	/// Ensure the correctness of the state of this pallet.
+	/// 
+	/// ## Invariants
+	/// 
+	/// 1. [`ProposalCount`] >= [`Proposals`].count(). The ProposalCount SV is only increased, but never
+	///    decreased whereas individual proposals can be removed from the Proposals SM.
+	/// 2. T::ProposalBondMinimum * Number of Proposals <= sum_{p in Proposals} p.bond.
+	/// 3. T::ProposalBondMaximum * Number of Proposals >= sum_{p in Proposals} p.bond. This bound
+	///    is optional, since T::ProposalBondMaximum can be None.
+	/// 4. Each ProposalIndex contained in Approvals should exist in Proposals. Note, that this
+	///    automatically implies Approvals.count() <= Proposals.count().
+	/// 
+	/// 5. [`SpendCount`] >= [`Spends`].count(). Follows the same reasoning as (1).
+	/// 6. 
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		// 1. ProposalCount >= Proposals.len()
 		ensure!(
-			Self::proposal_count() as usize >= <Proposals<T, I>>::iter_keys().count(),
+			ProposalCount::<T, I>::get() as usize >= Proposals::<T, I>::iter().count(),
 			"Number of proposals exceeds proposal count!"
 		);
 
-		// 2.
-		let total_amount_bonded = <Proposals<T, I>>::iter().fold(<BalanceOf<T, I>>::zero(), |a, (_index, proposal)| a + proposal.bond);
-		let n: BalanceOf<T, I> = <Proposals<T, I>>::iter_keys().count().saturated_into();
-		print!("{:?}", total_amount_bonded);
-		print!("{:?}", n);
+		let total_amount_bonded = Proposals::<T, I>::iter().fold(BalanceOf::<T, I>::zero(), |a, (_index, proposal)| a + proposal.bond);
+		let n: BalanceOf<T, I> = Proposals::<T, I>::iter().count().saturated_into();
+		// print!("{:?}", total_amount_bonded);
+		// print!("{:?}", n);
 		ensure!(
 			T::ProposalBondMinimum::get() * n <= total_amount_bonded,
 			"Total amount bonded falls short of required minimum."
 		);
 
-		// 3.
+		if let Some(proposal_bond_maximum) = T::ProposalBondMaximum::get() {
+			ensure!(
+				proposal_bond_maximum * n >= total_amount_bonded,
+				"Total amount bonded exceeds required maximum."
+			);
+		}
 
-		// 4. Each ProposalIndex contained in Approvals should exist in Proposals
 		Approvals::<T, I>::get().iter().try_for_each(|proposal_index| -> DispatchResult {
 			ensure!(
 				Proposals::<T, I>::contains_key(proposal_index),
-				"Proposal indices in `Approvals` must also be contained in `Proposals`"
+				"Proposal indices in `Approvals` must also be contained in `Proposals`."
+			);
+			Ok(())
+		})?;
+
+		ensure!(
+			SpendCount::<T, I>::get() as usize >= Spends::<T, I>::iter().count(),
+			"Number of proposals exceeds proposal count!"
+		);
+
+		// expire_at > valid_from
+		Spends::<T, I>::iter().try_for_each(|(_index, spend)| -> DispatchResult {
+			ensure!(
+				spend.valid_from < spend.expire_at,
+				"Spend cannot expire before it becomes valid."
 			);
 			Ok(())
 		})?;
