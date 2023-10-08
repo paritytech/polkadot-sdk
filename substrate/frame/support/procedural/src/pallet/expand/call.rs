@@ -77,7 +77,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				"https://github.com/paritytech/substrate/pull/11381"
 			])
 			.span(method.name.span())
-			.build();
+			.build_or_panic();
 		call_index_warnings.push(warning);
 	}
 
@@ -93,11 +93,14 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					.new("benchmark all calls or put the pallet into `dev` mode")
 					.help_link("https://github.com/paritytech/substrate/pull/13798")
 					.span(lit.span())
-					.build();
+					.build_or_panic();
 				weight_warnings.push(warning);
 				fn_weight.push(e.into_token_stream());
 			},
-			CallWeightDef::Immediate(e) => fn_weight.push(e.into_token_stream()),
+			CallWeightDef::Immediate(e) => {
+				fn_weight.push(e.clone().into_token_stream());
+				check_weight_witness(method, &mut weight_warnings);
+			},
 			CallWeightDef::Inherited => {
 				let pallet_weight = def
 					.call
@@ -424,4 +427,47 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 	)
+}
+
+/// Warn if any of the call arguments starts with a underscore and is used in a weight formula.
+fn check_weight_witness(method: &CallVariantDef, warnings: &mut Vec<proc_macro_warning::Warning>) {
+	let CallWeightDef::Immediate(imm) = &method.weight else {
+		return;
+	};
+	let builder = proc_macro_warning::Warning::new_deprecated("UncheckedWeightWitness")
+		.old("not checked weight witness data")
+		.new("ensure that all witness data for weight calculation is checked before usage")
+		.help_links(&["FAIL-CI TODO"]);
+
+	for (_, arg_ident, _) in method.args.iter().skip(1) {
+		// Unused arguments cannot be used in weight formulas.
+		if !arg_ident.to_string().starts_with('_') || !contains(&imm, &arg_ident) {
+			continue
+		}
+
+		let warning = builder.clone().index(warnings.len()).span(arg_ident.span()).build_or_panic();
+		warnings.push(warning);
+	}
+}
+
+fn contains(expr: &syn::Expr, ident: &syn::Ident) -> bool {
+	use syn::visit_mut::{self, VisitMut};
+
+	struct ContainsIdent {
+		ident: syn::Ident,
+		found: bool,
+	}
+
+	impl VisitMut for ContainsIdent {
+		fn visit_ident_mut(&mut self, i: &mut syn::Ident) {
+			if *i == self.ident {
+				self.found = true;
+			}
+		}
+	}
+
+	let mut expr = expr.clone();
+	let mut visitor = ContainsIdent { ident: ident.clone(), found: false };
+	visit_mut::visit_expr_mut(&mut visitor, &mut expr);
+	visitor.found
 }
