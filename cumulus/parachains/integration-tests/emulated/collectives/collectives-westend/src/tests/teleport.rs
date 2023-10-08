@@ -21,7 +21,7 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		CollectivesWestend,    // Origin
+		CollectivesWestend,                      // Origin
 		vec![AssetHubWestend, BridgeHubWestend], // Destinations
 		(native_asset, amount)
 	);

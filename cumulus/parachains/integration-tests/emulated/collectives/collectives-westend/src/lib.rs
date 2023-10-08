@@ -16,8 +16,9 @@
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::collectives::ED as COLLECTIVES_WESTEND_ED, test_parachain_is_trusted_teleporter,
-	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, CollectivesWestend,
-	CollectivesWestendPallet, CollectivesWestendSender, BridgeHubWestend, BridgeHubWestendReceiver,
+	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, BridgeHubWestend,
+	BridgeHubWestendReceiver, CollectivesWestend, CollectivesWestendPallet,
+	CollectivesWestendSender,
 };
 pub use xcm::prelude::*;
 pub use xcm_emulator::{assert_expected_events, bx, Chain, Parachain, TestExt};
