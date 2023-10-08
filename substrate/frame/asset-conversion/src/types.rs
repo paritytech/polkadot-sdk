@@ -161,6 +161,12 @@ impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, Asset
 	}
 }
 
+/// Provides a way to retrieve an underlying value without changing the state of the object.
+pub trait Inspectable<Value> {
+	/// Retrieves the underlying value without modifying it.
+	fn peek(&self) -> Value;
+}
+
 /// Credit of [Config::Currency].
 ///
 /// Implies a negative imbalance in the system that can be placed into an account or alter the total
@@ -196,6 +202,26 @@ impl<T: Config> From<NativeCredit<T>> for Credit<T> {
 impl<T: Config> From<AssetCredit<T>> for Credit<T> {
 	fn from(value: AssetCredit<T>) -> Self {
 		Credit::Asset(value)
+	}
+}
+
+impl<T: Config> TryInto<NativeCredit<T>> for Credit<T> {
+	type Error = ();
+	fn try_into(self) -> Result<NativeCredit<T>, ()> {
+		match self {
+			Credit::Native(c) => Ok(c),
+			_ => Err(()),
+		}
+	}
+}
+
+impl<T: Config> TryInto<AssetCredit<T>> for Credit<T> {
+	type Error = ();
+	fn try_into(self) -> Result<AssetCredit<T>, ()> {
+		match self {
+			Credit::Asset(c) => Ok(c),
+			_ => Err(()),
+		}
 	}
 }
 
