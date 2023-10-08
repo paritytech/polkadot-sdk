@@ -159,7 +159,7 @@ ambiguity despite using block number instead of a hash. A collection of **votes*
 a Commitment and a collection of signatures is going to be called **Signed Commitment**. A valid
 (see later for the rules) Signed Commitment is also called a **BEEFY Justification** or
 **BEEFY Finality Proof**. For more details on the actual data structures please see
-[BEEFY primitives definitions](https://github.com/paritytech/substrate/tree/master/primitives/beefy/src).
+[BEEFY primitives definitions](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/primitives/beefy/src).
 
 A **round** is an attempt by BEEFY validators to produce a BEEFY Justification. **Round number**
 is simply defined as a block number the validators are voting for, or to be more precise, the

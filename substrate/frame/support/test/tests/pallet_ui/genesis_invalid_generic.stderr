@@ -1,4 +1,4 @@
-error: Invalid genesis builder: expected `GenesisBuild<T>` or `GenesisBuild<T, I>`
+error: Invalid genesis builder: expected `BuildGenesisConfig` (or the deprecated `GenesisBuild<T>` or `GenesisBuild<T, I>`)
   --> tests/pallet_ui/genesis_invalid_generic.rs:36:7
    |
 36 |     impl GenesisBuild for GenesisConfig {}

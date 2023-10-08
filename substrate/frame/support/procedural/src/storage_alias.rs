@@ -17,7 +17,7 @@
 
 //! Implementation of the `storage_alias` attribute macro.
 
-use crate::counter_prefix;
+use crate::{counter_prefix, pallet::parse::helper};
 use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
@@ -619,6 +619,7 @@ fn generate_storage_instance(
 	let counter_code = is_counted_map.then(|| {
 		let counter_name = Ident::new(&counter_prefix(&name_str), Span::call_site());
 		let counter_storage_name_str = counter_prefix(&storage_name_str);
+		let storage_prefix_hash = helper::two128_str(&counter_storage_name_str);
 
 		quote! {
 			#visibility struct #counter_name< #impl_generics >(
@@ -633,6 +634,9 @@ fn generate_storage_instance(
 				}
 
 				const STORAGE_PREFIX: &'static str = #counter_storage_name_str;
+				fn storage_prefix_hash() -> [u8; 16] {
+					#storage_prefix_hash
+				}
 			}
 
 			impl<#impl_generics> #crate_::storage::types::CountedStorageMapInstance
@@ -642,6 +646,8 @@ fn generate_storage_instance(
 			}
 		}
 	});
+
+	let storage_prefix_hash = helper::two128_str(&storage_name_str);
 
 	// Implement `StorageInstance` trait.
 	let code = quote! {
@@ -658,6 +664,9 @@ fn generate_storage_instance(
 			}
 
 			const STORAGE_PREFIX: &'static str = #storage_name_str;
+			fn storage_prefix_hash() -> [u8; 16] {
+				#storage_prefix_hash
+			}
 		}
 
 		#counter_code
