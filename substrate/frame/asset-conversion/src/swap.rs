@@ -22,7 +22,7 @@ use super::*;
 /// Trait for providing methods to swap between the various asset classes.
 pub trait Swap<AccountId> {
 	/// Measure units of the asset classes for swapping.
-	type Balance;
+	type Balance: Balance;
 	/// Kind of assets that are going to be swapped.
 	type MultiAssetId;
 
@@ -67,7 +67,7 @@ pub trait Swap<AccountId> {
 /// Trait providing methods to swap between the various asset classes.
 pub trait SwapCredit<AccountId> {
 	/// Measure units of the asset classes for swapping.
-	type Balance;
+	type Balance: Balance;
 	/// Kind of assets that are going to be swapped.
 	type MultiAssetId;
 	/// Credit implying a negative imbalance in the system that can be placed into an account or
