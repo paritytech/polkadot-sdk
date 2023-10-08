@@ -23,22 +23,16 @@ use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
 		tokens::nonfungibles_v2::{Create, Destroy, Mutate},
-		Currency, Get,
+		Get,
 	},
 };
-use pallet_balances::Error as BalancesError;
 use sp_core::{bounded::BoundedVec, Pair};
 use sp_runtime::{
 	traits::{Dispatchable, IdentifyAccount},
 	MultiSignature, MultiSigner,
+	TokenError::FundsUnavailable,
 };
 use sp_std::prelude::*;
-
-type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
-
-fn account(id: u8) -> AccountIdOf<Test> {
-	[id; 32].into()
-}
 
 fn items() -> Vec<(AccountIdOf<Test>, u32, u32)> {
 	let mut r: Vec<_> = Account::<Test>::iter().map(|x| x.0).collect();
@@ -180,8 +174,8 @@ fn basic_minting_should_work() {
 #[test]
 fn lifecycle_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
 			account(1),
@@ -201,7 +195,7 @@ fn lifecycle_should_work() {
 			RuntimeOrigin::signed(account(1)),
 			0,
 			42,
-			account(10),
+			account(3),
 			default_item_config()
 		));
 		assert_eq!(Balances::reserved_balance(&account(1)), 6);
@@ -209,12 +203,12 @@ fn lifecycle_should_work() {
 			RuntimeOrigin::signed(account(1)),
 			0,
 			69,
-			account(20),
+			account(4),
 			default_item_config()
 		));
 		assert_eq!(Balances::reserved_balance(&account(1)), 7);
 		assert_ok!(Nfts::mint(RuntimeOrigin::signed(account(1)), 0, 70, account(1), None));
-		assert_eq!(items(), vec![(account(1), 0, 70), (account(10), 0, 42), (account(20), 0, 69)]);
+		assert_eq!(items(), vec![(account(1), 0, 70), (account(3), 0, 42), (account(4), 0, 69)]);
 		assert_eq!(Collection::<Test>::get(0).unwrap().items, 3);
 		assert_eq!(Collection::<Test>::get(0).unwrap().item_metadatas, 0);
 		assert_eq!(Collection::<Test>::get(0).unwrap().item_configs, 3);
@@ -247,8 +241,8 @@ fn lifecycle_should_work() {
 			bvec![0],
 			bvec![0],
 		));
-		assert_ok!(Nfts::burn(RuntimeOrigin::signed(account(10)), 0, 42));
-		assert_ok!(Nfts::burn(RuntimeOrigin::signed(account(20)), 0, 69));
+		assert_ok!(Nfts::burn(RuntimeOrigin::signed(account(3)), 0, 42));
+		assert_ok!(Nfts::burn(RuntimeOrigin::signed(account(4)), 0, 69));
 		assert_ok!(Nfts::burn(RuntimeOrigin::root(), 0, 70));
 
 		let w = Nfts::get_destroy_witness(&0).unwrap();
@@ -275,7 +269,7 @@ fn lifecycle_should_work() {
 #[test]
 fn destroy_with_bad_witness_should_not_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
 			account(1),
@@ -297,7 +291,7 @@ fn destroy_with_bad_witness_should_not_work() {
 #[test]
 fn destroy_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
 			account(1),
@@ -370,7 +364,7 @@ fn mint_should_work() {
 			0,
 			MintSettings { mint_type: MintType::Public, price: Some(1), ..Default::default() }
 		));
-		Balances::make_free_balance_be(&account(2), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
 		assert_noop!(
 			Nfts::mint(RuntimeOrigin::signed(account(2)), 0, 43, account(2), None,),
 			Error::<Test>::WitnessRequired
@@ -402,7 +396,7 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { mint_price: Some(1), ..Default::default() })
 		));
-		assert_eq!(Balances::total_balance(&account(2)), 99);
+		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 99);
 
 		// validate types
 		assert_ok!(Nfts::force_create(
@@ -557,7 +551,7 @@ fn origin_guards_should_work() {
 		));
 		assert_ok!(Nfts::mint(RuntimeOrigin::signed(account(1)), 0, 42, account(1), None));
 
-		Balances::make_free_balance_be(&account(2), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(2)), Some(0)));
 		assert_noop!(
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(2)), 0, account(2)),
@@ -601,9 +595,9 @@ fn origin_guards_should_work() {
 #[test]
 fn transfer_owner_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
-		Balances::make_free_balance_be(&account(3), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(3), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(account(1)),
 			account(1),
@@ -618,8 +612,8 @@ fn transfer_owner_should_work() {
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
-		assert_eq!(Balances::total_balance(&account(1)), 98);
-		assert_eq!(Balances::total_balance(&account(2)), 102);
+		assert_eq!(<Test as Config>::Currency::total_balance(&account(1)), 98);
+		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 102);
 		assert_eq!(Balances::reserved_balance(&account(1)), 0);
 		assert_eq!(Balances::reserved_balance(&account(2)), 2);
 
@@ -641,8 +635,8 @@ fn transfer_owner_should_work() {
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(3)), Some(0)));
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(2)), 0, account(3)));
 		assert_eq!(collections(), vec![(account(3), 0)]);
-		assert_eq!(Balances::total_balance(&account(2)), 58);
-		assert_eq!(Balances::total_balance(&account(3)), 144);
+		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 58);
+		assert_eq!(<Test as Config>::Currency::total_balance(&account(3)), 144);
 		assert_eq!(Balances::reserved_balance(&account(2)), 0);
 		assert_eq!(Balances::reserved_balance(&account(3)), 44);
 
@@ -750,7 +744,7 @@ fn set_collection_metadata_should_work() {
 		);
 
 		// Successfully add metadata and take deposit
-		Balances::make_free_balance_be(&account(1), 30);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 30));
 		assert_ok!(Nfts::set_collection_metadata(
 			RuntimeOrigin::signed(account(1)),
 			0,
@@ -779,7 +773,7 @@ fn set_collection_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Nfts::set_collection_metadata(RuntimeOrigin::signed(account(1)), 0, bvec![0u8; 40]),
-			BalancesError::<Test, _>::InsufficientBalance,
+			FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -824,7 +818,7 @@ fn set_collection_metadata_should_work() {
 #[test]
 fn set_item_metadata_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 30);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 30));
 
 		// Cannot add metadata to unknown item
 		assert_ok!(Nfts::force_create(
@@ -856,7 +850,7 @@ fn set_item_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 42, bvec![0u8; 40]),
-			BalancesError::<Test, _>::InsufficientBalance,
+			FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -895,7 +889,7 @@ fn set_item_metadata_should_work() {
 #[test]
 fn set_collection_owner_attributes_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -985,9 +979,9 @@ fn set_collection_owner_attributes_should_work() {
 #[test]
 fn set_item_owner_attributes_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
-		Balances::make_free_balance_be(&account(3), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(3), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1170,8 +1164,8 @@ fn set_item_owner_attributes_should_work() {
 #[test]
 fn set_external_account_attributes_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1255,9 +1249,9 @@ fn set_external_account_attributes_should_work() {
 #[test]
 fn validate_deposit_required_setting() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
-		Balances::make_free_balance_be(&account(3), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(3), 100));
 
 		// with the disabled DepositRequired setting, only the collection's owner can set the
 		// attributes for free.
@@ -1344,7 +1338,7 @@ fn validate_deposit_required_setting() {
 #[test]
 fn set_attribute_should_respect_lock() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1449,7 +1443,7 @@ fn set_attribute_should_respect_lock() {
 #[test]
 fn preserve_config_for_frozen_items() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1505,7 +1499,7 @@ fn preserve_config_for_frozen_items() {
 #[test]
 fn force_update_collection_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -1545,8 +1539,7 @@ fn force_update_collection_should_work() {
 		));
 		assert_ok!(Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 142, bvec![0; 20]));
 		assert_ok!(Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 169, bvec![0; 20]));
-
-		Balances::make_free_balance_be(&account(5), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(5), 100));
 		assert_ok!(Nfts::force_collection_owner(RuntimeOrigin::root(), 0, account(5)));
 		assert_ok!(Nfts::set_team(
 			RuntimeOrigin::root(),
@@ -1622,7 +1615,7 @@ fn force_update_collection_should_work() {
 #[test]
 fn burn_works() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&account(1), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			account(1),
@@ -2346,9 +2339,21 @@ fn buy_item_should_work() {
 		let price_2 = 30;
 		let initial_balance = 100;
 
-		Balances::make_free_balance_be(&user_1, initial_balance);
-		Balances::make_free_balance_be(&user_2, initial_balance);
-		Balances::make_free_balance_be(&user_3, initial_balance);
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_1.clone(),
+			initial_balance,
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_2.clone(),
+			initial_balance,
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_3.clone(),
+			initial_balance,
+		));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
@@ -2411,8 +2416,14 @@ fn buy_item_should_work() {
 		// validate the new owner & balances
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
 		assert_eq!(item.owner, user_2.clone());
-		assert_eq!(Balances::total_balance(&user_1.clone()), initial_balance + price_1);
-		assert_eq!(Balances::total_balance(&user_2.clone()), initial_balance - price_1);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&user_1.clone()),
+			initial_balance + price_1
+		);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&user_2.clone()),
+			initial_balance - price_1
+		);
 
 		// can't buy from yourself
 		assert_noop!(
@@ -2516,9 +2527,21 @@ fn pay_tips_should_work() {
 		let tip = 2;
 		let initial_balance = 100;
 
-		Balances::make_free_balance_be(&user_1, initial_balance);
-		Balances::make_free_balance_be(&user_2, initial_balance);
-		Balances::make_free_balance_be(&user_3, initial_balance);
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_1.clone(),
+			initial_balance,
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_2.clone(),
+			initial_balance,
+		));
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user_3.clone(),
+			initial_balance,
+		));
 
 		assert_ok!(Nfts::pay_tips(
 			RuntimeOrigin::signed(user_1.clone()),
@@ -2538,9 +2561,9 @@ fn pay_tips_should_work() {
 			]
 		));
 
-		assert_eq!(Balances::total_balance(&user_1), initial_balance - tip * 2);
-		assert_eq!(Balances::total_balance(&user_2), initial_balance + tip);
-		assert_eq!(Balances::total_balance(&user_3), initial_balance + tip);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance - tip * 2);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance + tip);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_3), initial_balance + tip);
 
 		let events = events();
 		assert!(events.contains(&Event::<Test>::TipSent {
@@ -2729,13 +2752,13 @@ fn claim_swap_should_work() {
 		let initial_balance = 1000;
 		let deadline = 1 + duration;
 
-		Balances::make_free_balance_be(&user_1, initial_balance);
-		Balances::make_free_balance_be(&user_2, initial_balance);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_1.clone(), initial_balance));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_2.clone(), initial_balance));
 
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			user_1.clone(),
-			default_collection_config()
+			default_collection_config(),
 		));
 
 		assert_ok!(Nfts::mint(
@@ -2872,8 +2895,8 @@ fn claim_swap_should_work() {
 		assert_eq!(item.owner, user_1.clone());
 
 		// validate the balances
-		assert_eq!(Balances::total_balance(&user_1), initial_balance + price);
-		assert_eq!(Balances::total_balance(&user_2), initial_balance - price);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance + price);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance - price);
 
 		// ensure we reset the swap
 		assert!(!PendingSwapOf::<Test>::contains_key(collection_id, item_1));
@@ -2893,8 +2916,8 @@ fn claim_swap_should_work() {
 		// validate the optional desired_item param and another price direction
 		let price_direction = PriceDirection::Send;
 		let price_with_direction = PriceWithDirection { amount: price, direction: price_direction };
-		Balances::make_free_balance_be(&user_1, initial_balance);
-		Balances::make_free_balance_be(&user_2, initial_balance);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_1.clone(), initial_balance));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_2.clone(), initial_balance));
 
 		assert_ok!(Nfts::create_swap(
 			RuntimeOrigin::signed(user_1.clone()),
@@ -2918,8 +2941,8 @@ fn claim_swap_should_work() {
 		let item = Item::<Test>::get(collection_id, item_4).unwrap();
 		assert_eq!(item.owner, user_2);
 
-		assert_eq!(Balances::total_balance(&user_1), initial_balance - price);
-		assert_eq!(Balances::total_balance(&user_2), initial_balance + price);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance - price);
+		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance + price);
 	});
 }
 
@@ -3222,8 +3245,8 @@ fn pre_signed_mints_should_work() {
 		let user_2 = account(2);
 		let user_3 = account(3);
 
-		Balances::make_free_balance_be(&user_0, 100);
-		Balances::make_free_balance_be(&user_2, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_0.clone(), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_2.clone(), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(user_0.clone()),
 			user_1.clone(),
@@ -3386,9 +3409,9 @@ fn pre_signed_attributes_should_work() {
 		let collection_id = 0;
 		let item_id = 0;
 
-		Balances::make_free_balance_be(&user_1, 100);
-		Balances::make_free_balance_be(&user_2, 100);
-		Balances::make_free_balance_be(&user_3, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_1.clone(), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_2.clone(), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_3.clone(), 100));
 		assert_ok!(Nfts::create(
 			RuntimeOrigin::signed(user_1.clone()),
 			user_1.clone(),
@@ -3694,8 +3717,8 @@ fn basic_create_collection_with_id_should_work() {
 			Error::<Test>::WrongSetting
 		);
 
-		Balances::make_free_balance_be(&account(1), 100);
-		Balances::make_free_balance_be(&account(2), 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(1), 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account(2), 100));
 
 		assert_ok!(Nfts::create_collection_with_id(
 			0u32,

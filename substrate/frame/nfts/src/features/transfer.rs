@@ -149,8 +149,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&new_owner,
 				details.owner_deposit,
 				BestEffort,
-				Restriction::Free,
-				Fortitude::Force,
+				Restriction::OnHold,
+				Fortitude::Polite,
 			)?;
 
 			// Update account ownership information.
@@ -226,8 +226,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&new_owner,
 				details.owner_deposit,
 				BestEffort,
-				Restriction::Free,
-				Fortitude::Force,
+				Restriction::OnHold,
+				Fortitude::Polite,
 			)?;
 
 			// Update collection accounts and set the new owner.
