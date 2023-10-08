@@ -591,13 +591,16 @@ pub mod pallet {
 		/// ## Complexity
 		/// - Check is_defunct_voter() details.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::clean_defunct_voters(*_num_voters, *_num_defunct))]
+		#[pallet::weight(T::WeightInfo::clean_defunct_voters(*num_voters, *num_defunct))]
 		pub fn clean_defunct_voters(
 			origin: OriginFor<T>,
-			_num_voters: u32,
-			_num_defunct: u32,
+			num_voters: u32,
+			num_defunct: u32,
 		) -> DispatchResult {
 			let _ = ensure_root(origin)?;
+			// We don't check the weight witness since it is a root call.
+			let _ = (num_voters, num_defunct);
+
 			<Voting<T>>::iter()
 				.filter(|(_, x)| Self::is_defunct_voter(&x.votes))
 				.for_each(|(dv, _)| Self::do_remove_voter(&dv));
