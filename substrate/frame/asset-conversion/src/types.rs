@@ -36,7 +36,7 @@ pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::Multi
 /// 1. `asset(asset1, amount_in)` take from `user` and move to the pool(asset1, asset2);
 /// 2. `asset(asset2, amount_out2)` transfer from pool(asset1, asset2) to pool(asset2, asset3);
 /// 3. `asset(asset3, amount_out3)` move from pool(asset2, asset3) to `user`.
-pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::AssetBalance)>;
+pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::Balance)>;
 
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
@@ -206,14 +206,11 @@ impl<T: Config> Credit<T> {
 	}
 
 	/// Amount of `self`.
-	pub fn peek(&self) -> Result<T::AssetBalance, DispatchError> {
-		let amount = match self {
-			Credit::Native(c) => T::HigherPrecisionBalance::from(c.peek())
-				.try_into()
-				.map_err(|_| Error::<T>::Overflow)?,
+	pub fn peek(&self) -> T::Balance {
+		match self {
+			Credit::Native(c) => c.peek(),
 			Credit::Asset(c) => c.peek(),
-		};
-		Ok(amount)
+		}
 	}
 
 	/// Asset class of `self`.
@@ -226,19 +223,15 @@ impl<T: Config> Credit<T> {
 
 	/// Consume `self` and return two independent instances; the first is guaranteed to be at most
 	/// `amount` and the second will be the remainder.
-	pub fn split(self, amount: T::AssetBalance) -> Result<(Self, Self), (Self, DispatchError)> {
+	pub fn split(self, amount: T::Balance) -> (Self, Self) {
 		match self {
 			Credit::Native(c) => {
-				let amount = match T::HigherPrecisionBalance::from(amount).try_into() {
-					Ok(a) => a,
-					Err(_) => return Err((Self::Native(c), Error::<T>::Overflow.into())),
-				};
 				let (left, right) = c.split(amount);
-				Ok((left.into(), right.into()))
+				(left.into(), right.into())
 			},
 			Credit::Asset(c) => {
 				let (left, right) = c.split(amount);
-				Ok((left.into(), right.into()))
+				(left.into(), right.into())
 			},
 		}
 	}

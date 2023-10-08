@@ -48,7 +48,7 @@ where
 
 fn create_asset<T: Config>(asset: &T::MultiAssetId) -> (T::AccountId, AccountIdLookupOf<T>)
 where
-	T::AssetBalance: From<u128>,
+	T::Balance: From<u128>,
 	T::Currency: Unbalanced<T::AccountId>,
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 {
@@ -69,7 +69,7 @@ fn create_asset_and_pool<T: Config>(
 	asset2: &T::MultiAssetId,
 ) -> (T::PoolAssetId, T::AccountId, AccountIdLookupOf<T>)
 where
-	T::AssetBalance: From<u128>,
+	T::Balance: From<u128>,
 	T::Currency: Unbalanced<T::AccountId>,
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 	T::PoolAssetId: Into<u32>,
@@ -98,7 +98,6 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 benchmarks! {
 	where_clause {
 		where
-			T::AssetBalance: From<u128> + Into<u128>,
 			T::Currency: Unbalanced<T::AccountId>,
 			T::Balance: From<u128> + Into<u128>,
 			T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,

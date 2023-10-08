@@ -105,7 +105,7 @@ pub trait SwapCredit<AccountId> {
 }
 
 impl<T: Config> Swap<T::AccountId> for Pallet<T> {
-	type Balance = T::HigherPrecisionBalance;
+	type Balance = T::Balance;
 	type MultiAssetId = T::MultiAssetId;
 
 	fn max_path_len() -> u32 {
@@ -120,12 +120,11 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_out_min = amount_out_min.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_out = with_storage_layer(|| {
 			Self::do_swap_exact_tokens_for_tokens(
 				sender,
 				path,
-				Self::convert_hpb_to_asset_balance(amount_in)?,
+				amount_in,
 				amount_out_min,
 				send_to,
 				keep_alive,
@@ -142,12 +141,11 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_in_max = amount_in_max.map(Self::convert_hpb_to_asset_balance).transpose()?;
 		let amount_in = with_storage_layer(|| {
 			Self::do_swap_tokens_for_exact_tokens(
 				sender,
 				path,
-				Self::convert_hpb_to_asset_balance(amount_out)?,
+				amount_out,
 				amount_in_max,
 				send_to,
 				keep_alive,
@@ -158,7 +156,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 }
 
 impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
-	type Balance = T::AssetBalance;
+	type Balance = T::Balance;
 	type MultiAssetId = T::MultiAssetId;
 	type Credit = Credit<T>;
 
