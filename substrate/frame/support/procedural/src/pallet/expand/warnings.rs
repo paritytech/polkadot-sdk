@@ -29,7 +29,7 @@ pub(crate) fn weight_witness_warning(method: &CallVariantDef, warnings: &mut Vec
 	let partial_warning = Warning::new_deprecated("UncheckedWeightWitness")
 		.old("not checked weight witness data")
 		.new("ensure that all witness data for weight calculation is checked before usage")
-		.help_links(&["FAIL-CI TODO"]);
+		.help_link("https://github.com/paritytech/polkadot-sdk/pull/1818");
 
 	for (_, arg_ident, _) in method.args.iter().skip(1) {
 		// Unused arguments cannot be used in weight formulas.
