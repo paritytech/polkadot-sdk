@@ -1460,7 +1460,7 @@ pub mod migrations {
 				// fix new account
 				let new_pool_id = pallet_asset_conversion::Pallet::<T>::get_pool_id(
 					valid_native_asset,
-					old_pool_id.1.clone(),
+					*old_pool_id.1,
 				);
 				let new_pool_account =
 					pallet_asset_conversion::Pallet::<T>::get_pool_account(&new_pool_id);
