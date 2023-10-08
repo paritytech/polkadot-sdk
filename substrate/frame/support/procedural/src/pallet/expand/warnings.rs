@@ -22,10 +22,14 @@ use proc_macro_warning::Warning;
 use syn::spanned::Spanned;
 
 /// Warn if any of the call arguments starts with a underscore and is used in a weight formula.
-pub(crate) fn weight_witness_warning(method: &CallVariantDef, warnings: &mut Vec<Warning>) {
+pub(crate) fn weight_witness_warning(method: &CallVariantDef, dev_mode: bool, warnings: &mut Vec<Warning>) {
+	if dev_mode {
+		return
+	}
 	let CallWeightDef::Immediate(imm) = &method.weight else {
 		return;
 	};
+
 	let partial_warning = Warning::new_deprecated("UncheckedWeightWitness")
 		.old("not check weight witness data")
 		.new("ensure that all witness data for weight calculation is checked before usage")
@@ -53,12 +57,12 @@ pub(crate) fn weight_constant_warning(
 	dev_mode: bool,
 	warnings: &mut Vec<Warning>,
 ) {
-	let syn::Expr::Lit(lit) = weight else {
-		return;
-	};
 	if dev_mode {
 		return
 	}
+	let syn::Expr::Lit(lit) = weight else {
+		return;
+	};
 
 	let warning = Warning::new_deprecated("ConstantWeight")
 		.index(warnings.len())

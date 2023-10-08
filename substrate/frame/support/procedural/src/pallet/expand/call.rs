@@ -90,7 +90,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
 			CallWeightDef::Immediate(e) => {
 				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
-				weight_witness_warning(method, &mut weight_warnings);
+				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
 
 				fn_weight.push(e.into_token_stream());
 			},
