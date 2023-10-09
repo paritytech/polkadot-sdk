@@ -160,12 +160,6 @@ impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, Asset
 	}
 }
 
-/// Provides a way to retrieve an underlying value without changing the state of the object.
-pub trait Inspectable<Value> {
-	/// Retrieves the underlying value without modifying it.
-	fn peek(&self) -> Value;
-}
-
 /// Credit of [Config::Currency].
 ///
 /// Implies a negative imbalance in the system that can be placed into an account or alter the total
