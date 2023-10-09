@@ -1216,7 +1216,7 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 }
 
 #[test]
-fn execute_raw_works() {
+fn execute_blob_works() {
 	use codec::Encode;
 	use bounded_collections::BoundedVec;
 	let message = VersionedXcm::V3(Xcm::<RuntimeCall>(vec![
@@ -1228,7 +1228,7 @@ fn execute_raw_works() {
 	let encoded_message = BoundedVec::try_from(message.encode()).unwrap();
 	let max_weight = Weight::from_parts(1_000_000_000_000, 1024 * 1024);
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let _ = XcmPallet::execute_raw(
+		let _ = XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
 			encoded_message,
 			max_weight,
@@ -1237,7 +1237,7 @@ fn execute_raw_works() {
 }
 
 #[test]
-fn send_raw_works() {
+fn send_blob_works() {
 	use codec::Encode;
 	use bounded_collections::BoundedVec;
 	let message = VersionedXcm::V3(Xcm::<RuntimeCall>(vec![
@@ -1249,7 +1249,7 @@ fn send_raw_works() {
 	let encoded_message = BoundedVec::try_from(message.encode()).unwrap();
 	let destination: VersionedMultiLocation = (Parent, Parachain(1000)).into();
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		let _ = XcmPallet::send_raw(
+		let _ = XcmPallet::send_blob(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(destination),
 			encoded_message,
