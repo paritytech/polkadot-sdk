@@ -58,11 +58,11 @@ use xcm_executor::{
 
 pub trait WeightInfo {
 	fn send() -> Weight;
-	fn send_raw() -> Weight;
+	fn send_blob() -> Weight;
 	fn teleport_assets() -> Weight;
 	fn reserve_transfer_assets() -> Weight;
 	fn execute() -> Weight;
-	fn execute_raw() -> Weight;
+	fn execute_blob() -> Weight;
 	fn force_xcm_version() -> Weight;
 	fn force_default_xcm_version() -> Weight;
 	fn force_subscribe_version_notify() -> Weight;
@@ -84,7 +84,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
-	fn send_raw() -> Weight {
+	fn send_blob() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 
@@ -100,7 +100,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
-	fn execute_raw() -> Weight {
+	fn execute_blob() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 
@@ -777,7 +777,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// WARNING: This call is DEPRECATED! Use `execute_raw` instead.
+		/// WARNING: This call is DEPRECATED! Use `execute_blob` instead.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::send())]
 		pub fn send(
@@ -912,7 +912,7 @@ pub mod pallet {
 		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
 		/// successfully to completion; only that *some* of it was executed.
 		///
-		/// WARNING: This call is DEPRECATED! Use `execute_raw` instead.
+		/// WARNING: This call is DEPRECATED! Use `execute_blob` instead.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
@@ -1157,8 +1157,8 @@ pub mod pallet {
 		/// successfully to completion; only that *some* of it was executed.
 		///
 		#[pallet::call_index(11)]
-		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute_raw()))]
-		pub fn execute_raw(
+		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute_blob()))]
+		pub fn execute_blob(
 			origin: OriginFor<T>,
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
@@ -1187,8 +1187,8 @@ pub mod pallet {
 		/// Send an XCM to a particular destination
 		/// It will descend to the location of the `origin` calling this extrinsic
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::send_raw())]
-		pub fn send_raw(
+		#[pallet::weight(T::WeightInfo::send_blob())]
+		pub fn send_blob(
 			origin: OriginFor<T>,
 			dest: Box<VersionedMultiLocation>,
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
