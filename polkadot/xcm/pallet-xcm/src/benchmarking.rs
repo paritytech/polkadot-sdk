@@ -118,7 +118,7 @@ benchmarks! {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let versioned_message = VersionedXcm::from(message);
-		let encoded_versioned_message = versioned_message.encode();
+		let encoded_versioned_message = BoundedVec::try_from(versioned_message.encode()).unwrap();
 	}: _<RuntimeOrigin<T>>(execute_origin, encoded_versioned_message, max_weight)
 
 	force_xcm_version {
