@@ -304,11 +304,11 @@ sp_api::mock_impl_runtime_apis! {
 			&self,
 			_block_numbers: Vec<u64>,
 			_best_known_block_number: Option<u64>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<(u64, MmrHash)>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<MmrHash>), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
-		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<(u64, MmrHash)>)
+		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<MmrHash>)
 			-> Result<(), mmr::Error>
 		{
 			Err(mmr::Error::PalletNotIncluded)
@@ -317,7 +317,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_root: MmrHash,
 			_leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			_proof: mmr::Proof<(u64, MmrHash)>
+			_proof: mmr::Proof<MmrHash>
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}

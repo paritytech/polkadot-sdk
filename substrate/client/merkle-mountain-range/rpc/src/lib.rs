@@ -261,7 +261,7 @@ mod tests {
 		let proof = Proof {
 			leaf_indices: vec![1],
 			leaf_count: 9,
-			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
+			items: vec![(1, H256::repeat_byte(1)), (1, H256::repeat_byte(2))],
 		};
 
 		let leaf_proof = LeavesProof::new(H256::repeat_byte(0), vec![leaf], proof);
@@ -284,7 +284,7 @@ mod tests {
 		let proof = Proof {
 			leaf_indices: vec![1, 2],
 			leaf_count: 9,
-			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
+			items: vec![(1, H256::repeat_byte(1)), (1, H256::repeat_byte(2))],
 		};
 
 		let leaf_proof = LeavesProof::new(H256::repeat_byte(0), vec![leaf_a, leaf_b], proof);

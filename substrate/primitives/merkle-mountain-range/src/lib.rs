@@ -356,7 +356,7 @@ pub struct Proof<Hash> {
 	/// Number of leaves in MMR, when the proof was generated.
 	pub leaf_count: NodeIndex,
 	/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
-	pub items: Vec<Hash>,
+	pub items: Vec<(u64, Hash)>,
 }
 
 /// Merkle Mountain Range operation error.
@@ -442,7 +442,7 @@ sp_api::decl_runtime_apis! {
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<(u64, Hash)>) -> Result<(), Error>;
+		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>) -> Result<(), Error>;
 
 		/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -451,7 +451,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
-		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<(u64, Hash)>)
+		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
 			-> Result<(), Error>;
 	}
 }
@@ -479,9 +479,9 @@ mod tests {
 			leaf_indices: vec![5],
 			leaf_count: 10,
 			items: vec![
-				hex("c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"),
-				hex("d3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"),
-				hex("e3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"),
+				(1, hex("c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd")),
+				(2, hex("d3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd")),
+				(3, hex("e3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd")),
 			],
 		};
 
