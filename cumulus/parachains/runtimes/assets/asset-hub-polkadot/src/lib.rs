@@ -66,6 +66,8 @@ use assets_common::{
 	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
+use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -581,7 +583,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 		EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
 	>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
