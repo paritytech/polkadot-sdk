@@ -538,7 +538,7 @@ fn affinity_prohibits_parallel_scheduling() {
 		for _ in 0..3 {
 			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
 			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1));
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(2));
+			assert_eq!(None, OnDemandAssigner::pop_assignment_for_core(CoreIndex(2)));
 		}
 
 		// Affinity should be the same as before, but on different cores.
