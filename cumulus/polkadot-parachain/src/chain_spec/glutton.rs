@@ -115,7 +115,7 @@ fn glutton_westend_genesis(
 			..Default::default()
 		},
 		parachain_system: Default::default(),
-		glutton_westend: glutton_westend_runtime::GluttonWestendConfig {
+		glutton: glutton_westend_runtime::GluttonConfig {
 			compute: Default::default(),
 			storage: Default::default(),
 			trash_data_count: Default::default(),

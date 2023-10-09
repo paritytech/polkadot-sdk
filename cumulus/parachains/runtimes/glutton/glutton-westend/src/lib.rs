@@ -264,7 +264,7 @@ construct_runtime! {
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin} = 10,
 
 		// The main stage.
-		GluttonWestend: pallet_glutton::{Pallet, Call, Storage, Event, Config<T>} = 20,
+		Glutton: pallet_glutton::{Pallet, Call, Storage, Event, Config<T>} = 20,
 
 		// Collator support
 		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 30,
@@ -321,7 +321,7 @@ extern crate frame_benchmarking;
 mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
-		[pallet_glutton, GluttonWestend]
+		[pallet_glutton, Glutton]
 	);
 }
 
