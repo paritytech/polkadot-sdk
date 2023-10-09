@@ -91,12 +91,9 @@ fn test_xcm_execute() {
 	// Execute XCM instructions through the contract.
 	ParaA::execute_with(|| {
 		let amount: u128 = 10 * CENTS;
-		let fee = parachain::estimate_message_fee(4);
 
 		// The XCM used to transfer funds to Bob.
 		let message: xcm_simulator::Xcm<()> = Xcm(vec![
-			WithdrawAsset(vec![(Parent, fee).into()].into()),
-			BuyExecution { fees: (Parent, fee).into(), weight_limit: WeightLimit::Unlimited },
 			WithdrawAsset(vec![(Here, amount).into()].into()),
 			DepositAsset {
 				assets: All.into(),
@@ -123,7 +120,7 @@ fn test_xcm_execute() {
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
 		let initial = INITIAL_BALANCE;
-		assert_eq!(parachain::Assets::balance(0, contract_addr), initial - fee);
+		assert_eq!(parachain::Assets::balance(0, contract_addr), initial);
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
 	});
 }
@@ -182,6 +179,7 @@ fn test_xcm_execute_reentrant_call() {
 			value: 0u128,
 		});
 
+		// The XCM used to transfer funds to Bob.
 		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![
 			Transact {
 				origin_kind: OriginKind::Native,
@@ -332,17 +330,12 @@ fn test_xcm_take_response() {
 		assert_eq!(QueryResponseStatus::Pending { timeout: 1u32.into() }, call(query_id));
 
 		// Execute the XCM program that answers the query.
-		let fee = parachain::estimate_message_fee(4);
-		let message = Xcm(vec![
-			WithdrawAsset(vec![(Parent, fee).into()].into()),
-			BuyExecution { fees: (Parent, fee).into(), weight_limit: WeightLimit::Unlimited },
-			QueryResponse {
-				query_id,
-				response: Response::ExecutionResult(None),
-				max_weight: Weight::zero(),
-				querier: Some(querier),
-			},
-		]);
+		let message = Xcm(vec![QueryResponse {
+			query_id,
+			response: Response::ExecutionResult(None),
+			max_weight: Weight::zero(),
+			querier: Some(querier),
+		}]);
 		ParachainPalletXcm::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::V3(message)),
