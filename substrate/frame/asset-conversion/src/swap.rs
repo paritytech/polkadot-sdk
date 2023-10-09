@@ -169,22 +169,17 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		credit_in: Self::Credit,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
-		let transaction_res =
-			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let res =
-					Self::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min);
-				match &res {
-					Ok(_) => TransactionOutcome::Commit(Ok(res)),
-					// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
-					// `From<DispatchError>` bound of the `with_transaction` function.
-					Err(_) => TransactionOutcome::Rollback(Ok(res)),
-				}
-			});
-		match transaction_res {
-			Ok(r) => r,
-			// should never happen, `with_transaction` above never returns an `Err` variant.
-			Err(_) => Err((Self::Credit::native_zero(), DispatchError::Corruption)),
-		}
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let res = Self::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min);
+			match &res {
+				Ok(_) => TransactionOutcome::Commit(Ok(res)),
+				// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
+				// `From<DispatchError>` bound of the `with_transaction` function.
+				Err(_) => TransactionOutcome::Rollback(Ok(res)),
+			}
+		})
+		// should never map an error since `with_transaction` above never returns it.
+		.map_err(|_| (Self::Credit::native_zero(), DispatchError::Corruption))?
 	}
 
 	fn swap_tokens_for_exact_tokens(
@@ -192,20 +187,16 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		credit_in: Self::Credit,
 		amount_out: Self::Balance,
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
-		let transaction_res =
-			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let res = Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);
-				match &res {
-					Ok(_) => TransactionOutcome::Commit(Ok(res)),
-					// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
-					// `From<DispatchError>` bound of the `with_transaction` function.
-					Err(_) => TransactionOutcome::Rollback(Ok(res)),
-				}
-			});
-		match transaction_res {
-			Ok(r) => r,
-			// should never happen, `with_transaction` above never returns an `Err` variant.
-			Err(_) => Err((Self::Credit::native_zero(), DispatchError::Corruption)),
-		}
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			let res = Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);
+			match &res {
+				Ok(_) => TransactionOutcome::Commit(Ok(res)),
+				// wrapping `res` with `Ok`, since our `Err` doesn't satisfy the
+				// `From<DispatchError>` bound of the `with_transaction` function.
+				Err(_) => TransactionOutcome::Rollback(Ok(res)),
+			}
+		})
+		// should never map an error since `with_transaction` above never returns it.
+		.map_err(|_| (Self::Credit::native_zero(), DispatchError::Corruption))?
 	}
 }

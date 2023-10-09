@@ -283,7 +283,7 @@ pub mod pallet {
 			path: BalancePath<T>,
 		},
 		/// Assets have been converted from one to another.
-		CreditSwapExecuted {
+		SwapCreditExecuted {
 			/// The amount of the first asset that was swapped.
 			amount_in: T::Balance,
 			/// The amount of the second asset that was received.
@@ -351,7 +351,7 @@ pub mod pallet {
 		NonUniquePath,
 		/// It was not possible to get or increment the Id of the pool.
 		IncorrectPoolAssetId,
-		/// Account cannot exist with the funds that would be given.
+		/// The destination account cannot exist with the swapped funds.
 		BelowMinimum,
 	}
 
@@ -828,7 +828,7 @@ pub mod pallet {
 
 			let credit_out = Self::credit_swap(credit_in, &path)?;
 
-			Self::deposit_event(Event::CreditSwapExecuted { amount_in, amount_out, path });
+			Self::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
 
 			Ok(credit_out)
 		}
@@ -875,7 +875,7 @@ pub mod pallet {
 			let (credit_in, credit_change) = credit_in.split(amount_in);
 			let credit_out = Self::credit_swap(credit_in, &path)?;
 
-			Self::deposit_event(Event::CreditSwapExecuted { amount_in, amount_out, path });
+			Self::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
 
 			Ok((credit_out, credit_change))
 		}

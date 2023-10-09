@@ -27,9 +27,8 @@ use sp_std::{cmp::Ordering, marker::PhantomData};
 /// migration.
 pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
 
-/// Represents a swap path with associated asset amounts for input and output.
-///
-/// Each pair of neighboring assets forms a pool.
+/// Represents a swap path with associated asset amounts indicating how much of the asset needs to
+/// be deposited to get the following asset's amount withdrawn (this is inclusive of fees).
 ///
 /// Example:
 /// Given path [(asset1, amount_in), (asset2, amount_out2), (asset3, amount_out3)], can be resolved:
