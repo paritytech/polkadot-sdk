@@ -1052,7 +1052,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (total_amount_bonded, non_zero_count) = Proposals::<T, I>::iter().fold(
 			(BalanceOf::<T, I>::zero(), 0usize),
 			|(sum, count), (_index, proposal)| {
-				if proposal.bond != BalanceOf::<T, I>::zero() {
+				if !proposal.bond.is_zero() {
 					(sum + proposal.bond, count + 1)
 				} else {
 					(sum, count)
