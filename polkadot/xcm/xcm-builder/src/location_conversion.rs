@@ -93,7 +93,7 @@ impl DescribeLocation for DescribeTreasuryVoiceTerminal {
 		match (l.parents, &l.interior) {
 			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
 				Some((b"Treasury", b"Voice").encode()),
-			_ => return None,
+			_ => None,
 		}
 	}
 }
