@@ -20,13 +20,17 @@ use std::collections::HashSet;
 #[cfg(test)]
 use crate::assert_error_matches;
 
+#[cfg(test)]
+use crate::pallet::parse::tests::simulate_manifest_dir;
+
 use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::TokenStream as TokenStream2;
+use proc_utils::PrettyPrint;
 use quote::{quote, ToTokens};
 use syn::{
 	parse::ParseStream,
-	parse2, parse_quote,
+	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
 	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
@@ -53,10 +57,15 @@ pub struct TasksDef {
 impl syn::parse::Parse for TasksDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_impl: ItemImpl = input.parse()?;
+		println!("________");
+		item_impl.pretty_print();
+		println!("________");
 		let (tasks_attrs, normal_attrs): (Vec<_>, Vec<_>) =
 			item_impl.attrs.clone().into_iter().partition(|attr| {
 				let mut path_segs = attr.path().segments.iter();
-				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
+				let (Some(prefix), Some(suffix), None) =
+					(path_segs.next(), path_segs.next(), path_segs.next())
+				else {
 					return false
 				};
 				prefix.ident == "pallet" && suffix.ident == "tasks"
@@ -71,6 +80,7 @@ impl syn::parse::Parse for TasksDef {
 				"unexpected extra `#[pallet::tasks]` attribute",
 			))
 		}
+		println!("IS_SOME: {}", tasks_attr.is_some());
 		let tasks: Vec<TaskDef> = if tasks_attr.is_some() {
 			item_impl
 				.items
@@ -115,29 +125,44 @@ pub struct TaskEnumDef {
 
 impl syn::parse::Parse for TaskEnumDef {
 	fn parse(input: ParseStream) -> Result<Self> {
-		let item_enum = input.parse::<ItemEnum>()?;
+		let mut item_enum = input.parse::<ItemEnum>()?;
 		let mut attr = None;
-		for found_attr in &item_enum.attrs {
-			let segs = found_attr
-				.path()
-				.segments
-				.iter()
-				.map(|seg| seg.ident.clone())
-				.collect::<Vec<_>>();
-			let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
-				continue
-			};
-			if seg1 != "pallet" {
-				continue
-			}
-			if attr.is_some() {
-				return Err(Error::new(
-					found_attr.span(),
-					"only one `#[pallet::_]` attribute is supported on this item",
-				))
-			}
-			attr = Some(parse2(found_attr.to_token_stream())?);
+		let mut duplicate = None;
+		item_enum.attrs = item_enum
+			.attrs
+			.iter()
+			.filter(|found_attr| {
+				let segs = found_attr
+					.path()
+					.segments
+					.iter()
+					.map(|seg| seg.ident.clone())
+					.collect::<Vec<_>>();
+				let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
+					return true
+				};
+				if seg1 != "pallet" {
+					return true
+				}
+				if attr.is_some() {
+					duplicate = Some(found_attr.span());
+				}
+				attr = Some(found_attr.to_token_stream());
+				false
+			})
+			.cloned()
+			.collect();
+		if let Some(span) = duplicate {
+			return Err(Error::new(
+				span,
+				"only one `#[pallet::_]` attribute is supported on this item",
+			))
 		}
+		let attr = match attr {
+			Some(attr) => Some(parse2(attr)?),
+			None => None,
+		};
+
 		// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
 		let scrate = generate_crate_access_2018("frame-support")?;
@@ -473,7 +498,7 @@ fn test_parse_tasks_attr() {
 
 #[test]
 fn test_parse_tasks_def_basic() {
-	parse2::<TasksDef>(quote! {
+	let parsed = parse2::<TasksDef>(quote! {
 		#[pallet::tasks]
 		impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			/// Add a pair of numbers into the totals and remove them.
@@ -491,6 +516,7 @@ fn test_parse_tasks_def_basic() {
 		}
 	})
 	.unwrap();
+	assert_eq!(parsed.tasks.len(), 1);
 }
 
 #[test]
@@ -640,69 +666,81 @@ fn test_parse_tasks_def_extra_tasks_attribute() {
 
 #[test]
 fn test_parse_task_enum_def_basic() {
-	parse2::<TaskEnumDef>(quote! {
-		#[pallet::task_enum]
-		pub enum Task<T: Config> {
-			Increment,
-			Decrement,
-		}
-	})
-	.unwrap();
-}
-
-#[test]
-fn test_parse_task_enum_def_non_task_name() {
-	parse2::<TaskEnumDef>(quote! {
-		#[pallet::task_enum]
-		pub enum Something {
-			Foo
-		}
-	})
-	.unwrap();
-}
-
-#[test]
-fn test_parse_task_enum_def_missing_attr_allowed() {
-	parse2::<TaskEnumDef>(quote! {
-		pub enum Task<T: Config> {
-			Increment,
-			Decrement,
-		}
-	})
-	.unwrap();
-}
-
-#[test]
-fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
-	parse2::<TaskEnumDef>(quote! {
-		pub enum Foo {
-			Red,
-		}
-	})
-	.unwrap();
-}
-
-#[test]
-fn test_parse_task_enum_def_wrong_attr() {
-	assert_error_matches!(
+	simulate_manifest_dir("../../examples/basic", || {
 		parse2::<TaskEnumDef>(quote! {
-			#[pallet::something]
+			#[pallet::task_enum]
 			pub enum Task<T: Config> {
 				Increment,
 				Decrement,
 			}
-		}),
-		"expected `task_enum`"
-	)
+		})
+		.unwrap();
+	});
+}
+
+#[test]
+fn test_parse_task_enum_def_non_task_name() {
+	simulate_manifest_dir("../../examples/basic", || {
+		parse2::<TaskEnumDef>(quote! {
+			#[pallet::task_enum]
+			pub enum Something {
+				Foo
+			}
+		})
+		.unwrap();
+	});
+}
+
+#[test]
+fn test_parse_task_enum_def_missing_attr_allowed() {
+	simulate_manifest_dir("../../examples/basic", || {
+		parse2::<TaskEnumDef>(quote! {
+			pub enum Task<T: Config> {
+				Increment,
+				Decrement,
+			}
+		})
+		.unwrap();
+	});
+}
+
+#[test]
+fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
+	simulate_manifest_dir("../../examples/basic", || {
+		parse2::<TaskEnumDef>(quote! {
+			pub enum Foo {
+				Red,
+			}
+		})
+		.unwrap();
+	});
+}
+
+#[test]
+fn test_parse_task_enum_def_wrong_attr() {
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TaskEnumDef>(quote! {
+				#[pallet::something]
+				pub enum Task<T: Config> {
+					Increment,
+					Decrement,
+				}
+			}),
+			"expected `task_enum`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_task_enum_def_wrong_item() {
-	assert_error_matches!(
-		parse2::<TaskEnumDef>(quote! {
-			#[pallet::task_enum]
-			pub struct Something;
-		}),
-		"expected `enum`"
-	)
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TaskEnumDef>(quote! {
+				#[pallet::task_enum]
+				pub struct Something;
+			}),
+			"expected `enum`"
+		);
+	});
 }

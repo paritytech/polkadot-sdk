@@ -17,8 +17,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::marker::PhantomData;
-
 use frame_support::dispatch::DispatchResult;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -33,30 +31,6 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-
-	// this can be auto-generated from the macros
-	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		frame_support::pallet_prelude::Encode,
-		frame_support::pallet_prelude::Decode,
-		frame_support::pallet_prelude::TypeInfo,
-	)]
-	pub enum Task<T: Config> {
-		Increment,
-		Decrement,
-		#[doc(hidden)]
-		#[codec(skip)]
-		__Ignore(PhantomData<T>, frame_support::Never),
-	}
-
-	// this can be auto-generated from the macros and will always be the same
-	impl<T: Config> core::fmt::Debug for Task<T> {
-		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-			f.debug_struct("Task").field("value", self).finish()
-		}
-	}
 
 	// we can automatically inject `InvalidTask` into an existing Error enum by finding it via
 	// visitor pattern, otherwise we can just emit an error enum containing just our
@@ -78,13 +52,13 @@ pub mod pallet {
 		type Enumeration = sp_std::vec::IntoIter<Task<T>>;
 
 		fn iter() -> Self::Enumeration {
-			sp_std::vec![Task::Increment, Task::Decrement].into_iter()
+			sp_std::vec![Task::increment, Task::decrement].into_iter()
 		}
 
 		fn task_index(&self) -> u32 {
 			match self {
-				Task::Increment => 1,
-				Task::Decrement => 2,
+				Task::increment => 1,
+				Task::decrement => 2,
 				Task::__Ignore(_, _) => unreachable!(),
 			}
 		}
@@ -92,15 +66,15 @@ pub mod pallet {
 		fn is_valid(&self) -> bool {
 			let value = Value::<T>::get().unwrap();
 			match self {
-				Task::Increment => value < 255,
-				Task::Decrement => value > 0,
+				Task::increment => value < 255,
+				Task::decrement => value > 0,
 				Task::__Ignore(_, _) => unreachable!(),
 			}
 		}
 
 		fn run(&self) -> Result<(), DispatchError> {
 			match self {
-				Task::Increment => {
+				Task::increment => {
 					// Get the value and check if it can be incremented
 					let value = Value::<T>::get().unwrap_or_default();
 					if value >= 255 {
@@ -112,7 +86,7 @@ pub mod pallet {
 						Ok(())
 					}
 				},
-				Task::Decrement => {
+				Task::decrement => {
 					// Get the value and check if it can be decremented
 					let value = Value::<T>::get().unwrap_or_default();
 					if value == 0 {

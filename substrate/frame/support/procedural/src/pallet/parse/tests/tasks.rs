@@ -72,6 +72,7 @@ fn test_parse_pallet_missing_task_enum() {
 		#[frame_support::pallet]
 		pub mod pallet {
 			#[pallet::tasks]
+			#[cfg(test)] // aha, this means it's being eaten
 			impl<T: Config> frame_support::traits::Task for Task<T>
 			where
 				T: TypeInfo,
@@ -100,6 +101,34 @@ fn test_parse_pallet_task_list_in_wrong_place() {
 			#[pallet::task_list]
 			pub fn something() {
 				println!("hey");
+			}
+
+			#[pallet::config]
+			pub trait Config: frame_system::Config {}
+
+			#[pallet::pallet]
+			pub struct Pallet<T>(_);
+		}
+	}
+}
+
+#[test]
+fn test_parse_pallet_manual_tasks_impl_without_manual_tasks_enum() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex(".*attribute must be attached to your.*")]
+		#[frame_support::pallet]
+		pub mod pallet {
+
+			impl<T: Config> frame_support::traits::Task for Task<T>
+			where
+				T: TypeInfo,
+			{
+				type Enumeration = sp_std::vec::IntoIter<Task<T>>;
+
+				fn iter() -> Self::Enumeration {
+					sp_std::vec![Task::increment, Task::decrement].into_iter()
+				}
 			}
 
 			#[pallet::config]
@@ -187,8 +216,9 @@ fn test_parse_pallet_manual_task_enum_manual_impl() {
 
 #[test]
 fn test_parse_pallet_manual_task_enum_mismatch_ident() {
-	let pallet = assert_pallet_parses! {
+	assert_pallet_parse_error! {
 		#[manifest_dir("../../examples/basic")]
+		#[error_regex(".*attribute must be attached to your.*")]
 		#[frame_support::pallet]
 		pub mod pallet {
 			pub enum WrongIdent<T: Config> {
@@ -208,6 +238,4 @@ fn test_parse_pallet_manual_task_enum_mismatch_ident() {
 			pub struct Pallet<T>(_);
 		}
 	};
-	assert!(pallet.task_enum.is_none()); // note: will be filled in by expansion
-	assert!(pallet.tasks.is_some());
 }

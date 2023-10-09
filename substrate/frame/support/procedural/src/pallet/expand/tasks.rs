@@ -1,5 +1,6 @@
 use crate::pallet::{parse::tasks::*, Def};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_utils::PrettyPrint;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, spanned::Spanned};
 
@@ -9,7 +10,10 @@ impl TaskEnumDef {
 		type_decl_bounded_generics: TokenStream2,
 		type_use_generics: TokenStream2,
 	) -> Self {
-		let variants = tasks.tasks.iter().map(|task| task.item.sig.ident.clone());
+		let variants = match tasks.tasks_attr.is_some() {
+			true => tasks.tasks.iter().map(|task| task.item.sig.ident.clone()).collect::<Vec<_>>(),
+			false => Vec::new(),
+		};
 		let mut task_enum_def: TaskEnumDef = parse_quote! {
 			/// Auto-generated enum that encapsulates all tasks defined by this pallet.
 			///
@@ -84,7 +88,9 @@ pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
 	}
 	let task_enum = &def.task_enum;
 	// TODO: add ToTokens impl for TasksDef so we can output it here
-	quote! {
+	let output = quote! {
 		#task_enum
-	}
+	};
+	output.pretty_print();
+	output
 }

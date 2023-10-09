@@ -270,8 +270,16 @@ impl Def {
 		Self::resolve_manual_task_enum(tasks, task_enum, items)?;
 
 		// ensure that if `task_enum` is specified, `tasks` is also specified
-		if let (Some(_), None) = (&task_enum, &tasks) {
-			return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl"))
+		match (&task_enum, &tasks) {
+			(Some(_), None) =>
+				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl")),
+			(None, Some(tasks)) if tasks.tasks_attr.is_none() =>
+				return Err(syn::Error::new(
+					tasks.item_impl.impl_token.span(),
+					"A `#[pallet::tasks]` attribute must be attached to your `Task` impl if the \
+					task enum has been omitted",
+				)),
+			_ => (),
 		}
 
 		Ok(())
