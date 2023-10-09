@@ -29,7 +29,7 @@ pub struct Handshake {
 }
 
 /// The response from an execution job on the worker.
-#[derive(Encode, Decode)]
+#[derive(Debug, Encode, Decode)]
 pub enum Response {
 	/// The job completed successfully.
 	Ok {

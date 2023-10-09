@@ -328,6 +328,32 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		);
 		Ok(Default::default())
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		if !TEST_ALL_STEPS {
+			return Ok(())
+		}
+
+		log::info!(target: LOG_TARGET, "=== POST UPGRADE CHECKS ===");
+
+		// Ensure that the hashing algorithm is correct for each storage map.
+		if let Some(hash) = crate::CodeInfoOf::<T>::iter_keys().next() {
+			crate::CodeInfoOf::<T>::get(hash).expect("CodeInfo exists for hash; qed");
+		}
+		if let Some(hash) = crate::PristineCode::<T>::iter_keys().next() {
+			crate::PristineCode::<T>::get(hash).expect("PristineCode exists for hash; qed");
+		}
+		if let Some(account_id) = crate::ContractInfoOf::<T>::iter_keys().next() {
+			crate::ContractInfoOf::<T>::get(account_id)
+				.expect("ContractInfo exists for account_id; qed");
+		}
+		if let Some(nonce) = crate::DeletionQueue::<T>::iter_keys().next() {
+			crate::DeletionQueue::<T>::get(nonce).expect("DeletionQueue exists for nonce; qed");
+		}
+
+		Ok(())
+	}
 }
 
 /// The result of running the migration.
