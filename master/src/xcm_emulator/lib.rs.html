@@ -1449,6 +1449,9 @@
 <a href="#1449" id="1449">1449</a>
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1477,7 +1480,7 @@
 <span class="comment">// Substrate
 </span><span class="kw">pub use </span>frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, AccountId32, DispatchResult},
+	sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, DispatchResult},
 	traits::{
 		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
@@ -1512,6 +1515,8 @@
 };
 <span class="kw">pub use </span>xcm_executor::traits::ConvertLocation;
 
+<span class="kw">pub type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
+
 <span class="macro">thread_local! </span>{
 	<span class="doccomment">/// Downward messages, each message is: `(to_para_id, [(relay_block_number, msg)])`
 	</span><span class="attr">#[allow(clippy::type_complexity)]
@@ -1541,8 +1546,8 @@
 <span class="kw">where
 	</span>Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
-	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
+	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Origin::Runtime&gt;&gt; + Clone,
+	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Destination::Runtime&gt;&gt; + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -1554,8 +1559,8 @@
 <span class="kw">where
 	</span>Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
-	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
+	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Origin::Runtime&gt;&gt; + Clone,
+	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Destination::Runtime&gt;&gt; + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -1670,24 +1675,24 @@
 		helpers::get_account_id_from_seed::&lt;sr25519::Public&gt;(seed)
 	}
 
-	<span class="kw">fn </span>account_data_of(account: AccountId) -&gt; AccountData&lt;Balance&gt;;
+	<span class="kw">fn </span>account_data_of(account: AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt;) -&gt; AccountData&lt;Balance&gt;;
 
 	<span class="kw">fn </span>events() -&gt; Vec&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeEvent&gt;;
 }
 
 <span class="kw">pub trait </span>RelayChain: Chain {
 	<span class="kw">type </span>MessageProcessor: ProcessMessage;
-	<span class="kw">type </span>SovereignAccountOf: ConvertLocation&lt;AccountId&gt;;
+	<span class="kw">type </span>SovereignAccountOf: ConvertLocation&lt;AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt;&gt;;
 
 	<span class="kw">fn </span>child_location_of(id: ParaId) -&gt; MultiLocation {
 		(Ancestor(<span class="number">0</span>), ParachainJunction(id.into())).into()
 	}
 
-	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountId {
+	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
 		<span class="self">Self</span>::SovereignAccountOf::convert_location(<span class="kw-2">&amp;</span>location).unwrap()
 	}
 
-	<span class="kw">fn </span>sovereign_account_id_of_child_para(id: ParaId) -&gt; AccountId {
+	<span class="kw">fn </span>sovereign_account_id_of_child_para(id: ParaId) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
 		<span class="self">Self</span>::sovereign_account_id_of(<span class="self">Self</span>::child_location_of(id))
 	}
 }
@@ -1695,7 +1700,7 @@
 <span class="kw">pub trait </span>Parachain: Chain {
 	<span class="kw">type </span>XcmpMessageHandler: XcmpMessageHandler;
 	<span class="kw">type </span>DmpMessageHandler: DmpMessageHandler;
-	<span class="kw">type </span>LocationToAccountId: ConvertLocation&lt;AccountId&gt;;
+	<span class="kw">type </span>LocationToAccountId: ConvertLocation&lt;AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt;&gt;;
 	<span class="kw">type </span>ParachainInfo: Get&lt;ParaId&gt;;
 	<span class="kw">type </span>ParachainSystem;
 
@@ -1719,7 +1724,7 @@
 		(Parent, X1(ParachainJunction(para_id.into()))).into()
 	}
 
-	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountId {
+	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
 		<span class="self">Self</span>::LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>location).unwrap()
 	}
 }
@@ -1816,7 +1821,7 @@
 				<span class="kw">type </span>RuntimeEvent = <span class="macro-nonterminal">$runtime::RuntimeEvent</span>;
 				<span class="kw">type </span>System = <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;;
 
-				<span class="kw">fn </span>account_data_of(account: <span class="macro-nonterminal">$crate::AccountId</span>) -&gt; <span class="macro-nonterminal">$crate::AccountData</span>&lt;<span class="macro-nonterminal">$crate::Balance</span>&gt; {
+				<span class="kw">fn </span>account_data_of(account: <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;<span class="self">Self</span>::Runtime&gt;) -&gt; <span class="macro-nonterminal">$crate::AccountData</span>&lt;<span class="macro-nonterminal">$crate::Balance</span>&gt; {
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::TestExt</span>&gt;::ext_wrapper(|| <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;::account(account).data.into())
 				}
 
@@ -2041,7 +2046,7 @@
 				<span class="kw">type </span>RuntimeEvent = <span class="macro-nonterminal">$runtime::RuntimeEvent</span>;
 				<span class="kw">type </span>System = <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;;
 
-				<span class="kw">fn </span>account_data_of(account: <span class="macro-nonterminal">$crate::AccountId</span>) -&gt; <span class="macro-nonterminal">$crate::AccountData</span>&lt;<span class="macro-nonterminal">$crate::Balance</span>&gt; {
+				<span class="kw">fn </span>account_data_of(account: <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;<span class="self">Self</span>::Runtime&gt;) -&gt; <span class="macro-nonterminal">$crate::AccountData</span>&lt;<span class="macro-nonterminal">$crate::Balance</span>&gt; {
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::TestExt</span>&gt;::ext_wrapper(|| <span class="macro-nonterminal">$crate::SystemPallet</span>::&lt;<span class="self">Self</span>::Runtime&gt;::account(account).data.into())
 				}
 
@@ -2610,9 +2615,10 @@
 		</span><span class="kw">where
 			</span>Origin: <span class="macro-nonterminal">$crate::Chain </span>+ Clone,
 			Destination: <span class="macro-nonterminal">$crate::Chain </span>+ Clone,
-			Origin::RuntimeOrigin: <span class="macro-nonterminal">$crate::OriginTrait</span>&lt;AccountId = <span class="macro-nonterminal">$crate::AccountId32</span>&gt; + Clone,
+			Origin::RuntimeOrigin:
+				<span class="macro-nonterminal">$crate::OriginTrait</span>&lt;AccountId = <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;Origin::Runtime&gt;&gt; + Clone,
 			Destination::RuntimeOrigin:
-				<span class="macro-nonterminal">$crate::OriginTrait</span>&lt;AccountId = <span class="macro-nonterminal">$crate::AccountId32</span>&gt; + Clone,
+				<span class="macro-nonterminal">$crate::OriginTrait</span>&lt;AccountId = <span class="macro-nonterminal">$crate::AccountIdOf</span>&lt;Destination::Runtime&gt;&gt; + Clone,
 			Hops: Clone,
 			Args: Clone,
 		{
@@ -2759,8 +2765,8 @@
 
 <span class="doccomment">/// Struct that keeps account&#39;s id and balance
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>TestAccount {
-	<span class="kw">pub </span>account_id: AccountId,
+</span><span class="kw">pub struct </span>TestAccount&lt;R: Chain&gt; {
+	<span class="kw">pub </span>account_id: AccountIdOf&lt;R::Runtime&gt;,
 	<span class="kw">pub </span>balance: Balance,
 }
 
@@ -2777,9 +2783,9 @@
 }
 
 <span class="doccomment">/// Auxiliar struct to help creating a new `Test` instance
-</span><span class="kw">pub struct </span>TestContext&lt;T&gt; {
-	<span class="kw">pub </span>sender: AccountId,
-	<span class="kw">pub </span>receiver: AccountId,
+</span><span class="kw">pub struct </span>TestContext&lt;T, Origin: Chain, Destination: Chain&gt; {
+	<span class="kw">pub </span>sender: AccountIdOf&lt;Origin::Runtime&gt;,
+	<span class="kw">pub </span>receiver: AccountIdOf&lt;Destination::Runtime&gt;,
 	<span class="kw">pub </span>args: T,
 }
 
@@ -2796,12 +2802,12 @@
 <span class="kw">where
 	</span>Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
-	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
+	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Origin::Runtime&gt;&gt; + Clone,
+	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Destination::Runtime&gt;&gt; + Clone,
 	Hops: Clone,
 {
-	<span class="kw">pub </span>sender: TestAccount,
-	<span class="kw">pub </span>receiver: TestAccount,
+	<span class="kw">pub </span>sender: TestAccount&lt;Origin&gt;,
+	<span class="kw">pub </span>receiver: TestAccount&lt;Destination&gt;,
 	<span class="kw">pub </span>signed_origin: Origin::RuntimeOrigin,
 	<span class="kw">pub </span>root_origin: Origin::RuntimeOrigin,
 	<span class="kw">pub </span>hops_assertion: HashMap&lt;String, <span class="kw">fn</span>(<span class="self">Self</span>)&gt;,
@@ -2816,12 +2822,12 @@
 	</span>Args: Clone,
 	Origin: Chain + Clone + CheckAssertion&lt;Origin, Destination, Hops, Args&gt;,
 	Destination: Chain + Clone + CheckAssertion&lt;Origin, Destination, Hops, Args&gt;,
-	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
-	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountId32&gt; + Clone,
+	Origin::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Origin::Runtime&gt;&gt; + Clone,
+	Destination::RuntimeOrigin: OriginTrait&lt;AccountId = AccountIdOf&lt;Destination::Runtime&gt;&gt; + Clone,
 	Hops: Clone + CheckAssertion&lt;Origin, Destination, Hops, Args&gt;,
 {
 	<span class="doccomment">/// Creates a new `Test` instance
-	</span><span class="kw">pub fn </span>new(test_args: TestContext&lt;Args&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(test_args: TestContext&lt;Args, Origin, Destination&gt;) -&gt; <span class="self">Self </span>{
 		Test {
 			sender: TestAccount {
 				account_id: test_args.sender.clone(),
