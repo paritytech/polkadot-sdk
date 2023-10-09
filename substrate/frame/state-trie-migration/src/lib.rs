@@ -441,19 +441,41 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			type WeightInfo = ();
+		}
+	}
+
 	/// Configurations of this pallet.
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// Origin that can control the configurations of this pallet.
-		type ControlOrigin: frame_support::traits::EnsureOrigin<Self::RuntimeOrigin>;
+		#[pallet::no_default]
+		type ControlOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Filter on which origin that trigger the manual migrations.
+		#[pallet::no_default]
 		type SignedFilter: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
+		#[pallet::no_default]
 		type Currency: Currency<Self::AccountId>;
 
 		/// Maximal number of bytes that a key can have.
@@ -479,16 +501,19 @@ pub mod pallet {
 		/// <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
 
 		#[pallet::constant]
+		#[pallet::no_default]
 		type MaxKeyLen: Get<u32>;
 
 		/// The amount of deposit collected per item in advance, for signed migrations.
 		///
 		/// This should reflect the average storage value size in the worse case.
+		#[pallet::no_default]
 		type SignedDepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The base value of [`Config::SignedDepositPerItem`].
 		///
 		/// Final deposit is `items * SignedDepositPerItem + SignedDepositBase`.
+		#[pallet::no_default]
 		type SignedDepositBase: Get<BalanceOf<Self>>;
 
 		/// The weight information of this pallet.
@@ -1051,8 +1076,8 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
-		parameter_types,
-		traits::{ConstU32, ConstU64, Hooks},
+		derive_impl, parameter_types,
+		traits::{ConstU32, Hooks},
 		weights::Weight,
 	};
 	use frame_system::{EnsureRoot, EnsureSigned};
@@ -1060,10 +1085,7 @@ mod mock {
 		storage::{ChildInfo, StateVersion},
 		H256,
 	};
-	use sp_runtime::{
-		traits::{BlakeTwo256, Header as _, IdentityLookup},
-		BuildStorage, StorageChild,
-	};
+	use sp_runtime::{traits::Header as _, BuildStorage, StorageChild};
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 
@@ -1081,30 +1103,11 @@ mod mock {
 		pub const SS58Prefix: u8 = 42;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-		type Nonce = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
 		type BlockHashCount = ConstU32<250>;
-		type DbWeight = ();
-		type Version = ();
-		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = SS58Prefix;
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 
 	parameter_types! {
@@ -1113,20 +1116,10 @@ mod mock {
 		pub const MigrationMaxKeyLen: u32 = 512;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ConstU64<1>;
-		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
 		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type FreezeIdentifier = ();
-		type MaxFreezes = ();
-		type RuntimeHoldReason = ();
-		type MaxHolds = ();
+		type AccountStore = System;
 	}
 
 	/// Test only Weights for state migration.
@@ -1156,8 +1149,8 @@ mod mock {
 		}
 	}
 
+	#[derive_impl(super::config_preludes::TestDefaultConfig as pallet_state_trie_migration::DefaultConfig)]
 	impl pallet_state_trie_migration::Config for Test {
-		type RuntimeEvent = RuntimeEvent;
 		type ControlOrigin = EnsureRoot<u64>;
 		type Currency = Balances;
 		type MaxKeyLen = MigrationMaxKeyLen;

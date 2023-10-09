@@ -21,15 +21,12 @@ use super::*;
 use crate as pallet_society;
 
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types, derive_impl,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_support_test::TestRandomness;
 use frame_system::EnsureSignedBy;
-use sp_runtime::{
-	traits::IdentityLookup,
-	BuildStorage,
-};
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 use RuntimeOrigin as Origin;
 
