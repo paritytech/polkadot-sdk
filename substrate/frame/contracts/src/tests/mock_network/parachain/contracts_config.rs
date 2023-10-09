@@ -17,6 +17,7 @@
 use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
 use crate::{
 	tests::mock_network::{
+		parachain,
 		parachain::RuntimeHoldReason,
 		primitives::{Balance, CENTS},
 	},
@@ -25,7 +26,7 @@ use crate::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstBool, ConstU32, Nothing, Randomness},
+	traits::{ConstBool, ConstU32, Contains, Randomness},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -59,9 +60,21 @@ impl Convert<Weight, BalanceOf<Self>> for Runtime {
 	}
 }
 
+#[derive(Clone, Default)]
+pub struct Filters;
+
+impl Contains<RuntimeCall> for Filters {
+	fn contains(call: &RuntimeCall) -> bool {
+		match call {
+			parachain::RuntimeCall::Contracts(_) => true,
+			_ => false,
+		}
+	}
+}
+
 impl Config for Runtime {
 	type AddressGenerator = crate::DefaultAddressGenerator;
-	type CallFilter = Nothing;
+	type CallFilter = Filters;
 	type CallStack = [crate::Frame<Self>; 5];
 	type ChainExtension = ();
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;

@@ -231,14 +231,26 @@ impl Contains<MultiLocation> for ParentRelay {
 		location.contains_parents_only(1)
 	}
 }
+pub struct ThisParachain;
+impl Contains<MultiLocation> for ThisParachain {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(
+			location,
+			MultiLocation { parents: 0, interior: Junctions::X1(Junction::AccountId32 { .. }) }
+		)
+	}
+}
 
 pub type XcmRouter = crate::tests::mock_network::ParachainXcmRouter<MsgQueue>;
 
-pub type Barrier = WithComputedOrigin<
-	(AllowExplicitUnpaidExecutionFrom<ParentRelay>, AllowTopLevelPaidExecutionFrom<Everything>),
-	UniversalLocation,
-	ConstU32<1>,
->;
+pub type Barrier = (
+	xcm_builder::AllowUnpaidExecutionFrom<ThisParachain>,
+	WithComputedOrigin<
+		(AllowExplicitUnpaidExecutionFrom<ParentRelay>, AllowTopLevelPaidExecutionFrom<Everything>),
+		UniversalLocation,
+		ConstU32<1>,
+	>,
+);
 
 parameter_types! {
 	pub NftCollectionOne: MultiAssetFilter

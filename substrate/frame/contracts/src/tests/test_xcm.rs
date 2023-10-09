@@ -135,8 +135,7 @@ fn test_xcm_execute_filtered_call() {
 	let contract_addr = instantiate_test_contract("xcm_execute");
 
 	ParaA::execute_with(|| {
-		// `remark` transact inside the Xcm should be rejected, as CallFilter is set to
-		// `Nothing`.
+		// `remark`  should be rejected, as CallFilter is not allowed by our CallFilter.
 		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![Transact {
 			origin_kind: OriginKind::Native,
@@ -165,6 +164,55 @@ fn test_xcm_execute_filtered_call() {
 		// The call should fail, with an `OutOfGas` error, as the failed xcm::execute will not
 		// refund the max_weight gas passed to it.
 		assert_err!(result.result, crate::Error::<parachain::Runtime>::OutOfGas);
+	});
+}
+
+#[test]
+fn test_xcm_execute_reentrant_call() {
+	MockNet::reset();
+
+	let contract_addr = instantiate_test_contract("xcm_execute");
+
+	ParaA::execute_with(|| {
+		let transact_call = parachain::RuntimeCall::Contracts(crate::Call::call {
+			dest: contract_addr.clone(),
+			gas_limit: 1_000_000.into(),
+			storage_deposit_limit: None,
+			data: vec![],
+			value: 0u128,
+		});
+
+		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![
+			Transact {
+				origin_kind: OriginKind::Native,
+				require_weight_at_most: 1_000_000_000.into(),
+				call: transact_call.encode().into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+
+		ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			VersionedXcm::V3(message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		);
+
+		// assert that the Transact failed
+		// use crate::tests::{test_xcm::Outcome::Incomplete};
+		assert!(parachain::System::events().iter().any(|r| {
+			matches!(
+				r.event,
+				parachain::RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Attempted {
+					outcome: Outcome::Incomplete(_, XcmError::ExpectationFalse)
+				}),
+			)
+		}));
 	});
 }
 
