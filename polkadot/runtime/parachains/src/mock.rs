@@ -459,8 +459,7 @@ pub mod mock_assigner {
 					.map(|para_id| V0Assignment::new(para_id))
 			} else {
 				let mut queue: VecDeque<V0Assignment> = MockAssignerQueue::<T>::get();
-				let front =
-					queue.pop_front().map(|assignment| assignment);
+				let front = queue.pop_front().map(|assignment| assignment);
 				// Write changes to storage.
 				MockAssignerQueue::<T>::set(queue);
 				front
@@ -471,12 +470,10 @@ pub mod mock_assigner {
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
 		fn push_back_assignment(assignment: Self::AssignmentType) {
-			if <paras::Pallet<T>>::is_parachain(assignment.para_id()) {}
-			else {
-				match Pallet::<T>::add_on_demand_order(
-					assignment.into(),
-					QueuePushDirection::Front,
-				) {
+			if <paras::Pallet<T>>::is_parachain(assignment.para_id()) {
+			} else {
+				match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front)
+				{
 					Ok(_) => {},
 					Err(_) => {},
 				}

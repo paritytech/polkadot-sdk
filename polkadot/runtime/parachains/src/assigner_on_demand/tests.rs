@@ -291,10 +291,7 @@ fn add_on_demand_order_works() {
 
 		// `para_a` is not onboarded as a parathread yet.
 		assert_noop!(
-			OnDemandAssigner::add_on_demand_order(
-				order.clone(),
-				QueuePushDirection::Back
-			),
+			OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back),
 			Error::<Test>::InvalidParaId
 		);
 
@@ -303,17 +300,11 @@ fn add_on_demand_order_works() {
 		assert!(Paras::is_parathread(para_a));
 
 		// `para_a` is now onboarded as a valid parathread.
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order.clone(),
-			QueuePushDirection::Back
-		));
+		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
 
 		// Max queue size is 1, queue should be full.
 		assert_noop!(
-			OnDemandAssigner::add_on_demand_order(
-				order,
-				QueuePushDirection::Back
-			),
+			OnDemandAssigner::add_on_demand_order(order, QueuePushDirection::Back),
 			Error::<Test>::QueueFull
 		);
 	});
@@ -351,14 +342,7 @@ fn spotqueue_push_directions() {
 		));
 
 		assert_eq!(OnDemandAssigner::queue_size(), 3);
-		assert_eq!(
-			OnDemandAssigner::get_queue(),
-			VecDeque::from(vec![
-				order_b,
-				order_a,
-				order_c
-			])
-		)
+		assert_eq!(OnDemandAssigner::get_queue(), VecDeque::from(vec![order_b, order_a, order_c]))
 	});
 }
 
@@ -382,30 +366,19 @@ fn pop_assignment_for_core_works() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
-			OnDemandAssigner::add_on_demand_order(
-				order_a.clone(),
-				QueuePushDirection::Back,
-			)
-			.expect("Invalid paraid or queue full");
+			OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+				.expect("Invalid paraid or queue full");
 
-			OnDemandAssigner::add_on_demand_order(
-				order_b.clone(),
-				QueuePushDirection::Back,
-			)
-			.expect("Invalid paraid or queue full");
+			OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
+				.expect("Invalid paraid or queue full");
 		}
 
 		// Queue should contain orders a, b, a, b
 		{
-			let queue:Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
+			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
 			assert_eq!(
 				queue,
-				vec![
-					order_a.clone(),
-					order_b.clone(),
-					order_a.clone(),
-					order_b.clone(),
-				]
+				vec![order_a.clone(), order_b.clone(), order_a.clone(), order_b.clone(),]
 			);
 		}
 
@@ -425,13 +398,8 @@ fn pop_assignment_for_core_works() {
 
 		// Queue should contain one left over order
 		{
-			let queue:Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(
-				queue,
-				vec![
-					order_b.clone(),
-				]
-			);
+			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
+			assert_eq!(queue, vec![order_b.clone(),]);
 		}
 	});
 }
@@ -453,11 +421,8 @@ fn affinity_changes_work() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..10 {
-			OnDemandAssigner::add_on_demand_order(
-				order_a.clone(),
-				QueuePushDirection::Front,
-			)
-			.expect("Invalid paraid or queue full");
+			OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Front)
+				.expect("Invalid paraid or queue full");
 		}
 
 		// There should be no affinity before the scheduler pops.
@@ -530,23 +495,14 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
 
 		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(
-			order_a.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(
-			order_a.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(
-			order_b.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
 		assert_eq!(OnDemandAssigner::queue_size(), 3);
 
@@ -569,23 +525,14 @@ fn affinity_prohibits_parallel_scheduling() {
 		OnDemandAssigner::report_processed(assignment_b_core_0.clone());
 
 		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(
-			order_a.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(
-			order_a.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
-		OnDemandAssigner::add_on_demand_order(
-			order_b.clone(),
-			QueuePushDirection::Back,
-		)
-		.expect("Invalid paraid or queue full");
+		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
 		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
 		for _ in 0..3 {
@@ -652,14 +599,8 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert!(Paras::is_parathread(para_id));
 
 		// Add two assignments for a para_id with a valid lifecycle.
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order.clone(),
-			QueuePushDirection::Back
-		));
+		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
+		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
 
 		// First pop is fine
 		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == Some(assignment.clone()));

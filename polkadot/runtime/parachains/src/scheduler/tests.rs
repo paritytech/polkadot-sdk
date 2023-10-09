@@ -26,8 +26,8 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, MockAssigner, MockGenesisConfig, Paras,
-		ParasShared, RuntimeOrigin, Scheduler, System, Test,
+		new_test_ext, MockAssigner, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin,
+		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::{common::V0Assignment, ClaimQueue},
@@ -172,10 +172,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
 
 		// Add a claim on core 0 with a ttl in the past.
-		let paras_entry = ParasEntry::new(
-			V0Assignment::new(para_id),
-			now - 5 as u32,
-		);
+		let paras_entry = ParasEntry::new(V0Assignment::new(para_id), now - 5 as u32);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue prior to call.
@@ -186,8 +183,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl in the future (15).
-		let paras_entry =
-			ParasEntry::new(V0Assignment::new(para_id), now + 5);
+		let paras_entry = ParasEntry::new(V0Assignment::new(para_id), now + 5);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -202,8 +198,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl == now (16)
-		let paras_entry =
-			ParasEntry::new(V0Assignment::new(para_id), now);
+		let paras_entry = ParasEntry::new(V0Assignment::new(para_id), now);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -217,10 +212,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::drop_expired_claims_from_claimqueue();
 
 		// Add a claim on core 0 with a ttl == now (17)
-		let paras_entry_non_expired =
-			ParasEntry::new(V0Assignment::new(para_id), now);
-		let paras_entry_expired =
-			ParasEntry::new(V0Assignment::new(para_id), now - 2);
+		let paras_entry_non_expired = ParasEntry::new(V0Assignment::new(para_id), now);
+		let paras_entry_expired = ParasEntry::new(V0Assignment::new(para_id), now - 2);
 		// ttls = [17, 15, 17]
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
@@ -276,10 +269,7 @@ fn add_parathread_claim_works() {
 
 		assert!(Paras::is_parathread(thread_id));
 
-		let pe = ParasEntry::new(
-			V0Assignment::new(thread_id),
-			entry_ttl,
-		);
+		let pe = ParasEntry::new(V0Assignment::new(thread_id), entry_ttl);
 		Scheduler::add_to_claimqueue(core_index, pe.clone());
 
 		let cq = Scheduler::claimqueue();
@@ -790,18 +780,14 @@ fn schedule_clears_availability_cores() {
 			let entry_ttl = 8;
 			assert_eq!(claimqueue_0.len(), 1);
 			assert_eq!(claimqueue_2.len(), 1);
-			let queue_0_expectation: VecDeque<ParasEntryType<Test>> = vec![ParasEntry::new(
-				V0Assignment::new(chain_a),
-				entry_ttl as u32,
-			)]
-			.into_iter()
-			.collect();
-			let queue_2_expectation: VecDeque<ParasEntryType<Test>> = vec![ParasEntry::new(
-				V0Assignment::new(chain_c),
-				entry_ttl as u32,
-			)]
-			.into_iter()
-			.collect();
+			let queue_0_expectation: VecDeque<ParasEntryType<Test>> =
+				vec![ParasEntry::new(V0Assignment::new(chain_a), entry_ttl as u32)]
+					.into_iter()
+					.collect();
+			let queue_2_expectation: VecDeque<ParasEntryType<Test>> =
+				vec![ParasEntry::new(V0Assignment::new(chain_c), entry_ttl as u32)]
+					.into_iter()
+					.collect();
 			assert_eq!(claimqueue_0, queue_0_expectation,);
 			assert_eq!(claimqueue_2, queue_2_expectation,);
 
