@@ -36,8 +36,8 @@ workflows:
 help:
   text: |
     Polkadot-SDK uses the Zepter CLI to detect abnormalities in the feature configuration.
-    It looks like one more more checks failed. To address them, it should be enough to run `zepter`.
-    Otherwise please ask directly in your Merge Request or Matrix Chat.
+    It looks like one more more checks failed; please check the console output. You can try to automatically address them by running `zepter`.
+    Otherwise please ask directly in the Merge Request, GitHub Discussions or on Matrix Chat, thank you.
   links:
     - "https://github.com/paritytech/polkadot-sdk/issues/1831"
     - "https://github.com/ggwpez/zepter"
