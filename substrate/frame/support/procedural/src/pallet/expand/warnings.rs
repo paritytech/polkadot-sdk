@@ -19,7 +19,10 @@
 
 use crate::pallet::parse::call::{CallVariantDef, CallWeightDef};
 use proc_macro_warning::Warning;
-use syn::spanned::Spanned;
+use syn::{
+	spanned::Spanned,
+	visit::{self, Visit},
+};
 
 /// Warn if any of the call arguments starts with a underscore and is used in a weight formula.
 pub(crate) fn weight_witness_warning(
@@ -30,7 +33,7 @@ pub(crate) fn weight_witness_warning(
 	if dev_mode {
 		return
 	}
-	let CallWeightDef::Immediate(imm) = &method.weight else {
+	let CallWeightDef::Immediate(w) = &method.weight else {
 		return;
 	};
 
@@ -40,8 +43,7 @@ pub(crate) fn weight_witness_warning(
 		.help_link("https://github.com/paritytech/polkadot-sdk/pull/1818");
 
 	for (_, arg_ident, _) in method.args.iter() {
-		// Unused arguments cannot be used in weight formulas.
-		if !arg_ident.to_string().starts_with('_') || !contains_ident(&imm, &arg_ident) {
+		if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), &arg_ident) {
 			continue
 		}
 
@@ -80,24 +82,21 @@ pub(crate) fn weight_constant_warning(
 }
 
 /// Returns whether `expr` contains `ident`.
-fn contains_ident(expr: &syn::Expr, ident: &syn::Ident) -> bool {
-	use syn::visit_mut::{self, VisitMut};
-
+fn contains_ident(mut expr: syn::Expr, ident: &syn::Ident) -> bool {
 	struct ContainsIdent {
 		ident: syn::Ident,
 		found: bool,
 	}
 
-	impl VisitMut for ContainsIdent {
-		fn visit_ident_mut(&mut self, i: &mut syn::Ident) {
+	impl<'a> Visit<'a> for ContainsIdent {
+		fn visit_ident(&mut self, i: &syn::Ident) {
 			if *i == self.ident {
 				self.found = true;
 			}
 		}
 	}
 
-	let mut expr = expr.clone();
 	let mut visitor = ContainsIdent { ident: ident.clone(), found: false };
-	visit_mut::visit_expr_mut(&mut visitor, &mut expr);
+	visit::visit_expr(&mut visitor, &mut expr);
 	visitor.found
 }
