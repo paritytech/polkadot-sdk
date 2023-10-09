@@ -641,7 +641,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 				}
 
 				/// Relay Chain sends `Transact` instruction with `force_create_asset` to Parachain with `Assets` instance of `pallet_assets` .
-				pub fn do_force_create_asset_from_relay_as_root(
+				pub fn force_create_asset_from_relay_as_root(
 					id: u32,
 					min_balance: u128,
 					is_sufficient: bool,
