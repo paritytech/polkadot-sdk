@@ -56,6 +56,7 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_consensus_aura::AuraApi;
+use sp_core::traits::SpawnEssentialNamed;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
@@ -1469,22 +1470,15 @@ where
 				.await;
 				while let Some(request) = request_stream.next().await {
 					let pvd = request.persisted_validation_data().clone();
-					let last_header =
+					let last_head_hash =
 						match <Block as BlockT>::Header::decode(&mut &pvd.parent_head.0[..]) {
-							Ok(x) => x,
+							Ok(header) => header.hash(),
 							Err(e) => {
 								log::error!("Could not decode the head data: {e}");
 								request.complete(None);
 								continue
 							},
 						};
-
-					let last_head_hash = last_header.hash();
-
-					if !collator_service.check_block_status(last_head_hash, &last_header) {
-						request.complete(None);
-						continue
-					}
 
 					// Check if we have upgraded to an Aura compatible runtime and transition if
 					// necessary.
@@ -1500,7 +1494,13 @@ where
 				}
 
 				// Move to Aura consensus.
-				let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client).unwrap();
+				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
+					Ok(d) => d,
+					Err(e) => {
+						log::error!("Could not get Aura slot duration: {e}");
+						return
+					},
+				};
 
 				let proposer = Proposer::new(proposer_factory);
 
@@ -1526,8 +1526,8 @@ where
 					.await
 			});
 
-			let spawner = task_manager.spawn_handle();
-			spawner.spawn("cumulus-asset-hub-collator", None, collation_future);
+			let spawner = task_manager.spawn_essential_handle();
+			spawner.spawn_essential("cumulus-asset-hub-collator", None, collation_future);
 
 			Ok(())
 		},
