@@ -212,7 +212,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
-			let _ = weight; // We don't check the weight witness since it a root call.
+			let _ = weight; // We don't check the weight witness since it is a root call.
 			ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
