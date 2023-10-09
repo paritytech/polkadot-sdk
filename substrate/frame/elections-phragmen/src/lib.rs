@@ -598,11 +598,11 @@ pub mod pallet {
 			num_defunct: u32,
 		) -> DispatchResult {
 			let _ = ensure_root(origin)?;
-			// We don't check the weight witness since it is a root call.
-			let _ = (num_voters, num_defunct);
 
 			<Voting<T>>::iter()
+				.take(num_voters)
 				.filter(|(_, x)| Self::is_defunct_voter(&x.votes))
+				.take(num_defunct)
 				.for_each(|(dv, _)| Self::do_remove_voter(&dv));
 
 			Ok(())
