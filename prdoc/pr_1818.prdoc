@@ -11,4 +11,6 @@ migrations:
 
 host_functions: []
 
-crates: [ ]
+crates:
+- name: "frame-support-procedural"
+  semver: minor
