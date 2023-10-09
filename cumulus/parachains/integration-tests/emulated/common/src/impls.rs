@@ -352,7 +352,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 		$crate::impls::paste::paste! {
 			impl $chain {
 				/// A root origin (as governance) sends `xcm::Transact` with `UnpaidExecution` and encoded `call` to child parachain.
-				pub fn send_transact_to_parachain(
+				pub fn send_unpaid_transact_to_parachain_as_root(
 					origin_kind: $crate::impls::OriginKind,
 					recipient: $crate::impls::ParaId,
 					call: $crate::impls::DoubleEncoded<()>
@@ -622,53 +622,59 @@ macro_rules! impl_assets_helpers_for_parachain {
 					min_balance: u128,
 					is_sufficient: bool,
 					asset_owner: $crate::impls::AccountId,
+					dmp_weight_threshold: Option<$crate::impls::Weight>,
 					amount_to_mint: u128,
 				) {
-					use $crate::impls::{bx, Chain, RelayChain, Parachain, Inspect, TestExt};
-					// Init values for Relay Chain
-					let root_origin = <$relay_chain as Chain>::RuntimeOrigin::root();
-					let destination = <$relay_chain>::child_location_of(<$chain>::para_id());
-					let xcm = Self::force_create_asset_xcm(
-						$crate::impls::OriginKind::Superuser,
+					use $crate::impls::Chain;
+
+					// Force create asset
+					Self::do_force_create_asset_from_relay_as_root(
 						id,
-						asset_owner.clone(),
-						is_sufficient,
 						min_balance,
+						is_sufficient,
+						asset_owner.clone(),
+						dmp_weight_threshold
 					);
 
-					<$relay_chain>::execute_with(|| {
-						$crate::impls::assert_ok!(<$relay_chain as [<$relay_chain Pallet>]>::XcmPallet::send(
-							root_origin,
-							bx!(destination.into()),
-							bx!(xcm),
-						));
+					// Mint asset for System Parachain's sender
+					let signed_origin = <Self as Chain>::RuntimeOrigin::signed(asset_owner.clone());
+					Self::mint_asset(signed_origin, id, asset_owner, amount_to_mint);
+				}
 
-						<$relay_chain>::assert_xcm_pallet_sent();
-					});
+				/// Relay Chain sends `Transact` instruction with `force_create_asset` to System Parachain.
+				pub fn do_force_create_asset_from_relay_as_root(
+					id: u32,
+					min_balance: u128,
+					is_sufficient: bool,
+					asset_owner: $crate::impls::AccountId,
+					dmp_weight_threshold: Option<$crate::impls::Weight>,
+				) {
+					use $crate::impls::{Parachain, Inspect, TestExt};
 
+					<$relay_chain>::send_unpaid_transact_to_parachain_as_root(
+						$crate::impls::OriginKind::Superuser,
+						Self::para_id(),
+						Self::force_create_asset_call(id, asset_owner.clone(), is_sufficient, min_balance),
+					);
+
+					// Receive XCM message in Assets Parachain
 					Self::execute_with(|| {
-						Self::assert_dmp_queue_complete(Some($crate::impls::Weight::from_parts(1_019_445_000, 200_000)));
-
 						type RuntimeEvent = <$chain as $crate::impls::Chain>::RuntimeEvent;
+
+						Self::assert_dmp_queue_complete(dmp_weight_threshold);
 
 						$crate::impls::assert_expected_events!(
 							Self,
 							vec![
-								// Asset has been created
 								RuntimeEvent::Assets($crate::impls::pallet_assets::Event::ForceCreated { asset_id, owner }) => {
 									asset_id: *asset_id == id,
-									owner: *owner == asset_owner.clone(),
+									owner: *owner == asset_owner,
 								},
 							]
 						);
 
 						assert!(<Self as [<$chain Pallet>]>::Assets::asset_exists(id.into()));
 					});
-
-					let signed_origin = <Self as Chain>::RuntimeOrigin::signed(asset_owner.clone());
-
-					// Mint asset for System Parachain's sender
-					Self::mint_asset(signed_origin, id, asset_owner, amount_to_mint);
 				}
 			}
 		}

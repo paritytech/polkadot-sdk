@@ -19,7 +19,13 @@ use crate::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn send_transact_as_superuser_from_relay_to_system_para_works() {
-	super::do_force_create_asset_from_relay_to_system_para(OriginKind::Superuser);
+	AssetHubWestend::do_force_create_asset_from_relay_as_root(
+		ASSET_ID,
+		ASSET_MIN_BALANCE,
+		true,
+		AssetHubWestendSender::get().into(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
+	)
 }
 
 /// Parachain should be able to send XCM paying its fee with sufficient asset
@@ -36,6 +42,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		para_sovereign_account.clone(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000000,
 	);
 

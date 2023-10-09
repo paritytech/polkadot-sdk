@@ -59,7 +59,7 @@ fn system_para_sets_relay_xcm_supported_version() {
 		.into();
 
 	// System Parachain sets supported version for Relay Chain through it
-	Westend::send_transact_to_parachain(
+	Westend::send_unpaid_transact_to_parachain_as_root(
 		OriginKind::Superuser,
 		AssetHubWestend::para_id(),
 		force_xcm_version_call,
