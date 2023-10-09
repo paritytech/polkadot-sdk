@@ -485,8 +485,8 @@ fn affinity_prohibits_parallel_scheduling() {
 		let order_a = EnqueuedOrder::new(para_a);
 		let order_b = EnqueuedOrder::new(para_b);
 		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
-		// `pop_assignment_for_core` later assigns different core indices to iterations of `order_b`
-		// when creating `OnDemandAssignments`. These matter when decreasing affinity.
+		// `pop_assignment_for_core` assigns different core indices to iterations of `order_b`
+		// when creating `OnDemandAssignments`. These matter later when decreasing affinity.
 		let assignment_b_core_0 = OnDemandAssignment::new(para_b, CoreIndex(0));
 		let assignment_b_core_1 = OnDemandAssignment::new(para_b, CoreIndex(1));
 
