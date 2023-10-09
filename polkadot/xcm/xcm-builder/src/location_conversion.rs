@@ -343,7 +343,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
-/// Extracts the `AccountId32` from the passed Treasury plurality if the network matches.
+/// Returns specified `TreasuryAccount` as `AccountId32` if passed `location` matches Treasury plurality.
 pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
 	PhantomData<(TreasuryAccount, AccountId)>,
 );
