@@ -353,7 +353,6 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 			impl $chain {
 				/// A root origin (as governance) sends `xcm::Transact` with `UnpaidExecution` and encoded `call` to child parachain.
 				pub fn send_unpaid_transact_to_parachain_as_root(
-					origin_kind: $crate::impls::OriginKind,
 					recipient: $crate::impls::ParaId,
 					call: $crate::impls::DoubleEncoded<()>
 				) {
@@ -362,7 +361,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						let root_origin = <Self as Chain>::RuntimeOrigin::root();
 						let destination:  $crate::impls::MultiLocation = <Self as RelayChain>::child_location_of(recipient);
-						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, origin_kind);
+						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Superuser);
 
 						// Send XCM `Transact`
 						$crate::impls::assert_ok!(<Self as [<$chain Pallet>]>::XcmPallet::send(
@@ -652,7 +651,6 @@ macro_rules! impl_assets_helpers_for_parachain {
 					use $crate::impls::{Parachain, Inspect, TestExt};
 
 					<$relay_chain>::send_unpaid_transact_to_parachain_as_root(
-						$crate::impls::OriginKind::Superuser,
 						Self::para_id(),
 						Self::force_create_asset_call(id, asset_owner.clone(), is_sufficient, min_balance),
 					);
