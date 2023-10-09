@@ -76,7 +76,6 @@ pub struct ArtifactId {
 
 impl ArtifactId {
 	const PREFIX: &'static str = "wasmtime_";
-	// FIXME or just "v" instead?
 	const NODE_VERSION_PREFIX: &'static str = "polkadot_v";
 
 	/// Creates a new artifact ID with the given hash.
@@ -303,13 +302,15 @@ mod tests {
 	#[test]
 	fn path() {
 		let dir = Path::new("/test");
-		let hash = "1234567890123456789012345678901234567890123456789012345678901234";
-		let file_name = file_name(hash, hash);
+		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
+		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
+		let file_name = file_name(code_hash, params_hash);
 
-		let hash = H256::from_str(hash).unwrap();
+		let code_hash = H256::from_str(code_hash).unwrap();
+		let params_hash = H256::from_str(params_hash).unwrap();
 
 		assert_eq!(
-			ArtifactId::new(hash.into(), ExecutorParamsHash::from_hash(hash))
+			ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
 				.path(dir)
 				.to_str(),
 			Some(format!("/test/{}", file_name).as_str()),
