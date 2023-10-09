@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const yargs = require('yargs');
 const { ApiPromise, WsProvider } = require('@polkadot/api');
+const { hexToString } = require('@polkadot/util');
 var { xxhashAsHex } = require('@polkadot/util-crypto');
 
 
@@ -17,8 +18,39 @@ const openFile = (filePath) => {
 
 // Connect to chain
 const connect = async (endpoint) => {
+	console.log(`Conecting to ${endpoint}...`);
 	const wsProvider = new WsProvider(endpoint);
 	return await ApiPromise.create({ provider: wsProvider });
+}
+
+const queryIdentityOf = async (api) => {
+	let allEntries = await api.query.identity.identityOf.entries();
+
+	let totalIdentities = 0;
+	let identitiesWithAdditional = 0;
+	let additionalKeys = {}
+
+	allEntries.forEach(([a, b]) => {
+		JSON.parse(b).info.additional.forEach(([key, value]) => {
+			identitiesWithAdditional += 1;
+
+			let keyString = hexToString(key.raw)
+			let valueString = hexToString(value.raw)
+
+			// console.log(keyString, valueString)
+
+			if (additionalKeys[keyString] !== undefined) {
+				additionalKeys[keyString] += 1
+			} else {
+				additionalKeys[keyString] = 1
+			}
+		});
+		totalIdentities += 1;
+	});
+
+	console.log(additionalKeys)
+	console.log("Total", totalIdentities);
+	console.log("With additional", identitiesWithAdditional);
 }
 
 // Query all storage under a certain key
@@ -93,6 +125,8 @@ const run = async () => {
 	let jsonData = openFile(filePath);
 
 	let api = await connect(argv.chain);
+
+	// queryIdentityOf(api);
 
 	let storageKeyValues = await queryStorage(api, argv);
 
