@@ -97,6 +97,9 @@ pub enum RecoveryStrategyKind {
 	/// We try the backing group first if PoV size is lower than specified, then fallback to
 	/// validator chunks.
 	BackersFirstIfSizeLower(usize),
+	/// We try the backing group first if PoV size is lower than specified, then fallback to
+	/// systematic chunks.
+	BackersFirstIfSizeLowerThenSystematicChunks(usize),
 	/// We always recover using validator chunks.
 	ChunksAlways,
 	/// First try the backing group. Then systematic chunks.
@@ -487,35 +490,43 @@ async fn handle_recover<Context>(
 				if let Some(backing_validators) = session_info.validator_groups.get(backing_group) {
 					let mut small_pov_size = true;
 
-					if let RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) =
-						recovery_strategy_kind
-					{
-						// Get our own chunk size to get an estimate of the PoV size.
-						let chunk_size: Result<Option<usize>> =
-							query_chunk_size(ctx, candidate_hash).await;
-						if let Ok(Some(chunk_size)) = chunk_size {
-							let pov_size_estimate =
-								chunk_size.saturating_mul(session_info.validators.len()) / 3;
-							small_pov_size = pov_size_estimate < small_pov_limit;
+					match recovery_strategy_kind {
+						RecoveryStrategyKind::BackersFirstIfSizeLower(small_pov_limit) |
+						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+							small_pov_limit,
+						) => {
+							// Get our own chunk size to get an estimate of the PoV size.
+							let chunk_size: Result<Option<usize>> =
+								query_chunk_size(ctx, candidate_hash).await;
+							if let Ok(Some(chunk_size)) = chunk_size {
+								let pov_size_estimate =
+									chunk_size.saturating_mul(session_info.validators.len()) / 3;
+								small_pov_size = pov_size_estimate < small_pov_limit;
 
-							gum::trace!(
-								target: LOG_TARGET,
-								?candidate_hash,
-								pov_size_estimate,
-								small_pov_limit,
-								enabled = small_pov_size,
-								"Prefer fetch from backing group",
-							);
-						} else {
-							// we have a POV limit but were not able to query the chunk size, so
-							// don't use the backing group.
-							small_pov_size = false;
-						}
+								gum::trace!(
+									target: LOG_TARGET,
+									?candidate_hash,
+									pov_size_estimate,
+									small_pov_limit,
+									enabled = small_pov_size,
+									"Prefer fetch from backing group",
+								);
+							} else {
+								// we have a POV limit but were not able to query the chunk size, so
+								// don't use the backing group.
+								small_pov_size = false;
+							}
+						},
+						_ => {},
 					};
 
 					match (&recovery_strategy_kind, small_pov_size) {
 						(RecoveryStrategyKind::BackersFirstAlways, _) |
 						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
+						(
+							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
+							true,
+						) |
 						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => recovery_strategies.push_back(
 							Box::new(FetchFull::new(FetchFullParams {
 								validators: backing_validators.to_vec(),
@@ -530,7 +541,8 @@ async fn handle_recover<Context>(
 			if matches!(
 				recovery_strategy_kind,
 				RecoveryStrategyKind::BackersThenSystematicChunks |
-					RecoveryStrategyKind::SystematicChunks
+					RecoveryStrategyKind::SystematicChunks |
+					RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
 			) {
 				let systematic_threshold =
 					systematic_recovery_threshold(session_info.validators.len())?;
@@ -658,6 +670,21 @@ impl AvailabilityRecoverySubsystem {
 	) -> Self {
 		Self {
 			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
+			bypass_availability_store: false,
+			req_receiver,
+			metrics,
+		}
+	}
+
+	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests systematic chunks if
+	/// PoV is above a threshold.
+	pub fn with_systematic_chunks_if_pov_large(
+		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		metrics: Metrics,
+	) -> Self {
+		Self {
+			recovery_strategy_kind:
+				RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(SMALL_POV_LIMIT),
 			bypass_availability_store: false,
 			req_receiver,
 			metrics,
