@@ -222,7 +222,7 @@ impl Def {
 			return Err(syn::Error::new(item_span, msg))
 		}
 
-		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, &items)?;
+		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
 
 		let def = Def {
 			item,
@@ -261,7 +261,7 @@ impl Def {
 		item_span: &proc_macro2::Span,
 		tasks: &mut Option<tasks::TasksDef>,
 		task_enum: &mut Option<tasks::TaskEnumDef>,
-		items: &Vec<syn::Item>,
+		items: &mut Vec<syn::Item>,
 	) -> syn::Result<()> {
 		// fallback for manual (without macros) definition of tasks impl
 		Self::resolve_manual_tasks_impl(tasks, task_enum, items)?;
@@ -282,7 +282,7 @@ impl Def {
 	fn resolve_manual_task_enum(
 		tasks: &Option<tasks::TasksDef>,
 		task_enum: &mut Option<tasks::TaskEnumDef>,
-		items: &Vec<syn::Item>,
+		items: &mut Vec<syn::Item>,
 	) -> syn::Result<()> {
 		let (None, Some(tasks)) = (&task_enum, &tasks) else { return Ok(()) };
 		let syn::Type::Path(type_path) = &*tasks.item_impl.self_ty else { return Ok(()) };
@@ -293,6 +293,10 @@ impl Def {
 			if let syn::Item::Enum(item_enum) = item {
 				if item_enum.ident == seg.ident {
 					result = Some(syn::parse2::<tasks::TaskEnumDef>(item_enum.to_token_stream())?);
+					// replace item with a no-op because it will be handled by the expansion of
+					// `task_enum`. We use a no-op instead of simply removing it from the vec
+					// so that any indices collected by `Def::try_from` remain accurate
+					*item = syn::Item::Verbatim(quote::quote!());
 					break
 				}
 			}

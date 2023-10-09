@@ -19,7 +19,6 @@
 
 use core::marker::PhantomData;
 
-use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -36,7 +35,14 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	// this can be auto-generated from the macros
-	#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+	#[derive(
+		Clone,
+		PartialEq,
+		Eq,
+		frame_support::pallet_prelude::Encode,
+		frame_support::pallet_prelude::Decode,
+		frame_support::pallet_prelude::TypeInfo,
+	)]
 	pub enum Task<T: Config> {
 		Increment,
 		Decrement,

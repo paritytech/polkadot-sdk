@@ -21,6 +21,7 @@ use std::collections::HashSet;
 use crate::assert_error_matches;
 
 use derive_syn_parse::Parse;
+use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -108,22 +109,8 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
 	pub item_enum: ItemEnum,
-}
-
-impl TaskEnumDef {
-	pub fn generate(tasks: &TasksDef, type_decl_bounded_generics: TokenStream2) -> Self {
-		let variants = tasks.tasks.iter().map(|task| task.item.sig.ident.clone());
-		parse_quote! {
-			#[allow(non_camel_case_types)]
-			#[pallet::task_enum]
-			pub enum _Task<#type_decl_bounded_generics> {
-				#(
-					#[allow(non_camel_case_types)]
-					#variants
-				),*
-			}
-		}
-	}
+	pub scrate: Ident,
+	pub type_use_generics: TokenStream2,
 }
 
 impl syn::parse::Parse for TaskEnumDef {
@@ -151,7 +138,11 @@ impl syn::parse::Parse for TaskEnumDef {
 			}
 			attr = Some(parse2(found_attr.to_token_stream())?);
 		}
-		Ok(TaskEnumDef { attr, item_enum })
+		// We do this here because it would be improper to do something fallible like this at
+		// the expansion phase. Fallible stuff should happen during parsing.
+		let scrate = generate_crate_access_2018("frame-support")?;
+		let type_use_generics = quote!(T);
+		Ok(TaskEnumDef { attr, item_enum, scrate, type_use_generics })
 	}
 }
 
