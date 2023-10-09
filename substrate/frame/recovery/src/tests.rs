@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_noop, assert_ok};
 use mock::{
 	new_test_ext, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
 	RuntimeCall, RuntimeOrigin, Test,
