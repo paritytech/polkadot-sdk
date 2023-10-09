@@ -89,7 +89,7 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = HoldReason;
 	type MaxHolds = ();
 }
 
@@ -181,6 +181,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 }
 
 impl Config for Test {
+	type RuntimeHoldReason = HoldReason;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
 	type VoteLockingPeriod = ConstU64<3>;
