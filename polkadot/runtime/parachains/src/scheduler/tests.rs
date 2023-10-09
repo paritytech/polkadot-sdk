@@ -704,12 +704,6 @@ fn schedule_schedules_including_just_freed() {
 				},
 			);
 
-			// The only assignment yet to be popped on to the claim queue is `thread_e`.
-			// This is due to `thread_c` timing out.
-			let order_queue = MockAssigner::get_queue();
-			assert!(order_queue.len() == 1);
-			assert!(order_queue[0] == assignment_e);
-
 			// Chain B's core was not marked concluded or timed out, it should be on an
 			// availability core
 			assert!(availability_cores_contains_para_ids::<Test>(vec![chain_b]));

@@ -423,10 +423,6 @@ pub mod mock_assigner {
 			})
 		}
 
-		pub fn get_queue() -> VecDeque<V0Assignment> {
-			MockAssignerQueue::<T>::get().clone()
-		}
-
 		fn is_legacy_core(core_idx: &CoreIndex) -> bool {
 			let parachain_cores = <paras::Pallet<Test>>::parachains().len() as u32;
 			(0..parachain_cores).contains(&core_idx.0)
