@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: !reference [.ci-unified-1.73.0, variables, CI_IMAGE]
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
