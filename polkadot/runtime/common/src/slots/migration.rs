@@ -23,7 +23,7 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::TryRuntimeError;
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub mod versioned {
 	use super::*;
