@@ -33,7 +33,7 @@
 //! ### XCM
 //!
 //! Since the main goal of Glutton is solely stress testing, the parachain will
-//! only be able receive XCM messages from the relay chain via DMP. This way the
+//! only be able receive XCM messages from the Relay Chain via DMP. This way the
 //! Glutton parachains will be able to listen for upgrades that are coming from
 //! the Relay chain.
 
