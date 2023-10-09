@@ -19,7 +19,7 @@ use crate::*;
 /// when `OriginKind::Superuser`.
 #[test]
 fn send_transact_as_superuser_from_relay_to_system_para_works() {
-	AssetHubWestend::do_force_create_asset_from_relay_as_root(
+	AssetHubWestend::force_create_asset_from_relay_as_root(
 		ASSET_ID,
 		ASSET_MIN_BALANCE,
 		true,
