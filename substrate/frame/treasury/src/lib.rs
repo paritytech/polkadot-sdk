@@ -82,10 +82,11 @@ pub use benchmarking::ArgumentsFactory;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::traits::SaturatedConversion;
+
 use sp_runtime::{
-	traits::{
-		AccountIdConversion, CheckedAdd, SaturatedConversion, Saturating, StaticLookup, Zero,
-	},
+	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -1031,23 +1032,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Ensure the correctness of the state of this pallet.
-	///
-	/// ## Invariants
-	///
-	/// 1. [`ProposalCount`] >= [`Proposals`].count(). The [`ProposalCount`] SV is only increased, but never
-	///    decreased whereas individual proposals can be removed from the [`Proposals`] SM.
-	/// 2. [`T::ProposalBondMinimum`] * Number of proposals with non-zero bond <= sum_{p in Proposals} p.bond.
-	/// 3. (Optional) [`T::ProposalBondMaximum`] * Number of proposals with non-zero bond >= sum_{p in Proposals} p.bond.
-	/// 4. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`]. Note, that this
-	///    automatically implies Approvals.count() <= Proposals.count().
-	/// 5. [`SpendCount`] >= [`Spends`].count(). Follows the same reasoning as (1).
-	/// 6. For each spend entry contained in `Spends` we should have spend.expire_at > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_proposals()?;
+		Self::try_state_spends()?;
+
+		Ok(())
+	}
+
+	/// ### Invariants of proposal storage items
+	///
+	/// 1. `ProposalCount` >= Number of elements in `Proposals`.
+	/// 2. Each entry in `Proposals` should be saved under a key stricly less than current `ProposalCount`.
+	/// 3. `T::ProposalBondMinimum` * Number of proposals with non-zero bond <= sum_{p in Proposals} p.bond.
+	/// 4. (Optional) `T::ProposalBondMaximum` * Number of proposals with non-zero bond >= sum_{p in Proposals} p.bond.
+	/// 5. Each `ProposalIndex` contained in `Approvals` should exist in `Proposals`. Note, that this
+	///    automatically implies Approvals.count() <= Proposals.count().
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_proposal_count = ProposalCount::<T, I>::get();
 		ensure!(
-			ProposalCount::<T, I>::get() as usize >= Proposals::<T, I>::iter().count(),
+			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
 			"Actual number of proposals exceeds `ProposalCount`."
 		);
+
+		Proposals::<T, I>::iter_keys().try_for_each(|proposal_index| -> DispatchResult {
+			ensure!(
+				current_proposal_count as u32 > proposal_index,
+				"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
+			);
+			Ok(())
+		})?;
 
 		let (total_amount_bonded, non_zero_count) = Proposals::<T, I>::iter().fold(
 			(BalanceOf::<T, I>::zero(), 0usize),
@@ -1080,10 +1095,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(())
 			})?;
 
+		Ok(())
+	}
+
+	/// ## Invariants of spend storage items
+	///
+	/// 1. `SpendCount` >= Number of elements in `Spends`.
+	/// 2. Each entry in `Spends` should be saved under a key stricly less than current `SpendCount`.
+	/// 3. For each spend entry contained in `Spends` we should have spend.expire_at > spend.valid_from.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_spend_count = SpendCount::<T, I>::get();
 		ensure!(
-			SpendCount::<T, I>::get() as usize >= Spends::<T, I>::iter().count(),
+			current_spend_count as usize >= Spends::<T, I>::iter().count(),
 			"Number of spends exceeds `SpendCount`."
 		);
+
+		Spends::<T, I>::iter_keys().try_for_each(|spend_index| -> DispatchResult {
+			ensure!(
+				current_spend_count > spend_index,
+				"`SpendCount` should by strictly greater than any SpendIndex used as a key for `Spends`."
+			);
+			Ok(())
+		})?;
 
 		Spends::<T, I>::iter().try_for_each(|(_index, spend)| -> DispatchResult {
 			ensure!(
