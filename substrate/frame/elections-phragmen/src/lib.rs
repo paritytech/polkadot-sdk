@@ -600,9 +600,9 @@ pub mod pallet {
 			let _ = ensure_root(origin)?;
 
 			<Voting<T>>::iter()
-				.take(num_voters)
+				.take(num_voters as usize)
 				.filter(|(_, x)| Self::is_defunct_voter(&x.votes))
-				.take(num_defunct)
+				.take(num_defunct as usize)
 				.for_each(|(dv, _)| Self::do_remove_voter(&dv));
 
 			Ok(())
