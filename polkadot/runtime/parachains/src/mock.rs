@@ -17,7 +17,6 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner,
 	assigner_on_demand::{self, QueuePushDirection},
 	configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
@@ -25,7 +24,7 @@ use crate::{
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::{
-		AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
 	},
 	session_info, shared, ParaId,
 };
@@ -391,10 +390,7 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 
 pub mod mock_assigner {
 	use super::*;
-	use assigner::UnifiedAssignment;
 	pub use pallet::*;
-
-	pub type TestUnifiedAssignment = UnifiedAssignment<V0Assignment, V0Assignment>;
 
 	#[frame_support::pallet]
 	pub mod pallet {
@@ -414,32 +410,21 @@ pub mod mock_assigner {
 
 	impl<T: Config> Pallet<T> {
 		pub fn add_on_demand_order(
-			order: TestUnifiedAssignment,
+			order: V0Assignment,
 			location: QueuePushDirection,
 		) -> Result<(), DispatchError> {
-			match order {
-				TestUnifiedAssignment::OnDemand(inner) => {
-					MockAssignerQueue::<T>::try_mutate(|queue| {
-						// Don't need to worry about max assignment queue size in scheduler tests
-						match location {
-							QueuePushDirection::Back => queue.push_back(inner),
-							QueuePushDirection::Front => queue.push_front(inner),
-						};
-						Ok(())
-					})
-				}
-				_ => Ok(()),
-			}
+			MockAssignerQueue::<T>::try_mutate(|queue| {
+				// Don't need to worry about max assignment queue size in scheduler tests
+				match location {
+					QueuePushDirection::Back => queue.push_back(order),
+					QueuePushDirection::Front => queue.push_front(order),
+				};
+				Ok(())
+			})
 		}
 
-		// Wraps queued assignments as TestUnifiedAssignments so we only have to deal with one
-		// assignment type in tests
-		pub fn get_queue() -> VecDeque<TestUnifiedAssignment> {
-			MockAssignerQueue::<T>::get()
-				.clone()
-				.into_iter()
-				.map(|assignment| TestUnifiedAssignment::OnDemand(assignment))
-				.collect()
+		pub fn get_queue() -> VecDeque<V0Assignment> {
+			MockAssignerQueue::<T>::get().clone()
 		}
 
 		fn is_legacy_core(core_idx: &CoreIndex) -> bool {
@@ -449,7 +434,7 @@ pub mod mock_assigner {
 	}
 
 	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		type AssignmentType = TestUnifiedAssignment;
+		type AssignmentType = V0Assignment;
 		type OldAssignmentType = V0Assignment;
 		// Format has not changed for parachains, therefore still version 0.
 		const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
@@ -458,7 +443,7 @@ pub mod mock_assigner {
 			old: Self::OldAssignmentType,
 			_core: CoreIndex,
 		) -> Self::AssignmentType {
-			TestUnifiedAssignment::LegacyAuction(old)
+			old
 		}
 
 		// This can matter, even in tests. Using condensed form of calculation from actual assigner.
@@ -475,11 +460,11 @@ pub mod mock_assigner {
 				<paras::Pallet<T>>::parachains()
 					.get(core_idx.0 as usize)
 					.copied()
-					.map(|para_id| UnifiedAssignment::LegacyAuction(V0Assignment::new(para_id)))
+					.map(|para_id| V0Assignment::new(para_id))
 			} else {
 				let mut queue: VecDeque<V0Assignment> = MockAssignerQueue::<T>::get();
 				let front =
-					queue.pop_front().map(|assignment| UnifiedAssignment::OnDemand(assignment));
+					queue.pop_front().map(|assignment| assignment);
 				// Write changes to storage.
 				MockAssignerQueue::<T>::set(queue);
 				front
@@ -490,7 +475,7 @@ pub mod mock_assigner {
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
 		fn push_back_assignment(assignment: Self::AssignmentType) {
-			if let TestUnifiedAssignment::LegacyAuction(_assignment_inner) = &assignment {}
+			if <paras::Pallet<T>>::is_parachain(assignment.para_id()) {}
 			else {
 				match Pallet::<T>::add_on_demand_order(
 					assignment.into(),
