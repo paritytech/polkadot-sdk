@@ -889,6 +889,40 @@
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1025,6 +1059,7 @@
 <span class="doccomment">/// Creates a new partial node.
 </span><span class="kw">pub fn </span>new_partial(
 	config: <span class="kw-2">&amp;</span>Configuration,
+	mixnet_config: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>sc_mixnet::Config&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	sc_service::PartialComponents&lt;
 		FullClient,
@@ -1045,6 +1080,7 @@
 			grandpa::SharedVoterState,
 			<span class="prelude-ty">Option</span>&lt;Telemetry&gt;,
 			Arc&lt;StatementStore&gt;,
+			<span class="prelude-ty">Option</span>&lt;sc_mixnet::ApiBackend&gt;,
 		),
 	&gt;,
 	ServiceError,
@@ -1137,6 +1173,8 @@
 	)
 	.map_err(|e| ServiceError::Other(<span class="macro">format!</span>(<span class="string">&quot;Statement store error: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
 
+	<span class="kw">let </span>(mixnet_api, mixnet_api_backend) = mixnet_config.map(sc_mixnet::Api::new).unzip();
+
 	<span class="kw">let </span>(rpc_extensions_builder, rpc_setup) = {
 		<span class="kw">let </span>(<span class="kw">_</span>, grandpa_link, <span class="kw">_</span>) = <span class="kw-2">&amp;</span>import_setup;
 
@@ -1178,6 +1216,7 @@
 				},
 				statement_store: rpc_statement_store.clone(),
 				backend: rpc_backend.clone(),
+				mixnet_api: mixnet_api.as_ref().cloned(),
 			};
 
 			node_rpc::create_full(deps).map_err(Into::into)
@@ -1194,7 +1233,14 @@
 		select_chain,
 		import_queue,
 		transaction_pool,
-		other: (rpc_extensions_builder, import_setup, rpc_setup, telemetry, statement_store),
+		other: (
+			rpc_extensions_builder,
+			import_setup,
+			rpc_setup,
+			telemetry,
+			statement_store,
+			mixnet_api_backend,
+		),
 	})
 }
 
@@ -1217,6 +1263,7 @@
 <span class="doccomment">/// Creates a full service from the configuration.
 </span><span class="kw">pub fn </span>new_full_base(
 	config: Configuration,
+	mixnet_config: <span class="prelude-ty">Option</span>&lt;sc_mixnet::Config&gt;,
 	disable_hardware_benchmarks: bool,
 	with_startup_data: <span class="kw">impl </span>FnOnce(
 		<span class="kw-2">&amp;</span>sc_consensus_babe::BabeBlockImport&lt;Block, FullClient, FullGrandpaBlockImport&gt;,
@@ -1238,30 +1285,35 @@
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (rpc_builder, import_setup, rpc_setup, <span class="kw-2">mut </span>telemetry, statement_store),
-	} = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+		other:
+			(rpc_builder, import_setup, rpc_setup, <span class="kw-2">mut </span>telemetry, statement_store, mixnet_api_backend),
+	} = new_partial(<span class="kw-2">&amp;</span>config, mixnet_config.as_ref())<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>shared_voter_state = rpc_setup;
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
 
-	<span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(
-		<span class="kw-2">&amp;</span>client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
-		<span class="kw-2">&amp;</span>config.chain_spec,
-	);
+	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+
+	<span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
 	net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
 		grandpa_protocol_name.clone(),
 	));
 
 	<span class="kw">let </span>statement_handler_proto = sc_network_statement::StatementHandlerPrototype::new(
-		client
-			.block_hash(<span class="number">0u32</span>.into())
-			.ok()
-			.flatten()
-			.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
+		genesis_hash,
 		config.chain_spec.fork_id(),
 	);
 	net_config.add_notification_protocol(statement_handler_proto.set_config());
+
+	<span class="kw">let </span>mixnet_protocol_name =
+		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(mixnet_config) = <span class="kw-2">&amp;</span>mixnet_config {
+		net_config.add_notification_protocol(sc_mixnet::peers_set_config(
+			mixnet_protocol_name.clone(),
+			mixnet_config,
+		));
+	}
 
 	<span class="kw">let </span>warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -1281,6 +1333,20 @@
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: <span class="prelude-val">None</span>,
 		})<span class="question-mark">?</span>;
+
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(mixnet_config) = mixnet_config {
+		<span class="kw">let </span>mixnet = sc_mixnet::run(
+			mixnet_config,
+			mixnet_api_backend.expect(<span class="string">&quot;Mixnet API backend created if mixnet enabled&quot;</span>),
+			client.clone(),
+			sync_service.clone(),
+			network.clone(),
+			mixnet_protocol_name,
+			transaction_pool.clone(),
+			<span class="prelude-val">Some</span>(keystore_container.keystore()),
+		);
+		task_manager.spawn_handle().spawn(<span class="string">&quot;mixnet&quot;</span>, <span class="prelude-val">None</span>, mixnet);
+	}
 
 	<span class="kw">let </span>role = config.role.clone();
 	<span class="kw">let </span>force_authoring = config.force_authoring;
@@ -1437,7 +1503,7 @@
 		// and vote data availability than the observer. The observer has not
 		// been tested extensively yet and having most nodes in a network run it
 		// could lead to finality stalls.
-		</span><span class="kw">let </span>grandpa_config = grandpa::GrandpaParams {
+		</span><span class="kw">let </span>grandpa_params = grandpa::GrandpaParams {
 			config: grandpa_config,
 			link: grandpa_link,
 			network: network.clone(),
@@ -1454,7 +1520,7 @@
 		</span>task_manager.spawn_essential_handle().spawn_blocking(
 			<span class="string">&quot;grandpa-voter&quot;</span>,
 			<span class="prelude-val">None</span>,
-			grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
+			grandpa::run_grandpa_voter(grandpa_params)<span class="question-mark">?</span>,
 		);
 	}
 
@@ -1514,8 +1580,9 @@
 
 <span class="doccomment">/// Builds a new service for a full client.
 </span><span class="kw">pub fn </span>new_full(config: Configuration, cli: Cli) -&gt; <span class="prelude-ty">Result</span>&lt;TaskManager, ServiceError&gt; {
+	<span class="kw">let </span>mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	<span class="kw">let </span>database_source = config.database.clone();
-	<span class="kw">let </span>task_manager = new_full_base(config, cli.no_hardware_benchmarks, |<span class="kw">_</span>, <span class="kw">_</span>| ())
+	<span class="kw">let </span>task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |<span class="kw">_</span>, <span class="kw">_</span>| ())
 		.map(|NewFullBase { task_manager, .. }| task_manager)<span class="question-mark">?</span>;
 
 	sc_storage_monitor::StorageMonitorService::try_spawn(
@@ -1593,6 +1660,7 @@
 				<span class="kw">let </span>NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
 					new_full_base(
 						config,
+						<span class="prelude-val">None</span>,
 						<span class="bool-val">false</span>,
 						|block_import: <span class="kw-2">&amp;</span>sc_consensus_babe::BabeBlockImport&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;,
 						 babe_link: <span class="kw-2">&amp;</span>sc_consensus_babe::BabeLink&lt;Block&gt;| {
@@ -1767,7 +1835,7 @@
 			<span class="kw">crate</span>::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				<span class="kw">let </span>NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(config, <span class="bool-val">false</span>, |<span class="kw">_</span>, <span class="kw">_</span>| ())<span class="question-mark">?</span>;
+					new_full_base(config, <span class="prelude-val">None</span>, <span class="bool-val">false</span>, |<span class="kw">_</span>, <span class="kw">_</span>| ())<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,

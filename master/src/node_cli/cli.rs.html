@@ -99,6 +99,10 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -127,6 +131,10 @@
 	<span class="attr">#[allow(missing_docs)]
 	#[clap(flatten)]
 	</span><span class="kw">pub </span>run: sc_cli::RunCmd,
+
+	<span class="attr">#[allow(missing_docs)]
+	#[clap(flatten)]
+	</span><span class="kw">pub </span>mixnet_params: sc_cli::MixnetParams,
 
 	<span class="doccomment">/// Disable automatic hardware benchmarks.
 	///

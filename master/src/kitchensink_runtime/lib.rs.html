@@ -2815,6 +2815,49 @@
 <a href="#2815" id="2815">2815</a>
 <a href="#2816" id="2816">2816</a>
 <a href="#2817" id="2817">2817</a>
+<a href="#2818" id="2818">2818</a>
+<a href="#2819" id="2819">2819</a>
+<a href="#2820" id="2820">2820</a>
+<a href="#2821" id="2821">2821</a>
+<a href="#2822" id="2822">2822</a>
+<a href="#2823" id="2823">2823</a>
+<a href="#2824" id="2824">2824</a>
+<a href="#2825" id="2825">2825</a>
+<a href="#2826" id="2826">2826</a>
+<a href="#2827" id="2827">2827</a>
+<a href="#2828" id="2828">2828</a>
+<a href="#2829" id="2829">2829</a>
+<a href="#2830" id="2830">2830</a>
+<a href="#2831" id="2831">2831</a>
+<a href="#2832" id="2832">2832</a>
+<a href="#2833" id="2833">2833</a>
+<a href="#2834" id="2834">2834</a>
+<a href="#2835" id="2835">2835</a>
+<a href="#2836" id="2836">2836</a>
+<a href="#2837" id="2837">2837</a>
+<a href="#2838" id="2838">2838</a>
+<a href="#2839" id="2839">2839</a>
+<a href="#2840" id="2840">2840</a>
+<a href="#2841" id="2841">2841</a>
+<a href="#2842" id="2842">2842</a>
+<a href="#2843" id="2843">2843</a>
+<a href="#2844" id="2844">2844</a>
+<a href="#2845" id="2845">2845</a>
+<a href="#2846" id="2846">2846</a>
+<a href="#2847" id="2847">2847</a>
+<a href="#2848" id="2848">2848</a>
+<a href="#2849" id="2849">2849</a>
+<a href="#2850" id="2850">2850</a>
+<a href="#2851" id="2851">2851</a>
+<a href="#2852" id="2852">2852</a>
+<a href="#2853" id="2853">2853</a>
+<a href="#2854" id="2854">2854</a>
+<a href="#2855" id="2855">2855</a>
+<a href="#2856" id="2856">2856</a>
+<a href="#2857" id="2857">2857</a>
+<a href="#2858" id="2858">2858</a>
+<a href="#2859" id="2859">2859</a>
+<a href="#2860" id="2860">2860</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3406,6 +3449,7 @@
 		<span class="kw">pub </span>babe: Babe,
 		<span class="kw">pub </span>im_online: ImOnline,
 		<span class="kw">pub </span>authority_discovery: AuthorityDiscovery,
+		<span class="kw">pub </span>mixnet: Mixnet,
 	}
 }
 
@@ -3865,7 +3909,7 @@
 		pallet_collective::EnsureProportionAtLeast&lt;AccountId, TechnicalCollective, <span class="number">2</span>, <span class="number">3</span>&gt;;
 	<span class="kw">type </span>InstantOrigin =
 		pallet_collective::EnsureProportionAtLeast&lt;AccountId, TechnicalCollective, <span class="number">1</span>, <span class="number">1</span>&gt;;
-	<span class="kw">type </span>InstantAllowed = frame_support::traits::ConstBool&lt;<span class="bool-val">true</span>&gt;;
+	<span class="kw">type </span>InstantAllowed = ConstBool&lt;<span class="bool-val">true</span>&gt;;
 	<span class="kw">type </span>FastTrackVotingPeriod = FastTrackVotingPeriod;
 	<span class="comment">// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
 	</span><span class="kw">type </span>CancellationOrigin =
@@ -4845,6 +4889,29 @@
 	<span class="kw">type </span>PriceAdapter = pallet_broker::Linear;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>MixnetNumCoverToCurrentBlocks: BlockNumber = <span class="number">3</span>;
+	<span class="kw">pub const </span>MixnetNumRequestsToCurrentBlocks: BlockNumber = <span class="number">3</span>;
+	<span class="kw">pub const </span>MixnetNumCoverToPrevBlocks: BlockNumber = <span class="number">3</span>;
+	<span class="kw">pub const </span>MixnetNumRegisterStartSlackBlocks: BlockNumber = <span class="number">3</span>;
+	<span class="kw">pub const </span>MixnetNumRegisterEndSlackBlocks: BlockNumber = <span class="number">3</span>;
+	<span class="kw">pub const </span>MixnetRegistrationPriority: TransactionPriority = ImOnlineUnsignedPriority::get() - <span class="number">1</span>;
+}
+
+<span class="kw">impl </span>pallet_mixnet::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
+	<span class="kw">type </span>MaxExternalAddressSize = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxExternalAddressesPerMixnode = ConstU32&lt;<span class="number">16</span>&gt;;
+	<span class="kw">type </span>NextSessionRotation = Babe;
+	<span class="kw">type </span>NumCoverToCurrentBlocks = MixnetNumCoverToCurrentBlocks;
+	<span class="kw">type </span>NumRequestsToCurrentBlocks = MixnetNumRequestsToCurrentBlocks;
+	<span class="kw">type </span>NumCoverToPrevBlocks = MixnetNumCoverToPrevBlocks;
+	<span class="kw">type </span>NumRegisterStartSlackBlocks = MixnetNumRegisterStartSlackBlocks;
+	<span class="kw">type </span>NumRegisterEndSlackBlocks = MixnetNumRegisterEndSlackBlocks;
+	<span class="kw">type </span>RegistrationPriority = MixnetRegistrationPriority;
+	<span class="kw">type </span>MinMixnodes = ConstU32&lt;<span class="number">7</span>&gt;; <span class="comment">// Low to allow small testing networks
+</span>}
+
 <span class="macro">construct_runtime!</span>(
 	<span class="kw">pub struct </span>Runtime
 	{
@@ -4921,6 +4988,7 @@
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		Mixnet: pallet_mixnet,
 	}
 );
 
@@ -5477,6 +5545,24 @@
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt; {
 			<span class="kw">let </span>nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(root, nodes, proof)
+		}
+	}
+
+	<span class="kw">impl </span>sp_mixnet::runtime_api::MixnetApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>session_status() -&gt; sp_mixnet::types::SessionStatus {
+			Mixnet::session_status()
+		}
+
+		<span class="kw">fn </span>prev_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
+			Mixnet::prev_mixnodes()
+		}
+
+		<span class="kw">fn </span>current_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
+			Mixnet::current_mixnodes()
+		}
+
+		<span class="kw">fn </span>maybe_register(session_index: sp_mixnet::types::SessionIndex, mixnode: sp_mixnet::types::Mixnode) -&gt; bool {
+			Mixnet::maybe_register(session_index, mixnode)
 		}
 	}
 

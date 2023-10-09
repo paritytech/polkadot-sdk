@@ -232,6 +232,7 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -345,7 +346,7 @@
 					},
 					BenchmarkCmd::Block(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive
-						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						cmd.run(partial.client)
 					},
 					<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
@@ -356,7 +357,7 @@
 					<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 					</span>BenchmarkCmd::Storage(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive
-						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						<span class="kw">let </span>db = partial.backend.expose_db();
 						<span class="kw">let </span>storage = partial.backend.expose_storage();
 
@@ -364,7 +365,7 @@
 					},
 					BenchmarkCmd::Overhead(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive
-						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+						</span><span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						<span class="kw">let </span>ext_builder = RemarkBuilder::new(partial.client.clone());
 
 						cmd.run(
@@ -377,7 +378,7 @@
 					},
 					BenchmarkCmd::Extrinsic(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive
-						</span><span class="kw">let </span>partial = service::new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+						</span><span class="kw">let </span>partial = service::new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						<span class="comment">// Register the *Remark* and *TKA* builders.
 						</span><span class="kw">let </span>ext_factory = ExtrinsicFactory(<span class="macro">vec!</span>[
 							Box::new(RemarkBuilder::new(partial.client.clone())),
@@ -412,21 +413,21 @@
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
 				<span class="kw">let </span>PartialComponents { client, task_manager, import_queue, .. } =
-					new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+					new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportBlocks(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>PartialComponents { client, task_manager, .. } = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+				<span class="kw">let </span>PartialComponents { client, task_manager, .. } = new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, config.database), task_manager))
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportState(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>PartialComponents { client, task_manager, .. } = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+				<span class="kw">let </span>PartialComponents { client, task_manager, .. } = new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
@@ -434,7 +435,7 @@
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
 				<span class="kw">let </span>PartialComponents { client, task_manager, import_queue, .. } =
-					new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+					new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -445,7 +446,8 @@
 		<span class="prelude-val">Some</span>(Subcommand::Revert(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.async_run(|config| {
-				<span class="kw">let </span>PartialComponents { client, task_manager, backend, .. } = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+				<span class="kw">let </span>PartialComponents { client, task_manager, backend, .. } =
+					new_partial(<span class="kw-2">&amp;</span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="kw">let </span>aux_revert = Box::new(|client: Arc&lt;FullClient&gt;, backend, blocks| {
 					sc_consensus_babe::revert(client.clone(), backend, blocks)<span class="question-mark">?</span>;
 					grandpa::revert(client, blocks)<span class="question-mark">?</span>;

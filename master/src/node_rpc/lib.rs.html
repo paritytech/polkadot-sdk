@@ -198,6 +198,15 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -292,6 +301,8 @@
 	</span><span class="kw">pub </span>statement_store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;,
 	<span class="doccomment">/// The backend used by the node.
 	</span><span class="kw">pub </span>backend: Arc&lt;B&gt;,
+	<span class="doccomment">/// Mixnet API.
+	</span><span class="kw">pub </span>mixnet_api: <span class="prelude-ty">Option</span>&lt;sc_mixnet::Api&gt;,
 }
 
 <span class="doccomment">/// Instantiate all Full RPC extensions.
@@ -306,6 +317,7 @@
 		grandpa,
 		statement_store,
 		backend,
+		mixnet_api,
 	}: FullDeps&lt;C, P, SC, B&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
 <span class="kw">where
@@ -333,6 +345,7 @@
 	<span class="kw">use </span>sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 	<span class="kw">use </span>sc_rpc::{
 		dev::{Dev, DevApiServer},
+		mixnet::MixnetApiServer,
 		statement::StatementApiServer,
 	};
 	<span class="kw">use </span>sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
@@ -395,6 +408,11 @@
 	<span class="kw">let </span>statement_store =
 		sc_rpc::statement::StatementStore::new(statement_store, deny_unsafe).into_rpc();
 	io.merge(statement_store)<span class="question-mark">?</span>;
+
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(mixnet_api) = mixnet_api {
+		<span class="kw">let </span>mixnet = sc_rpc::mixnet::Mixnet::new(mixnet_api).into_rpc();
+		io.merge(mixnet)<span class="question-mark">?</span>;
+	}
 
 	<span class="prelude-val">Ok</span>(io)
 }

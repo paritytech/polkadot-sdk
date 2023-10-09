@@ -2016,6 +2016,13 @@
 <a href="#2016" id="2016">2016</a>
 <a href="#2017" id="2017">2017</a>
 <a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
+<a href="#2021" id="2021">2021</a>
+<a href="#2022" id="2022">2022</a>
+<a href="#2023" id="2023">2023</a>
+<a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2511,8 +2518,8 @@
 		}
 	}
 
-	<span class="doccomment">/// Remove the peer from the set of reserved peers. The peer is moved to the set of regular
-	/// nodes.
+	<span class="doccomment">/// Remove the peer from the set of reserved peers. The peer is either moved to the set of
+	/// regular nodes or disconnected.
 	</span><span class="kw">fn </span>on_remove_reserved_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="kw">let </span>state = <span class="kw">match </span><span class="self">self</span>.reserved_nodes.remove(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="prelude-val">Some</span>(state) =&gt; state,
@@ -2526,7 +2533,14 @@
 		};
 
 		<span class="kw">if let </span>PeerState::Connected(direction) = state {
-			<span class="kw">if </span><span class="self">self</span>.reserved_only {
+			<span class="comment">// Disconnect if we&#39;re at (or over) the regular node limit
+			</span><span class="kw">let </span>disconnect = <span class="self">self</span>.reserved_only ||
+				<span class="kw">match </span>direction {
+					Direction::Inbound =&gt; <span class="self">self</span>.num_in &gt;= <span class="self">self</span>.max_in,
+					Direction::Outbound =&gt; <span class="self">self</span>.num_out &gt;= <span class="self">self</span>.max_out,
+				};
+
+			<span class="kw">if </span>disconnect {
 				<span class="comment">// Disconnect the node.
 				</span><span class="macro">trace!</span>(
 					target: LOG_TARGET,

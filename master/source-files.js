@@ -164,6 +164,7 @@ var sourcesIndex = JSON.parse('{\
 "pallet_lottery":["",[],["lib.rs","weights.rs"]],\
 "pallet_membership":["",[["migrations",[],["mod.rs","v4.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_message_queue":["",[],["lib.rs","mock_helpers.rs","weights.rs"]],\
+"pallet_mixnet":["",[],["lib.rs"]],\
 "pallet_mmr":["",[["mmr",[],["mmr.rs","mod.rs","storage.rs"]]],["default_weights.rs","lib.rs"]],\
 "pallet_multisig":["",[],["lib.rs","migrations.rs","weights.rs"]],\
 "pallet_nft_fractionalization":["",[],["lib.rs","types.rs","weights.rs"]],\
@@ -299,7 +300,7 @@ var sourcesIndex = JSON.parse('{\
 "sc_block_builder":["",[],["lib.rs"]],\
 "sc_chain_spec":["",[],["chain_spec.rs","extension.rs","genesis.rs","lib.rs"]],\
 "sc_chain_spec_derive":["",[],["impls.rs","lib.rs"]],\
-"sc_cli":["",[["commands",[["test",[],["mod.rs"]]],["build_spec_cmd.rs","chain_info_cmd.rs","check_block_cmd.rs","export_blocks_cmd.rs","export_state_cmd.rs","generate.rs","generate_node_key.rs","import_blocks_cmd.rs","insert_key.rs","inspect_key.rs","inspect_node_key.rs","key.rs","mod.rs","purge_chain_cmd.rs","revert_cmd.rs","run_cmd.rs","sign.rs","utils.rs","vanity.rs","verify.rs"]],["params",[],["database_params.rs","import_params.rs","keystore_params.rs","message_params.rs","mod.rs","network_params.rs","node_key_params.rs","offchain_worker_params.rs","prometheus_params.rs","pruning_params.rs","runtime_params.rs","shared_params.rs","telemetry_params.rs","transaction_pool_params.rs"]]],["arg_enums.rs","config.rs","error.rs","lib.rs","runner.rs","signals.rs"]],\
+"sc_cli":["",[["commands",[["test",[],["mod.rs"]]],["build_spec_cmd.rs","chain_info_cmd.rs","check_block_cmd.rs","export_blocks_cmd.rs","export_state_cmd.rs","generate.rs","generate_node_key.rs","import_blocks_cmd.rs","insert_key.rs","inspect_key.rs","inspect_node_key.rs","key.rs","mod.rs","purge_chain_cmd.rs","revert_cmd.rs","run_cmd.rs","sign.rs","utils.rs","vanity.rs","verify.rs"]],["params",[],["database_params.rs","import_params.rs","keystore_params.rs","message_params.rs","mixnet_params.rs","mod.rs","network_params.rs","node_key_params.rs","offchain_worker_params.rs","prometheus_params.rs","pruning_params.rs","runtime_params.rs","shared_params.rs","telemetry_params.rs","transaction_pool_params.rs"]]],["arg_enums.rs","config.rs","error.rs","lib.rs","runner.rs","signals.rs"]],\
 "sc_client_api":["",[["notifications",[],["registry.rs"]]],["backend.rs","call_executor.rs","client.rs","execution_extensions.rs","in_mem.rs","leaves.rs","lib.rs","notifications.rs","proof_provider.rs"]],\
 "sc_client_db":["",[],["bench.rs","children.rs","lib.rs","offchain.rs","parity_db.rs","pinned_blocks_cache.rs","record_stats_state.rs","stats.rs","upgrade.rs","utils.rs"]],\
 "sc_consensus":["",[["import_queue",[],["basic_queue.rs","buffered_link.rs","mock.rs"]]],["block_import.rs","import_queue.rs","lib.rs","longest_chain.rs","metrics.rs","shared_data.rs"]],\
@@ -319,6 +320,7 @@ var sourcesIndex = JSON.parse('{\
 "sc_executor_wasmtime":["",[],["host.rs","imports.rs","instance_wrapper.rs","lib.rs","runtime.rs","util.rs"]],\
 "sc_informant":["",[],["display.rs","lib.rs"]],\
 "sc_keystore":["",[],["lib.rs","local.rs"]],\
+"sc_mixnet":["",[],["api.rs","config.rs","error.rs","extrinsic_queue.rs","lib.rs","maybe_inf_delay.rs","packet_dispatcher.rs","peer_id.rs","protocol.rs","request.rs","run.rs","sync_with_runtime.rs"]],\
 "sc_network":["",[["protocol",[["notifications",[["upgrade",[],["collec.rs","notifications.rs"]]],["behaviour.rs","handler.rs","upgrade.rs"]]],["message.rs","notifications.rs"]],["service",[],["metrics.rs","out_events.rs","signature.rs","traits.rs"]]],["behaviour.rs","config.rs","discovery.rs","error.rs","event.rs","lib.rs","network_state.rs","peer_info.rs","peer_store.rs","protocol.rs","protocol_controller.rs","request_responses.rs","service.rs","transport.rs","types.rs","utils.rs"]],\
 "sc_network_bitswap":["",[],["lib.rs","schema.rs"]],\
 "sc_network_common":["",[["sync",[],["message.rs","metrics.rs","warp.rs"]]],["lib.rs","message.rs","role.rs","sync.rs","types.rs"]],\
@@ -330,8 +332,8 @@ var sourcesIndex = JSON.parse('{\
 "sc_network_transactions":["",[],["config.rs","lib.rs"]],\
 "sc_offchain":["",[["api",[],["http.rs","timestamp.rs"]]],["api.rs","lib.rs"]],\
 "sc_proposer_metrics":["",[],["lib.rs"]],\
-"sc_rpc":["",[["author",[],["mod.rs"]],["chain",[],["chain_full.rs","mod.rs"]],["dev",[],["mod.rs"]],["offchain",[],["mod.rs"]],["state",[],["mod.rs","state_full.rs","utils.rs"]],["statement",[],["mod.rs"]],["system",[],["mod.rs"]]],["lib.rs"]],\
-"sc_rpc_api":["",[["author",[],["error.rs","hash.rs","mod.rs"]],["chain",[],["error.rs","mod.rs"]],["child_state",[],["mod.rs"]],["dev",[],["error.rs","mod.rs"]],["offchain",[],["error.rs","mod.rs"]],["state",[],["error.rs","helpers.rs","mod.rs"]],["statement",[],["error.rs","mod.rs"]],["system",[],["error.rs","helpers.rs","mod.rs"]]],["error.rs","lib.rs","policy.rs"]],\
+"sc_rpc":["",[["author",[],["mod.rs"]],["chain",[],["chain_full.rs","mod.rs"]],["dev",[],["mod.rs"]],["mixnet",[],["mod.rs"]],["offchain",[],["mod.rs"]],["state",[],["mod.rs","state_full.rs","utils.rs"]],["statement",[],["mod.rs"]],["system",[],["mod.rs"]]],["lib.rs"]],\
+"sc_rpc_api":["",[["author",[],["error.rs","hash.rs","mod.rs"]],["chain",[],["error.rs","mod.rs"]],["child_state",[],["mod.rs"]],["dev",[],["error.rs","mod.rs"]],["mixnet",[],["error.rs","mod.rs"]],["offchain",[],["error.rs","mod.rs"]],["state",[],["error.rs","helpers.rs","mod.rs"]],["statement",[],["error.rs","mod.rs"]],["system",[],["error.rs","helpers.rs","mod.rs"]]],["error.rs","lib.rs","policy.rs"]],\
 "sc_rpc_server":["",[],["lib.rs","middleware.rs"]],\
 "sc_rpc_spec_v2":["",[["archive",[],["api.rs","archive.rs","error.rs","mod.rs"]],["chain_head",[["subscription",[],["error.rs","inner.rs","mod.rs"]]],["api.rs","chain_head.rs","chain_head_follow.rs","chain_head_storage.rs","error.rs","event.rs","mod.rs"]],["chain_spec",[],["api.rs","chain_spec.rs","mod.rs"]],["transaction",[],["api.rs","error.rs","event.rs","mod.rs","transaction.rs"]]],["lib.rs"]],\
 "sc_runtime_test":["",[],["lib.rs"]],\
@@ -381,6 +383,7 @@ var sourcesIndex = JSON.parse('{\
 "sp_keystore":["",[],["lib.rs","testing.rs"]],\
 "sp_maybe_compressed_blob":["",[],["lib.rs"]],\
 "sp_metadata_ir":["",[],["lib.rs","types.rs","v14.rs","v15.rs"]],\
+"sp_mixnet":["",[],["lib.rs","runtime_api.rs","types.rs"]],\
 "sp_mmr_primitives":["",[],["lib.rs","utils.rs"]],\
 "sp_npos_elections":["",[],["assignments.rs","balancing.rs","helpers.rs","lib.rs","node.rs","phragmen.rs","phragmms.rs","pjr.rs","reduce.rs","traits.rs"]],\
 "sp_offchain":["",[],["lib.rs"]],\

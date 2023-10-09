@@ -1514,6 +1514,8 @@
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
 <a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2677,6 +2679,8 @@
 	</span><span class="kw">pub const </span>STAKING: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;stak&quot;</span>);
 	<span class="doccomment">/// A key type for signing statements
 	</span><span class="kw">pub const </span>STATEMENT: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;stmt&quot;</span>);
+	<span class="doccomment">/// Key type for Mixnet module, used to sign key-exchange public keys. Identified as `mixn`.
+	</span><span class="kw">pub const </span>MIXNET: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;mixn&quot;</span>);
 	<span class="doccomment">/// A key type ID useful for tests.
 	</span><span class="kw">pub const </span>DUMMY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;dumy&quot;</span>);
 }
