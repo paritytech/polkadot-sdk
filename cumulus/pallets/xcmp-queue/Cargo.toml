@@ -50,6 +50,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"polkadot-runtime-common/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",

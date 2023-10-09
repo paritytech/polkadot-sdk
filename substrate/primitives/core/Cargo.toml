@@ -76,6 +76,7 @@ default = [ "std" ]
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs/getrandom",
+	"bandersnatch_vrfs?/std",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
@@ -116,7 +117,9 @@ std = [
 	"thiserror",
 	"tiny-bip39",
 	"tracing",
+	"w3f-bls?/std",
 	"zeroize/alloc",
+	"zeroize/std",
 ]
 
 # Serde support without relying on std features.

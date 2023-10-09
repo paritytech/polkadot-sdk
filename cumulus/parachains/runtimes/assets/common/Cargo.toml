@@ -43,6 +43,7 @@ std = [
 	"pallet-asset-tx-payment/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-std/std",

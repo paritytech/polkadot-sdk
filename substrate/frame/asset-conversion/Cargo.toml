@@ -39,6 +39,7 @@ std = [
 	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-arithmetic/std",

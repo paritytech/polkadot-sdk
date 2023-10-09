@@ -30,6 +30,7 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
+	"log/std",
 	"polkadot-runtime-common/std",
 	"sp-io/std",
 	"sp-runtime/std",

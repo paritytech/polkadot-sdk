@@ -56,6 +56,7 @@ std = [
 	"sp-ark-bw6-761/std",
 	"sp-ark-ed-on-bls12-377/std",
 	"sp-ark-ed-on-bls12-381-bandersnatch/std",
+	"sp-ark-models/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
 	"sp-std/std",

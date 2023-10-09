@@ -37,6 +37,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",

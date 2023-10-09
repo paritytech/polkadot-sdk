@@ -88,6 +88,8 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-metrics/std",
 	"primitives/std",
+	"rand/std",
+	"rand_chacha/std",
 	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
