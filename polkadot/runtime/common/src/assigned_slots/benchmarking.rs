@@ -25,14 +25,15 @@ use primitives::Id as ParaId;
 use sp_runtime::traits::Bounded;
 
 type CurrencyOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency;
-type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+type BalanceOf<T> =
+	<<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as FunInspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 #[benchmarks(where T: Config)]
 mod benchmarks {
 	use super::*;
-	use frame_support::{assert_ok, traits::fungible::Mutate};
 	use crate::assigned_slots::Pallet as AssignedSlots;
+	use frame_support::{assert_ok, traits::fungible::Mutate};
 
 	fn register_parachain<T: Config>(para_id: ParaId) {
 		let who: T::AccountId = whitelisted_caller();

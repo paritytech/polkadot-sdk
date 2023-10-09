@@ -107,14 +107,15 @@ mod v1 {
 				// reads: leases_count
 				leases_count,
 				// writes = migrated * (unreserve + hold)
-				migrated.saturating_mul(2))
+				migrated.saturating_mul(2),
+			)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// Build a set of pairs of (para, who) that have a lease.
-			let mut para_leasers = sp_std::collections::btree_set::BTreeSet::<(ParaId,
-			T::AccountId)>::new();
+			let mut para_leasers =
+				sp_std::collections::btree_set::BTreeSet::<(ParaId, T::AccountId)>::new();
 			for (para, lease_periods) in Leases::<T>::iter() {
 				lease_periods.into_iter().for_each(|maybe_lease| {
 					if let Some((who, _)) = maybe_lease {
@@ -126,7 +127,8 @@ mod v1 {
 			// for each pair assert hold amount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
 				// fixme(ank4n) there is a case where an account has a hold for multiple para-ids..
-				let actual_hold = T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), who);
+				let actual_hold =
+					T::Currency::balance_on_hold(&HoldReason::LeaseDeposit.into(), who);
 				let expected_hold = Pallet::<T>::deposit_held(*para, who);
 
 				ensure!(

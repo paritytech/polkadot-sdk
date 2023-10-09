@@ -28,10 +28,7 @@ use crate::traits::{LeaseError, Leaser, Registrar};
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
-	traits::fungible::{
-		hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
-		Inspect as FunInspect, Mutate as FunMutate,
-	},
+	traits::fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::*;
@@ -1016,7 +1013,7 @@ mod tests {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
 	use super::*;
-	use frame_support::assert_ok;
+	use frame_support::{assert_ok, traits::fungible::hold::Inspect};
 	use frame_system::RawOrigin;
 	use runtime_parachains::paras;
 	use sp_runtime::traits::{Bounded, One};
