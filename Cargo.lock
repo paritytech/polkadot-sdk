@@ -5272,7 +5272,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "k256",
  "log",
- "macro_magic",
+ "macro_magic 0.4.2 (git+https://github.com/gupnik/macro_magic?branch=verbatim_export)",
  "parity-scale-codec",
  "paste",
  "pretty_assertions",
@@ -5309,7 +5309,7 @@ dependencies = [
  "expander 2.0.0",
  "frame-support-procedural-tools",
  "itertools 0.10.5",
- "macro_magic",
+ "macro_magic 0.4.2",
  "proc-macro-warning",
  "proc-macro2",
  "quote",
@@ -7552,10 +7552,29 @@ dependencies = [
 [[package]]
 name = "macro_magic"
 version = "0.4.2"
+dependencies = [
+ "macro_magic_core 0.4.2",
+ "macro_magic_macros 0.4.2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "macro_magic"
+version = "0.4.2"
 source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
- "macro_magic_core",
- "macro_magic_macros",
+ "macro_magic_macros 0.4.2 (git+https://github.com/gupnik/macro_magic?branch=verbatim_export)",
+]
+
+[[package]]
+name = "macro_magic_core"
+version = "0.4.2"
+dependencies = [
+ "const-random",
+ "derive-syn-parse",
+ "macro_magic_core_macros 0.4.2",
+ "proc-macro2",
  "quote",
  "syn 2.0.38",
 ]
@@ -7567,7 +7586,16 @@ source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358f
 dependencies = [
  "const-random",
  "derive-syn-parse",
- "macro_magic_core_macros",
+ "macro_magic_core_macros 0.4.2 (git+https://github.com/gupnik/macro_magic?branch=verbatim_export)",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "macro_magic_core_macros"
+version = "0.4.2"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
@@ -7586,9 +7614,18 @@ dependencies = [
 [[package]]
 name = "macro_magic_macros"
 version = "0.4.2"
+dependencies = [
+ "macro_magic_core 0.4.2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "macro_magic_macros"
+version = "0.4.2"
 source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
- "macro_magic_core",
+ "macro_magic_core 0.4.2 (git+https://github.com/gupnik/macro_magic?branch=verbatim_export)",
  "quote",
  "syn 2.0.38",
 ]

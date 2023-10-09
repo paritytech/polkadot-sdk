@@ -34,7 +34,7 @@ mod transactional;
 mod tt_macro;
 
 use frame_support_procedural_tools::generate_crate_access_2018;
-use macro_magic::import_tokens_attr;
+use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
@@ -751,7 +751,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-#[import_tokens_attr {
+#[import_tokens_attr_verbatim {
     format!(
         "{}::macro_magic",
         match generate_crate_access_2018("frame-support") {
