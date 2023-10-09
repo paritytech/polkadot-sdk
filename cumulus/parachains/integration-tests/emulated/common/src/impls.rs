@@ -627,7 +627,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 					use $crate::impls::Chain;
 
 					// Force create asset
-					Self::do_force_create_asset_from_relay_as_root(
+					Self::force_create_asset_from_relay_as_root(
 						id,
 						min_balance,
 						is_sufficient,
