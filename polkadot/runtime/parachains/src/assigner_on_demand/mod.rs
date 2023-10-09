@@ -132,7 +132,7 @@ impl Assignment for OnDemandAssignment {
 }
 
 /// Internal representation of an order after it has been enqueued already.
-#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
 pub(super) struct EnqueuedOrder {
 	pub para_id: ParaId,
 }
@@ -468,7 +468,7 @@ where
 	/// Adds an order to the on demand queue.
 	///
 	/// Paramenters:
-	/// - `assignment`: The on demand assignment to add to the queue.
+	/// - `order`: The `EnqueuedOrder` to add to the queue.
 	/// - `location`: Whether to push this entry to the back or the front of the queue. Pushing an
 	///   entry to the front of the queue is only used when the scheduler wants to push back an
 	///   entry it has already popped.
@@ -592,8 +592,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	///
 	/// Parameters:
 	/// - `core_idx`: The core index
-	/// - `previous_paraid`: Which paraid was previously processed on the requested core. Is None if
-	///   nothing was processed on the core.
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let mut queue: VecDeque<EnqueuedOrder> = OnDemandQueue::<T>::get();
 
