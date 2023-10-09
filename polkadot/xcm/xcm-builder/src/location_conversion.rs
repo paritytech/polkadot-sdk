@@ -976,12 +976,12 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_relay_treasury() {
-		let mul = MultiLocation {
+		let location = MultiLocation {
 			parents: 1,
 			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
 		};
 		let actual_description =
-			ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(&mul).unwrap();
+			ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(&location).unwrap();
 
 		assert_eq!(
 			[
