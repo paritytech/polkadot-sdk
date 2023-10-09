@@ -812,6 +812,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -843,6 +844,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// create the key ownership proof
@@ -894,6 +896,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -936,6 +939,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, old_set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// report the equivocation and the tx should be dispatched successfully
@@ -984,6 +988,7 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1003,6 +1008,7 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// the call for reporting the equivocation should error
@@ -1026,6 +1032,7 @@ fn report_fork_equivocation_vote_invalid_session() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1050,6 +1057,7 @@ fn report_fork_equivocation_vote_invalid_session() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// report an equivocation for the current set using an key ownership
@@ -1074,6 +1082,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1098,6 +1107,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
@@ -1127,6 +1137,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1146,6 +1157,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
 			header.clone(),
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1160,6 +1172,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
 			header.clone(),
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1174,6 +1187,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id + 1, &equivocation_keyring),
 			header.clone(),
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1200,6 +1214,7 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1217,6 +1232,7 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
@@ -1290,6 +1306,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1307,6 +1324,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// create the key ownership proof.
@@ -1367,6 +1385,7 @@ fn report_fork_equivocation_sc_current_set_works() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1402,8 +1421,12 @@ fn report_fork_equivocation_sc_current_set_works() {
 		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
-		let equivocation_proof =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// create the key ownership proof
 		let key_owner_proofs = equivocation_keys
@@ -1462,6 +1485,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1514,8 +1538,12 @@ fn report_fork_equivocation_sc_old_set_works() {
 			Commitment { validator_set_id: old_set_id, block_number: block_num, payload };
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
-		let equivocation_proof =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// report the equivocation and the tx should be dispatched successfully
 		assert_ok!(Beefy::report_fork_equivocation_unsigned(
@@ -1568,6 +1596,7 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1595,8 +1624,12 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 		// generate an equivocation for a future set
 		let commitment =
 			Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
-		let equivocation_proof =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// the call for reporting the equivocation should error
 		assert_err!(
@@ -1619,6 +1652,7 @@ fn report_fork_equivocation_sc_invalid_session() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1650,8 +1684,12 @@ fn report_fork_equivocation_sc_invalid_session() {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		// generate an equivocation proof at following era set id = 3
 		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
-		let equivocation_proof =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// report an equivocation for the current set using an key ownership
 		// proof from the previous set, the session should be invalid.
@@ -1675,6 +1713,7 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1708,8 +1747,12 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 		// generate an equivocation proof for the authorities at indices [0, 2]
 		let commitment =
 			Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
-		let equivocation_proof =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// we need to start a new era otherwise the key ownership proof won't be
 		// checked since the authorities are part of the current session
@@ -1738,6 +1781,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1771,6 +1815,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			},
 			equivocation_keyrings.clone(),
 			header.clone(),
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1790,6 +1835,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			},
 			vec![BeefyKeyring::Eve],
 			header.clone(),
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1809,6 +1855,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			},
 			equivocation_keyrings,
 			header,
+			ancestry_proof,
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1835,6 +1882,7 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1852,6 +1900,7 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
@@ -1925,6 +1974,7 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1942,6 +1992,7 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
+			ancestry_proof,
 		);
 
 		// create the key ownership proof.
@@ -2000,6 +2051,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
+		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -2041,9 +2093,14 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			commitment.clone(),
 			vec![equivocation_keyrings[0]],
 			header.clone(),
+			ancestry_proof,
 		);
-		let equivocation_proof_full =
-			generate_fork_equivocation_proof_sc(commitment, equivocation_keyrings, header);
+		let equivocation_proof_full = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// create the key ownership proof
 		let key_owner_proofs: Vec<_> = equivocation_keys

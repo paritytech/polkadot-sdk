@@ -1726,6 +1726,7 @@ pub(crate) mod tests {
 			.header(hashes[block_number as usize])
 			.unwrap()
 			.unwrap();
+		let ancestry_proof = unimplemented!();
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, "amievil".encode());
 		let votes: Vec<_> = peers
 			.iter()
@@ -1736,7 +1737,8 @@ pub(crate) mod tests {
 			.collect();
 
 		// verify: Alice reports Bob
-		let proof = generate_fork_equivocation_proof_vote(votes[1].clone(), header.clone());
+		let proof =
+			generate_fork_equivocation_proof_vote(votes[1].clone(), header.clone(), ancestry_proof);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
@@ -1755,7 +1757,8 @@ pub(crate) mod tests {
 		}
 
 		// verify: Alice does not self-report
-		let proof = generate_fork_equivocation_proof_vote(votes[0].clone(), header.clone());
+		let proof =
+			generate_fork_equivocation_proof_vote(votes[0].clone(), header.clone(), ancestry_proof);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
@@ -1784,6 +1787,7 @@ pub(crate) mod tests {
 			commitment,
 			vec![Keyring::Bob, Keyring::Charlie],
 			header,
+			ancestry_proof,
 		);
 		{
 			// expect fisher (Alice) to successfully process it

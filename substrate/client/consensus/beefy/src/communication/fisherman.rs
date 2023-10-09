@@ -190,11 +190,13 @@ where
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
 		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let ancestry_proof = unimplemented!();
 		if vote.commitment.payload != expected_payload {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
 				correct_header: correct_header.clone(),
+				ancestry_proof,
 			};
 			self.report_fork_equivocation(proof)?;
 		}
@@ -209,6 +211,7 @@ where
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
 		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let ancestry_proof = unimplemented!();
 		if commitment.payload != expected_payload {
 			let validator_set = self.active_validator_set_at(&correct_header)?;
 			if signatures.len() != validator_set.validators().len() {
@@ -228,6 +231,7 @@ where
 				commitment,
 				signatories,
 				correct_header: correct_header.clone(),
+				ancestry_proof,
 			};
 			self.report_fork_equivocation(proof)?;
 		}
