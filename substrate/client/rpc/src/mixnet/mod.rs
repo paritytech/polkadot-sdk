@@ -16,23 +16,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate RPC interfaces.
-//!
-//! A collection of RPC methods and subscriptions supported by all substrate clients.
+//! Substrate mixnet API.
 
-#![warn(missing_docs)]
+use jsonrpsee::core::{async_trait, RpcResult};
+use sc_mixnet::Api;
+use sc_rpc_api::mixnet::error::Error;
+pub use sc_rpc_api::mixnet::MixnetApiServer;
+use sp_core::Bytes;
 
-mod error;
-mod policy;
+/// Mixnet API.
+pub struct Mixnet(futures::lock::Mutex<Api>);
 
-pub use policy::DenyUnsafe;
+impl Mixnet {
+	/// Create a new mixnet API instance.
+	pub fn new(api: Api) -> Self {
+		Self(futures::lock::Mutex::new(api))
+	}
+}
 
-pub mod author;
-pub mod chain;
-pub mod child_state;
-pub mod dev;
-pub mod mixnet;
-pub mod offchain;
-pub mod state;
-pub mod statement;
-pub mod system;
+#[async_trait]
+impl MixnetApiServer for Mixnet {
+	async fn submit_extrinsic(&self, extrinsic: Bytes) -> RpcResult<()> {
+		// We only hold the lock while pushing the request into the requests channel
+		let fut = {
+			let mut api = self.0.lock().await;
+			api.submit_extrinsic(extrinsic).await
+		};
+		Ok(fut.await.map_err(Error)?)
+	}
+}
