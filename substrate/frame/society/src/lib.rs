@@ -263,12 +263,12 @@ use frame_support::{
 	storage::KeyLenOf,
 	traits::{
 		fungible::{
-			hold::Balanced as FunBalanced, Inspect as FunInspect, MutateHold as FunMutateHold,
+			hold::Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
+			MutateHold as FunMutateHold,
 		},
-		tokens::{fungible::Credit, Precision},
-		BalanceStatus, EnsureOrigin, EnsureOriginWithArg,
-		ExistenceRequirement::AllowDeath,
-		Imbalance, OnUnbalanced, Randomness, StorageVersion,
+		tokens::{fungible::Credit, Precision, Preservation::Expendable},
+		BalanceStatus, EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness,
+		StorageVersion,
 	},
 	PalletId,
 };
@@ -493,6 +493,7 @@ pub mod pallet {
 
 		/// The currency type used for bidding.
 		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunMutate<Self::AccountId>
 			+ FunBalanced<Self::AccountId>;
 
 		/// The overarching runtime hold reason.
@@ -1031,7 +1032,7 @@ pub mod pallet {
 			if let Some((when, amount)) = record.payouts.first() {
 				if when <= &<frame_system::Pallet<T>>::block_number() {
 					record.paid = record.paid.checked_add(amount).ok_or(Overflow)?;
-					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
+					T::Currency::transfer(&Self::payouts(), &who, *amount, Expendable)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
 					return Ok(())
@@ -1051,7 +1052,7 @@ pub mod pallet {
 			ensure!(record.rank == 0, Error::<T, I>::AlreadyElevated);
 			ensure!(amount >= payout_record.paid, Error::<T, I>::InsufficientFunds);
 
-			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, AllowDeath)?;
+			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, Expendable)?;
 			payout_record.paid = Zero::zero();
 			payout_record.payouts.clear();
 			record.rank = 1;
@@ -2007,7 +2008,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::account_id(), &Self::payouts(), amount, AllowDeath);
+		let res = T::Currency::transfer(&Self::account_id(), &Self::payouts(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
@@ -2019,7 +2020,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::payouts(), &Self::account_id(), amount, AllowDeath);
+		let res = T::Currency::transfer(&Self::payouts(), &Self::account_id(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
