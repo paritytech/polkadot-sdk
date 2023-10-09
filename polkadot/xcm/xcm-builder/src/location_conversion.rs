@@ -92,7 +92,7 @@ impl DescribeLocation for DescribeTreasuryVoiceTerminal {
 	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
 		match (l.parents, &l.interior) {
 			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
-				Some(("Treasury").encode()),
+				Some((b"Treasury", b"Voice").encode()),
 			_ => return None,
 		}
 	}
