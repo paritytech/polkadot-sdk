@@ -83,7 +83,7 @@ pub mod pallet {
 		// This will help use not need to disambiguate anything when using `derive_impl`.
 		use super::*;
 		use frame_support::derive_impl;
-		use frame_system::config_preludes::SystemTestDefaultConfig;
+		use frame_system::config_preludes::TestDefaultConfig as SystemTestDefaultConfig;
 
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
@@ -145,7 +145,7 @@ pub mod tests {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::SystemTestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;
