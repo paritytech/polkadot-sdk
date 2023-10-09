@@ -317,14 +317,13 @@ async fn handle_parent_process(
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
 ) -> Result<PrepareStats, PrepareError> {
+	let mut received_data = Vec::new();
+
+	pipe_read.read_to_end(&mut received_data).map_err(|_| {
+		PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
+	})?;
 	return match nix::sys::wait::wait() {
 		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
-			let mut received_data = Vec::new();
-
-			pipe_read.read_to_end(&mut received_data).map_err(|_| {
-				PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
-			})?;
-
 			let result: Result<Response, PrepareError> = parity_scale_codec::decode_from_bytes(
 				bytes::Bytes::copy_from_slice(received_data.as_slice()),
 			)
