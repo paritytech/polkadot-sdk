@@ -31,7 +31,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{Inspect, MutateHold},
+		fungible::{Inspect, InspectHold, MutateHold},
 		Get, PollStatus, Polling,
 	},
 };
@@ -105,7 +105,8 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
-		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -432,7 +433,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(who, &class, vote.balance())?;
+				Self::extend_hold(who, &class, vote.balance())?;
 				Ok(())
 			})
 		})
@@ -589,7 +590,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(&who, &class, balance)?;
+				Self::extend_hold(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
@@ -635,7 +636,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_lock(
+	fn extend_hold(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: BalanceOf<T, I>,
@@ -654,8 +655,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-
-		T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, amount)?;
+		if amount > T::Currency::balance_on_hold(&HoldReason::ConvictionVoting.into(), who) {
+			T::Currency::set_on_hold(&HoldReason::ConvictionVoting.into(), who, amount)?;
+		}
 		Ok(())
 	}
 
@@ -686,7 +688,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				frame_support::traits::tokens::Precision::BestEffort,
 			)?;
 		} else {
-			T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, lock_needed)?;
+			T::Currency::set_on_hold(&HoldReason::ConvictionVoting.into(), who, lock_needed)?;
 		}
 		Ok(())
 	}
