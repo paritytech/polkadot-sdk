@@ -315,7 +315,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_lock(&class, &target);
+			Self::update_lock(&class, &target)?;
 			Ok(())
 		}
 
@@ -432,7 +432,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(who, &class, vote.balance());
+				Self::extend_lock(who, &class, vote.balance())?;
 				Ok(())
 			})
 		})
@@ -589,7 +589,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(&who, &class, balance);
+				Self::extend_lock(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
@@ -635,7 +635,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+	fn extend_lock(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: BalanceOf<T, I>,
+	) -> DispatchResult {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),
@@ -651,12 +655,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 		});
 
-		T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, amount);
+		T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, amount)?;
+		Ok(())
 	}
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
-	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
+	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
 		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.locked_balance()
@@ -679,9 +684,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&HoldReason::ConvictionVoting.into(),
 				who,
 				frame_support::traits::tokens::Precision::BestEffort,
-			);
+			)?;
 		} else {
-			T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, lock_needed);
+			T::Currency::hold(&HoldReason::ConvictionVoting.into(), who, lock_needed)?;
 		}
+		Ok(())
 	}
 }
