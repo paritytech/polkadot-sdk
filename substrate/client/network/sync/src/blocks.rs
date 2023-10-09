@@ -215,6 +215,7 @@ impl<B: BlockT> BlockCollection<B> {
 	/// Returns the block header of the first block that is ready for importing.
 	/// `from` is the maximum block number for the start of the range that we are interested in.
 	/// The function will return None if the first block ready is higher than `from`.
+	/// The logic is structured to be consistent with ready_blocks().
 	pub fn first_ready_block_header(&self, from: NumberFor<B>) -> Option<B::Header> {
 		let mut prev = from;
 		for (&start, range_data) in &self.blocks {

@@ -1414,7 +1414,9 @@ where
 			self.blocks.first_ready_block_header(start_block).map_or(false, |hdr| {
 				std::matches!(
 					self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown),
-					BlockStatus::InChainWithState | BlockStatus::Queued
+					BlockStatus::InChainWithState |
+						BlockStatus::InChainPruned |
+						BlockStatus::Queued
 				)
 			});
 
