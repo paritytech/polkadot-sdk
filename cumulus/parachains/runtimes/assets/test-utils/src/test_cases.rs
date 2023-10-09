@@ -144,8 +144,8 @@ pub fn teleports_for_native_asset_works<
 
 			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				Parent,
-				&mut xcm,
-				hash,
+				xcm,
+				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Parent),
 				Weight::zero(),
 			);
@@ -476,8 +476,8 @@ pub fn teleports_for_foreign_assets_works<
 
 			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				foreign_creator,
-				&mut xcm,
-				hash,
+				xcm,
+				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
