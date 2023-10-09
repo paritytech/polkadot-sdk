@@ -343,7 +343,8 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
-/// Returns specified `TreasuryAccount` as `AccountId32` if passed `location` matches Treasury plurality.
+/// Returns specified `TreasuryAccount` as `AccountId32` if passed `location` matches Treasury
+/// plurality.
 pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
 	PhantomData<(TreasuryAccount, AccountId)>,
 );
@@ -351,20 +352,13 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	ConvertLocation<AccountId> for LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-        match *location {
+		match *location {
 			MultiLocation {
 				parents: 0,
 				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
 			} => Some(TreasuryAccount::get().into()),
 			_ => None,
 		}
-			MultiLocation {
-				parents: 0,
-				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} => TreasuryAccount::get().into(),
-			_ => return None,
-		};
-		Some(id.into())
 	}
 }
 
