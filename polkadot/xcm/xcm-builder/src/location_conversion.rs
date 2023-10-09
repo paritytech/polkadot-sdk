@@ -351,7 +351,13 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	ConvertLocation<AccountId> for LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-		let id: [u8; 32] = match *location {
+        match *location {
+			MultiLocation {
+				parents: 0,
+				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			} => Some(TreasuryAccount::get().into()),
+			_ => None,
+		}
 			MultiLocation {
 				parents: 0,
 				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
