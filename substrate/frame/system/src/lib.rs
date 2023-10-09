@@ -213,10 +213,10 @@ pub mod pallet {
 		///
 		/// See `Test` in the `default-config` example pallet's `test.rs` for an example of
 		/// a downstream user of this particular `TestDefaultConfig`
-		pub struct TestDefaultConfig;
+		pub struct SystemTestDefaultConfig;
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
-		impl DefaultConfig for TestDefaultConfig {
+		#[frame_support::register_default_impl(SystemTestDefaultConfig)]
+		impl DefaultConfig for SystemTestDefaultConfig {
 			type Nonce = u32;
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;

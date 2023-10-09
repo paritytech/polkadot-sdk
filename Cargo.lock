@@ -7552,8 +7552,7 @@ dependencies = [
 [[package]]
 name = "macro_magic"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aee866bfee30d2d7e83835a4574aad5b45adba4cc807f2a3bbba974e5d4383c9"
+source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
  "macro_magic_core",
  "macro_magic_macros",
@@ -7564,8 +7563,7 @@ dependencies = [
 [[package]]
 name = "macro_magic_core"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e766a20fd9c72bab3e1e64ed63f36bd08410e75803813df210d1ce297d7ad00"
+source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
  "const-random",
  "derive-syn-parse",
@@ -7578,8 +7576,7 @@ dependencies = [
 [[package]]
 name = "macro_magic_core_macros"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c12469fc165526520dff2807c2975310ab47cf7190a45b99b49a7dc8befab17b"
+source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7589,8 +7586,7 @@ dependencies = [
 [[package]]
 name = "macro_magic_macros"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8fb85ec1620619edf2984a7693497d4ec88a9665d8b87e942856884c92dbf2a"
+source = "git+https://github.com/gupnik/macro_magic?branch=verbatim_export#b358fa6a18e38559f753a34ece49e0a2cd6ab6bd"
 dependencies = [
  "macro_magic_core",
  "quote",
