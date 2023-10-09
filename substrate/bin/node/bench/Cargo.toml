@@ -13,7 +13,7 @@ publish = false
 
 [dependencies]
 array-bytes = "6.1"
-clap = { version = "4.4.4", features = ["derive"] }
+clap = { version = "4.4.6", features = ["derive"] }
 log = "0.4.17"
 node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
