@@ -13,6 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Universally recognized accounts.
+pub mod account {
+	use frame_support::PalletId;
+
+	/// Westend treasury pallet id, used to convert into AccountId
+	pub const WESTEND_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+	/// Alliance pallet ID.
+	/// It is used as a temporarily place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	pub const ALLIANCE_PALLET_ID: PalletId = PalletId(*b"py/allia");
+	/// Referenda pallet ID.
+	/// It is used as a temporarily place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
+	/// Ambassador Referenda pallet ID.
+	/// It is used as a temporarily place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
+}
+
 pub mod currency {
 	use polkadot_core_primitives::Balance;
 	use westend_runtime_constants as constants;
@@ -21,6 +41,7 @@ pub mod currency {
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
 	pub const UNITS: Balance = constants::currency::UNITS;
+	pub const DOLLARS: Balance = UNITS; // 10_000_000_000
 	pub const CENTS: Balance = constants::currency::CENTS;
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 	pub const GRAND: Balance = constants::currency::GRAND;

@@ -41,8 +41,8 @@ use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
 parameter_types! {
-	pub const DotLocation: MultiLocation = MultiLocation::parent();
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
+	pub const WndLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
@@ -55,9 +55,9 @@ parameter_types! {
 		location: AssetHub::get(),
 		asset_id: AssetHubUsdtId::get(),
 	};
-	pub DotAssetHub: LocatableAssetId = LocatableAssetId {
+	pub WndAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
-		asset_id: DotLocation::get().into(),
+		asset_id: WndLocation::get().into(),
 	};
 }
 
@@ -78,7 +78,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<DotLocation>,
+	IsConcrete<WndLocation>,
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -246,16 +246,16 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = CurrencyTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Collectives does not recognize a reserve location for any asset. Users must teleport DOT
+	// Collectives does not recognize a reserve location for any asset. Users must teleport WND
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of DOT.
-	type IsTeleporter = ConcreteNativeAssetFrom<DotLocation>;
+	/// Only allow teleportation of WND.
+	type IsTeleporter = ConcreteNativeAssetFrom<WndLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<TempFixedXcmWeight, RuntimeCall, MaxInstructions>;
 	type Trader =
-		UsingComponents<WeightToFee, DotLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+		UsingComponents<WeightToFee, WndLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;

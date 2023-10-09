@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The Polkadot Technical Fellowship.
+//! The Westend Technical Fellowship.
 
 pub(crate) mod migration;
 mod origins;
@@ -23,8 +23,8 @@ use crate::{
 	impls::ToParentTreasury,
 	weights,
 	xcm_config::{FellowshipAdminBodyId, UsdtAssetHub},
-	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, PolkadotTreasuryAccount,
-	Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
+	AccountId, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
 };
 use frame_support::{
 	parameter_types,
@@ -91,7 +91,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<PolkadotTreasuryAccount, ReferendaPalletAccount, Runtime>;
+	type Slash = ToParentTreasury<WestendTreasuryAccount, ReferendaPalletAccount, Runtime>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;

@@ -15,13 +15,13 @@
 
 //! # Collectives Parachain
 //!
-//! This parachain is for collectives that serve the Polkadot network.
+//! This parachain is for collectives that serve the Westend network.
 //! Each collective is defined by a specialized (possibly instanced) pallet.
 //!
 //! ### Governance
 //!
 //! As a system parachain, Collectives defers its governance (namely, its `Root` origin), to
-//! its Relay Chain parent, Polkadot.
+//! its Relay Chain parent, Westend.
 //!
 //! ### Collator Selection
 //!
@@ -84,7 +84,7 @@ use frame_system::{
 pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees,
-	polkadot::{account::*, consensus::*, currency::*, fee::WeightToFee},
+	westend::{account::*, consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
 	SLOT_DURATION,
@@ -501,11 +501,11 @@ pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;
 pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
-	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 DOT bond to join as an Ally
+	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
 	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
 	// before the teleport to the Treasury.
 	pub AlliancePalletAccount: AccountId = ALLIANCE_PALLET_ID.into_account_truncating();
-	pub PolkadotTreasuryAccount: AccountId = POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
+	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -518,7 +518,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<PolkadotTreasuryAccount, AlliancePalletAccount, Runtime>;
+	type Slashed = ToParentTreasury<WestendTreasuryAccount, AlliancePalletAccount, Runtime>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;

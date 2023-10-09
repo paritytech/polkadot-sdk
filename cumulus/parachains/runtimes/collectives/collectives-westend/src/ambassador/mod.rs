@@ -32,7 +32,7 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::xcm_config::{DotAssetHub, FellowshipAdminBodyId};
+use crate::xcm_config::{FellowshipAdminBodyId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
 pub use origins::pallet_origins as pallet_ambassador_origins;
 use origins::pallet_origins::{
@@ -135,7 +135,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
-	type Slash = ToParentTreasury<PolkadotTreasuryAccount, AmbassadorPalletAccount, Runtime>;
+	type Slash = ToParentTreasury<WestendTreasuryAccount, AmbassadorPalletAccount, Runtime>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, AmbassadorCollectiveInstance>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -215,7 +215,7 @@ parameter_types! {
 	pub AmbassadorSalaryLocation: InteriorMultiLocation = PalletInstance(74).into();
 }
 
-/// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in DOT.
+/// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.
 pub type AmbassadorSalaryPaymaster = PayOverXcm<
 	AmbassadorSalaryLocation,
 	crate::xcm_config::XcmRouter,
@@ -223,7 +223,7 @@ pub type AmbassadorSalaryPaymaster = PayOverXcm<
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,
 	(),
-	ConvertToValue<DotAssetHub>,
+	ConvertToValue<WndAssetHub>,
 	AliasesIntoAccountId32<(), AccountId>,
 >;
 
