@@ -87,7 +87,7 @@ test-rust-features-zepter:
     - .kubernetes-env
     - .test-pr-refs
   script:
-    - cargo install --locked --version 0.13 -q -f zepter && zepter --version
+    - cargo install --locked --version 0.13.0 -q -f zepter && zepter --version
     - zepter run check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
