@@ -351,7 +351,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl $chain {
-				/// A root origin (as governance) sends `xcm::Transact` with encoded `call` to child parachain.
+				/// A root origin (as governance) sends `xcm::Transact` with `UnpaidExecution` and encoded `call` to child parachain.
 				pub fn send_transact_to_parachain(
 					origin_kind: $crate::impls::OriginKind,
 					recipient: $crate::impls::ParaId,

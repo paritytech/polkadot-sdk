@@ -48,11 +48,7 @@ fn relay_sets_system_para_xcm_supported_version() {
 fn system_para_sets_relay_xcm_supported_version() {
 	// Init test variables
 	let parent_location = AssetHubWestend::parent_location();
-
-	// System Parachain sets supported version for Relay Chain through it
-	Westend::send_transact_to_parachain(
-		OriginKind::Superuser,
-		AssetHubWestend::para_id(),
+	let force_xcm_version_call =
 		<AssetHubWestend as Chain>::RuntimeCall::PolkadotXcm(pallet_xcm::Call::<
 			<AssetHubWestend as Chain>::Runtime,
 		>::force_xcm_version {
@@ -60,7 +56,13 @@ fn system_para_sets_relay_xcm_supported_version() {
 			version: XCM_V3,
 		})
 		.encode()
-		.into(),
+		.into();
+
+	// System Parachain sets supported version for Relay Chain through it
+	Westend::send_transact_to_parachain(
+		OriginKind::Superuser,
+		AssetHubWestend::para_id(),
+		force_xcm_version_call,
 	);
 
 	// System Parachain receive the XCM message
