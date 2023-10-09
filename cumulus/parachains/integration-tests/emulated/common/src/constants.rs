@@ -70,10 +70,6 @@ pub mod accounts {
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
 
-	pub fn get_treasury_address() -> AccountId {
-		PalletId(*b"py/trsry").into_account_truncating()
-	}
-
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![
 			get_account_id_from_seed::<sr25519::Public>(ALICE),
@@ -88,7 +84,6 @@ pub mod accounts {
 			get_account_id_from_seed::<sr25519::Public>(DAVE_STASH),
 			get_account_id_from_seed::<sr25519::Public>(EVE_STASH),
 			get_account_id_from_seed::<sr25519::Public>(FERDIE_STASH),
-			get_treasury_address(),
 		]
 	}
 }
