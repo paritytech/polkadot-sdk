@@ -119,8 +119,8 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		AssetHubWestend::assert_xcmp_queue_success(Some(Weight::from_parts(
-			2_176_414_000,
-			203_593,
+			16_290_336_000,
+			562_893,
 		)));
 
 		assert_expected_events!(
