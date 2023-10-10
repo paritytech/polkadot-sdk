@@ -33,14 +33,19 @@ pub const DEFAULT_LOGICAL_STACK_MAX: u32 = 65536;
 /// Default maximum number of bytes devoted for the stack during execution of a PVF.
 pub const DEFAULT_NATIVE_STACK_MAX: u32 = 256 * 1024 * 1024;
 
-const MEMORY_PAGES_MAX: u32 = 65536;
-const LOGICAL_MAX_LO: u32 = 1024;
-const LOGICAL_MAX_HI: u32 = 2 * 65536;
-const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
-const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
+/// The limit of [`ExecutorParam::MaxMemoryPages`].
+pub const MEMORY_PAGES_MAX: u32 = 65536;
+/// The lower bound of [`ExecutorParam::StackLogicalMax`].
+pub const LOGICAL_MAX_LO: u32 = 1024;
+/// The upper bound of [`ExecutorParam::StackLogicalMax`].
+pub const LOGICAL_MAX_HI: u32 = 2 * 65536;
+/// The lower bound of [`ExecutorParam::PrecheckingMaxMemory`].
+pub const PRECHECK_MEM_MAX_LO: u64 = 256 * 1024 * 1024;
+/// The upper bound of [`ExecutorParam::PrecheckingMaxMemory`].
+pub const PRECHECK_MEM_MAX_HI: u64 = 16 * 1024 * 1024 * 1024;
 
 // Default PVF timeouts. Must never be changed! Use executor environment parameters to adjust them.
-// See also `PvfTimeoutKind` docs.
+// See also `PvfPrepTimeoutKind` and `PvfExecTimeoutKind` docs.
 
 /// Default PVF preparation timeout for prechecking requests.
 pub const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
@@ -68,27 +73,36 @@ pub enum ExecutorParam {
 	#[codec(index = 1)]
 	MaxMemoryPages(u32),
 	/// Wasm logical stack size limit (max. number of Wasm values on stack).
-	/// A valid value lies within [1024, 2 * 65536].
+	/// A valid value lies within [[`LOGICAL_MAX_LO`], [`LOGICAL_MAX_HI`]].
+	///
+	/// For WebAssembly, the stack limit is subject to implementations, meaning that it may vary on
+	/// different platforms. However, we want execution to be deterministic across machines of
+	/// different architectures, including failures like stack overflow. For deterministic
+	/// overflow, we rely on a **logical** limit, the maximum number of values allowed to be pushed
+	/// on the stack.
 	#[codec(index = 2)]
 	StackLogicalMax(u32),
 	/// Executor machine stack size limit, in bytes.
 	/// If `StackLogicalMax` is also present, a valid value should not fall below
-	/// 128 * `logical_max`.
+	/// 128 * `StackLogicalMax`.
+	///
+	/// For deterministic overflow, `StackLogicalMax` should be reached before the native stack is
+	/// exhausted.
 	#[codec(index = 3)]
 	StackNativeMax(u32),
 	/// Max. amount of memory the preparation worker is allowed to use during
 	/// pre-checking, in bytes.
-	/// Valid max. memory ranges from 256MB to 16GB.
+	/// Valid max. memory ranges from [`PRECHECK_MEM_MAX_LO`] to [`PRECHECK_MEM_MAX_HI`].
 	#[codec(index = 4)]
 	PrecheckingMaxMemory(u64),
 	/// PVF preparation timeouts, in millisecond.
 	/// Always ensure that `precheck_timeout` < `lenient_timeout`.
-	/// If not set, the default values will be used, 60,000 and 360,000 respectively.
+	/// When absent, the default values will be used.
 	#[codec(index = 5)]
 	PvfPrepTimeout(PvfPrepTimeoutKind, u64),
 	/// PVF execution timeouts, in millisecond.
 	/// Always ensure that `backing_timeout` < `approval_timeout`.
-	/// If not set, the default values will be used, 2,000 and 12,000 respectively.
+	/// When absent, the default values will be used.
 	#[codec(index = 6)]
 	PvfExecTimeout(PvfExecTimeoutKind, u64),
 	/// Enables WASM bulk memory proposal
@@ -102,7 +116,7 @@ pub enum ExecutorParamError {
 	/// A param is duplicated.
 	DuplicatedParam(&'static str),
 	/// A param value exceeds its limitation.
-	LimitExceeded(&'static str),
+	OutsideLimit(&'static str),
 	/// Two param values are incompatible or senseless when put together.
 	IncompatibleValues(&'static str, &'static str),
 }
@@ -204,7 +218,7 @@ impl ExecutorParams {
 					return Err(DuplicatedParam($param))
 				}
 				if $out_of_limit {
-					return Err(LimitExceeded($param))
+					return Err(OutsideLimit($param))
 				}
 				seen.insert($param, $val as u64);
 			};
