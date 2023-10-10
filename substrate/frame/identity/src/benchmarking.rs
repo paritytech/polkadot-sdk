@@ -127,7 +127,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn add_registrar(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
+	fn add_registrar(r: Linear<1, { T::MaxRegistrars::get() - 1 }>) -> Result<(), BenchmarkError> {
 		add_registrars::<T>(r)?;
 		ensure!(Registrars::<T>::get().len() as u32 == r, "Registrars not set up correctly.");
 		let origin =
