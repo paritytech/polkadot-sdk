@@ -54,9 +54,9 @@ pub mod ecdsa_n_bls377 {
 	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN>;
 	/// (ECDSA, BLS12-377) public key pair.
-	pub type Public = super::Public<ecdsa::Public, bls377::Public, PUBLIC_KEY_LEN>;
+	pub type Public = super::Public<PUBLIC_KEY_LEN>;
 	/// (ECDSA, BLS12-377) signature pair.
-	pub type Signature = super::Signature<ecdsa::Signature, bls377::Signature, SIGNATURE_LEN>;
+	pub type Signature = super::Signature<SIGNATURE_LEN>;
 
 	impl super::CryptoType for Public {
 		#[cfg(feature = "full_crypto")]
@@ -87,87 +87,56 @@ const SECURE_SEED_LEN: usize = 32;
 type Seed = [u8; SECURE_SEED_LEN];
 
 /// A public key.
-#[derive(Clone, Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-#[scale_info(skip_type_params(LeftPublic, RightPublic))]
-pub struct Public<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> {
-	#[codec(skip)]
-	left: LeftPublic,
-	#[codec(skip)]
-	right: RightPublic,
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Public<const LEFT_PLUS_RIGHT_LEN: usize> {
 	inner: [u8; LEFT_PLUS_RIGHT_LEN],
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> Decode
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
-	fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
-		let buf = <[u8; LEFT_PLUS_RIGHT_LEN]>::decode(i)?;
-		buf.as_slice()
-			.try_into()
-			.map_err(|_| codec::Error::from("invalid public key data"))
-	}
-}
-
 #[cfg(feature = "full_crypto")]
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Public<LEFT_PLUS_RIGHT_LEN> {
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state);
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> ByteArray
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> ByteArray for Public<LEFT_PLUS_RIGHT_LEN> {
 	const LEN: usize = LEFT_PLUS_RIGHT_LEN;
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> TryFrom<&[u8]>
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> TryFrom<&[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
 	type Error = ();
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != LEFT_PLUS_RIGHT_LEN {
 			return Err(())
 		}
-		let left: LeftPublic = data[0..LeftPublic::LEN].try_into()?;
-		let right: RightPublic = data[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN].try_into()?;
-
 		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
 		inner.copy_from_slice(data);
-		Ok(Public { left, right, inner })
+		Ok(Public { inner })
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize>
-	AsRef<[u8; LEFT_PLUS_RIGHT_LEN]> for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8; LEFT_PLUS_RIGHT_LEN]>
+	for Public<LEFT_PLUS_RIGHT_LEN>
 {
 	fn as_ref(&self) -> &[u8; LEFT_PLUS_RIGHT_LEN] {
 		&self.inner
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8]>
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
 	fn as_ref(&self) -> &[u8] {
 		&self.inner[..]
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> AsMut<[u8]>
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsMut<[u8]> for Public<LEFT_PLUS_RIGHT_LEN> {
 	fn as_mut(&mut self) -> &mut [u8] {
 		&mut self.inner[..]
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> PassByInner
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> PassByInner for Public<LEFT_PLUS_RIGHT_LEN> {
 	type Inner = [u8; LEFT_PLUS_RIGHT_LEN];
 
 	fn into_inner(self) -> Self::Inner {
@@ -179,15 +148,7 @@ impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize
 	}
 
 	fn from_inner(inner: Self::Inner) -> Self {
-		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN);
-		let left: LeftPublic = LeftPublic::try_from(&inner[0..LeftPublic::LEN])
-			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
-		let right: RightPublic = RightPublic::try_from(
-			&inner[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN],
-		)
-		.expect("we assume LEFT_PLUS_RIGHT_LEN = LeftPublic::LEN + RightPublic::LEN. Q.E.D");
-
-		Self { left, right, inner }
+		Self { inner }
 	}
 }
 
@@ -195,52 +156,40 @@ impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
-		LeftPublic: PublicT,
-		RightPublic: PublicT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		const SIGNATURE_LEN: usize,
 	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>>
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_PUBLIC_LEN>
+	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN>
 where
 	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>:
-		PairT<Public = Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_PUBLIC_LEN>>,
+		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN>>,
 {
 	fn from(x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>) -> Self {
 		x.public()
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize>
-	UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]> for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
+	for Public<LEFT_PLUS_RIGHT_LEN>
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN);
-		let left: LeftPublic = data[0..LeftPublic::LEN]
-			.try_into()
-			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
-		let right: RightPublic = data[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN]
-			.try_into()
-			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
-
-		Public { left, right, inner: data }
+		Public { inner: data }
 	}
 }
 
 #[cfg(feature = "std")]
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> std::fmt::Display
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> std::fmt::Display for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
@@ -256,10 +205,9 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> Serialize
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -270,10 +218,9 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize>
-	Deserialize<'de> for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize> Deserialize<'de> for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -284,17 +231,12 @@ where
 	}
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> PublicT
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-where
-	Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>: CryptoType,
+impl<const LEFT_PLUS_RIGHT_LEN: usize> PublicT for Public<LEFT_PLUS_RIGHT_LEN> where
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType
 {
 }
 
-impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize> Derive
-	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
-{
-}
+impl<const LEFT_PLUS_RIGHT_LEN: usize> Derive for Public<LEFT_PLUS_RIGHT_LEN> {}
 
 /// Trait characterizing a signature which could be used as individual component of an
 /// `paired_crypto:Signature` pair.
@@ -303,120 +245,57 @@ pub trait SignatureBound: ByteArray {}
 impl<T: ByteArray> SignatureBound for T {}
 
 /// A pair of signatures of different types
-#[derive(Encode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
-#[scale_info(skip_type_params(LeftSignature, RightSignature))]
-pub struct Signature<
-	LeftSignature: SignatureBound,
-	RightSignature: SignatureBound,
-	const LEFT_PLUS_RIGHT_LEN: usize,
-> {
-	#[codec(skip)]
-	left: LeftSignature,
-	#[codec(skip)]
-	right: RightSignature,
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+pub struct Signature<const LEFT_PLUS_RIGHT_LEN: usize> {
 	inner: [u8; LEFT_PLUS_RIGHT_LEN],
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> Decode for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
-	fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
-		let buf = <[u8; LEFT_PLUS_RIGHT_LEN]>::decode(i)?;
-		buf.as_slice()
-			.try_into()
-			.map_err(|_| codec::Error::from("invalid signature data"))
-	}
-}
-
 #[cfg(feature = "full_crypto")]
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> sp_std::hash::Hash for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Signature<LEFT_PLUS_RIGHT_LEN> {
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state);
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> ByteArray for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> ByteArray for Signature<LEFT_PLUS_RIGHT_LEN> {
 	const LEN: usize = LEFT_PLUS_RIGHT_LEN;
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> TryFrom<&[u8]> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> TryFrom<&[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
 	type Error = ();
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != LEFT_PLUS_RIGHT_LEN {
 			return Err(())
 		}
-		let left: LeftSignature = data[0..LeftSignature::LEN].try_into().map_err(|_| ())?;
-		let right: RightSignature =
-			data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().map_err(|_| ())?;
-
 		let mut inner = [0u8; LEFT_PLUS_RIGHT_LEN];
-		inner[..LeftSignature::LEN].copy_from_slice(left.as_ref());
-		inner[LeftSignature::LEN..].copy_from_slice(right.as_ref());
-
-		Ok(Signature { left, right, inner })
+		inner.copy_from_slice(data);
+		Ok(Signature { inner })
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> AsMut<[u8]> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsMut<[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
 	fn as_mut(&mut self) -> &mut [u8] {
 		&mut self.inner[..]
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> AsRef<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8; LEFT_PLUS_RIGHT_LEN]>
+	for Signature<LEFT_PLUS_RIGHT_LEN>
 {
 	fn as_ref(&self) -> &[u8; LEFT_PLUS_RIGHT_LEN] {
 		&self.inner
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> AsRef<[u8]> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> AsRef<[u8]> for Signature<LEFT_PLUS_RIGHT_LEN> {
 	fn as_ref(&self) -> &[u8] {
 		&self.inner[..]
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> Serialize for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Signature<LEFT_PLUS_RIGHT_LEN> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -426,48 +305,28 @@ impl<
 }
 
 #[cfg(feature = "serde")]
-impl<
-		'de,
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> Deserialize<'de> for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
-{
+impl<'de, const LEFT_PLUS_RIGHT_LEN: usize> Deserialize<'de> for Signature<LEFT_PLUS_RIGHT_LEN> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
 		let bytes = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
 			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>::try_from(bytes.as_ref())
-			.map_err(|e| {
-				de::Error::custom(format!(
-					"Error converting deserialized data into signature: {:?}",
-					e
-				))
-			})
+		Signature::<LEFT_PLUS_RIGHT_LEN>::try_from(bytes.as_ref()).map_err(|e| {
+			de::Error::custom(format!("Error converting deserialized data into signature: {:?}", e))
+		})
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> From<Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> From<Signature<LEFT_PLUS_RIGHT_LEN>>
 	for [u8; LEFT_PLUS_RIGHT_LEN]
 {
-	fn from(
-		signature: Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>,
-	) -> [u8; LEFT_PLUS_RIGHT_LEN] {
+	fn from(signature: Signature<LEFT_PLUS_RIGHT_LEN>) -> [u8; LEFT_PLUS_RIGHT_LEN] {
 		signature.inner
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> sp_std::fmt::Debug for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN>
 where
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
@@ -482,24 +341,11 @@ where
 	}
 }
 
-impl<
-		LeftSignature: SignatureBound,
-		RightSignature: SignatureBound,
-		const LEFT_PLUS_RIGHT_LEN: usize,
-	> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
-	for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
+	for Signature<LEFT_PLUS_RIGHT_LEN>
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN);
-
-		let left = data[0..LeftSignature::LEN].try_into().expect(
-			"we assume LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN. Q.E.D",
-		);
-		let right = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().expect(
-			"we assume LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN. Q.E.D",
-		);
-
-		Signature { left, right, inner: data }
+		Signature { inner: data }
 	}
 }
 
@@ -527,13 +373,13 @@ where
 	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType,
 	LeftPair::Signature: SignatureBound,
 	RightPair::Signature: SignatureBound,
-	Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>: CryptoType,
+	Public<PUBLIC_KEY_LEN>: CryptoType,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
-	type Public = Public<LeftPair::Public, RightPair::Public, PUBLIC_KEY_LEN>;
-	type Signature = Signature<LeftPair::Signature, RightPair::Signature, SIGNATURE_LEN>;
+	type Public = Public<PUBLIC_KEY_LEN>;
+	type Signature = Signature<SIGNATURE_LEN>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -592,8 +438,30 @@ where
 	}
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {
-		LeftPair::verify(&sig.left, message.as_ref(), &pubkey.left) &&
-			RightPair::verify(&sig.right, message.as_ref(), &pubkey.right)
+		let left_pub: LeftPair::Public = match pubkey.inner[0..LeftPair::Public::LEN].try_into() {
+			Ok(pk) => pk,
+			Err(_) => return false,
+		};
+		let right_pub: RightPair::Public =
+			match pubkey.inner[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into() {
+				Ok(pk) => pk,
+				Err(_) => return false,
+			};
+
+		let left_sig: LeftPair::Signature = match sig.inner[0..LeftPair::Signature::LEN].try_into()
+		{
+			Ok(sig) => sig,
+			Err(_) => return false,
+		};
+
+		let right_sig: RightPair::Signature = match sig.inner[LeftPair::Signature::LEN..].try_into()
+		{
+			Ok(sig) => sig,
+			Err(_) => return false,
+		};
+
+		LeftPair::verify(&left_sig, message.as_ref(), &left_pub) &&
+			RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}
 
 	/// Get the seed/secret key for each key and then concatenate them.
