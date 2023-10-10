@@ -553,9 +553,6 @@ pub mod pallet {
 		Unannounced,
 		/// Cannot add self as proxy.
 		NoSelfProxy,
-		/// More than [`MAX_HASH_UPGRADE_BULK_COUNT`] hashes were requested to be upgraded at
-		/// once.
-		UpgradeCountExceedsMax,
 	}
 
 	// WIP: Playing with the idea of overriding the default value of the storage item.
