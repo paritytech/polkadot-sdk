@@ -864,7 +864,12 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
 	// internally wrap macro_magic's `#[export_tokens]` macro
-	match macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), true) {
+	match macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		true,
+		true,
+	) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -1565,7 +1570,7 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	let _mod = parse_macro_input!(tokens_clone as ItemMod);
 
 	// use macro_magic's export_tokens as the internal implementation otherwise
-	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false) {
+	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false, true) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
