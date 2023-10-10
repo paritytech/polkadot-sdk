@@ -26,7 +26,7 @@ use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;
-const TOP_UP: u32 = 1000000000000;
+const TOP_UP: u32 = 1000000000;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
