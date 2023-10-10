@@ -82,9 +82,6 @@ pub use benchmarking::ArgumentsFactory;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-#[cfg(any(feature = "try-runtime", test))]
-use sp_runtime::traits::SaturatedConversion;
-
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
@@ -1055,6 +1052,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Note, that this automatically implies Approvals.count() <= Proposals.count().
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::traits::SaturatedConversion;
+		
 		let current_proposal_count = ProposalCount::<T, I>::get();
 		ensure!(
 			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
