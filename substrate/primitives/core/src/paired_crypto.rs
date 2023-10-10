@@ -17,11 +17,11 @@
 
 //! API for using a pair of crypto schemes together.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as PublicT, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringError};
 
 #[cfg(feature = "full_crypto")]
 use sp_std::vec::Vec;
@@ -193,8 +193,8 @@ impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize
 
 #[cfg(feature = "full_crypto")]
 impl<
-		LeftPair: TraitPair,
-		RightPair: TraitPair,
+		LeftPair: PairT,
+		RightPair: PairT,
 		LeftPublic: PublicT,
 		RightPublic: PublicT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
@@ -203,7 +203,7 @@ impl<
 	for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_PUBLIC_LEN>
 where
 	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>:
-		TraitPair<Public = Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_PUBLIC_LEN>>,
+		PairT<Public = Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_PUBLIC_LEN>>,
 {
 	fn from(x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN>) -> Self {
 		x.public()
@@ -409,7 +409,8 @@ impl<
 		&self.inner[..]
 	}
 }
-#[cfg(feature = "std")]
+
+#[cfg(feature = "serde")]
 impl<
 		LeftSignature: SignatureBound,
 		RightSignature: SignatureBound,
@@ -436,17 +437,15 @@ impl<
 	where
 		D: Deserializer<'de>,
 	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
+		let bytes = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
 			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>::try_from(
-			signature_hex.as_ref(),
-		)
-		.map_err(|e| {
-			de::Error::custom(format!(
-				"Error in converting deserialized data into signature: {:?}",
-				e
-			))
-		})
+		Signature::<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>::try_from(bytes.as_ref())
+			.map_err(|e| {
+				de::Error::custom(format!(
+					"Error converting deserialized data into signature: {:?}",
+					e
+				))
+			})
 	}
 }
 
@@ -508,8 +507,8 @@ impl<
 #[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair<
-	LeftPair: TraitPair,
-	RightPair: TraitPair,
+	LeftPair: PairT,
+	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
 > {
@@ -519,11 +518,11 @@ pub struct Pair<
 
 #[cfg(feature = "full_crypto")]
 impl<
-		LeftPair: TraitPair,
-		RightPair: TraitPair,
+		LeftPair: PairT,
+		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-	> TraitPair for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
 where
 	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType,
 	LeftPair::Signature: SignatureBound,
@@ -553,13 +552,13 @@ where
 		let (left_seed_option, right_seed_option) = match seed {
 			Some(seed) => {
 				let (left_seed, right_seed): (LeftPair::Seed, RightPair::Seed) =
-					(seed.clone().into(), seed.into());
+					(seed.into(), seed.into());
 				(Some(left_seed), Some(right_seed))
 			},
 			None => (None, None),
 		};
 
-		let left_path: Vec<_> = path.map(|p| p.clone()).collect();
+		let left_path: Vec<_> = path.collect();
 		let right_path = left_path.clone();
 		let derived_left = self.left.derive(left_path.into_iter(), left_seed_option)?;
 		let derived_right = self.right.derive(right_path.into_iter(), right_seed_option)?;
@@ -593,16 +592,15 @@ where
 	}
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {
-		let mut vec_message = vec![0u8; message.as_ref().len()];
-		vec_message.clone_from_slice(message.as_ref());
-
-		LeftPair::verify(&sig.left, message, &pubkey.left) &&
-			RightPair::verify(&sig.right, vec_message, &pubkey.right)
+		LeftPair::verify(&sig.left, message.as_ref(), &pubkey.left) &&
+			RightPair::verify(&sig.right, message.as_ref(), &pubkey.right)
 	}
 
 	/// Get the seed/secret key for each key and then concatenate them.
 	fn to_raw_vec(&self) -> Vec<u8> {
-		[self.left.to_raw_vec(), self.right.to_raw_vec()].concat()
+		let mut raw = self.left.to_raw_vec();
+		raw.extend(self.right.to_raw_vec());
+		raw
 	}
 }
 

@@ -53,7 +53,7 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
 /// The byte length of public key
 pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 
-/// The byte length of public key
+/// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 /// A secret seed (which is bytewise essentially equivalent to a SecretKey).
