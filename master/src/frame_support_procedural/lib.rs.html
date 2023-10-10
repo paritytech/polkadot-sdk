@@ -1648,6 +1648,11 @@
 <a href="#1648" id="1648">1648</a>
 <a href="#1649" id="1649">1649</a>
 <a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2514,7 +2519,12 @@
 	</span><span class="kw">let </span>item_impl = <span class="macro">syn::parse_macro_input!</span>(tokens <span class="kw">as </span>ItemImpl);
 
 	<span class="comment">// internally wrap macro_magic&#39;s `#[export_tokens]` macro
-	</span><span class="kw">match </span>macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), <span class="bool-val">true</span>) {
+	</span><span class="kw">match </span>macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		<span class="bool-val">true</span>,
+		<span class="bool-val">true</span>,
+	) {
 		<span class="prelude-val">Ok</span>(tokens) =&gt; tokens.into(),
 		<span class="prelude-val">Err</span>(err) =&gt; err.to_compile_error().into(),
 	}
@@ -3215,7 +3225,7 @@
 	</span><span class="kw">let </span>_mod = <span class="macro">parse_macro_input!</span>(tokens_clone <span class="kw">as </span>ItemMod);
 
 	<span class="comment">// use macro_magic&#39;s export_tokens as the internal implementation otherwise
-	</span><span class="kw">match </span>macro_magic::mm_core::export_tokens_internal(attr, tokens, <span class="bool-val">false</span>) {
+	</span><span class="kw">match </span>macro_magic::mm_core::export_tokens_internal(attr, tokens, <span class="bool-val">false</span>, <span class="bool-val">true</span>) {
 		<span class="prelude-val">Ok</span>(tokens) =&gt; tokens.into(),
 		<span class="prelude-val">Err</span>(err) =&gt; err.to_compile_error().into(),
 	}
