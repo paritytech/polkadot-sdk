@@ -93,6 +93,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"devhub",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",

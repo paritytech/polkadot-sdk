@@ -4275,6 +4275,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "devhub"
+version = "1.0.0"
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
