@@ -401,6 +401,8 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
 }
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
@@ -442,9 +444,13 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
