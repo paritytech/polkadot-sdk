@@ -211,6 +211,7 @@
 mod expand;
 mod parse;
 
+use crate::pallet::parse::helper::two128_str;
 use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
 	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
@@ -403,17 +404,19 @@ fn construct_runtime_final_expansion(
 	let integrity_test = decl_integrity_test(&scrate);
 	let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
-	let warning =
-		where_section.map_or(None, |where_section| {
-			Some(proc_macro_warning::Warning::new_deprecated("WhereSection")
-			.old("use a `where` clause in `construct_runtime`")
-			.new("use `frame_system::Config` to set the `Block` type and delete this clause. 
-				It is planned to be removed in December 2023")
-			.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
-			.span(where_section.span)
-			.build(),
+	let warning = where_section.map_or(None, |where_section| {
+		Some(
+			proc_macro_warning::Warning::new_deprecated("WhereSection")
+				.old("use a `where` clause in `construct_runtime`")
+				.new(
+					"use `frame_system::Config` to set the `Block` type and delete this clause.
+				It is planned to be removed in December 2023",
+				)
+				.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
+				.span(where_section.span)
+				.build(),
 		)
-		});
+	});
 
 	let res = quote!(
 		#warning
@@ -659,7 +662,6 @@ fn decl_all_pallets<'a>(
 		#( #all_pallets_reversed_with_system_first )*
 	)
 }
-
 fn decl_pallet_runtime_setup(
 	runtime: &Ident,
 	pallet_declarations: &[Pallet],
@@ -667,6 +669,7 @@ fn decl_pallet_runtime_setup(
 ) -> TokenStream2 {
 	let names = pallet_declarations.iter().map(|d| &d.name).collect::<Vec<_>>();
 	let name_strings = pallet_declarations.iter().map(|d| d.name.to_string());
+	let name_hashes = pallet_declarations.iter().map(|d| two128_str(&d.name.to_string()));
 	let module_names = pallet_declarations.iter().map(|d| d.path.module_name());
 	let indices = pallet_declarations.iter().map(|pallet| pallet.index as usize);
 	let pallet_structs = pallet_declarations
@@ -699,6 +702,7 @@ fn decl_pallet_runtime_setup(
 		pub struct PalletInfo;
 
 		impl #scrate::traits::PalletInfo for PalletInfo {
+
 			fn index<P: 'static>() -> Option<usize> {
 				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(
@@ -717,6 +721,18 @@ fn decl_pallet_runtime_setup(
 					#pallet_attrs
 					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
 						return Some(#name_strings)
+					}
+				)*
+
+				None
+			}
+
+			fn name_hash<P: 'static>() -> Option<[u8; 16]> {
+				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				#(
+					#pallet_attrs
+					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+						return Some(#name_hashes)
 					}
 				)*
 
