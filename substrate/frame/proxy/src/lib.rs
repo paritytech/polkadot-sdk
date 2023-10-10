@@ -338,11 +338,6 @@ pub mod pallet {
 
 			let (_, ticket) = Proxies::<T>::take(&who);
 			let _ = ticket.drop(&who);
-			// if let Some(ticket) = ticket {
-			// 	let _ = ticket.drop(&who);
-			// } else {
-			// 	defensive!("`kill_pure` called on an account that has no ticket");
-			// }
 
 			Ok(())
 		}
