@@ -228,6 +228,7 @@ impl_runtime_apis! {
 pub mod interface {
 	use super::*;
 
+	pub type Block = Block;
 	pub type OpaqueBlock = frame::runtime::types_common::OpaqueBlockOf<Runtime>;
 	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 	pub type Nonce = <Runtime as frame_system::Config>::Nonce;

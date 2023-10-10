@@ -573,12 +573,13 @@ impl_runtime_apis! {
 		}
 	}
 
+	//
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
+		fn create_default_config(param: Vec<u8>) -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+		fn build_config(config: Vec<u8>, param: Vec<u8>) -> sp_genesis_builder::Result {
 			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
