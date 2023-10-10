@@ -41,6 +41,7 @@ sp_api::decl_runtime_apis! {
 		/// This function instantiates the default `GenesisConfig` struct for the runtime and serializes it into a JSON
 		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `GenesisConfig`.
 		fn create_default_config() -> sp_std::vec::Vec<u8>;
+		fn create_default_config2(params: sp_std::vec::Vec<u8>) -> sp_std::vec::Vec<u8>;
 
 		/// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage.
 		///
