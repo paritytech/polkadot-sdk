@@ -88,6 +88,9 @@
     "fellows": [],
     "allies": []
   },
+  "mixnet": {
+    "mixnodes": []
+  },
   "nominationPools": {
     "minJoinBond": 0,
     "minCreateBond": 0,
