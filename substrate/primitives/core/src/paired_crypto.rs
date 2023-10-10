@@ -179,8 +179,13 @@ impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize
 	}
 
 	fn from_inner(inner: Self::Inner) -> Self {
-		let left: LeftPublic = inner[0..LeftPublic::LEN].try_into().unwrap();
-		let right: RightPublic = inner[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN].try_into().unwrap();
+		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN);
+		let left: LeftPublic = LeftPublic::try_from(&inner[0..LeftPublic::LEN])
+			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
+		let right: RightPublic = RightPublic::try_from(
+			&inner[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN],
+		)
+		.expect("we assume LEFT_PLUS_RIGHT_LEN = LeftPublic::LEN + RightPublic::LEN. Q.E.D");
 
 		Self { left, right, inner }
 	}
@@ -209,8 +214,13 @@ impl<LeftPublic: PublicT, RightPublic: PublicT, const LEFT_PLUS_RIGHT_LEN: usize
 	UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]> for Public<LeftPublic, RightPublic, LEFT_PLUS_RIGHT_LEN>
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		let left: LeftPublic = data[0..LeftPublic::LEN].try_into().unwrap();
-		let right: RightPublic = data[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN].try_into().unwrap();
+		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN);
+		let left: LeftPublic = data[0..LeftPublic::LEN]
+			.try_into()
+			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
+		let right: RightPublic = data[LeftPublic::LEN..LEFT_PLUS_RIGHT_LEN]
+			.try_into()
+			.expect("we assume LEFT_PLUS_RIGHT_LEN == LeftPublic::LEN + RightPublic::LEN. Q.E.D");
 
 		Public { left, right, inner: data }
 	}
@@ -331,6 +341,15 @@ impl<
 	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
 		self.inner.hash(state);
 	}
+}
+
+impl<
+		LeftSignature: SignatureBound,
+		RightSignature: SignatureBound,
+		const LEFT_PLUS_RIGHT_LEN: usize,
+	> ByteArray for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
+{
+	const LEN: usize = LEFT_PLUS_RIGHT_LEN;
 }
 
 impl<
@@ -472,10 +491,14 @@ impl<
 	for Signature<LeftSignature, RightSignature, LEFT_PLUS_RIGHT_LEN>
 {
 	fn unchecked_from(data: [u8; LEFT_PLUS_RIGHT_LEN]) -> Self {
-		let Ok(left) = data[0..LeftSignature::LEN].try_into() else { panic!("invalid signature") };
-		let Ok(right) = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into() else {
-			panic!("invalid signature")
-		};
+		debug_assert!(LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN);
+
+		let left = data[0..LeftSignature::LEN].try_into().expect(
+			"we assume LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN. Q.E.D",
+		);
+		let right = data[LeftSignature::LEN..LEFT_PLUS_RIGHT_LEN].try_into().expect(
+			"we assume LEFT_PLUS_RIGHT_LEN == LeftSignature::LEN + RightSignature::LEN. Q.E.D",
+		);
 
 		Signature { left, right, inner: data }
 	}
@@ -589,6 +612,21 @@ mod test {
 	use super::*;
 	use crate::crypto::DEV_PHRASE;
 	use ecdsa_n_bls377::{Pair, Signature};
+
+	use crate::{bls377, ecdsa};
+	#[test]
+
+	fn test_length_of_paired_ecdsa_and_bls377_public_key_and_signature_is_correct() {
+		assert_eq!(
+			<Pair as TraitPair>::Public::LEN,
+			<ecdsa::Pair as TraitPair>::Public::LEN + <bls377::Pair as TraitPair>::Public::LEN
+		);
+		assert_eq!(
+			<Pair as TraitPair>::Signature::LEN,
+			<ecdsa::Pair as TraitPair>::Signature::LEN +
+				<bls377::Pair as TraitPair>::Signature::LEN
+		);
+	}
 
 	#[test]
 	fn default_phrase_should_be_used() {
