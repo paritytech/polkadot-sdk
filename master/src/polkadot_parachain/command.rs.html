@@ -2044,21 +2044,21 @@
 				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
 
 				<span class="kw">match </span>config.chain_spec.runtime() {
-					Runtime::AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+					Runtime::AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 						asset_hub_polkadot_runtime::RuntimeApi,
 						AssetHubPolkadotAuraId,
 					&gt;(config, polkadot_config, collator_options, id, hwbench)
 					.<span class="kw">await
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
-					Runtime::AssetHubKusama =&gt; <span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+					Runtime::AssetHubKusama =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 						asset_hub_kusama_runtime::RuntimeApi,
 						AuraId,
 					&gt;(config, polkadot_config, collator_options, id, hwbench)
 					.<span class="kw">await
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
-					Runtime::AssetHubWestend =&gt; <span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+					Runtime::AssetHubWestend =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 						asset_hub_westend_runtime::RuntimeApi,
 						AuraId,
 					&gt;(config, polkadot_config, collator_options, id, hwbench)
