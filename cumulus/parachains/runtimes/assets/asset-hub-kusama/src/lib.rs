@@ -1213,6 +1213,13 @@ impl_runtime_apis! {
 			use xcm_config::{KsmLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					KsmLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
