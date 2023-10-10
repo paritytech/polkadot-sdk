@@ -40,11 +40,8 @@ use extra_requests::ExtraRequests;
 use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
 
-use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
-use sc_consensus::{
-	import_queue::ImportQueueService, BlockImportError, BlockImportStatus, IncomingBlock,
-};
+use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::types::ProtocolName;
 use sc_network_common::sync::{
 	message::{
@@ -52,8 +49,9 @@ use sc_network_common::sync::{
 		FromBlock,
 	},
 	warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
-	BadPeer, ChainSync as ChainSyncT, Metrics, OnBlockData, OnBlockJustification, OnStateData,
-	OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode, SyncState, SyncStatus,
+	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
+	OnBlockJustification, OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode,
+	SyncState, SyncStatus,
 };
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -200,43 +198,40 @@ impl Default for AllowedRequests {
 	}
 }
 
-struct SyncingMetrics {
-	pub import_queue_blocks_submitted: Counter<U64>,
-	pub import_queue_justifications_submitted: Counter<U64>,
-}
-
-impl SyncingMetrics {
-	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
-		Ok(Self {
-			import_queue_blocks_submitted: register(
-				Counter::new(
-					"substrate_sync_import_queue_blocks_submitted",
-					"Number of blocks submitted to the import queue.",
-				)?,
-				registry,
-			)?,
-			import_queue_justifications_submitted: register(
-				Counter::new(
-					"substrate_sync_import_queue_justifications_submitted",
-					"Number of justifications submitted to the import queue.",
-				)?,
-				registry,
-			)?,
-		})
-	}
-}
-
 struct GapSync<B: BlockT> {
 	blocks: BlockCollection<B>,
 	best_queued_number: NumberFor<B>,
 	target: NumberFor<B>,
 }
 
-/// An event used to notify [`engine::SyncingEngine`] if we want to perform a block request
-/// or drop an obsolete pending response.
-enum BlockRequestEvent<B: BlockT> {
+/// Action that [`engine::SyncingEngine`] should perform after reporting imported blocks with
+/// [`ChainSync::on_blocks_processed`].
+enum BlockRequestAction<B: BlockT> {
+	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendRequest { peer_id: PeerId, request: BlockRequest<B> },
+	/// Drop stale block request.
 	RemoveStale { peer_id: PeerId },
+}
+
+/// Action that [`engine::SyncingEngine`] should perform if we want to import justifications.
+struct ImportJustificationsAction<B: BlockT> {
+	peer_id: PeerId,
+	hash: B::Hash,
+	number: NumberFor<B>,
+	justifications: Justifications,
+}
+
+/// Action that [`engine::SyncingEngine`] should perform on behalf of [`ChainSync`]
+/// after reporting block response with [`ChainSync::on_block_response`].
+enum OnBlockResponse<B: BlockT> {
+	/// Nothing to do
+	Nothing,
+	/// Perform block request.
+	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
+	/// Import blocks.
+	ImportBlocks(ImportBlocksAction<B>),
+	/// Import justifications.
+	ImportJustifications(ImportJustificationsAction<B>),
 }
 
 /// The main data structure which contains all the state for a chains
@@ -288,10 +283,6 @@ pub struct ChainSync<B: BlockT, Client> {
 	network_service: service::network::NetworkServiceHandle,
 	/// Protocol name used for block announcements
 	block_announce_protocol_name: ProtocolName,
-	/// Handle to import queue.
-	import_queue: Box<dyn ImportQueueService<B>>,
-	/// Metrics.
-	metrics: Option<SyncingMetrics>,
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -449,6 +440,7 @@ where
 		self.peers.len()
 	}
 
+	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -642,6 +634,7 @@ where
 			.extend(peers);
 	}
 
+	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -903,9 +896,10 @@ where
 			return Err(BadPeer(*who, rep::NOT_REQUESTED))
 		};
 
-		Ok(self.validate_and_queue_blocks(new_blocks, gap))
+		Ok(OnBlockData::Import(self.validate_and_queue_blocks(new_blocks, gap)))
 	}
 
+	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,
@@ -952,10 +946,10 @@ where
 				None
 			};
 
-			if let Some((peer, hash, number, j)) =
+			if let Some((peer_id, hash, number, justifications)) =
 				self.extra_justifications.on_response(who, justification)
 			{
-				return Ok(OnBlockJustification::Import { peer, hash, number, justifications: j })
+				return Ok(OnBlockJustification::Import { peer_id, hash, number, justifications })
 			}
 		}
 
@@ -1093,7 +1087,8 @@ where
 		}
 	}
 
-	fn peer_disconnected(&mut self, who: &PeerId) {
+	#[must_use]
+	fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<B>> {
 		self.blocks.clear_peer_download(who);
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(who)
@@ -1107,11 +1102,8 @@ where
 		});
 
 		let blocks = self.ready_blocks();
-		if let Some(OnBlockData::Import(origin, blocks)) =
-			(!blocks.is_empty()).then(|| self.validate_and_queue_blocks(blocks, false))
-		{
-			self.import_blocks(origin, blocks);
-		}
+
+		(!blocks.is_empty()).then(|| self.validate_and_queue_blocks(blocks, false))
 	}
 
 	fn metrics(&self) -> Metrics {
@@ -1143,9 +1135,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
-		metrics_registry: Option<&Registry>,
 		network_service: service::network::NetworkServiceHandle,
-		import_queue: Box<dyn ImportQueueService<B>>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -1169,21 +1159,6 @@ where
 			warp_sync_config,
 			warp_sync_target_block_header: None,
 			block_announce_protocol_name,
-			import_queue,
-			metrics: if let Some(r) = &metrics_registry {
-				match SyncingMetrics::register(r) {
-					Ok(metrics) => Some(metrics),
-					Err(err) => {
-						error!(
-							target: LOG_TARGET,
-							"Failed to register metrics for ChainSync: {err:?}",
-						);
-						None
-					},
-				}
-			} else {
-				None
-			},
 		};
 
 		sync.reset_sync_start_point()?;
@@ -1229,7 +1204,7 @@ where
 		&mut self,
 		mut new_blocks: Vec<IncomingBlock<B>>,
 		gap: bool,
-	) -> OnBlockData<B> {
+	) -> ImportBlocksAction<B> {
 		let orig_len = new_blocks.len();
 		new_blocks.retain(|b| !self.queue_blocks.contains(&b.hash));
 		if new_blocks.len() != orig_len {
@@ -1260,7 +1235,8 @@ where
 			self.on_block_queued(h, n)
 		}
 		self.queue_blocks.extend(new_blocks.iter().map(|b| b.hash));
-		OnBlockData::Import(origin, new_blocks)
+
+		ImportBlocksAction { origin, blocks: new_blocks }
 	}
 
 	fn update_peer_common_number(&mut self, peer_id: &PeerId, new_common: NumberFor<B>) {
@@ -1311,7 +1287,7 @@ where
 	/// Restart the sync process. This will reset all pending block requests and return an iterator
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
-	fn restart(&mut self) -> impl Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>> + '_ {
+	fn restart(&mut self) -> impl Iterator<Item = Result<BlockRequestAction<B>, BadPeer>> + '_ {
 		self.blocks.clear();
 		if let Err(e) = self.reset_sync_start_point() {
 			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
@@ -1338,9 +1314,9 @@ where
 			// handle peers that were in other states.
 			match self.new_peer(peer_id, p.best_hash, p.best_number) {
 				// since the request is not a justification, remove it from pending responses
-				Ok(None) => Some(Ok(BlockRequestEvent::RemoveStale { peer_id })),
+				Ok(None) => Some(Ok(BlockRequestAction::RemoveStale { peer_id })),
 				// update the request if the new one is available
-				Ok(Some(request)) => Some(Ok(BlockRequestEvent::SendRequest { peer_id, request })),
+				Ok(Some(request)) => Some(Ok(BlockRequestAction::SendRequest { peer_id, request })),
 				// this implies that we need to drop pending response from the peer
 				Err(e) => Some(Err(e)),
 			}
@@ -1429,8 +1405,27 @@ where
 
 	/// Get the set of downloaded blocks that are ready to be queued for import.
 	fn ready_blocks(&mut self) -> Vec<IncomingBlock<B>> {
+		let start_block = self.best_queued_number + One::one();
+
+		// Verify that the parent of the first available block is in the chain.
+		// If not, we are downloading from a fork. In this case, wait until
+		// the start block has a parent on chain.
+		let parent_on_chain =
+			self.blocks.first_ready_block_header(start_block).map_or(false, |hdr| {
+				std::matches!(
+					self.block_status(hdr.parent_hash()).unwrap_or(BlockStatus::Unknown),
+					BlockStatus::InChainWithState |
+						BlockStatus::InChainPruned |
+						BlockStatus::Queued
+				)
+			});
+
+		if !parent_on_chain {
+			return vec![]
+		}
+
 		self.blocks
-			.ready_blocks(self.best_queued_number + One::one())
+			.ready_blocks(start_block)
 			.into_iter()
 			.map(|block_data| {
 				let justifications = block_data
@@ -1491,12 +1486,14 @@ where
 		None
 	}
 
+	/// Process blocks received in a response.
+	#[must_use]
 	pub(crate) fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
-	) -> Option<(PeerId, BlockRequest<B>)> {
+	) -> OnBlockResponse<B> {
 		let block_response = BlockResponse::<B> { id: request.id, blocks };
 
 		let blocks_range = || match (
@@ -1521,44 +1518,53 @@ where
 
 		if request.fields == BlockAttributes::JUSTIFICATION {
 			match self.on_block_justification(peer_id, block_response) {
-				Ok(OnBlockJustification::Nothing) => None,
-				Ok(OnBlockJustification::Import { peer, hash, number, justifications }) => {
-					self.import_justifications(peer, hash, number, justifications);
-					None
-				},
+				Ok(OnBlockJustification::Nothing) => OnBlockResponse::Nothing,
+				Ok(OnBlockJustification::Import { peer_id, hash, number, justifications }) =>
+					OnBlockResponse::ImportJustifications(ImportJustificationsAction {
+						peer_id,
+						hash,
+						number,
+						justifications,
+					}),
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
-					None
+					OnBlockResponse::Nothing
 				},
 			}
 		} else {
 			match self.on_block_data(&peer_id, Some(request), block_response) {
-				Ok(OnBlockData::Import(origin, blocks)) => {
-					self.import_blocks(origin, blocks);
-					None
-				},
-				Ok(OnBlockData::Request(peer, req)) => Some((peer, req)),
-				Ok(OnBlockData::Continue) => None,
+				Ok(OnBlockData::Import(action)) => OnBlockResponse::ImportBlocks(action),
+				Ok(OnBlockData::Request(peer_id, request)) =>
+					OnBlockResponse::SendBlockRequest { peer_id, request },
+				Ok(OnBlockData::Continue) => OnBlockResponse::Nothing,
 				Err(BadPeer(id, repu)) => {
 					self.network_service
 						.disconnect_peer(id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(id, repu);
-					None
+					OnBlockResponse::Nothing
 				},
 			}
 		}
 	}
 
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
+	/// Process state received in a response.
+	#[must_use]
+	pub fn on_state_response(
+		&mut self,
+		peer_id: PeerId,
+		response: OpaqueStateResponse,
+	) -> Option<ImportBlocksAction<B>> {
 		match self.on_state_data(&peer_id, response) {
-			Ok(OnStateData::Import(origin, block)) => self.import_blocks(origin, vec![block]),
-			Ok(OnStateData::Continue) => {},
+			Ok(OnStateData::Import(origin, block)) =>
+				Some(ImportBlocksAction { origin, blocks: vec![block] }),
+			Ok(OnStateData::Continue) => None,
 			Err(BadPeer(id, repu)) => {
 				self.network_service
 					.disconnect_peer(id, self.block_announce_protocol_name.clone());
 				self.network_service.report_peer(id, repu);
+				None
 			},
 		}
 	}
@@ -1897,39 +1903,18 @@ where
 		}
 	}
 
-	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>) {
-		if let Some(metrics) = &self.metrics {
-			metrics.import_queue_blocks_submitted.inc();
-		}
-
-		self.import_queue.import_blocks(origin, blocks);
-	}
-
-	fn import_justifications(
-		&mut self,
-		peer: PeerId,
-		hash: B::Hash,
-		number: NumberFor<B>,
-		justifications: Justifications,
-	) {
-		if let Some(metrics) = &self.metrics {
-			metrics.import_queue_justifications_submitted.inc();
-		}
-
-		self.import_queue.import_justifications(peer, hash, number, justifications);
-	}
-
 	/// A batch of blocks have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks have been processed by the import
 	/// queue, with or without errors. If an error is returned, the pending response
 	/// from the peer must be dropped.
+	#[must_use]
 	fn on_blocks_processed(
 		&mut self,
 		imported: usize,
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
-	) -> Box<dyn Iterator<Item = Result<BlockRequestEvent<B>, BadPeer>>> {
+	) -> Box<dyn Iterator<Item = Result<BlockRequestAction<B>, BadPeer>>> {
 		trace!(target: LOG_TARGET, "Imported {imported} of {count}");
 
 		let mut output = Vec::new();
@@ -2454,7 +2439,6 @@ mod test {
 		let client = Arc::new(TestClientBuilder::new().build());
 		let peer_id = PeerId::random();
 
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut sync = ChainSync::new(
@@ -2464,9 +2448,7 @@ mod test {
 			1,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -2515,7 +2497,6 @@ mod test {
 	#[test]
 	fn restart_doesnt_affect_peers_downloading_finality_data() {
 		let mut client = Arc::new(TestClientBuilder::new().build());
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
@@ -2526,9 +2507,7 @@ mod test {
 			1,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -2583,9 +2562,9 @@ mod test {
 
 		// which should make us send out block requests to the first two peers
 		assert!(block_requests.map(|r| r.unwrap()).all(|event| match event {
-			BlockRequestEvent::SendRequest { peer_id, .. } =>
+			BlockRequestAction::SendRequest { peer_id, .. } =>
 				peer_id == peer_id1 || peer_id == peer_id2,
-			BlockRequestEvent::RemoveStale { .. } => false,
+			BlockRequestAction::RemoveStale { .. } => false,
 		}));
 
 		// peer 3 should be unaffected it was downloading finality data
@@ -2686,7 +2665,6 @@ mod test {
 		sp_tracing::try_init_simple();
 
 		let mut client = Arc::new(TestClientBuilder::new().build());
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 
@@ -2697,9 +2675,7 @@ mod test {
 			5,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -2761,7 +2737,9 @@ mod test {
 
 		// We should not yet import the blocks, because there is still an open request for fetching
 		// block `2` which blocks the import.
-		assert!(matches!(res, OnBlockData::Import(_, blocks) if blocks.is_empty()));
+		assert!(
+			matches!(res, OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty())
+		);
 
 		let request3 = get_block_request(&mut sync, FromBlock::Number(2), 1, &peer_id2);
 
@@ -2769,14 +2747,16 @@ mod test {
 		let res = sync.on_block_data(&peer_id1, Some(request2), response).unwrap();
 		assert!(matches!(
 			res,
-			OnBlockData::Import(_, blocks)
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks })
 				if blocks.iter().all(|b| [2, 3, 4].contains(b.header.as_ref().unwrap().number()))
 		));
 
 		let response = create_block_response(vec![block2.clone()]);
 		let res = sync.on_block_data(&peer_id2, Some(request3), response).unwrap();
 		// Nothing to import
-		assert!(matches!(res, OnBlockData::Import(_, blocks) if blocks.is_empty()));
+		assert!(
+			matches!(res, OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty())
+		);
 	}
 
 	fn unwrap_from_block_number(from: FromBlock<Hash, u64>) -> u64 {
@@ -2806,7 +2786,6 @@ mod test {
 		};
 
 		let mut client = Arc::new(TestClientBuilder::new().build());
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let info = client.info();
@@ -2818,9 +2797,7 @@ mod test {
 			5,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -2853,7 +2830,7 @@ mod test {
 			let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 			assert!(matches!(
 				res,
-				OnBlockData::Import(_, blocks) if blocks.len() == max_blocks_to_request as usize
+				OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == max_blocks_to_request as usize
 			),);
 
 			best_block_num += max_blocks_to_request as u32;
@@ -2909,7 +2886,7 @@ mod test {
 		let res = sync.on_block_data(&peer_id2, Some(peer2_req), response).unwrap();
 		assert!(matches!(
 			res,
-			OnBlockData::Import(_, blocks) if blocks.is_empty()
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty()
 		),);
 
 		let peer1_from = unwrap_from_block_number(peer1_req.unwrap().from);
@@ -2936,7 +2913,6 @@ mod test {
 	fn can_sync_huge_fork() {
 		sp_tracing::try_init_simple();
 
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut client = Arc::new(TestClientBuilder::new().build());
@@ -2970,9 +2946,7 @@ mod test {
 			5,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -3030,7 +3004,7 @@ mod test {
 			let res = sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 			assert!(matches!(
 				res,
-				OnBlockData::Import(_, blocks) if blocks.len() == sync.max_blocks_per_request as usize
+				OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == sync.max_blocks_per_request as usize
 			),);
 
 			best_block_num += sync.max_blocks_per_request as u32;
@@ -3073,7 +3047,6 @@ mod test {
 	fn syncs_fork_without_duplicate_requests() {
 		sp_tracing::try_init_simple();
 
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut client = Arc::new(TestClientBuilder::new().build());
@@ -3107,9 +3080,7 @@ mod test {
 			5,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -3168,7 +3139,7 @@ mod test {
 			let res = sync.on_block_data(&peer_id1, Some(request.clone()), response).unwrap();
 			assert!(matches!(
 				res,
-				OnBlockData::Import(_, blocks) if blocks.len() == max_blocks_to_request as usize
+				OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == max_blocks_to_request as usize
 			),);
 
 			best_block_num += max_blocks_to_request as u32;
@@ -3233,7 +3204,6 @@ mod test {
 	#[test]
 	fn removes_target_fork_on_disconnect() {
 		sp_tracing::try_init_simple();
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut client = Arc::new(TestClientBuilder::new().build());
@@ -3246,9 +3216,7 @@ mod test {
 			1,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -3264,14 +3232,13 @@ mod test {
 		send_block_announce(header, peer_id1, &mut sync);
 		assert!(sync.fork_targets.len() == 1);
 
-		sync.peer_disconnected(&peer_id1);
+		let _ = sync.peer_disconnected(&peer_id1);
 		assert!(sync.fork_targets.len() == 0);
 	}
 
 	#[test]
 	fn can_import_response_with_missing_blocks() {
 		sp_tracing::try_init_simple();
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut client2 = Arc::new(TestClientBuilder::new().build());
@@ -3286,9 +3253,7 @@ mod test {
 			1,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -3323,7 +3288,6 @@ mod test {
 	#[test]
 	fn sync_restart_removes_block_but_not_justification_requests() {
 		let mut client = Arc::new(TestClientBuilder::new().build());
-		let import_queue = Box::new(sc_consensus::import_queue::mock::MockImportQueueHandle::new());
 		let (_chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
 		let mut sync = ChainSync::new(
@@ -3333,9 +3297,7 @@ mod test {
 			1,
 			64,
 			None,
-			None,
 			chain_sync_network_handle,
-			import_queue,
 		)
 		.unwrap();
 
@@ -3394,10 +3356,10 @@ mod test {
 		let request_events = sync.restart().collect::<Vec<_>>();
 		for event in request_events.iter() {
 			match event.as_ref().unwrap() {
-				BlockRequestEvent::RemoveStale { peer_id } => {
+				BlockRequestAction::RemoveStale { peer_id } => {
 					pending_responses.remove(&peer_id);
 				},
-				BlockRequestEvent::SendRequest { peer_id, .. } => {
+				BlockRequestAction::SendRequest { peer_id, .. } => {
 					// we drop obsolete response, but don't register a new request, it's checked in
 					// the `assert!` below
 					pending_responses.remove(&peer_id);
@@ -3406,8 +3368,8 @@ mod test {
 		}
 		assert!(request_events.iter().any(|event| {
 			match event.as_ref().unwrap() {
-				BlockRequestEvent::RemoveStale { .. } => false,
-				BlockRequestEvent::SendRequest { peer_id, .. } => peer_id == &peers[0],
+				BlockRequestAction::RemoveStale { .. } => false,
+				BlockRequestAction::SendRequest { peer_id, .. } => peer_id == &peers[0],
 			}
 		}));
 
@@ -3417,8 +3379,384 @@ mod test {
 			sync.peers.get(&peers[1]).unwrap().state,
 			PeerSyncState::DownloadingJustification(b1_hash),
 		);
-		sync.peer_disconnected(&peers[1]);
+		let _ = sync.peer_disconnected(&peers[1]);
 		pending_responses.remove(&peers[1]);
 		assert_eq!(pending_responses.len(), 0);
+	}
+
+	#[test]
+	fn syncs_fork_with_partial_response_extends_tip() {
+		sp_tracing::try_init_simple();
+
+		// Set up: the two chains share the first 15 blocks before
+		// diverging. The other(canonical) chain fork is longer.
+		let max_blocks_per_request = 64;
+		let common_ancestor = 15;
+		let non_canonical_chain_length = common_ancestor + 3;
+		let canonical_chain_length = common_ancestor + max_blocks_per_request + 10;
+
+		let (_chain_sync_network_provider, chain_sync_network_handle) =
+			NetworkServiceProvider::new();
+		let mut client = Arc::new(TestClientBuilder::new().build());
+
+		// Blocks on the non-canonical chain.
+		let non_canonical_blocks = (0..non_canonical_chain_length)
+			.map(|_| build_block(&mut client, None, false))
+			.collect::<Vec<_>>();
+
+		// Blocks on the canonical chain.
+		let canonical_blocks = {
+			let mut client = Arc::new(TestClientBuilder::new().build());
+			let common_blocks = non_canonical_blocks[..common_ancestor as usize]
+				.into_iter()
+				.inspect(|b| block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap())
+				.cloned()
+				.collect::<Vec<_>>();
+
+			common_blocks
+				.into_iter()
+				.chain(
+					(0..(canonical_chain_length - common_ancestor as u32))
+						.map(|_| build_block(&mut client, None, true)),
+				)
+				.collect::<Vec<_>>()
+		};
+
+		let mut sync = ChainSync::new(
+			SyncMode::Full,
+			client.clone(),
+			ProtocolName::from("test-block-announce-protocol"),
+			1,
+			max_blocks_per_request,
+			None,
+			chain_sync_network_handle,
+		)
+		.unwrap();
+
+		// Connect the node we will sync from
+		let peer_id = PeerId::random();
+		let canonical_tip = canonical_blocks.last().unwrap().clone();
+		let mut request = sync
+			.new_peer(peer_id, canonical_tip.hash(), *canonical_tip.header().number())
+			.unwrap()
+			.unwrap();
+		assert_eq!(FromBlock::Number(client.info().best_number), request.from);
+		assert_eq!(Some(1), request.max);
+
+		// Do the ancestor search
+		loop {
+			let block =
+				&canonical_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
+			let response = create_block_response(vec![block.clone()]);
+
+			let on_block_data = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+			request = if let OnBlockData::Request(_peer, request) = on_block_data {
+				request
+			} else {
+				// We found the ancestor
+				break
+			};
+
+			log::trace!(target: LOG_TARGET, "Request: {request:?}");
+		}
+
+		// The response for the 64 blocks is returned in two parts:
+		// part 1: last 61 blocks [19..79], part 2: first 3 blocks [16-18].
+		// Even though the  first part extends the current chain ending at 18,
+		// it should not result in an import yet.
+		let resp_1_from = common_ancestor as u64 + max_blocks_per_request as u64;
+		let resp_2_from = common_ancestor as u64 + 3;
+
+		// No import expected.
+		let request = get_block_request(
+			&mut sync,
+			FromBlock::Number(resp_1_from),
+			max_blocks_per_request as u32,
+			&peer_id,
+		);
+
+		let from = unwrap_from_block_number(request.from.clone());
+		let mut resp_blocks = canonical_blocks[18..from as usize].to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		assert!(matches!(
+			res,
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty()
+		),);
+
+		// Gap filled, expect max_blocks_per_request being imported now.
+		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 3, &peer_id);
+		let mut resp_blocks = canonical_blocks[common_ancestor as usize..18].to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		let to_import: Vec<_> = match &res {
+			OnBlockData::Import(ImportBlocksAction { origin: _, blocks }) => {
+				assert_eq!(blocks.len(), sync.max_blocks_per_request as usize);
+				blocks
+					.iter()
+					.map(|b| {
+						let num = *b.header.as_ref().unwrap().number() as usize;
+						canonical_blocks[num - 1].clone()
+					})
+					.collect()
+			},
+			_ => {
+				panic!("Unexpected response: {res:?}");
+			},
+		};
+
+		let _ = sync.on_blocks_processed(
+			max_blocks_per_request as usize,
+			resp_blocks.len(),
+			resp_blocks
+				.iter()
+				.rev()
+				.map(|b| {
+					(
+						Ok(BlockImportStatus::ImportedUnknown(
+							*b.header().number(),
+							Default::default(),
+							Some(peer_id),
+						)),
+						b.hash(),
+					)
+				})
+				.collect(),
+		);
+		to_import.into_iter().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
+		let expected_number = common_ancestor as u32 + max_blocks_per_request as u32;
+		assert_eq!(sync.best_queued_number as u32, expected_number);
+		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
+		// Sync rest of the chain.
+		let request =
+			get_block_request(&mut sync, FromBlock::Hash(canonical_tip.hash()), 10_u32, &peer_id);
+		let mut resp_blocks = canonical_blocks
+			[(canonical_chain_length - 10) as usize..canonical_chain_length as usize]
+			.to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		assert!(matches!(
+			res,
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 10 as usize
+		),);
+		let _ = sync.on_blocks_processed(
+			max_blocks_per_request as usize,
+			resp_blocks.len(),
+			resp_blocks
+				.iter()
+				.rev()
+				.map(|b| {
+					(
+						Ok(BlockImportStatus::ImportedUnknown(
+							*b.header().number(),
+							Default::default(),
+							Some(peer_id),
+						)),
+						b.hash(),
+					)
+				})
+				.collect(),
+		);
+		resp_blocks.into_iter().rev().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
+		let expected_number = canonical_chain_length as u32;
+		assert_eq!(sync.best_queued_number as u32, expected_number);
+		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
+	}
+
+	#[test]
+	fn syncs_fork_with_partial_response_does_not_extend_tip() {
+		sp_tracing::try_init_simple();
+
+		// Set up: the two chains share the first 15 blocks before
+		// diverging. The other(canonical) chain fork is longer.
+		let max_blocks_per_request = 64;
+		let common_ancestor = 15;
+		let non_canonical_chain_length = common_ancestor + 3;
+		let canonical_chain_length = common_ancestor + max_blocks_per_request + 10;
+
+		let (_chain_sync_network_provider, chain_sync_network_handle) =
+			NetworkServiceProvider::new();
+		let mut client = Arc::new(TestClientBuilder::new().build());
+
+		// Blocks on the non-canonical chain.
+		let non_canonical_blocks = (0..non_canonical_chain_length)
+			.map(|_| build_block(&mut client, None, false))
+			.collect::<Vec<_>>();
+
+		// Blocks on the canonical chain.
+		let canonical_blocks = {
+			let mut client = Arc::new(TestClientBuilder::new().build());
+			let common_blocks = non_canonical_blocks[..common_ancestor as usize]
+				.into_iter()
+				.inspect(|b| block_on(client.import(BlockOrigin::Own, (*b).clone())).unwrap())
+				.cloned()
+				.collect::<Vec<_>>();
+
+			common_blocks
+				.into_iter()
+				.chain(
+					(0..(canonical_chain_length - common_ancestor as u32))
+						.map(|_| build_block(&mut client, None, true)),
+				)
+				.collect::<Vec<_>>()
+		};
+
+		let mut sync = ChainSync::new(
+			SyncMode::Full,
+			client.clone(),
+			ProtocolName::from("test-block-announce-protocol"),
+			1,
+			max_blocks_per_request,
+			None,
+			chain_sync_network_handle,
+		)
+		.unwrap();
+
+		// Connect the node we will sync from
+		let peer_id = PeerId::random();
+		let canonical_tip = canonical_blocks.last().unwrap().clone();
+		let mut request = sync
+			.new_peer(peer_id, canonical_tip.hash(), *canonical_tip.header().number())
+			.unwrap()
+			.unwrap();
+		assert_eq!(FromBlock::Number(client.info().best_number), request.from);
+		assert_eq!(Some(1), request.max);
+
+		// Do the ancestor search
+		loop {
+			let block =
+				&canonical_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
+			let response = create_block_response(vec![block.clone()]);
+
+			let on_block_data = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+			request = if let OnBlockData::Request(_peer, request) = on_block_data {
+				request
+			} else {
+				// We found the ancestor
+				break
+			};
+
+			log::trace!(target: LOG_TARGET, "Request: {request:?}");
+		}
+
+		// The response for the 64 blocks is returned in two parts:
+		// part 1: last 62 blocks [18..79], part 2: first 2 blocks [16-17].
+		// Even though the  first part extends the current chain ending at 18,
+		// it should not result in an import yet.
+		let resp_1_from = common_ancestor as u64 + max_blocks_per_request as u64;
+		let resp_2_from = common_ancestor as u64 + 2;
+
+		// No import expected.
+		let request = get_block_request(
+			&mut sync,
+			FromBlock::Number(resp_1_from),
+			max_blocks_per_request as u32,
+			&peer_id,
+		);
+
+		let from = unwrap_from_block_number(request.from.clone());
+		let mut resp_blocks = canonical_blocks[17..from as usize].to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		assert!(matches!(
+			res,
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.is_empty()
+		),);
+
+		// Gap filled, expect max_blocks_per_request being imported now.
+		let request = get_block_request(&mut sync, FromBlock::Number(resp_2_from), 2, &peer_id);
+		let mut resp_blocks = canonical_blocks[common_ancestor as usize..17].to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		let to_import: Vec<_> = match &res {
+			OnBlockData::Import(ImportBlocksAction { origin: _, blocks }) => {
+				assert_eq!(blocks.len(), sync.max_blocks_per_request as usize);
+				blocks
+					.iter()
+					.map(|b| {
+						let num = *b.header.as_ref().unwrap().number() as usize;
+						canonical_blocks[num - 1].clone()
+					})
+					.collect()
+			},
+			_ => {
+				panic!("Unexpected response: {res:?}");
+			},
+		};
+
+		let _ = sync.on_blocks_processed(
+			max_blocks_per_request as usize,
+			resp_blocks.len(),
+			resp_blocks
+				.iter()
+				.rev()
+				.map(|b| {
+					(
+						Ok(BlockImportStatus::ImportedUnknown(
+							*b.header().number(),
+							Default::default(),
+							Some(peer_id),
+						)),
+						b.hash(),
+					)
+				})
+				.collect(),
+		);
+		to_import.into_iter().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
+		let expected_number = common_ancestor as u32 + max_blocks_per_request as u32;
+		assert_eq!(sync.best_queued_number as u32, expected_number);
+		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
+		// Sync rest of the chain.
+		let request =
+			get_block_request(&mut sync, FromBlock::Hash(canonical_tip.hash()), 10_u32, &peer_id);
+		let mut resp_blocks = canonical_blocks
+			[(canonical_chain_length - 10) as usize..canonical_chain_length as usize]
+			.to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+		let res = sync.on_block_data(&peer_id, Some(request), response).unwrap();
+		assert!(matches!(
+			res,
+			OnBlockData::Import(ImportBlocksAction{ origin: _, blocks }) if blocks.len() == 10 as usize
+		),);
+		let _ = sync.on_blocks_processed(
+			max_blocks_per_request as usize,
+			resp_blocks.len(),
+			resp_blocks
+				.iter()
+				.rev()
+				.map(|b| {
+					(
+						Ok(BlockImportStatus::ImportedUnknown(
+							*b.header().number(),
+							Default::default(),
+							Some(peer_id),
+						)),
+						b.hash(),
+					)
+				})
+				.collect(),
+		);
+		resp_blocks.into_iter().rev().for_each(|b| {
+			assert!(matches!(client.block(*b.header.parent_hash()), Ok(Some(_))));
+			block_on(client.import(BlockOrigin::Own, b)).unwrap();
+		});
+		let expected_number = canonical_chain_length as u32;
+		assert_eq!(sync.best_queued_number as u32, expected_number);
+		assert_eq!(sync.best_queued_hash, canonical_blocks[expected_number as usize - 1].hash());
 	}
 }

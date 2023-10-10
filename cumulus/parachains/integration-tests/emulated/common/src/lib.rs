@@ -46,6 +46,8 @@ decl_test_relay_chains! {
 			XcmPallet: westend_runtime::XcmPallet,
 			Sudo: westend_runtime::Sudo,
 			Balances: westend_runtime::Balances,
+			Treasury: westend_runtime::Treasury,
+			AssetRate: westend_runtime::AssetRate,
 		}
 	},
 	#[api_version(7)]
@@ -248,7 +250,7 @@ decl_test_bridges! {
 		target = BridgeHubRococo,
 		handler = WococoRococoMessageHandler
 	}
-	// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
+	// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
 	// pub struct PolkadotKusamaMockBridge {
 	// 	source = BridgeHubPolkadot,
 	// 	target = BridgeHubKusama,
