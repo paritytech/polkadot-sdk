@@ -121,7 +121,11 @@ pub mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config:
-		inclusion::Config + scheduler::Config + initializer::Config + pallet_babe::Config
+		inclusion::Config
+		+ scheduler::Config
+		+ initializer::Config
+		+ pallet_babe::Config
+		+ pallet_session::Config
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -430,6 +434,9 @@ impl<T: Config> Pallet<T> {
 			T::DisputesHandler::filter_dispute_data(set, post_conclusion_acceptance_period)
 		};
 
+		// Filter out backing statements from disabled validators
+		let statements_were_dropped = filter_backed_statements::<T>(&mut backed_candidates)?;
+
 		// Limit the disputes first, since the following statements depend on the votes include
 		// here.
 		let (checked_disputes_sets, checked_disputes_sets_consumed_weight) =
@@ -480,6 +487,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
+			ensure!(!statements_were_dropped, Error::<T>::InherentOverweight);
 			all_weight_before
 		};
 
@@ -1028,4 +1036,90 @@ fn limit_and_sanitize_disputes<
 		let checked_disputes_weight = checked_multi_dispute_statement_sets_weight::<T>(&checked);
 		(checked, checked_disputes_weight)
 	}
+}
+
+// Filters statements from disabled validators in `BackedCandidate` and `MultiDisputeStatementSet`.
+// Returns `true` if at least one statement is removed and `false` otherwise.
+fn filter_backed_statements<T: Config>(
+	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
+) -> Result<bool, DispatchErrorWithPostInfo> {
+	// `active_validator_indices` contain 'raw indexes' aka indexes in the broad validator set.
+	// We want mapping from `ValidatorIndex` (which is an index within `active_validator_indices`)
+	// to 'raw indexes' to process disabled validators.
+	let raw_idx_to_val_index = shared::Pallet::<T>::active_validator_indices()
+		.iter()
+		.enumerate()
+		.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
+		.collect::<BTreeMap<_, _>>();
+	// `disabled_validators` in pallet session contains 'raw indexes' (see the previous comment). We
+	// want them converted to `ValidatorIndex` so that we can look them up easily when processing
+	// backed candidates. We skip disabled validators which are not found in the active set.
+	let disabled_validators = <pallet_session::Pallet<T>>::disabled_validators()
+		.iter()
+		.filter_map(|i| raw_idx_to_val_index.get(i))
+		.collect::<BTreeSet<_>>();
+
+	// `BackedCandidate` contains `validator_indices` which are indecies within the validator group.
+	// To obtain `ValidatorIndex` from them we do the following steps:
+	// 1. Get `para_id` from `CandidateDescriptor`
+	// 2. Get the `core_idx`` for the corresponding `para_id`
+	// 3. Get the validator group assigned to the corresponding core idx
+
+	// Map `para_id` to `core_idx` for step 2 from the above list
+	let para_id_to_core_idx = <scheduler::Pallet<T>>::scheduled_paras()
+		.map(|(core_idx, para_id)| (para_id, core_idx))
+		.collect::<BTreeMap<_, _>>();
+
+	// Flag which will be returned. Set to `true` if at least one vote is filtered.
+	let mut filtered = false;
+
+	// Process all backed candidates.
+	for bc in backed_candidates {
+		// Get `core_idx` assigned to the `para_id` of the candidate (step 2)
+		let core_idx = *para_id_to_core_idx.get(&bc.descriptor().para_id).unwrap(); // TODO
+
+		// Get relay parent block number of the candidate. We need this to get the group index
+		// assigned to this core at this block number
+		let relay_parent_block_number = <shared::Pallet<T>>::allowed_relay_parents()
+			.acquire_info(bc.descriptor().relay_parent, None)
+			.unwrap() // todo
+			.1;
+
+		// Get the group index for the core
+		let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
+			core_idx,
+			relay_parent_block_number + One::one(),
+		)
+		.unwrap();
+
+		// And finally get the validator group for this group index
+		let validator_group = <scheduler::Pallet<T>>::group_validators(group_idx).unwrap(); // TODO
+
+		// `validator_indices` in `BackedCandidate` are indecies within the validator group. Convert
+		// them to `ValidatorId`.
+		let voted_validator_ids = bc
+			.validator_indices
+			.iter()
+			.enumerate()
+			.filter_map(|(idx, bitval)| match *bitval {
+				true => Some(validator_group.get(idx).unwrap()), //todo
+				false => None,
+			})
+			.collect::<Vec<_>>();
+
+		{
+			// `validity_votes` should match `validator_indices`
+			let mut idx = 0;
+			bc.validity_votes.retain(|_| {
+				let voted_validator_index = voted_validator_ids.get(idx).unwrap(); // todo
+				idx += 1;
+
+				filtered = disabled_validators.contains(voted_validator_index);
+
+				!filtered
+			});
+		}
+	}
+
+	Ok(filtered)
 }
