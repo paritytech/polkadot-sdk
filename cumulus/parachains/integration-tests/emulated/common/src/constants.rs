@@ -15,16 +15,16 @@
 
 // Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use frame_support::PalletId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
 use sp_runtime::{
-	traits::{AccountIdConversion, IdentifyAccount, Verify},
+	traits::{IdentifyAccount, Verify},
 	BuildStorage, MultiSignature, Perbill,
 };
+
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance, BlockNumber};
 use polkadot_primitives::{AssignmentId, ValidatorId};
