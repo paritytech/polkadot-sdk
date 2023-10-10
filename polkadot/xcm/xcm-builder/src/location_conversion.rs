@@ -356,7 +356,7 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 			MultiLocation {
 				parents: 0,
 				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} => Some(TreasuryAccount::get().into()),
+			} => Some((TreasuryAccount::get().into() as [u8; 32]).into()),
 			_ => None,
 		}
 	}
@@ -476,7 +476,7 @@ impl<UniversalLocation, AccountId>
 #[cfg(test)]
 mod tests {
 	use super::*;
-
+	use primitives::AccountId;
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
 
@@ -975,7 +975,7 @@ mod tests {
 	}
 
 	#[test]
-	fn remote_account_convert_on_para_sending_relay_treasury() {
+	fn remote_account_convert_on_para_sending_from_remote_para_treasury() {
 		let location = MultiLocation {
 			parents: 1,
 			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
@@ -985,8 +985,34 @@ mod tests {
 
 		assert_eq!(
 			[
-				103, 157, 82, 57, 235, 216, 82, 162, 31, 148, 162, 21, 44, 34, 218, 173, 202, 123,
-				235, 14, 186, 214, 16, 211, 10, 13, 72, 194, 254, 71, 87, 96
+				18, 84, 93, 74, 187, 212, 254, 71, 192, 127, 112, 51, 3, 42, 54, 24, 220, 185, 161,
+				67, 205, 154, 108, 116, 108, 166, 226, 211, 29, 11, 244, 115
+			],
+			actual_description
+		);
+	}
+
+	#[test]
+	fn local_account_convert_on_para_from_relay_treasury() {
+		let location = MultiLocation {
+			parents: 0,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+
+		parameter_types! {
+			pub TreasuryAccountId: AccountId = AccountId::new([42u8; 32]);
+		}
+
+		let actual_description =
+			LocalTreasuryVoiceConvertsVia::<TreasuryAccountId, [u8; 32]>::convert_location(
+				&location,
+			)
+			.unwrap();
+
+		assert_eq!(
+			[
+				42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+				42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42
 			],
 			actual_description
 		);
