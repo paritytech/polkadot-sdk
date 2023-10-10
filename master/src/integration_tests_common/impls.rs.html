@@ -652,6 +652,22 @@
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1152,6 +1168,22 @@
 									<span class="kw-2">*</span>weight
 								),
 								error: <span class="kw-2">*</span>error == expected_error.unwrap_or(<span class="kw-2">*</span>error),
+							},
+						]
+					);
+				}
+
+				<span class="doccomment">/// Asserts a XCM from Relay Chain is executed with error
+				</span><span class="kw">pub fn </span>assert_dmp_queue_error(
+					expected_error: <span class="macro-nonterminal">$crate::impls::Error</span>,
+				) {
+					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
+						<span class="macro-nonterminal">Self</span>,
+						<span class="macro">vec!</span>[
+							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::DmpQueue(<span class="macro-nonterminal">$crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward </span>{
+								outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Error</span>(error), ..
+							}) =&gt; {
+								error: <span class="kw-2">*</span>error == expected_error,
 							},
 						]
 					);

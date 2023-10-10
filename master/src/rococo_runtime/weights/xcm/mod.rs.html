@@ -287,7 +287,6 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -381,8 +380,7 @@
 		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::withdraw_asset())
 	}
 	<span class="kw">fn </span>reserve_asset_deposited(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		<span class="comment">// Rococo doesn&#39;t support ReserveAssetDeposited, so this benchmark has a default weight
-		</span>assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::reserve_asset_deposited())
+		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::reserve_asset_deposited())
 	}
 	<span class="kw">fn </span>receive_teleported_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
 		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::receive_teleported_asset())
