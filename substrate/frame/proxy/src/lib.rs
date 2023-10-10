@@ -133,7 +133,7 @@ pub mod pallet {
 		type AnnoucementConsideration: Consideration<Self::AccountId> + Default;
 
 		/// A means of providing some cost for storing proxy data on-chain.
-		type ProxyConsideration: Consideration<Self::AccountId>;
+		type ProxyConsideration: Consideration<Self::AccountId> + Default;
 
 		/// The maximum amount of proxies allowed for a single account.
 		#[pallet::constant]
