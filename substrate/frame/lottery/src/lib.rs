@@ -62,7 +62,7 @@ use frame_support::{
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{self, Inspect as _, Mutate as _},
-		tokens::{fungible::Credit, Fortitude, Preservation},
+		tokens::{Fortitude, Preservation},
 		Get, Randomness,
 	},
 	PalletId,
