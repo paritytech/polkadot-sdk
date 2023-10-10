@@ -1046,11 +1046,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// 1. `ProposalCount` >= Number of elements in `Proposals`.
 	/// 2. Each entry in `Proposals` should be saved under a key stricly less than current
-	/// `ProposalCount`. 3. `T::ProposalBondMinimum` * Number of proposals with non-zero bond <=
-	/// sum_{p in Proposals} p.bond. 4. (Optional) `T::ProposalBondMaximum` * Number of proposals
-	/// with non-zero bond >= sum_{p in Proposals} p.bond. 5. Each `ProposalIndex` contained in
-	/// `Approvals` should exist in `Proposals`. Note, that this    automatically implies
-	/// Approvals.count() <= Proposals.count().
+	/// `ProposalCount`.
+	/// 3. `T::ProposalBondMinimum` * Number of proposals with
+	/// non-zero bond <= sum_{p in Proposals} p.bond.
+	/// 4. (Optional) `T::ProposalBondMaximum` * Number of proposals with
+	/// non-zero bond >= sum_{p in Proposals} p.bond.
+	/// 5. Each `ProposalIndex` contained in `Approvals` should exist in `Proposals`.
+	/// Note, that this automatically implies Approvals.count() <= Proposals.count().
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_proposal_count = ProposalCount::<T, I>::get();
@@ -1105,8 +1107,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// 1. `SpendCount` >= Number of elements in `Spends`.
 	/// 2. Each entry in `Spends` should be saved under a key stricly less than current
-	/// `SpendCount`. 3. For each spend entry contained in `Spends` we should have spend.expire_at >
-	/// spend.valid_from.
+	/// `SpendCount`.
+	/// 3. For each spend entry contained in `Spends` we should have spend.expire_at
+	/// > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();
