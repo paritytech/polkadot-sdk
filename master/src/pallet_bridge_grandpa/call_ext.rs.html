@@ -311,6 +311,21 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -329,7 +344,7 @@
 
 </span><span class="kw">use crate</span>::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
 <span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
-<span class="kw">use </span>bp_runtime::BlockNumberOf;
+<span class="kw">use </span>bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 <span class="kw">use </span>sp_runtime::{
@@ -439,6 +454,10 @@
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ValidTransaction::default()),
 		};
 
+		<span class="kw">if </span>Pallet::&lt;T, I&gt;::ensure_not_halted().is_err() {
+			<span class="kw">return </span>InvalidTransaction::Call.into()
+		}
+
 		<span class="kw">match </span>SubmitFinalityProofHelper::&lt;T, I&gt;::check_obsolete(finality_target.block_number) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(ValidTransaction::default()),
 			<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::OldHeader) =&gt; InvalidTransaction::Stale.into(),
@@ -505,10 +524,10 @@
 	<span class="kw">use crate</span>::{
 		call_ext::CallSubType,
 		mock::{run_test, test_header, RuntimeCall, TestBridgedChain, TestNumber, TestRuntime},
-		BestFinalized, Config, WeightInfo,
+		BestFinalized, Config, PalletOperatingMode, WeightInfo,
 	};
 	<span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
-	<span class="kw">use </span>bp_runtime::HeaderId;
+	<span class="kw">use </span>bp_runtime::{BasicOperatingMode, HeaderId};
 	<span class="kw">use </span>bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,
 	};
@@ -548,6 +567,17 @@
 			// rejected
 			</span>sync_to_header_10();
 			<span class="macro">assert!</span>(!validate_block_submit(<span class="number">10</span>));
+		});
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>extension_rejects_new_header_if_pallet_is_halted() {
+		run_test(|| {
+			<span class="comment">// when pallet is halted =&gt; tx is rejected
+			</span>sync_to_header_10();
+			PalletOperatingMode::&lt;TestRuntime, ()&gt;::put(BasicOperatingMode::Halted);
+
+			<span class="macro">assert!</span>(!validate_block_submit(<span class="number">15</span>));
 		});
 	}
 
