@@ -616,13 +616,12 @@ mod test {
 
 	fn test_length_of_paired_ecdsa_and_bls377_public_key_and_signature_is_correct() {
 		assert_eq!(
-			<Pair as TraitPair>::Public::LEN,
-			<ecdsa::Pair as TraitPair>::Public::LEN + <bls377::Pair as TraitPair>::Public::LEN
+			<Pair as PairT>::Public::LEN,
+			<ecdsa::Pair as PairT>::Public::LEN + <bls377::Pair as PairT>::Public::LEN
 		);
 		assert_eq!(
-			<Pair as TraitPair>::Signature::LEN,
-			<ecdsa::Pair as TraitPair>::Signature::LEN +
-				<bls377::Pair as TraitPair>::Signature::LEN
+			<Pair as PairT>::Signature::LEN,
+			<ecdsa::Pair as PairT>::Signature::LEN + <bls377::Pair as PairT>::Signature::LEN
 		);
 	}
 
