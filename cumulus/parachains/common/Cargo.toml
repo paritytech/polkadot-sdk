@@ -29,8 +29,6 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../polkadot/runtime/kusama/constants", default-features = false}
-polkadot-runtime-constants = { path = "../../../polkadot/runtime/polkadot/constants", default-features = false}
 rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false}
 westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
@@ -58,7 +56,6 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
-	"kusama-runtime-constants/std",
 	"log/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
@@ -67,7 +64,6 @@ std = [
 	"pallet-collator-selection/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
-	"polkadot-runtime-constants/std",
 	"rococo-runtime-constants/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
@@ -78,4 +74,18 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-primitives-utility/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-asset-tx-payment/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
