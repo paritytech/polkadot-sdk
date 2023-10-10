@@ -35,6 +35,7 @@ use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::AssetFeeAsExistentialDepositMultiplier,
 };
+use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
