@@ -265,6 +265,20 @@ pub mod pallet {
 		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
 		#[cfg(feature = "runtime-benchmarks")]
 		type ReachableDest: Get<Option<MultiLocation>>;
+
+		/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
+		/// be teleported to. Used only in benchmarks.
+		///
+		/// If `None`, the benchmarks that depend on `TeleportableAssets` will be skipped.
+		#[cfg(feature = "runtime-benchmarks")]
+		type TeleportableAssets: Get<Option<(MultiAssets, MultiLocation)>>;
+
+		/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
+		/// be reserve-transferred to. Used only in benchmarks.
+		///
+		/// If `None`, the benchmarks that depend on `ReserveTransferableAssets` will be skipped.
+		#[cfg(feature = "runtime-benchmarks")]
+		type ReserveTransferableAssets: Get<Option<(MultiAssets, MultiLocation)>>;
 	}
 
 	#[pallet::event]

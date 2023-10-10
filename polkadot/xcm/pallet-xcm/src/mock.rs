@@ -252,6 +252,15 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ConstU32<0>;
 }
 
+/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+pub struct XcmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> MultiLocation {
+		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+	}
+}
+
 impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -272,7 +281,7 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
 // This child parachain acts as trusted reserve for its assets in tests.
@@ -431,6 +440,14 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		vec![Usdt::get()].into(),
+		UsdtTeleportLocation::get(),
+	));
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		vec![ForeignAsset::get()].into(),
+		ForeignReserveLocation::get(),
+	));
 }
 
 impl pallet_xcm::Config for Test {
@@ -448,6 +465,7 @@ impl pallet_xcm::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = AccountId32Aliases<(), AccountId32>;
 	type Currency = Balances;
@@ -458,7 +476,10 @@ impl pallet_xcm::Config for Test {
 	type WeightInfo = TestWeightInfo;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl origin::Config for Test {}
