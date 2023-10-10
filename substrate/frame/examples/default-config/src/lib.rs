@@ -26,7 +26,7 @@
 //! Study the following types:
 //!
 //! - [`pallet::DefaultConfig`], and how it differs from [`pallet::Config`].
-//! - [`pallet::config_preludes::TestDefaultConfig`] and how it implements
+//! - [`struct@pallet::config_preludes::TestDefaultConfig`] and how it implements
 //!   [`pallet::DefaultConfig`].
 //! - Notice how [`pallet::DefaultConfig`] is independent of [`frame_system::Config`].
 
