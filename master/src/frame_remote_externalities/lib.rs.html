@@ -1427,6 +1427,20 @@
 <a href="#1427" id="1427">1427</a>
 <a href="#1428" id="1428">1428</a>
 <a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1449,8 +1463,7 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
-</span><span class="kw">use </span>async_recursion::async_recursion;
-<span class="kw">use </span>codec::{Compact, Decode, Encode};
+</span><span class="kw">use </span>codec::{Compact, Decode, Encode};
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>jsonrpsee::{
 	core::params::ArrayParams,
@@ -1473,7 +1486,7 @@
 <span class="kw">use </span>sp_state_machine::TestExternalities;
 <span class="kw">use </span>spinners::{Spinner, Spinners};
 <span class="kw">use </span>std::{
-	cmp::max,
+	cmp::{max, min},
 	fs,
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
@@ -1782,10 +1795,11 @@
 	<span class="kw">const </span>PARALLEL_REQUESTS: usize = <span class="number">4</span>;
 	<span class="kw">const </span>BATCH_SIZE_INCREASE_FACTOR: f32 = <span class="number">1.10</span>;
 	<span class="kw">const </span>BATCH_SIZE_DECREASE_FACTOR: f32 = <span class="number">0.50</span>;
-	<span class="kw">const </span>INITIAL_BATCH_SIZE: usize = <span class="number">5000</span>;
+	<span class="kw">const </span>REQUEST_DURATION_TARGET: Duration = Duration::from_secs(<span class="number">15</span>);
+	<span class="kw">const </span>INITIAL_BATCH_SIZE: usize = <span class="number">10</span>;
 	<span class="comment">// nodes by default will not return more than 1000 keys per request
 	</span><span class="kw">const </span>DEFAULT_KEY_DOWNLOAD_PAGE: u32 = <span class="number">1000</span>;
-	<span class="kw">const </span>KEYS_PAGE_MAX_RETRIES: usize = <span class="number">12</span>;
+	<span class="kw">const </span>MAX_RETRIES: usize = <span class="number">12</span>;
 	<span class="kw">const </span>KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(<span class="number">5</span>);
 
 	<span class="kw">async fn </span>rpc_get_storage(
@@ -1840,8 +1854,8 @@
 		<span class="kw">let </span>keys = <span class="kw">loop </span>{
 			<span class="comment">// This loop can hit the node with very rapid requests, occasionally causing it to
 			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			</span><span class="kw">let </span>retry_strategy = FixedInterval::new(<span class="self">Self</span>::KEYS_PAGE_RETRY_INTERVAL)
-				.take(<span class="self">Self</span>::KEYS_PAGE_MAX_RETRIES);
+			</span><span class="kw">let </span>retry_strategy =
+				FixedInterval::new(<span class="self">Self</span>::KEYS_PAGE_RETRY_INTERVAL).take(<span class="self">Self</span>::MAX_RETRIES);
 			<span class="kw">let </span>get_page_closure =
 				|| <span class="self">self</span>.get_keys_single_page(<span class="prelude-val">Some</span>(prefix.clone()), last_key.clone(), at);
 			<span class="kw">let </span>page = Retry::spawn(retry_strategy, get_page_closure).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1877,8 +1891,6 @@
 	///
 	/// * `client` - An `Arc` wrapped `HttpClient` used for making the requests.
 	/// * `payloads` - A vector of tuples containing a JSONRPC method name and `ArrayParams`
-	/// * `batch_size` - The initial batch size to use for the request. The batch size will be
-	///   adjusted dynamically in case of failure.
 	///
 	/// # Returns
 	///
@@ -1914,80 +1926,107 @@
 	///     }
 	/// }
 	/// ```
-	</span><span class="attr">#[async_recursion]
 	</span><span class="kw">async fn </span>get_storage_data_dynamic_batch_size(
 		client: <span class="kw-2">&amp;</span>HttpClient,
 		payloads: Vec&lt;(String, ArrayParams)&gt;,
-		batch_size: usize,
 		bar: <span class="kw-2">&amp;</span>ProgressBar,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;, String&gt; {
-		<span class="comment">// All payloads have been processed
-		</span><span class="kw">if </span>payloads.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[])
-		};
+		<span class="kw">let </span><span class="kw-2">mut </span>all_data: Vec&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt; = <span class="macro">vec!</span>[];
+		<span class="kw">let </span><span class="kw-2">mut </span>start_index = <span class="number">0</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>retries = <span class="number">0usize</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>batch_size = <span class="self">Self</span>::INITIAL_BATCH_SIZE;
+		<span class="kw">let </span>total_payloads = payloads.len();
 
-		<span class="macro">log::debug!</span>(
-			target: LOG_TARGET,
-			<span class="string">&quot;Remaining payloads: {} Batch request size: {}&quot;</span>,
-			payloads.len(),
-			batch_size,
-		);
+		<span class="kw">while </span>start_index &lt; total_payloads {
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Remaining payloads: {} Batch request size: {}&quot;</span>,
+				total_payloads - start_index,
+				batch_size,
+			);
 
-		<span class="comment">// Payloads to attempt to process this batch
-		</span><span class="kw">let </span>page = payloads.iter().take(batch_size).cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+			<span class="kw">let </span>end_index = usize::min(start_index + batch_size, total_payloads);
+			<span class="kw">let </span>page = <span class="kw-2">&amp;</span>payloads[start_index..end_index];
 
-		<span class="comment">// Build the batch request
-		</span><span class="kw">let </span><span class="kw-2">mut </span>batch = BatchRequestBuilder::new();
-		<span class="kw">for </span>(method, params) <span class="kw">in </span>page.iter() {
-			batch
-				.insert(method, params.clone())
-				.map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid batch method and/or params&quot;</span>)<span class="question-mark">?
-		</span>}
-		<span class="kw">let </span>batch_response = <span class="kw">match </span>client.batch_request::&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;(batch).<span class="kw">await </span>{
-			<span class="prelude-val">Ok</span>(batch_response) =&gt; batch_response,
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="kw">if </span>batch_size &lt; <span class="number">2 </span>{
-					<span class="kw">return </span><span class="prelude-val">Err</span>(e.to_string())
-				}
-
-				<span class="macro">log::debug!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;Batch request failed, trying again with smaller batch size. {}&quot;</span>,
-					e.to_string()
-				);
-
-				<span class="kw">return </span><span class="self">Self</span>::get_storage_data_dynamic_batch_size(
-					client,
-					payloads,
-					max(<span class="number">1</span>, (batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_DECREASE_FACTOR) <span class="kw">as </span>usize),
-					bar,
-				)
-				.<span class="kw">await
-			</span>},
-		};
-
-		<span class="comment">// Collect the data from this batch
-		</span><span class="kw">let </span><span class="kw-2">mut </span>data: Vec&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt; = <span class="macro">vec!</span>[];
-		<span class="kw">let </span>batch_response_len = batch_response.len();
-		<span class="kw">for </span>item <span class="kw">in </span>batch_response.into_iter() {
-			<span class="kw">match </span>item {
-				<span class="prelude-val">Ok</span>(x) =&gt; data.push(x),
-				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e.message().to_string()),
+			<span class="comment">// Build the batch request
+			</span><span class="kw">let </span><span class="kw-2">mut </span>batch = BatchRequestBuilder::new();
+			<span class="kw">for </span>(method, params) <span class="kw">in </span>page.iter() {
+				batch
+					.insert(method, params.clone())
+					.map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid batch method and/or params&quot;</span>)<span class="question-mark">?</span>;
 			}
-		}
-		bar.inc(batch_response_len <span class="kw">as </span>u64);
 
-		<span class="comment">// Return this data joined with the remaining keys
-		</span><span class="kw">let </span>remaining_payloads = payloads.iter().skip(batch_size).cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="kw">let </span><span class="kw-2">mut </span>rest = <span class="self">Self</span>::get_storage_data_dynamic_batch_size(
-			client,
-			remaining_payloads,
-			max(batch_size + <span class="number">1</span>, (batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_INCREASE_FACTOR) <span class="kw">as </span>usize),
-			bar,
-		)
-		.<span class="kw">await</span><span class="question-mark">?</span>;
-		data.append(<span class="kw-2">&amp;mut </span>rest);
-		<span class="prelude-val">Ok</span>(data)
+			<span class="kw">let </span>request_started = Instant::now();
+			<span class="kw">let </span>batch_response = <span class="kw">match </span>client.batch_request::&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;(batch).<span class="kw">await </span>{
+				<span class="prelude-val">Ok</span>(batch_response) =&gt; {
+					retries = <span class="number">0</span>;
+					batch_response
+				},
+				<span class="prelude-val">Err</span>(e) =&gt; {
+					<span class="kw">if </span>retries &gt; <span class="self">Self</span>::MAX_RETRIES {
+						<span class="kw">return </span><span class="prelude-val">Err</span>(e.to_string())
+					}
+
+					retries += <span class="number">1</span>;
+					<span class="kw">let </span>failure_log = <span class="macro">format!</span>(
+						<span class="string">&quot;Batch request failed ({}/{} retries). Error: {}&quot;</span>,
+						retries,
+						<span class="self">Self</span>::MAX_RETRIES,
+						e.to_string()
+					);
+					<span class="comment">// after 2 subsequent failures something very wrong is happening. log a warning
+					// and reset the batch size down to 1.
+					</span><span class="kw">if </span>retries &gt;= <span class="number">2 </span>{
+						<span class="macro">log::warn!</span>(<span class="string">&quot;{}&quot;</span>, failure_log);
+						batch_size = <span class="number">1</span>;
+					} <span class="kw">else </span>{
+						<span class="macro">log::debug!</span>(<span class="string">&quot;{}&quot;</span>, failure_log);
+						<span class="comment">// Decrease batch size by DECREASE_FACTOR
+						</span>batch_size =
+							(batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_DECREASE_FACTOR) <span class="kw">as </span>usize;
+					}
+					<span class="kw">continue
+				</span>},
+			};
+
+			<span class="kw">let </span>request_duration = request_started.elapsed();
+			batch_size = <span class="kw">if </span>request_duration &gt; <span class="self">Self</span>::REQUEST_DURATION_TARGET {
+				<span class="comment">// Decrease batch size
+				</span>max(<span class="number">1</span>, (batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_DECREASE_FACTOR) <span class="kw">as </span>usize)
+			} <span class="kw">else </span>{
+				<span class="comment">// Increase batch size, but not more than the remaining total payloads to process
+				</span>min(
+					total_payloads - start_index,
+					max(
+						batch_size + <span class="number">1</span>,
+						(batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_INCREASE_FACTOR) <span class="kw">as </span>usize,
+					),
+				)
+			};
+
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Request duration: {:?} Target duration: {:?} Last batch size: {} Next batch size: {}&quot;</span>,
+				request_duration,
+				<span class="self">Self</span>::REQUEST_DURATION_TARGET,
+				end_index - start_index,
+				batch_size
+			);
+
+			<span class="kw">let </span>batch_response_len = batch_response.len();
+			<span class="kw">for </span>item <span class="kw">in </span>batch_response.into_iter() {
+				<span class="kw">match </span>item {
+					<span class="prelude-val">Ok</span>(x) =&gt; all_data.push(x),
+					<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e.message().to_string()),
+				}
+			}
+			bar.inc(batch_response_len <span class="kw">as </span>u64);
+
+			<span class="comment">// Update the start index for the next iteration
+			</span>start_index = end_index;
+		}
+
+		<span class="prelude-val">Ok</span>(all_data)
 	}
 
 	<span class="doccomment">/// Synonym of `getPairs` that uses paged queries to first get the keys, and then
@@ -2034,12 +2073,7 @@
 		);
 		<span class="kw">let </span>payloads_chunked = payloads.chunks((<span class="kw-2">&amp;</span>payloads.len() / <span class="self">Self</span>::PARALLEL_REQUESTS).max(<span class="number">1</span>));
 		<span class="kw">let </span>requests = payloads_chunked.map(|payload_chunk| {
-			<span class="self">Self</span>::get_storage_data_dynamic_batch_size(
-				<span class="kw-2">&amp;</span>client,
-				payload_chunk.to_vec(),
-				<span class="self">Self</span>::INITIAL_BATCH_SIZE,
-				<span class="kw-2">&amp;</span>bar,
-			)
+			<span class="self">Self</span>::get_storage_data_dynamic_batch_size(<span class="kw-2">&amp;</span>client, payload_chunk.to_vec(), <span class="kw-2">&amp;</span>bar)
 		});
 		<span class="comment">// Execute the requests and move the Result outside.
 		</span><span class="kw">let </span>storage_data_result: <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt; =
@@ -2112,20 +2146,14 @@
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>bar = ProgressBar::new(payloads.len() <span class="kw">as </span>u64);
-		<span class="kw">let </span>storage_data = <span class="kw">match </span><span class="self">Self</span>::get_storage_data_dynamic_batch_size(
-			client,
-			payloads,
-			<span class="self">Self</span>::INITIAL_BATCH_SIZE,
-			<span class="kw-2">&amp;</span>bar,
-		)
-		.<span class="kw">await
-		</span>{
-			<span class="prelude-val">Ok</span>(storage_data) =&gt; storage_data,
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;batch processing failed: {:?}&quot;</span>, e);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;batch processing failed&quot;</span>)
-			},
-		};
+		<span class="kw">let </span>storage_data =
+			<span class="kw">match </span><span class="self">Self</span>::get_storage_data_dynamic_batch_size(client, payloads, <span class="kw-2">&amp;</span>bar).<span class="kw">await </span>{
+				<span class="prelude-val">Ok</span>(storage_data) =&gt; storage_data,
+				<span class="prelude-val">Err</span>(e) =&gt; {
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;batch processing failed: {:?}&quot;</span>, e);
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;batch processing failed&quot;</span>)
+				},
+			};
 
 		<span class="macro">assert_eq!</span>(child_keys_len, storage_data.len());
 
