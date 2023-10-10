@@ -54,7 +54,7 @@ impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 	}
 }
 
-/// Implementation of [`PriceForParachainDelivery`] which returns a fixed price.
+/// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
 impl<T: Get<MultiAssets>> PriceForMessageDelivery for ConstantPrice<T> {
 	type Id = ();
