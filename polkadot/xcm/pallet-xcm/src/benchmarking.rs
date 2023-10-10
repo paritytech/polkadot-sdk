@@ -45,15 +45,12 @@ benchmarks! {
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
-		let message = Xcm(vec![ClearOrigin]);
+		let message = Xcm::<()>(vec![ClearOrigin]);
+		let versioned_message = VersionedXcm::from(message);
+		let encoded_versioned_message = BoundedVec::try_from(versioned_message.encode()).unwrap();
 		let versioned_dest: VersionedMultiLocation = T::ReachableDest::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?.into();
-		let versioned_message: VersionedMultiLocation = T::ReachableDest::get().ok_or(
-			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
-		)?.into();
-		let encoded_versioned_message = BoundedVec::try_from(versioned_message.encode()).unwrap();
-		let versioned_msg = VersionedXcm::from(message);
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), encoded_versioned_message)
 
 	teleport_assets {
@@ -119,7 +116,7 @@ benchmarks! {
 		}
 		let versioned_message = VersionedXcm::from(message);
 		let encoded_versioned_message = BoundedVec::try_from(versioned_message.encode()).unwrap();
-	}: _<RuntimeOrigin<T>>(execute_origin, encoded_versioned_message, max_weight)
+	}: _<RuntimeOrigin<T>>(execute_origin, encoded_versioned_message, Weight::zero())
 
 	force_xcm_version {
 		let loc = T::ReachableDest::get().ok_or(

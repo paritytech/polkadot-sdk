@@ -49,6 +49,12 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
+	fn send_blob() -> Weight {
+		todo!()
+	}
+	fn execute_blob() -> Weight {
+		todo!()
+	}
 	/// Storage: Configuration ActiveConfig (r:1 w:0)
 	/// Proof Skipped: Configuration ActiveConfig (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: Dmp DeliveryFeeFactor (r:1 w:0)

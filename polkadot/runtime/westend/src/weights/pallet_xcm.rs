@@ -53,6 +53,12 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
+	fn send_blob() -> Weight {
+		todo!()
+	}
+	fn execute_blob() -> Weight {
+		todo!()
+	}
 	/// Storage: unknown `0x3a696e747261626c6f636b5f656e74726f7079` (r:1 w:1)
 	/// Proof Skipped: unknown `0x3a696e747261626c6f636b5f656e74726f7079` (r:1 w:1)
 	/// Storage: Dmp DeliveryFeeFactor (r:1 w:0)
