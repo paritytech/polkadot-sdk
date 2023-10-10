@@ -178,7 +178,7 @@ where
 	check_version: bool,
 }
 
-mod ump_constants {
+pub mod ump_constants {
 	use super::FixedU128;
 
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
@@ -884,7 +884,7 @@ pub mod pallet {
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub(super) type PendingUpwardMessages<T: Config> =
+	pub type PendingUpwardMessages<T: Config> =
 		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
@@ -1530,7 +1530,7 @@ impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 
 impl<T: Config> Pallet<T> {
 	/// Puts a message in the [`PendingUpwardMessages`] storage item.
-	/// The message will be later sent in [`on_finalize`].
+	/// The message will be later sent in `on_finalize`.
 	/// Checks host configuration to see if message is too big.
 	/// Increases the delivery fee factor if the queue is sufficiently (see [`ump_constants::THRESHOLD_FACTOR`]) congested.
 	pub fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
