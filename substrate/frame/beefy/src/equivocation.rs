@@ -139,6 +139,7 @@ pub enum EquivocationEvidenceFor<T: Config> {
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
+			<T as frame_system::Config>::Hash,
 		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),

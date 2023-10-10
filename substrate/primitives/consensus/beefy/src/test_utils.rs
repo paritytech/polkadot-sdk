@@ -23,6 +23,7 @@ use crate::{
 };
 use codec::Encode;
 use sp_core::{ecdsa, keccak_256, Pair};
+use sp_mmr_primitives::AncestryProof;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
@@ -117,24 +118,31 @@ pub fn generate_vote_equivocation_proof(
 }
 
 /// Create a new `ForkEquivocationProof` based on vote & correct header.
-pub fn generate_fork_equivocation_proof_vote<Header>(
+pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 	vote: (u64, Payload, ValidatorSetId, &Keyring),
 	correct_header: Header,
-) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header> {
+	ancestry_proof: AncestryProof<Hash>,
+) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
 	let signatories = vec![(signed_vote.id, signed_vote.signature)];
-	ForkEquivocationProof { commitment: signed_vote.commitment, signatories, correct_header }
+	ForkEquivocationProof {
+		commitment: signed_vote.commitment,
+		signatories,
+		correct_header,
+		ancestry_proof,
+	}
 }
 
 /// Create a new `ForkEquivocationProof` based on signed commitment & correct header.
-pub fn generate_fork_equivocation_proof_sc<Header>(
+pub fn generate_fork_equivocation_proof_sc<Header, Hash>(
 	commitment: Commitment<u64>,
 	keyrings: Vec<Keyring>,
 	correct_header: Header,
-) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header> {
+	ancestry_proof: AncestryProof<Hash>,
+) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signatories = keyrings
 		.into_iter()
 		.map(|k| (k.public(), k.sign(&commitment.encode())))
 		.collect::<Vec<_>>();
-	ForkEquivocationProof { commitment, signatories, correct_header }
+	ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof }
 }

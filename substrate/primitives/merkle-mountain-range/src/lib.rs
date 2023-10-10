@@ -359,6 +359,14 @@ pub struct Proof<Hash> {
 	pub items: Vec<(u64, Hash)>,
 }
 
+/// An MMR ancestry proof for a prior mmr root.
+#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+pub struct AncestryProof<Hash> {
+	prev_peaks: Vec<Hash>,
+	prev_size: u64,
+	proof: Proof<Hash>,
+}
+
 /// Merkle Mountain Range operation error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]

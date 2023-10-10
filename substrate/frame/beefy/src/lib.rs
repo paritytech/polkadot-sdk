@@ -314,6 +314,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
+					<T as frame_system::Config>::Hash,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -351,6 +352,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
+					<T as frame_system::Config>::Hash,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -421,6 +423,7 @@ impl<T: Config> Pallet<T> {
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
+			<T as frame_system::Config>::Hash,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
 	) -> Option<()> {

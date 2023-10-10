@@ -40,6 +40,7 @@ pub mod witness;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
+use sp_mmr_primitives::AncestryProof;
 #[cfg(feature = "std")]
 pub use test_utils::*;
 
@@ -254,7 +255,7 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 /// Proof of authority misbehavior on a given set id.
 /// This proof shows commitment signed on a different fork.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct ForkEquivocationProof<Number, Id, Signature, Header> {
+pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	/// Commitment for a block on different fork than one at the same height in
 	/// this client's chain.
 	pub commitment: Commitment<Number>,
@@ -265,9 +266,11 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header> {
 	/// 2. its digest's payload != commitment.payload
 	/// 3. commitment is signed by signatories
 	pub correct_header: Header,
+	/// ancestry proof showing mmr root
+	pub ancestry_proof: AncestryProof<Hash>,
 }
 
-impl<Number, Id, Signature, H: Header> ForkEquivocationProof<Number, Id, Signature, H> {
+impl<Number, Id, Signature, H: Header, Hash> ForkEquivocationProof<Number, Id, Signature, H, Hash> {
 	/// Returns the authority id of the misbehaving voter.
 	pub fn offender_ids(&self) -> Vec<&Id> {
 		self.signatories.iter().map(|(id, _)| id).collect()
@@ -345,8 +348,14 @@ where
 /// finalized by GRANDPA. This is fine too, since the slashing risk of committing to
 /// an incorrect block implies validators will only sign blocks they *know* will be
 /// finalized by GRANDPA.
-pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header>(
-	proof: &ForkEquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature, Header>,
+pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash>(
+	proof: &ForkEquivocationProof<
+		Number,
+		Id,
+		<Id as RuntimeAppPublic>::Signature,
+		Header,
+		NodeHash,
+	>,
 	expected_header_hash: &Header::Hash,
 ) -> bool
 where
@@ -355,7 +364,7 @@ where
 	MsgHash: Hash,
 	Header: sp_api::HeaderT,
 {
-	let ForkEquivocationProof { commitment, signatories, correct_header } = proof;
+	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
 
 	if correct_header.hash() != *expected_header_hash {
 		return false
@@ -422,8 +431,9 @@ sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters. Due to the significant conceptual
 	/// overlap, in large part, this is lifted from the GRANDPA API.
 	#[api_version(3)]
-	pub trait BeefyApi<AuthorityId> where
+	pub trait BeefyApi<AuthorityId, Hash> where
 		AuthorityId : Codec + RuntimeAppPublic,
+		Hash: Codec,
 	{
 		/// Return the block number where BEEFY consensus is enabled/started
 		fn beefy_genesis() -> Option<NumberFor<Block>>;
@@ -455,7 +465,7 @@ sp_api::decl_runtime_apis! {
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
 			fork_equivocation_proof:
-				ForkEquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature, Block::Header>,
+				ForkEquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature, Block::Header, Hash>,
 			key_owner_proofs: Vec<OpaqueKeyOwnershipProof>,
 		) -> Option<()>;
 

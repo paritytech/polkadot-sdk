@@ -22,7 +22,7 @@ use log::debug;
 
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, MmrRootHash, BEEFY_ENGINE_ID};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	EncodedJustification,
@@ -83,7 +83,7 @@ where
 	Block: BlockT,
 	BE: Backend<Block>,
 	Runtime: ProvideRuntimeApi<Block>,
-	Runtime::Api: BeefyApi<Block, AuthorityId> + Send,
+	Runtime::Api: BeefyApi<Block, AuthorityId, MmrRootHash> + Send,
 {
 	fn decode_and_verify(
 		&self,
@@ -120,7 +120,7 @@ where
 	BE: Backend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
 	Runtime: ProvideRuntimeApi<Block> + Send + Sync,
-	Runtime::Api: BeefyApi<Block, AuthorityId>,
+	Runtime::Api: BeefyApi<Block, AuthorityId, MmrRootHash>,
 {
 	type Error = ConsensusError;
 

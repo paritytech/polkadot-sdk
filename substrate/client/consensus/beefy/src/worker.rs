@@ -43,8 +43,8 @@ use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_vote_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, PayloadProvider, ValidatorSet, VersionedFinalityProof,
-	VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, Commitment, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -356,7 +356,7 @@ where
 	P: PayloadProvider<B>,
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 	F: BeefyFisherman<B>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {

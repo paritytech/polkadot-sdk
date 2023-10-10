@@ -276,7 +276,19 @@ pub(crate) struct TestApi {
 	pub reported_vote_equivocations:
 		Option<Arc<Mutex<Vec<VoteEquivocationProof<NumberFor<Block>, AuthorityId, Signature>>>>>,
 	pub reported_fork_equivocations: Option<
-		Arc<Mutex<Vec<ForkEquivocationProof<NumberFor<Block>, AuthorityId, Signature, Header>>>>,
+		Arc<
+			Mutex<
+				Vec<
+					ForkEquivocationProof<
+						NumberFor<Block>,
+						AuthorityId,
+						Signature,
+						Header,
+						MmrRootHash,
+					>,
+				>,
+			>,
+		>,
 	>,
 }
 
@@ -324,7 +336,7 @@ impl ProvideRuntimeApi<Block> for TestApi {
 	}
 }
 sp_api::mock_impl_runtime_apis! {
-	impl BeefyApi<Block, AuthorityId> for RuntimeApi {
+	impl BeefyApi<Block, AuthorityId, MmrRootHash> for RuntimeApi {
 		fn beefy_genesis() -> Option<NumberFor<Block>> {
 			Some(self.inner.beefy_genesis)
 		}
@@ -346,7 +358,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			proof: ForkEquivocationProof<NumberFor<Block>, AuthorityId, Signature, Header>,
+			proof: ForkEquivocationProof<NumberFor<Block>, AuthorityId, Signature, Header, MmrRootHash>,
 			_dummy: Vec<OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_fork_equivocations.as_ref() {
@@ -430,7 +442,8 @@ fn initialize_beefy<API>(
 ) -> impl Future<Output = ()>
 where
 	API: ProvideRuntimeApi<Block> + Sync + Send + 'static,
-	API::Api: BeefyApi<Block, AuthorityId> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
+	API::Api:
+		BeefyApi<Block, AuthorityId, MmrRootHash> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
 {
 	let tasks = FuturesUnordered::new();
 

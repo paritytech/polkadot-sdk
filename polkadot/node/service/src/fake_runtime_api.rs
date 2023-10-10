@@ -231,7 +231,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			unimplemented!()
 		}
@@ -252,7 +252,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
-			_: beefy_primitives::ForkEquivocationProof<BlockNumber, BeefyId, BeefySignature, <Block as BlockT>::Header>,
+			_: beefy_primitives::ForkEquivocationProof<BlockNumber, BeefyId, BeefySignature, <Block as BlockT>::Header, Hash>,
 			_: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			unimplemented!()

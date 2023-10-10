@@ -29,8 +29,8 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
 	check_fork_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, ForkEquivocationProof, Payload, PayloadProvider, SignedCommitment, ValidatorSet,
-	VoteMessage,
+	BeefyApi, ForkEquivocationProof, MmrRootHash, Payload, PayloadProvider, SignedCommitment,
+	ValidatorSet, VoteMessage,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -71,7 +71,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 {
 	fn expected_header_and_payload(
 		&self,
@@ -107,7 +107,7 @@ where
 
 	pub(crate) fn report_fork_equivocation(
 		&self,
-		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header>,
+		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header, MmrRootHash>,
 	) -> Result<(), Error> {
 		let validator_set = self.active_validator_set_at(&proof.correct_header)?;
 		let set_id = validator_set.id();
@@ -124,6 +124,7 @@ where
 				AuthorityId,
 				BeefySignatureHasher,
 				B::Header,
+				MmrRootHash,
 			>(&proof, &expected_header_hash)
 		{
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
@@ -181,7 +182,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 {
 	/// Check `vote` for contained block against expected payload.
 	fn check_vote(
