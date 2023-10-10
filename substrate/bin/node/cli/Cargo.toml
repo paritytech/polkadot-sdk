@@ -60,6 +60,7 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
 sp-io = { path = "../../../primitives/io" }
+sp-mixnet = { path = "../../../primitives/mixnet" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 
 # client dependencies
@@ -82,6 +83,7 @@ sc-service = { path = "../../../client/service", default-features = false}
 sc-telemetry = { path = "../../../client/telemetry" }
 sc-executor = { path = "../../../client/executor" }
 sc-authority-discovery = { path = "../../../client/authority-discovery" }
+sc-mixnet = { path = "../../../client/mixnet" }
 sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
 sc-sysinfo = { path = "../../../client/sysinfo" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }

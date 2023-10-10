@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	Perbill,
@@ -71,12 +72,13 @@ fn session_keys(
 	babe: BabeId,
 	im_online: ImOnlineId,
 	authority_discovery: AuthorityDiscoveryId,
+	mixnet: MixnetId,
 ) -> SessionKeys {
-	SessionKeys { grandpa, babe, im_online, authority_discovery }
+	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet }
 }
 
 fn configure_accounts_for_staging_testnet() -> (
-	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId)>,
+	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)>,
 	AccountId,
 	Vec<AccountId>,
 ) {
@@ -96,6 +98,7 @@ fn configure_accounts_for_staging_testnet() -> (
 		BabeId,
 		ImOnlineId,
 		AuthorityDiscoveryId,
+		MixnetId,
 	)> = vec![
 		(
 			// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
@@ -104,6 +107,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex_n_into_unchecked("781ead1e2fa9ccb74b44c19d29cb2a7a4b5be3972927ae98cd3877523976a276"),
 			// 5Fb9ayurnxnaXj56CjmyQLBiadfRCqUbL2VWNbbe1nZU6wiC
 			array_bytes::hex2array_unchecked("9becad03e6dcac03cee07edebca5475314861492cdfc96a2144a67bbe9699332")
+				.unchecked_into(),
+			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
+			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
 				.unchecked_into(),
 			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
 			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
@@ -132,6 +138,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
 			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
 				.unchecked_into(),
+			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
+			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
+				.unchecked_into(),
 		),
 		(
 			// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
@@ -150,6 +159,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
 			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
 				.unchecked_into(),
+			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
+			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
+				.unchecked_into(),
 		),
 		(
 			// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
@@ -158,6 +170,9 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex_n_into_unchecked("66bc1e5d275da50b72b15de072a2468a5ad414919ca9054d2695767cf650012f"),
 			// 5DMa31Hd5u1dwoRKgC4uvqyrdK45RHv3CpwvpUC1EzuwDit4
 			array_bytes::hex2array_unchecked("3919132b851ef0fd2dae42a7e734fe547af5a6b809006100f48944d7fae8e8ef")
+				.unchecked_into(),
+			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
+			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
 				.unchecked_into(),
 			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
 			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
@@ -219,7 +234,7 @@ where
 /// Helper function to generate stash, controller and session key from seed.
 pub fn authority_keys_from_seed(
 	seed: &str,
-) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId) {
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
 		get_account_id_from_seed::<sr25519::Public>(seed),
@@ -227,6 +242,7 @@ pub fn authority_keys_from_seed(
 		get_from_seed::<BabeId>(seed),
 		get_from_seed::<ImOnlineId>(seed),
 		get_from_seed::<AuthorityDiscoveryId>(seed),
+		get_from_seed::<MixnetId>(seed),
 	)
 }
 
@@ -238,12 +254,13 @@ fn configure_accounts(
 		BabeId,
 		ImOnlineId,
 		AuthorityDiscoveryId,
+		MixnetId,
 	)>,
 	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Option<Vec<AccountId>>,
 	stash: Balance,
 ) -> (
-	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId)>,
+	Vec<(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)>,
 	Vec<AccountId>,
 	usize,
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
@@ -308,6 +325,7 @@ pub fn testnet_genesis(
 		BabeId,
 		ImOnlineId,
 		AuthorityDiscoveryId,
+		MixnetId,
 	)>,
 	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
@@ -327,7 +345,13 @@ pub fn testnet_genesis(
 					(
 						x.0.clone(),
 						x.0.clone(),
-						session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+						session_keys(
+							x.2.clone(),
+							x.3.clone(),
+							x.4.clone(),
+							x.5.clone(),
+							x.6.clone(),
+						),
 					)
 				})
 				.collect::<Vec<_>>(),
@@ -447,7 +471,7 @@ pub(crate) mod tests {
 
 		sc_service_test::connectivity(integration_test_config_with_two_authorities(), |config| {
 			let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-				new_full_base(config, false, |_, _| ())?;
+				new_full_base(config, None, false, |_, _| ())?;
 			Ok(sc_service_test::TestNetComponents::new(
 				task_manager,
 				client,
@@ -493,6 +517,7 @@ pub(crate) mod tests {
 				BabeId,
 				ImOnlineId,
 				AuthorityDiscoveryId,
+				MixnetId,
 			)>,
 			initial_nominators: Vec<AccountId>,
 			root_key: AccountId,
@@ -519,7 +544,13 @@ pub(crate) mod tests {
 							(
 								x.0.clone(),
 								x.0.clone(),
-								session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+								session_keys(
+									x.2.clone(),
+									x.3.clone(),
+									x.4.clone(),
+									x.5.clone(),
+									x.6.clone(),
+								),
 							)
 						})
 						.collect::<Vec<_>>(),
@@ -585,6 +616,7 @@ pub(crate) mod tests {
 					..Default::default()
 				},
 				glutton: Default::default(),
+				mixnet: Default::default(),
 			}
 		}
 

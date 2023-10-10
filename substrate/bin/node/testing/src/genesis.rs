@@ -105,5 +105,6 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			trash_data_count: Default::default(),
 			..Default::default()
 		},
+		mixnet: Default::default(),
 	}
 }
