@@ -2309,7 +2309,7 @@
 		</span><span class="kw">let </span>pruned = old_statuses_len - statuses.len();
 		<span class="comment">// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-		</span>statuses.rotate_left(result.len() - pruned);
+		</span>statuses.rotate_left(result.len().saturating_sub(pruned));
 
 		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(statuses);
 
