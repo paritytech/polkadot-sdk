@@ -63,7 +63,6 @@ use frame_support::{
 	traits::{
 		fungible::{self, Inspect as _, Mutate as _},
 		tokens::{fungible::Credit, Fortitude, Preservation},
-		ExistenceRequirement::KeepAlive,
 		Get, Randomness,
 	},
 	PalletId,
@@ -78,7 +77,6 @@ pub use weights::WeightInfo;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> = <<T as Config>::Currency as fungible::Inspect<AccountIdOf<T>>>::Balance;
-type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 // Any runtime call can be encoded into two bytes which represent the pallet and call index.
 // We use this to uniquely match someone's incoming call with the calls configured for the lottery.
