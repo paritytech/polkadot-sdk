@@ -383,8 +383,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::GeneratedSessionKeys {
-			sp_session::GeneratedSessionKeys { keys: Vec::new(), proof: Vec::new() }
+		fn generate_session_keys(_: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			sp_session::OpaqueGeneratedSessionKeys { keys: Vec::new(), proof: Vec::new() }
 		}
 
 		fn decode_session_keys(

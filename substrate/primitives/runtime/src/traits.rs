@@ -2022,7 +2022,20 @@ macro_rules! impl_opaque_keys_inner {
 			///
 			/// Returns the generated public session keys and proof.
 			#[allow(dead_code)]
-			pub fn generate(owner: &[u8], seed: Option<$crate::sp_std::vec::Vec<u8>>) -> $crate::traits::GeneratedSessionKeys {
+			pub fn generate(
+				owner: &[u8],
+				seed: Option<$crate::sp_std::vec::Vec<u8>>,
+			) -> $crate::traits::GeneratedSessionKeys<
+				Self,
+				(
+					$(
+						<
+							<$type as $crate::BoundToRuntimeAppPublic>::Public
+								as $crate::RuntimeAppPublic
+						>::Signature
+					),*
+				)
+			> {
 				let keys = Self {
 					$(
 						$field: <
@@ -2035,8 +2048,6 @@ macro_rules! impl_opaque_keys_inner {
 
 				let proof = keys.create_ownership_proof(owner)
 					.expect("Private key that was generated a moment ago, should exist; qed");
-
-				let keys = $crate::codec::Encode::encode(&keys);
 
 				$crate::traits::GeneratedSessionKeys {
 					keys,
@@ -2087,10 +2098,23 @@ macro_rules! impl_opaque_keys_inner {
 			/// Returns the SCALE encoded proof that will proof the ownership of the keys for `user`.
 			/// An error is returned if the signing of `user` failed, e.g. a private key isn't present in the keystore.
 			#[allow(dead_code)]
-			pub fn create_ownership_proof(&self, owner: &[u8]) -> $crate::sp_std::result::Result<Vec<u8>, ()> {
-				Ok($crate::codec::Encode::encode(&($(
+			pub fn create_ownership_proof(
+				&self,
+				owner: &[u8],
+			) -> $crate::sp_std::result::Result<
+				(
+					$(
+						<
+							<$type as $crate::BoundToRuntimeAppPublic>::Public
+								as $crate::RuntimeAppPublic
+						>::Signature
+					),*
+				),
+				()
+			> {
+				Ok(($(
 					$crate::RuntimeAppPublic::sign(&self.$field, &owner).ok_or(())?
-				),*)))
+				),*))
 			}
 		}
 
@@ -2161,11 +2185,11 @@ macro_rules! impl_opaque_keys_inner {
 /// To generate session keys the [`impl_opaque_keys!`](crate::impl_opaque_keys) needs to be used
 /// first to create the session keys type and this type provides the `generate` function.
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct GeneratedSessionKeys {
+pub struct GeneratedSessionKeys<Keys, Proof> {
 	/// The opaque public session keys for registering on-chain.
-	pub keys: Vec<u8>,
+	pub keys: Keys,
 	/// The opaque proof to verify the ownership of the keys.
-	pub proof: Vec<u8>,
+	pub proof: Proof,
 }
 
 /// Implement [`OpaqueKeys`] for a described struct.

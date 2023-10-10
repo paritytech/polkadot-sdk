@@ -727,8 +727,8 @@ impl_runtime_apis! {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 
-		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::GeneratedSessionKeys {
-			SessionKeys::generate(&owner, seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 	}
 

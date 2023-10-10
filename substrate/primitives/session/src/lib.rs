@@ -27,10 +27,24 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 
 use sp_core::{crypto::KeyTypeId, RuntimeDebug};
+use sp_runtime::traits::GeneratedSessionKeys;
 use sp_staking::SessionIndex;
 use sp_std::vec::Vec;
 
-pub use sp_runtime::traits::GeneratedSessionKeys;
+/// Opaque [`GeneratedSessionKeys`](sp_runtime::traits::GeneratedSessionKeys).
+#[derive(Debug, Decode, Encode, scale_info::TypeInfo)]
+pub struct OpaqueGeneratedSessionKeys {
+	/// The public session keys.
+	pub keys: Vec<u8>,
+	/// The proof proving the ownership of the public session keys for some owner.
+	pub proof: Vec<u8>,
+}
+
+impl<K: Encode, P: Encode> From<GeneratedSessionKeys<K, P>> for OpaqueGeneratedSessionKeys {
+	fn from(value: GeneratedSessionKeys<K, P>) -> Self {
+		Self { keys: value.keys.encode(), proof: value.proof.encode() }
+	}
+}
 
 sp_api::decl_runtime_apis! {
 	/// Session keys runtime api.
@@ -43,7 +57,7 @@ sp_api::decl_runtime_apis! {
 		/// The seed needs to be a valid `utf8` string.
 		///
 		/// Returns the concatenated SCALE encoded public keys.
-		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> GeneratedSessionKeys;
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys;
 
 		#[changed_in(2)]
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8>;
