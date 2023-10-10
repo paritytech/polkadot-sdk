@@ -82,7 +82,7 @@ fn counter_prefix(prefix: &str) -> String {
 /// and the pallets that are used by the runtime.
 /// `Block` is the block type that is used in the runtime and `NodeBlock` is the block type
 /// that is used in the node. For instance they can differ in the extrinsics type.
-///q
+///
 /// # Example:
 ///
 /// ```ignore
