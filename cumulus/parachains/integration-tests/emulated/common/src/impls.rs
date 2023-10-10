@@ -503,6 +503,22 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 					);
 				}
 
+				/// Asserts a XCM from Relay Chain is executed with error
+				pub fn assert_dmp_queue_error(
+					expected_error: $crate::impls::Error,
+				) {
+					$crate::impls::assert_expected_events!(
+						Self,
+						vec![
+							[<$chain RuntimeEvent>]::DmpQueue($crate::impls::cumulus_pallet_dmp_queue::Event::ExecutedDownward {
+								outcome: $crate::impls::Outcome::Error(error), ..
+							}) => {
+								error: *error == expected_error,
+							},
+						]
+					);
+				}
+
 				/// Asserts a XCM from another Parachain is completely executed
 				pub fn assert_xcmp_queue_success(expected_weight: Option<$crate::impls::Weight>) {
 					$crate::impls::assert_expected_events!(
