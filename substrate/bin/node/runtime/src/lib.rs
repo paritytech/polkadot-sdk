@@ -1829,7 +1829,7 @@ impl pallet_nfts::Config for Runtime {
 
 impl pallet_transaction_storage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeCall = RuntimeCall;
 	type FeeDestination = ();

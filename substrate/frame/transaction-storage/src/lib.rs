@@ -48,8 +48,8 @@ use sp_transaction_storage_proof::{
 
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> =
-	<<T as Config>::Currency as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
-pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+	<<T as Config>::Fungible as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -109,8 +109,8 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
-		/// The currency type for this pallet.
-		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		/// The fungible type for this pallet.
+		type Fungible: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FnBalanced<Self::AccountId>;
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -444,8 +444,8 @@ pub mod pallet {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let fee = byte_fee.saturating_mul(size.into()).saturating_add(entry_fee);
-			T::Currency::hold(&HoldReason::StorageFeeHold.into(), &sender, fee)?;
-			let (credit, _) = T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
+			T::Fungible::hold(&HoldReason::StorageFeeHold.into(), &sender, fee)?;
+			let (credit, _) = T::Fungible::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
 		}

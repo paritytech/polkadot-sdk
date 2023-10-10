@@ -104,7 +104,7 @@ fn proof() -> Vec<u8> {
 }
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Fungible as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = System::<T>::events();

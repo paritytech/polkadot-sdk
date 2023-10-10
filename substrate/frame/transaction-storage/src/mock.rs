@@ -83,7 +83,7 @@ impl pallet_balances::Config for Test {
 impl pallet_transaction_storage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RuntimeHoldReason = HoldReason;
 	type FeeDestination = ();
 	type WeightInfo = ();
