@@ -1064,28 +1064,30 @@ pub mod pallet {
 			let new_id_deposit = IdentityOf::<T>::try_mutate(
 				&target,
 				|registration| -> Result<BalanceOf<T>, DispatchError> {
-					if let Some(reg) = registration {
-						// Calculate what deposit should be
-						let field_deposit = BalanceOf::<T>::from(reg.info.additional.len() as u32)
-							.saturating_mul(T::FieldDeposit::get());
-						let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
+					let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
+					// Calculate what deposit should be
+					let field_deposit = T::FieldDeposit::get()
+						.saturating_mul(BalanceOf::<T>::from(reg.info.additional.len() as u32));
+					let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
 
-						// Update account
-						let _ = Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
+					// Update account
+					Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
 
-						reg.deposit = new_id_deposit;
-						return Ok(new_id_deposit)
-					} else {
-						return Err(Error::<T>::NoIdentity.into())
-					}
+					reg.deposit = new_id_deposit;
+					Ok(new_id_deposit)
 				},
 			)?;
 
 			// Subs Deposit
-			let (current_subs_deposit, subs_of) = SubsOf::<T>::take(&target);
-			let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
-			let _ = Self::rejig_deposit(&target, current_subs_deposit, new_subs_deposit)?;
-			SubsOf::<T>::insert(&target, (new_subs_deposit, subs_of));
+			let new_subs_deposit = SubsOf::<T>::try_mutate(
+				&target,
+				|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
+					let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+					Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
+					*current_subs_deposit = new_subs_deposit;
+					Ok(new_subs_deposit)
+				},
+			)?;
 
 			Self::deposit_event(Event::DepositUpdated {
 				who: target,
