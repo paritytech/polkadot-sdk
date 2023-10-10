@@ -44,7 +44,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
-		Referenda: pallet_referenda,
+		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>, HoldReason},
 		Treasury: pallet_treasury,
 	}
 );
