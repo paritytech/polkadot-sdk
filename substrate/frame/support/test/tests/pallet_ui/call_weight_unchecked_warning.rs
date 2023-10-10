@@ -15,40 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Root Testing Pallet
-//!
-//! Pallet that contains extrinsics that can be usefull in testing.
-//!
-//! NOTE: This pallet should only be used for testing purposes and should not be used in production
-//! runtimes!
-
-#![cfg_attr(not(feature = "std"), no_std)]
-
-use frame_support::dispatch::DispatchResult;
-use sp_runtime::Perbill;
-
-pub use pallet::*;
-
-#[frame_support::pallet(dev_mode)]
-pub mod pallet {
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+#[frame_support::pallet]
+mod pallet {
+	use frame_support::pallet_prelude::DispatchResult;
+	use frame_system::pallet_prelude::OriginFor;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(_);
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// A dispatch that will fill the block weight up to the given ratio.
 		#[pallet::call_index(0)]
-		#[pallet::weight(*_ratio * T::BlockWeights::get().max_block)]
-		pub fn fill_block(origin: OriginFor<T>, _ratio: Perbill) -> DispatchResult {
-			ensure_root(origin)?;
-			Ok(())
-		}
+        #[pallet::weight(*_unused)]
+		pub fn foo(_: OriginFor<T>, _unused: u64) -> DispatchResult { Ok(()) }
 	}
+}
+
+fn main() {
 }
