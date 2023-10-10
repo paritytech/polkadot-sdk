@@ -432,6 +432,31 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -645,6 +670,31 @@
 		<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;{} blocks ready for import&quot;</span>, ready.len());
 		ready
 	}
+
+	<span class="doccomment">/// Returns the block header of the first block that is ready for importing.
+	/// `from` is the maximum block number for the start of the range that we are interested in.
+	/// The function will return None if the first block ready is higher than `from`.
+	/// The logic is structured to be consistent with ready_blocks().
+	</span><span class="kw">pub fn </span>first_ready_block_header(<span class="kw-2">&amp;</span><span class="self">self</span>, from: NumberFor&lt;B&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;B::Header&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>prev = from;
+		<span class="kw">for </span>(<span class="kw-2">&amp;</span>start, range_data) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.blocks {
+			<span class="kw">if </span>start &gt; prev {
+				<span class="kw">break
+			</span>}
+
+			<span class="kw">match </span>range_data {
+				BlockRangeState::Complete(blocks) =&gt; {
+					<span class="kw">let </span>len = (blocks.len() <span class="kw">as </span>u32).into();
+					prev = start + len;
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(BlockData { block, .. }) = blocks.first() {
+						<span class="kw">return </span>block.header.clone()
+					}
+				},
+				<span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+			}
+		}
+		<span class="prelude-val">None
+	</span>}
 
 	<span class="kw">pub fn </span>clear_queued(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>B::Hash) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((from, to)) = <span class="self">self</span>.queued_blocks.remove(hash) {
