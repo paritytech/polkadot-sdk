@@ -33,7 +33,8 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
 		fungible::{
-			hold::Balanced as FnBalanced, Inspect as FnInspect, MutateHold as FnMutateHold,
+			hold::Balanced as FnBalanced, Inspect as FnInspect, Mutate as FnMutate,
+			MutateHold as FnMutateHold,
 		},
 		tokens::fungible::Credit,
 		OnUnbalanced,
@@ -110,7 +111,8 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 		/// The fungible type for this pallet.
-		type Fungible: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		type Fungible: FnMutate<Self::AccountId>
+			+ FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FnBalanced<Self::AccountId>;
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
