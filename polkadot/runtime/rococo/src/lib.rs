@@ -605,6 +605,7 @@ impl pallet_identity::Config for Runtime {
 	// `EnsureSigned<Self::AccountId>` to allow deposit migration.
 	type ReapOrigin = EnsureRoot<Self::AccountId>;
 	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime>;
+	type LockerOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 

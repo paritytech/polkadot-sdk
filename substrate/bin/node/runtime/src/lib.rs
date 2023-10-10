@@ -1469,6 +1469,7 @@ impl pallet_identity::Config for Runtime {
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
 	type ReapOrigin = EnsureRoot<Self::AccountId>;
 	type ReapIdentityHandler = ();
+	type LockerOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 

@@ -156,12 +156,20 @@ pub mod pallet {
 		/// A handler for what to do when an identity is reaped.
 		type ReapIdentityHandler: OnReapIdentity<Self::AccountId>;
 
+		/// The origin that can lock calls to the pallet.
+		type LockerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	/// `true` if the pallet is locked for migration. Should be removed after migration.
+	#[pallet::storage]
+	#[pallet::getter(fn locked)]
+	pub(super) type Locked<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// Information that is pertinent to identify the entity behind an account.
 	///
@@ -248,6 +256,8 @@ pub mod pallet {
 		JudgementForDifferentIdentity,
 		/// Error that occurs when there is an issue paying for judgement.
 		JudgementPaymentFailed,
+		/// The pallet is locked to prevent state changes.
+		PalletLocked,
 	}
 
 	#[pallet::event]
@@ -300,6 +310,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			account: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			T::RegistrarOrigin::ensure_origin(origin)?;
 			let account = T::Lookup::lookup(account)?;
 
@@ -345,6 +356,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			info: Box<IdentityInfo<T::MaxAdditionalFields>>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let extra_fields = info.additional.len() as u32;
 			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
@@ -413,6 +425,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			subs: Vec<(T::AccountId, Data)>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			ensure!(<IdentityOf<T>>::contains_key(&sender), Error::<T>::NotFound);
 			ensure!(
@@ -480,6 +493,7 @@ pub mod pallet {
 			T::MaxAdditionalFields::get(), // X
 		))]
 		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
@@ -533,6 +547,7 @@ pub mod pallet {
 			#[pallet::compact] reg_index: RegistrarIndex,
 			#[pallet::compact] max_fee: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let registrars = <Registrars<T>>::get();
 			let registrar = registrars
@@ -593,6 +608,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			reg_index: RegistrarIndex,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let mut id = <IdentityOf<T>>::get(&sender).ok_or(Error::<T>::NoIdentity)?;
 
@@ -638,6 +654,7 @@ pub mod pallet {
 			#[pallet::compact] index: RegistrarIndex,
 			#[pallet::compact] fee: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let who = ensure_signed(origin)?;
 
 			let registrars = <Registrars<T>>::mutate(|rs| -> Result<usize, DispatchError> {
@@ -675,6 +692,7 @@ pub mod pallet {
 			#[pallet::compact] index: RegistrarIndex,
 			new: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let who = ensure_signed(origin)?;
 			let new = T::Lookup::lookup(new)?;
 
@@ -713,6 +731,7 @@ pub mod pallet {
 			#[pallet::compact] index: RegistrarIndex,
 			fields: IdentityFields,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let who = ensure_signed(origin)?;
 
 			let registrars = <Registrars<T>>::mutate(|rs| -> Result<usize, DispatchError> {
@@ -764,6 +783,7 @@ pub mod pallet {
 			judgement: Judgement<BalanceOf<T>>,
 			identity: T::Hash,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			ensure!(!judgement.has_deposit(), Error::<T>::InvalidJudgement);
@@ -835,6 +855,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target: AccountIdLookupOf<T>,
 		) -> DispatchResultWithPostInfo {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			T::ForceOrigin::ensure_origin(origin)?;
 
 			// Figure out who we're meant to be clearing.
@@ -873,6 +894,7 @@ pub mod pallet {
 			sub: AccountIdLookupOf<T>,
 			data: Data,
 		) -> DispatchResult {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let sub = T::Lookup::lookup(sub)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NoIdentity);
@@ -909,6 +931,7 @@ pub mod pallet {
 			sub: AccountIdLookupOf<T>,
 			data: Data,
 		) -> DispatchResult {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let sub = T::Lookup::lookup(sub)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NoIdentity);
@@ -927,6 +950,7 @@ pub mod pallet {
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::remove_sub(T::MaxSubAccounts::get()))]
 		pub fn remove_sub(origin: OriginFor<T>, sub: AccountIdLookupOf<T>) -> DispatchResult {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NoIdentity);
 			let sub = T::Lookup::lookup(sub)?;
@@ -957,6 +981,7 @@ pub mod pallet {
 		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::quit_sub(T::MaxSubAccounts::get()))]
 		pub fn quit_sub(origin: OriginFor<T>) -> DispatchResult {
+			ensure!(!Self::locked(), Error::<T>::PalletLocked);
 			let sender = ensure_signed(origin)?;
 			let (sup, _) = SuperOf::<T>::take(&sender).ok_or(Error::<T>::NotSub)?;
 			SubsOf::<T>::mutate(&sup, |(ref mut subs_deposit, ref mut sub_ids)| {
@@ -991,6 +1016,7 @@ pub mod pallet {
 			target: AccountIdLookupOf<T>,
 			num_subs: u32,
 		) -> DispatchResult {
+			// No locked check: used for migration.
 			// `ReapOrigin` to be set to `EnsureSigned<AccountId>` (i.e. anyone) on chain where we
 			// want to reap data (i.e. Relay) and `EnsureRoot` on chains where we want "normal"
 			// functionality (i.e. the People Chain).
@@ -1028,6 +1054,7 @@ pub mod pallet {
 		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::poke_deposit())]
 		pub fn poke_deposit(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
+			// No locked check: used for migration.
 			// anyone or root (so that the system can call it for identity migration)
 			let _ = ensure_signed_or_root(origin)?;
 			let target = T::Lookup::lookup(target)?;
@@ -1065,6 +1092,28 @@ pub mod pallet {
 				identity: new_id_deposit,
 				subs: new_subs_deposit,
 			});
+			Ok(())
+		}
+
+		/// Lock the pallet.
+		///
+		/// Origin must be the `LockerOrigin`.
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::lock_pallet())]
+		pub fn lock_pallet(origin: OriginFor<T>) -> DispatchResult {
+			T::LockerOrigin::ensure_origin(origin)?;
+			Locked::<T>::put(true);
+			Ok(())
+		}
+
+		/// Unlock the pallet.
+		///
+		/// Origin must be the `LockerOrigin`.
+		#[pallet::call_index(18)]
+		#[pallet::weight(T::WeightInfo::unlock_pallet())]
+		pub fn unlock_pallet(origin: OriginFor<T>) -> DispatchResult {
+			T::LockerOrigin::ensure_origin(origin)?;
+			Locked::<T>::put(false);
 			Ok(())
 		}
 	}

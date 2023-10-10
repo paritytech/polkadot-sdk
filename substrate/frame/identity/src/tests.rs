@@ -111,6 +111,7 @@ impl pallet_identity::Config for Test {
 	type ReapOrigin = EnsureOneOrRoot;
 	type ReapIdentityHandler = ();
 	type ForceOrigin = EnsureTwoOrRoot;
+	type LockerOrigin = EnsureOneOrRoot;
 	type WeightInfo = ();
 }
 

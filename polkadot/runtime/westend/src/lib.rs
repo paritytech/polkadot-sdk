@@ -858,6 +858,7 @@ impl pallet_identity::Config for Runtime {
 	type RegistrarOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type ReapOrigin = EnsureRoot<Self::AccountId>;
 	type ReapIdentityHandler = ();
+	type LockerOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 

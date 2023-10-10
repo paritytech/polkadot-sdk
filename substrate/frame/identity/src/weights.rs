@@ -70,6 +70,8 @@ pub trait WeightInfo {
 	fn quit_sub(s: u32, ) -> Weight;
 	fn reap_identity(s: u32, ) -> Weight;
 	fn poke_deposit() -> Weight;
+	fn lock_pallet() -> Weight;
+	fn unlock_pallet() -> Weight;
 }
 
 /// Weights for pallet_identity using the Substrate node and recommended hardware.
@@ -403,6 +405,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Identity::Locked` (r:0 w:1)
+	/// Proof: `Identity::Locked` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn lock_pallet() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 43_286_000 picoseconds.
+		Weight::from_parts(51_523_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Identity::Locked` (r:0 w:1)
+	/// Proof: `Identity::Locked` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn unlock_pallet() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 42_243_000 picoseconds.
+		Weight::from_parts(52_907_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -734,5 +758,27 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 11003))
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(3))
+	}
+	/// Storage: `Identity::Locked` (r:0 w:1)
+	/// Proof: `Identity::Locked` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn lock_pallet() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 43_286_000 picoseconds.
+		Weight::from_parts(51_523_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	/// Storage: `Identity::Locked` (r:0 w:1)
+	/// Proof: `Identity::Locked` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn unlock_pallet() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 42_243_000 picoseconds.
+		Weight::from_parts(52_907_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

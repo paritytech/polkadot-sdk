@@ -515,5 +515,23 @@ benchmarks! {
 		}.into());
 	}
 
+	lock_pallet {
+		let origin =
+			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Identity::<T>::unlock_pallet(origin.clone())?;
+	}: _<T::RuntimeOrigin>(origin)
+	verify {
+		assert!(Locked::<T>::get());
+	}
+
+	unlock_pallet {
+		let origin =
+			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Identity::<T>::lock_pallet(origin.clone())?;
+	}: _<T::RuntimeOrigin>(origin)
+	verify {
+		assert!(!Locked::<T>::get());
+	}
+
 	impl_benchmark_test_suite!(Identity, crate::tests::new_test_ext(), crate::tests::Test);
 }
