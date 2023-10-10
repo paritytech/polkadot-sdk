@@ -16,7 +16,9 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, OverweightIndex, Pallet, ParaId, QueueConfig, DEFAULT_POV_SIZE};
+use crate::{
+	pallet::QueueConfig, Config, OverweightIndex, Pallet, ParaId, QueueConfigData, DEFAULT_POV_SIZE,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -47,6 +49,12 @@ impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 		}
 
+		if StorageVersion::get::<Pallet<T>>() == 3 {
+			weight.saturating_accrue(migrate_to_v4::<T>());
+			StorageVersion::new(4).put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
 		weight
 	}
 }
@@ -54,6 +62,9 @@ impl<T: Config> OnRuntimeUpgrade for MigrationToV3<T> {
 mod v1 {
 	use super::*;
 	use codec::{Decode, Encode};
+
+	#[frame_support::storage_alias]
+	pub(crate) type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
 
 	#[derive(Encode, Decode, Debug)]
 	pub struct QueueConfigData {
@@ -79,6 +90,76 @@ mod v1 {
 	}
 }
 
+mod v2 {
+	use super::*;
+
+	#[frame_support::storage_alias]
+	pub(crate) type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
+
+	#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub struct QueueConfigData {
+		pub suspend_threshold: u32,
+		pub drop_threshold: u32,
+		pub resume_threshold: u32,
+		#[deprecated(note = "Will be removed")]
+		pub threshold_weight: Weight,
+		#[deprecated(note = "Will be removed")]
+		pub weight_restrict_decay: Weight,
+		#[deprecated(note = "Will be removed")]
+		pub xcmp_max_individual_weight: Weight,
+	}
+
+	impl Default for QueueConfigData {
+		fn default() -> Self {
+			#![allow(deprecated)]
+			Self {
+				drop_threshold: 48,    // 64KiB * 48 = 3MiB
+				suspend_threshold: 32, // 64KiB * 32 = 2MiB
+				resume_threshold: 8,   // 64KiB * 8 = 512KiB
+				// unused:
+				threshold_weight: Weight::from_parts(100_000, 0),
+				weight_restrict_decay: Weight::from_parts(2, 0),
+				xcmp_max_individual_weight: Weight::from_parts(
+					20u64 * WEIGHT_REF_TIME_PER_MILLIS,
+					DEFAULT_POV_SIZE,
+				),
+			}
+		}
+	}
+}
+
+/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
+/// 2D weights).
+///
+/// NOTE: Only use this function if you know what you're doing. Default to using
+/// `migrate_to_latest`.
+#[allow(deprecated)]
+pub fn migrate_to_v2<T: Config>() -> Weight {
+	let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
+		v2::QueueConfigData {
+			suspend_threshold: pre.suspend_threshold,
+			drop_threshold: pre.drop_threshold,
+			resume_threshold: pre.resume_threshold,
+			threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
+			weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
+			xcmp_max_individual_weight: Weight::from_parts(
+				pre.xcmp_max_individual_weight,
+				DEFAULT_POV_SIZE,
+			),
+		}
+	};
+
+	if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+		log::error!(
+			target: super::LOG_TARGET,
+			"unexpected error when performing translation of the QueueConfig type \
+			during storage upgrade to v2"
+		);
+	}
+
+	T::DbWeight::get().reads_writes(1, 1)
+}
+
 pub mod v3 {
 	use super::*;
 	use crate::*;
@@ -99,6 +180,10 @@ pub mod v3 {
 		Vec<u8>,
 		OptionQuery,
 	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type QueueConfig<T: Config> =
+		StorageValue<Pallet<T>, v2::QueueConfigData, ValueQuery>;
 
 	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
 	pub struct InboundChannelDetails {
@@ -122,37 +207,6 @@ pub mod v3 {
 	}
 }
 
-/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
-/// 2D weights).
-///
-/// NOTE: Only use this function if you know what you're doing. Default to using
-/// `migrate_to_latest`.
-#[allow(deprecated)]
-pub fn migrate_to_v2<T: Config>() -> Weight {
-	let translate = |pre: v1::QueueConfigData| -> super::QueueConfigData {
-		super::QueueConfigData {
-			suspend_threshold: pre.suspend_threshold,
-			drop_threshold: pre.drop_threshold,
-			resume_threshold: pre.resume_threshold,
-			threshold_weight: Weight::from_parts(pre.threshold_weight, 0),
-			weight_restrict_decay: Weight::from_parts(pre.weight_restrict_decay, 0),
-			xcmp_max_individual_weight: Weight::from_parts(
-				pre.xcmp_max_individual_weight,
-				DEFAULT_POV_SIZE,
-			),
-		}
-	};
-
-	if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-		log::error!(
-			target: super::LOG_TARGET,
-			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v2"
-		);
-	}
-
-	T::DbWeight::get().reads_writes(1, 1)
-}
-
 pub fn migrate_to_v3<T: Config>() -> Weight {
 	#[frame_support::storage_alias]
 	type Overweight<T: Config> =
@@ -160,6 +214,36 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
 	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
+}
+
+/// Migrates `QueueConfigData` from v2 to v4, removing deprecated fields and bumping page
+/// thresholds to at least the default values.
+///
+/// NOTE: Only use this function if you know what you're doing. Default to using
+/// `migrate_to_latest`.
+#[allow(deprecated)]
+pub fn migrate_to_v4<T: Config>() -> Weight {
+	let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
+		use std::cmp::max;
+
+		let default = QueueConfigData::default();
+		let post = QueueConfigData {
+			suspend_threshold: max(pre.suspend_threshold, default.suspend_threshold),
+			drop_threshold: max(pre.drop_threshold, default.drop_threshold),
+			resume_threshold: max(pre.resume_threshold, default.resume_threshold),
+		};
+		post
+	};
+
+	if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
+		log::error!(
+			target: super::LOG_TARGET,
+			"unexpected error when performing translation of the QueueConfig type \
+			during storage upgrade to v4"
+		);
+	}
+
+	T::DbWeight::get().reads_writes(1, 1)
 }
 
 #[cfg(test)]
@@ -187,7 +271,7 @@ mod tests {
 
 			migrate_to_v2::<Test>();
 
-			let v2 = crate::QueueConfig::<Test>::get();
+			let v2 = v2::QueueConfig::<Test>::get();
 
 			assert_eq!(v1.suspend_threshold, v2.suspend_threshold);
 			assert_eq!(v1.drop_threshold, v2.drop_threshold);
@@ -195,6 +279,60 @@ mod tests {
 			assert_eq!(v1.threshold_weight, v2.threshold_weight.ref_time());
 			assert_eq!(v1.weight_restrict_decay, v2.weight_restrict_decay.ref_time());
 			assert_eq!(v1.xcmp_max_individual_weight, v2.xcmp_max_individual_weight.ref_time());
+		});
+	}
+
+	#[test]
+	#[allow(deprecated)]
+	fn test_migration_to_v4() {
+		new_test_ext().execute_with(|| {
+			let v2 = v2::QueueConfigData {
+				drop_threshold: 5,
+				suspend_threshold: 2,
+				resume_threshold: 1,
+				..Default::default()
+			};
+
+			frame_support::storage::unhashed::put_raw(
+				&crate::QueueConfig::<Test>::hashed_key(),
+				&v2.encode(),
+			);
+
+			migrate_to_v4::<Test>();
+
+			let v4 = QueueConfig::<Test>::get();
+
+			assert_eq!(
+				v4,
+				QueueConfigData { suspend_threshold: 32, drop_threshold: 48, resume_threshold: 8 }
+			);
+		});
+
+		new_test_ext().execute_with(|| {
+			let v2 = v2::QueueConfigData {
+				drop_threshold: 100,
+				suspend_threshold: 50,
+				resume_threshold: 40,
+				..Default::default()
+			};
+
+			frame_support::storage::unhashed::put_raw(
+				&crate::QueueConfig::<Test>::hashed_key(),
+				&v2.encode(),
+			);
+
+			migrate_to_v4::<Test>();
+
+			let v4 = QueueConfig::<Test>::get();
+
+			assert_eq!(
+				v4,
+				QueueConfigData {
+					suspend_threshold: 50,
+					drop_threshold: 100,
+					resume_threshold: 40
+				}
+			);
 		});
 	}
 }

@@ -48,7 +48,7 @@ use cumulus_primitives_core::{
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
+	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
@@ -227,12 +227,12 @@ pub mod pallet {
 
 			let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
 				log::debug!(target: LOG, "Lazy migration finished: item gone");
-				return meter.consumed();
+				return meter.consumed()
 			};
 			let Some(ref mut next) = states.first_mut() else {
 				log::debug!(target: LOG, "Lazy migration finished: item empty");
 				v3::InboundXcmpStatus::<T>::kill();
-				return meter.consumed();
+				return meter.consumed()
 			};
 			log::debug!(
 				"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
@@ -243,7 +243,7 @@ pub mod pallet {
 			let Some((block_number, format)) = next.message_metadata.pop() else {
 				states.remove(0);
 				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
+				return meter.consumed()
 			};
 			if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
 				log::warn!(target: LOG,
@@ -258,13 +258,13 @@ pub mod pallet {
 			let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
 				defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
 				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
+				return meter.consumed()
 			};
 
 			let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
 				log::error!(target: LOG, "Message dropped: too big");
 				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
+				return meter.consumed()
 			};
 
 			// Finally! We have a proper message.
@@ -403,18 +403,6 @@ pub struct QueueConfigData {
 	/// The number of pages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	resume_threshold: u32,
-	/// UNUSED - The amount of remaining weight under which we stop processing messages.
-	#[deprecated(note = "Will be removed")]
-	threshold_weight: Weight,
-	/// UNUSED - The speed to which the available weight approaches the maximum weight. A lower
-	/// number results in a faster progression. A value of 1 makes the entire weight available
-	/// initially.
-	#[deprecated(note = "Will be removed")]
-	weight_restrict_decay: Weight,
-	/// UNUSED - The maximum amount of weight any individual message may consume. Messages above
-	/// this weight go into the overweight queue and may only be serviced explicitly.
-	#[deprecated(note = "Will be removed")]
-	xcmp_max_individual_weight: Weight,
 }
 
 impl Default for QueueConfigData {
@@ -426,13 +414,6 @@ impl Default for QueueConfigData {
 			drop_threshold: 48,    // 64KiB * 48 = 3MiB
 			suspend_threshold: 32, // 64KiB * 32 = 2MiB
 			resume_threshold: 8,   // 64KiB * 8 = 512KiB
-			// unused:
-			threshold_weight: Weight::from_parts(100_000, 0),
-			weight_restrict_decay: Weight::from_parts(2, 0),
-			xcmp_max_individual_weight: Weight::from_parts(
-				20u64 * WEIGHT_REF_TIME_PER_MILLIS,
-				DEFAULT_POV_SIZE,
-			),
 		}
 	}
 }
@@ -716,7 +697,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm =>
 					while !data.is_empty() {
-						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter) else {
+						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
+						else {
 							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
 							break
 						};
