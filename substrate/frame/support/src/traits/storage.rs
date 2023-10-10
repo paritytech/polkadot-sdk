@@ -215,8 +215,8 @@ pub trait Consideration<AccountId, Balance>: Member + FullCodec + TypeInfo + Max
 
 	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
-	/// This is useful when a new ticket needs to be created with a precise balance, instead of deriving
-	/// it from a footprint
+	/// This is useful when a new ticket needs to be created with a precise balance, instead of
+	/// deriving it from a footprint
 	fn new_from_exact(who: &AccountId, new: Balance) -> Result<Self, DispatchError>;
 
 	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
