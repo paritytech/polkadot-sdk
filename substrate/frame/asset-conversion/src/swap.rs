@@ -37,6 +37,8 @@ pub trait Swap<AccountId> {
 	/// respecting `keep_alive`.
 	///
 	/// If successful, returns the amount of `path[last]` acquired for the `amount_in`.
+	///
+	/// This operation is expected to be atomic.
 	fn swap_exact_tokens_for_tokens(
 		sender: AccountId,
 		path: Vec<Self::MultiAssetId>,
@@ -54,6 +56,8 @@ pub trait Swap<AccountId> {
 	/// respecting `keep_alive`.
 	///
 	/// If successful returns the amount of the `path[0]` taken to provide `path[last]`.
+	///
+	/// This operation is expected to be atomic.
 	fn swap_tokens_for_exact_tokens(
 		sender: AccountId,
 		path: Vec<Self::MultiAssetId>,
@@ -83,6 +87,8 @@ pub trait SwapCredit<AccountId> {
 	/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained from
 	/// the `credit_in`. On failure, it returns an `Err` containing the original `credit_in` and the
 	/// associated error code.
+	///
+	/// This operation is expected to be atomic.
 	fn swap_exact_tokens_for_tokens(
 		path: Vec<Self::MultiAssetId>,
 		credit_in: Self::Credit,
@@ -97,6 +103,8 @@ pub trait SwapCredit<AccountId> {
 	/// represents the acquired amount of the `path[last]` asset, and `credit_change` is the
 	/// remaining portion from the `credit_in`. On failure, an `Err` with the initial `credit_in`
 	/// and error code is returned.
+	///
+	/// This operation is expected to be atomic.
 	fn swap_tokens_for_exact_tokens(
 		path: Vec<Self::MultiAssetId>,
 		credit_in: Self::Credit,
