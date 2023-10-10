@@ -976,17 +976,39 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_from_remote_para_treasury() {
-		let location = MultiLocation {
+		let relay_treasury_to_para_location = MultiLocation {
 			parents: 1,
 			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
 		};
-		let actual_description =
-			ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(&location).unwrap();
+		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
+			&relay_treasury_to_para_location,
+		)
+		.unwrap();
 
 		assert_eq!(
 			[
 				18, 84, 93, 74, 187, 212, 254, 71, 192, 127, 112, 51, 3, 42, 54, 24, 220, 185, 161,
 				67, 205, 154, 108, 116, 108, 166, 226, 211, 29, 11, 244, 115
+			],
+			actual_description
+		);
+
+		let para_to_para_treasury_location = MultiLocation {
+			parents: 1,
+			interior: X2(
+				Parachain(1001),
+				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+			),
+		};
+		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
+			&para_to_para_treasury_location,
+		)
+		.unwrap();
+
+		assert_eq!(
+			[
+				202, 52, 249, 30, 7, 99, 135, 128, 153, 139, 176, 141, 138, 234, 163, 150, 7, 36,
+				204, 92, 220, 137, 87, 57, 73, 91, 243, 189, 245, 200, 217, 204
 			],
 			actual_description
 		);
