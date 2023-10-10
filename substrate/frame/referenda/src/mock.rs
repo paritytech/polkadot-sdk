@@ -23,6 +23,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
 		SortedMembers,
 	},
@@ -35,6 +36,7 @@ use sp_runtime::{
 	BuildStorage, DispatchResult, Perbill, Permill,
 };
 
+type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -91,6 +93,7 @@ parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/trsry");
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
@@ -103,6 +106,12 @@ impl pallet_treasury::Config for Test {
 	type ProposalBondMinimum = ConstU64<1>;
 	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
 	type Burn = ();
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
