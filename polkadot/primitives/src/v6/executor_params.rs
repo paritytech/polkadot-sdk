@@ -244,7 +244,7 @@ impl ExecutorParams {
 
 			match *param {
 				MaxMemoryPages(val) => {
-					check!(param_ident, val, val <= 0 || val > MEMORY_PAGES_MAX,);
+					check!(param_ident, val, val == 0 || val > MEMORY_PAGES_MAX,);
 				},
 
 				StackLogicalMax(val) => {
