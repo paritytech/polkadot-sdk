@@ -1287,7 +1287,7 @@ construct_runtime! {
 		} = 22,
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance2;
 		FellowshipReferenda: pallet_referenda::<Instance2>::{
-			Pallet, Call, Storage, Event<T>
+			Pallet, Call, Storage, Event<T>, HoldReason
 		} = 23,
 		Origins: pallet_custom_origins::{Origin} = 43,
 		Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 44,
