@@ -33,6 +33,7 @@ tokio = { version = "1.22.0", features = ["signal", "rt-multi-thread", "parking_
 sc-client-api = { path = "../api" }
 sc-client-db = { path = "../db", default-features = false}
 sc-keystore = { path = "../keystore" }
+sc-mixnet = { path = "../mixnet" }
 sc-network = { path = "../network" }
 sc-service = { path = "../service", default-features = false}
 sc-telemetry = { path = "../telemetry" }
