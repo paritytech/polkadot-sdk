@@ -421,10 +421,6 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -444,12 +440,14 @@
 
 </span><span class="kw">use crate</span>::{
 	pallet::{
+		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::call::{CallVariantDef, CallWeightDef},
 		Def,
 	},
 	COUNTER,
 };
 <span class="kw">use </span>proc_macro2::TokenStream <span class="kw">as </span>TokenStream2;
+<span class="kw">use </span>proc_macro_warning::Warning;
 <span class="kw">use </span>quote::{quote, ToTokens};
 <span class="kw">use </span>syn::spanned::Spanned;
 
@@ -495,7 +493,7 @@
 			<span class="kw">continue
 		</span>}
 
-		<span class="kw">let </span>warning = proc_macro_warning::Warning::new_deprecated(<span class="string">&quot;ImplicitCallIndex&quot;</span>)
+		<span class="kw">let </span>warning = Warning::new_deprecated(<span class="string">&quot;ImplicitCallIndex&quot;</span>)
 			.index(call_index_warnings.len())
 			.old(<span class="string">&quot;use implicit call indices&quot;</span>)
 			.new(<span class="string">&quot;ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode&quot;</span>)
@@ -504,7 +502,7 @@
 				<span class="string">&quot;https://github.com/paritytech/substrate/pull/11381&quot;
 			</span>])
 			.span(method.name.span())
-			.build();
+			.build_or_panic();
 		call_index_warnings.push(warning);
 	}
 
@@ -513,18 +511,12 @@
 	<span class="kw">for </span>method <span class="kw">in </span><span class="kw-2">&amp;</span>methods {
 		<span class="kw">match </span><span class="kw-2">&amp;</span>method.weight {
 			CallWeightDef::DevModeDefault =&gt; fn_weight.push(<span class="macro">syn::parse_quote!</span>(<span class="number">0</span>)),
-			CallWeightDef::Immediate(e @ syn::Expr::Lit(lit)) <span class="kw">if </span>!def.dev_mode =&gt; {
-				<span class="kw">let </span>warning = proc_macro_warning::Warning::new_deprecated(<span class="string">&quot;ConstantWeight&quot;</span>)
-					.index(weight_warnings.len())
-					.old(<span class="string">&quot;use hard-coded constant as call weight&quot;</span>)
-					.new(<span class="string">&quot;benchmark all calls or put the pallet into `dev` mode&quot;</span>)
-					.help_link(<span class="string">&quot;https://github.com/paritytech/substrate/pull/13798&quot;</span>)
-					.span(lit.span())
-					.build();
-				weight_warnings.push(warning);
+			CallWeightDef::Immediate(e) =&gt; {
+				weight_constant_warning(e, def.dev_mode, <span class="kw-2">&amp;mut </span>weight_warnings);
+				weight_witness_warning(method, def.dev_mode, <span class="kw-2">&amp;mut </span>weight_warnings);
+
 				fn_weight.push(e.into_token_stream());
 			},
-			CallWeightDef::Immediate(e) =&gt; fn_weight.push(e.into_token_stream()),
 			CallWeightDef::Inherited =&gt; {
 				<span class="kw">let </span>pallet_weight = def
 					.call

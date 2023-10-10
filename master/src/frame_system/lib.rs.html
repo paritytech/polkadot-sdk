@@ -1817,6 +1817,7 @@
 <a href="#1817" id="1817">1817</a>
 <a href="#1818" id="1818">1818</a>
 <a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2239,9 +2240,10 @@
 		///
 		/// Can be executed by every `origin`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
-		#[pallet::weight(T::SystemWeightInfo::remark(_remark.len() <span class="kw">as </span>u32))]
-		</span><span class="kw">pub fn </span>remark(_origin: OriginFor&lt;T&gt;, _remark: Vec&lt;u8&gt;) -&gt; DispatchResultWithPostInfo {
-			<span class="prelude-val">Ok</span>(().into())
+		#[pallet::weight(T::SystemWeightInfo::remark(remark.len() <span class="kw">as </span>u32))]
+		</span><span class="kw">pub fn </span>remark(_origin: OriginFor&lt;T&gt;, remark: Vec&lt;u8&gt;) -&gt; DispatchResultWithPostInfo {
+			<span class="kw">let _ </span>= remark; <span class="comment">// No need to check the weight witness.
+			</span><span class="prelude-val">Ok</span>(().into())
 		}
 
 		<span class="doccomment">/// Set the number of pages in the WebAssembly environment&#39;s heap.
@@ -2314,16 +2316,16 @@
 		/// the prefix we are removing to accurately calculate the weight of this function.
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
 		#[pallet::weight((
-			T::SystemWeightInfo::kill_prefix(_subkeys.saturating_add(<span class="number">1</span>)),
+			T::SystemWeightInfo::kill_prefix(subkeys.saturating_add(<span class="number">1</span>)),
 			DispatchClass::Operational,
 		))]
 		</span><span class="kw">pub fn </span>kill_prefix(
 			origin: OriginFor&lt;T&gt;,
 			prefix: Key,
-			_subkeys: u32,
+			subkeys: u32,
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let _ </span>= storage::unhashed::clear_prefix(<span class="kw-2">&amp;</span>prefix, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+			<span class="kw">let _ </span>= storage::unhashed::clear_prefix(<span class="kw-2">&amp;</span>prefix, <span class="prelude-val">Some</span>(subkeys), <span class="prelude-val">None</span>);
 			<span class="prelude-val">Ok</span>(().into())
 		}
 

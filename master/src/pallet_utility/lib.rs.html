@@ -508,6 +508,8 @@
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -989,14 +991,16 @@
 		///
 		/// The dispatch origin for this call must be _Root_.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight((<span class="kw-2">*</span>_weight, call.get_dispatch_info().class))]
+		#[pallet::weight((<span class="kw-2">*</span>weight, call.get_dispatch_info().class))]
 		</span><span class="kw">pub fn </span>with_weight(
 			origin: OriginFor&lt;T&gt;,
 			call: Box&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;,
-			_weight: Weight,
+			weight: Weight,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			<span class="kw">let _ </span>= weight; <span class="comment">// Explicitly don&#39;t check the the weight witness.
+
+			</span><span class="kw">let </span>res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|<span class="kw">_</span>| ()).map_err(|e| e.error)
 		}
 	}

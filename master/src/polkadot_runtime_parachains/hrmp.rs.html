@@ -1797,6 +1797,32 @@
 <a href="#1797" id="1797">1797</a>
 <a href="#1798" id="1798">1798</a>
 <a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2353,14 +2379,26 @@
 		///
 		/// Origin must be the `ChannelManager`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_clean_hrmp(<span class="kw-2">*</span>_inbound, <span class="kw-2">*</span>_outbound))]
+		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_clean_hrmp(<span class="kw-2">*</span>num_inbound, <span class="kw-2">*</span>num_outbound))]
 		</span><span class="kw">pub fn </span>force_clean_hrmp(
 			origin: OriginFor&lt;T&gt;,
 			para: ParaId,
-			_inbound: u32,
-			_outbound: u32,
+			num_inbound: u32,
+			num_outbound: u32,
 		) -&gt; DispatchResult {
 			T::ChannelManager::ensure_origin(origin)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				HrmpIngressChannelsIndex::&lt;T&gt;::decode_len(para).unwrap_or_default() &lt;=
+					num_inbound <span class="kw">as </span>usize,
+				Error::&lt;T&gt;::WrongWitness
+			);
+			<span class="macro">ensure!</span>(
+				HrmpEgressChannelsIndex::&lt;T&gt;::decode_len(para).unwrap_or_default() &lt;=
+					num_outbound <span class="kw">as </span>usize,
+				Error::&lt;T&gt;::WrongWitness
+			);
+
 			<span class="self">Self</span>::clean_hrmp_after_outgoing(<span class="kw-2">&amp;</span>para);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -2374,9 +2412,16 @@
 		///
 		/// Origin must be the `ChannelManager`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_process_hrmp_open(<span class="kw-2">*</span>_channels))]
-		</span><span class="kw">pub fn </span>force_process_hrmp_open(origin: OriginFor&lt;T&gt;, _channels: u32) -&gt; DispatchResult {
+		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_process_hrmp_open(<span class="kw-2">*</span>channels))]
+		</span><span class="kw">pub fn </span>force_process_hrmp_open(origin: OriginFor&lt;T&gt;, channels: u32) -&gt; DispatchResult {
 			T::ChannelManager::ensure_origin(origin)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				HrmpOpenChannelRequestsList::&lt;T&gt;::decode_len().unwrap_or_default() <span class="kw">as </span>u32 &lt;=
+					channels,
+				Error::&lt;T&gt;::WrongWitness
+			);
+
 			<span class="kw">let </span>host_config = configuration::Pallet::&lt;T&gt;::config();
 			<span class="self">Self</span>::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>host_config);
 			<span class="prelude-val">Ok</span>(())
@@ -2391,9 +2436,16 @@
 		///
 		/// Origin must be the `ChannelManager`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_process_hrmp_close(<span class="kw-2">*</span>_channels))]
-		</span><span class="kw">pub fn </span>force_process_hrmp_close(origin: OriginFor&lt;T&gt;, _channels: u32) -&gt; DispatchResult {
+		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_process_hrmp_close(<span class="kw-2">*</span>channels))]
+		</span><span class="kw">pub fn </span>force_process_hrmp_close(origin: OriginFor&lt;T&gt;, channels: u32) -&gt; DispatchResult {
 			T::ChannelManager::ensure_origin(origin)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(
+				HrmpCloseChannelRequestsList::&lt;T&gt;::decode_len().unwrap_or_default() <span class="kw">as </span>u32 &lt;=
+					channels,
+				Error::&lt;T&gt;::WrongWitness
+			);
+
 			<span class="self">Self</span>::process_hrmp_close_channel_requests();
 			<span class="prelude-val">Ok</span>(())
 		}

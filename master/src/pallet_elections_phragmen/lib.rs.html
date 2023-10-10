@@ -3325,6 +3325,9 @@
 <a href="#3325" id="3325">3325</a>
 <a href="#3326" id="3326">3326</a>
 <a href="#3327" id="3327">3327</a>
+<a href="#3328" id="3328">3328</a>
+<a href="#3329" id="3329">3329</a>
+<a href="#3330" id="3330">3330</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3918,15 +3921,18 @@
 		/// ## Complexity
 		/// - Check is_defunct_voter() details.
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-		#[pallet::weight(T::WeightInfo::clean_defunct_voters(<span class="kw-2">*</span>_num_voters, <span class="kw-2">*</span>_num_defunct))]
+		#[pallet::weight(T::WeightInfo::clean_defunct_voters(<span class="kw-2">*</span>num_voters, <span class="kw-2">*</span>num_defunct))]
 		</span><span class="kw">pub fn </span>clean_defunct_voters(
 			origin: OriginFor&lt;T&gt;,
-			_num_voters: u32,
-			_num_defunct: u32,
+			num_voters: u32,
+			num_defunct: u32,
 		) -&gt; DispatchResult {
 			<span class="kw">let _ </span>= ensure_root(origin)<span class="question-mark">?</span>;
+
 			&lt;Voting&lt;T&gt;&gt;::iter()
+				.take(num_voters <span class="kw">as </span>usize)
 				.filter(|(<span class="kw">_</span>, x)| <span class="self">Self</span>::is_defunct_voter(<span class="kw-2">&amp;</span>x.votes))
+				.take(num_defunct <span class="kw">as </span>usize)
 				.for_each(|(dv, <span class="kw">_</span>)| <span class="self">Self</span>::do_remove_voter(<span class="kw-2">&amp;</span>dv));
 
 			<span class="prelude-val">Ok</span>(())
