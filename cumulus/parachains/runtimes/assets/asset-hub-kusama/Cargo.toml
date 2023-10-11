@@ -56,7 +56,6 @@ sp-weights = { path = "../../../../../substrate/primitives/weights", default-fea
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
@@ -183,7 +182,6 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
-	"kusama-runtime-constants/std",
 	"log/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",

@@ -27,7 +27,7 @@ pub use std::{
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header as HeaderT, AccountId32, DispatchResult},
+	sp_runtime::{traits::Header as HeaderT, DispatchResult},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
 		ProcessMessage, ProcessMessageError, ServiceQueues,
@@ -65,6 +65,8 @@ pub use xcm::v3::prelude::{
 };
 pub use xcm_executor::traits::ConvertLocation;
 
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
 thread_local! {
 	/// Downward messages, each message is: `(to_para_id, [(relay_block_number, msg)])`
 	#[allow(clippy::type_complexity)]
@@ -94,8 +96,8 @@ pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -107,8 +109,8 @@ impl<Origin, Destination, Hops, Args> CheckAssertion<Origin, Destination, Hops, 
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -223,31 +225,31 @@ pub trait Chain: TestExt + NetworkComponent {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
 	}
 
-	fn account_data_of(account: AccountId) -> AccountData<Balance>;
+	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
 
 	fn events() -> Vec<<Self as Chain>::RuntimeEvent>;
 }
 
 pub trait RelayChain: Chain {
-	type SovereignAccountOf: ConvertLocation<AccountId>;
+	type SovereignAccountOf: ConvertLocation<AccountIdOf<Self::Runtime>>;
 	type MessageProcessor: ProcessMessage<Origin = ParaId> + ServiceQueues;
 
 	fn child_location_of(id: ParaId) -> MultiLocation {
 		(Ancestor(0), ParachainJunction(id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
 		Self::SovereignAccountOf::convert_location(&location).unwrap()
 	}
 
-	fn sovereign_account_id_of_child_para(id: ParaId) -> AccountId {
+	fn sovereign_account_id_of_child_para(id: ParaId) -> AccountIdOf<Self::Runtime> {
 		Self::sovereign_account_id_of(Self::child_location_of(id))
 	}
 }
 
 pub trait Parachain: Chain {
 	type XcmpMessageHandler: XcmpMessageHandler;
-	type LocationToAccountId: ConvertLocation<AccountId>;
+	type LocationToAccountId: ConvertLocation<AccountIdOf<Self::Runtime>>;
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage<Origin = CumulusAggregateMessageOrigin> + ServiceQueues;
@@ -272,7 +274,7 @@ pub trait Parachain: Chain {
 		(Parent, X1(ParachainJunction(para_id.into()))).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
 }
@@ -368,7 +370,7 @@ macro_rules! decl_test_relay_chains {
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
 
-				fn account_data_of(account: $crate::AccountId) -> $crate::AccountData<$crate::Balance> {
+				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
 				}
 
@@ -593,7 +595,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
 
-				fn account_data_of(account: $crate::AccountId) -> $crate::AccountData<$crate::Balance> {
+				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
 				}
 
@@ -1173,9 +1175,10 @@ macro_rules! __impl_check_assertion {
 		where
 			Origin: $crate::Chain + Clone,
 			Destination: $crate::Chain + Clone,
-			Origin::RuntimeOrigin: $crate::OriginTrait<AccountId = $crate::AccountId32> + Clone,
+			Origin::RuntimeOrigin:
+				$crate::OriginTrait<AccountId = $crate::AccountIdOf<Origin::Runtime>> + Clone,
 			Destination::RuntimeOrigin:
-				$crate::OriginTrait<AccountId = $crate::AccountId32> + Clone,
+				$crate::OriginTrait<AccountId = $crate::AccountIdOf<Destination::Runtime>> + Clone,
 			Hops: Clone,
 			Args: Clone,
 		{
@@ -1395,8 +1398,8 @@ where
 
 /// Struct that keeps account's id and balance
 #[derive(Clone)]
-pub struct TestAccount {
-	pub account_id: AccountId,
+pub struct TestAccount<R: Chain> {
+	pub account_id: AccountIdOf<R::Runtime>,
 	pub balance: Balance,
 }
 
@@ -1413,9 +1416,9 @@ pub struct TestArgs {
 }
 
 /// Auxiliar struct to help creating a new `Test` instance
-pub struct TestContext<T> {
-	pub sender: AccountId,
-	pub receiver: AccountId,
+pub struct TestContext<T, Origin: Chain, Destination: Chain> {
+	pub sender: AccountIdOf<Origin::Runtime>,
+	pub receiver: AccountIdOf<Destination::Runtime>,
 	pub args: T,
 }
 
@@ -1432,12 +1435,12 @@ pub struct Test<Origin, Destination, Hops = (), Args = TestArgs>
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 {
-	pub sender: TestAccount,
-	pub receiver: TestAccount,
+	pub sender: TestAccount<Origin>,
+	pub receiver: TestAccount<Destination>,
 	pub signed_origin: Origin::RuntimeOrigin,
 	pub root_origin: Origin::RuntimeOrigin,
 	pub hops_assertion: HashMap<String, fn(Self)>,
@@ -1452,12 +1455,12 @@ where
 	Args: Clone,
 	Origin: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 	Destination: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 {
 	/// Creates a new `Test` instance
-	pub fn new(test_args: TestContext<Args>) -> Self {
+	pub fn new(test_args: TestContext<Args, Origin, Destination>) -> Self {
 		Test {
 			sender: TestAccount {
 				account_id: test_args.sender.clone(),

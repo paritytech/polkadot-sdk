@@ -40,6 +40,10 @@ fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
 	AssetHubWestend::assert_dmp_queue_incomplete(Some(Weight::from_parts(1_000_000_000, 0)));
 }
 
+fn system_para_dest_assertions(_t: RelayToSystemParaTest) {
+	AssetHubWestend::assert_dmp_queue_error(Error::WeightNotComputable);
+}
+
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
 	AssetHubWestend::assert_xcm_pallet_attempted_error(Some(XcmError::Barrier))
 }
@@ -176,7 +180,7 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
 	test.set_dispatchable::<Westend>(relay_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -235,7 +239,7 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
 	test.set_dispatchable::<Westend>(relay_reserve_transfer_assets);
 	test.assert();
 
@@ -350,6 +354,7 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 
@@ -385,6 +390,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 
