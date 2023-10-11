@@ -2112,9 +2112,11 @@ macro_rules! impl_opaque_keys_inner {
 				),
 				()
 			> {
-				Ok(($(
+				let res = ($(
 					$crate::RuntimeAppPublic::sign(&self.$field, &owner).ok_or(())?
-				),*))
+				),*);
+
+				Ok(res)
 			}
 		}
 
