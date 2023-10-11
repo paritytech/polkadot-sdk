@@ -383,6 +383,7 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 
@@ -418,6 +419,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 
