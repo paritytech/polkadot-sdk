@@ -52,8 +52,8 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 ]
 std = [
-	"cumulus-pallet-session-benchmarking?/std",
 	"codec/std",
+	"cumulus-pallet-session-benchmarking?/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
