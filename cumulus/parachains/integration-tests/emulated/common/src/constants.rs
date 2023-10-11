@@ -386,7 +386,7 @@ pub mod asset_hub_westend {
 	}
 }
 
-// Asset Hub Kusama
+// Asset Hub Rococo
 pub mod asset_hub_rococo {
 	use super::*;
 	pub const PARA_ID: u32 = 1000;
