@@ -448,11 +448,8 @@ impl<
 		if self.total_fee.peek().is_zero() {
 			return None
 		}
-		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
-			(asset.clone(), 0).into()
-		} else {
-			return None
-		};
+		let mut refund_asset =
+			if let Some(asset) = &self.last_fee_asset { (*asset, 0).into() } else { return None };
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
 		if refund_amount >= self.total_fee.peek() {
 			return None
