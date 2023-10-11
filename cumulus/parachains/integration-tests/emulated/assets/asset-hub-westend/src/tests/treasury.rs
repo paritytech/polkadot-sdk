@@ -103,7 +103,7 @@ fn create_and_claim_treasury_spend() {
 					amount: amount == &SPEND_AMOUNT,
 				},
 				RuntimeEvent::ParachainSystem(cumulus_pallet_parachain_system::Event::UpwardMessageSent { .. }) => {},
-				RuntimeEvent::DmpQueue(cumulus_pallet_dmp_queue::Event::ExecutedDownward { outcome: Outcome::Complete(..) ,.. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
 			]
 		);
 		// beneficiary received the assets from the treasury.

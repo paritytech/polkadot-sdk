@@ -35,13 +35,8 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	);
 }
 
-fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	// Errors with `UntrustedReserveLocation`, but the MQ pallet does not report back errors.
-	AssetHubWestend::assert_dmp_queue_incomplete(Some(Weight::from_parts(1_000_000_000, 0)));
-}
-
 fn system_para_dest_assertions(_t: RelayToSystemParaTest) {
-	AssetHubWestend::assert_dmp_queue_error(Error::WeightNotComputable);
+	AssetHubWestend::assert_dmp_queue_error();
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
