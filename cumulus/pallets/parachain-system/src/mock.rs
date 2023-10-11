@@ -36,11 +36,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_std::{collections::vec_deque::VecDeque, num::NonZeroU32};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
