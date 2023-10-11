@@ -242,12 +242,14 @@ impl State {
 			}
 		}
 
-		sender
-			.send_message(NetworkBridgeTxMessage::SendRequests(
-				requests,
-				IfDisconnected::TryConnect,
-			))
-			.await;
+		if requests.len() != 0 {
+			sender
+				.send_message(NetworkBridgeTxMessage::SendRequests(
+					requests,
+					IfDisconnected::TryConnect,
+				))
+				.await;
+		}
 	}
 
 	/// Wait for a sufficient amount of chunks to reconstruct according to the provided `params`.
