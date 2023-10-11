@@ -23,8 +23,8 @@ proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = { version = "2.0.38", features = ["full"] }
 frame-support-procedural-tools = { path = "tools" }
+macro_magic = { version = "0.5.0", features = ["proc_support"] }
 proc-macro-warning = { version = "1.0.0", default-features = false }
-macro_magic = { version = "0.4.2", features = ["proc_support"] }
 expander = "2.0.0"
 sp-core-hashing = { path = "../../../primitives/core/hashing" }
 
