@@ -263,10 +263,10 @@ use frame_support::{
 	storage::KeyLenOf,
 	traits::{
 		fungible::{
-			hold::Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
-			MutateHold as FunMutateHold,
+			hold::Balanced as FunBalancedHold, Balanced as FunBalanced, Inspect as FunInspect,
+			Mutate as FunMutate, MutateHold as FunMutateHold,
 		},
-		tokens::{fungible::Credit, Precision, Preservation::Expendable},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation::Expendable, Restriction},
 		BalanceStatus, EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness,
 		StorageVersion,
 	},
@@ -494,7 +494,8 @@ pub mod pallet {
 		/// The currency type used for bidding.
 		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
-			+ FunBalanced<Self::AccountId>;
+			+ FunBalanced<Self::AccountId>
+			+ FunBalancedHold<Self::AccountId>;
 
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -1680,7 +1681,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			BidKind::Deposit(deposit) => {
 				let pot = Self::account_id();
 				let free = BalanceStatus::Free;
-				let r = T::Currency::repatriate_reserved(&who, &pot, *deposit, free);
+				let r = T::Currency::transfer_on_hold(
+					&HoldReason::SocietyBid.into(),
+					&who,
+					&pot,
+					*deposit,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Force,
+				);
 				debug_assert!(r.is_ok());
 			},
 			BidKind::Vouch(voucher, _) => {
@@ -2054,8 +2063,8 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<CreditOf<T, I>> for Pallet<T, I> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T, I>) {
 		let numeric_amount = amount.peek();
 
-		// Must resolve into existing but better to be safe.
-		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
+		// Creates account if it doesn't exist, as long as amount > minimum balance.
+		let _ = T::Currency::resolve(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::<T, I>::Deposit { value: numeric_amount });
 	}
