@@ -831,17 +831,16 @@ impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime
 
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_wococo::WococoNetwork;
-	type Bridges = xcm_config::bridging::to_wococo::FilteredNetworkExportTable;
+	type Bridges = xcm_config::bridging::to_wococo::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type BridgeHubOrigin =
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	type BridgeHubOrigin = EnsureXcm<xcm_builder::Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BridgeHubOrigin = EitherOfDiverse<
 		// for running benchmarks
 		EnsureRoot<AccountId>,
 		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>,
+		EnsureXcm<xcm_builder::Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
 	type ToBridgeHubSender = XcmpQueue;
@@ -863,17 +862,16 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
-	type Bridges = xcm_config::bridging::to_rococo::FilteredNetworkExportTable;
+	type Bridges = xcm_config::bridging::to_rococo::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type BridgeHubOrigin =
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	type BridgeHubOrigin = EnsureXcm<xcm_builder::Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BridgeHubOrigin = EitherOfDiverse<
 		// for running benchmarks
 		EnsureRoot<AccountId>,
 		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<assets_common::matching::Equals<xcm_config::bridging::SiblingBridgeHub>>,
+		EnsureXcm<xcm_builder::Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
 	type ToBridgeHubSender = XcmpQueue;

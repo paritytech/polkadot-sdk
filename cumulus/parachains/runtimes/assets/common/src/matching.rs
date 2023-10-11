@@ -18,12 +18,11 @@ use frame_support::{
 	pallet_prelude::Get,
 	traits::{Contains, ContainsPair},
 };
-use parachains_common::xcm_config::{LocationFilter, MatchesLocation};
 use xcm::{
 	latest::prelude::{MultiAsset, MultiLocation},
 	prelude::*,
 };
-use xcm_builder::{ensure_is_remote, ExporterFor};
+use xcm_builder::{ensure_is_remote, ExporterFor, MatchesLocation};
 
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
 impl<Location: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<Location> {
@@ -228,9 +227,9 @@ where
 	}
 }
 
-/// A type alias for referring to the `LocationFilter<MultiLocation>`.
+/// A type alias for referring to the `MatchesLocation<MultiLocation` implementation.
 /// (`MultiLocation` represents here `AssetId::Concrete(location)`).
-pub type AssetFilter = LocationFilter<MultiLocation>;
+pub type AssetFilter = sp_std::boxed::Box<dyn MatchesLocation<MultiLocation>>;
 
 /// A type alias for referring to the `MultiLocation` with `AssetFilter` capabilities.
 /// E.g. for `MultiLocation` we can accept assets that match `AssetFilter`.

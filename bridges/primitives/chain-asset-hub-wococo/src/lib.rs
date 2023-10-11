@@ -44,8 +44,8 @@ frame_support::parameter_types! {
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
 
 	/// Base delivery fee to `BridgeHubWococo`.
-	/// (initially was calculated `170733333` + `10%` by test `BridgeHubWococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
-	pub const BridgeHubWococoBaseFeeInWocs: u128 = 187806666;
+	/// (initially was calculated by test `BridgeHubWococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
+	pub const BridgeHubWococoBaseFeeInWocs: u128 = 1214739988;
 }
 
 /// Identifier of AssetHubWococo in the Wococo relay chain.

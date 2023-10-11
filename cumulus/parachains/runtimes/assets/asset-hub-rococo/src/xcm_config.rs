@@ -21,10 +21,7 @@ use super::{
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
-	matching::{
-		Equals, FromSiblingParachain, IsForeignConcreteAsset, StartsWith,
-		StartsWithExplicitGlobalConsensus,
-	},
+	matching::{FromSiblingParachain, IsForeignConcreteAsset, StartsWithExplicitGlobalConsensus},
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -43,11 +40,13 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	EnsureXcmOrigin, Equals, FungiblesAdapter, GlobalConsensusParachainConvertsFor,
+	HashedDescription, InteriorLocationMatcher, IsConcrete, LocalMint, LocationMatcher,
+	NativeAsset, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -718,7 +717,6 @@ where
 pub mod bridging {
 	use super::*;
 	use assets_common::{matching, matching::*};
-	use parachains_common::xcm_config::LocationFilter;
 	use sp_std::collections::btree_set::BTreeSet;
 
 	// common/shared parameters for Wococo/Rococo
@@ -748,18 +746,20 @@ pub mod bridging {
 			);
 
 			pub const WococoNetwork: NetworkId = NetworkId::Wococo;
-			pub AssetHubWococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)));
-			pub WocLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(WococoNetwork::get())));
+			pub AssetHubWococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)));
+			pub AssetHubWococoInterior: InteriorMultiLocation = AssetHubWococo::get().interior.split_global().expect("invalid configuration for AssetHubWococo").1;
+			pub WocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(WococoNetwork::get())));
 
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: sp_std::vec::Vec<(NetworkId, LocationFilter<InteriorMultiLocation>, MultiLocation, Option<MultiAsset>)> = sp_std::vec![
-				(
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
 					WococoNetwork::get(),
-					LocationFilter::default()
+					InteriorLocationMatcher::<(
 						// allow to bridge to AssetHubWococo
-						.add_equals(AssetHubWococo::get().interior.split_global().expect("invalid configuration for AssetHubWococo").1),
+						Equals<AssetHubWococoInterior>,
 						// and nothing else
+					)>::new(),
 					SiblingBridgeHub::get(),
 					// base delivery fee to local `BridgeHub`
 					Some((
@@ -775,10 +775,11 @@ pub mod bridging {
 				// trust assets from AssetHubWococo
 				(
 					AssetHubWococo::get(),
-					LocationFilter::default()
+					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow receive WOC
-						.add_equals(WocLocation::get())
+						Equals<WocLocation>,
 						// and nothing else
+					)>::new()),
 				)
 			];
 
@@ -788,10 +789,11 @@ pub mod bridging {
 				// allow to transfer assets to AssetHubWococo
 				(
 					AssetHubWococo::get(),
-					LocationFilter::default()
+					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow send only ROC
-						.add_equals(TokenLocation::get())
+						Equals<TokenLocation>,
 						// and nothing else
+					)>::new()),
 				)
 			];
 
@@ -809,8 +811,7 @@ pub mod bridging {
 			}
 		}
 
-		pub type FilteredNetworkExportTable =
-			parachains_common::xcm_config::FilteredNetworkExportTable<BridgeTable>;
+		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
 		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
@@ -844,18 +845,20 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub AssetHubRococo: MultiLocation =  MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)));
-			pub RocLocation: MultiLocation =  MultiLocation::new(2, X1(GlobalConsensus(RococoNetwork::get())));
+			pub AssetHubRococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)));
+			pub AssetHubRococoInterior: InteriorMultiLocation = AssetHubRococo::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1;
+			pub RocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(RococoNetwork::get())));
 
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: sp_std::vec::Vec<(NetworkId, LocationFilter<InteriorMultiLocation>, MultiLocation, Option<MultiAsset>)> = sp_std::vec![
-				(
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
 					RococoNetwork::get(),
-					LocationFilter::default()
+					InteriorLocationMatcher::<(
 						// allow to bridge to AssetHubRococo
-						.add_equals(AssetHubRococo::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1),
+						Equals<AssetHubRococoInterior>,
 						// and nothing else
+					)>::new(),
 					SiblingBridgeHub::get(),
 					// base delivery fee to local `BridgeHub`
 					Some((
@@ -871,10 +874,11 @@ pub mod bridging {
 				// trust assets from AssetHubRococo
 				(
 					AssetHubRococo::get(),
-					LocationFilter::default()
+					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow receive ROC
-						.add_equals(RocLocation::get())
+						Equals<RocLocation>,
 						// and nothing else
+					)>::new()),
 				)
 			];
 
@@ -884,10 +888,11 @@ pub mod bridging {
 				// allow to transfer assets to AssetHubRococo
 				(
 					AssetHubRococo::get(),
-					LocationFilter::default()
+					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow send only WOC
-						.add_equals(TokenLocation::get())
+						Equals<TokenLocation>,
 						// and nothing else
+					)>::new()),
 				)
 			];
 
@@ -905,8 +910,7 @@ pub mod bridging {
 			}
 		}
 
-		pub type FilteredNetworkExportTable =
-			parachains_common::xcm_config::FilteredNetworkExportTable<BridgeTable>;
+		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
 		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
@@ -932,7 +936,7 @@ pub mod bridging {
 	/// `pallet_xcm::Config::XcmReserveTransferFilter`.
 	pub type DisallowForReserveTransfer = ExcludeOnlyForRemoteDestination<
 		UniversalLocation,
-		(to_wococo::FilteredNetworkExportTable, to_rococo::FilteredNetworkExportTable),
+		(to_wococo::NetworkExportTable, to_rococo::NetworkExportTable),
 		(
 			DisallowConcreteAssetUnless<to_wococo::AllowedReserveTransferAssetsLocations>,
 			DisallowConcreteAssetUnless<to_rococo::AllowedReserveTransferAssetsLocations>,
