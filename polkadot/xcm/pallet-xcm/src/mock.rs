@@ -252,6 +252,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ConstU32<0>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]

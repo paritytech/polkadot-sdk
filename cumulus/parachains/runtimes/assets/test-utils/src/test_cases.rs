@@ -158,12 +158,13 @@ pub fn teleports_for_native_asset_works<
 			// 2. try to teleport asset back to the relaychain
 			{
 				let dest = MultiLocation::parent();
-				let dest_beneficiary = MultiLocation::parent()
+				let mut dest_beneficiary = MultiLocation::parent()
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
+				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -206,12 +207,13 @@ pub fn teleports_for_native_asset_works<
 			{
 				let other_para_id = 2345;
 				let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
-				let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
+				let mut dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
+				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -513,12 +515,13 @@ pub fn teleports_for_foreign_assets_works<
 			// 2. try to teleport asset back to source parachain (foreign_para_id)
 			{
 				let dest = MultiLocation::new(1, X1(Parachain(foreign_para_id)));
-				let dest_beneficiary = MultiLocation::new(1, X1(Parachain(foreign_para_id)))
+				let mut dest_beneficiary = MultiLocation::new(1, X1(Parachain(foreign_para_id)))
 					.appended_with(AccountId32 {
 						network: None,
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
+				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
@@ -1401,12 +1404,13 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			let other_para_id = 2345;
 			let native_asset = MultiLocation::parent();
 			let dest = MultiLocation::new(1, X1(Parachain(other_para_id)));
-			let dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
+			let mut dest_beneficiary = MultiLocation::new(1, X1(Parachain(other_para_id)))
 				.appended_with(AccountId32 {
 					network: None,
 					id: sp_runtime::AccountId32::new([3; 32]).into(),
 				})
 				.unwrap();
+			dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
 
 			let reserve_account = LocationToAccountId::convert_location(&dest)
 				.expect("Sovereign account for reserves");

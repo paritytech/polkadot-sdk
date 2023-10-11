@@ -449,7 +449,7 @@ impl MultiLocation {
 	pub fn chain_location(mut self) -> MultiLocation {
 		// start popping junctions until we reach chain identifier
 		while let Some(j) = self.last() {
-			if j.is_chain_identifier() {
+			if matches!(j, Junction::Parachain(_) | Junction::GlobalConsensus(_)) {
 				// return chain subsection
 				return self
 			} else {
