@@ -255,7 +255,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Handles actually sending upward messages by moving them from [`PendingUpwardMessages`] to [`UpwardMessages`].
+		/// Handles actually sending upward messages by moving them from `PendingUpwardMessages` to `UpwardMessages`.
 		/// Decreases the delivery fee factor if after sending messages, the queue total size is less than the threshold
 		/// (see [`ump_constants::THRESHOLD_FACTOR`]).
 		fn on_finalize(_: BlockNumberFor<T>) {
@@ -884,7 +884,7 @@ pub mod pallet {
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub type PendingUpwardMessages<T: Config> =
+	pub(super) type PendingUpwardMessages<T: Config> =
 		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
@@ -1529,7 +1529,7 @@ impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Puts a message in the [`PendingUpwardMessages`] storage item.
+	/// Puts a message in the `PendingUpwardMessages` storage item.
 	/// The message will be later sent in `on_finalize`.
 	/// Checks host configuration to see if message is too big.
 	/// Increases the delivery fee factor if the queue is sufficiently (see [`ump_constants::THRESHOLD_FACTOR`]) congested.
