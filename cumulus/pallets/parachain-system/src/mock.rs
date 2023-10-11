@@ -27,6 +27,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
+	derive_impl,
 	inherent::{InherentData, ProvideInherent},
 	parameter_types,
 	traits::{
@@ -74,30 +75,12 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = Weight::zero();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
-	type BlockLength = ();
-	type BlockWeights = ();
 	type Version = Version;
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
 	type OnSetCode = ParachainSetCode<Self>;
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
