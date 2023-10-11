@@ -356,7 +356,8 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
-					Versioned::VStaging($vstaging_pat) => Ok(Versioned::VStaging($vstaging_out.clone())),
+					Versioned::VStaging($vstaging_pat) =>
+						Ok(Versioned::VStaging($vstaging_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
