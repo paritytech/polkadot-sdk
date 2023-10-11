@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use codec::Encode;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -28,7 +29,6 @@ use frame_support::{
 	traits::{ConstU32, ConstU64},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
-use codec::Encode;
 
 type AccountId = u64;
 type Nonce = u32;
