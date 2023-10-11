@@ -204,14 +204,15 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(1)]
-		#[pallet::weight((*_weight, call.get_dispatch_info().class))]
+		#[pallet::weight((*weight, call.get_dispatch_info().class))]
 		pub fn sudo_unchecked_weight(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
-			_weight: Weight,
+			weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
+			let _ = weight; // We don't check the weight witness since it is a root call.
 			ensure!(Self::key().map_or(false, |k| sender == k), Error::<T>::RequireSudo);
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());

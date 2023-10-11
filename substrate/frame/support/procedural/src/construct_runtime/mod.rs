@@ -414,7 +414,7 @@ fn construct_runtime_final_expansion(
 				)
 				.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
 				.span(where_section.span)
-				.build(),
+				.build_or_panic(),
 		)
 	});
 
