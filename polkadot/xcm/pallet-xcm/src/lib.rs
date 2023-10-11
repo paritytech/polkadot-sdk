@@ -41,7 +41,9 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
-use xcm_executor::traits::{AssetTransferFilter, ConvertOrigin, Properties};
+use xcm_executor::traits::{
+	AssetTransferError, AssetTransferSupport, ConvertOrigin, Properties, TransferType,
+};
 
 use frame_support::{
 	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
@@ -206,7 +208,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + AssetTransferFilter;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + AssetTransferSupport;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -443,7 +445,7 @@ pub mod pallet {
 		/// The location is invalid since it already has a subscription from us.
 		AlreadySubscribed,
 		/// Invalid asset for the operation.
-		InvalidAsset,
+		InvalidAsset(AssetTransferError),
 		/// The owner does not own (all) of the asset that they wish to do the operation on.
 		LowBalance,
 		/// The asset owner has too many locks on the asset.
@@ -456,8 +458,6 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
-		/// Reserve chain could not be determined for assets to be transferred.
-		UnknownReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
 		TooManyReserves,
 	}
@@ -1211,54 +1211,6 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-enum TransferType {
-	Teleport,
-	LocalReserve,
-	DestinationReserve,
-	RemoteReserve(MultiLocation),
-}
-
-impl TransferType {
-	/// Determine transfer type to be used for transferring `asset` from local chain to `dest`.
-	pub fn determine_for<T: Config>(
-		asset: &MultiAsset,
-		dest: &MultiLocation,
-	) -> Result<TransferType, Error<T>> {
-		if <T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(asset, dest) {
-			// we trust destination for teleporting asset
-			return Ok(TransferType::Teleport)
-		} else if <T::XcmExecutor as AssetTransferFilter>::IsReserve::contains(asset, dest) {
-			// we trust destination as asset reserve location
-			return Ok(TransferType::DestinationReserve)
-		}
-
-		// try to determine reserve location based on asset id/location
-		let asset_location = match asset.id {
-			Concrete(location) => Ok(location.chain_location()),
-			_ => Err(Error::<T>::InvalidAsset),
-		}?;
-		if asset_location == MultiLocation::here() ||
-			<T::XcmExecutor as AssetTransferFilter>::IsTeleporter::contains(
-				asset,
-				&asset_location,
-			) {
-			// local asset, or remote location that allows local teleports => local reserve
-			Ok(TransferType::LocalReserve)
-		} else if <T::XcmExecutor as AssetTransferFilter>::IsReserve::contains(
-			asset,
-			&asset_location,
-		) {
-			// remote location that is recognized as reserve location for asset
-			Ok(TransferType::RemoteReserve(asset_location))
-		} else {
-			// remote location that is not configured either as teleporter or reserve => cannot
-			// determine asset reserve
-			Err(Error::<T>::UnknownReserve)
-		}
-	}
-}
-
 impl<T: Config> Pallet<T> {
 	/// Validate `assets` to be reserve-transferred and return their reserve location.
 	fn validate_assets_and_find_reserve(
@@ -1270,9 +1222,11 @@ impl<T: Config> Pallet<T> {
 			// Ensure fungible asset.
 			ensure!(
 				matches!(asset.fun, Fungibility::Fungible(x) if !x.is_zero()),
-				Error::<T>::InvalidAsset
+				Error::<T>::InvalidAsset(AssetTransferError::NotFungible)
 			);
-			let transfer_type = TransferType::determine_for::<T>(&asset, dest)?;
+			let transfer_type =
+				<T::XcmExecutor as AssetTransferSupport>::determine_for(&asset, dest)
+					.map_err(Error::<T>::InvalidAsset)?;
 			// Ensure asset is not teleportable to `dest`.
 			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 			if let Some(reserve) = reserve.as_ref() {
@@ -1310,7 +1264,9 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::Empty.into())
 		}
 		let mut fees = assets.swap_remove(fee_asset_item as usize);
-		let fees_transfer_type = TransferType::determine_for::<T>(&fees, &dest)?;
+		let fees_transfer_type =
+			<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &dest)
+				.map_err(Error::<T>::InvalidAsset)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (one used for fees where transfer type is determined above).
 			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
@@ -1353,7 +1309,8 @@ impl<T: Config> Pallet<T> {
 					assets_reserve,
 					beneficiary,
 					vec![fees.clone()],
-					TransferType::determine_for::<T>(&fees, &assets_reserve)?,
+					<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &assets_reserve)
+						.map_err(Error::<T>::InvalidAsset)?,
 					fees.clone(),
 					quarter_weight_limit.clone(),
 				)?;
@@ -1414,7 +1371,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (origin_location, assets) = value;
 		for asset in assets.iter() {
-			let transfer_type = TransferType::determine_for::<T>(asset, &dest)?;
+			let transfer_type =
+				<T::XcmExecutor as AssetTransferSupport>::determine_for(asset, &dest)
+					.map_err(Error::<T>::InvalidAsset)?;
 			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
 		}
 		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
@@ -1922,7 +1881,7 @@ impl<T: Config> Pallet<T> {
 				*amount = amount.saturating_div(2);
 				Ok(())
 			},
-			NonFungible(_) => Err(Error::<T>::InvalidAsset),
+			NonFungible(_) => Err(Error::<T>::InvalidAsset(AssetTransferError::NotFungible)),
 		}
 	}
 }
