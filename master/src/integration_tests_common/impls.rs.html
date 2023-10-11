@@ -668,6 +668,32 @@
 <a href="#668" id="668">668</a>
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -724,7 +750,7 @@
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 <span class="kw">pub use </span>xcm::{
-	prelude::{OriginKind, Outcome, VersionedXcm, Weight},
+	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, Weight},
 	v3::Error,
 	DoubleEncoded,
 };
@@ -750,22 +776,12 @@
 <span class="kw">type </span>BridgeHubRococoRuntime = &lt;BridgeHubRococo <span class="kw">as </span>Chain&gt;::Runtime;
 <span class="kw">type </span>BridgeHubWococoRuntime = &lt;BridgeHubWococo <span class="kw">as </span>Chain&gt;::Runtime;
 
-<span class="comment">// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
-// type BridgeHubPolkadotRuntime = &lt;BridgeHubPolkadot as Chain&gt;::Runtime;
-// type BridgeHubKusamaRuntime = &lt;BridgeHubKusama as Chain&gt;::Runtime;
-
-</span><span class="kw">pub type </span>RococoWococoMessageHandler =
+<span class="kw">pub type </span>RococoWococoMessageHandler =
 	BridgeHubMessageHandler&lt;BridgeHubRococoRuntime, BridgeHubWococoRuntime, Instance2&gt;;
 <span class="kw">pub type </span>WococoRococoMessageHandler =
 	BridgeHubMessageHandler&lt;BridgeHubWococoRuntime, BridgeHubRococoRuntime, Instance2&gt;;
 
-<span class="comment">// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
-// pub type PolkadotKusamaMessageHandler
-//	= BridgeHubMessageHandler&lt;BridgeHubPolkadotRuntime, BridgeHubKusamaRuntime, Instance1&gt;;
-// pub type KusamaPolkadotMessageHandler
-//	= BridgeHubMessageHandler&lt;BridgeHubKusamaRuntime, BridgeHubPolkadoRuntime, Instance1&gt;;
-
-</span><span class="kw">impl</span>&lt;S, T, I&gt; BridgeMessageHandler <span class="kw">for </span>BridgeHubMessageHandler&lt;S, T, I&gt;
+<span class="kw">impl</span>&lt;S, T, I&gt; BridgeMessageHandler <span class="kw">for </span>BridgeHubMessageHandler&lt;S, T, I&gt;
 <span class="kw">where
 	</span>S: Config&lt;Instance1&gt;,
 	T: Config&lt;I&gt;,
@@ -1019,6 +1035,37 @@
 
 						<span class="comment">// Check the HRMP channel has been successfully registrered
 						</span><span class="macro">assert!</span>(hrmp_channel_exist)
+					});
+				}
+			}
+		}
+	};
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>impl_send_transact_helpers_for_relay_chain {
+	( <span class="macro-nonterminal">$chain</span>:ident ) =&gt; {
+		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
+			<span class="kw">impl </span><span class="macro-nonterminal">$chain </span>{
+				<span class="doccomment">/// A root origin (as governance) sends `xcm::Transact` with `UnpaidExecution` and encoded `call` to child parachain.
+				</span><span class="kw">pub fn </span>send_unpaid_transact_to_parachain_as_root(
+					recipient: <span class="macro-nonterminal">$crate::impls::ParaId</span>,
+					call: <span class="macro-nonterminal">$crate::impls::DoubleEncoded</span>&lt;()&gt;
+				) {
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{bx, Chain, RelayChain};
+
+					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
+						<span class="kw">let </span>root_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::root();
+						<span class="kw">let </span>destination:  <span class="macro-nonterminal">$crate::impls::MultiLocation </span>= &lt;<span class="self">Self </span><span class="kw">as </span>RelayChain&gt;::child_location_of(recipient);
+						<span class="kw">let </span>xcm = <span class="macro-nonterminal">$crate::impls::xcm_transact_unpaid_execution</span>(call, <span class="macro-nonterminal">$crate::impls::OriginKind::Superuser</span>);
+
+						<span class="comment">// Send XCM `Transact`
+						</span><span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>Pallet&gt;]&gt;::XcmPallet::send(
+							root_origin,
+							<span class="macro">bx!</span>(destination.into()),
+							<span class="macro">bx!</span>(xcm),
+						));
+						<span class="self">Self</span>::assert_xcm_pallet_sent();
 					});
 				}
 			}
@@ -1286,53 +1333,58 @@
 					min_balance: u128,
 					is_sufficient: bool,
 					asset_owner: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
+					dmp_weight_threshold: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Weight</span>&gt;,
 					amount_to_mint: u128,
 				) {
-					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{bx, Chain, RelayChain, Parachain, Inspect, TestExt};
-					<span class="comment">// Init values for Relay Chain
-					</span><span class="kw">let </span>root_origin = &lt;<span class="macro-nonterminal">$relay_chain </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::root();
-					<span class="kw">let </span>destination = &lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::child_location_of(&lt;<span class="macro-nonterminal">$chain</span>&gt;::para_id());
-					<span class="kw">let </span>xcm = <span class="self">Self</span>::force_create_asset_xcm(
-						<span class="macro-nonterminal">$crate::impls::OriginKind::Superuser</span>,
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls::Chain</span>;
+
+					<span class="comment">// Force create asset
+					</span><span class="self">Self</span>::force_create_asset_from_relay_as_root(
 						id,
-						asset_owner.clone(),
-						is_sufficient,
 						min_balance,
+						is_sufficient,
+						asset_owner.clone(),
+						dmp_weight_threshold
 					);
 
-					&lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::execute_with(|| {
-						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">$relay_chain </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$relay_chain </span>Pallet&gt;]&gt;::XcmPallet::send(
-							root_origin,
-							<span class="macro">bx!</span>(destination.into()),
-							<span class="macro">bx!</span>(xcm),
-						));
+					<span class="comment">// Mint asset for System Parachain&#39;s sender
+					</span><span class="kw">let </span>signed_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::signed(asset_owner.clone());
+					<span class="self">Self</span>::mint_asset(signed_origin, id, asset_owner, amount_to_mint);
+				}
 
-						&lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::assert_xcm_pallet_sent();
-					});
+				<span class="doccomment">/// Relay Chain sends `Transact` instruction with `force_create_asset` to Parachain with `Assets` instance of `pallet_assets` .
+				</span><span class="kw">pub fn </span>force_create_asset_from_relay_as_root(
+					id: u32,
+					min_balance: u128,
+					is_sufficient: bool,
+					asset_owner: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
+					dmp_weight_threshold: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Weight</span>&gt;,
+				) {
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{Parachain, Inspect, TestExt};
 
-					<span class="self">Self</span>::execute_with(|| {
-						<span class="self">Self</span>::assert_dmp_queue_complete(<span class="prelude-val">Some</span>(<span class="macro-nonterminal">$crate::impls::Weight::from_parts</span>(<span class="number">1_019_445_000</span>, <span class="number">200_000</span>)));
+					&lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::send_unpaid_transact_to_parachain_as_root(
+						<span class="self">Self</span>::para_id(),
+						<span class="self">Self</span>::force_create_asset_call(id, asset_owner.clone(), is_sufficient, min_balance),
+					);
 
+					<span class="comment">// Receive XCM message in Assets Parachain
+					</span><span class="self">Self</span>::execute_with(|| {
 						<span class="kw">type </span>RuntimeEvent = &lt;<span class="macro-nonterminal">$chain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
+
+						<span class="self">Self</span>::assert_dmp_queue_complete(dmp_weight_threshold);
 
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 							<span class="macro-nonterminal">Self</span>,
 							<span class="macro">vec!</span>[
-								<span class="comment">// Asset has been created
-								</span>RuntimeEvent::Assets(<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::ForceCreated </span>{ asset_id, owner }) =&gt; {
+								RuntimeEvent::Assets(<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::ForceCreated </span>{ asset_id, owner }) =&gt; {
 									asset_id: <span class="kw-2">*</span>asset_id == id,
-									owner: <span class="kw-2">*</span>owner == asset_owner.clone(),
+									owner: <span class="kw-2">*</span>owner == asset_owner,
 								},
 							]
 						);
 
 						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>Pallet&gt;]&gt;::Assets::asset_exists(id.into()));
 					});
-
-					<span class="kw">let </span>signed_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::signed(asset_owner.clone());
-
-					<span class="comment">// Mint asset for System Parachain&#39;s sender
-					</span><span class="self">Self</span>::mint_asset(signed_origin, id, asset_owner, amount_to_mint);
 				}
 			}
 		}

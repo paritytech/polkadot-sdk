@@ -295,14 +295,6 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -555,30 +547,22 @@
 		target = BridgeHubRococo,
 		handler = WococoRococoMessageHandler
 	}
-	<span class="comment">// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
-	// pub struct PolkadotKusamaMockBridge {
-	// 	source = BridgeHubPolkadot,
-	// 	target = BridgeHubKusama,
-	//  handler = PolkadotKusamaMessageHandler
-	// },
-	// pub struct KusamaPolkadotMockBridge {
-	// 	source = BridgeHubKusama,
-	// 	target = BridgeHubPolkadot,
-	// 	handler = KusamaPolkadotMessageHandler
-	// }
-</span>}
+}
 
 <span class="comment">// Westend implementation
 </span><span class="macro">impl_accounts_helpers_for_relay_chain!</span>(Westend);
 <span class="macro">impl_assert_events_helpers_for_relay_chain!</span>(Westend);
+<span class="macro">impl_send_transact_helpers_for_relay_chain!</span>(Westend);
 
 <span class="comment">// Rococo implementation
 </span><span class="macro">impl_accounts_helpers_for_relay_chain!</span>(Rococo);
 <span class="macro">impl_assert_events_helpers_for_relay_chain!</span>(Rococo);
+<span class="macro">impl_send_transact_helpers_for_relay_chain!</span>(Rococo);
 
 <span class="comment">// Wococo implementation
 </span><span class="macro">impl_accounts_helpers_for_relay_chain!</span>(Wococo);
 <span class="macro">impl_assert_events_helpers_for_relay_chain!</span>(Wococo);
+<span class="macro">impl_send_transact_helpers_for_relay_chain!</span>(Wococo);
 
 <span class="comment">// AssetHubWestend implementation
 </span><span class="macro">impl_accounts_helpers_for_parachain!</span>(AssetHubWestend);
