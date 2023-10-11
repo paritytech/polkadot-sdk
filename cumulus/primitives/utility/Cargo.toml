@@ -30,6 +30,7 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
+	"pallet-asset-conversion/std",
 	"polkadot-runtime-common/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -37,14 +38,13 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"pallet-asset-conversion/std",
 ]
 
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-asset-conversion/runtime-benchmarks",
 ]
