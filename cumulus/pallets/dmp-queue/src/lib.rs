@@ -99,14 +99,41 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// The export of pages started.
 		StartedExport,
+
+		/// The export of a page completed.
 		Exported { page: PageCounter },
+
+		/// The export of a page failed.
+		///
+		/// This should never be emitted.
+		ExportFailed { page: PageCounter },
+
+		/// The export of pages completed.
 		CompletedExport,
+
+		/// The export of overweight messages started.
 		StartedOverweightExport,
+
+		/// The export of an overweight message completed.
 		ExportedOverweight { index: OverweightIndex },
+
+		/// The export of an overweight message failed.
+		///
+		/// This should never be emitted.
+		ExportOverweightFailed { index: OverweightIndex },
+
+		/// The export of overweight messages completed.
 		CompletedOverweightExport,
+
+		/// The cleanup of remaining pallet storage started.
 		StartedCleanup,
+
+		/// Some debris was cleaned up.
 		CleanedSome { keys_removed: u32 },
+
+		/// The cleanup of remaining pallet storage completed.
 		Completed { error: bool },
 	}
 
@@ -150,13 +177,18 @@ pub mod pallet {
 						log::debug!(target: LOG, "CompletedExport");
 						Self::deposit_event(Event::CompletedExport);
 					} else {
-						migration::migrate_page::<T>(next_begin_used);
+						let res = migration::migrate_page::<T>(next_begin_used);
 
 						MigrationStatus::<T>::put(MigrationState::StartedExport {
 							next_begin_used: next_begin_used.saturating_add(1),
 						});
-						log::debug!(target: LOG, "Exported page {}", next_begin_used);
-						Self::deposit_event(Event::Exported { page: next_begin_used });
+
+						if let Ok(()) = res {
+							log::debug!(target: LOG, "Exported page {}", next_begin_used);
+							Self::deposit_event(Event::Exported { page: next_begin_used });
+						} else {
+							Self::deposit_event(Event::ExportFailed { page: next_begin_used });
+						}
 					}
 				},
 				MigrationState::CompletedExport => {
@@ -175,15 +207,22 @@ pub mod pallet {
 						log::debug!(target: LOG, "CompletedOverweightExport");
 						Self::deposit_event(Event::CompletedOverweightExport);
 					} else {
-						migration::migrate_overweight::<T>(next_overweight_index);
+						let res = migration::migrate_overweight::<T>(next_overweight_index);
 
 						MigrationStatus::<T>::put(MigrationState::StartedOverweightExport {
 							next_overweight_index: next_overweight_index.saturating_add(1),
 						});
-						log::debug!(target: LOG, "Exported overweight index {next_overweight_index}");
-						Self::deposit_event(Event::ExportedOverweight {
-							index: next_overweight_index,
-						});
+
+						if let Ok(()) = res {
+							log::debug!(target: LOG, "Exported overweight index {next_overweight_index}");
+							Self::deposit_event(Event::ExportedOverweight {
+								index: next_overweight_index,
+							});
+						} else {
+							Self::deposit_event(Event::ExportOverweightFailed {
+								index: next_overweight_index,
+							});
+						}
 					}
 				},
 				MigrationState::CompletedOverweightExport => {
