@@ -74,20 +74,6 @@ impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for StartsWi
 	}
 }
 
-/// An implementation of [frame_support::traits::Contains] that checks the equality of MultiLocation
-/// or InteriorMultiLocation with the provided type T.
-pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiLocation>> Contains<MultiLocation> for Equals<T> {
-	fn contains(t: &MultiLocation) -> bool {
-		t == &T::get()
-	}
-}
-impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for Equals<T> {
-	fn contains(t: &InteriorMultiLocation) -> bool {
-		t == &T::get()
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;

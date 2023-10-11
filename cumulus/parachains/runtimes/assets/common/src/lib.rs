@@ -22,10 +22,10 @@ pub mod matching;
 pub mod runtime_api;
 
 use crate::matching::{LocalMultiLocationPattern, ParentLocation};
-use frame_support::traits::EverythingBut;
+use frame_support::traits::{EqualsTo, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
 use xcm::prelude::MultiLocation;
-use xcm_builder::{AsPrefixedGeneralIndex, Equals, MatchedConvertedConcreteId, StartsWith};
+use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
 
 /// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
@@ -67,7 +67,7 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 	MultiLocationConvertedConcreteId<
 		EverythingBut<(
 			// Excludes relay/parent chain currency
-			Equals<ParentLocation>,
+			EqualsTo<ParentLocation>,
 			// Here we rely on fact that something like this works:
 			// assert!(MultiLocation::new(1,
 			// X1(Parachain(100))).starts_with(&MultiLocation::parent()));
