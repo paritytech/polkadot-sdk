@@ -23,13 +23,24 @@ use codec::Encode;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	traits::{
-		tokens::{fungibles, fungibles::Inspect},
-		Get,
+		tokens::{
+			fungible,
+			fungible::Credit as FungibleCredit,
+			fungibles,
+			fungibles::{Credit as FungiblesCredit, Inspect},
+		},
+		Get, Imbalance, OnUnbalanced as OnUnbalancedT,
 	},
-	weights::Weight,
+	weights::{Weight, WeightToFee as WeightToFeeT},
+};
+use pallet_asset_conversion::{
+	MultiAssetIdConverter as SwapAssetMatcherT, SwapCredit as SwapCreditT,
 };
 use polkadot_runtime_common::xcm_sender::ConstantPrice;
-use sp_runtime::{traits::Saturating, SaturatedConversion};
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	SaturatedConversion,
+};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
@@ -307,6 +318,210 @@ pub trait ChargeWeightInFungibles<AccountId, Assets: fungibles::Inspect<AccountI
 		asset_id: <Assets as Inspect<AccountId>>::AssetId,
 		weight: Weight,
 	) -> Result<<Assets as Inspect<AccountId>>::Balance, XcmError>;
+}
+
+/// Provides an implementation of [`WeightTrader`] to charge for weight using the first asset
+/// specified in the `payment` argument.
+///
+/// Note: The asset utilized for weight must be non-native and must be exchangeable for a native
+/// asset through `SwapCredit`.
+// TODO: decouple implementation from the native asset concept, allowing the `TargetAsset`
+// argument as an exchange asset. Refer to https://github.com/paritytech/polkadot-sdk/issues/1842.
+pub struct SwapFirstAssetTrader<
+	AccountId,
+	SwapCredit: SwapCreditT<AccountId>,
+	SwapAssetMatcher: SwapAssetMatcherT<SwapCredit::MultiAssetId, Fungibles::AssetId>,
+	WeightToFee: WeightToFeeT<Balance = SwapCredit::Balance>,
+	Fungibles: fungibles::Balanced<AccountId, Balance = SwapCredit::Balance>,
+	FungiblesAssetMatcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
+	Fungible: fungible::Balanced<AccountId, Balance = SwapCredit::Balance>,
+	OnUnbalanced: OnUnbalancedT<FungibleCredit<AccountId, Fungible>>,
+> where
+	SwapCredit::MultiAssetId: From<Fungibles::AssetId>,
+	SwapCredit::Credit: From<FungiblesCredit<AccountId, Fungibles>>
+		+ From<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungiblesCredit<AccountId, Fungibles>>,
+	Fungible::Balance: Into<u128>,
+	Fungibles::Balance: Into<u128>,
+{
+	/// Accumulated fee paid for XCM execution.
+	total_fee: FungibleCredit<AccountId, Fungible>,
+	/// Last asset utilized by a client to settle a fee.
+	last_fee_asset: Option<AssetId>,
+	_phantom_data: PhantomData<(
+		AccountId,
+		SwapCredit,
+		SwapAssetMatcher,
+		WeightToFee,
+		Fungibles,
+		FungiblesAssetMatcher,
+		Fungible,
+		OnUnbalanced,
+	)>,
+}
+
+impl<
+		AccountId,
+		SwapCredit: SwapCreditT<AccountId>,
+		SwapAssetMatcher: SwapAssetMatcherT<SwapCredit::MultiAssetId, Fungibles::AssetId>,
+		WeightToFee: WeightToFeeT<Balance = SwapCredit::Balance>,
+		Fungibles: fungibles::Balanced<AccountId, Balance = SwapCredit::Balance>,
+		FungiblesAssetMatcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
+		Fungible: fungible::Balanced<AccountId, Balance = SwapCredit::Balance>,
+		OnUnbalanced: OnUnbalancedT<FungibleCredit<AccountId, Fungible>>,
+	> WeightTrader
+	for SwapFirstAssetTrader<
+		AccountId,
+		SwapCredit,
+		SwapAssetMatcher,
+		WeightToFee,
+		Fungibles,
+		FungiblesAssetMatcher,
+		Fungible,
+		OnUnbalanced,
+	> where
+	SwapCredit::MultiAssetId: From<Fungibles::AssetId>,
+	SwapCredit::Credit: From<FungiblesCredit<AccountId, Fungibles>>
+		+ From<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungiblesCredit<AccountId, Fungibles>>,
+	Fungible::Balance: Into<u128>,
+	Fungibles::Balance: Into<u128>,
+{
+	fn new() -> Self {
+		Self {
+			total_fee: FungibleCredit::<AccountId, Fungible>::zero(),
+			last_fee_asset: None,
+			_phantom_data: PhantomData,
+		}
+	}
+
+	fn buy_weight(
+		&mut self,
+		weight: Weight,
+		mut payment: xcm_executor::Assets,
+		_context: &XcmContext,
+	) -> Result<xcm_executor::Assets, XcmError> {
+		let first_asset: MultiAsset =
+			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
+		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
+			.map_err(|_| XcmError::FeesNotMet)?;
+
+		let swap_asset = fungibles_asset.clone().into();
+		if SwapAssetMatcher::is_native(&swap_asset) {
+			return Err(XcmError::FeesNotMet)
+		}
+
+		let credit_in = Fungibles::issue(fungibles_asset, balance);
+		let fee = WeightToFee::weight_to_fee(&weight);
+
+		let (credit_out, credit_change) = SwapCredit::swap_tokens_for_exact_tokens(
+			vec![swap_asset, SwapAssetMatcher::get_native()],
+			credit_in.into(),
+			fee,
+		)
+		.map_err(|(credit_in, _)| {
+			drop(credit_in);
+			XcmError::FeesNotMet
+		})?;
+
+		// the execution below must be infallible to keep this operation transactional.
+		self.total_fee.subsume(
+			// should never fail since `credit_out` is `FungibleCredit`.
+			// TODO: make this infallible. Refer to https://github.com/paritytech/polkadot-sdk/issues/1842.
+			credit_out.try_into().map_err(|_| XcmError::FeesNotMet)?,
+		);
+		self.last_fee_asset = Some(first_asset.id);
+
+		let credit_change: FungiblesCredit<AccountId, Fungibles> =
+			// should never fail since `credit_change` is `FungiblesCredit`.
+			// TODO: make this infallible. Refer to https://github.com/paritytech/polkadot-sdk/issues/1842.
+			credit_change.try_into().map_err(|_| XcmError::FeesNotMet)?;
+
+		payment.fungible.insert(first_asset.id, credit_change.peek().into());
+		drop(credit_change);
+		Ok(payment)
+	}
+
+	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<MultiAsset> {
+		if self.total_fee.peek().is_zero() {
+			return None
+		}
+		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
+			(asset.clone(), 0).into()
+		} else {
+			return None
+		};
+		let refund_amount = WeightToFee::weight_to_fee(&weight);
+		if refund_amount >= self.total_fee.peek() {
+			return None
+		}
+
+		let refund_swap_asset = FungiblesAssetMatcher::matches_fungibles(&refund_asset)
+			.map(|(a, _)| a.into())
+			.ok()?;
+
+		let refund = self.total_fee.extract(refund_amount);
+		let refund: FungibleCredit<AccountId, Fungible> =
+			match SwapCredit::swap_exact_tokens_for_tokens(
+				vec![SwapAssetMatcher::get_native(), refund_swap_asset],
+				refund.into(),
+				None,
+			) {
+				Ok(r) => r.try_into().ok()?,
+				Err((c, _)) => {
+					self.total_fee.subsume(
+						// should never fail since `credit_in` is `FungibleCredit`.
+						// TODO: make this infallible. Refer to https://github.com/paritytech/polkadot-sdk/issues/1842.
+						c.try_into().ok()?,
+					);
+					return None
+				},
+			};
+
+		// the execution below must be infallible to keep this operation atomic.
+		refund_asset.fun = refund.peek().into().into();
+		drop(refund);
+		Some(refund_asset)
+	}
+}
+
+impl<
+		AccountId,
+		SwapCredit: SwapCreditT<AccountId>,
+		SwapAssetMatcher: SwapAssetMatcherT<SwapCredit::MultiAssetId, Fungibles::AssetId>,
+		WeightToFee: WeightToFeeT<Balance = SwapCredit::Balance>,
+		Fungibles: fungibles::Balanced<AccountId, Balance = SwapCredit::Balance>,
+		FungiblesAssetMatcher: MatchesFungibles<Fungibles::AssetId, Fungibles::Balance>,
+		Fungible: fungible::Balanced<AccountId, Balance = SwapCredit::Balance>,
+		OnUnbalanced: OnUnbalancedT<FungibleCredit<AccountId, Fungible>>,
+	> Drop
+	for SwapFirstAssetTrader<
+		AccountId,
+		SwapCredit,
+		SwapAssetMatcher,
+		WeightToFee,
+		Fungibles,
+		FungiblesAssetMatcher,
+		Fungible,
+		OnUnbalanced,
+	> where
+	SwapCredit::MultiAssetId: From<Fungibles::AssetId>,
+	SwapCredit::Credit: From<FungiblesCredit<AccountId, Fungibles>>
+		+ From<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungibleCredit<AccountId, Fungible>>
+		+ TryInto<FungiblesCredit<AccountId, Fungibles>>,
+	Fungible::Balance: Into<u128>,
+	Fungibles::Balance: Into<u128>,
+{
+	fn drop(&mut self) {
+		if self.total_fee.peek().is_zero() {
+			return
+		}
+		let total_fee = self.total_fee.extract(self.total_fee.peek());
+		OnUnbalanced::on_unbalanced(total_fee);
+	}
 }
 
 #[cfg(test)]
