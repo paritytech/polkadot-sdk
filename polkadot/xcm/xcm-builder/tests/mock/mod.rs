@@ -74,7 +74,7 @@ pub const CENTS: Balance = UNITS / 30_000;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const ExtrinsicsRootStateVersion: sp_core::storage::StateVersion = sp_core::storage::StateVersion::V0;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 impl frame_system::Config for Runtime {

@@ -50,22 +50,15 @@ construct_runtime!(
 );
 
 parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
 	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type AccountId = AccountId;
+	type BlockHashCount = ConstU32<256>;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }

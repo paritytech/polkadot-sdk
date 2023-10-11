@@ -210,12 +210,13 @@ pub mod pallet {
 	{
 		/// Doc comment put in metadata
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(*_foo as u64, 0))]
+		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
 			origin: OriginFor<T>,
-			#[pallet::compact] _foo: u32,
+			#[pallet::compact] foo: u32,
 			_bar: u32,
 		) -> DispatchResultWithPostInfo {
+			let _ = foo;
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType3); // Test for where clause
 			let _ = origin;
