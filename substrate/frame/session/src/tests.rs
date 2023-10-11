@@ -25,7 +25,7 @@ use crate::mock::{
 	TestSessionChanged, TestValidatorIdOf,
 };
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::testing::UintAuthorityId;
 
@@ -385,8 +385,8 @@ fn session_keys_generate_output_works_as_set_keys_input() {
 
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(2),
-			<mock::Test as Config>::Keys::decode(&mut &new_keys.keys[..]).expect("Decode keys"),
-			new_keys.proof,
+			new_keys.keys,
+			new_keys.proof.encode(),
 		));
 	});
 }

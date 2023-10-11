@@ -125,7 +125,7 @@ fn invulnerable_limit_works() {
 				Session::set_keys(
 					RuntimeOrigin::signed(ii).into(),
 					key.clone(),
-					key.create_ownership_proof(&ii.encode()).unwrap(),
+					key.create_ownership_proof(&ii.encode()).unwrap().encode(),
 				)
 				.unwrap();
 			}

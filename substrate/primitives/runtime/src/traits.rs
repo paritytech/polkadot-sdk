@@ -2638,10 +2638,11 @@ mod tests {
 		)));
 
 		ext.execute_with(|| {
-			let generated_session_keys = SessionKeys::generate(&owner, None);
+			let session_keys = SessionKeys::generate(&owner, None);
 
-			let session_keys = SessionKeys::decode(&mut &generated_session_keys.keys[..]).unwrap();
-			assert!(session_keys.ownership_proof_is_valid(&owner, &generated_session_keys.proof));
+			assert!(session_keys
+				.keys
+				.ownership_proof_is_valid(&owner, &session_keys.proof.encode()));
 		});
 	}
 }

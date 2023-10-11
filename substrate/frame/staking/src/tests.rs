@@ -422,7 +422,8 @@ fn staking_should_work() {
 			SessionKeys { other: 4.into() },
 			SessionKeys { other: 4.into() }
 				.create_ownership_proof(&AccountId::from(3u32).encode())
-				.unwrap(),
+				.unwrap()
+				.encode(),
 		));
 
 		// No effects will be seen so far.
@@ -1865,7 +1866,8 @@ fn switching_roles() {
 			SessionKeys { other: 6.into() },
 			SessionKeys { other: 6.into() }
 				.create_ownership_proof(&AccountId::from(5u32).encode())
-				.unwrap(),
+				.unwrap()
+				.encode(),
 		));
 
 		mock::start_active_era(1);
@@ -1880,7 +1882,8 @@ fn switching_roles() {
 			SessionKeys { other: 2.into() },
 			SessionKeys { other: 2.into() }
 				.create_ownership_proof(&AccountId::from(1u32).encode())
-				.unwrap(),
+				.unwrap()
+				.encode(),
 		));
 		// new stakes:
 		// 11: 1000 self vote
@@ -1994,7 +1997,8 @@ fn bond_with_little_staked_value_bounded() {
 				SessionKeys { other: 1.into() },
 				SessionKeys { other: 1.into() }
 					.create_ownership_proof(&AccountId::from(1u32).encode())
-					.unwrap(),
+					.unwrap()
+					.encode(),
 			));
 
 			// 1 era worth of reward. BUT, we set the timestamp after on_initialize, so outdated by
