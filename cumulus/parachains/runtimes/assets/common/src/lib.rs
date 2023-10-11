@@ -21,11 +21,11 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
-use crate::matching::{Equals, LocalMultiLocationPattern, ParentLocation, StartsWith};
+use crate::matching::{LocalMultiLocationPattern, ParentLocation};
 use frame_support::traits::EverythingBut;
 use parachains_common::AssetIdForTrustBackedAssets;
 use xcm::prelude::MultiLocation;
-use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId};
+use xcm_builder::{AsPrefixedGeneralIndex, Equals, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
 
 /// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`

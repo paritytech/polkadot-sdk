@@ -889,28 +889,28 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime() {
-					Runtime::AssetHubPolkadot => crate::service::start_generic_aura_node::<
+					Runtime::AssetHubPolkadot => crate::service::start_asset_hub_node::<
 						asset_hub_polkadot_runtime::RuntimeApi,
 						AssetHubPolkadotAuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::AssetHubKusama => crate::service::start_generic_aura_node::<
+					Runtime::AssetHubKusama => crate::service::start_asset_hub_node::<
 						asset_hub_kusama_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-					Runtime::AssetHubRococo | Runtime::AssetHubWococo => crate::service::start_generic_aura_node::<
+					Runtime::AssetHubRococo | Runtime::AssetHubWococo => crate::service::start_asset_hub_node::<
 						asset_hub_rococo_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
-					Runtime::AssetHubWestend => crate::service::start_generic_aura_node::<
+					Runtime::AssetHubWestend => crate::service::start_asset_hub_node::<
 						asset_hub_westend_runtime::RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)

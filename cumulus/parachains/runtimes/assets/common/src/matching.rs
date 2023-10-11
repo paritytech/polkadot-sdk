@@ -24,20 +24,6 @@ use xcm::{
 };
 use xcm_builder::{ensure_is_remote, ExporterFor, MatchesLocation};
 
-pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<Location> {
-	fn contains(t: &MultiLocation) -> bool {
-		t.starts_with(&Location::get())
-	}
-}
-
-pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for Equals<Location> {
-	fn contains(t: &MultiLocation) -> bool {
-		t == &Location::get()
-	}
-}
-
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
 impl<Network: Get<NetworkId>> Contains<MultiLocation>
 	for StartsWithExplicitGlobalConsensus<Network>
