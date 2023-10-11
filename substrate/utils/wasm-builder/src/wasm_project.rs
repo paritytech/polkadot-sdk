@@ -545,7 +545,7 @@ fn create_project(
 }
 
 /// A rustc profile.
-#[derive(Clone, Debug, EnumIter, PartialEq)]
+#[derive(Clone, Debug, EnumIter)]
 enum Profile {
 	/// The `--profile dev` profile.
 	Debug,
