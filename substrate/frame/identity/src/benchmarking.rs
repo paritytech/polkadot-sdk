@@ -566,9 +566,12 @@ mod benchmarks {
 		Ok(())
 	}
 
-	reap_identity {
-		let s in 0 .. T::MaxSubAccounts::get();
-		let r in 0 .. T::MaxRegistrars::get() => add_registrars::<T>(r)?;
+	#[benchmark]
+	fn reap_identity(
+		r: Linear<0, { T::MaxRegistrars::get() }>,
+		s: Linear<0, { T::MaxSubAccounts::get() }>,
+	) -> Result<(), BenchmarkError> {
+		add_registrars::<T>(r)?;
 
 		// target
 		let target: T::AccountId = account("target", 0, SEED);
@@ -585,7 +588,7 @@ mod benchmarks {
 		let info = create_identity_info::<T>(1);
 		Identity::<T>::set_identity(
 			RawOrigin::Signed(target.clone()).into(),
-			Box::new(info.clone())
+			Box::new(info.clone()),
 		)?;
 
 		// set `s` subs
@@ -594,7 +597,7 @@ mod benchmarks {
 		// provide judgements
 		for ii in 0..r {
 			let registrar: T::AccountId = account("registrar", ii, SEED);
-			let balance_to_use =  T::Currency::minimum_balance() * 10u32.into();
+			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
 			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
@@ -606,12 +609,17 @@ mod benchmarks {
 				T::Hashing::hash_of(&info),
 			)?;
 		}
-	}: _<T::RuntimeOrigin>(origin, target_lookup)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, target_lookup);
+
 		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target }.into());
+
+		Ok(())
 	}
 
-	poke_deposit {
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
@@ -633,42 +641,56 @@ mod benchmarks {
 		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub_account]).unwrap();
 		SubsOf::<T>::insert::<
 			&T::AccountId,
-			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>)
-		>(
-			&target,
-			(Zero::zero(), subs)
-		);
+			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
+		>(&target, (Zero::zero(), subs));
 
 		// expected deposits
 		let expected_id_deposit = T::FieldDeposit::get()
 			.saturating_mul(additional_fields.into())
 			.saturating_add(T::BasicDeposit::get());
 		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
-	}: _(RawOrigin::Signed(caller.clone()), target_lookup)
-	verify {
-		assert_last_event::<T>(Event::<T>::DepositUpdated {
-			who: target,
-			identity: expected_id_deposit,
-			subs: expected_sub_deposit
-		}.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), target_lookup);
+
+		assert_last_event::<T>(
+			Event::<T>::DepositUpdated {
+				who: target,
+				identity: expected_id_deposit,
+				subs: expected_sub_deposit,
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
-	lock_pallet {
+	#[benchmark]
+	fn lock_pallet() -> Result<(), BenchmarkError> {
 		let origin =
 			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Identity::<T>::unlock_pallet(origin.clone())?;
-	}: _<T::RuntimeOrigin>(origin)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin);
+
 		assert!(Locked::<T>::get());
+
+		Ok(())
 	}
 
-	unlock_pallet {
+	#[benchmark]
+	fn unlock_pallet() -> Result<(), BenchmarkError> {
 		let origin =
 			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Identity::<T>::lock_pallet(origin.clone())?;
-	}: _<T::RuntimeOrigin>(origin)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin);
+
 		assert!(!Locked::<T>::get());
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Identity, crate::tests::new_test_ext(), crate::tests::Test);
