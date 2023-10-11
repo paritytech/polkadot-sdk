@@ -59,6 +59,7 @@ parameter_types! {
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 	pub const Stake: Balance = 1_000;
 	pub const Lease: BlockNumber = 8;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 impl frame_system::Config for TestRuntime {
@@ -85,6 +86,7 @@ impl frame_system::Config for TestRuntime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for TestRuntime {

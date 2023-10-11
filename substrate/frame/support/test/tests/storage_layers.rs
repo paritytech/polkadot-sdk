@@ -17,7 +17,7 @@
 
 use frame_support::{
 	assert_noop, assert_ok, dispatch::DispatchResult, ensure, pallet_prelude::ConstU32,
-	storage::with_storage_layer,
+	parameter_types, storage::with_storage_layer,
 };
 use pallet::*;
 use sp_io::TestExternalities;
@@ -64,6 +64,10 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::B
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -88,6 +92,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl Config for Runtime {}

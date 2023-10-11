@@ -34,7 +34,7 @@ use sp_storage::{StorageData, StorageKey};
 /// # use jsonrpsee::core::Error as RpcError;
 /// # use jsonrpsee::ws_client::WsClientBuilder;
 /// # use codec::Encode;
-/// # use frame_support::{construct_runtime, traits::ConstU32};
+/// # use frame_support::{construct_runtime, traits::ConstU32, parameter_types};
 /// # use substrate_frame_rpc_support::StorageQuery;
 /// # use sc_rpc_api::state::StateApiClient;
 /// # use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, testing::Header};
@@ -48,6 +48,9 @@ use sp_storage::{StorageData, StorageKey};
 /// # );
 /// #
 /// # type Hash = sp_core::H256;
+/// # parameter_types! {
+/// #   pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+/// # }
 /// #
 /// # impl frame_system::Config for TestRuntime {
 /// # 	type BaseCallFilter = ();
@@ -73,6 +76,7 @@ use sp_storage::{StorageData, StorageKey};
 /// # 	type SS58Prefix = ();
 /// # 	type OnSetCode = ();
 /// # 	type MaxConsumers = ConstU32<16>;
+/// # 	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 /// # }
 /// #
 /// # impl pallet_test::Config for TestRuntime {}

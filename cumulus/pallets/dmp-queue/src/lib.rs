@@ -449,6 +449,7 @@ mod tests {
 		pub const ParachainId: ParaId = ParaId::new(200);
 		pub const ReservedXcmpWeight: Weight = Weight::zero();
 		pub const ReservedDmpWeight: Weight = Weight::zero();
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 	}
 
 	type AccountId = u64;
@@ -477,6 +478,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	thread_local! {

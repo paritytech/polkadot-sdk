@@ -38,6 +38,10 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -62,6 +66,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_timestamp::Config for Runtime {

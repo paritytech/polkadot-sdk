@@ -48,6 +48,7 @@ pub type BlockNumber = u64;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 impl frame_system::Config for Runtime {
@@ -74,6 +75,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = ConstU32<16>;
 	type SystemWeightInfo = ();
 	type SS58Prefix = ConstU16<0>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

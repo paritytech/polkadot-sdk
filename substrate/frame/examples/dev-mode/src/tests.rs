@@ -18,7 +18,7 @@
 //! Tests for pallet-dev-mode.
 
 use crate::*;
-use frame_support::{assert_ok, traits::ConstU64};
+use frame_support::{assert_ok, parameter_types, traits::ConstU64};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -38,6 +38,10 @@ frame_support::construct_runtime!(
 		Example: pallet_dev_mode::{Pallet, Call, Storage, Event<T>},
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -63,6 +67,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

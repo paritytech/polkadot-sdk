@@ -55,6 +55,10 @@ impl pallet_collective_content::Config for Test {
 	type WeightInfo = CCWeightInfo;
 }
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
 	type BlockWeights = ();
@@ -79,6 +83,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 pub struct CCWeightInfo;
 impl WeightInfo for CCWeightInfo {

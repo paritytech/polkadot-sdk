@@ -98,6 +98,7 @@ mod tests {
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
 	use frame_support::{
+		parameter_types,
 		traits::{ConstU32, ConstU64},
 		ConsensusEngineId,
 	};
@@ -118,6 +119,10 @@ mod tests {
 			Authorship: pallet_authorship::{Pallet, Storage},
 		}
 	);
+
+	parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+	}
 
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -143,6 +148,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet::Config for Test {

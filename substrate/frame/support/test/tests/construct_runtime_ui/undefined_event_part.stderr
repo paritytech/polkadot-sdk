@@ -4,27 +4,27 @@ error: `Pallet` does not have #[pallet::event] defined, perhaps you should remov
 22 |   #[frame_support::pallet]
    |   ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-65 | / construct_runtime! {
-66 | |     pub struct Runtime
-67 | |     {
-68 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | |         Pallet: pallet expanded::{}::{Pallet, Event},
-70 | |     }
-71 | | }
+70 | / construct_runtime! {
+71 | |     pub struct Runtime
+72 | |     {
+73 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+74 | |         Pallet: pallet expanded::{}::{Pallet, Event},
+75 | |     }
+76 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `pallet::__substrate_event_check::is_event_part_defined` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0412]: cannot find type `Event` in module `pallet`
-  --> tests/construct_runtime_ui/undefined_event_part.rs:65:1
+  --> tests/construct_runtime_ui/undefined_event_part.rs:70:1
    |
-65 | / construct_runtime! {
-66 | |     pub struct Runtime
-67 | |     {
-68 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | |         Pallet: pallet expanded::{}::{Pallet, Event},
-70 | |     }
-71 | | }
+70 | / construct_runtime! {
+71 | |     pub struct Runtime
+72 | |     {
+73 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+74 | |         Pallet: pallet expanded::{}::{Pallet, Event},
+75 | |     }
+76 | | }
    | |_^ not found in `pallet`
    |
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

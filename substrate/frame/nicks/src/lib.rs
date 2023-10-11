@@ -253,7 +253,7 @@ mod tests {
 	use crate as pallet_nicks;
 
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types,
+		assert_noop, assert_ok, ord_parameter_types, parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use frame_system::EnsureSignedBy;
@@ -273,6 +273,10 @@ mod tests {
 			Nicks: pallet_nicks,
 		}
 	);
+
+	parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+	}
 
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -298,6 +302,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet_balances::Config for Test {

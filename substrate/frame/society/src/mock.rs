@@ -47,6 +47,7 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub const SocietyPalletId: PalletId = PalletId(*b"py/socie");
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 ord_parameter_types! {
@@ -82,6 +83,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

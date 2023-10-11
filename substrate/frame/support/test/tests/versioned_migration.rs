@@ -71,6 +71,10 @@ construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -81,6 +85,7 @@ impl frame_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

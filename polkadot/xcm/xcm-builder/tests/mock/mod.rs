@@ -74,6 +74,7 @@ pub const CENTS: Balance = UNITS / 30_000;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub const ExtrinsicsRootStateVersion: sp_core::storage::StateVersion = sp_core::storage::StateVersion::V0;
 }
 
 impl frame_system::Config for Runtime {
@@ -100,6 +101,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 parameter_types! {

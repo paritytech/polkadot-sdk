@@ -1318,6 +1318,10 @@ mod tests {
 	};
 	use substrate_test_utils::assert_eq_uvec;
 
+	parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+	}
+
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -1342,6 +1346,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet_balances::Config for Test {

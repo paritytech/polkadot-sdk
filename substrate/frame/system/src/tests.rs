@@ -721,7 +721,10 @@ fn extrinsics_root_is_calculated_correctly() {
 		System::note_finished_extrinsics();
 		let header = System::finalize();
 
-		let ext_root = extrinsics_data_root::<BlakeTwo256>(vec![vec![1], vec![2]]);
+		let ext_root = extrinsics_data_root::<BlakeTwo256>(
+			vec![vec![1], vec![2]],
+			sp_core::storage::StateVersion::V0,
+		);
 		assert_eq!(ext_root, *header.extrinsics_root());
 	});
 }

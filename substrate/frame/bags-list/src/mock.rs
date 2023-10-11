@@ -31,6 +31,7 @@ parameter_types! {
 	// Set the vote weight for any id who's weight has _not_ been set with `set_score_of`.
 	pub static NextVoteWeight: VoteWeight = 0;
 	pub static NextVoteWeightMap: HashMap<AccountId, VoteWeight> = Default::default();
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 pub struct StakingMock;
@@ -72,6 +73,7 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 parameter_types! {

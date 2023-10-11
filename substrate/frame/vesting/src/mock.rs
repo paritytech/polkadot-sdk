@@ -39,6 +39,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 	type AccountId = u64;
@@ -63,6 +67,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type SystemWeightInfo = ();
 	type Version = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

@@ -20,7 +20,10 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::traits::{ConstU32, ConstU64};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::BuildStorage;
 
@@ -34,6 +37,10 @@ frame_support::construct_runtime!(
 		Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -59,6 +66,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

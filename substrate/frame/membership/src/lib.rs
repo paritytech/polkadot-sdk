@@ -549,6 +549,7 @@ mod tests {
 	parameter_types! {
 		pub static Members: Vec<u64> = vec![];
 		pub static Prime: Option<u64> = None;
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 	}
 
 	impl frame_system::Config for Test {
@@ -575,6 +576,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 	ord_parameter_types! {
 		pub const One: u64 = 1;

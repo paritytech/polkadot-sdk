@@ -20,6 +20,7 @@
 #![cfg(test)]
 
 use codec::Encode;
+use frame_support::parameter_types;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type AccountId = u64;
@@ -33,6 +34,10 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -58,6 +63,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl crate::Config for Test {}

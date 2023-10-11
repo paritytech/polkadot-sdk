@@ -21,6 +21,7 @@ use crate::*;
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, GetDispatchInfo},
+	parameter_types,
 	traits::{ConstU64, OnInitialize},
 };
 use sp_core::H256;
@@ -44,6 +45,10 @@ frame_support::construct_runtime!(
 		Example: pallet_example_basic::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -69,6 +74,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

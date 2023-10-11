@@ -200,6 +200,10 @@ mod tests {
 		}
 	);
 
+	parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+	}
+
 	impl frame_system::Config for Runtime {
 		type SS58Prefix = ();
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -224,6 +228,7 @@ mod tests {
 		type SystemWeightInfo = ();
 		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	struct PhragmenParams;

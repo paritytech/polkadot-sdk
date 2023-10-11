@@ -24,7 +24,7 @@ use super::*;
 use crate as proxy;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, derive_impl,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains},
 };
 use sp_core::H256;
@@ -42,6 +42,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
@@ -54,6 +58,7 @@ impl frame_system::Config for Test {
 
 	type BaseCallFilter = BaseFilter;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]

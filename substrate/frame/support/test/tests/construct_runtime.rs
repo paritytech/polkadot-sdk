@@ -275,6 +275,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
@@ -287,6 +291,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = ();
 	type Block = Block;
 	type BlockHashCount = ConstU64<10>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl module1::Config<module1::Instance1> for Runtime {

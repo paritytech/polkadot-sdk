@@ -20,6 +20,7 @@
 use frame_support::{
 	derive_impl,
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
+	parameter_types,
 	traits::ConstU32,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -299,6 +300,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -309,6 +314,7 @@ impl frame_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl module1::Config<module1::Instance1> for Runtime {

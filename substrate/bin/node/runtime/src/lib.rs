@@ -261,6 +261,7 @@ parameter_types! {
 	pub const ExtendDuration: BlockNumber = 2 * HOURS;
 	pub const ExtendDepositAmount: Balance = 1_000_000 * DOLLARS;
 	pub const ReleaseDelay: u32 = 2 * DAYS;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 impl pallet_safe_mode::Config for Runtime {
@@ -305,6 +306,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}

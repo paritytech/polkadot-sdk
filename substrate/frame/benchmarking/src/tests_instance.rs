@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use frame_support::traits::ConstU32;
+use frame_support::{parameter_types, traits::ConstU32};
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -85,6 +85,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -109,6 +113,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_test::Config for Test {

@@ -76,6 +76,7 @@ parameter_types! {
 
 parameter_types! {
 	pub static Killed: Vec<u64> = vec![];
+	pub const ExtrinsicsRootStateVersion: sp_core::storage::StateVersion = sp_core::storage::StateVersion::V0;
 }
 
 pub struct RecordKilled;
@@ -109,6 +110,7 @@ impl Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 pub type SysEvent = frame_system::Event<Test>;

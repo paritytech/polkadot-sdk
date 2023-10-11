@@ -58,6 +58,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
@@ -83,6 +84,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

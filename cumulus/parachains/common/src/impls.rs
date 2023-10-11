@@ -153,6 +153,7 @@ mod tests {
 		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 		pub const MaxReserves: u32 = 50;
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 	}
 
 	impl frame_system::Config for Test {
@@ -179,6 +180,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet_balances::Config for Test {
