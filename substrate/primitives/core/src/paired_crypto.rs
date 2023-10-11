@@ -387,6 +387,10 @@ where
 		Ok(Pair { left, right })
 	}
 
+	/// Derive a child key from a series of given junctions.
+	///
+	/// Note: if the `LeftPair` and `RightPair` crypto schemes differ in
+	/// seed derivation, `derive` will drop the seed in the return.
 	fn derive<Iter: Iterator<Item = DeriveJunction>>(
 		&self,
 		path: Iter,
