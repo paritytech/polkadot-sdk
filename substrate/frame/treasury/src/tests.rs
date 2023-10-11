@@ -1067,13 +1067,9 @@ fn try_state_proposals_invariant_3_works() {
 		});
 		assert_eq!(Approvals::<Test>::get().len(), 1);
 		// Check invariant 3 holds
-		assert!(
-			Approvals::<Test>::get()
+		assert!(Approvals::<Test>::get()
 			.iter()
-			.all(|proposal_index| {
-					Proposals::<Test>::contains_key(proposal_index)
-			})
-		);
+			.all(|proposal_index| { Proposals::<Test>::contains_key(proposal_index) }));
 		// Break invariant 3 by adding another key to `Approvals`
 		let mut approvals_modified = Approvals::<Test>::get();
 		approvals_modified.try_push(2).unwrap();
@@ -1149,15 +1145,14 @@ fn try_state_spends_invariant_3_works() {
 		let current_spend_count = SpendCount::<Test>::get();
 		assert_eq!(current_spend_count, 1);
 		// Check invariant 3 holds
-		assert!(
-			Spends::<Test>::iter_values()
-			.all(|SpendStatus {valid_from, expire_at, ..}| {
-					valid_from < expire_at
-			})
-		);
+		assert!(Spends::<Test>::iter_values()
+			.all(|SpendStatus { valid_from, expire_at, .. }| { valid_from < expire_at }));
 		// Break invariant 3 by reversing spend.expire_at and spend.valid_from
 		let spend = Spends::<Test>::take(0).unwrap();
-		Spends::<Test>::insert(0, SpendStatus {valid_from: spend.expire_at, expire_at: spend.valid_from, ..spend});
+		Spends::<Test>::insert(
+			0,
+			SpendStatus { valid_from: spend.expire_at, expire_at: spend.valid_from, ..spend },
+		);
 		// Invariant 3 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
