@@ -22,7 +22,7 @@
 use super::*;
 
 use crate::Pallet as Identity;
-use frame_benchmarking::v1::{
+use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
 use frame_support::{
@@ -48,14 +48,16 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
 		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			IdentityField::Display
+				| IdentityField::Legal
+				| IdentityField::Web
+				| IdentityField::Riot
+				| IdentityField::Email
+				| IdentityField::PgpFingerprint
+				| IdentityField::Image
+				| IdentityField::Twitter,
+		);
 		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
 	}
 
@@ -386,14 +388,16 @@ mod benchmarks {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			IdentityField::Display
+				| IdentityField::Legal
+				| IdentityField::Web
+				| IdentityField::Riot
+				| IdentityField::Email
+				| IdentityField::PgpFingerprint
+				| IdentityField::Image
+				| IdentityField::Twitter,
+		);
 
 		let registrars = Registrars::<T>::get();
 		assert!(
