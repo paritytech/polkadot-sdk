@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"struct":["InnerTestSolutionCompact"],"type":["__IndexAssignment"]};
+window.SIDEBAR_ITEMS = {"fn":["main"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE","DEFAULT_VALUE","META"],"struct":["NoteCandidate","SuggestGarbageCandidateOptions","SuggestGarbageCandidates"]};
+window.SIDEBAR_ITEMS = {"struct":["NoteCandidate","SuggestGarbageCandidateOptions","SuggestGarbageCandidates"]};

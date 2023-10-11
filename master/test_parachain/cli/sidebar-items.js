@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"static":["DEFAULT_VALUE"],"struct":["ExportGenesisStateCommand","ExportGenesisWasmCommand","RelayChainCli","TestCollatorCli"]};
+window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"struct":["ExportGenesisStateCommand","ExportGenesisWasmCommand","RelayChainCli","TestCollatorCli"]};

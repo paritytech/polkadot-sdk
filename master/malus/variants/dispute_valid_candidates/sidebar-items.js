@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["DEFAULT_VALUE"],"struct":["DisputeAncestorOptions","DisputeValidCandidates"]};
+window.SIDEBAR_ITEMS = {"struct":["DisputeAncestorOptions","DisputeValidCandidates"]};
