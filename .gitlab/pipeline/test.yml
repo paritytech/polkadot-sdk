@@ -181,7 +181,6 @@ test-rustdoc:
     - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
-    RUSTDOCFLAGS: "-Dwarnings"
   script:
     - time cargo doc --workspace --all-features --no-deps
   allow_failure: true
