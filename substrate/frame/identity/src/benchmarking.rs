@@ -48,14 +48,16 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
 		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			IdentityField::Display
+				| IdentityField::Legal
+				| IdentityField::Web
+				| IdentityField::Riot
+				| IdentityField::Email
+				| IdentityField::PgpFingerprint
+				| IdentityField::Image
+				| IdentityField::Twitter,
+		);
 		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
 	}
 
@@ -135,7 +137,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, account);
 
-		assert!(Registrars::<T>::get().len() as u32 == r + 1, "Registrars not added.");
+		ensure!(Registrars::<T>::get().len() as u32 == r + 1, "Registrars not added.");
 		Ok(())
 	}
 
@@ -189,12 +191,12 @@ mod benchmarks {
 
 		// Create a new subs vec with sub accounts
 		let subs = create_sub_accounts::<T>(&caller, s)?;
-		assert!(SubsOf::<T>::get(&caller).1.len() == 0, "Caller already has subs");
+		ensure!(SubsOf::<T>::get(&caller).1.len() == 0, "Caller already has subs");
 
 		#[extrinsic_call]
 		set_subs(RawOrigin::Signed(caller.clone()), subs);
 
-		assert!(SubsOf::<T>::get(&caller).1.len() as u32 == s, "Subs not added");
+		ensure!(SubsOf::<T>::get(&caller).1.len() as u32 == s, "Subs not added");
 		Ok(())
 	}
 
@@ -207,12 +209,12 @@ mod benchmarks {
 
 		// Remove all subs.
 		let subs = create_sub_accounts::<T>(&caller, 0)?;
-		assert!(SubsOf::<T>::get(&caller).1.len() as u32 == p, "Caller does have subs",);
+		ensure!(SubsOf::<T>::get(&caller).1.len() as u32 == p, "Caller does have subs",);
 
 		#[extrinsic_call]
 		set_subs(RawOrigin::Signed(caller.clone()), subs);
 
-		assert!(SubsOf::<T>::get(&caller).1.len() == 0, "Subs not removed");
+		ensure!(SubsOf::<T>::get(&caller).1.len() == 0, "Subs not removed");
 		Ok(())
 	}
 
@@ -254,12 +256,12 @@ mod benchmarks {
 			)?;
 		}
 
-		assert!(IdentityOf::<T>::contains_key(&caller), "Identity does not exist.");
+		ensure!(IdentityOf::<T>::contains_key(&caller), "Identity does not exist.");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
 
-		assert!(!IdentityOf::<T>::contains_key(&caller), "Identity not cleared.");
+		ensure!(!IdentityOf::<T>::contains_key(&caller), "Identity not cleared.");
 		Ok(())
 	}
 
@@ -331,13 +333,13 @@ mod benchmarks {
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
 		let registrars = Registrars::<T>::get();
-		assert!(registrars[r as usize].as_ref().unwrap().fee == 0u32.into(), "Fee already set.");
+		ensure!(registrars[r as usize].as_ref().unwrap().fee == 0u32.into(), "Fee already set.");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), r, 100u32.into());
 
 		let updated_registrars = Registrars::<T>::get();
-		assert!(
+		ensure!(
 			updated_registrars[r as usize].as_ref().unwrap().fee == 100u32.into(),
 			"Fee not changed."
 		);
@@ -358,7 +360,7 @@ mod benchmarks {
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
 		let registrars = Registrars::<T>::get();
-		assert!(registrars[r as usize].as_ref().unwrap().account == caller, "id not set.");
+		ensure!(registrars[r as usize].as_ref().unwrap().account == caller, "id not set.");
 
 		let new_account = T::Lookup::unlookup(account("new", 0, SEED));
 
@@ -366,7 +368,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), r, new_account);
 
 		let updated_registrars = Registrars::<T>::get();
-		assert!(
+		ensure!(
 			updated_registrars[r as usize].as_ref().unwrap().account == account("new", 0, SEED),
 			"id not changed."
 		);
@@ -386,17 +388,19 @@ mod benchmarks {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			IdentityField::Display
+				| IdentityField::Legal
+				| IdentityField::Web
+				| IdentityField::Riot
+				| IdentityField::Email
+				| IdentityField::PgpFingerprint
+				| IdentityField::Image
+				| IdentityField::Twitter,
+		);
 
 		let registrars = Registrars::<T>::get();
-		assert!(
+		ensure!(
 			registrars[r as usize].as_ref().unwrap().fields == Default::default(),
 			"fields already set."
 		);
@@ -405,7 +409,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), r, fields);
 
 		let updated_registrars = Registrars::<T>::get();
-		assert!(
+		ensure!(
 			updated_registrars[r as usize].as_ref().unwrap().fields != Default::default(),
 			"fields not set."
 		);
@@ -484,7 +488,7 @@ mod benchmarks {
 			)?;
 		}
 
-		assert!(IdentityOf::<T>::contains_key(&target), "Identity not set");
+		ensure!(IdentityOf::<T>::contains_key(&target), "Identity not set");
 
 		let origin =
 			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -492,7 +496,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, target_lookup);
 
-		assert!(!IdentityOf::<T>::contains_key(&target), "Identity not removed");
+		ensure!(!IdentityOf::<T>::contains_key(&target), "Identity not removed");
 
 		Ok(())
 	}
@@ -504,12 +508,12 @@ mod benchmarks {
 		let sub = account("new_sub", 0, SEED);
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
-		assert!(SubsOf::<T>::get(&caller).1.len() as u32 == s, "Subs not set.");
+		ensure!(SubsOf::<T>::get(&caller).1.len() as u32 == s, "Subs not set.");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), T::Lookup::unlookup(sub), data);
 
-		assert!(SubsOf::<T>::get(&caller).1.len() as u32 == s + 1, "Subs not added.");
+		ensure!(SubsOf::<T>::get(&caller).1.len() as u32 == s + 1, "Subs not added.");
 
 		Ok(())
 	}
@@ -520,12 +524,12 @@ mod benchmarks {
 		let (sub, _) = add_sub_accounts::<T>(&caller, s)?.remove(0);
 		let data = Data::Raw(vec![1; 32].try_into().unwrap());
 
-		assert!(SuperOf::<T>::get(&sub).unwrap().1 != data, "data already set");
+		ensure!(SuperOf::<T>::get(&sub).unwrap().1 != data, "data already set");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), T::Lookup::unlookup(sub.clone()), data.clone());
 
-		assert!(SuperOf::<T>::get(&sub).unwrap().1 == data, "data not set");
+		ensure!(SuperOf::<T>::get(&sub).unwrap().1 == data, "data not set");
 
 		Ok(())
 	}
@@ -534,12 +538,12 @@ mod benchmarks {
 	fn remove_sub(s: Linear<1, { T::MaxSubAccounts::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let (sub, _) = add_sub_accounts::<T>(&caller, s)?.remove(0);
-		assert!(SuperOf::<T>::contains_key(&sub), "Sub doesn't exists");
+		ensure!(SuperOf::<T>::contains_key(&sub), "Sub doesn't exists");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), T::Lookup::unlookup(sub.clone()));
 
-		assert!(!SuperOf::<T>::contains_key(&sub), "Sub not removed");
+		ensure!(!SuperOf::<T>::contains_key(&sub), "Sub not removed");
 
 		Ok(())
 	}
@@ -555,12 +559,12 @@ mod benchmarks {
 			T::Lookup::unlookup(caller.clone()),
 			Data::Raw(vec![0; 32].try_into().unwrap()),
 		)?;
-		assert!(SuperOf::<T>::contains_key(&caller), "Sub doesn't exists");
+		ensure!(SuperOf::<T>::contains_key(&caller), "Sub doesn't exists");
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
 
-		assert!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
+		ensure!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
 
 		Ok(())
 	}
