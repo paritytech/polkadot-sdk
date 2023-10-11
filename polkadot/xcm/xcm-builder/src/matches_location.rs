@@ -17,7 +17,7 @@
 //! Various implementations and utilities for matching and filtering `MultiLocation` and
 //! `InteriorMultiLocation` types.
 
-use frame_support::traits::{Contains, Everything};
+use frame_support::traits::{Contains, Everything, Get};
 use xcm::latest::{InteriorMultiLocation, MultiLocation};
 
 /// Trait for matching location of type `T`.
@@ -59,6 +59,34 @@ pub type InteriorLocationMatcher<Filter> = MatchesLocationAdapter<InteriorMultiL
 
 /// Type alias for `MatchesLocationAdapter` implementation which works with `MultiLocation`.
 pub type LocationMatcher<Filter> = MatchesLocationAdapter<MultiLocation, Filter>;
+
+/// An implementation of [frame_support::traits::Contains] that checks for `MultiLocation` or
+/// `InteriorMultiLocation` if it starts with the provided type `T`.
+pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
+impl<T: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<T> {
+	fn contains(t: &MultiLocation) -> bool {
+		t.starts_with(&T::get())
+	}
+}
+impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for StartsWith<T> {
+	fn contains(t: &InteriorMultiLocation) -> bool {
+		t.starts_with(&T::get())
+	}
+}
+
+/// An implementation of [frame_support::traits::Contains] that checks the equality of MultiLocation
+/// or InteriorMultiLocation with the provided type T.
+pub struct Equals<T>(sp_std::marker::PhantomData<T>);
+impl<T: Get<MultiLocation>> Contains<MultiLocation> for Equals<T> {
+	fn contains(t: &MultiLocation) -> bool {
+		t == &T::get()
+	}
+}
+impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for Equals<T> {
+	fn contains(t: &InteriorMultiLocation) -> bool {
+		t == &T::get()
+	}
+}
 
 #[cfg(test)]
 mod tests {
