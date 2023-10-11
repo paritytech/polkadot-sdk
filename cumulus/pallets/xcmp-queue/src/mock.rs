@@ -246,11 +246,11 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		let mut footprint = QueueFootprint::default();
 		for (o, m) in msgs {
 			if o == origin {
-				footprint.fp.count += 1;
-				footprint.fp.size += m.len() as u64;
+				footprint.storage.count += 1;
+				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.fp.size as u32 / 16; // Number does not matter
+		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
 		footprint
 	}
 }

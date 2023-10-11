@@ -922,7 +922,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
 		let fp = T::MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)));
-		(fp.fp.count as u32, fp.fp.size as u32)
+		(fp.storage.count as u32, fp.storage.size as u32)
 	}
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
@@ -1150,7 +1150,7 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 		let para = match origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
 		};
-		let QueueFootprint { fp: Footprint { count, size }, .. } = fp;
+		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		#[allow(deprecated)]
@@ -1327,6 +1327,6 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).fp.count
+		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).storage.count
 	}
 }

@@ -987,8 +987,8 @@ fn footprint_works() {
 		BookStateFor::<Test>::insert(origin, book);
 
 		let info = MessageQueue::footprint(origin);
-		assert_eq!(info.fp.count as usize, msgs);
-		assert_eq!(info.fp.size, page.remaining_size as u64);
+		assert_eq!(info.storage.count as usize, msgs);
+		assert_eq!(info.storage.size, page.remaining_size as u64);
 		assert_eq!(info.pages, 1);
 
 		// Sweeping a queue never calls OnQueueChanged.
@@ -1014,7 +1014,7 @@ fn footprint_on_swept_works() {
 
 		MessageQueue::sweep_queue(Here);
 		let fp = MessageQueue::footprint(Here);
-		assert_eq!((1, 1, 1), (fp.fp.count, fp.fp.size, fp.pages));
+		assert_eq!((1, 1, 1), (fp.storage.count, fp.storage.size, fp.pages));
 	})
 }
 

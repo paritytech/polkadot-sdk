@@ -427,7 +427,7 @@ impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
 			pages: book.count,
-			fp: Footprint { count: book.message_count, size: book.size },
+			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
 }

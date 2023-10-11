@@ -116,7 +116,7 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 		// The drop threshold for pages is 48, the others numbers dont really matter:
 		assert_eq!(
 			<Test as Config>::XcmpQueue::footprint(1000.into()),
-			QueueFootprint { fp: Footprint { count: 256, size: 768 }, pages: 48 }
+			QueueFootprint { storage: Footprint { count: 256, size: 768 }, pages: 48 }
 		);
 	})
 }
