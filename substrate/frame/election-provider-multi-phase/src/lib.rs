@@ -1565,7 +1565,7 @@ impl<T: Config> Pallet<T> {
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
 
-		// Kill snapshots (everything created by [`Pallet::create_snapshot`]).
+		// Kill snapshot and relevant metadata (everything created by [`SnapshotMetadata::set`]).
 		SnapshotWrapper::<T>::kill();
 	}
 
@@ -1772,7 +1772,7 @@ mod feasibility_check {
 			assert!(MultiPhase::current_phase().is_signed());
 			let solution = raw_solution();
 
-			// kill all `Snapshot, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
 			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
 			<SnapshotWrapper<Runtime>>::kill();
 
