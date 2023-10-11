@@ -34,6 +34,7 @@ bounded-collections = { version = "0.1.4", default-features = false }
 # Substrate
 sp-core = { path = "../../../substrate/primitives/core" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
+frame-support = { path = "../../../substrate/frame/support", features = ["experimental"] }
 
 # Polkadot
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }

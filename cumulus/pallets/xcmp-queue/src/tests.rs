@@ -22,7 +22,7 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, experimental_hypothetically,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
 	traits::{Footprint, Hooks},
 	StorageNoopGuard,
 };
@@ -511,7 +511,7 @@ fn hrmp_signals_are_prioritized() {
 			expected_msg.extend(VersionedXcm::V3(message.clone()).encode());
 		}
 
-		experimental_hypothetically!({
+		hypothetically!({
 			let taken = XcmpQueue::take_outbound_messages(130);
 			assert_eq!(taken, vec![(HRMP_PARA_ID.into(), expected_msg,)]);
 		});
@@ -680,7 +680,7 @@ fn lazy_migration_noop_when_out_of_weight() {
 		}]));
 
 		// Hypothetically, it would do something with enough weight limit:
-		experimental_hypothetically!({
+		hypothetically!({
 			XcmpQueue::on_idle(0u32.into(), Weight::MAX);
 			assert_eq!(EnqueuedMessages::get(), vec![(para, vec![123u8])]);
 		});

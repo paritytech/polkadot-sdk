@@ -785,7 +785,8 @@ macro_rules! assert_error_encoded_size {
 ///
 /// Returns the original result of the closure.
 #[macro_export]
-macro_rules! experimental_hypothetically {
+#[cfg(feature = "experimental")]
+macro_rules! hypothetically {
 	( $e:expr ) => {
 		$crate::storage::transactional::with_transaction(
 							|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
@@ -800,9 +801,10 @@ macro_rules! experimental_hypothetically {
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
-macro_rules! experimental_hypothetically_ok {
+#[cfg(feature = "experimental")]
+macro_rules! _hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = $crate::experimental_hypothetically!($e);
+		let result = $crate::hypothetically!($e);
 		$crate::assert_ok!(result $(, $args)*);
 	};
 }
