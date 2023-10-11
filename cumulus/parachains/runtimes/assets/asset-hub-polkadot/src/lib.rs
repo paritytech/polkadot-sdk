@@ -1092,10 +1092,21 @@ impl_runtime_apis! {
 			use xcm_config::{DotLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					xcm_config::DotLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = ();
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(DotLocation::get())
 				}

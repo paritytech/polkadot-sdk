@@ -340,11 +340,17 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
 	test.assert();
 
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 }
@@ -375,11 +381,17 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	test.set_dispatchable::<AssetHubWestend>(system_para_teleport_assets);
 	test.assert();
 
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }

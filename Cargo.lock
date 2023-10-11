@@ -869,6 +869,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "westend-runtime",
+ "westend-runtime-constants",
  "xcm-emulator",
 ]
 
