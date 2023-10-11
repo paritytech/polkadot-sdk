@@ -1689,7 +1689,7 @@
 <span class="kw">mod </span>tt_macro;
 
 <span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
-<span class="kw">use </span>macro_magic::import_tokens_attr;
+<span class="kw">use </span>macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 <span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>quote::{quote, ToTokens};
 <span class="kw">use </span>std::{cell::RefCell, str::FromStr};
@@ -2406,7 +2406,7 @@
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-</span><span class="attr">#[import_tokens_attr {
+</span><span class="attr">#[import_tokens_attr_verbatim {
     <span class="macro">format!</span>(
         <span class="string">&quot;{}::macro_magic&quot;</span>,
         <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>) {
@@ -2523,7 +2523,7 @@
 		attrs,
 		item_impl.to_token_stream(),
 		<span class="bool-val">true</span>,
-		<span class="bool-val">true</span>,
+		<span class="bool-val">false</span>,
 	) {
 		<span class="prelude-val">Ok</span>(tokens) =&gt; tokens.into(),
 		<span class="prelude-val">Err</span>(err) =&gt; err.to_compile_error().into(),

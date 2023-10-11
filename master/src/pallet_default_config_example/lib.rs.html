@@ -227,6 +227,7 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -255,7 +256,7 @@
 //! Study the following types:
 //!
 //! - [`pallet::DefaultConfig`], and how it differs from [`pallet::Config`].
-//! - [`pallet::config_preludes::TestDefaultConfig`] and how it implements
+//! - [`struct@pallet::config_preludes::TestDefaultConfig`] and how it implements
 //!   [`pallet::DefaultConfig`].
 //! - Notice how [`pallet::DefaultConfig`] is independent of [`frame_system::Config`].
 
@@ -312,11 +313,12 @@
 		<span class="comment">// This will help use not need to disambiguate anything when using `derive_impl`.
 		</span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 		<span class="kw">use </span>frame_support::derive_impl;
+		<span class="kw">use </span>frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>SystemTestDefaultConfig;
 
 		<span class="doccomment">/// A type providing default configurations for this pallet in testing environment.
 		</span><span class="kw">pub struct </span>TestDefaultConfig;
 
-		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
+		<span class="attr">#[derive_impl(SystemTestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
 		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
 
 		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -338,7 +340,7 @@
 		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
 		</span><span class="kw">pub struct </span>OtherDefaultConfig;
 
-		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
+		<span class="attr">#[derive_impl(SystemTestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
 		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>OtherDefaultConfig {}
 
 		<span class="attr">#[frame_support::register_default_impl(OtherDefaultConfig)]
