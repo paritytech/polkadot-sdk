@@ -565,5 +565,5 @@ mod benchmarks {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(CollectiveContent, super::mock::new_bench_ext(), super::mock::Test);
+	impl_benchmark_test_suite!(Identity, crate::tests::new_test_ext(), crate::tests::Test);
 }
