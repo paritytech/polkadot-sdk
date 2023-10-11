@@ -45,9 +45,6 @@ use std::any::{Any, TypeId};
 const DEFAULT_HEAP_PAGES_ESTIMATE: u32 = 32;
 const EXTRA_HEAP_PAGES: u32 = 2048;
 
-/// The number of bytes devoted for the stack during wasm execution of a PVF.
-pub const NATIVE_STACK_MAX: u32 = DEFAULT_NATIVE_STACK_MAX;
-
 // VALUES OF THE DEFAULT CONFIGURATION SHOULD NEVER BE CHANGED
 // They are used as base values for the execution environment parametrization.
 // To overwrite them, add new ones to `EXECUTOR_PARAMS` in the `session_info` pallet and perform
