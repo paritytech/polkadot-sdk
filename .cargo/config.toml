@@ -1,4 +1,9 @@
-#
+[build]
+rustdocflags = [
+  "-Dwarnings",
+  "-Arustdoc::redundant_explicit_links", # stylistic
+]
+
 # An auto defined `clippy` feature was introduced,
 # but it was found to clash with user defined features,
 # so was renamed to `cargo-clippy`.
