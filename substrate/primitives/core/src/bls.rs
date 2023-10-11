@@ -43,6 +43,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS377;
 
@@ -64,6 +65,7 @@ pub mod bls377 {
 
 /// BLS-381 specialized types
 pub mod bls381 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS381;
 
@@ -452,10 +454,9 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		path: Iter,
 		_seed: Option<Seed>,
 	) -> Result<(Self, Option<Seed>), DeriveError> {
-		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
-			self.0.secret.to_bytes().try_into().expect(
-				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size",
-			);
+		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] = self.0.secret.to_bytes().try_into().expect(
+			"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
+		);
 		for j in path {
 			match j {
 				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
