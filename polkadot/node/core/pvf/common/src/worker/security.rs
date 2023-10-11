@@ -223,13 +223,22 @@ pub mod landlock {
 	/// Landlock ABI version. We use ABI V1 because:
 	///
 	/// 1. It is supported by our reference kernel version.
-	/// 2. Later versions do not (yet) provide additional security.
+	/// 2. Later versions do not (yet) provide additional security that would benefit us.
 	///
-	/// # Versions (as of June 2023)
+	/// # Versions (as of October 2023)
 	///
 	/// - Polkadot reference kernel version: 5.16+
-	/// - ABI V1: 5.13 - introduces	landlock, including full restrictions on file reads
-	/// - ABI V2: 5.19 - adds ability to configure file renaming (not used by us)
+	///
+	/// - ABI V1: kernel 5.13 - Introduces landlock, including full restrictions on file reads.
+	///
+	/// - ABI V2: kernel 5.19 - Adds ability to prevent file renaming. Does not help us. During
+	///   execution an attacker can only affect the name of a symlinked artifact and not the
+	///   original one.
+	///
+	/// - ABI V3: kernel 6.2 - Adds ability to prevent file truncation. During execution, can
+	///   prevent attackers from affecting a symlinked artifact. We don't strictly need this as we
+	///   plan to check for file integrity anyway; see
+	///   <https://github.com/paritytech/polkadot-sdk/issues/677>.
 	///
 	/// # Determinism
 	///
@@ -335,7 +344,7 @@ pub mod landlock {
 		A: Into<BitFlags<AccessFs>>,
 	{
 		let mut ruleset =
-			Ruleset::new().handle_access(AccessFs::from_all(LANDLOCK_ABI))?.create()?;
+			Ruleset::default().handle_access(AccessFs::from_all(LANDLOCK_ABI))?.create()?;
 		for (fs_path, access_bits) in fs_exceptions {
 			let paths = &[fs_path.as_ref().to_owned()];
 			let mut rules = path_beneath_rules(paths, access_bits).peekable();
@@ -462,6 +471,39 @@ pub mod landlock {
 						result,
 						Err(err) if matches!(err.kind(), ErrorKind::PermissionDenied)
 					));
+				});
+
+			assert!(handle.join().is_ok());
+		}
+
+		// Test that checks whether landlock under our ABI version is able to truncate files.
+		#[test]
+		fn restricted_thread_can_truncate_file() {
+			// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
+			if !check_is_fully_enabled() {
+				return
+			}
+
+			// Restricted thread can truncate file.
+			let handle =
+				thread::spawn(|| {
+					// Create and write a file. This should succeed before any landlock
+					// restrictions are applied.
+					const TEXT: &str = "foo";
+					let tmpfile = tempfile::NamedTempFile::new().unwrap();
+					let path = tmpfile.path();
+
+					fs::write(path, TEXT).unwrap();
+
+					// Apply Landlock with all exceptions under the current ABI.
+					let status = try_restrict(vec![(path, AccessFs::from_all(LANDLOCK_ABI))]);
+					if !matches!(status, Ok(RulesetStatus::FullyEnforced)) {
+						panic!("Ruleset should be enforced since we checked if landlock is enabled: {:?}", status);
+					}
+
+					// Try to truncate the file.
+					let result = tmpfile.as_file().set_len(0);
+					assert!(result.is_ok());
 				});
 
 			assert!(handle.join().is_ok());
