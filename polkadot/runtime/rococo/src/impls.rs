@@ -27,27 +27,42 @@ use xcm_executor::traits::TransactAsset;
 /// Type that implements `OnReapIdentity` that will send the deposit needed to store the same
 /// information on a parachain, sends the deposit there, and then updates it.
 pub struct ToParachainIdentityReaper<T>(PhantomData<T>);
+impl<T> ToParachainIdentityReaper<T> {
+	/// Calculate the balance needed on the remote chain based on the `IdentityInfo` and `Subs` on
+	/// this chain. The total includes:
+	///
+	/// - Identity basic deposit
+	/// - Extra fields deposit
+	/// - Sub accounts deposit
+	/// - 2x existential deposit (1 for account existence, 1 such that the user can transact)
+	///
+	/// This implementation is speculative and subject to change based on the remote chain's
+	/// configuration.
+	fn calculate_remote_deposit(fields: u32, subs: u32) -> Balance {
+		// remote deposit constants
+		let para_basic_deposit = 1000 * CENTS / 100;
+		let para_field_deposit = 250 * CENTS / 100;
+		let para_sub_account_deposit = 200 * CENTS / 100;
+		let para_existential_deposit = EXISTENTIAL_DEPOSIT / 10;
+
+		// pallet deposits
+		let id_deposit =
+			para_basic_deposit.saturating_add(para_field_deposit.saturating_mul(fields as Balance));
+		let subs_deposit = para_sub_account_deposit.saturating_mul(subs as Balance);
+
+		id_deposit
+			.saturating_add(subs_deposit)
+			.saturating_add(para_existential_deposit.saturating_mul(2))
+	}
+}
+
 impl<AccountId, T> OnReapIdentity<AccountId> for ToParachainIdentityReaper<T>
 where
 	T: frame_system::Config + pallet_xcm::Config,
 	AccountId: Into<[u8; 32]> + Clone,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
-		// calculate deposit needed on parachains
-		// assume `relay_deposit / 100 + ED + buffer`
-		// buffer to cover tx fees on para, maybe ED
-		let para_basic_deposit = 1000 * CENTS / 100;
-		let para_field_deposit = 250 * CENTS / 100;
-		let para_sub_account_deposit = 200 * CENTS / 100;
-		let para_existential_deposit = EXISTENTIAL_DEPOSIT / 10;
-		let id_deposit =
-			para_basic_deposit.saturating_add(para_field_deposit.saturating_mul(fields as Balance));
-
-		let subs_deposit = para_sub_account_deposit.saturating_mul(subs as Balance);
-
-		let total_to_send = id_deposit
-			.saturating_add(subs_deposit)
-			.saturating_add(para_existential_deposit.saturating_mul(2));
+		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
 		// define asset / destination from relay perspective
 		let roc: MultiAssets =
