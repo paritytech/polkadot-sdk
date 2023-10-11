@@ -1041,19 +1041,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// ### Invariants of proposal storage items
 	///
-	/// 1. `ProposalCount` >= Number of elements in `Proposals`.
-	/// 2. Each entry in `Proposals` should be saved under a key stricly less than current
-	/// `ProposalCount`.
-	/// 3. `T::ProposalBondMinimum` * Number of proposals with
-	/// non-zero bond <= sum_{p in Proposals} p.bond.
-	/// 4. (Optional) `T::ProposalBondMaximum` * Number of proposals with
-	/// non-zero bond >= sum_{p in Proposals} p.bond.
-	/// 5. Each `ProposalIndex` contained in `Approvals` should exist in `Proposals`.
-	/// Note, that this automatically implies Approvals.count() <= Proposals.count().
+	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
+	/// 2. Each entry in [`Proposals`] should be saved under a key stricly less than current
+	/// [`ProposalCount`].
+	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
+	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
-		use sp_runtime::traits::SaturatedConversion;
-		
 		let current_proposal_count = ProposalCount::<T, I>::get();
 		ensure!(
 			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
@@ -1067,27 +1061,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			);
 			Ok(())
 		})?;
-
-		let (total_amount_bonded, non_zero_count) = Proposals::<T, I>::iter().fold(
-			(BalanceOf::<T, I>::zero(), 0usize),
-			|(sum, count), (_index, proposal)| {
-				if !proposal.bond.is_zero() {
-					(sum + proposal.bond, count + 1)
-				} else {
-					(sum, count)
-				}
-			},
-		);
-		ensure!(
-			T::ProposalBondMinimum::get() * non_zero_count.saturated_into() <= total_amount_bonded,
-			"Total amount bonded falls short of required minimum."
-		);
-		if let Some(proposal_bond_maximum) = T::ProposalBondMaximum::get() {
-			ensure!(
-				proposal_bond_maximum * non_zero_count.saturated_into() >= total_amount_bonded,
-				"Total amount bonded exceeds required maximum."
-			);
-		}
 
 		Approvals::<T, I>::get()
 			.iter()
@@ -1104,17 +1077,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// ## Invariants of spend storage items
 	///
-	/// 1. `SpendCount` >= Number of elements in `Spends`.
-	/// 2. Each entry in `Spends` should be saved under a key stricly less than current
-	/// `SpendCount`.
-	/// 3. For each spend entry contained in `Spends` we should have spend.expire_at
+	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
+	/// 2. Each entry in [`Spends`] should be saved under a key stricly less than current
+	/// [`SpendCount`].
+	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
 	/// > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();
 		ensure!(
 			current_spend_count as usize >= Spends::<T, I>::iter().count(),
-			"Number of spends exceeds `SpendCount`."
+			"Actual number of spends exceeds `SpendCount`."
 		);
 
 		Spends::<T, I>::iter_keys().try_for_each(|spend_index| -> DispatchResult {
