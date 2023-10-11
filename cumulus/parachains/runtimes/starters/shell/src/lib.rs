@@ -225,7 +225,7 @@ impl pallet_message_queue::Config for Runtime {
 		RuntimeCall,
 	>;
 	type Size = u32;
-	// Change these if you have the XCMP-queue pallet deployed:
+	// These need to be configured to the XCMP pallet - if it is deployed.
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
