@@ -26,7 +26,6 @@ use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;
-const TOP_UP: u32 = 1000000000;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -50,7 +49,10 @@ fn generate_friends<T: Config>(num: u32) -> Vec<<T as frame_system::Config>::Acc
 
 	for friend in 0..friends.len() {
 		// Top up accounts of friends
-		T::Currency::set_balance(&friends.get(friend).unwrap(), TOP_UP.into());
+		T::Currency::set_balance(
+			&friends.get(friend).unwrap(),
+			T::Currency::minimum_balance() * 10000u32.into(),
+		);
 	}
 
 	friends
@@ -63,7 +65,7 @@ fn add_caller_and_generate_friends<T: Config>(
 	// Create friends
 	let mut friends = generate_friends::<T>(num - 1);
 
-	T::Currency::set_balance(&caller, TOP_UP.into());
+	T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 	friends.push(caller);
 
@@ -74,7 +76,7 @@ fn add_caller_and_generate_friends<T: Config>(
 }
 
 fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::AccountId) {
-	T::Currency::set_balance(&account, TOP_UP.into());
+	T::Currency::set_balance(&account, T::Currency::minimum_balance() * 10000u32.into());
 
 	let n = T::MaxFriends::get();
 
@@ -134,7 +136,7 @@ benchmarks! {
 		let n in 1 .. T::MaxFriends::get();
 
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, TOP_UP.into());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -149,7 +151,7 @@ benchmarks! {
 
 	initiate_recovery {
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, TOP_UP.into());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
@@ -228,7 +230,7 @@ benchmarks! {
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 
-		T::Currency::set_balance(&caller, TOP_UP.into());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -278,8 +280,8 @@ benchmarks! {
 
 		let n in 1 .. T::MaxFriends::get();
 
-		T::Currency::set_balance(&caller, TOP_UP.into());
-		T::Currency::set_balance(&rescuer_account, TOP_UP.into());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
+		T::Currency::set_balance(&rescuer_account, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -327,7 +329,7 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		T::Currency::set_balance(&caller, TOP_UP.into());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
