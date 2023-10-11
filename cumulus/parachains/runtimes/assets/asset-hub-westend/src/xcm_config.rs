@@ -31,18 +31,22 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
+use parachains_common::{
+	impls::{ResolveCreditTo, ToStakingPot},
+	xcm_config::AssetFeeAsExistentialDepositMultiplier,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FungiblesAdapter, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
+	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -63,7 +67,16 @@ parameter_types! {
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	/// Relay Chain Treasury pallet account derived via [`PalletLocationToAccountId`].
+	// proof: [`self::ensure_relay_treasury_account_correct()`].
+	pub RelayTreasuryAccount: AccountId =
+		AccountId::from(hex_literal::hex!("8bb46fbc6413c0f273b1b09af7b83f30695801958b9151a8f899f468f80064b1"));
 }
+
+// Foreign chain account alias into local accounts according to a hash of their standard
+// description.
+pub type PalletLocationToAccountId =
+	HashedDescription<AccountId, DescribeFamily<DescribePalletTerminal>>;
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
@@ -75,6 +88,9 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign chain account alias into local accounts according to a hash of their standard
+	// description.
+	PalletLocationToAccountId,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -510,7 +526,7 @@ impl xcm_executor::Config for XcmConfig {
 			super::LocalAndTrustedForeignAssets,
 			ForeignAssetsConvertedConcreteId,
 			crate::Balances,
-			(), // TODO: deposit to treasury account.
+			ResolveCreditTo<RelayTreasuryAccount, crate::Balances>,
 		>,
 	);
 	type ResponseHandler = PolkadotXcm;
@@ -623,4 +639,12 @@ where
 	fn multiasset_id(asset_id: u32) -> MultiLocation {
 		Self::asset_id(asset_id)
 	}
+}
+
+#[test]
+fn ensure_relay_treasury_account_correct() {
+	use xcm_executor::traits::ConvertLocation;
+	let location = MultiLocation::new(1, X1(Junction::PalletInstance(37)));
+	let account = PalletLocationToAccountId::convert_location(&location).unwrap();
+	assert_eq!(account, RelayTreasuryAccount::get());
 }

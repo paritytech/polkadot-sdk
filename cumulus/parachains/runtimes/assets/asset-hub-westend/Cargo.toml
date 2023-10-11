@@ -7,7 +7,7 @@ description = "Westend variant of Asset Hub parachain runtime"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-hex-literal = { version = "0.4.1", optional = true }
+hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
@@ -79,7 +79,6 @@ parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
-hex-literal = "0.4.1"
 asset-test-utils = { path = "../test-utils" }
 sp-io = { path = "../../../../../substrate/primitives/io" }
 
@@ -98,7 +97,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
