@@ -132,9 +132,14 @@ pub(crate) fn create_and_compile(
 		features_to_enable,
 	);
 
-	let profile = build_project(&project, default_rustflags, cargo_cmd);
-	let (wasm_binary, wasm_binary_compressed, bloaty) =
-		compact_wasm_file(&project, profile, project_cargo_toml, wasm_binary_name);
+	let build_config = BuildConfiguration::detect(&project);
+	build_wasm(&build_config.wasm_build_profile, &project, default_rustflags, cargo_cmd);
+	let (wasm_binary, wasm_binary_compressed, bloaty) = maybe_compact_wasm_and_copy_blobs(
+		&project,
+		&build_config,
+		project_cargo_toml,
+		wasm_binary_name,
+	);
 
 	if check_for_runtime_version_section {
 		ensure_runtime_version_wasm_section_exists(bloaty.wasm_binary_bloaty_path());
@@ -539,8 +544,8 @@ fn create_project(
 	wasm_project_folder
 }
 
-/// The cargo profile that is used to build the wasm project.
-#[derive(Debug, EnumIter)]
+/// A rustc profile.
+#[derive(Clone, Debug, EnumIter, PartialEq)]
 enum Profile {
 	/// The `--profile dev` profile.
 	Debug,
@@ -551,17 +556,63 @@ enum Profile {
 }
 
 impl Profile {
-	/// Create a profile by detecting which profile is used for the main build.
+	/// The name of the profile as supplied to the cargo `--profile` cli option.
+	fn name(&self) -> &'static str {
+		match self {
+			Self::Debug => "dev",
+			Self::Release => "release",
+			Self::Production => "production",
+		}
+	}
+
+	/// The sub directory within `target` where cargo places the build output.
+	///
+	/// # Note
+	///
+	/// Usually this is the same as [`Self::name`] with the exception of the debug
+	/// profile which is called `dev`.
+	fn directory(&self) -> &'static str {
+		match self {
+			Self::Debug => "debug",
+			_ => self.name(),
+		}
+	}
+
+	/// Whether the resulting binary should be compacted and compressed.
+	fn wants_compact(&self) -> bool {
+		!matches!(self, Self::Debug)
+	}
+}
+
+/// The build configuration for this build.
+#[derive(Debug)]
+struct BuildConfiguration {
+	/// The profile that is used to build the main project.
+	pub cargo_build_profile: Profile,
+	/// The profile to use to build the wasm project.
+	pub wasm_build_profile: Profile,
+}
+
+impl BuildConfiguration {
+	/// Create a [`BuildConfiguration`] by detecting which profile is used for the main build and
+	/// checking any env var overrides.
 	///
 	/// We cannot easily determine the profile that is used by the main cargo invocation
 	/// because the `PROFILE` environment variable won't contain any custom profiles like
 	/// "production". It would only contain the builtin profile where the custom profile
 	/// inherits from. This is why we inspect the build path to learn which profile is used.
 	///
+	/// When not overriden by a env variable we always default to building wasm with the `Release`
+	/// profile even when the main build uses the debug build. This is because wasm built with the
+	/// `Debug` profile is too slow for normal development activities and almost never intended.
+	///
+	/// When cargo is building in `--profile dev`, user likely intends to compile fast, so we don't
+	/// bother producing compact or compressed blobs.
+	///
 	/// # Note
 	///
 	/// Can be overriden by setting [`crate::WASM_BUILD_TYPE_ENV`].
-	fn detect(wasm_project: &Path) -> Profile {
+	fn detect(wasm_project: &Path) -> Self {
 		let (name, overriden) = if let Ok(name) = env::var(crate::WASM_BUILD_TYPE_ENV) {
 			(name, true)
 		} else {
@@ -585,7 +636,8 @@ impl Profile {
 				.to_string();
 			(name, false)
 		};
-		match (Profile::iter().find(|p| p.directory() == name), overriden) {
+		let cargo_build_profile = Profile::iter().find(|p| p.directory() == name);
+		let wasm_build_profile = match (cargo_build_profile.clone(), overriden) {
 			// When not overriden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
@@ -615,34 +667,11 @@ impl Profile {
 				);
 				process::exit(1);
 			},
+		};
+		BuildConfiguration {
+			cargo_build_profile: cargo_build_profile.unwrap_or(Profile::Release),
+			wasm_build_profile,
 		}
-	}
-
-	/// The name of the profile as supplied to the cargo `--profile` cli option.
-	fn name(&self) -> &'static str {
-		match self {
-			Self::Debug => "dev",
-			Self::Release => "release",
-			Self::Production => "production",
-		}
-	}
-
-	/// The sub directory within `target` where cargo places the build output.
-	///
-	/// # Note
-	///
-	/// Usually this is the same as [`Self::name`] with the exception of the debug
-	/// profile which is called `dev`.
-	fn directory(&self) -> &'static str {
-		match self {
-			Self::Debug => "debug",
-			_ => self.name(),
-		}
-	}
-
-	/// Whether the resulting binary should be compacted and compressed.
-	fn wants_compact(&self) -> bool {
-		!matches!(self, Self::Debug)
 	}
 }
 
@@ -651,12 +680,13 @@ fn offline_build() -> bool {
 	env::var(OFFLINE).map_or(false, |v| v == "true")
 }
 
-/// Build the project to create the WASM binary.
-fn build_project(
+/// Build the project and create the WASM binary.
+fn build_wasm(
+	wasm_build_profile: &Profile,
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
-) -> Profile {
+) {
 	let manifest_path = project.join("Cargo.toml");
 	let mut build_cmd = cargo_cmd.command();
 
@@ -685,9 +715,8 @@ fn build_project(
 		build_cmd.arg("--color=always");
 	}
 
-	let profile = Profile::detect(project);
 	build_cmd.arg("--profile");
-	build_cmd.arg(profile.name());
+	build_cmd.arg(wasm_build_profile.name());
 
 	if offline_build() {
 		build_cmd.arg("--offline");
@@ -698,16 +727,19 @@ fn build_project(
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
 
 	match build_cmd.status().map(|s| s.success()) {
-		Ok(true) => profile,
+		Ok(true) => {},
 		// Use `process.exit(1)` to have a clean error output.
 		_ => process::exit(1),
 	}
 }
 
-/// Compact the WASM binary using `wasm-gc` and compress it using zstd.
-fn compact_wasm_file(
+/// If the cargo build profile is not [`Profile::Debug`], spend the additional time to create
+/// a compacted and compressed wasm binary.
+///
+/// Then, copy the wasm binaries to the intended directory.
+fn maybe_compact_wasm_and_copy_blobs(
 	project: &Path,
-	profile: Profile,
+	build_config: &BuildConfiguration,
 	cargo_manifest: &Path,
 	out_name: Option<String>,
 ) -> (Option<WasmBinary>, Option<WasmBinary>, WasmBinaryBloaty) {
@@ -715,26 +747,45 @@ fn compact_wasm_file(
 	let out_name = out_name.unwrap_or_else(|| default_out_name.clone());
 	let in_path = project
 		.join("target/wasm32-unknown-unknown")
-		.join(profile.directory())
+		.join(build_config.wasm_build_profile.directory())
 		.join(format!("{}.wasm", default_out_name));
 
-	let (wasm_compact_path, wasm_compact_compressed_path) = if profile.wants_compact() {
+	// When cargo is running cargo in `--profile dev` the user wants speed, so skip producing
+	// compact and compressed blobs.
+	let (wasm_compact_path, wasm_compact_compressed_path) = if build_config
+		.cargo_build_profile
+		.wants_compact()
+	{
 		let wasm_compact_path = project.join(format!("{}.compact.wasm", out_name,));
+		let start = std::time::Instant::now();
 		wasm_opt::OptimizationOptions::new_opt_level_0()
 			.mvp_features_only()
 			.debug_info(true)
 			.add_pass(wasm_opt::Pass::StripDwarf)
 			.run(&in_path, &wasm_compact_path)
 			.expect("Failed to compact generated WASM binary.");
+		println!(
+			"{} {}",
+			colorize_info_message("Compacted wasm in"),
+			colorize_info_message(format!("{:?}", start.elapsed()).as_str())
+		);
 
 		let wasm_compact_compressed_path =
 			project.join(format!("{}.compact.compressed.wasm", out_name));
+		let start = std::time::Instant::now();
 		if compress_wasm(&wasm_compact_path, &wasm_compact_compressed_path) {
+			println!(
+				"{} {}",
+				colorize_info_message("Compressed wasm in"),
+				colorize_info_message(format!("{:?}", start.elapsed()).as_str())
+			);
 			(Some(WasmBinary(wasm_compact_path)), Some(WasmBinary(wasm_compact_compressed_path)))
 		} else {
+			println!("{}", colorize_info_message("Skipping wasm compression"));
 			(Some(WasmBinary(wasm_compact_path)), None)
 		}
 	} else {
+		println!("{}", colorize_info_message("Skipping wasm compaction and compression"));
 		(None, None)
 	};
 
