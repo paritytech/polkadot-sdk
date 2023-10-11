@@ -30,6 +30,7 @@ sp-io = { path = "../../primitives/io" }
 pallet-balances = { path = "../balances" }
 pallet-utility = { path = "../utility" }
 pallet-proxy = { path = "../proxy" }
+frame-support = { path = "../support", features = ["experimental"] }
 
 [features]
 default = [ "std" ]

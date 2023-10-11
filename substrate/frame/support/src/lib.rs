@@ -802,7 +802,7 @@ macro_rules! hypothetically {
 /// Reverts any storage changes made by the closure.
 #[macro_export]
 #[cfg(feature = "experimental")]
-macro_rules! _hypothetically_ok {
+macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
 		let result = $crate::hypothetically!($e);
 		$crate::assert_ok!(result $(, $args)*);
