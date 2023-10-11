@@ -85,8 +85,7 @@ pub use weight::{
 
 mod matches_location;
 pub use matches_location::{
-	Equals, InteriorLocationMatcher, LocationMatcher, MatchesLocation, MatchesLocationAdapter,
-	StartsWith,
+	InteriorLocationMatcher, LocationMatcher, MatchesLocation, MatchesLocationAdapter, StartsWith,
 };
 
 mod matches_token;
