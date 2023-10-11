@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This pallet is a state machine to migrate the remaining DMP messages into to a generic
+//! This pallet used to implement a message queue for downward messages from the relay-chain.
+//!
+//! It is now deprecated and has been refactored to simply drain any remaining messages into something implementing `HandleMessage`.
 //! `HandleMessage`. It proceeds in the state of [`MigrationState`] one by one by their listing in
 //! the source code. The pallet can be removed from the runtime once `Completed` was emitted.
 
