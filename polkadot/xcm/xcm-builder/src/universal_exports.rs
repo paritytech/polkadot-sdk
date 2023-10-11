@@ -367,8 +367,8 @@ pub struct BridgeMessage {
 	/// The message destination as a *Universal Location*. This means it begins with a
 	/// `GlobalConsensus` junction describing the network under which global consensus happens.
 	/// If this does not match our global consensus then it's a fatal error.
-	universal_dest: VersionedInteriorMultiLocation,
-	message: VersionedXcm<()>,
+	pub universal_dest: VersionedInteriorMultiLocation,
+	pub message: VersionedXcm<()>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
