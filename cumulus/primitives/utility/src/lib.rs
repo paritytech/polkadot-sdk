@@ -530,16 +530,8 @@ mod tests {
 /// Deposits estimated fee to the origin account (if needed).
 /// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
 #[cfg(feature = "runtime-benchmarks")]
-pub struct ToParentDeliveryHelper<
-	XcmConfig,
-	ExistentialDeposit,
-	PriceForDelivery,
->(
-	sp_std::marker::PhantomData<(
-		XcmConfig,
-		ExistentialDeposit,
-		PriceForDelivery,
-	)>,
+pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
+	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -548,22 +540,15 @@ impl<
 		ExistentialDeposit: Get<Option<MultiAsset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
 	> pallet_xcm_benchmarks::EnsureDelivery
-	for ToParentDeliveryHelper<
-		XcmConfig,
-		ExistentialDeposit,
-		PriceForDelivery,
-	>
+	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
 {
 	fn ensure_successful_delivery(
 		origin_ref: &MultiLocation,
 		_dest: &MultiLocation,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
-		use xcm_executor::{
-			traits::FeeManager,
-			FeesMode,
-		};
-		use xcm::latest::{MAX_ITEMS_IN_MULTIASSETS, MAX_INSTRUCTIONS_TO_DECODE};
+		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_MULTIASSETS};
+		use xcm_executor::{traits::FeeManager, FeesMode};
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
@@ -579,11 +564,9 @@ impl<
 			for i in 0..MAX_ITEMS_IN_MULTIASSETS {
 				max_assets.push((GeneralIndex(i as u128), 100u128).into());
 			}
-			let overestimated_xcm = vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
-			let overestimated_fees = PriceForDelivery::price_for_delivery(
-				(),
-				&overestimated_xcm,
-			);
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
+			let overestimated_fees = PriceForDelivery::price_for_delivery((), &overestimated_xcm);
 
 			// mint overestimated fee to origin
 			for fee in overestimated_fees.inner() {

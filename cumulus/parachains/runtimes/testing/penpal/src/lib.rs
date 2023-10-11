@@ -51,6 +51,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -67,7 +68,6 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{AssetsToBlockAuthor, XcmConfig, XcmOriginToTransactDispatchOrigin};
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;

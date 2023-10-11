@@ -95,10 +95,10 @@ impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessage
 /// XCM sender for relay chain. It only sends downward message.
 pub struct ChildParachainRouter<T, W, P>(PhantomData<(T, W, P)>);
 
-impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P>
-	SendXcm for ChildParachainRouter<T, W, P>
-	where
-		P: PriceForMessageDelivery<Id = ParaId>
+impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P> SendXcm
+	for ChildParachainRouter<T, W, P>
+where
+	P: PriceForMessageDelivery<Id = ParaId>,
 {
 	type Ticket = (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>);
 
@@ -194,10 +194,8 @@ impl<
 
 			// overestimate delivery fee
 			let overestimated_xcm = vec![ClearOrigin; 128].into();
-			let overestimated_fees = PriceForDelivery::price_for_delivery(
-				Parachain::get(),
-				&overestimated_xcm,
-			);
+			let overestimated_fees =
+				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
 			// mint overestimated fee to origin
 			for fee in overestimated_fees.inner() {

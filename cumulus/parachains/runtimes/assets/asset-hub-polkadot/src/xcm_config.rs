@@ -16,7 +16,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ForeignAssets,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TrustBackedAssetsInstance, WeightToFee, XcmpQueue, CENTS, TransactionByteFee,
+	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue, CENTS,
 };
 use assets_common::matching::{
 	FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
@@ -27,12 +27,9 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{
-	impls::ToStakingPot,
-	xcm_config::AssetFeeAsExistentialDepositMultiplier,
-};
-use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
 use polkadot_parachain_primitives::primitives::Sibling;
+use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{

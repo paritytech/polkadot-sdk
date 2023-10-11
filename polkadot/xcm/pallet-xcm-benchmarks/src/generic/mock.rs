@@ -23,7 +23,7 @@ use frame_support::{
 	traits::{Everything, OriginTrait},
 	weights::Weight,
 };
-use sp_core::{H256, ConstU32};
+use sp_core::{ConstU32, H256};
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{

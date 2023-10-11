@@ -176,13 +176,9 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<WestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	let sender_balance_after = test.sender.balance;
@@ -227,13 +223,9 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	// Sender's balance is reduced
@@ -272,13 +264,9 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	// Sender's balance is reduced
@@ -309,13 +297,9 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<WestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	let sender_balance_after = test.sender.balance;

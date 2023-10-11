@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
 };
 use frame_system::EnsureRoot;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -31,7 +32,6 @@ use sp_runtime::{
 use xcm::prelude::*;
 use xcm_builder::{CurrencyAdapter, FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset};
 use xcm_executor::traits::ConvertOrigin;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

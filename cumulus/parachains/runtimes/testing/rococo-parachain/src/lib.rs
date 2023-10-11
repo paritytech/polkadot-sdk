@@ -23,6 +23,8 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::ParaId;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -35,8 +37,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
-use cumulus_primitives_core::ParaId;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{

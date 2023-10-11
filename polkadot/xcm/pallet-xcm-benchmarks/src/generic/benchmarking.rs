@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{new_executor, XcmCallOf, account_and_location, EnsureDelivery};
+use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use codec::Encode;
 use frame_benchmarking::{benchmarks, BenchmarkError};
 use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
@@ -24,7 +24,10 @@ use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
 	DoubleEncoded,
 };
-use xcm_executor::{ExecutorError, FeesMode, traits::{ConvertLocation, FeeReason}};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeReason},
+	ExecutorError, FeesMode,
+};
 
 benchmarks! {
 	report_holding {

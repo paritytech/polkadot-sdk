@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::*;
-use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 use asset_hub_westend_runtime::xcm_config::XcmConfig;
+use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -182,13 +182,9 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<WestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	let sender_balance_after = test.sender.balance;
@@ -251,13 +247,9 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<WestendXcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
 	let sender_balance_after = test.sender.balance;

@@ -425,7 +425,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Fellows>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<ParaId>;
+	type PriceForSiblingDelivery =
+		polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<ParaId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
