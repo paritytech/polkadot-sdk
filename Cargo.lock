@@ -6874,9 +6874,9 @@ dependencies = [
 
 [[package]]
 name = "landlock"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "520baa32708c4e957d2fc3a186bc5bd8d26637c33137f399ddfc202adb240068"
+checksum = "1530c5b973eeed4ac216af7e24baf5737645a6272e361f1fb95710678b67d9cc"
 dependencies = [
  "enumflags2",
  "libc",
