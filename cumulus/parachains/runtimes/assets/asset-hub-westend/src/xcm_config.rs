@@ -41,6 +41,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use westend_runtime_constants::system_parachain;
+use westend_runtime::Treasury as WestendTreasury;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -502,6 +503,26 @@ match_types! {
 	};
 }
 
+parameter_types! {
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(<WestendTreasury as PalletInfoAccess>::index() as u8)).into();
+}
+
+pub struct RelayTreasury;
+impl Contains<MultiLocation> for RelayTreasury {
+	fn contains(location: &MultiLocation) -> bool {
+		let relay_treasury_location = RelayTreasuryLocation::get();
+		matches!(location, relay_treasury_location)
+	}
+}
+
+/// Locations that will not be charged fees in the executor,
+/// either execution or delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (
+	RelayOrOtherSystemParachains<SystemParachains, Runtime>,
+	RelayTreasury
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -550,7 +571,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeesToAccount<
 		Self,
-		RelayOrOtherSystemParachains<SystemParachains, Runtime>,
+		WaivedLocations,
 		AccountId,
 		TreasuryAccount,
 	>;
