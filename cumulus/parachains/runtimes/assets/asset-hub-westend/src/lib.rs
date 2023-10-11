@@ -302,17 +302,19 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
+type LocalAndTrustedForeignAssets = LocalAndForeignAssets<
+	Assets,
+	AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+	ForeignAssets,
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
 	type AssetId = MultiLocation;
-	type Assets = LocalAndForeignAssets<
-		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
-		ForeignAssets,
-	>;
+	type Assets = LocalAndTrustedForeignAssets;
 	type PoolAssets = PoolAssets;
 	type PoolAssetId = u32;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam

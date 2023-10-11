@@ -499,16 +499,18 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = (
 		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
-		cumulus_primitives_utility::TakeFirstAssetTrader<
+		cumulus_primitives_utility::SwapFirstAssetTrader<
 			AccountId,
-			AssetFeeAsExistentialDepositMultiplierFeeCharger,
-			TrustBackedAssetsConvertedConcreteId,
-			Assets,
-			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
-				FungiblesTransactor,
-				AccountId,
-				XcmAssetFeesReceiver,
+			crate::AssetConversion,
+			crate::MultiLocationConverter<
+				WestendLocation,
+				LocalAndForeignAssetsMultiLocationMatcher,
 			>,
+			WeightToFee,
+			super::LocalAndTrustedForeignAssets,
+			ForeignAssetsConvertedConcreteId,
+			crate::Balances,
+			(), // TODO: deposit to treasury account.
 		>,
 	);
 	type ResponseHandler = PolkadotXcm;
