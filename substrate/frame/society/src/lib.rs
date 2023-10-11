@@ -267,8 +267,7 @@ use frame_support::{
 			Mutate as FunMutate, MutateHold as FunMutateHold,
 		},
 		tokens::{fungible::Credit, Fortitude, Precision, Preservation::Expendable, Restriction},
-		BalanceStatus, EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness,
-		StorageVersion,
+		EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness, StorageVersion,
 	},
 	PalletId,
 };
@@ -293,8 +292,8 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
-type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>;
+	<<T as Config<I>>::Fungible as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -492,7 +491,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// The currency type used for bidding.
-		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		type Fungible: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
 			+ FunBalanced<Self::AccountId>
 			+ FunBalancedHold<Self::AccountId>;
@@ -840,7 +839,7 @@ pub mod pallet {
 			let deposit = params.candidate_deposit;
 			// NOTE: Hold must happen before `insert_bid` since that could end up with it being
 			// released.
-			T::Currency::hold(&HoldReason::SocietyBid.into(), &who, deposit)?;
+			T::Fungible::hold(&HoldReason::SocietyBid.into(), &who, deposit)?;
 			Self::insert_bid(&mut bids, &who, value, BidKind::Deposit(deposit));
 
 			Bids::<T, I>::put(bids);
@@ -1033,7 +1032,7 @@ pub mod pallet {
 			if let Some((when, amount)) = record.payouts.first() {
 				if when <= &<frame_system::Pallet<T>>::block_number() {
 					record.paid = record.paid.checked_add(amount).ok_or(Overflow)?;
-					T::Currency::transfer(&Self::payouts(), &who, *amount, Expendable)?;
+					T::Fungible::transfer(&Self::payouts(), &who, *amount, Expendable)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
 					return Ok(())
@@ -1053,7 +1052,7 @@ pub mod pallet {
 			ensure!(record.rank == 0, Error::<T, I>::AlreadyElevated);
 			ensure!(amount >= payout_record.paid, Error::<T, I>::InsufficientFunds);
 
-			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, Expendable)?;
+			T::Fungible::transfer(&who, &Self::account_id(), payout_record.paid, Expendable)?;
 			payout_record.paid = Zero::zero();
 			payout_record.payouts.clear();
 			record.rank = 1;
@@ -1556,7 +1555,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Bump the pot by at most `PeriodSpend`, but less if there's not very much left in our
 		// account.
 		let mut pot = Pot::<T, I>::get();
-		let unaccounted = T::Currency::balance(&Self::account_id()).saturating_sub(pot);
+		let unaccounted = T::Fungible::balance(&Self::account_id()).saturating_sub(pot);
 		pot.saturating_accrue(T::PeriodSpend::get().min(unaccounted / 2u8.into()));
 		Pot::<T, I>::put(&pot);
 
@@ -1654,7 +1653,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn clean_bid(bid: &Bid<T::AccountId, BalanceOf<T, I>>) {
 		match &bid.kind {
 			BidKind::Deposit(deposit) => {
-				let released = T::Currency::release(
+				let released = T::Fungible::release(
 					&HoldReason::SocietyBid.into(),
 					&bid.who,
 					*deposit,
@@ -1680,8 +1679,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		match kind {
 			BidKind::Deposit(deposit) => {
 				let pot = Self::account_id();
-				let free = BalanceStatus::Free;
-				let r = T::Currency::transfer_on_hold(
+				let r = T::Fungible::transfer_on_hold(
 					&HoldReason::SocietyBid.into(),
 					&who,
 					&pot,
@@ -1933,7 +1931,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			BidKind::Deposit(deposit) => {
 				// In the case that a normal deposit bid is accepted we release
 				// the deposit.
-				let released = T::Currency::release(
+				let released = T::Fungible::release(
 					&HoldReason::SocietyBid.into(),
 					candidate,
 					deposit,
@@ -2017,7 +2015,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::account_id(), &Self::payouts(), amount, Expendable);
+		let res = T::Fungible::transfer(&Self::account_id(), &Self::payouts(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
@@ -2029,7 +2027,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::payouts(), &Self::account_id(), amount, Expendable);
+		let res = T::Fungible::transfer(&Self::payouts(), &Self::account_id(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
@@ -2064,7 +2062,7 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<CreditOf<T, I>> for Pallet<T, I> {
 		let numeric_amount = amount.peek();
 
 		// Creates account if it doesn't exist, as long as amount > minimum balance.
-		let _ = T::Currency::resolve(&Self::account_id(), amount);
+		let _ = T::Fungible::resolve(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::<T, I>::Deposit { value: numeric_amount });
 	}

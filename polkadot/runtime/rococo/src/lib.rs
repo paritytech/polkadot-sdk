@@ -671,7 +671,7 @@ parameter_types! {
 
 impl pallet_society::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type GraceStrikes = ConstU32<1>;
