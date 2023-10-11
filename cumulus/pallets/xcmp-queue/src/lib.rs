@@ -63,7 +63,7 @@ pub use pallet::*;
 
 /// Index used to identify overweight XCMs.
 pub type OverweightIndex = u64;
-/// The maximal length of an XCMP message.
+/// The max length of an XCMP message.
 pub type MaxXcmpMessageLenOf<T> =
 	<<T as Config>::XcmpQueue as EnqueueMessage<ParaId>>::MaxMessageLen;
 
