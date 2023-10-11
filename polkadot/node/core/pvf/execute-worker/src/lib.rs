@@ -16,7 +16,9 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
+pub use polkadot_node_core_pvf_common::{
+	executor_intf::execute_artifact, worker_dir, SecurityStatus,
+};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -36,6 +38,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_primitives::ExecutorParams;
 use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
@@ -141,9 +144,6 @@ pub fn worker_entrypoint(
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
 			let Handshake { executor_params } = recv_handshake(&mut stream)?;
-			let executor = Executor::new(executor_params).map_err(|e| {
-				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
-			})?;
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -185,14 +185,15 @@ pub fn worker_entrypoint(
 					Arc::clone(&condvar),
 					WaitOutcome::TimedOut,
 				)?;
-				let executor_2 = executor.clone();
+
+				let executor_params_2 = executor_params.clone();
 				let execute_thread = thread::spawn_worker_thread_with_stack_size(
 					"execute thread",
 					move || {
 						validate_using_artifact(
 							&compiled_artifact_blob,
+							&executor_params_2,
 							&params,
-							executor_2,
 							cpu_time_start,
 						)
 					},
@@ -257,15 +258,15 @@ pub fn worker_entrypoint(
 
 fn validate_using_artifact(
 	compiled_artifact_blob: &[u8],
+	executor_params: &ExecutorParams,
 	params: &[u8],
-	executor: Executor,
 	cpu_time_start: ProcessTime,
 ) -> Response {
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_intf::prepare`].
-		executor.execute(compiled_artifact_blob, params)
+		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		Err(err) => return Response::format_invalid("execute", &err),
 		Ok(d) => d,
