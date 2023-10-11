@@ -845,7 +845,7 @@ pub fn run() -> Result<()> {
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				let old_name = match config.chain_spec.id() {
-"asset-hub-polkadot" => Some("statemint"),
+					 "asset-hub-polkadot" => Some("statemint"),
 				     "asset-hub-kusama" => Some("statemine"),
 				     "asset-hub-westend" => Some("westmint"),
 				     "asset-hub-rococo" => Some("rockmine"),
