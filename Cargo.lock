@@ -15096,6 +15096,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
+ "sp-tracing 10.0.0",
  "substrate-test-runtime",
 ]
 

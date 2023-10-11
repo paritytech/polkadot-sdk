@@ -45,6 +45,8 @@ use std::{
 enum GenesisBuildAction {
 	Patch(json::Value),
 	Full(json::Value),
+	// name of the patch, runtime code (todo: shared ref)
+	NamedPatch(String),
 }
 
 #[allow(deprecated)]
@@ -118,6 +120,13 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
+			Self::GenesisBuilderApi(GenesisBuildAction::NamedPatch(name), code) => {
+				let patch = RuntimeCaller::new(&code[..]).get_named_patch(name)?;
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					code: code.clone(),
+				}))
+			},
 		}
 	}
 }
@@ -422,6 +431,12 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 	/// Sets the JSON patch for runtime's GenesisConfig.
 	pub fn with_genesis_config_patch(mut self, patch: json::Value) -> Self {
 		self.genesis_build_action = GenesisBuildAction::Patch(patch);
+		self
+	}
+
+	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
+	pub fn with_genesis_config_patch_name(mut self, name: String) -> Self {
+		self.genesis_build_action = GenesisBuildAction::NamedPatch(name);
 		self
 	}
 
@@ -1012,6 +1027,30 @@ mod tests {
 	}
 
 	#[docify::export]
+	#[test]
+	fn generate_chain_spec_with_named_patch_works() {
+		sp_tracing::try_init_simple();
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch_name("staging".to_string())
+		.build();
+
+		let actual = output.as_json(false).unwrap();
+		let expected =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_patch.json"))
+				.unwrap();
+
+		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		let actual = zeroize_code_key_in_json(false, actual.as_str());
+
+		assert_eq!(actual, expected);
+	}
+
 	#[test]
 	fn generate_chain_spec_with_patch_works() {
 		let output = ChainSpec::<()>::builder(
