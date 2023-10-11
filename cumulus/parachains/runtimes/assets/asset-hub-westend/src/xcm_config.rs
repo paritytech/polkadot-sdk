@@ -40,8 +40,8 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use westend_runtime_constants::system_parachain;
 use westend_runtime::Treasury as WestendTreasury;
+use westend_runtime_constants::system_parachain;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -518,10 +518,7 @@ impl Contains<MultiLocation> for RelayTreasury {
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (
-	RelayOrOtherSystemParachains<SystemParachains, Runtime>,
-	RelayTreasury
-);
+pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -569,12 +566,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeesToAccount<
-		Self,
-		WaivedLocations,
-		AccountId,
-		TreasuryAccount,
-	>;
+	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
