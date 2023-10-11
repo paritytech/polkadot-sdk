@@ -15,7 +15,6 @@
 
 use super::*;
 use crate as collator_selection;
-use codec::Encode;
 use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
@@ -213,6 +212,8 @@ impl Config for Test {
 #[cfg(feature = "runtime-benchmarks")]
 impl cumulus_pallet_session_benchmarking::Config for Test {
 	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+		use codec::Encode;
+
 		let keys = MockSessionKeys::generate(&owner.encode(), None);
 
 		(keys.keys, keys.proof.encode())
