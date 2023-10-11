@@ -35,15 +35,26 @@ use crate::common::{
 pub struct ArchiveStorage<Client, Block, BE> {
 	/// Storage client.
 	client: Storage<Client, Block, BE>,
-	/// The maximum number of items reported by the `archive_storage`.
-	operation_max_storage_items: usize,
+	/// The maximum number of reported items by the `archive_storage` at a time.
+	storage_max_reported_items: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	storage_max_queried_items: usize,
 	_phantom: PhantomData<(BE, Block)>,
 }
 
 impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 	/// Constructs a new [`ArchiveStorage`].
-	pub fn new(client: Arc<Client>, operation_max_storage_items: usize) -> Self {
-		Self { client: Storage::new(client), operation_max_storage_items, _phantom: PhantomData }
+	pub fn new(
+		client: Arc<Client>,
+		storage_max_reported_items: usize,
+		storage_max_queried_items: usize,
+	) -> Self {
+		Self {
+			client: Storage::new(client),
+			storage_max_reported_items,
+			storage_max_queried_items,
+			_phantom: PhantomData,
+		}
 	}
 }
 
@@ -57,7 +68,7 @@ where
 	pub fn handle_query(
 		&self,
 		hash: Block::Hash,
-		items: Vec<PaginatedStorageQuery<StorageKey>>,
+		mut items: Vec<PaginatedStorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
 	) -> ArchiveStorageResult {
 		if let Some(child_key) = child_key.as_ref() {
@@ -68,6 +79,9 @@ where
 				})
 			}
 		}
+
+		let discarded_items = items.len().saturating_sub(self.storage_max_queried_items);
+		items.truncate(self.storage_max_queried_items);
 
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
@@ -107,7 +121,7 @@ where
 						},
 						hash,
 						child_key.as_ref(),
-						self.operation_max_storage_items,
+						self.storage_max_reported_items,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
 						Err(error) =>
@@ -123,7 +137,7 @@ where
 						},
 						hash,
 						child_key.as_ref(),
-						self.operation_max_storage_items,
+						self.storage_max_reported_items,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
 						Err(error) =>
@@ -135,7 +149,7 @@ where
 
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk {
 			result: storage_results,
-			discarded_items: 0,
+			discarded_items,
 		})
 	}
 }

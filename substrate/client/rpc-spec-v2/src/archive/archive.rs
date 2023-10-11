@@ -51,9 +51,10 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	backend: Arc<BE>,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
-	/// The maximum number of items reported by the `archive_storage` before
-	/// pagination is required.
-	operation_max_storage_items: usize,
+	/// The maximum number of reported items by the `archive_storage` at a time.
+	storage_max_reported_items: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<(Block, BE)>,
 }
@@ -64,10 +65,18 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
-		operation_max_storage_items: usize,
+		storage_max_reported_items: usize,
+		storage_max_queried_items: usize,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self { client, backend, genesis_hash, operation_max_storage_items, _phantom: PhantomData }
+		Self {
+			client,
+			backend,
+			genesis_hash,
+			storage_max_reported_items,
+			storage_max_queried_items,
+			_phantom: PhantomData,
+		}
 	}
 }
 
@@ -232,8 +241,11 @@ where
 			.transpose()?
 			.map(ChildInfo::new_default_from_vec);
 
-		let storage_client =
-			ArchiveStorage::new(self.client.clone(), self.operation_max_storage_items);
+		let storage_client = ArchiveStorage::new(
+			self.client.clone(),
+			self.storage_max_reported_items,
+			self.storage_max_queried_items,
+		);
 		Ok(storage_client.handle_query(hash, items, child_trie))
 	}
 }

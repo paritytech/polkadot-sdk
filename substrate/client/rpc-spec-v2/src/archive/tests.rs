@@ -49,6 +49,7 @@ use substrate_test_runtime_client::{
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
 const MAX_PAGINATION_LIMIT: usize = 5;
+const MAX_QUERIED_LIMIT: usize = 5;
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
 const CHILD_STORAGE_KEY: &[u8] = b"child";
@@ -58,7 +59,8 @@ type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
 fn setup_api(
-	ops: usize,
+	max_returned_items: usize,
+	max_queried_items: usize,
 ) -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
@@ -69,14 +71,16 @@ fn setup_api(
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api = Archive::new(client.clone(), backend, CHAIN_GENESIS, ops).into_rpc();
+	let api =
+		Archive::new(client.clone(), backend, CHAIN_GENESIS, max_returned_items, max_queried_items)
+			.into_rpc();
 
 	(client, api)
 }
 
 #[tokio::test]
 async fn archive_genesis() {
-	let (_client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (_client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	let genesis: String =
 		api.call("archive_unstable_genesisHash", EmptyParams::new()).await.unwrap();
@@ -85,7 +89,7 @@ async fn archive_genesis() {
 
 #[tokio::test]
 async fn archive_body() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -114,7 +118,7 @@ async fn archive_body() {
 
 #[tokio::test]
 async fn archive_header() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -143,7 +147,7 @@ async fn archive_header() {
 
 #[tokio::test]
 async fn archive_finalized_height() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	let client_height: u32 = client.info().finalized_number.saturated_into();
 
@@ -155,7 +159,7 @@ async fn archive_finalized_height() {
 
 #[tokio::test]
 async fn archive_hash_by_height() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	// Genesis height.
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
@@ -228,7 +232,7 @@ async fn archive_hash_by_height() {
 
 #[tokio::test]
 async fn archive_call() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 	let invalid_hash = hex_string(&INVALID_HASH);
 
 	// Invalid parameter (non-hex).
@@ -280,7 +284,7 @@ async fn archive_call() {
 
 #[tokio::test]
 async fn archive_storage_hashes_values() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 	let block_hash = format!("{:?}", block.header.hash());
@@ -358,7 +362,7 @@ async fn archive_storage_hashes_values() {
 
 #[tokio::test]
 async fn archive_storage_closest_merkle_value() {
-	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT);
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
 
 	/// The core of this test.
 	///
@@ -511,7 +515,7 @@ async fn archive_storage_closest_merkle_value() {
 #[tokio::test]
 async fn archive_storage_paginate_iterations() {
 	// 1 iteration allowed before pagination kicks in.
-	let (mut client, api) = setup_api(1);
+	let (mut client, api) = setup_api(1, MAX_QUERIED_LIMIT);
 
 	// Import a new block with storage changes.
 	let mut builder = client.new_block(Default::default()).unwrap();
@@ -694,6 +698,57 @@ async fn archive_storage_paginate_iterations() {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 0);
 			assert_eq!(discarded_items, 0);
+		},
+		_ => panic!("Unexpected result"),
+	};
+}
+
+#[tokio::test]
+async fn archive_storage_discarded_items() {
+	// One query at a time
+	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
+
+	// Import a new block with storage changes.
+	let mut builder = client.new_block(Default::default()).unwrap();
+	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Valid call with storage at the key.
+	let result: ArchiveStorageResult = api
+		.call(
+			"archive_unstable_storage",
+			rpc_params![
+				&block_hash,
+				vec![
+					PaginatedStorageQuery {
+						key: hex_string(b":m"),
+						query_type: StorageQueryType::Value,
+						pagination_start_key: None,
+					},
+					PaginatedStorageQuery {
+						key: hex_string(b":m"),
+						query_type: StorageQueryType::Hash,
+						pagination_start_key: None,
+					},
+					PaginatedStorageQuery {
+						key: hex_string(b":m"),
+						query_type: StorageQueryType::Hash,
+						pagination_start_key: None,
+					}
+				]
+			],
+		)
+		.await
+		.unwrap();
+	match result {
+		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+			assert_eq!(result.len(), 1);
+			assert_eq!(discarded_items, 2);
+
+			assert_eq!(result[0].key, hex_string(b":m"));
+			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"a")));
 		},
 		_ => panic!("Unexpected result"),
 	};
