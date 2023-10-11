@@ -183,7 +183,7 @@ where
 	check_version: bool,
 }
 
-/// The maximal length of a DMP message.
+/// The max length of a DMP message.
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 #[frame_support::pallet]
@@ -1126,8 +1126,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
-	/// This is similar to [`enqueue_inbound_downward_messages`], but works on multiple inbound
-	/// channels. It immediately dispatches signals and queues all other XCM. Blob messages are
+	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
+	/// channels. It immediately dispatches signals and queues all other XCMs. Blob messages are
 	/// ignored.
 	///
 	/// **Panics** if either any of horizontal messages submitted by the collator was sent from

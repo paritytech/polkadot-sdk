@@ -62,12 +62,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MigrationStatus<T> = StorageValue<_, MigrationState, ValueQuery>;
 
-	/// The lazy-migration stat of the pallet.
+	/// The lazy-migration state of the pallet.
 	#[derive(
 		codec::Encode, codec::Decode, Debug, PartialEq, Eq, Clone, MaxEncodedLen, TypeInfo,
 	)]
 	pub enum MigrationState {
-		/// Migration did ont yet start.
+		/// Migration has not started yet.
 		NotStarted,
 		/// The export of pages started.
 		StartedExport {
@@ -85,7 +85,7 @@ pub mod pallet {
 		CompletedOverweightExport,
 		/// The storage cleanup started.
 		StartedCleanup { cursor: Option<BoundedVec<u8, ConstU32<1024>>> },
-		/// The migration finished. The pallet can now be un-deployed.
+		/// The migration finished. The pallet can now be removed from the runtime.
 		Completed,
 	}
 
@@ -130,7 +130,7 @@ pub mod pallet {
 
 			let state = MigrationStatus::<T>::get();
 			let index = PageIndex::<T>::get();
-			log::debug!(target: LOG, "on_initialize: block={:?}, state={:?}, index={:?}", now, state, index);
+			log::debug!(target: LOG, "on_idle: block={:?}, state={:?}, index={:?}", now, state, index);
 
 			match state {
 				MigrationState::NotStarted => {
@@ -152,7 +152,7 @@ pub mod pallet {
 						migration::migrate_page::<T>(next_begin_used);
 
 						MigrationStatus::<T>::put(MigrationState::StartedExport {
-							next_begin_used: next_begin_used + 1,
+							next_begin_used: next_begin_used.saturating_add(1),
 						});
 						log::debug!(target: LOG, "Exported page {}", next_begin_used);
 						Self::deposit_event(Event::Exported { page: next_begin_used });
