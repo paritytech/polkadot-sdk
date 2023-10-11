@@ -98,6 +98,18 @@ where
 	///
 	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
 	/// provided by the `runtime`.
+	pub fn get_named_patch(&self, name: &String) -> core::result::Result<Value, String> {
+		let mut t = BasicExternalities::new_empty();
+		let call_result = self
+			.call(&mut t, "GenesisBuilder_create_default_config2", &name.as_bytes().encode())
+			.map_err(|e| format!("wasm call error {e}"))?;
+
+		let named_patch = Vec::<u8>::decode(&mut &call_result[..])
+			.map_err(|e| format!("scale codec error: {e}"))?;
+		Ok(from_slice(&named_patch[..]).expect("returned value is json. qed."))
+	}
+
+	/// Calls [`sp_genesis_builder::GenesisBuilder::build_config`] provided by runtime.
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 
@@ -135,6 +147,13 @@ where
 		crate::json_patch::merge(&mut config, patch);
 		self.get_storage_for_config(config)
 	}
+
+	pub fn get_storage_for_named_patch(
+		&self,
+		name: String,
+	) -> core::result::Result<Storage, String> {
+		self.get_storage_for_patch(self.get_named_patch(&name)?)
+	}
 }
 
 #[cfg(test)]
@@ -150,6 +169,17 @@ mod tests {
 				.get_default_config()
 				.unwrap();
 		let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+		assert_eq!(from_str::<Value>(expected).unwrap(), config);
+	}
+
+	#[test]
+	fn get_named_patch_works() {
+		sp_tracing::try_init_simple();
+		let config =
+			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_named_patch(&"foobar".to_string())
+				.unwrap();
+		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
 
