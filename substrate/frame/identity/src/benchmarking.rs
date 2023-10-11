@@ -122,7 +122,7 @@ fn create_identity_info<T: Config>(num_fields: u32) -> IdentityInfo<T::MaxAdditi
 	}
 }
 
-#[benchmarks(where T: pallet_authorship::Config + session::Config)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
@@ -161,7 +161,7 @@ mod benchmarks {
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
-			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
+			let _ = T::Lookup::unlookup(registrar.clone());
 			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
 			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
 
@@ -177,10 +177,14 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), Box::new(create_identity_info::<T>(x)));
+
 		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
 		Ok(())
 	}
 
+	// We need to split `set_subs` into two benchmarks to accurately isolate the potential
+	// writes caused by new or old sub accounts. The actual weight should simply be
+	// the sum of these two weights.
 	#[benchmark]
 	fn set_subs_new(s: Linear<0, { T::MaxSubAccounts::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
@@ -490,7 +494,7 @@ mod benchmarks {
 			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin, target_lookup);
+		_(origin as T::RuntimeOrigin, target_lookup);
 
 		assert!(!IdentityOf::<T>::contains_key(&target), "Identity not removed");
 
@@ -564,4 +568,6 @@ mod benchmarks {
 
 		Ok(())
 	}
+
+	impl_benchmark_test_suite!(CollectiveContent, super::mock::new_bench_ext(), super::mock::Test);
 }
