@@ -297,6 +297,16 @@ async fn archive_storage_hashes_values() {
 			query_type: StorageQueryType::DescendantsValues,
 			pagination_start_key: None,
 		},
+		PaginatedStorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		},
+		PaginatedStorageQuery {
+			key: key.clone(),
+			query_type: StorageQueryType::Value,
+			pagination_start_key: None,
+		},
 	];
 
 	let result: ArchiveStorageResult = api
@@ -330,13 +340,17 @@ async fn archive_storage_hashes_values() {
 
 	match result {
 		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 2);
+			assert_eq!(result.len(), 4);
 			assert_eq!(discarded_items, 0);
 
 			assert_eq!(result[0].key, key);
-			assert_eq!(result[0].result, StorageResultType::Hash(expected_hash));
+			assert_eq!(result[0].result, StorageResultType::Hash(expected_hash.clone()));
 			assert_eq!(result[1].key, key);
-			assert_eq!(result[1].result, StorageResultType::Value(expected_value));
+			assert_eq!(result[1].result, StorageResultType::Value(expected_value.clone()));
+			assert_eq!(result[2].key, key);
+			assert_eq!(result[2].result, StorageResultType::Hash(expected_hash));
+			assert_eq!(result[3].key, key);
+			assert_eq!(result[3].result, StorageResultType::Value(expected_value));
 		},
 		_ => panic!("Unexpected result"),
 	};
