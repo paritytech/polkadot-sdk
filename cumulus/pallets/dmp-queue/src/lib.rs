@@ -45,6 +45,7 @@ pub mod pallet {
 	use sp_io::hashing::twox_128;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(2)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
