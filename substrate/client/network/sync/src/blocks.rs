@@ -212,6 +212,31 @@ impl<B: BlockT> BlockCollection<B> {
 		ready
 	}
 
+	/// Returns the block header of the first block that is ready for importing.
+	/// `from` is the maximum block number for the start of the range that we are interested in.
+	/// The function will return None if the first block ready is higher than `from`.
+	/// The logic is structured to be consistent with ready_blocks().
+	pub fn first_ready_block_header(&self, from: NumberFor<B>) -> Option<B::Header> {
+		let mut prev = from;
+		for (&start, range_data) in &self.blocks {
+			if start > prev {
+				break
+			}
+
+			match range_data {
+				BlockRangeState::Complete(blocks) => {
+					let len = (blocks.len() as u32).into();
+					prev = start + len;
+					if let Some(BlockData { block, .. }) = blocks.first() {
+						return block.header.clone()
+					}
+				},
+				_ => continue,
+			}
+		}
+		None
+	}
+
 	pub fn clear_queued(&mut self, hash: &B::Hash) {
 		if let Some((from, to)) = self.queued_blocks.remove(hash) {
 			let mut block_num = from;
