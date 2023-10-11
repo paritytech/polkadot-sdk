@@ -633,7 +633,7 @@ fn reap_identity_works() {
 		));
 		// 10 for identity, 10 for sub
 		assert_eq!(Balances::free_balance(10), 80);
-		assert_ok!(Identity::reap_identity(RuntimeOrigin::signed(1), 10, 1));
+		assert_ok!(Identity::reap_identity(RuntimeOrigin::signed(1), 10));
 		// no identity or subs
 		assert!(Identity::identity(10).is_none());
 		assert!(Identity::super_of(20).is_none());

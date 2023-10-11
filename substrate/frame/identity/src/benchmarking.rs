@@ -455,20 +455,45 @@ benchmarks! {
 
 	reap_identity {
 		let s in 0 .. T::MaxSubAccounts::get();
+		let r in 0 .. T::MaxRegistrars::get() => add_registrars::<T>(r)?;
+
+		// target
 		let target: T::AccountId = account("target", 0, SEED);
+		let target_origin =
+			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+
+		//origin
 		let origin =
 			T::ReapOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
 		// set identity
 		let info = create_identity_info::<T>(1);
 		Identity::<T>::set_identity(
 			RawOrigin::Signed(target.clone()).into(),
 			Box::new(info.clone())
 		)?;
+
 		// set `s` subs
 		let _ = add_sub_accounts::<T>(&target, s)?;
-	}: _<T::RuntimeOrigin>(origin, target_lookup, s)
+
+		// provide judgements
+		for ii in 0..r {
+			let registrar: T::AccountId = account("registrar", ii, SEED);
+			let balance_to_use =  T::Currency::minimum_balance() * 10u32.into();
+			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+
+			Identity::<T>::request_judgement(target_origin.clone(), ii, 10u32.into())?;
+			Identity::<T>::provide_judgement(
+				RawOrigin::Signed(registrar).into(),
+				ii,
+				target_lookup.clone(),
+				Judgement::Reasonable,
+				T::Hashing::hash_of(&info),
+			)?;
+		}
+	}: _<T::RuntimeOrigin>(origin, target_lookup)
 	verify {
 		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target }.into());
 	}

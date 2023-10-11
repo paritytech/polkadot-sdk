@@ -498,7 +498,7 @@ pub mod pallet {
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
 			let id = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
-			let deposit = id.total_deposit() + subs_deposit;
+			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -1010,12 +1010,14 @@ pub mod pallet {
 		///
 		/// Origin must be the `ReapOrigin`.
 		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::reap_identity(*num_subs))]
+		#[pallet::weight(T::WeightInfo::reap_identity(
+			T::MaxRegistrars::get(),
+			T::MaxSubAccounts::get()
+		))]
 		pub fn reap_identity(
 			origin: OriginFor<T>,
 			target: AccountIdLookupOf<T>,
-			num_subs: u32,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			// No locked check: used for migration.
 			// `ReapOrigin` to be set to `EnsureSigned<AccountId>` (i.e. anyone) on chain where we
 			// want to reap data (i.e. Relay) and `EnsureRoot` on chains where we want "normal"
@@ -1025,11 +1027,11 @@ pub mod pallet {
 
 			// `take` any storage items keyed by `target`
 			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
+			let registrars = id.judgements.len() as u32;
 			let fields = id.info.additional.len() as u32;
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
 			// check witness data
 			let actual_subs = sub_ids.len() as u32;
-			ensure!(actual_subs <= num_subs, Error::<T>::TooManySubAccounts);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -1042,7 +1044,7 @@ pub mod pallet {
 			// Finally, call the handler.
 			T::ReapIdentityHandler::on_reap_identity(&who, fields, actual_subs)?;
 			Self::deposit_event(Event::IdentityReaped { who });
-			Ok(())
+			Ok(Some(T::WeightInfo::reap_identity(registrars, actual_subs)).into())
 		}
 
 		/// Update the deposits held by `target` for its identity info.

@@ -68,7 +68,7 @@ pub trait WeightInfo {
 	fn rename_sub(s: u32, ) -> Weight;
 	fn remove_sub(s: u32, ) -> Weight;
 	fn quit_sub(s: u32, ) -> Weight;
-	fn reap_identity(s: u32, ) -> Weight;
+	fn reap_identity(r: u32, s: u32, ) -> Weight;
 	fn poke_deposit() -> Weight;
 	fn lock_pallet() -> Weight;
 	fn unlock_pallet() -> Weight;
@@ -371,23 +371,36 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::SubsOf` (r:1 w:1)
 	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
+	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
+	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueues` (r:1 w:1)
+	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
+	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Identity::SuperOf` (r:0 w:100)
 	/// Proof: `Identity::SuperOf` (`max_values`: None, `max_size`: Some(114), added: 2589, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 100]`.
-	fn reap_identity(s: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 20]`.
+	fn reap_identity(s: u32, r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `673 + s * (32 ±0)`
-		//  Estimated: `11003`
-		// Minimum execution time: 312_504_000 picoseconds.
-		Weight::from_parts(372_110_300, 0)
+		//  Measured:  `882 + r * (5 ±0) + s * (32 ±0)`
+		//  Estimated: `11003 + r * (8 ±1) + s * (33 ±0)`
+		// Minimum execution time: 890_684_000 picoseconds.
+		Weight::from_parts(985_014_414, 0)
 			.saturating_add(Weight::from_parts(0, 11003))
-			// Standard Error: 481_670
-			.saturating_add(Weight::from_parts(14_580_194, 0).saturating_mul(s.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
+			// Standard Error: 512_018
+			.saturating_add(Weight::from_parts(14_124_295, 0).saturating_mul(s.into()))
+			// Standard Error: 2_560_094
+			.saturating_add(Weight::from_parts(219_854, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(5))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
+			.saturating_add(Weight::from_parts(0, 8).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(0, 33).saturating_mul(s.into()))
 	}
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
@@ -725,23 +738,36 @@ impl WeightInfo for () {
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::SubsOf` (r:1 w:1)
 	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
+	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
+	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
+	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueues` (r:1 w:1)
+	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
+	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Identity::SuperOf` (r:0 w:100)
 	/// Proof: `Identity::SuperOf` (`max_values`: None, `max_size`: Some(114), added: 2589, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[0, 100]`.
-	fn reap_identity(s: u32, ) -> Weight {
+	/// The range of component `r` is `[0, 20]`.
+	fn reap_identity(s: u32, r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `673 + s * (32 ±0)`
-		//  Estimated: `11003`
-		// Minimum execution time: 312_504_000 picoseconds.
-		Weight::from_parts(372_110_300, 0)
+		//  Measured:  `882 + r * (5 ±0) + s * (32 ±0)`
+		//  Estimated: `11003 + r * (8 ±1) + s * (33 ±0)`
+		// Minimum execution time: 890_684_000 picoseconds.
+		Weight::from_parts(985_014_414, 0)
 			.saturating_add(Weight::from_parts(0, 11003))
-			// Standard Error: 481_670
-			.saturating_add(Weight::from_parts(14_580_194, 0).saturating_mul(s.into()))
-			.saturating_add(RocksDbWeight::get().reads(3))
-			.saturating_add(RocksDbWeight::get().writes(2))
+			// Standard Error: 512_018
+			.saturating_add(Weight::from_parts(14_124_295, 0).saturating_mul(s.into()))
+			// Standard Error: 2_560_094
+			.saturating_add(Weight::from_parts(219_854, 0).saturating_mul(r.into()))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().writes(5))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
+			.saturating_add(Weight::from_parts(0, 8).saturating_mul(r.into()))
+			.saturating_add(Weight::from_parts(0, 33).saturating_mul(s.into()))
 	}
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
