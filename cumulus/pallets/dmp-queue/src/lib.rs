@@ -44,8 +44,10 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::twox_128;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+
 	#[pallet::pallet]
-	#[pallet::storage_version(2)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
