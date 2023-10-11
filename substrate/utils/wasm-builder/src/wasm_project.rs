@@ -726,10 +726,9 @@ fn build_wasm(
 	println!("{} {:?}", colorize_info_message("Executing build command:"), build_cmd);
 	println!("{} {}", colorize_info_message("Using rustc version:"), cargo_cmd.rustc_version());
 
-	match build_cmd.status().map(|s| s.success()) {
-		Ok(true) => {},
-		// Use `process.exit(1)` to have a clean error output.
-		_ => process::exit(1),
+	// Use `process::exit(1)` to have a clean error output.
+	if build_cmd.status().map(|s| s.success()).is_err() {
+		process::exit(1);
 	}
 }
 
