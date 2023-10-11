@@ -17,10 +17,12 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungibles::{self, Balanced, Credit},
+	fungible::{Balanced, Credit},
+	fungibles::{self, Balanced as FungiblesBalanced, Credit as FungiblesCredit},
 	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
+use sp_core::TypedGet;
 use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
@@ -75,11 +77,22 @@ where
 	R: pallet_authorship::Config + pallet_assets::Config<I>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
+	fn handle_credit(credit: FungiblesCredit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit);
 		}
+	}
+}
+
+/// Implementation of [`OnUnbalanced`] which resolves the received credit to the specified account.
+///
+/// If an account does not exist and the credit amount is less than the existential deposit, the
+/// credit cannot be resolved and is dropped.
+pub struct ResolveCreditTo<A, F>(PhantomData<(A, F)>);
+impl<A: TypedGet, F: Balanced<A::Type>> OnUnbalanced<Credit<A::Type, F>> for ResolveCreditTo<A, F> {
+	fn on_unbalanced(credit: Credit<A::Type, F>) {
+		let _ = F::resolve(&A::get(), credit).map_err(|c| drop(c));
 	}
 }
 
@@ -250,8 +263,8 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = Balances::issue(10);
-			let tip = Balances::issue(20);
+			let fee = <Balances as Currency<_>>::issue(10);
+			let tip = <Balances as Currency<_>>::issue(20);
 
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
 
