@@ -63,7 +63,6 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
-	type PriorityBoostPerMessage = P;
 	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber = ();
 

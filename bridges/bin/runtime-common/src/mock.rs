@@ -35,6 +35,7 @@ use pallet_transaction_payment::Multiplier;
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8},
+	transaction_validity::TransactionPriority,
 	FixedPointNumber, Perquintill, StateVersion,
 };
 
@@ -124,6 +125,8 @@ parameter_types! {
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
+	pub SlotLength: u32 = 16;
+	pub PriorityBoostForActiveLaneRelayer: TransactionPriority = 1;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -212,6 +215,10 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type Reward = ThisChainBalance;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
+	type MaxRelayersPerLane = ConstU32<16>;
+	type SlotLength = SlotLength;
+	type PriorityBoostPerItem = ConstU64<1>;
+	type PriorityBoostForActiveLaneRelayer = PriorityBoostForActiveLaneRelayer;
 	type WeightInfo = ();
 }
 

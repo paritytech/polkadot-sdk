@@ -35,7 +35,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use frame_system::Config as SystemConfig;
+use frame_system::{pallet_prelude::BlockNumberFor, Config as SystemConfig};
 use pallet_bridge_messages::{CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig};
 use pallet_transaction_payment::{
 	Config as TransactionPaymentConfig, OnChargeTransaction, Pallet as TransactionPaymentPallet,
@@ -125,6 +125,7 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	usize: TryFrom<BlockNumberFor<R>>,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
 	///
@@ -136,16 +137,15 @@ where
 	/// virtually boosted. The relayer registration (we only boost priority for registered
 	/// relayer transactions) must be checked outside.
 	fn bundled_messages_for_priority_boost(
-		call_info: Option<&ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>>,
+		call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
 	) -> Option<MessageNonce> {
 		// we only boost priority of message delivery transactions
-		let parsed_call = match call_info {
-			Some(parsed_call) if parsed_call.is_receive_messages_proof_call() => parsed_call,
-			_ => return None,
-		};
+		if !call_info.is_receive_messages_proof_call() {
+			return None
+		}
 
 		// compute total number of messages in transaction
-		let bundled_messages = parsed_call.messages_call_info().bundled_messages().saturating_len();
+		let bundled_messages = call_info.messages_call_info().bundled_messages().saturating_len();
 
 		// a quick check to avoid invalid high-priority transactions
 		let max_unconfirmed_messages_in_confirmation_tx = <R as BridgeMessagesConfig<C::BridgeMessagesPalletInstance>>::BridgedChain
@@ -197,8 +197,7 @@ where
 		//
 		// - when relayer is registered after `validate` is called and priority is not boosted:
 		//   relayer should be ready for slashing after registration.
-		let may_slash_relayer =
-			Self::bundled_messages_for_priority_boost(Some(&call_info)).is_some();
+		let may_slash_relayer = Self::bundled_messages_for_priority_boost(&call_info).is_some();
 		let slash_relayer_if_delivery_result = may_slash_relayer
 			.then(|| RelayerAccountAction::Slash(relayer.clone(), reward_account_params))
 			.unwrap_or(RelayerAccountAction::None);
@@ -273,6 +272,7 @@ where
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	usize: TryFrom<BlockNumberFor<R>>,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
 	type AccountId = R::AccountId;
@@ -296,13 +296,15 @@ where
 		// we're not calling `validate` from `pre_dispatch` directly because of performance
 		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
-		let parsed_call = C::parse_and_check_for_obsolete_call(call)?;
+		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
+			Some(parsed_call) => parsed_call,
+			None => return Ok(Default::default()),
+		};
 
 		// the following code just plays with transaction priority and never returns an error
 
 		// we only boost priority of presumably correct message delivery transactions
-		let bundled_messages = match Self::bundled_messages_for_priority_boost(parsed_call.as_ref())
-		{
+		let bundled_messages = match Self::bundled_messages_for_priority_boost(&parsed_call) {
 			Some(bundled_messages) => bundled_messages,
 			None => return Ok(Default::default()),
 		};
@@ -313,8 +315,11 @@ where
 		}
 
 		// compute priority boost
-		let priority_boost =
-			priority::compute_priority_boost::<C::PriorityBoostPerMessage>(bundled_messages);
+		let priority_boost = priority::compute_priority_boost::<R>(
+			parsed_call.messages_call_info().lane_id(),
+			bundled_messages,
+			who,
+		);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
 		log::trace!(
@@ -322,7 +327,7 @@ where
 			"{}.{:?}: has boosted priority of message delivery transaction \
 			of relayer {:?}: {} messages -> {} priority",
 			Self::IDENTIFIER,
-			parsed_call.as_ref().map(|p| p.messages_call_info().lane_id()),
+			parsed_call.messages_call_info().lane_id(),
 			who,
 			bundled_messages,
 			priority_boost,
@@ -447,7 +452,7 @@ mod tests {
 	use pallet_bridge_parachains::{Call as ParachainsCall, Pallet as ParachainsPallet};
 	use pallet_utility::Call as UtilityCall;
 	use sp_runtime::{
-		traits::{ConstU64, Header as HeaderT},
+		traits::Header as HeaderT,
 		transaction_validity::{InvalidTransaction, ValidTransaction},
 		DispatchError,
 	};
@@ -477,7 +482,6 @@ mod tests {
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
-		ConstU64<1>,
 	>;
 	type TestGrandpaExtension =
 		BridgeRelayersSignedExtension<TestRuntime, TestGrandpaExtensionConfig>;
@@ -487,7 +491,6 @@ mod tests {
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
-		ConstU64<1>,
 	>;
 	type TestExtension = BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig>;
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<

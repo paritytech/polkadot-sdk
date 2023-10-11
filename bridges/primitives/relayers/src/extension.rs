@@ -26,11 +26,7 @@ use frame_support::{
 };
 use frame_system::Config as SystemConfig;
 use pallet_utility::{Call as UtilityCall, Pallet as UtilityPallet};
-use sp_runtime::{
-	traits::Get,
-	transaction_validity::{TransactionPriority, TransactionValidityError},
-	RuntimeDebug,
-};
+use sp_runtime::{transaction_validity::TransactionValidityError, RuntimeDebug};
 use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
 
 /// Type of the call that the signed extension recognizes.
@@ -121,9 +117,6 @@ pub trait ExtensionConfig {
 	type Runtime: frame_system::Config;
 	/// Messages pallet instance.
 	type BridgeMessagesPalletInstance: 'static;
-	/// Additional priority that is added to base message delivery transaction priority
-	/// for every additional bundled message.
-	type PriorityBoostPerMessage: Get<TransactionPriority>;
 	/// Type of reward, that the `pallet-bridge-relayers` is using.
 	type Reward;
 	/// Block number for the remote **GRANDPA chain**. Mind that this chain is not

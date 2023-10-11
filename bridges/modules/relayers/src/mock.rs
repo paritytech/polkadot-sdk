@@ -38,6 +38,7 @@ use pallet_transaction_payment::Multiplier;
 use sp_core::{ConstU64, ConstU8, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, ConstU32},
+	transaction_validity::TransactionPriority,
 	BuildStorage, FixedPointNumber, Perquintill, StateVersion,
 };
 
@@ -188,13 +189,13 @@ parameter_types! {
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
+	pub SlotLength: u32 = 16;
+	pub PriorityBoostForActiveLaneRelayer: TransactionPriority = 1;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Block = ThisChainBlock;
-	// TODO: remove when https://github.com/paritytech/polkadot-sdk/pull/4543 merged
-	type BlockHashCount = ConstU32<10>;
 	type AccountData = pallet_balances::AccountData<ThisChainBalance>;
 	type DbWeight = DbWeight;
 }
@@ -275,6 +276,10 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type Reward = ThisChainBalance;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
+	type MaxRelayersPerLane = ConstU32<16>;
+	type SlotLength = SlotLength;
+	type PriorityBoostPerItem = ConstU64<1>;
+	type PriorityBoostForActiveLaneRelayer = PriorityBoostForActiveLaneRelayer;
 	type WeightInfo = ();
 }
 

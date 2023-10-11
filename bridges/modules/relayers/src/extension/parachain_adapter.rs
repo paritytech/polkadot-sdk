@@ -38,10 +38,7 @@ use pallet_bridge_parachains::{
 	CallSubType as BridgeParachainsCallSubtype, Config as BridgeParachainsConfig,
 	SubmitParachainHeadsHelper,
 };
-use sp_runtime::{
-	traits::{Dispatchable, Get},
-	transaction_validity::{TransactionPriority, TransactionValidityError},
-};
+use sp_runtime::{traits::Dispatchable, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
 
 /// Adapter to be used in signed extension configuration, when bridging with remote parachains.
@@ -58,8 +55,6 @@ pub struct WithParachainExtensionConfig<
 	BridgeParachainsPalletInstance,
 	// instance of BridgedChain `pallet-bridge-messages`, tracked by this extension
 	BridgeMessagesPalletInstance,
-	// message delivery transaction priority boost for every additional message
-	PriorityBoostPerMessage,
 >(
 	PhantomData<(
 		IdProvider,
@@ -67,11 +62,10 @@ pub struct WithParachainExtensionConfig<
 		BatchCallUnpacker,
 		BridgeParachainsPalletInstance,
 		BridgeMessagesPalletInstance,
-		PriorityBoostPerMessage,
 	)>,
 );
 
-impl<ID, R, BCU, PI, MI, P> ExtensionConfig for WithParachainExtensionConfig<ID, R, BCU, PI, MI, P>
+impl<ID, R, BCU, PI, MI> ExtensionConfig for WithParachainExtensionConfig<ID, R, BCU, PI, MI>
 where
 	ID: StaticStrProvider,
 	R: BridgeRelayersConfig
@@ -81,7 +75,6 @@ where
 	BCU: BatchCallUnpacker<R>,
 	PI: 'static,
 	MI: 'static,
-	P: Get<TransactionPriority>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ BridgeGrandpaCallSubtype<R, R::BridgesGrandpaPalletInstance>
 		+ BridgeParachainsCallSubtype<R, PI>
@@ -91,7 +84,6 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
-	type PriorityBoostPerMessage = P;
 	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber =
 		pallet_bridge_grandpa::BridgedBlockNumber<R, R::BridgesGrandpaPalletInstance>;
