@@ -16,9 +16,10 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+use crate::matches_location::MatchesLocation;
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};
-use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
+use sp_std::{boxed::Box, convert::TryInto, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -117,16 +118,53 @@ impl ExporterFor for Tuple {
 	}
 }
 
+/// Configuration item representing a single exporter in the `NetworkExportTable`.
+pub struct NetworkExportTableItem {
+	/// Supported remote network.
+	pub remote_network: NetworkId,
+	/// Remote location filter.
+	pub remote_location_filter: Box<dyn MatchesLocation<InteriorMultiLocation>>,
+	/// Locally-routable bridge with bridging capabilities to the `remote_network` and
+	/// `remote_location`. See [`ExporterFor`] for more details.
+	pub bridge: MultiLocation,
+	/// The local payment.
+	/// See [`ExporterFor`] for more details.
+	pub payment: Option<MultiAsset>,
+}
+
+impl NetworkExportTableItem {
+	pub fn new<RemoteLocationFilter: MatchesLocation<InteriorMultiLocation> + 'static>(
+		remote_network: NetworkId,
+		remote_location_filter: RemoteLocationFilter,
+		bridge: MultiLocation,
+		payment: Option<MultiAsset>,
+	) -> Self {
+		Self {
+			remote_network,
+			remote_location_filter: Box::new(remote_location_filter),
+			bridge,
+			payment,
+		}
+	}
+}
+
+/// An adapter for the implementation of `ExporterFor`, which attempts to find the (bridge_location,
+/// payment) for the requested `network` and `remote_location` in the provided `T` table containing
+/// various exporters.
 pub struct NetworkExportTable<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>>> ExporterFor
-	for NetworkExportTable<T>
-{
+impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> {
 	fn exporter_for(
 		network: &NetworkId,
-		_: &InteriorMultiLocation,
+		remote_location: &InteriorMultiLocation,
 		_: &Xcm<()>,
 	) -> Option<(MultiLocation, Option<MultiAsset>)> {
-		T::get().into_iter().find(|(ref j, ..)| j == network).map(|(_, l, p)| (l, p))
+		T::get()
+			.into_iter()
+			.find(|item| {
+				&item.remote_network == network &&
+					item.remote_location_filter.matches(remote_location)
+			})
+			.map(|item| (item.bridge, item.payment))
 	}
 }
 
@@ -440,6 +478,7 @@ impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::InteriorLocationMatcher;
 
 	#[test]
 	fn ensure_is_remote_works() {
@@ -504,7 +543,7 @@ mod tests {
 			pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Local::get()), Parachain(1234));
 			pub DifferentRemote: NetworkId = ByGenesis([22; 32]);
 			// no routers
-			pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)> = vec![];
+			pub BridgeTable: Vec<NetworkExportTableItem> = vec![];
 		}
 
 		// check with local destination (should be remote)
@@ -538,5 +577,51 @@ mod tests {
 				UniversalLocation,
 			>,
 		>(remote_dest, |result| assert_eq!(Err(NotApplicable), result));
+	}
+
+	#[test]
+	fn network_export_table_works() {
+		frame_support::match_types! {
+			pub type AllowOnlySeveralRemoteDestinations: impl Contains<InteriorMultiLocation> = {
+				X1(Parachain(2000)) | X1(Parachain(3000)) | X1(Parachain(4000))
+			};
+		}
+
+		frame_support::parameter_types! {
+			pub BridgeLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
+
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					Kusama,
+					InteriorLocationMatcher::<AllowOnlySeveralRemoteDestinations>::new(),
+					BridgeLocation::get(),
+					None
+				)
+			];
+		}
+
+		let test_data = vec![
+			(Polkadot, X1(Parachain(1000)), None),
+			(Polkadot, X1(Parachain(2000)), None),
+			(Polkadot, X1(Parachain(3000)), None),
+			(Polkadot, X1(Parachain(4000)), None),
+			(Polkadot, X1(Parachain(5000)), None),
+			(Kusama, X1(Parachain(1000)), None),
+			(Kusama, X1(Parachain(2000)), Some((BridgeLocation::get(), None))),
+			(Kusama, X1(Parachain(3000)), Some((BridgeLocation::get(), None))),
+			(Kusama, X1(Parachain(4000)), Some((BridgeLocation::get(), None))),
+			(Kusama, X1(Parachain(5000)), None),
+		];
+
+		for (network, remote_location, expected_result) in test_data {
+			assert_eq!(
+				NetworkExportTable::<BridgeTable>::exporter_for(
+					&network,
+					&remote_location,
+					&Xcm::default()
+				),
+				expected_result,
+			)
+		}
 	}
 }
