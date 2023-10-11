@@ -37,17 +37,18 @@ pub fn transfer_assets_delivery_fees<S: SendXcm>(
 /// of a `ExpectError` instruction with no error.
 pub fn query_response_delivery_fees<S: SendXcm>(querier: MultiLocation) -> u128 {
 	// Message to calculate delivery fees, it's encoded size is what's important.
-    // This message reports that there was no error, if an error is reported, the encoded size would be different.
-    let message = Xcm(vec![
+	// This message reports that there was no error, if an error is reported, the encoded size would
+	// be different.
+	let message = Xcm(vec![
 		SetFeesMode { jit_withdraw: true },
-        QueryResponse {
-            query_id: 0, // Dummy query id
-            response: Response::ExecutionResult(None),
-            max_weight: Weight::zero(),
-            querier: Some(querier),
-        },
-        SetTopic([0u8; 32]), // Dummy topic
-    ]);
+		QueryResponse {
+			query_id: 0, // Dummy query id
+			response: Response::ExecutionResult(None),
+			max_weight: Weight::zero(),
+			querier: Some(querier),
+		},
+		SetTopic([0u8; 32]), // Dummy topic
+	]);
 	get_fungible_delivery_fees::<S>(querier, message)
 }
 
@@ -65,16 +66,9 @@ pub fn pay_over_xcm_delivery_fees<S: SendXcm>(
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		SetAppendix(Xcm(vec![
 			SetFeesMode { jit_withdraw: true },
-			ReportError(QueryResponseInfo {
-				destination,
-				query_id: 0,
-				max_weight: Weight::zero(),
-			}),
+			ReportError(QueryResponseInfo { destination, query_id: 0, max_weight: Weight::zero() }),
 		])),
-		TransferAsset {
-			beneficiary,
-			assets: vec![asset].into(),
-		},
+		TransferAsset { beneficiary, assets: vec![asset].into() },
 	]);
 	get_fungible_delivery_fees::<S>(destination, message)
 }
@@ -99,10 +93,7 @@ fn teleport_assets_dummy_message(
 }
 
 /// Given a message, a sender, and a destination, it returns the delivery fees
-fn get_fungible_delivery_fees<S: SendXcm>(
-	destination: MultiLocation,
-	message: Xcm<()>,
-) -> u128 {
+fn get_fungible_delivery_fees<S: SendXcm>(destination: MultiLocation, message: Xcm<()>) -> u128 {
 	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else {
 		unreachable!("message can be sent; qed")
 	};

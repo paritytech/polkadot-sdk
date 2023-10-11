@@ -14,16 +14,16 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
 use frame_support::traits::{
 	fungible::Mutate as SingleFunMutate,
 	fungibles::{Create, Inspect, Mutate},
 };
 use integration_tests_common::constants::accounts::{ALICE, BOB};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
-use xcm_executor::traits::ConvertLocation;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
-use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
+use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn create_and_claim_treasury_spend() {
@@ -66,7 +66,10 @@ fn create_and_claim_treasury_spend() {
 			<AssetHubWestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(MultiLocation::parent());
 		dbg!(&delivery_fees);
-		assert_ok!(<Balances as SingleFunMutate<AccountId>>::mint_into(&treasury_account, delivery_fees));
+		assert_ok!(<Balances as SingleFunMutate<AccountId>>::mint_into(
+			&treasury_account,
+			delivery_fees
+		));
 		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
 		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), 0u128,);
@@ -80,17 +83,18 @@ fn create_and_claim_treasury_spend() {
 
 		// Relay will send a message to asset hub,
 		// so we need enough funds to pay for the delivery fees
-		let interior: Junctions = Junction::AccountId32 { id: bob.clone().into(), network: None }.into();
+		let interior: Junctions =
+			Junction::AccountId32 { id: bob.clone().into(), network: None }.into();
 		let destination: MultiLocation = Parachain(ASSET_HUB_ID).into();
-		let beneficiary: MultiLocation = Junction::AccountId32 { id: alice.clone().into(), network: None }.into();
+		let beneficiary: MultiLocation =
+			Junction::AccountId32 { id: alice.clone().into(), network: None }.into();
 		let asset: MultiAsset = (Here, 100u128).into();
 		let delivery_fees = xcm_helpers::pay_over_xcm_delivery_fees::<
 			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
 		>(interior, destination, beneficiary, asset);
-		assert_ok!(<Balances as SingleFunMutate<AccountId>>::mint_into(
-			&bob,
-			delivery_fees.into(),
-		));
+		assert_ok!(
+			<Balances as SingleFunMutate<AccountId>>::mint_into(&bob, delivery_fees.into(),)
+		);
 
 		// create a conversion rate from `asset_kind` to the native currency.
 		assert_ok!(AssetRate::create(root.clone(), Box::new(asset_kind.clone()), 2.into()));
