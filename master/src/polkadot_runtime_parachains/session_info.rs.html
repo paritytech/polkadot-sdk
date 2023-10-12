@@ -227,6 +227,7 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -246,8 +247,9 @@
 </span><span class="doccomment">//! The session info pallet provides information about validator sets
 //! from prior sessions needed for approvals and disputes.
 //!
-//! See &lt;https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html&gt;.
-
+//! See the documentation on [session info][session-info-page] in the implementers&#39; guide.
+//!
+//! [session-info-page]: https://paritytech.github.io/polkadot-sdk/book/runtime/session_info.html
 </span><span class="kw">use crate</span>::{
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
