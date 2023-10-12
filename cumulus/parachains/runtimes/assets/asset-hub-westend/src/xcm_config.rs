@@ -511,7 +511,7 @@ pub struct RelayTreasury;
 impl Contains<MultiLocation> for RelayTreasury {
 	fn contains(location: &MultiLocation) -> bool {
 		let relay_treasury_location = RelayTreasuryLocation::get();
-		matches!(location, relay_treasury_location)
+		*location == relay_treasury_location
 	}
 }
 
