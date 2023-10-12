@@ -937,6 +937,109 @@
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1023,6 +1126,20 @@
 	}
 }
 
+<span class="doccomment">/// Create a description of the remote treasury `location` if possible. No two locations should have
+/// the same descriptor.
+</span><span class="kw">pub struct </span>DescribeTreasuryVoiceTerminal;
+
+<span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeTreasuryVoiceTerminal {
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
+			(<span class="number">0</span>, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =&gt;
+				<span class="prelude-val">Some</span>((<span class="string">b&quot;Treasury&quot;</span>, <span class="string">b&quot;Voice&quot;</span>).encode()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		}
+	}
+}
+
 <span class="kw">pub type </span>DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
 <span class="kw">pub struct </span>DescribeBodyTerminal;
@@ -1040,6 +1157,7 @@
 	DescribePalletTerminal,
 	DescribeAccountId32Terminal,
 	DescribeAccountKey20Terminal,
+	DescribeTreasuryVoiceTerminal,
 	DescribeBodyTerminal,
 );
 
@@ -1267,6 +1385,25 @@
 	}
 }
 
+<span class="doccomment">/// Returns specified `TreasuryAccount` as `AccountId32` if passed `location` matches Treasury
+/// plurality.
+</span><span class="kw">pub struct </span>LocalTreasuryVoiceConvertsVia&lt;TreasuryAccount, AccountId&gt;(
+	PhantomData&lt;(TreasuryAccount, AccountId)&gt;,
+);
+<span class="kw">impl</span>&lt;TreasuryAccount: Get&lt;AccountId&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
+	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>LocalTreasuryVoiceConvertsVia&lt;TreasuryAccount, AccountId&gt;
+{
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">match </span><span class="kw-2">*</span>location {
+			MultiLocation {
+				parents: <span class="number">0</span>,
+				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			} =&gt; <span class="prelude-val">Some</span>((TreasuryAccount::get().into() <span class="kw">as </span>[u8; <span class="number">32</span>]).into()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		}
+	}
+}
+
 <span class="doccomment">/// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
 /// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`&#39;s `[u8; 32]` datum for the `id`.
@@ -1381,9 +1518,12 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-
+	<span class="kw">use </span>primitives::AccountId;
 	<span class="kw">pub type </span>ForeignChainAliasAccount&lt;AccountId&gt; =
 		HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;;
+
+	<span class="kw">pub type </span>ForeignChainAliasTreasuryAccount&lt;AccountId&gt; =
+		HashedDescription&lt;AccountId, DescribeFamily&lt;DescribeTreasuryVoiceTerminal&gt;&gt;;
 
 	<span class="kw">use </span>frame_support::parameter_types;
 	<span class="kw">use </span>xcm::latest::Junction;
@@ -1874,6 +2014,72 @@
 			interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
 		};
 		<span class="macro">assert!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).is_none());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>remote_account_convert_on_para_sending_from_remote_para_treasury() {
+		<span class="kw">let </span>relay_treasury_to_para_location = MultiLocation {
+			parents: <span class="number">1</span>,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+		<span class="kw">let </span>actual_description = ForeignChainAliasTreasuryAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(
+			<span class="kw-2">&amp;</span>relay_treasury_to_para_location,
+		)
+		.unwrap();
+
+		<span class="macro">assert_eq!</span>(
+			[
+				<span class="number">18</span>, <span class="number">84</span>, <span class="number">93</span>, <span class="number">74</span>, <span class="number">187</span>, <span class="number">212</span>, <span class="number">254</span>, <span class="number">71</span>, <span class="number">192</span>, <span class="number">127</span>, <span class="number">112</span>, <span class="number">51</span>, <span class="number">3</span>, <span class="number">42</span>, <span class="number">54</span>, <span class="number">24</span>, <span class="number">220</span>, <span class="number">185</span>, <span class="number">161</span>,
+				<span class="number">67</span>, <span class="number">205</span>, <span class="number">154</span>, <span class="number">108</span>, <span class="number">116</span>, <span class="number">108</span>, <span class="number">166</span>, <span class="number">226</span>, <span class="number">211</span>, <span class="number">29</span>, <span class="number">11</span>, <span class="number">244</span>, <span class="number">115
+			</span>],
+			actual_description
+		);
+
+		<span class="kw">let </span>para_to_para_treasury_location = MultiLocation {
+			parents: <span class="number">1</span>,
+			interior: X2(
+				Parachain(<span class="number">1001</span>),
+				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+			),
+		};
+		<span class="kw">let </span>actual_description = ForeignChainAliasTreasuryAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(
+			<span class="kw-2">&amp;</span>para_to_para_treasury_location,
+		)
+		.unwrap();
+
+		<span class="macro">assert_eq!</span>(
+			[
+				<span class="number">202</span>, <span class="number">52</span>, <span class="number">249</span>, <span class="number">30</span>, <span class="number">7</span>, <span class="number">99</span>, <span class="number">135</span>, <span class="number">128</span>, <span class="number">153</span>, <span class="number">139</span>, <span class="number">176</span>, <span class="number">141</span>, <span class="number">138</span>, <span class="number">234</span>, <span class="number">163</span>, <span class="number">150</span>, <span class="number">7</span>, <span class="number">36</span>,
+				<span class="number">204</span>, <span class="number">92</span>, <span class="number">220</span>, <span class="number">137</span>, <span class="number">87</span>, <span class="number">57</span>, <span class="number">73</span>, <span class="number">91</span>, <span class="number">243</span>, <span class="number">189</span>, <span class="number">245</span>, <span class="number">200</span>, <span class="number">217</span>, <span class="number">204
+			</span>],
+			actual_description
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>local_account_convert_on_para_from_relay_treasury() {
+		<span class="kw">let </span>location = MultiLocation {
+			parents: <span class="number">0</span>,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+
+		<span class="macro">parameter_types! </span>{
+			<span class="kw">pub </span>TreasuryAccountId: AccountId = AccountId::new([<span class="number">42u8</span>; <span class="number">32</span>]);
+		}
+
+		<span class="kw">let </span>actual_description =
+			LocalTreasuryVoiceConvertsVia::&lt;TreasuryAccountId, [u8; <span class="number">32</span>]&gt;::convert_location(
+				<span class="kw-2">&amp;</span>location,
+			)
+			.unwrap();
+
+		<span class="macro">assert_eq!</span>(
+			[
+				<span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>,
+				<span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42</span>, <span class="number">42
+			</span>],
+			actual_description
+		);
 	}
 }
 </code></pre></div></section></main></body></html>
