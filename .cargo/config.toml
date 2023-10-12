@@ -1,4 +1,9 @@
-#
+[build]
+rustdocflags = [
+  "-Dwarnings",
+  "-Arustdoc::redundant_explicit_links", # stylistic
+]
+
 # An auto defined `clippy` feature was introduced,
 # but it was found to clash with user defined features,
 # so was renamed to `cargo-clippy`.
@@ -30,6 +35,7 @@ rustflags = [
   "-Aclippy::derivable_impls",           # false positives
   "-Aclippy::stable_sort_primitive",     # prefer stable sort
   "-Aclippy::extra-unused-type-parameters", # stylistic
+  "-Aclippy::default_constructed_unit_structs", # stylistic
 ]
 
 [env]

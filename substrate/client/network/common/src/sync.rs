@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 use warp::WarpSyncProgress;
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc, task::Poll};
+use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -116,11 +116,18 @@ impl fmt::Display for BadPeer {
 
 impl std::error::Error for BadPeer {}
 
+/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportBlocksAction<B: BlockT> {
+	pub origin: BlockOrigin,
+	pub blocks: Vec<IncomingBlock<B>>,
+}
+
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
-	Import(BlockOrigin, Vec<IncomingBlock<Block>>),
+	Import(ImportBlocksAction<Block>),
 	/// A new block request needs to be made to the given peer.
 	Request(PeerId, BlockRequest<Block>),
 	/// Continue processing events.
@@ -134,7 +141,7 @@ pub enum OnBlockJustification<Block: BlockT> {
 	Nothing,
 	/// The justification should be imported.
 	Import {
-		peer: PeerId,
+		peer_id: PeerId,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justifications: Justifications,
@@ -202,6 +209,23 @@ pub enum PeerRequest<B: BlockT> {
 	Block(BlockRequest<B>),
 	State,
 	WarpProof,
+}
+
+#[derive(Debug)]
+pub enum PeerRequestType {
+	Block,
+	State,
+	WarpProof,
+}
+
+impl<B: BlockT> PeerRequest<B> {
+	pub fn get_type(&self) -> PeerRequestType {
+		match self {
+			PeerRequest::Block(_) => PeerRequestType::Block,
+			PeerRequest::State => PeerRequestType::State,
+			PeerRequest::WarpProof => PeerRequestType::WarpProof,
+		}
+	}
 }
 
 /// Wrapper for implementation-specific state request.
@@ -289,12 +313,10 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Returns the current number of peers stored within this state machine.
 	fn num_peers(&self) -> usize;
 
-	/// Returns the number of peers we're connected to and that are being queried.
-	fn num_active_peers(&self) -> usize;
-
 	/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
+	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -326,6 +348,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	///
 	/// If this corresponds to a valid block, this outputs the block that
 	/// must be imported in the import queue.
+	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -336,6 +359,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a response from the remote to a justification request that we made.
 	///
 	/// `request` must be the original request that triggered `response`.
+	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,
@@ -365,14 +389,9 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
 	/// import, so this functions checks for such blocks and returns them.
-	fn peer_disconnected(&mut self, who: &PeerId);
+	#[must_use]
+	fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
-
-	/// Advance the state of `ChainSync`
-	fn poll(&mut self, cx: &mut std::task::Context) -> Poll<()>;
-
-	/// Send block request to peer
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<Block>);
 }

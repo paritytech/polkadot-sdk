@@ -34,7 +34,7 @@ mod transactional;
 mod tt_macro;
 
 use frame_support_procedural_tools::generate_crate_access_2018;
-use macro_magic::import_tokens_attr;
+use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
@@ -442,8 +442,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 		quote::quote!(
 			const _: () = {
-				impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
 						fmt.write_str("<wasm:stripped>")
 					}
 				}
@@ -473,7 +473,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 	quote::quote_spanned!(name.span() =>
 		const _: () = {
-			impl #impl_generics core::cmp::Eq for #name #ty_generics #where_clause {}
+			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
 	)
 	.into()
@@ -751,7 +751,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-#[import_tokens_attr {
+#[import_tokens_attr_verbatim {
     format!(
         "{}::macro_magic",
         match generate_crate_access_2018("frame-support") {
@@ -864,7 +864,12 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
 	// internally wrap macro_magic's `#[export_tokens]` macro
-	match macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), true) {
+	match macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		true,
+		false,
+	) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -877,6 +882,8 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
@@ -1417,57 +1424,15 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_config]` attribute allows you to define the genesis configuration
-/// for the pallet.
-///
-/// Item is defined as either an enum or a struct. It needs to be public and implement the
-/// trait `GenesisBuild` with [`#[pallet::genesis_build]`](`macro@genesis_build`). The type
-/// generics are constrained to be either none, or `T` or `T: Config`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::genesis_config]
-/// pub struct GenesisConfig<T: Config> {
-/// 	_myfield: BalanceOf<T>,
-/// }
-/// ```
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::genesis_build]` attribute allows you to define how `genesis_configuration`
-/// is built. This takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's
-/// initial state.
-///
-/// The impl must be defined as:
-///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig<$maybe_generics> {
-/// 	fn build(&self) { $expr }
-/// }
-/// ```
-///
-/// I.e. a trait implementation with generic `T: Config`, of trait `GenesisBuild<T>` on
-/// type `GenesisConfig` with generics none or `T`.
-///
-/// E.g.:
-///
-/// ```ignore
-/// #[pallet::genesis_build]
-/// impl<T: Config> GenesisBuild<T> for GenesisConfig {
-/// 	fn build(&self) {}
-/// }
-/// ```
-///
-/// ## Macro expansion
-///
-/// The macro will add the following attribute:
-/// * `#[cfg(feature = "std")]`
-///
-/// The macro will implement `sp_runtime::BuildStorage`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1605,7 +1570,7 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	let _mod = parse_macro_input!(tokens_clone as ItemMod);
 
 	// use macro_magic's export_tokens as the internal implementation otherwise
-	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false) {
+	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false, true) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
