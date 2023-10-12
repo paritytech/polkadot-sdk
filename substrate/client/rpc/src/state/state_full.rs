@@ -227,11 +227,12 @@ where
 		// prepare diff
 		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
 		for key in end_keys {
-			// if a new key is present, add it to the diff
 			if !start_keys.contains(&key) {
+				// if a new key is present, add it to the diff
 				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
 				storage_diff.push((key, new_storage))
 			} else {
+				// else if the value has changed, add it to diff
 				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
 				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
 
