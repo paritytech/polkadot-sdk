@@ -26,7 +26,7 @@ impl RuntimeStructDef {
 		let item = if let syn::Item::Struct(item) = item {
 			item
 		} else {
-			let msg = "Invalid frame::runtime, expected struct definition";
+			let msg = "Invalid runtime::runtime, expected struct definition";
 			return Err(syn::Error::new(item.span(), msg))
 		};
 

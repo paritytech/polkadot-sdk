@@ -32,7 +32,7 @@
 //! These are automatically implemented by the `#[pallet::pallet]` macro.
 //!
 //! This macro also generates the following enums for ease of decoding if the respective type
-//! is defined inside `#[frame::derive]`:
+//! is defined inside `#[runtime::derive]`:
 //!  - `enum RuntimeCall`: This type contains the information needed to decode extrinsics.
 //!  - `enum RuntimeEvent`: This type contains the information needed to decode events.
 //!  - `enum RuntimeError`: While this cannot be used directly to decode `sp_runtime::DispatchError`
@@ -74,7 +74,7 @@
 //! For example,
 //!
 //! ```ignore
-//! #[frame::runtime]
+//! #[frame_support::runtime]
 //! mod runtime {
 //! 	//...
 //!
@@ -95,7 +95,7 @@
 //! 				macro = [{ frame_system::tt_default_parts_v2 }]
 //! 				~~> frame_support::match_and_insert! {
 //! 					target = [{
-//!                         #[frame::runtime]
+//!                         #[frame_support::runtime]
 //!                         mod runtime {
 //! 	                        //...
 //!
@@ -122,7 +122,7 @@
 //! 	target = [{
 //! 		frame_support::match_and_insert! {
 //! 			target = [{
-//!                  #[frame::runtime]
+//!                  #[frame_support::runtime]
 //!                  mod runtime {
 //! 	                 //...
 //!
@@ -145,7 +145,7 @@
 //! ```ignore
 //! frame_support::match_and_insert! {
 //! 	target = [{
-//! 		#[frame::runtime]
+//! 		#[frame_support::runtime]
 //!         mod runtime {
 //! 	        //...
 //!
@@ -163,7 +163,7 @@
 //!
 //! Which will then finally expand to the following:
 //! ```ignore
-//! #[frame::runtime]
+//! #[frame_support::runtime]
 //! mod runtime {
 //! 	//...
 //!
