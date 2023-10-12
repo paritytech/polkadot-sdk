@@ -857,7 +857,7 @@ benchmarks_instance_pallet! {
 		let signer_public = sr25519_generate(0.into(), None);
 		let signer: T::AccountId = MultiSigner::Sr25519(signer_public).into_account().into();
 
-	  set_default_balance::<T, I>(&item_owner);
+		set_default_balance::<T, I>(&item_owner);
 
 		let item = T::Helper::item(0);
 		assert_ok!(Nfts::<T, I>::force_mint(

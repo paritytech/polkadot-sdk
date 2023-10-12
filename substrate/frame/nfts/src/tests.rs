@@ -396,7 +396,7 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { mint_price: Some(1), ..Default::default() })
 		));
-		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 99);
+		assert_eq!(Balances::total_balance(&account(2)), 99);
 
 		// validate types
 		assert_ok!(Nfts::force_create(
@@ -612,8 +612,8 @@ fn transfer_owner_should_work() {
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
-		assert_eq!(<Test as Config>::Currency::total_balance(&account(1)), 98);
-		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 102);
+		assert_eq!(Balances::total_balance(&account(1)), 98);
+		assert_eq!(Balances::total_balance(&account(2)), 102);
 		assert_eq!(Balances::reserved_balance(&account(1)), 0);
 		assert_eq!(Balances::reserved_balance(&account(2)), 2);
 
@@ -635,8 +635,8 @@ fn transfer_owner_should_work() {
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(3)), Some(0)));
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(2)), 0, account(3)));
 		assert_eq!(collections(), vec![(account(3), 0)]);
-		assert_eq!(<Test as Config>::Currency::total_balance(&account(2)), 58);
-		assert_eq!(<Test as Config>::Currency::total_balance(&account(3)), 144);
+		assert_eq!(Balances::total_balance(&account(2)), 58);
+		assert_eq!(Balances::total_balance(&account(3)), 144);
 		assert_eq!(Balances::reserved_balance(&account(2)), 0);
 		assert_eq!(Balances::reserved_balance(&account(3)), 44);
 
@@ -2416,14 +2416,8 @@ fn buy_item_should_work() {
 		// validate the new owner & balances
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
 		assert_eq!(item.owner, user_2.clone());
-		assert_eq!(
-			<Test as Config>::Currency::total_balance(&user_1.clone()),
-			initial_balance + price_1
-		);
-		assert_eq!(
-			<Test as Config>::Currency::total_balance(&user_2.clone()),
-			initial_balance - price_1
-		);
+		assert_eq!(Balances::total_balance(&user_1.clone()), initial_balance + price_1);
+		assert_eq!(Balances::total_balance(&user_2.clone()), initial_balance - price_1);
 
 		// can't buy from yourself
 		assert_noop!(
@@ -2561,9 +2555,9 @@ fn pay_tips_should_work() {
 			]
 		));
 
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance - tip * 2);
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance + tip);
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_3), initial_balance + tip);
+		assert_eq!(Balances::total_balance(&user_1), initial_balance - tip * 2);
+		assert_eq!(Balances::total_balance(&user_2), initial_balance + tip);
+		assert_eq!(Balances::total_balance(&user_3), initial_balance + tip);
 
 		let events = events();
 		assert!(events.contains(&Event::<Test>::TipSent {
@@ -2895,8 +2889,8 @@ fn claim_swap_should_work() {
 		assert_eq!(item.owner, user_1.clone());
 
 		// validate the balances
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance + price);
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance - price);
+		assert_eq!(Balances::total_balance(&user_1), initial_balance + price);
+		assert_eq!(Balances::total_balance(&user_2), initial_balance - price);
 
 		// ensure we reset the swap
 		assert!(!PendingSwapOf::<Test>::contains_key(collection_id, item_1));
@@ -2941,8 +2935,8 @@ fn claim_swap_should_work() {
 		let item = Item::<Test>::get(collection_id, item_4).unwrap();
 		assert_eq!(item.owner, user_2);
 
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_1), initial_balance - price);
-		assert_eq!(<Test as Config>::Currency::total_balance(&user_2), initial_balance + price);
+		assert_eq!(Balances::total_balance(&user_1), initial_balance - price);
+		assert_eq!(Balances::total_balance(&user_2), initial_balance + price);
 	});
 }
 

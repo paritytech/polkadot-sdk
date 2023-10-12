@@ -21,7 +21,7 @@
 use crate::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::tokens::{Fortitude, Restriction},
+	traits::tokens::{Fortitude, Precision::Exact, Restriction},
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -148,7 +148,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&details.owner,
 				&new_owner,
 				details.owner_deposit,
-				BestEffort,
+				Exact,
 				Restriction::OnHold,
 				Fortitude::Polite,
 			)?;
@@ -225,7 +225,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&details.owner,
 				&new_owner,
 				details.owner_deposit,
-				BestEffort,
+				Exact,
 				Restriction::OnHold,
 				Fortitude::Polite,
 			)?;
