@@ -20,13 +20,13 @@
 use super::*;
 use frame_support::{
 	pallet_prelude::{BoundedVec, MaxEncodedLen},
-	traits::Get,
+	traits::{fungible::Inspect, Get},
 };
 use scale_info::TypeInfo;
 
 /// A type alias for handling balance deposits.
 pub(super) type DepositBalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as Inspect<<T as SystemConfig>::AccountId>>::Balance;
 /// A type alias representing the details of a collection.
 pub(super) type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
@@ -35,7 +35,7 @@ pub(super) type ItemDetailsFor<T, I> =
 	ItemDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
 /// A type alias to represent the price of an item.
 pub(super) type ItemPrice<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as Inspect<<T as SystemConfig>::AccountId>>::Balance;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CollectionDetails<AccountId, DepositBalance> {

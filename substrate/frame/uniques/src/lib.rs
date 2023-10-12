@@ -44,7 +44,15 @@ pub mod weights;
 
 use codec::{Decode, Encode};
 use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
+	fungible::{
+		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
+	},
+	tokens::{
+		Fortitude, Locker,
+		Precision::{BestEffort, Exact},
+		Restriction,
+	},
+	EnsureOriginWithArg,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
@@ -104,7 +112,12 @@ pub mod pallet {
 		type ItemId: Member + Parameter + MaxEncodedLen + Copy;
 
 		/// The currency mechanism, used for paying for reserves.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: InspectFungible<Self::AccountId>
+			+ MutateFungible<Self::AccountId>
+			+ HoldMutateFungible<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The origin which may forcibly create or destroy an item or otherwise alter privileged
 		/// attributes.
@@ -434,6 +447,14 @@ pub mod pallet {
 		}
 	}
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// An aggregated reserve for all the deposits made by collection's owner.
+		#[codec(index = 0)]
+		CollectionOwnerAggregatedDeposit,
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Issue a new collection of non-fungible items from a public origin.
@@ -694,9 +715,20 @@ pub mod pallet {
 				};
 				let old = details.deposit;
 				if old > deposit {
-					T::Currency::unreserve(&collection_details.owner, old - deposit);
+					T::Currency::release(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&collection_details.owner,
+						old - deposit,
+						BestEffort,
+					)?;
 				} else if deposit > old {
-					if T::Currency::reserve(&collection_details.owner, deposit - old).is_err() {
+					if T::Currency::hold(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&collection_details.owner,
+						deposit - old,
+					)
+					.is_err()
+					{
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
 						continue
@@ -872,11 +904,14 @@ pub mod pallet {
 				}
 
 				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(
+				T::Currency::transfer_on_hold(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
 					&details.owner,
 					&owner,
 					details.total_deposit,
-					Reserved,
+					Exact,
+					Restriction::OnHold,
+					Fortitude::Polite,
 				)?;
 				CollectionAccount::<T, I>::remove(&details.owner, &collection);
 				CollectionAccount::<T, I>::insert(&owner, &collection, ());
@@ -1137,9 +1172,18 @@ pub mod pallet {
 			}
 			collection_details.total_deposit.saturating_accrue(deposit);
 			if deposit > old_deposit {
-				T::Currency::reserve(&collection_details.owner, deposit - old_deposit)?;
+				T::Currency::hold(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					deposit - old_deposit,
+				)?;
 			} else if deposit < old_deposit {
-				T::Currency::unreserve(&collection_details.owner, old_deposit - deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					old_deposit - deposit,
+					BestEffort,
+				)?;
 			}
 
 			Attribute::<T, I>::insert((&collection, maybe_item, &key), (&value, deposit));
@@ -1191,7 +1235,12 @@ pub mod pallet {
 			{
 				collection_details.attributes.saturating_dec();
 				collection_details.total_deposit.saturating_reduce(deposit);
-				T::Currency::unreserve(&collection_details.owner, deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					deposit,
+					BestEffort,
+				)?;
 				Collection::<T, I>::insert(collection.clone(), &collection_details);
 				Self::deposit_event(Event::AttributeCleared { collection, maybe_item, key });
 			}
@@ -1251,9 +1300,18 @@ pub mod pallet {
 						.saturating_add(T::MetadataDepositBase::get());
 				}
 				if deposit > old_deposit {
-					T::Currency::reserve(&collection_details.owner, deposit - old_deposit)?;
+					T::Currency::hold(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&collection_details.owner,
+						deposit - old_deposit,
+					)?;
 				} else if deposit < old_deposit {
-					T::Currency::unreserve(&collection_details.owner, old_deposit - deposit);
+					T::Currency::release(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&collection_details.owner,
+						old_deposit - deposit,
+						BestEffort,
+					)?;
 				}
 				collection_details.total_deposit.saturating_accrue(deposit);
 
@@ -1303,7 +1361,12 @@ pub mod pallet {
 					collection_details.item_metadatas.saturating_dec();
 				}
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-				T::Currency::unreserve(&collection_details.owner, deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					deposit,
+					BestEffort,
+				)?;
 				collection_details.total_deposit.saturating_reduce(deposit);
 
 				Collection::<T, I>::insert(&collection, &collection_details);
@@ -1359,9 +1422,18 @@ pub mod pallet {
 						.saturating_add(T::MetadataDepositBase::get());
 				}
 				if deposit > old_deposit {
-					T::Currency::reserve(&details.owner, deposit - old_deposit)?;
+					T::Currency::hold(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&details.owner,
+						deposit - old_deposit,
+					)?;
 				} else if deposit < old_deposit {
-					T::Currency::unreserve(&details.owner, old_deposit - deposit);
+					T::Currency::release(
+						&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+						&details.owner,
+						old_deposit - deposit,
+						BestEffort,
+					)?;
 				}
 				details.total_deposit.saturating_accrue(deposit);
 
@@ -1407,7 +1479,12 @@ pub mod pallet {
 				ensure!(maybe_check_owner.is_none() || !was_frozen, Error::<T, I>::Frozen);
 
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-				T::Currency::unreserve(&details.owner, deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&details.owner,
+					deposit,
+					BestEffort,
+				)?;
 				Self::deposit_event(Event::CollectionMetadataCleared { collection });
 				Ok(())
 			})
