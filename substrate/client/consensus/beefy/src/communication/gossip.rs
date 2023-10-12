@@ -23,7 +23,7 @@ use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorCon
 use sp_core::hashing::twox_64;
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
-use codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode, WrapperTypeEncode};
 use log::{debug, trace};
 use parking_lot::{Mutex, RwLock};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -37,12 +37,15 @@ use crate::{
 	justification::{
 		proof_block_num_and_set_id, verify_with_validator_set, BeefyVersionedFinalityProof,
 	},
-	keystore::BeefyKeystore,
+	keystore::{AuthorityIdBound, BeefyKeystore},
 	LOG_TARGET,
 };
+use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VoteMessage,
+	//ecdsa_crypto::{Public as EcdsaPublic},
+	ValidatorSet,
+	ValidatorSetId,
+	VoteMessage,
 };
 
 // Timeout for rebroadcasting messages.
@@ -74,16 +77,25 @@ enum Consider {
 
 /// BEEFY gossip message type that gets encoded and sent on the network.
 #[derive(Debug, Encode, Decode)]
-pub(crate) enum GossipMessage<B: Block> {
+pub(crate) enum GossipMessage<B: Block, AuthorityId: AuthorityIdBound + Encode + Decode>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// BEEFY message with commitment and single signature.
-	Vote(VoteMessage<NumberFor<B>, AuthorityId, Signature>),
+	Vote(VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>),
 	/// BEEFY justification with commitment and signatures.
-	FinalityProof(BeefyVersionedFinalityProof<B>),
+	FinalityProof(BeefyVersionedFinalityProof<B, AuthorityId>),
 }
 
-impl<B: Block> GossipMessage<B> {
+impl<B: Block, AuthorityId: AuthorityIdBound> GossipMessage<B, AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// Return inner vote if this message is a Vote.
-	pub fn unwrap_vote(self) -> Option<VoteMessage<NumberFor<B>, AuthorityId, Signature>> {
+	pub fn unwrap_vote(
+		self,
+	) -> Option<VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>>
+	{
 		match self {
 			GossipMessage::Vote(vote) => Some(vote),
 			GossipMessage::FinalityProof(_) => None,
@@ -91,7 +103,7 @@ impl<B: Block> GossipMessage<B> {
 	}
 
 	/// Return inner finality proof if this message is a FinalityProof.
-	pub fn unwrap_finality_proof(self) -> Option<BeefyVersionedFinalityProof<B>> {
+	pub fn unwrap_finality_proof(self) -> Option<BeefyVersionedFinalityProof<B, AuthorityId>> {
 		match self {
 			GossipMessage::Vote(_) => None,
 			GossipMessage::FinalityProof(proof) => Some(proof),
@@ -119,31 +131,43 @@ where
 pub type MessageHash = [u8; 8];
 
 #[derive(Clone, Debug)]
-pub(crate) struct GossipFilterCfg<'a, B: Block> {
+pub(crate) struct GossipFilterCfg<'a, B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
 	pub validator_set: &'a ValidatorSet<AuthorityId>,
 }
 
 #[derive(Clone, Debug)]
-struct FilterInner<B: Block> {
+struct FilterInner<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub start: NumberFor<B>,
 	pub end: NumberFor<B>,
 	pub validator_set: ValidatorSet<AuthorityId>,
 }
 
-struct Filter<B: Block> {
-	inner: Option<FilterInner<B>>,
+struct Filter<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	inner: Option<FilterInner<B, AuthorityId>>,
 	live_votes: BTreeMap<NumberFor<B>, fnv::FnvHashSet<MessageHash>>,
 }
 
-impl<B: Block> Filter<B> {
+impl<B: Block, AuthorityId: AuthorityIdBound> Filter<B, AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub fn new() -> Self {
 		Self { inner: None, live_votes: BTreeMap::new() }
 	}
 
 	/// Update filter to new `start` and `set_id`.
-	fn update(&mut self, cfg: GossipFilterCfg<B>) {
+	fn update(&mut self, cfg: GossipFilterCfg<B, AuthorityId>) {
 		self.live_votes.retain(|&round, _| round >= cfg.start && round <= cfg.end);
 		// only clone+overwrite big validator_set if set_id changed
 		match self.inner.as_mut() {
@@ -226,25 +250,28 @@ impl<B: Block> Filter<B> {
 /// rejected/expired.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-pub(crate) struct GossipValidator<B>
+pub(crate) struct GossipValidator<B, AuthorityId: AuthorityIdBound>
 where
 	B: Block,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
-	gossip_filter: RwLock<Filter<B>>,
+	gossip_filter: RwLock<Filter<B, AuthorityId>>,
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
 	report_sender: TracingUnboundedSender<PeerReport>,
 }
 
-impl<B> GossipValidator<B>
+impl<B, AuthorityId> GossipValidator<B, AuthorityId>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
-	) -> (GossipValidator<B>, TracingUnboundedReceiver<PeerReport>) {
+	) -> (GossipValidator<B, AuthorityId>, TracingUnboundedReceiver<PeerReport>) {
 		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 10_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
@@ -260,7 +287,7 @@ where
 	/// Update gossip validator filter.
 	///
 	/// Only votes for `set_id` and rounds `start <= round <= end` will be accepted.
-	pub(crate) fn update_filter(&self, filter: GossipFilterCfg<B>) {
+	pub(crate) fn update_filter(&self, filter: GossipFilterCfg<B, AuthorityId>) {
 		debug!(target: LOG_TARGET, "🥩 New gossip filter {:?}", filter);
 		self.gossip_filter.write().update(filter);
 	}
@@ -271,7 +298,7 @@ where
 
 	fn validate_vote(
 		&self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
+		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 		sender: &PeerId,
 		data: &[u8],
 	) -> Action<B::Hash> {
@@ -322,10 +349,10 @@ where
 
 	fn validate_finality_proof(
 		&self,
-		proof: BeefyVersionedFinalityProof<B>,
+		proof: BeefyVersionedFinalityProof<B, AuthorityId>,
 		sender: &PeerId,
 	) -> Action<B::Hash> {
-		let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
+		let (round, set_id) = proof_block_num_and_set_id::<B, AuthorityId>(&proof);
 		self.known_peers.lock().note_vote_for(*sender, round);
 
 		let guard = self.gossip_filter.read();
@@ -341,7 +368,7 @@ where
 			.validator_set()
 			.map(|validator_set| {
 				if let Err((_, signatures_checked)) =
-					verify_with_validator_set::<B>(round, validator_set, &proof)
+					verify_with_validator_set::<B, AuthorityId>(round, validator_set, &proof)
 				{
 					debug!(
 						target: LOG_TARGET,
@@ -359,9 +386,11 @@ where
 	}
 }
 
-impl<B> Validator<B> for GossipValidator<B>
+impl<B, AuthorityId> Validator<B> for GossipValidator<B, AuthorityId>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn peer_disconnected(&self, _context: &mut dyn ValidatorContext<B>, who: &PeerId) {
 		self.known_peers.lock().remove(who);
@@ -374,7 +403,7 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		let raw = data;
-		let action = match GossipMessage::<B>::decode_all(&mut data) {
+		let action = match GossipMessage::<B, AuthorityId>::decode_all(&mut data) {
 			Ok(GossipMessage::Vote(msg)) => self.validate_vote(msg, sender, raw),
 			Ok(GossipMessage::FinalityProof(proof)) => self.validate_finality_proof(proof, sender),
 			Err(e) => {
@@ -402,26 +431,28 @@ where
 
 	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(B::Hash, &[u8]) -> bool + 'a> {
 		let filter = self.gossip_filter.read();
-		Box::new(move |_topic, mut data| match GossipMessage::<B>::decode_all(&mut data) {
-			Ok(GossipMessage::Vote(msg)) => {
-				let round = msg.commitment.block_number;
-				let set_id = msg.commitment.validator_set_id;
-				let expired = filter.consider_vote(round, set_id) != Consider::Accept;
-				trace!(target: LOG_TARGET, "🥩 Vote for round #{} expired: {}", round, expired);
-				expired
-			},
-			Ok(GossipMessage::FinalityProof(proof)) => {
-				let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
-				let expired = filter.consider_finality_proof(round, set_id) != Consider::Accept;
-				trace!(
-					target: LOG_TARGET,
-					"🥩 Finality proof for round #{} expired: {}",
-					round,
+		Box::new(move |_topic, mut data| {
+			match GossipMessage::<B, AuthorityId>::decode_all(&mut data) {
+				Ok(GossipMessage::Vote(msg)) => {
+					let round = msg.commitment.block_number;
+					let set_id = msg.commitment.validator_set_id;
+					let expired = filter.consider_vote(round, set_id) != Consider::Accept;
+					trace!(target: LOG_TARGET, "🥩 Vote for round #{} expired: {}", round, expired);
 					expired
-				);
-				expired
-			},
-			Err(_) => true,
+				},
+				Ok(GossipMessage::FinalityProof(proof)) => {
+					let (round, set_id) = proof_block_num_and_set_id::<B, AuthorityId>(&proof);
+					let expired = filter.consider_finality_proof(round, set_id) != Consider::Accept;
+					trace!(
+						target: LOG_TARGET,
+						"🥩 Finality proof for round #{} expired: {}",
+						round,
+						expired
+					);
+					expired
+				},
+				Err(_) => true,
+			}
 		})
 	}
 
@@ -446,7 +477,7 @@ where
 				return do_rebroadcast
 			}
 
-			match GossipMessage::<B>::decode_all(&mut data) {
+			match GossipMessage::<B, AuthorityId>::decode_all(&mut data) {
 				Ok(GossipMessage::Vote(msg)) => {
 					let round = msg.commitment.block_number;
 					let set_id = msg.commitment.validator_set_id;
@@ -455,7 +486,7 @@ where
 					allowed
 				},
 				Ok(GossipMessage::FinalityProof(proof)) => {
-					let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
+					let (round, set_id) = proof_block_num_and_set_id::<B, AuthorityId>(&proof);
 					let allowed = filter.consider_finality_proof(round, set_id) == Consider::Accept;
 					trace!(
 						target: LOG_TARGET,
@@ -478,8 +509,8 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, Commitment, Keyring, MmrRootHash, Payload,
-		SignedCommitment, VoteMessage,
+		ecdsa_crypto::{Public as EcdsaPublic, Signature},
+		known_payloads, Commitment, Keyring, MmrRootHash, Payload, SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -538,7 +569,7 @@ pub(crate) mod tests {
 	pub fn sign_commitment<BN: Encode>(who: &Keyring, commitment: &Commitment<BN>) -> Signature {
 		let store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
-		let beefy_keystore: BeefyKeystore = Some(store.into()).into();
+		let beefy_keystore: BeefyKeystore<EcdsaPublic> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
 

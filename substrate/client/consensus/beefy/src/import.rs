@@ -21,6 +21,7 @@ use std::sync::Arc;
 use log::debug;
 
 use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
@@ -34,6 +35,7 @@ use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResul
 use crate::{
 	communication::notification::BeefyVersionedFinalityProofSender,
 	justification::{decode_and_verify_finality_proof, BeefyVersionedFinalityProof},
+	keystore::AuthorityIdBound,
 	metric_inc,
 	metrics::BlockImportMetrics,
 	LOG_TARGET,
@@ -45,15 +47,22 @@ use crate::{
 /// Wraps a `inner: BlockImport` and ultimately defers to it.
 ///
 /// When using BEEFY, the block import worker should be using this block import object.
-pub struct BeefyBlockImport<Block: BlockT, Backend, RuntimeApi, I> {
+pub struct BeefyBlockImport<Block: BlockT, Backend, RuntimeApi, I, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	backend: Arc<Backend>,
 	runtime: Arc<RuntimeApi>,
 	inner: I,
-	justification_sender: BeefyVersionedFinalityProofSender<Block>,
+	justification_sender: BeefyVersionedFinalityProofSender<Block, AuthorityId>,
 	metrics: Option<BlockImportMetrics>,
 }
 
-impl<Block: BlockT, BE, Runtime, I: Clone> Clone for BeefyBlockImport<Block, BE, Runtime, I> {
+impl<Block: BlockT, BE, Runtime, I: Clone, AuthorityId: AuthorityIdBound> Clone
+	for BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	fn clone(&self) -> Self {
 		BeefyBlockImport {
 			backend: self.backend.clone(),
@@ -65,32 +74,38 @@ impl<Block: BlockT, BE, Runtime, I: Clone> Clone for BeefyBlockImport<Block, BE,
 	}
 }
 
-impl<Block: BlockT, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I> {
+impl<Block: BlockT, BE, Runtime, I, AuthorityId: AuthorityIdBound>
+	BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// Create a new BeefyBlockImport.
 	pub fn new(
 		backend: Arc<BE>,
 		runtime: Arc<Runtime>,
 		inner: I,
-		justification_sender: BeefyVersionedFinalityProofSender<Block>,
+		justification_sender: BeefyVersionedFinalityProofSender<Block, AuthorityId>,
 		metrics: Option<BlockImportMetrics>,
-	) -> BeefyBlockImport<Block, BE, Runtime, I> {
+	) -> BeefyBlockImport<Block, BE, Runtime, I, AuthorityId> {
 		BeefyBlockImport { backend, runtime, inner, justification_sender, metrics }
 	}
 }
 
-impl<Block, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I>
+impl<Block, BE, Runtime, I, AuthorityId> BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
 	Runtime: ProvideRuntimeApi<Block>,
 	Runtime::Api: BeefyApi<Block, AuthorityId> + Send,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn decode_and_verify(
 		&self,
 		encoded: &EncodedJustification,
 		number: NumberFor<Block>,
 		hash: <Block as BlockT>::Hash,
-	) -> Result<BeefyVersionedFinalityProof<Block>, ConsensusError> {
+	) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, ConsensusError> {
 		use ConsensusError::ClientImport as ImportError;
 		let beefy_genesis = self
 			.runtime
@@ -108,19 +123,22 @@ where
 			.map_err(|e| ImportError(e.to_string()))?
 			.ok_or_else(|| ImportError("Unknown validator set".to_string()))?;
 
-		decode_and_verify_finality_proof::<Block>(&encoded[..], number, &validator_set)
+		decode_and_verify_finality_proof::<Block, AuthorityId>(&encoded[..], number, &validator_set)
 			.map_err(|(err, _)| err)
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block, BE, Runtime, I> BlockImport<Block> for BeefyBlockImport<Block, BE, Runtime, I>
+impl<Block, BE, Runtime, I, AuthorityId> BlockImport<Block>
+	for BeefyBlockImport<Block, BE, Runtime, I, AuthorityId>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
 	Runtime: ProvideRuntimeApi<Block> + Send + Sync,
 	Runtime::Api: BeefyApi<Block, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	type Error = ConsensusError;
 

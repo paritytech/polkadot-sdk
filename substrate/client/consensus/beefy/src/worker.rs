@@ -24,13 +24,15 @@ use crate::{
 	},
 	error::Error,
 	justification::BeefyVersionedFinalityProof,
-	keystore::{BeefyKeystore, BeefySignatureHasher},
+	keystore::{AuthorityIdBound, BeefyKeystore, BeefySignatureHasher},
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
 	BeefyVoterLinks, LOG_TARGET,
 };
-use codec::{Codec, Decode, DecodeAll, Encode};
+use sp_application_crypto::RuntimeAppPublic;
+
+use codec::{Codec, Decode, DecodeAll, Encode, WrapperTypeEncode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
@@ -40,10 +42,8 @@ use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-	check_equivocation_proof,
-	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	check_equivocation_proof, BeefyApi, Commitment, ConsensusLog, EquivocationProof,
+	PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -55,6 +55,8 @@ use std::{
 	fmt::Debug,
 	sync::Arc,
 };
+
+use sp_std::marker::PhantomData;
 
 /// Bound for the number of pending justifications - use 2400 - the max number
 /// of justifications possible in a single session.
@@ -73,7 +75,10 @@ pub(crate) enum RoundAction {
 /// Note: this is part of `PersistedState` so any changes here should also bump
 /// aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct VoterOracle<B: Block> {
+pub(crate) struct VoterOracle<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
 	/// There are three voter states coresponding to three queue states:
@@ -83,19 +88,25 @@ pub(crate) struct VoterOracle<B: Block> {
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
 	///    In this state, everytime a session gets its mandatory block BEEFY finalized, it's popped
 	///    off the queue, eventually getting to state `2. up-to-date`.
-	sessions: VecDeque<Rounds<B>>,
+	sessions: VecDeque<Rounds<B, AuthorityId>>,
 	/// Min delta in block numbers between two blocks, BEEFY should vote on.
 	min_block_delta: u32,
 	/// Best block we received a GRANDPA finality for.
 	best_grandpa_block_header: <B as Block>::Header,
 	/// Best block a BEEFY voting round has been concluded for.
 	best_beefy_block: NumberFor<B>,
+
+	_phantom: PhantomData<fn() -> AuthorityId>,
 }
 
-impl<B: Block> VoterOracle<B> {
+impl<B: Block, AuthorityId> VoterOracle<B, AuthorityId>
+where
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// Verify provided `sessions` satisfies requirements, then build `VoterOracle`.
 	pub fn checked_new(
-		sessions: VecDeque<Rounds<B>>,
+		sessions: VecDeque<Rounds<B, AuthorityId>>,
 		min_block_delta: u32,
 		grandpa_header: <B as Block>::Header,
 		best_beefy: NumberFor<B>,
@@ -137,6 +148,7 @@ impl<B: Block> VoterOracle<B> {
 				min_block_delta: min_block_delta.max(1),
 				best_grandpa_block_header: grandpa_header,
 				best_beefy_block: best_beefy,
+				_phantom: PhantomData,
 			})
 		} else {
 			error!(
@@ -152,13 +164,13 @@ impl<B: Block> VoterOracle<B> {
 
 	// Return reference to rounds pertaining to first session in the queue.
 	// Voting will always happen at the head of the queue.
-	fn active_rounds(&self) -> Result<&Rounds<B>, Error> {
+	fn active_rounds(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
 		self.sessions.front().ok_or(Error::UninitSession)
 	}
 
 	// Return mutable reference to rounds pertaining to first session in the queue.
 	// Voting will always happen at the head of the queue.
-	fn active_rounds_mut(&mut self) -> Result<&mut Rounds<B>, Error> {
+	fn active_rounds_mut(&mut self) -> Result<&mut Rounds<B, AuthorityId>, Error> {
 		self.sessions.front_mut().ok_or(Error::UninitSession)
 	}
 
@@ -177,7 +189,7 @@ impl<B: Block> VoterOracle<B> {
 	}
 
 	/// Add new observed session to the Oracle.
-	pub fn add_session(&mut self, rounds: Rounds<B>) {
+	pub fn add_session(&mut self, rounds: Rounds<B, AuthorityId>) {
 		self.sessions.push_back(rounds);
 		// Once we add a new session we can drop/prune previous session if it's been finalized.
 		self.try_prune();
@@ -263,21 +275,27 @@ impl<B: Block> VoterOracle<B> {
 ///
 /// Note: Any changes here should also bump aux-db schema version.
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct PersistedState<B: Block> {
+pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	/// Best block we voted on.
 	best_voted: NumberFor<B>,
 	/// Chooses which incoming votes to accept and which votes to generate.
 	/// Keeps track of voting seen for current and future rounds.
-	voting_oracle: VoterOracle<B>,
+	voting_oracle: VoterOracle<B, AuthorityId>,
 	/// Pallet-beefy genesis block - block number when BEEFY consensus started for this chain.
 	pallet_genesis: NumberFor<B>,
 }
 
-impl<B: Block> PersistedState<B> {
+impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub fn checked_new(
 		grandpa_header: <B as Block>::Header,
 		best_beefy: NumberFor<B>,
-		sessions: VecDeque<Rounds<B>>,
+		sessions: VecDeque<Rounds<B, AuthorityId>>,
 		min_block_delta: u32,
 		pallet_genesis: NumberFor<B>,
 	) -> Option<Self> {
@@ -306,7 +324,7 @@ impl<B: Block> PersistedState<B> {
 		self.voting_oracle.best_grandpa_block_header = best_grandpa;
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B>, Error> {
+	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
@@ -316,39 +334,45 @@ impl<B: Block> PersistedState<B> {
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block> {
+pub(crate) struct BeefyComms<B: Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, AuthorityId>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
-	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
+	pub on_demand_justifications: OnDemandJustificationsEngine<B, AuthorityId>,
 }
 
 /// A BEEFY worker plays the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	// utilities
 	pub backend: Arc<BE>,
 	pub payload_provider: P,
 	pub runtime: Arc<RuntimeApi>,
 	pub sync: Arc<S>,
-	pub key_store: BeefyKeystore,
+	pub key_store: BeefyKeystore<AuthorityId>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, AuthorityId>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
-	pub links: BeefyVoterLinks<B>,
+	pub links: BeefyVoterLinks<B, AuthorityId>,
 
 	// voter state
 	/// BEEFY client metrics.
 	pub metrics: Option<VoterMetrics>,
 	/// Buffer holding justifications for future processing.
-	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+	pub pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
 	/// Persisted voter state.
-	pub persisted_state: PersistedState<B>,
+	pub persisted_state: PersistedState<B, AuthorityId>,
 }
 
-impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
+impl<B, BE, P, R, S, AuthorityId> BeefyWorker<B, BE, P, R, S, AuthorityId>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
@@ -356,16 +380,18 @@ where
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
 	}
 
-	fn voting_oracle(&self) -> &VoterOracle<B> {
+	fn voting_oracle(&self) -> &VoterOracle<B, AuthorityId> {
 		&self.persisted_state.voting_oracle
 	}
 
-	fn active_rounds(&mut self) -> Result<&Rounds<B>, Error> {
+	fn active_rounds(&mut self) -> Result<&Rounds<B, AuthorityId>, Error> {
 		self.persisted_state.voting_oracle.active_rounds()
 	}
 
@@ -473,7 +499,8 @@ where
 				})
 				.chain(std::iter::once(header.clone()))
 			{
-				if let Some(new_validator_set) = find_authorities_change::<B>(&header) {
+				if let Some(new_validator_set) = find_authorities_change::<B, AuthorityId>(&header)
+				{
 					self.init_session_at(new_validator_set, *header.number());
 				}
 			}
@@ -494,13 +521,17 @@ where
 	/// Based on [VoterOracle] this vote is either processed here or discarded.
 	fn triage_incoming_vote(
 		&mut self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
-	) -> Result<(), Error> {
+		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	) -> Result<(), Error>
+	where
+		<AuthorityId as RuntimeAppPublic>::Signature: Encode + Decode,
+	{
 		let block_num = vote.commitment.block_number;
 		match self.voting_oracle().triage_round(block_num)? {
 			RoundAction::Process =>
 				if let Some(finality_proof) = self.handle_vote(vote)? {
-					let gossip_proof = GossipMessage::<B>::FinalityProof(finality_proof);
+					let gossip_proof =
+						GossipMessage::<B, AuthorityId>::FinalityProof(finality_proof);
 					let encoded_proof = gossip_proof.encode();
 					self.comms.gossip_engine.gossip_message(
 						proofs_topic::<B>(),
@@ -519,7 +550,7 @@ where
 	/// Expects `justification` to be valid.
 	fn triage_incoming_justif(
 		&mut self,
-		justification: BeefyVersionedFinalityProof<B>,
+		justification: BeefyVersionedFinalityProof<B, AuthorityId>,
 	) -> Result<(), Error> {
 		let signed_commitment = match justification {
 			VersionedFinalityProof::V1(ref sc) => sc,
@@ -551,8 +582,8 @@ where
 
 	fn handle_vote(
 		&mut self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
-	) -> Result<Option<BeefyVersionedFinalityProof<B>>, Error> {
+		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	) -> Result<Option<BeefyVersionedFinalityProof<B, AuthorityId>>, Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds_mut()?;
 
 		let block_number = vote.commitment.block_number;
@@ -599,7 +630,10 @@ where
 	/// 4. Send best block hash and `finality_proof` to RPC worker.
 	///
 	/// Expects `finality proof` to be valid and for a block > current-best-beefy.
-	fn finalize(&mut self, finality_proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
+	fn finalize(
+		&mut self,
+		finality_proof: BeefyVersionedFinalityProof<B, AuthorityId>,
+	) -> Result<(), Error> {
 		let block_num = match finality_proof {
 			VersionedFinalityProof::V1(ref sc) => sc.commitment.block_number,
 		};
@@ -762,14 +796,15 @@ where
 			error!(target: LOG_TARGET, "🥩 Error handling self vote: {}", err);
 			err
 		})? {
-			let encoded_proof = GossipMessage::<B>::FinalityProof(finality_proof).encode();
+			let encoded_proof =
+				GossipMessage::<B, AuthorityId>::FinalityProof(finality_proof).encode();
 			self.comms
 				.gossip_engine
 				.gossip_message(proofs_topic::<B>(), encoded_proof, true);
 		} else {
 			metric_inc!(self, beefy_votes_sent);
 			debug!(target: LOG_TARGET, "🥩 Sent vote message: {:?}", vote);
-			let encoded_vote = GossipMessage::<B>::Vote(vote).encode();
+			let encoded_vote = GossipMessage::<B, AuthorityId>::Vote(vote).encode();
 			self.comms.gossip_engine.gossip_message(votes_topic::<B>(), encoded_vote, false);
 		}
 
@@ -807,9 +842,11 @@ where
 	/// Should never end, returns `Error` otherwise.
 	pub(crate) async fn run(
 		mut self,
-		block_import_justif: &mut Fuse<NotificationReceiver<BeefyVersionedFinalityProof<B>>>,
+		block_import_justif: &mut Fuse<
+			NotificationReceiver<BeefyVersionedFinalityProof<B, AuthorityId>>,
+		>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
-	) -> (Error, BeefyComms<B>) {
+	) -> (Error, BeefyComms<B, AuthorityId>) {
 		info!(
 			target: LOG_TARGET,
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
@@ -821,9 +858,10 @@ where
 				.gossip_engine
 				.messages_for(votes_topic::<B>())
 				.filter_map(|notification| async move {
-					let vote = GossipMessage::<B>::decode_all(&mut &notification.message[..])
-						.ok()
-						.and_then(|message| message.unwrap_vote());
+					let vote =
+						GossipMessage::<B, AuthorityId>::decode_all(&mut &notification.message[..])
+							.ok()
+							.and_then(|message| message.unwrap_vote());
 					trace!(target: LOG_TARGET, "🥩 Got vote message: {:?}", vote);
 					vote
 				})
@@ -834,9 +872,10 @@ where
 				.gossip_engine
 				.messages_for(proofs_topic::<B>())
 				.filter_map(|notification| async move {
-					let proof = GossipMessage::<B>::decode_all(&mut &notification.message[..])
-						.ok()
-						.and_then(|message| message.unwrap_finality_proof());
+					let proof =
+						GossipMessage::<B, AuthorityId>::decode_all(&mut &notification.message[..])
+							.ok()
+							.and_then(|message| message.unwrap_finality_proof());
 					trace!(target: LOG_TARGET, "🥩 Got gossip proof message: {:?}", proof);
 					proof
 				})
@@ -938,7 +977,11 @@ where
 	/// isn't necessarily the best block if there are pending authority set changes.
 	pub(crate) fn report_equivocation(
 		&self,
-		proof: EquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: EquivocationProof<
+			NumberFor<B>,
+			AuthorityId,
+			<AuthorityId as RuntimeAppPublic>::Signature,
+		>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
 		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
@@ -994,9 +1037,13 @@ where
 
 /// Scan the `header` digest log for a BEEFY validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
-pub(crate) fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<AuthorityId>>
+pub(crate) fn find_authorities_change<B, AuthorityId>(
+	header: &B::Header,
+) -> Option<ValidatorSet<AuthorityId>>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
 
@@ -1076,7 +1123,7 @@ pub(crate) mod tests {
 			&self.voting_oracle
 		}
 
-		pub fn active_round(&self) -> Result<&Rounds<B>, Error> {
+		pub fn active_round(&self) -> Result<&Rounds<B, AuthorityId>, Error> {
 			self.voting_oracle.active_rounds()
 		}
 
@@ -1090,7 +1137,7 @@ pub(crate) mod tests {
 	}
 
 	impl<B: super::Block> VoterOracle<B> {
-		pub fn sessions(&self) -> &VecDeque<Rounds<B>> {
+		pub fn sessions(&self) -> &VecDeque<Rounds<B, AuthorityId>> {
 			&self.sessions
 		}
 	}

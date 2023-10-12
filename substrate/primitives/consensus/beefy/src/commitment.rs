@@ -235,7 +235,7 @@ where
 /// Note that this enum is subject to change in the future with introduction
 /// of additional cryptographic primitives to BEEFY.
 #[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
-pub enum VersionedFinalityProof<N, S> {
+pub enum VersionedFinalityProof<N, S>{
 	#[codec(index = 1)]
 	/// Current active version
 	V1(SignedCommitment<N, S>),

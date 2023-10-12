@@ -16,21 +16,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::keystore::BeefyKeystore;
-use codec::{DecodeAll, Encode};
+use crate::keystore::{AuthorityIdBound, BeefyKeystore};
+use codec::{Decode, DecodeAll, Encode, WrapperTypeEncode};
+use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VersionedFinalityProof,
-};
+use sp_consensus_beefy::{ValidatorSet, ValidatorSetId, VersionedFinalityProof};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// A finality proof with matching BEEFY authorities' signatures.
-pub type BeefyVersionedFinalityProof<Block> = VersionedFinalityProof<NumberFor<Block>, Signature>;
+pub type BeefyVersionedFinalityProof<Block, AuthorityId: AuthorityIdBound>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Encode + Decode,
+= VersionedFinalityProof<NumberFor<Block>, <AuthorityId as RuntimeAppPublic>::Signature>;
 
-pub(crate) fn proof_block_num_and_set_id<Block: BlockT>(
-	proof: &BeefyVersionedFinalityProof<Block>,
-) -> (NumberFor<Block>, ValidatorSetId) {
+pub(crate) fn proof_block_num_and_set_id<Block: BlockT, AuthorityId: AuthorityIdBound>(
+	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
+) -> (NumberFor<Block>, ValidatorSetId)
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	match proof {
 		VersionedFinalityProof::V1(sc) =>
 			(sc.commitment.block_number, sc.commitment.validator_set_id),
@@ -38,22 +42,29 @@ pub(crate) fn proof_block_num_and_set_id<Block: BlockT>(
 }
 
 /// Decode and verify a Beefy FinalityProof.
-pub(crate) fn decode_and_verify_finality_proof<Block: BlockT>(
+pub(crate) fn decode_and_verify_finality_proof<Block: BlockT, AuthorityId: AuthorityIdBound>(
 	encoded: &[u8],
 	target_number: NumberFor<Block>,
 	validator_set: &ValidatorSet<AuthorityId>,
-) -> Result<BeefyVersionedFinalityProof<Block>, (ConsensusError, u32)> {
-	let proof = <BeefyVersionedFinalityProof<Block>>::decode_all(&mut &*encoded)
+) -> Result<BeefyVersionedFinalityProof<Block, AuthorityId>, (ConsensusError, u32)>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
+	let proof = <BeefyVersionedFinalityProof<Block, AuthorityId>>::decode_all(&mut &*encoded)
 		.map_err(|_| (ConsensusError::InvalidJustification, 0))?;
-	verify_with_validator_set::<Block>(target_number, validator_set, &proof).map(|_| proof)
+	verify_with_validator_set::<Block, AuthorityId>(target_number, validator_set, &proof)
+		.map(|_| proof)
 }
 
 /// Verify the Beefy finality proof against the validator set at the block it was generated.
-pub(crate) fn verify_with_validator_set<Block: BlockT>(
+pub(crate) fn verify_with_validator_set<Block: BlockT, AuthorityId: AuthorityIdBound>(
 	target_number: NumberFor<Block>,
 	validator_set: &ValidatorSet<AuthorityId>,
-	proof: &BeefyVersionedFinalityProof<Block>,
-) -> Result<(), (ConsensusError, u32)> {
+	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
+) -> Result<(), (ConsensusError, u32)>
+where
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
+{
 	let mut signatures_checked = 0u32;
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {
@@ -76,7 +87,7 @@ pub(crate) fn verify_with_validator_set<Block: BlockT>(
 						.as_ref()
 						.map(|sig| {
 							signatures_checked += 1;
-							BeefyKeystore::verify(id, sig, &message[..])
+							BeefyKeystore::verify(*id, sig, &message[..])
 						})
 						.unwrap_or(false)
 				})

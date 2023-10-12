@@ -59,6 +59,7 @@ pub use paste;
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
 pub mod bls;
+pub mod paired_crypto;
 pub mod defer;
 pub mod ecdsa;
 pub mod ed25519;
@@ -74,6 +75,8 @@ pub mod uint;
 
 #[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
+#[cfg(feature = "bls-experimental")]
+pub use paired_crypto::ecdsa_bls377;
 
 pub use self::{
 	hash::{convert_hash, H160, H256, H512},
