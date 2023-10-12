@@ -554,14 +554,26 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_clean_hrmp(*_inbound, *_outbound))]
+		#[pallet::weight(<T as Config>::WeightInfo::force_clean_hrmp(*num_inbound, *num_outbound))]
 		pub fn force_clean_hrmp(
 			origin: OriginFor<T>,
 			para: ParaId,
-			_inbound: u32,
-			_outbound: u32,
+			num_inbound: u32,
+			num_outbound: u32,
 		) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpIngressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_inbound as usize,
+				Error::<T>::WrongWitness
+			);
+			ensure!(
+				HrmpEgressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_outbound as usize,
+				Error::<T>::WrongWitness
+			);
+
 			Self::clean_hrmp_after_outgoing(&para);
 			Ok(())
 		}
@@ -575,9 +587,16 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_open(*_channels))]
-		pub fn force_process_hrmp_open(origin: OriginFor<T>, _channels: u32) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_open(*channels))]
+		pub fn force_process_hrmp_open(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
+				Error::<T>::WrongWitness
+			);
+
 			let host_config = configuration::Pallet::<T>::config();
 			Self::process_hrmp_open_channel_requests(&host_config);
 			Ok(())
@@ -592,9 +611,16 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_close(*_channels))]
-		pub fn force_process_hrmp_close(origin: OriginFor<T>, _channels: u32) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_close(*channels))]
+		pub fn force_process_hrmp_close(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpCloseChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
+				Error::<T>::WrongWitness
+			);
+
 			Self::process_hrmp_close_channel_requests();
 			Ok(())
 		}
