@@ -92,7 +92,6 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		// dbg!(amount, Self::reducible_balance(who, Protect, Force));
 		ensure!(
 			amount <= Self::reducible_balance(who, Protect, Force),
 			TokenError::FundsUnavailable
