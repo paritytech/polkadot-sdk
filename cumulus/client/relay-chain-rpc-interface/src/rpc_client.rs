@@ -597,6 +597,14 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn parachain_host_disabled_validators(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ValidatorIndex>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_disabled_validators", at, None::<()>)
+			.await
+	}
+
 	#[allow(missing_docs)]
 	pub async fn parachain_host_async_backing_params(
 		&self,
