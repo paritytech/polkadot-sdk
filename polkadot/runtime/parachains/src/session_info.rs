@@ -19,7 +19,7 @@
 //!
 //! See the documentation on [session info][session-info-page] in the implementers' guide.
 //!
-//! [session-info-page]: https://paritytech.github.io/polkadot-sdk/master/polkadot_runtime_parachains/session_info/index.html
+//! [session-info-page]: https://paritytech.github.io/polkadot-sdk/book/runtime/session_info.html
 use crate::{
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
