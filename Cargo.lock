@@ -869,6 +869,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "westend-runtime",
+ "westend-runtime-constants",
  "xcm-emulator",
 ]
 
@@ -942,6 +943,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime",
  "westend-runtime-constants",
 ]
 
@@ -3543,6 +3545,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-parachains",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3723,8 +3726,10 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "log",
+ "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -13995,6 +14000,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "scale-info",
  "sp-api",
  "sp-block-builder",

@@ -47,7 +47,7 @@ use frame_support::{
 	traits::{EnsureOrigin, Get},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -110,7 +110,7 @@ pub mod pallet {
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
 		/// The price for delivering an XCM to a sibling parachain destination.
-		type PriceForSiblingDelivery: PriceForParachainDelivery;
+		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -970,28 +970,6 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 	}
-
-	/// Increases the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Returns the new delivery fee factor after the increase.
-	pub(crate) fn increase_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
-			*f
-		})
-	}
-
-	/// Decreases the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
-	///
-	/// Returns the new delivery fee factor after the decrease.
-	pub(crate) fn decrease_fee_factor(para: ParaId) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
-			*f
-		})
-	}
 }
 
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
@@ -1203,7 +1181,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
-				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
+				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				Ok(((id, versioned_xcm), price))
@@ -1231,7 +1209,23 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	fn get_fee_factor(para: ParaId) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::get(para)
+	type Id = ParaId;
+
+	fn get_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::get(id)
+	}
+
+	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+			*f
+		})
+	}
+
+	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
+			*f
+		})
 	}
 }

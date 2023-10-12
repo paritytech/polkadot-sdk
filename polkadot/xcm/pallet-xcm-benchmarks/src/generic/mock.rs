@@ -23,7 +23,7 @@ use frame_support::{
 	traits::{Everything, OriginTrait},
 	weights::Weight,
 };
-use sp_core::H256;
+use sp_core::{ConstU32, H256};
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{
@@ -40,6 +40,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmGenericBenchmarks: generic::{Pallet},
 	}
 );
@@ -137,6 +138,26 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Aliasers;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: u64 = 7;
+}
+
+impl pallet_balances::Config for Test {
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type Balance = u64;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type FreezeIdentifier = ();
+	type MaxHolds = ConstU32<0>;
+	type MaxFreezes = ConstU32<0>;
+}
+
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
@@ -156,6 +177,7 @@ impl crate::Config for Test {
 }
 
 impl generic::Config for Test {
+	type TransactAsset = Balances;
 	type RuntimeCall = RuntimeCall;
 
 	fn worst_case_response() -> (u64, Response) {
@@ -188,7 +210,7 @@ impl generic::Config for Test {
 
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
 		let assets: MultiAsset = (Concrete(Here.into()), 100).into();
-		Ok((Default::default(), Default::default(), assets))
+		Ok((Default::default(), account_id_junction::<Test>(1).into(), assets))
 	}
 
 	fn export_message_origin_and_destination(

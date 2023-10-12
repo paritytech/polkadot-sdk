@@ -45,6 +45,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
+use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
@@ -52,7 +53,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -177,6 +178,20 @@ where
 	check_version: bool,
 }
 
+pub mod ump_constants {
+	use super::FixedU128;
+
+	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
+	/// starts getting exponentially more expensive.
+	/// `2` means the price starts to increase when queue is half full.
+	pub const THRESHOLD_FACTOR: u32 = 2;
+	/// The base number the delivery fee factor gets multiplied by every time it is increased.
+	/// Also the number it gets divided by when decreased.
+	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
+	/// The base number message size in KB is multiplied by before increasing the fee factor.
+	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -240,6 +255,9 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Handles actually sending upward messages by moving them from `PendingUpwardMessages` to
+		/// `UpwardMessages`. Decreases the delivery fee factor if after sending messages, the queue
+		/// total size is less than the threshold (see [`ump_constants::THRESHOLD_FACTOR`]).
 		fn on_finalize(_: BlockNumberFor<T>) {
 			<DidSetValidationCode<T>>::kill();
 			<UpgradeRestrictionSignal<T>>::kill();
@@ -325,6 +343,17 @@ pub mod pallet {
 
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
+
+				// If the total size of the pending messages is less than the threshold,
+				// we decrease the fee factor, since the queue is less congested.
+				// This makes delivery of new messages cheaper.
+				let threshold = host_config
+					.max_upward_queue_size
+					.saturating_div(ump_constants::THRESHOLD_FACTOR);
+				let remaining_total_size: usize = up.iter().map(UpwardMessage::len).sum();
+				if remaining_total_size <= threshold as usize {
+					Self::decrease_fee_factor(());
+				}
 
 				(num, total_size)
 			});
@@ -721,7 +750,7 @@ pub mod pallet {
 		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
-	/// latest the latest HRMP watermark. Used for limiting the acceptance of new blocks with
+	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	#[pallet::storage]
 	pub(super) type AggregatedUnincludedSegment<T: Config> =
@@ -860,6 +889,17 @@ pub mod pallet {
 	pub(super) type PendingUpwardMessages<T: Config> =
 		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
+	/// Initialization value for the delivery fee factor for UMP.
+	#[pallet::type_value]
+	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
+		FixedU128::from_u32(1)
+	}
+
+	/// The factor to multiply the base delivery fee by for UMP.
+	#[pallet::storage]
+	pub(super) type UpwardDeliveryFeeFactor<T: Config> =
+		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	#[pallet::storage]
@@ -973,6 +1013,31 @@ impl<T: Config> Pallet<T> {
 	pub fn unincluded_segment_size_after(included_hash: T::Hash) -> u32 {
 		let segment = UnincludedSegment::<T>::get();
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
+	}
+}
+
+impl<T: Config> FeeTracker for Pallet<T> {
+	type Id = ();
+
+	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+		UpwardDeliveryFeeFactor::<T>::get()
+	}
+
+	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
+		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
+			*f = f.saturating_mul(
+				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
+			);
+			*f
+		})
+	}
+
+	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
+		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
+			*f =
+				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
+			*f
+		})
 	}
 }
 
@@ -1468,7 +1533,13 @@ impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Puts a message in the `PendingUpwardMessages` storage item.
+	/// The message will be later sent in `on_finalize`.
+	/// Checks host configuration to see if message is too big.
+	/// Increases the delivery fee factor if the queue is sufficiently (see
+	/// [`ump_constants::THRESHOLD_FACTOR`]) congested.
 	pub fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
+		let message_len = message.len();
 		// Check if the message fits into the relay-chain constraints.
 		//
 		// Note, that we are using `host_configuration` here which may be from the previous
@@ -1482,8 +1553,20 @@ impl<T: Config> Pallet<T> {
 		//
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = Self::host_configuration() {
-			if message.len() > cfg.max_upward_message_size as usize {
+			if message_len > cfg.max_upward_message_size as usize {
 				return Err(MessageSendError::TooBig)
+			}
+			let threshold =
+				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
+			// We check the threshold against total size and not number of messages since messages
+			// could be big or small.
+			let pending_messages = PendingUpwardMessages::<T>::get();
+			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
+			if total_size > threshold as usize {
+				// We increase the fee factor by a factor based on the new message's size in KB
+				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
+					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
+				Self::increase_fee_factor((), message_size_factor);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
@@ -1496,6 +1579,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// Thus fall through here.
 		};
+
 		<PendingUpwardMessages<T>>::append(message.clone());
 
 		// The relay ump does not use using_encoded

@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
 };
 use frame_system::EnsureRoot;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -205,7 +206,7 @@ impl Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -31,25 +31,40 @@ use SendError::*;
 
 /// Simple value-bearing trait for determining/expressing the assets required to be paid for a
 /// messages to be delivered to a parachain.
-pub trait PriceForParachainDelivery {
+pub trait PriceForMessageDelivery {
+	/// Type used for charging different prices to different destinations
+	type Id;
 	/// Return the assets required to deliver `message` to the given `para` destination.
-	fn price_for_parachain_delivery(para: ParaId, message: &Xcm<()>) -> MultiAssets;
+	fn price_for_delivery(id: Self::Id, message: &Xcm<()>) -> MultiAssets;
 }
-impl PriceForParachainDelivery for () {
-	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> MultiAssets {
+impl PriceForMessageDelivery for () {
+	type Id = ();
+
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
 		MultiAssets::new()
 	}
 }
 
-/// Implementation of [`PriceForParachainDelivery`] which returns a fixed price.
+pub struct NoPriceForMessageDelivery<Id>(PhantomData<Id>);
+impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
+	type Id = Id;
+
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
+		MultiAssets::new()
+	}
+}
+
+/// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
-	fn price_for_parachain_delivery(_: ParaId, _: &Xcm<()>) -> MultiAssets {
+impl<T: Get<MultiAssets>> PriceForMessageDelivery for ConstantPrice<T> {
+	type Id = ();
+
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
 		T::get()
 	}
 }
 
-/// Implementation of [`PriceForParachainDelivery`] which returns an exponentially increasing price.
+/// Implementation of [`PriceForMessageDelivery`] which returns an exponentially increasing price.
 /// The formula for the fee is based on the sum of a base fee plus a message length fee, multiplied
 /// by a specified factor. In mathematical form:
 ///
@@ -64,13 +79,15 @@ impl<T: Get<MultiAssets>> PriceForParachainDelivery for ConstantPrice<T> {
 /// - `M`: The fee to pay for each and every byte of the message after encoding it.
 /// - `F`: A fee factor multiplier. It can be understood as the exponent term in the formula.
 pub struct ExponentialPrice<A, B, M, F>(sp_std::marker::PhantomData<(A, B, M, F)>);
-impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParachainDelivery
+impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessageDelivery
 	for ExponentialPrice<A, B, M, F>
 {
-	fn price_for_parachain_delivery(para: ParaId, msg: &Xcm<()>) -> MultiAssets {
+	type Id = F::Id;
+
+	fn price_for_delivery(id: Self::Id, msg: &Xcm<()>) -> MultiAssets {
 		let msg_fee = (msg.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(msg_fee);
-		let amount = F::get_fee_factor(para).saturating_mul_int(fee_sum);
+		let amount = F::get_fee_factor(id).saturating_mul_int(fee_sum);
 		(A::get(), amount).into()
 	}
 }
@@ -78,8 +95,10 @@ impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForParacha
 /// XCM sender for relay chain. It only sends downward message.
 pub struct ChildParachainRouter<T, W, P>(PhantomData<(T, W, P)>);
 
-impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P: PriceForParachainDelivery>
-	SendXcm for ChildParachainRouter<T, W, P>
+impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P> SendXcm
+	for ChildParachainRouter<T, W, P>
+where
+	P: PriceForMessageDelivery<Id = ParaId>,
 {
 	type Ticket = (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>);
 
@@ -99,7 +118,7 @@ impl<T: configuration::Config + dmp::Config, W: xcm::WrapVersion, P: PriceForPar
 		let xcm = msg.take().ok_or(MissingArgument)?;
 		let config = <configuration::Pallet<T>>::config();
 		let para = id.into();
-		let price = P::price_for_parachain_delivery(para, &xcm);
+		let price = P::price_for_delivery(para, &xcm);
 		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();
 		<dmp::Pallet<T>>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
@@ -142,7 +161,7 @@ pub struct ToParachainDeliveryHelper<
 impl<
 		XcmConfig: xcm_executor::Config,
 		ExistentialDeposit: Get<Option<MultiAsset>>,
-		PriceForDelivery: PriceForParachainDelivery,
+		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
 		ToParachainHelper: EnsureForParachain,
 	> pallet_xcm_benchmarks::EnsureDelivery
@@ -175,10 +194,8 @@ impl<
 
 			// overestimate delivery fee
 			let overestimated_xcm = vec![ClearOrigin; 128].into();
-			let overestimated_fees = PriceForDelivery::price_for_parachain_delivery(
-				Parachain::get(),
-				&overestimated_xcm,
-			);
+			let overestimated_fees =
+				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
 			// mint overestimated fee to origin
 			for fee in overestimated_fees.inner() {
@@ -202,7 +219,7 @@ pub trait EnsureForParachain {
 }
 #[cfg(feature = "runtime-benchmarks")]
 impl EnsureForParachain for () {
-	fn ensure(_para_id: ParaId) {
+	fn ensure(_: ParaId) {
 		// doing nothing
 	}
 }
@@ -222,7 +239,17 @@ mod tests {
 
 	struct TestFeeTracker;
 	impl FeeTracker for TestFeeTracker {
-		fn get_fee_factor(_: ParaId) -> FixedU128 {
+		type Id = ParaId;
+
+		fn get_fee_factor(_: Self::Id) -> FixedU128 {
+			FixedU128::from_rational(101, 100)
+		}
+
+		fn increase_fee_factor(_: Self::Id, _: FixedU128) -> FixedU128 {
+			FixedU128::from_rational(101, 100)
+		}
+
+		fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
 			FixedU128::from_rational(101, 100)
 		}
 	}
@@ -240,21 +267,21 @@ mod tests {
 		// message_length = 1
 		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + m);
 		assert_eq!(
-			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![])),
+			TestExponentialPrice::price_for_delivery(id, &Xcm(vec![])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 2
 		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + (2 * m));
 		assert_eq!(
-			TestExponentialPrice::price_for_parachain_delivery(id, &Xcm(vec![ClearOrigin])),
+			TestExponentialPrice::price_for_delivery(id, &Xcm(vec![ClearOrigin])),
 			(FeeAssetId::get(), result).into()
 		);
 
 		// message size = 4
 		let result: u128 = TestFeeTracker::get_fee_factor(id).saturating_mul_int(b + (4 * m));
 		assert_eq!(
-			TestExponentialPrice::price_for_parachain_delivery(
+			TestExponentialPrice::price_for_delivery(
 				id,
 				&Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))])
 			),
