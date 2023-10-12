@@ -31,9 +31,8 @@ pub mod pallet {
 	#[pallet::config]
 	// The only valid syntax here is the following or
 	// ```
-	// pub trait Config: frame_system::Config {}
+	// pub trait Config: frame::deps::frame_system::Config {}
 	// ```
-	// if `frame_system` is brought into scope.
 	pub trait Config: frame_system::Config {}
 
 	#[pallet::genesis_config]
