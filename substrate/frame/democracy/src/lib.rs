@@ -1300,7 +1300,6 @@ impl<T: Config> Pallet<T> {
 		vote: AccountVote<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut status = Self::referendum_status(ref_index)?;
-
 		let current_amount = T::Fungible::balance_on_hold(&HoldReason::Democracy.into(), &who);
 		T::Fungible::ensure_can_hold(
 			&HoldReason::Democracy.into(),
@@ -1535,7 +1534,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			T::Fungible::set_on_hold(&HoldReason::Democracy.into(), who, lock_needed)?;
 		}
-
 		Ok(())
 	}
 
