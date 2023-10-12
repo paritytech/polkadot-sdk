@@ -49,7 +49,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{Block as BlockT, IdentityLookup, Keccak256, NumberFor, OpaqueKeys},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, Perquintill,
+	ApplyExtrinsicResult, FixedPointNumber, KeyTypeId, Perquintill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -249,8 +249,9 @@ impl pallet_grandpa::Config for Runtime {
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
 	type MaxSetIdSessionEntries = ConstU64<0>;
-	type KeyOwnerProof = sp_core::Void;
-	type EquivocationReportSystem = ();
+	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type EquivocationReportSystem =
+		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 	type MaxNominators = ConstU32<256>;
 }
 
@@ -377,6 +378,7 @@ parameter_types! {
 	pub const Period: BlockNumber = bp_millau::SESSION_LENGTH;
 	pub const Offset: BlockNumber = 0;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+	pub ReportLongevity: u64 = Period::get() * 10;
 }
 
 impl pallet_session::Config for Runtime {
@@ -390,6 +392,37 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	// TODO: update me (https://github.com/paritytech/parity-bridges-common/issues/78)
 	type WeightInfo = ();
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+	type EventHandler = ();
+}
+
+pub struct FullIdentificationOf;
+impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf {
+	fn convert(_: AccountId) -> Option<()> {
+		Some(())
+	}
+}
+
+impl pallet_session::historical::Config for Runtime {
+	type FullIdentification = ();
+	type FullIdentificationOf = FullIdentificationOf;
+}
+
+impl pallet_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type OnOffenceHandler = ();
 }
 
 impl pallet_bridge_relayers::Config for Runtime {
@@ -582,6 +615,10 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 
 		// Consensus support.
+		Authorship: pallet_authorship::{Pallet, Storage},
+		Offences: pallet_offences::{Pallet, Storage, Event},
+		Historical: pallet_session::historical::{Pallet},
+
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event},
 		ShiftSessionManager: pallet_shift_session_manager::{Pallet},
