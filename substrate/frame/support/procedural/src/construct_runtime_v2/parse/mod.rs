@@ -35,14 +35,12 @@ mod keyword {
 	use syn::custom_keyword;
 
 	custom_keyword!(runtime);
-	custom_keyword!(pallets);
 	custom_keyword!(derive);
 	custom_keyword!(pallet_index);
 }
 
 enum RuntimeAttr {
 	Runtime(proc_macro2::Span),
-	Pallets(proc_macro2::Span),
 	Derive(proc_macro2::Span, Vec<RuntimeType>),
 	PalletIndex(proc_macro2::Span, u8),
 }
@@ -51,7 +49,6 @@ impl RuntimeAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
 			Self::Runtime(span) => *span,
-			Self::Pallets(span) => *span,
 			Self::Derive(span, _) => *span,
 			Self::PalletIndex(span, _) => *span,
 		}
@@ -69,8 +66,6 @@ impl syn::parse::Parse for RuntimeAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::runtime) {
 			Ok(RuntimeAttr::Runtime(content.parse::<keyword::runtime>()?.span()))
-		} else if lookahead.peek(keyword::pallets) {
-			Ok(RuntimeAttr::Pallets(content.parse::<keyword::pallets>()?.span()))
 		} else if lookahead.peek(keyword::derive) {
 			let _ = content.parse::<keyword::derive>();
 			let derive_content;
@@ -154,9 +149,6 @@ impl Def {
 					RuntimeAttr::Runtime(span) if runtime_struct.is_none() => {
 						let p = runtime_struct::RuntimeStructDef::try_from(span, item)?;
 						runtime_struct = Some(p);
-					},
-					RuntimeAttr::Pallets(_span) => {
-						//Todo: Parse pallets struct
 					},
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {
 						runtime_types = Some(types);

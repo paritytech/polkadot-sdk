@@ -283,9 +283,6 @@ impl pallet_template::Config for Runtime {
 #[frame_support::construct_runtime_v2]
 mod runtime {
 	#[runtime::runtime]
-	pub struct Runtime;
-
-	#[runtime::pallets]
 	#[runtime::derive(
 		RuntimeCall,
 		RuntimeEvent,
@@ -296,7 +293,7 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId
 	)]
-	pub struct AllPallets;
+	pub struct Runtime;
 
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system;
