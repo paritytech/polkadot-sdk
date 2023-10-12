@@ -267,19 +267,25 @@ fn hold_balance_of(who: u64) -> u64 {
 }
 
 fn aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: AYE, balance: reducible_balance_of(who) }
+	AccountVote::Standard { vote: AYE, balance: reducible_balance_of(who) + hold_balance_of(who) }
 }
 
 fn nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: NAY, balance: reducible_balance_of(who) }
+	AccountVote::Standard { vote: NAY, balance: reducible_balance_of(who) + hold_balance_of(who) }
 }
 
 fn big_aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: BIG_AYE, balance: reducible_balance_of(who) }
+	AccountVote::Standard {
+		vote: BIG_AYE,
+		balance: reducible_balance_of(who) + hold_balance_of(who),
+	}
 }
 
 fn big_nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: BIG_NAY, balance: reducible_balance_of(who) }
+	AccountVote::Standard {
+		vote: BIG_NAY,
+		balance: reducible_balance_of(who) + hold_balance_of(who),
+	}
 }
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {
