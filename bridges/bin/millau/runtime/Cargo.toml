@@ -41,11 +41,13 @@ frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-beefy = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-beefy-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, features = ["historical"]}
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
@@ -100,6 +102,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-aura/std",
+	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-beefy/std",
 	"pallet-beefy-mmr/std",
@@ -109,6 +112,7 @@ std = [
 	"pallet-bridge-relayers/std",
 	"pallet-grandpa/std",
 	"pallet-mmr/std",
+	"pallet-offences/std",
 	"pallet-session/std",
 	"pallet-shift-session-manager/std",
 	"pallet-sudo/std",
