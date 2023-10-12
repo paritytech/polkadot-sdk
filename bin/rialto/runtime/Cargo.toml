@@ -34,6 +34,7 @@ frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-beefy = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
@@ -41,6 +42,7 @@ pallet-beefy-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch 
 pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-message-queue = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, features = ["historical"]}
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
@@ -94,6 +96,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-authority-discovery/std",
+	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-beefy/std",
@@ -105,6 +108,7 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-message-queue/std",
 	"pallet-mmr/std",
+	"pallet-offences/std",
 	"pallet-xcm/std",
 	"pallet-session/std",
 	"pallet-shift-session-manager/std",
