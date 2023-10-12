@@ -18,7 +18,7 @@
 //! A basic pallet that can be used to test `construct_runtime!` when `frame_system` and
 //! `frame_support` are reexported by a `frame` crate.
 
-// use frame::deps::{frame_support, frame_system};
+use frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]
 pub mod pallet {
