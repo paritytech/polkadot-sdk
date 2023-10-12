@@ -17,7 +17,4 @@ frame-support = { path = "../../..", default-features = false}
 
 [features]
 default = [ "std" ]
-std = [
-	"frame-system/std",
-	"frame-support/std",
-]
+std = [ "frame-support/std", "frame-system/std" ]
