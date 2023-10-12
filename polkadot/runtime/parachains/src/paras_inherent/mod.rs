@@ -1074,16 +1074,27 @@ fn filter_backed_statements<T: Config>(
 	let mut filtered = false;
 
 	// Process all backed candidates.
-	for bc in backed_candidates {
+	backed_candidates.retain_mut(|bc| {
 		// Get `core_idx` assigned to the `para_id` of the candidate (step 2)
-		let core_idx = *para_id_to_core_idx.get(&bc.descriptor().para_id).unwrap(); // TODO
+		let core_idx = match para_id_to_core_idx.get(&bc.descriptor().para_id) {
+			Some(core_idx) => *core_idx,
+			None => {
+				log::debug!(target: LOG_TARGET, "Can't get core idx got a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
+				return false
+			}
+		};
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number = <shared::Pallet<T>>::allowed_relay_parents()
-			.acquire_info(bc.descriptor().relay_parent, None)
-			.unwrap() // todo
-			.1;
+		let relay_parent_block_number = match <shared::Pallet<T>>::allowed_relay_parents()
+			.acquire_info(bc.descriptor().relay_parent, None) {
+				Some((_, block_num)) => block_num,
+				None => {
+					log::debug!(target: LOG_TARGET, "Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.", bc.descriptor().relay_parent);
+					return false
+				}
+			};
+
 
 		// Get the group index for the core
 		let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
@@ -1093,7 +1104,14 @@ fn filter_backed_statements<T: Config>(
 		.unwrap();
 
 		// And finally get the validator group for this group index
-		let validator_group = <scheduler::Pallet<T>>::group_validators(group_idx).unwrap(); // TODO
+		let validator_group = match <scheduler::Pallet<T>>::group_validators(group_idx) {
+			Some(validator_group) => validator_group,
+			None => {
+				// TODO: this should be an assert?
+				log::debug!(target: LOG_TARGET, "Can't get the validators from group {:?}. Dropping the candidate.", group_idx);
+				return false
+			}
+		};
 
 		// `validator_indices` in `BackedCandidate` are indecies within the validator group. Convert
 		// them to `ValidatorId`.
@@ -1102,7 +1120,7 @@ fn filter_backed_statements<T: Config>(
 			.iter()
 			.enumerate()
 			.filter_map(|(idx, bitval)| match *bitval {
-				true => Some(validator_group.get(idx).unwrap()), //todo
+				true => validator_group.get(idx), // drop indecies not found in the validator group. This will lead to filtering the vote
 				false => None,
 			})
 			.collect::<Vec<_>>();
@@ -1111,15 +1129,30 @@ fn filter_backed_statements<T: Config>(
 			// `validity_votes` should match `validator_indices`
 			let mut idx = 0;
 			bc.validity_votes.retain(|_| {
-				let voted_validator_index = voted_validator_ids.get(idx).unwrap(); // todo
+				let voted_validator_index = match voted_validator_ids.get(idx) {
+					Some(validator_index) => validator_index,
+					None => {
+						log::debug!(target: LOG_TARGET, "Can't find the voted validator index {:?} in the validator group. Dropping the vote.", group_idx);
+						idx += 1;
+						return false
+					}
+				};
 				idx += 1;
 
 				filtered = disabled_validators.contains(voted_validator_index);
 
+				// If we are removing a validity vote - modify `validator_indices` too
+				if filtered {
+					bc.validator_indices.set(idx, false);
+				}
+
 				!filtered
 			});
 		}
-	}
+
+		// Remove the candidate if all entries are filtered out
+		!bc.validity_votes.is_empty()
+	});
 
 	Ok(filtered)
 }
