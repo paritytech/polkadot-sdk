@@ -21,7 +21,6 @@
 
 mod benchmark;
 mod construct_runtime;
-mod runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
@@ -30,6 +29,7 @@ mod match_and_insert;
 mod no_bound;
 mod pallet;
 mod pallet_error;
+mod runtime;
 mod storage_alias;
 mod transactional;
 mod tt_macro;
@@ -1676,7 +1676,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// 	  RuntimeLockId
 ///   )]
 ///   pub struct Runtime;
-/// 
+///
 ///   #[runtime::pallet_index(0)]
 ///   pub type System = frame_system;
 ///

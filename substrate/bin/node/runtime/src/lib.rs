@@ -2070,7 +2070,7 @@ mod runtime {
 	pub type System = frame_system;
 
 	#[runtime::pallet_index(1)]
-	pub type Utility= pallet_utility;
+	pub type Utility = pallet_utility;
 
 	#[runtime::pallet_index(2)]
 	pub type Babe = pallet_babe;

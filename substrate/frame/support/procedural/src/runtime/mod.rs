@@ -77,10 +77,10 @@
 //! #[frame::runtime]
 //! mod runtime {
 //! 	//...
-//! 
+//!
 //!     #[runtime::pallet_index(0)]
 //! 	pub type System = frame_system; // Implicit definition of parts
-//! 
+//!
 //!     #[runtime::pallet_index(1)]
 //! 	pub type Balances = pallet_balances; // Implicit definition of parts
 //! }
@@ -98,7 +98,7 @@
 //!                         #[frame::runtime]
 //!                         mod runtime {
 //! 	                        //...
-//! 
+//!
 //!                             #[runtime::pallet_index(0)]
 //! 		                    pub type System = frame_system;
 //!                             
@@ -125,10 +125,10 @@
 //!                  #[frame::runtime]
 //!                  mod runtime {
 //! 	                 //...
-//! 
+//!
 //!                      #[runtime::pallet_index(0)]
 //! 		             pub type System = frame_system;
-//! 
+//!
 //!                      #[runtime::pallet_index(1)]
 //! 		             pub type Balances = pallet_balances;
 //!                  }
@@ -148,10 +148,10 @@
 //! 		#[frame::runtime]
 //!         mod runtime {
 //! 	        //...
-//! 
+//!
 //!             #[runtime::pallet_index(0)]
 //! 		    pub type System = frame_system; // Implicit definition of parts
-//! 
+//!
 //!             #[runtime::pallet_index(1)]
 //! 		    pub type Balances = pallet_balances + Pallet + Call; // Explicit definition of parts
 //!         }
@@ -166,10 +166,10 @@
 //! #[frame::runtime]
 //! mod runtime {
 //! 	//...
-//! 
+//!
 //!     #[runtime::pallet_index(0)]
 //! 	pub type System = frame_system + Pallet + Call;
-//! 
+//!
 //!     #[runtime::pallet_index(1)]
 //! 	pub type Balances = pallet_balances + Pallet + Call;
 //! }
