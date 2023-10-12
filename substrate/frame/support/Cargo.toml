@@ -30,7 +30,7 @@ sp-weights = { path = "../../primitives/weights", default-features = false}
 sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false}
 sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false}
 tt-call = "1.0.8"
-macro_magic = "0.4.2"
+macro_magic = "0.5.0"
 frame-support-procedural = { path = "procedural", default-features = false}
 paste = "1.0"
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true}
