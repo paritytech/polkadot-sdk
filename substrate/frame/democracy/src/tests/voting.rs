@@ -150,7 +150,7 @@ fn controversial_low_turnout_voting_should_work() {
 fn passing_low_turnout_voting_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(Balances::total_issuance(), 216);
 
 		let r = Democracy::inject_referendum(
 			2,

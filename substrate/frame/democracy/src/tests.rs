@@ -29,7 +29,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
-use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash, IdentityLookup},
@@ -218,7 +217,7 @@ fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Democracy::referendum_count(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(Balances::total_issuance(), 216);
 	});
 }
 

@@ -33,10 +33,6 @@ fn nay(x: u8, balance: u64) -> AccountVote<u64> {
 	}
 }
 
-fn the_lock(amount: u64) -> BalanceLock<u64> {
-	BalanceLock { id: DEMOCRACY_ID, amount, reasons: pallet_balances::Reasons::All }
-}
-
 #[test]
 fn lock_voting_should_work() {
 	new_test_ext().execute_with(|| {
