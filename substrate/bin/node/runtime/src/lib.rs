@@ -2051,7 +2051,7 @@ impl pallet_mixnet::Config for Runtime {
 	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
 }
 
-#[frame_support::construct_runtime_v2]
+#[frame_support::runtime]
 mod runtime {
 	#[frame::runtime]
 	pub struct Runtime;

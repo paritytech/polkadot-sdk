@@ -21,7 +21,7 @@
 
 mod benchmark;
 mod construct_runtime;
-mod construct_runtime_v2;
+mod runtime;
 mod crate_version;
 mod derive_impl;
 mod dummy_part_checker;
@@ -1660,7 +1660,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// # Example:
 ///
 /// ```ignore
-/// #[frame_support::construct_runtime_v2]
+/// #[frame_support::runtime]
 /// mod runtime {
 ///   // The main runtime
 ///   #[frame::runtime]
@@ -1712,6 +1712,6 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
 ///   frame_system::Pallet<Runtime>`
 #[proc_macro_attribute]
-pub fn construct_runtime_v2(attr: TokenStream, item: TokenStream) -> TokenStream {
-	construct_runtime_v2::construct_runtime(attr, item)
+pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
+	runtime::runtime(attr, item)
 }

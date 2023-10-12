@@ -281,7 +281,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-#[frame_support::construct_runtime_v2]
+#[frame_support::runtime]
 mod runtime {
 	#[frame::runtime]
 	pub struct Runtime;

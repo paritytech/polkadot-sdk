@@ -280,7 +280,7 @@ impl pallet_template::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-#[frame_support::construct_runtime_v2]
+#[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
 	#[runtime::derive(
