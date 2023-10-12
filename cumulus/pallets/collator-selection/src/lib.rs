@@ -310,6 +310,8 @@ pub mod pallet {
 		InsufficientBond,
 		/// The target account to be replaced in the candidate list is not a candidate.
 		TargetIsNotCandidate,
+		/// The updated deposit amount is equal to the amount already reserved.
+		IdenticalDeposit,
 	}
 
 	#[pallet::hooks]
@@ -620,6 +622,8 @@ pub mod pallet {
 						T::Currency::reserve(&who, new_deposit - old_deposit)?;
 					} else if new_deposit < old_deposit {
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
+					} else {
+						return Err(Error::<T>::IdenticalDeposit.into())
 					}
 					candidates[idx].deposit = new_deposit;
 					// Since `idx` is at most `T::MaxCandidates - 1`, because it's the position of
@@ -629,7 +633,7 @@ pub mod pallet {
 					// which is `u32`.
 					if new_deposit > old_deposit && idx < candidate_count {
 						// Since the lowest value for `idx` would be `0`, the first element in the
-						// list`, and the fact we do an increment of `idx` before iterating, we
+						// list, and the fact we do an increment of `idx` before iterating, we
 						// ensure the `idx - 1` list access in the loop is not an underflow.
 						idx += 1;
 						while idx < candidate_count && candidates[idx].deposit < new_deposit {
