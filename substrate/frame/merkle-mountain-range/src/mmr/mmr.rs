@@ -191,4 +191,32 @@ where
 			})
 			.map(|p| (leaves, p))
 	}
+
+	pub fn generate_ancestry_proof(
+		&self,
+		prev_mmr_size: NodeIndex,
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error>
+	{
+		let leaf_count = self.leaves;
+		self.mmr
+			.gen_prefix_proof(prev_mmr_size)
+			.map_err(|e| Error::GenerateProof.log_error(e))
+			.map(|p| {
+				let proof = primitives::Proof {
+					leaf_indices: (p.prev_size..leaf_count).collect(),
+					leaf_count,
+					items: p
+						.proof
+						.proof_items()
+						.iter()
+						.map(|(index, item)| (*index, item.hash()))
+						.collect(),
+				};
+				primitives::AncestryProof {
+					prev_peaks: p.prev_peaks.into_iter().map(|p| p.hash()).collect(),
+					prev_size: p.prev_size,
+					proof,
+				}
+			})
+	}
 }

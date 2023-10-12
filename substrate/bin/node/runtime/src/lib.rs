@@ -2668,6 +2668,10 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn generate_ancestry_proof(prev_best_block: BlockNumber) -> Result<AncestryProof<Hash>, mmr::Error> -> Result<AncestryProof<Hash>> {
+			Mmr::generate_ancestry_proof(prev_best_block)
+		}
+
 		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{

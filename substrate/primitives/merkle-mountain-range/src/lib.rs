@@ -362,9 +362,12 @@ pub struct Proof<Hash> {
 /// An MMR ancestry proof for a prior mmr root.
 #[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct AncestryProof<Hash> {
-	prev_peaks: Vec<Hash>,
-	prev_size: u64,
-	proof: Proof<Hash>,
+	/// Peaks of the ancestor's mmr
+	pub prev_peaks: Vec<Hash>,
+	/// Size of the ancestor's mmr
+	pub prev_size: u64,
+	/// Proof of the ancestry
+	pub proof: Proof<Hash>,
 }
 
 /// Merkle Mountain Range operation error.
@@ -430,7 +433,7 @@ impl Error {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait MmrApi<Hash: codec::Codec, BlockNumber: codec::Codec> {
 		/// Return the on-chain MMR root hash.
 		fn mmr_root() -> Result<Hash, Error>;
@@ -461,6 +464,14 @@ sp_api::decl_runtime_apis! {
 		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
 		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
 			-> Result<(), Error>;
+
+		/// Generate MMR ancestry proof for prior mmr size
+		fn generate_ancestry_proof(
+			prev_best_block: BlockNumber,
+		) -> Result<AncestryProof<Hash>, Error>;
+
+		/// Verifies that a claimed prev_root is in fact an ancestor of the provided mmr root
+		fn verify_ancestry_proof(ancestry_proof: AncestryProof<Hash>, root: Hash, prev_root: Hash) -> Result<(), Error>;
 	}
 }
 
