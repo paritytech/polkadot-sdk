@@ -470,6 +470,44 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 };
 
+use hex_literal::hex;
+use serde_json::json;
+use sp_core::crypto::UncheckedInto;
+fn substrate_test_genesis_config_patch() -> serde_json::Value {
+	let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
+		// 5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs
+		hex!["52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649"].unchecked_into(),
+		//5EHZkbp22djdbuMFH9qt1DVzSCvqi3zWpj6DAYfANa828oei
+		hex!["62475fe5406a7cb6a64c51d0af9d3ab5c2151bcae982fb812f7a76b706914d6a"].unchecked_into(),
+		//5DvH8oEjQPYhzCoQVo7WDU91qmQfLZvxe9wJcrojmJKebCmG
+		hex!["520b48452969f6ddf263b664de0adb0c729d0e0ad3b0e5f3cb636c541bc9022a"].unchecked_into(),
+		//5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S
+		hex!["92ef83665b39d7a565e11bf8d18d41d45a8011601c339e57a8ea88c8ff7bba6f"].unchecked_into(),
+	];
+
+	let patch = json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|k| (k.clone(), 10 * currency::DOLLARS)).collect::<Vec<_>>(),
+		},
+		"babe": {
+			"epochConfig": {
+				"c": [
+					7,
+					10
+				],
+				"allowed_slots": "PrimaryAndSecondaryPlainSlots"
+			}
+		},
+		// "substrateTest": {
+		// 	"authorities": [
+		// 		AccountKeyring::Ferdie.public().to_ss58check(),
+		// 		AccountKeyring::Alice.public().to_ss58check()
+		// 	],
+		// }
+	});
+	patch
+}
+
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -729,6 +767,20 @@ impl_runtime_apis! {
 
 		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_config::<RuntimeGenesisConfig>(config)
+		}
+
+
+		fn create_default_config2(params: sp_std::vec::Vec<u8>) -> sp_std::vec::Vec<u8> {
+			log::info!("xxx: create_default_config2: {:?} {:?}", params, "staging".as_bytes());
+			let patch = match params {
+				s if s == "staging".as_bytes() => substrate_test_genesis_config_patch(),
+				s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
+				_ => json!({}),
+			};
+
+			serde_json::to_string(&patch)
+				.expect("serialization to json is expected to work. qed.")
+				.into_bytes()
 		}
 	}
 }
