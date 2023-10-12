@@ -170,6 +170,11 @@ pub mod pallet {
 		/// issuance.
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
+		/// Maximum payout for validators per era.
+		/// The maximum is expressed in percentage of the maximum era payout. None means no maximum
+		/// imposed, thus the validator payout *may* be up to total era inflation.
+		type MaxValidatorsPayout: Get<Option<Percent>>;
+
 		/// Number of sessions per era.
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;

@@ -20,7 +20,7 @@ use crate::NegativeImbalance;
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use sp_runtime::{traits::TryConvert, Percent, Perquintill, RuntimeDebug};
 use xcm::VersionedMultiLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -66,6 +66,7 @@ pub fn era_payout(
 	total_stakable: Balance,
 	max_annual_inflation: Perquintill,
 	period_fraction: Perquintill,
+	max_staking_payout: Percent,
 	auctioned_slots: u64,
 ) -> (Balance, Balance) {
 	use pallet_staking_reward_fn::compute_inflation;
@@ -88,7 +89,9 @@ pub fn era_payout(
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
 	let max_payout = period_fraction * max_annual_inflation * total_stakable;
-	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
+	// staking payout is capped by `max_staking_payout` % of the payout for this era.
+	let staking_payout = ((period_fraction * staking_inflation) * total_stakable)
+		.min(max_staking_payout * max_payout);
 	let rest = max_payout.saturating_sub(staking_payout);
 
 	let other_issuance = total_stakable.saturating_sub(total_staked);
@@ -384,12 +387,50 @@ mod tests {
 	#[test]
 	fn era_payout_should_give_sensible_results() {
 		assert_eq!(
-			era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				75,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Perquintill::from_percent(100),
+				0,
+			),
 			(10, 0)
 		);
 		assert_eq!(
-			era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Perquintill::from_percent(100),
+				0,
+			),
 			(6, 4)
+		);
+		// set max validator payout to 20% to the total issuance.
+		assert_eq!(
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Perquintill::from_percent(20),
+				0,
+			),
+			(2, 8)
+		);
+		// set max validator payout to 0%, everything is remainder.
+		assert_eq!(
+			era_payout(
+				80,
+				100,
+				Perquintill::from_percent(10),
+				Perquintill::one(),
+				Perquintill::from_percent(0),
+				0,
+			),
+			(0, 10)
 		);
 	}
 }

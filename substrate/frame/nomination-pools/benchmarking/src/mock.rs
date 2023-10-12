@@ -92,6 +92,7 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub storage MaxValidatorsPayout: Option<Percent> = None; // no max.
 }
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
@@ -107,7 +108,8 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = ConstU32<3>;
 	type SessionInterface = ();
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type MaxValidatorsPayout = MaxValidatorsPayout;
+	type EraPayout = pallet_staking::ConvertCurve<Self, RewardCurve>;
 	type NextNewSession = ();
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();

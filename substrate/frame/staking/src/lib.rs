@@ -867,9 +867,12 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
-impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-	EraPayout<Balance> for ConvertCurve<T>
+pub struct ConvertCurve<T, C>(sp_std::marker::PhantomData<(T, C)>);
+impl<
+		Balance: AtLeast32BitUnsigned + Clone,
+		C: Get<&'static PiecewiseLinear<'static>>,
+		T: Config,
+	> EraPayout<Balance> for ConvertCurve<T, C>
 {
 	fn era_payout(
 		total_staked: Balance,
@@ -877,11 +880,16 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		let (validator_payout, max_payout) = inflation::compute_total_payout(
-			T::get(),
+			C::get(),
 			total_staked,
 			total_issuance,
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
+		);
+
+		let validator_payout = validator_payout.min(
+			T::MaxValidatorsPayout::get().unwrap_or(sp_runtime::Percent::from_percent(100)) *
+				max_payout.clone(),
 		);
 		let rest = max_payout.saturating_sub(validator_payout.clone());
 		(validator_payout, rest)

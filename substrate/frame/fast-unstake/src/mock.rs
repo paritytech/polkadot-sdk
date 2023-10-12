@@ -25,7 +25,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
-	BuildStorage,
+	BuildStorage, Percent,
 };
 
 use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -96,6 +96,7 @@ parameter_types! {
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
 	pub static MaxWinners: u32 = 100;
+	pub storage MaxValidatorsPayout: Option<Percent> = None; // no max.
 }
 
 pub struct MockElection;
@@ -130,7 +131,8 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = ();
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type MaxValidatorsPayout = MaxValidatorsPayout;
+	type EraPayout = pallet_staking::ConvertCurve<Self, RewardCurve>;
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;

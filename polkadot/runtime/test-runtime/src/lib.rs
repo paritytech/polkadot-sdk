@@ -74,7 +74,7 @@ use sp_runtime::{
 		SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, KeyTypeId, Perbill, Percent,
 };
 use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
@@ -323,6 +323,7 @@ parameter_types! {
 	pub const OnChainMaxWinners: u32 = u32::MAX;
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub storage MaxValidatorsPayout: Option<Percent> = None; // no max.
 }
 
 pub struct OnChainSeqPhragmen;
@@ -352,7 +353,8 @@ impl pallet_staking::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureNever<()>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type MaxValidatorsPayout = MaxValidatorsPayout;
+	type EraPayout = pallet_staking::ConvertCurve<Self, RewardCurve>;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;

@@ -37,7 +37,7 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	testing::UintAuthorityId,
 	traits::{IdentityLookup, Zero},
-	BuildStorage,
+	BuildStorage, Percent,
 };
 use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 
@@ -270,6 +270,7 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub storage MaxValidatorsPayout: Option<Percent> = None; // no max.
 }
 
 pub struct EventListenerMock;
@@ -298,7 +299,8 @@ impl crate::pallet::pallet::Config for Test {
 	type AdminOrigin = EnsureOneOrRoot;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type EraPayout = ConvertCurve<RewardCurve>;
+	type MaxValidatorsPayout = MaxValidatorsPayout;
+	type EraPayout = ConvertCurve<Self, RewardCurve>;
 	type NextNewSession = Session;
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;

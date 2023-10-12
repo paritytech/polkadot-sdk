@@ -289,6 +289,30 @@ fn change_controller_already_paired_once_stash() {
 }
 
 #[test]
+fn max_validator_payout_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// no max validator payout.
+		assert_eq!(MaxValidatorsPayout::get(), None);
+
+		let uncapped_payout = current_total_payout_for_duration(reward_time_per_era());
+		let maximum_payout = maximum_payout_for_duration(reward_time_per_era());
+
+		// set max validator to 10 through `set_storage`.
+		let key_value =
+			(MaxValidatorsPayout::key().to_vec(), Some(Percent::from_percent(10)).encode());
+		assert_ok!(System::set_storage(RuntimeOrigin::root(), vec![key_value]));
+		assert_eq!(MaxValidatorsPayout::get(), Some(Percent::from_percent(10)));
+
+		// now the validators payout is capped, thus lower than the initial uncapped payout.
+		let capped_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert!(uncapped_payout > capped_payout);
+
+		// capped payout is 10% of the maximum payout.
+		assert_eq!(capped_payout, Percent::from_percent(10) * maximum_payout);
+	})
+}
+
+#[test]
 fn rewards_should_work() {
 	ExtBuilder::default().nominate(true).session_per_era(3).build_and_execute(|| {
 		let init_balance_11 = Balances::total_balance(&11);
