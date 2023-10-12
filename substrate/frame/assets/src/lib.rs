@@ -170,9 +170,12 @@ use frame_support::{
 	pallet_prelude::DispatchResultWithPostInfo,
 	storage::KeyPrefixIterator,
 	traits::{
-		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
-		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
+		fungible::MutateHold,
+		tokens::{
+			fungible, fungibles, DepositConsequence, Fortitude, Precision, Restriction,
+			WithdrawConsequence,
+		},
+		EnsureOriginWithArg, StoredMap,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -233,6 +236,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// The units in which we record balances.
 		type Balance: Member
 			+ Parameter
@@ -266,7 +272,12 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		//type Currency: ReservableCurrency<Self::AccountId>;
+
+		type NativeToken: fungible::Inspect<Self::AccountId>
+			+ fungible::InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateHold<Self::AccountId>;
 
 		/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.
@@ -346,7 +357,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Approved balance transfers. First balance is the amount approved for transfer. Second
-	/// is the amount of `T::Currency` reserved for storing this.
+	/// is the amount of `T::NativeToken` reserved for storing this.
 	/// First key is the asset ID, second key is the owner and third key is the delegate.
 	pub(super) type Approvals<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
@@ -573,6 +584,17 @@ pub mod pallet {
 		CallbackFailed,
 	}
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		// Holds involved in asset construction:
+		AssetCreation,
+		AssetMetadata,
+		// Holds involved in using assets:
+		AssetAccount,
+		AssetApproval,
+	}
+
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Issue a new class of fungible assets from a public origin.
@@ -608,8 +630,10 @@ pub mod pallet {
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
 
+			use frame_support::traits::fungible::MutateHold;
 			let deposit = T::AssetDeposit::get();
-			T::Currency::reserve(&owner, deposit)?;
+			let reason = &HoldReason::AssetCreation.into();
+			T::NativeToken::hold(reason, &owner, deposit)?;
 
 			Asset::<T, I>::insert(
 				id.clone(),
@@ -1049,7 +1073,7 @@ pub mod pallet {
 		/// Origin must be Signed and the sender should be the Owner of the asset `id`.
 		///
 		/// - `id`: The identifier of the asset.
-		/// - `owner`: The new Owner of this asset.
+		/// - `new_owner`: The new Owner of this asset.
 		///
 		/// Emits `OwnerChanged`.
 		///
@@ -1058,29 +1082,53 @@ pub mod pallet {
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			owner: AccountIdLookupOf<T>,
+			new_owner: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let owner = T::Lookup::lookup(owner)?;
+			let new_owner = T::Lookup::lookup(new_owner)?;
 			let id: T::AssetId = id.into();
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
 				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-				if details.owner == owner {
+				if details.owner == new_owner {
 					return Ok(())
 				}
 
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;
-				let deposit = details.deposit + metadata_deposit;
+				let deposit = details.deposit; // + metadata_deposit;
 
 				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				use frame_support::traits::fungible::MutateHold;
+				let reason = &HoldReason::AssetCreation.into();
+				let metadata_reason = &HoldReason::AssetMetadata.into();
+				if !deposit.is_zero() {
+					T::NativeToken::transfer_on_hold(
+						reason,
+						&origin,
+						&new_owner,
+						deposit,
+						Precision::Exact,
+						Restriction::OnHold,
+						Fortitude::Polite,
+					)?;
+				}
+				if !metadata_deposit.is_zero() {
+					T::NativeToken::transfer_on_hold(
+						metadata_reason,
+						&origin,
+						&new_owner,
+						metadata_deposit,
+						Precision::Exact,
+						Restriction::OnHold,
+						Fortitude::Polite,
+					)?;
+				}
 
-				details.owner = owner.clone();
+				details.owner = new_owner.clone();
 
-				Self::deposit_event(Event::OwnerChanged { asset_id: id, owner });
+				Self::deposit_event(Event::OwnerChanged { asset_id: id, owner: new_owner });
 				Ok(())
 			})
 		}
@@ -1177,7 +1225,8 @@ pub mod pallet {
 
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
-				T::Currency::unreserve(&d.owner, deposit);
+				let reason = &HoldReason::AssetMetadata.into();
+				T::NativeToken::release(reason, &d.owner, deposit, Precision::BestEffort)?;
 				Self::deposit_event(Event::MetadataCleared { asset_id: id });
 				Ok(())
 			})
@@ -1260,7 +1309,8 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
-				T::Currency::unreserve(&d.owner, deposit);
+				let reason = &HoldReason::AssetMetadata.into();
+				T::NativeToken::release(reason, &d.owner, deposit, Precision::BestEffort)?;
 				Self::deposit_event(Event::MetadataCleared { asset_id: id });
 				Ok(())
 			})
@@ -1384,7 +1434,8 @@ pub mod pallet {
 
 			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
 				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
+			let reason = &HoldReason::AssetApproval.into();
+			T::NativeToken::release(reason, &owner, approval.deposit, Precision::BestEffort)?;
 
 			d.approvals.saturating_dec();
 			Asset::<T, I>::insert(id.clone(), d);
@@ -1429,7 +1480,8 @@ pub mod pallet {
 
 			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
 				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
+			let reason = &HoldReason::AssetApproval.into();
+			T::NativeToken::release(reason, &owner, approval.deposit, Precision::BestEffort)?;
 			d.approvals.saturating_dec();
 			Asset::<T, I>::insert(id.clone(), d);
 

@@ -39,7 +39,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -82,9 +82,9 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<4>;
 	type MaxFreezes = ();
 }
 
@@ -133,10 +133,11 @@ impl AssetsCallbackHandle {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = u64;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type AssetDeposit = ConstU64<1>;

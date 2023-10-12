@@ -323,7 +323,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::NoPermission
 		);
 		let reason = Self::new_account(&who, &mut details, Some((&depositor, deposit)))?;
-		T::Currency::reserve(&depositor, deposit)?;
+		T::NativeToken::hold(&HoldReason::AssetAccount.into(), &depositor, deposit)?;
 		Asset::<T, I>::insert(&id, details);
 		Account::<T, I>::insert(
 			&id,
@@ -351,7 +351,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(account.balance.is_zero() || allow_burn, Error::<T, I>::WouldBurn);
 
 		if let Some(deposit) = account.reason.take_deposit() {
-			T::Currency::unreserve(&who, deposit);
+			T::NativeToken::release(
+				&HoldReason::AssetAccount.into(),
+				&who,
+				deposit,
+				Precision::BestEffort,
+			)?;
 		}
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
@@ -383,7 +388,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(caller == &depositor || caller == &details.admin, Error::<T, I>::NoPermission);
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 
-		T::Currency::unreserve(&depositor, deposit);
+		T::NativeToken::release(
+			&HoldReason::AssetAccount.into(),
+			&depositor,
+			deposit,
+			Precision::BestEffort,
+		)?;
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
 			Account::<T, I>::remove(&id, &who);
@@ -762,10 +772,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
 				for (i, (who, mut v)) in Account::<T, I>::iter_prefix(&id).enumerate() {
 					// unreserve the existence deposit if any
+					let reason = &HoldReason::AssetAccount.into();
 					if let Some((depositor, deposit)) = v.reason.take_deposit_from() {
-						T::Currency::unreserve(&depositor, deposit);
+						T::NativeToken::release(
+							reason,
+							&depositor,
+							deposit,
+							Precision::BestEffort,
+						)?;
 					} else if let Some(deposit) = v.reason.take_deposit() {
-						T::Currency::unreserve(&who, deposit);
+						T::NativeToken::release(reason, &who, deposit, Precision::BestEffort)?;
 					}
 					if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 						Account::<T, I>::remove(&id, &who);
@@ -813,7 +829,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
 
 				for ((owner, _), approval) in Approvals::<T, I>::drain_prefix((id.clone(),)) {
-					T::Currency::unreserve(&owner, approval.deposit);
+					T::NativeToken::release(
+						&HoldReason::AssetApproval.into(),
+						&owner,
+						approval.deposit,
+						Precision::BestEffort,
+					)?;
 					removed_approvals = removed_approvals.saturating_add(1);
 					details.approvals = details.approvals.saturating_sub(1);
 					if removed_approvals >= max_items {
@@ -843,10 +864,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(T::CallbackHandle::destroyed(&id).is_ok(), Error::<T, I>::CallbackFailed);
 
 			let metadata = Metadata::<T, I>::take(&id);
-			T::Currency::unreserve(
+			T::NativeToken::release(
+				&HoldReason::AssetMetadata.into(),
 				&details.owner,
-				details.deposit.saturating_add(metadata.deposit),
-			);
+				metadata.deposit,
+				Precision::BestEffort,
+			)?;
+			T::NativeToken::release(
+				&HoldReason::AssetCreation.into(),
+				&details.owner,
+				details.deposit,
+				Precision::BestEffort,
+			)?;
 			Self::deposit_event(Event::Destroyed { asset_id: id });
 
 			Ok(())
@@ -879,7 +908,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				};
 				let deposit_required = T::ApprovalDeposit::get();
 				if approved.deposit < deposit_required {
-					T::Currency::reserve(owner, deposit_required - approved.deposit)?;
+					let reason = &HoldReason::AssetApproval.into();
+					T::NativeToken::hold(reason, owner, deposit_required - approved.deposit)?;
 					approved.deposit = deposit_required;
 				}
 				approved.amount = approved.amount.saturating_add(amount);
@@ -929,7 +959,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
 
 				if remaining.is_zero() {
-					T::Currency::unreserve(owner, approved.deposit);
+					let reason = &HoldReason::AssetApproval.into();
+					T::NativeToken::release(
+						reason,
+						owner,
+						approved.deposit,
+						Precision::BestEffort,
+					)?;
 					Asset::<T, I>::mutate(id.clone(), |maybe_details| {
 						if let Some(details) = maybe_details {
 							details.approvals.saturating_dec();
@@ -973,10 +1009,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let old_deposit = metadata.take().map_or(Zero::zero(), |m| m.deposit);
 			let new_deposit = Self::calc_metadata_deposit(&name, &symbol);
 
+			let reason = &HoldReason::AssetMetadata.into();
 			if new_deposit > old_deposit {
-				T::Currency::reserve(from, new_deposit - old_deposit)?;
+				T::NativeToken::hold(reason, from, new_deposit - old_deposit)?;
 			} else {
-				T::Currency::unreserve(from, old_deposit - new_deposit);
+				T::NativeToken::release(
+					reason,
+					from,
+					old_deposit - new_deposit,
+					Precision::BestEffort,
+				)?;
 			}
 
 			*metadata = Some(AssetMetadata {
