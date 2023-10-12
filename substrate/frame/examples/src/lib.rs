@@ -17,24 +17,27 @@
 
 //! # FRAME Pallet Examples
 //!
-//! This crate contains examples of FRAME pallets. It is not intended to be used in production.
+//! This crate contains a collection of simple examples of FRAME pallets, demonstrating useful
+//! features in action. It is not intended to be used in production.
 //!
 //! ## Pallets
 //!
-//! - [**`pallet_example_basic`**](./basic): A simple example of a FRAME pallet demonstrating
-//! concepts, APIs and structures common to most FRAME runtimes.
+//! - [`pallet_example_basic`]: This pallet demonstrates concepts, APIs and structures common to
+//!   most FRAME runtimes.
 //!
-//! - [**`pallet_example_offchain_worker`**](./offchain-worker): A simple example of a FRAME pallet
-//!   demonstrating concepts, APIs and structures common to most offchain workers.
+//! - [`pallet_example_offchain_worker`]: This pallet demonstrates concepts, APIs and structures
+//!   common to most offchain workers.
 //!
-//! - [**`pallet-default-config-example`**](./default-config): A simple example of a FRAME pallet
-//!   demonstrating the simpler way to implement `Config` trait of pallets.
+//! - [`pallet_default_config_example`]: This pallet demonstrates different ways to implement the
+//!   `Config` trait of pallets.
 //!
-//! - [**`pallet-dev-mode`**](./dev-mode): A simple example of a FRAME pallet demonstrating the ease
-//!   of requirements for a pallet in dev mode.
+//! - [`pallet_dev_mode`]: This pallet demonstrates the ease of requirements for a pallet in "dev
+//!   mode".
 //!
-//! - [**`pallet-example-kitchensink`**](./kitchensink): A simple example of a FRAME pallet
-//!   demonstrating a catalog of the the FRAME macros and their various syntax options.
+//! - [`pallet_example_kitchensink`]: This pallet demonstrates a catalog of all FRAME macros in use
+//!   and their various syntax options.
 //!
-//! - [**`pallet-example-split`**](./split): A simple example of a FRAME pallet demonstrating the
-//!   ability to split sections across multiple files.
+//! - [`pallet_example_split`]: A simple example of a FRAME pallet demonstrating the ability to
+//!   split sections across multiple files.
+//!
+//! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.

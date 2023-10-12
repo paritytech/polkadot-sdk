@@ -60,7 +60,6 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	}
 }
 
-#[cfg(feature = "experimental")]
 pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
 	frame_support::migrations::VersionedMigration<
 		0,

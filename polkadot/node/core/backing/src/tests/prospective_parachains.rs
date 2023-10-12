@@ -20,12 +20,12 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, FragmentTreeMembership},
 	ActivatedLeaf, TimeoutExt,
 };
-use polkadot_primitives::{vstaging as vstaging_primitives, BlockNumber, Header, OccupiedCore};
+use polkadot_primitives::{AsyncBackingParams, BlockNumber, Header, OccupiedCore};
 
 use super::*;
 
-const ASYNC_BACKING_PARAMETERS: vstaging_primitives::AsyncBackingParams =
-	vstaging_primitives::AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
+	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 
 struct TestLeaf {
 	activated: ActivatedLeaf,
@@ -56,7 +56,7 @@ async fn activate_leaf(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == leaf_hash => {
 			tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
 		}
@@ -208,32 +208,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-		) if parent == relay_parent && hash == validation_code.hash() => {
-			tx.send(Ok(Some(validation_code.clone()))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
+	assert_validation_requests(virtual_overseer, validation_code.clone()).await;
 
 	if fetch_pov {
 		assert_matches!(
