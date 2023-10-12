@@ -82,6 +82,7 @@ impl<Balance: Saturating> Saturating for Delegations<Balance> {
 
 impl<
 		Balance: From<u8>
+		    + core::fmt::Debug
 			+ Zero
 			+ Copy
 			+ CheckedAdd

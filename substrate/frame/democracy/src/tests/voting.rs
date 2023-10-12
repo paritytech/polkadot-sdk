@@ -18,6 +18,7 @@
 //! The tests for normal voting functionality.
 
 use super::*;
+use sp_runtime::TokenError;
 
 #[test]
 fn overvoting_should_fail() {
@@ -25,7 +26,7 @@ fn overvoting_should_fail() {
 		let r = begin_referendum();
 		assert_noop!(
 			Democracy::vote(RuntimeOrigin::signed(1), r, aye(2)),
-			Error::<Test>::InsufficientFunds
+			TokenError::FundsUnavailable
 		);
 	});
 }
@@ -35,10 +36,7 @@ fn split_voting_should_work() {
 	new_test_ext().execute_with(|| {
 		let r = begin_referendum();
 		let v = AccountVote::Split { aye: 40, nay: 20 };
-		assert_noop!(
-			Democracy::vote(RuntimeOrigin::signed(5), r, v),
-			Error::<Test>::InsufficientFunds
-		);
+		assert_noop!(Democracy::vote(RuntimeOrigin::signed(5), r, v), TokenError::FundsUnavailable);
 		let v = AccountVote::Split { aye: 30, nay: 20 };
 		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, v));
 

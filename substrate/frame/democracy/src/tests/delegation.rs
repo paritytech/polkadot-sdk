@@ -28,10 +28,12 @@ fn single_proposal_should_work_with_delegation() {
 
 		fast_forward_to(2);
 
-		// Delegate first vote.
-		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(2), 1, Conviction::None, 20));
 		let r = 0;
 		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+		assert_eq!(tally(r), Tally { ayes: 1, nays: 0, turnout: 10 });
+
+		// Delegate first vote.
+		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(2), 1, Conviction::None, 20));
 		assert_eq!(tally(r), Tally { ayes: 3, nays: 0, turnout: 30 });
 
 		// Delegate a second vote.

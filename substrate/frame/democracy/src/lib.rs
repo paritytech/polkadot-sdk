@@ -158,9 +158,10 @@ use frame_support::{
 	error::BadOrigin,
 	traits::{
 		defensive_prelude::*,
+		fungible::{Credit, Inspect, MutateHold},
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
-		Bounded, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
-		QueryPreimage, ReservableCurrency, StorePreimage, WithdrawReasons,
+		tokens::{imbalance::OnUnbalanced, Precision},
+		Bounded, EnsureOrigin, Get, LockIdentifier, QueryPreimage, StorePreimage,
 	},
 	weights::Weight,
 };
@@ -177,6 +178,7 @@ mod vote;
 mod vote_threshold;
 pub mod weights;
 pub use conviction::Conviction;
+use frame_support::traits::fungible::InspectHold;
 pub use pallet::*;
 pub use types::{
 	Delegations, MetadataOwner, PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus,
@@ -185,7 +187,6 @@ pub use types::{
 pub use vote::{AccountVote, Vote, Voting};
 pub use vote_threshold::{Approved, VoteThreshold};
 pub use weights::WeightInfo;
-
 #[cfg(test)]
 mod tests;
 
@@ -197,10 +198,9 @@ pub mod migrations;
 pub(crate) const DEMOCRACY_ID: LockIdentifier = *b"democrac";
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
+
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -208,7 +208,13 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{
+			fungible,
+			fungible::{BalancedHold, MutateHold},
+		},
+	};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -234,9 +240,14 @@ pub mod pallet {
 		/// The Preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Currency type for this pallet.
-		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The fungible trait.
+		type Fungible: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ fungible::hold::Balanced<Self::AccountId>;
 
 		/// The period between a proposal being approved and enacted.
 		///
@@ -341,7 +352,7 @@ pub mod pallet {
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
 		/// Handler for the unbalanced reduction when slashing a preimage deposit.
-		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type Slash: OnUnbalanced<CreditOf<Self>>;
 	}
 
 	/// The number of (public) proposals that have been made so far.
@@ -513,6 +524,11 @@ pub mod pallet {
 		},
 	}
 
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		Democracy,
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Value too low
@@ -608,7 +624,7 @@ pub mod pallet {
 				);
 			}
 
-			T::Currency::reserve(&who, value)?;
+			T::Fungible::hold(&HoldReason::Democracy.into(), &who, value)?;
 
 			let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(vec![who.clone()]);
 			DepositOf::<T>::insert(index, (depositors, value));
@@ -639,7 +655,7 @@ pub mod pallet {
 			let seconds = Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
 			let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
-			T::Currency::reserve(&who, deposit.1)?;
+			T::Fungible::hold(&HoldReason::Democracy.into(), &who, deposit.1)?;
 			let ok = deposit.0.try_push(who.clone()).is_ok();
 			debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
 			<DepositOf<T>>::insert(proposal, deposit);
@@ -959,8 +975,7 @@ pub mod pallet {
 		pub fn unlock(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_lock(&target);
-			Ok(())
+			Self::update_lock(&target)
 		}
 
 		/// Remove a vote for a referendum.
@@ -1061,7 +1076,9 @@ pub mod pallet {
 					let (prop_index, ..) = props.remove(index);
 					if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 						for who in whos.into_iter() {
-							T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+							T::Slash::on_unbalanced(
+								T::Fungible::slash(&HoldReason::Democracy.into(), &who, amount).0,
+							);
 						}
 					}
 					Self::clear_metadata(MetadataOwner::Proposal(prop_index));
@@ -1105,7 +1122,9 @@ pub mod pallet {
 			PublicProps::<T>::mutate(|props| props.retain(|p| p.0 != prop_index));
 			if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 				for who in whos.into_iter() {
-					T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+					T::Slash::on_unbalanced(
+						T::Fungible::slash(&HoldReason::Democracy.into(), &who, amount).0,
+					);
 				}
 			}
 			Self::deposit_event(Event::<T>::ProposalCanceled { prop_index });
@@ -1281,7 +1300,13 @@ impl<T: Config> Pallet<T> {
 		vote: AccountVote<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut status = Self::referendum_status(ref_index)?;
-		ensure!(vote.balance() <= T::Currency::free_balance(who), Error::<T>::InsufficientFunds);
+
+		let current_amount = T::Fungible::balance_on_hold(&HoldReason::Democracy.into(), &who);
+		T::Fungible::ensure_can_hold(
+			&HoldReason::Democracy.into(),
+			who,
+			vote.balance().saturating_sub(current_amount),
+		)?;
 		VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
 			if let Voting::Direct { ref mut votes, delegations, .. } = voting {
 				match votes.binary_search_by_key(&ref_index, |i| i.0) {
@@ -1312,12 +1337,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		// Extend the lock to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
-		T::Currency::extend_lock(
-			DEMOCRACY_ID,
-			who,
-			vote.balance(),
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		T::Fungible::set_on_hold(&HoldReason::Democracy.into(), who, vote.balance())?;
 		ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
 		Ok(())
 	}
@@ -1431,7 +1451,12 @@ impl<T: Config> Pallet<T> {
 		balance: BalanceOf<T>,
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T>::Nonsense);
-		ensure!(balance <= T::Currency::free_balance(&who), Error::<T>::InsufficientFunds);
+		let current_amount = T::Fungible::balance_on_hold(&HoldReason::Democracy.into(), &who);
+		T::Fungible::ensure_can_hold(
+			&HoldReason::Democracy.into(),
+			&who,
+			balance.saturating_sub(current_amount),
+		)?;
 		let votes = VotingOf::<T>::try_mutate(&who, |voting| -> Result<u32, DispatchError> {
 			let mut old = Voting::Delegating {
 				balance,
@@ -1463,12 +1488,7 @@ impl<T: Config> Pallet<T> {
 			let votes = Self::increase_upstream_delegation(&target, conviction.votes(balance));
 			// Extend the lock to `balance` (rather than setting it) since we don't know what other
 			// votes are in place.
-			T::Currency::extend_lock(
-				DEMOCRACY_ID,
-				&who,
-				balance,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			T::Fungible::set_on_hold(&HoldReason::Democracy.into(), &who, balance)?;
 			Ok(votes)
 		})?;
 		Self::deposit_event(Event::<T>::Delegated { who, target });
@@ -1505,21 +1525,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
-	fn update_lock(who: &T::AccountId) {
+	fn update_lock(who: &T::AccountId) -> DispatchResult {
 		let lock_needed = VotingOf::<T>::mutate(who, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.locked_balance()
 		});
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(DEMOCRACY_ID, who);
+			T::Fungible::release_all(&HoldReason::Democracy.into(), who, Precision::BestEffort)?;
 		} else {
-			T::Currency::set_lock(
-				DEMOCRACY_ID,
-				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			T::Fungible::set_on_hold(&HoldReason::Democracy.into(), who, lock_needed)?;
 		}
+
+		Ok(())
 	}
 
 	/// Start a referendum
@@ -1580,7 +1597,12 @@ impl<T: Config> Pallet<T> {
 			if let Some((depositors, deposit)) = <DepositOf<T>>::take(prop_index) {
 				// refund depositors
 				for d in depositors.iter() {
-					T::Currency::unreserve(d, deposit);
+					T::Fungible::release(
+						&HoldReason::Democracy.into(),
+						d,
+						deposit,
+						Precision::BestEffort,
+					)?;
 				}
 				Self::deposit_event(Event::<T>::Tabled { proposal_index: prop_index, deposit });
 				let ref_index = Self::inject_referendum(
@@ -1605,7 +1627,7 @@ impl<T: Config> Pallet<T> {
 		index: ReferendumIndex,
 		status: ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>,
 	) -> bool {
-		let total_issuance = T::Currency::total_issuance();
+		let total_issuance = T::Fungible::total_issuance();
 		let approved = status.threshold.approved(status.tally, total_issuance);
 
 		if approved {
