@@ -477,7 +477,7 @@ pub mod pallet {
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The funds are reserved during a user's bid for entry.
-		SocietyBid,
+		Society,
 	}
 
 	#[pallet::config]
@@ -839,7 +839,7 @@ pub mod pallet {
 			let deposit = params.candidate_deposit;
 			// NOTE: Hold must happen before `insert_bid` since that could end up with it being
 			// released.
-			T::Fungible::hold(&HoldReason::SocietyBid.into(), &who, deposit)?;
+			T::Fungible::hold(&HoldReason::Society.into(), &who, deposit)?;
 			Self::insert_bid(&mut bids, &who, value, BidKind::Deposit(deposit));
 
 			Bids::<T, I>::put(bids);
@@ -1654,7 +1654,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		match &bid.kind {
 			BidKind::Deposit(deposit) => {
 				let released = T::Fungible::release(
-					&HoldReason::SocietyBid.into(),
+					&HoldReason::Society.into(),
 					&bid.who,
 					*deposit,
 					Precision::Exact,
@@ -1680,7 +1680,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			BidKind::Deposit(deposit) => {
 				let pot = Self::account_id();
 				let r = T::Fungible::transfer_on_hold(
-					&HoldReason::SocietyBid.into(),
+					&HoldReason::Society.into(),
 					&who,
 					&pot,
 					*deposit,
@@ -1932,7 +1932,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// In the case that a normal deposit bid is accepted we release
 				// the deposit.
 				let released = T::Fungible::release(
-					&HoldReason::SocietyBid.into(),
+					&HoldReason::Society.into(),
 					candidate,
 					deposit,
 					Precision::BestEffort,

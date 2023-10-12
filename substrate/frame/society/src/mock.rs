@@ -40,7 +40,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason},
 		Society: pallet_society::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
 );
@@ -85,25 +85,17 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<128>;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = SocietyPalletId;
-	type Fungible = pallet_balances::Pallet<Self>;
+	type Fungible = pallet_balances::Pallet<Self, RuntimeHoldReason>;
 	type Randomness = TestRandomness<Self>;
 	type GraceStrikes = ConstU32<1>;
 	type PeriodSpend = ConstU64<1000>;
