@@ -17,12 +17,9 @@
 
 #[frame_support::runtime]
 mod runtime {
-    #[frame::runtime]
+    #[runtime::runtime]
+    #[runtime::derive(RuntimeInfo)]
     pub struct Runtime;
-
-    #[frame::pallets]
-    #[frame::derive(RuntimeInfo)]
-    pub struct Pallets {}
 }
 
 fn main() {}

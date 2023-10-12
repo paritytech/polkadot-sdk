@@ -108,7 +108,7 @@ fn construct_runtime_final_expansion(
 			syn::Error::new(
 				pallets_name.span(),
 				"`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system,`",
+			 Please add this line: `pub type System = frame_system;`",
 			)
 		})?;
 	if !system_pallet.cfg_pattern.is_empty() {

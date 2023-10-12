@@ -1663,12 +1663,9 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// #[frame_support::runtime]
 /// mod runtime {
 ///   // The main runtime
-///   #[frame::runtime]
-///   pub struct Runtime;
-///
-///   #[frame::pallets]
+///   #[runtime::runtime]
 ///   // Runtime Types to be generated
-///   #[frame::derive(
+///   #[runtime::derive(
 ///       RuntimeCall,
 /// 	  RuntimeEvent,
 /// 	  RuntimeError,
@@ -1678,26 +1675,27 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// 	  RuntimeSlashReason,
 /// 	  RuntimeLockId
 ///   )]
-///   pub struct Pallets {
-/// 	  #[frame::pallet_index(0)]
-///       System: frame_system,
-/// 	  #[frame::pallet_index(1)]
-/// 	  Test: path::to::test,
+///   pub struct Runtime;
+/// 
+///   #[runtime::pallet_index(0)]
+///   pub type System = frame_system;
 ///
-/// 	  // Pallet with instance.
-/// 	  #[frame::pallet_index(2)]
-/// 	  Test2_Instance1: test2<Instance1>,
+///   #[runtime::pallet_index(1)]
+///   pub type Test = path::to::test;
 ///
-/// 	  // Pallet with calls disabled.
-/// 	  #[frame::pallet_index(3)]
-/// 	  #[frame::disable_call]
-/// 	  Test3: test3,
+///   // Pallet with instance.
+///   #[runtime::pallet_index(2)]
+///   pub type Test2_Instance1 = test2<Instance1>;
 ///
-/// 	  // Pallet with unsigned extrinsics disabled.
-/// 	  #[frame::pallet_index(4)]
-/// 	  #[frame::disable_unsigned]
-/// 	  Test4: test4,
-///    }
+///   // Pallet with calls disabled.
+///   #[runtime::pallet_index(3)]
+///   #[runtime::disable_call]
+///   pub type Test3 = test3;
+///
+///   // Pallet with unsigned extrinsics disabled.
+///   #[runtime::pallet_index(4)]
+///   #[runtime::disable_unsigned]
+///   pub type Test4 = test4;
 /// }
 /// ```
 ///

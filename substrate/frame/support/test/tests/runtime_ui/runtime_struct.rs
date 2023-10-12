@@ -17,7 +17,7 @@
 
 #[frame_support::runtime]
 mod runtime {
-    #[frame::runtime]
+    #[runtime::runtime]
     pub enum Runtime {}
 }
 

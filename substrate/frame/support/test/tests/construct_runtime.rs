@@ -283,11 +283,8 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 #[frame_support::runtime]
 mod runtime {
-	#[frame::runtime]
-	pub struct Runtime;
-
-	#[frame::pallets]
-	#[frame::derive(
+	#[runtime::runtime]
+	#[runtime::derive(
 		RuntimeCall,
 		RuntimeEvent,
 		RuntimeError,
@@ -297,37 +294,49 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId
 	)]
-	pub struct Pallets {
-		#[frame::pallet_index(30)]
-		System: frame_system + Pallet + Call + Event<T> + Origin<T>,
-		#[frame::pallet_index(31)]
-		Module1_1: module1<Instance1>,
-		#[frame::pallet_index(32)]
-		Module2: module2,
-		#[frame::pallet_index(33)]
-		Module1_2: module1<Instance2>,
-		#[frame::pallet_index(34)]
-		NestedModule3: nested::module3,
-		#[frame::pallet_index(35)]
-		#[frame::disable_unsigned]
-		Module3: self::module3,
-		#[frame::pallet_index(6)]
-		#[frame::disable_call]
-		Module1_3: module1<Instance3>,
-		#[frame::pallet_index(3)]
-		Module1_4: module1<Instance4>,
-		#[frame::pallet_index(4)]
-		#[frame::disable_call]
-		Module1_5: module1<Instance5>,
-		#[frame::pallet_index(1)]
-		Module1_6: module1<Instance6>,
-		#[frame::pallet_index(2)]
-		Module1_7: module1<Instance7>,
-		#[frame::pallet_index(12)]
-		Module1_8: module1<Instance8>,
-		#[frame::pallet_index(13)]
-		Module1_9: module1<Instance9>,
-	}
+	pub struct Runtime;
+
+	#[runtime::pallet_index(30)]
+	pub type System = frame_system + Pallet + Call + Event<T> + Origin<T>;
+
+	#[runtime::pallet_index(31)]
+	pub type Module1_1 = module1<Instance1>;
+
+	#[runtime::pallet_index(32)]
+	pub type Module2 = module2;
+
+	#[runtime::pallet_index(33)]
+	pub type Module1_2 = module1<Instance2>;
+
+	#[runtime::pallet_index(34)]
+	pub type NestedModule3 = nested::module3;
+
+	#[runtime::pallet_index(35)]
+	#[frame::disable_unsigned]
+	pub type Module3 = self::module3;
+
+	#[runtime::pallet_index(6)]
+	#[frame::disable_call]
+	pub type Module1_3 = module1<Instance3>;
+
+	#[runtime::pallet_index(3)]
+	pub type Module1_4 = module1<Instance4>;
+
+	#[runtime::pallet_index(4)]
+	#[frame::disable_call]
+	pub type Module1_5 = module1<Instance5>;
+
+	#[runtime::pallet_index(1)]
+	pub type Module1_6 = module1<Instance6>;
+
+	#[runtime::pallet_index(2)]
+	pub type Module1_7 = module1<Instance7>;
+
+	#[runtime::pallet_index(12)]
+	pub type Module1_8 = module1<Instance8>;
+
+	#[runtime::pallet_index(13)]
+	pub type Module1_9 = module1<Instance9>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

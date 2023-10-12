@@ -1,4 +1,4 @@
-error: Missing `#[frame::runtime]`
+error: Missing `#[runtime::runtime]`
   --> tests/runtime_ui/missing_runtime.rs:19:1
    |
 19 | mod runtime {}

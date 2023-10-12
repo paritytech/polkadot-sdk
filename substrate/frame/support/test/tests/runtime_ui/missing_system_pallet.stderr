@@ -1,5 +1,5 @@
-error: `System` pallet declaration is missing. Please add this line: `System: frame_system,`
-  --> tests/runtime_ui/missing_system_pallet.rs:25:16
+error: `System` pallet declaration is missing. Please add this line: `pub type System = frame_system;`
+  --> tests/runtime_ui/missing_system_pallet.rs:19:5
    |
-25 |     pub struct Pallets {}
-   |                ^^^^^^^
+19 | mod runtime {
+   |     ^^^^^^^

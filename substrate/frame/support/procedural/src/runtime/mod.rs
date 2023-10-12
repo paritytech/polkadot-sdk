@@ -77,12 +77,12 @@
 //! #[frame::runtime]
 //! mod runtime {
 //! 	//...
-//! 	{
-//!         #[frame::pallet_index(0)]
-//! 		System: frame_system, // Implicit definition of parts
-//!         #[frame::pallet_index(1)]
-//! 		Balances: pallet_balances, // Implicit definition of parts
-//! 	}
+//! 
+//!     #[runtime::pallet_index(0)]
+//! 	pub type System = frame_system; // Implicit definition of parts
+//! 
+//!     #[runtime::pallet_index(1)]
+//! 	pub type Balances = pallet_balances; // Implicit definition of parts
 //! }
 //! ```
 //! This call has some implicit pallet parts, thus it will expand to:
@@ -98,12 +98,12 @@
 //!                         #[frame::runtime]
 //!                         mod runtime {
 //! 	                        //...
-//! 	                        {
-//!                                #[frame::pallet_index(0)]
-//! 		                       System: frame_system,
-//!                                #[frame::pallet_index(1)]
-//! 		                       Balances: pallet_balances,
-//! 	                        }
+//! 
+//!                             #[runtime::pallet_index(0)]
+//! 		                    pub type System = frame_system;
+//!                             
+//! 							#[runtime::pallet_index(1)]
+//! 		                    pub type Balances = pallet_balances;
 //!                         }
 //! 					}]
 //! 					pattern = [{ System: frame_system }]
@@ -125,12 +125,12 @@
 //!                  #[frame::runtime]
 //!                  mod runtime {
 //! 	                 //...
-//! 	                 {
-//!                          #[frame::pallet_index(0)]
-//! 		                 System: frame_system,
-//!                          #[frame::pallet_index(1)]
-//! 		                 Balances: pallet_balances,
-//! 	                 }
+//! 
+//!                      #[runtime::pallet_index(0)]
+//! 		             pub type System = frame_system;
+//! 
+//!                      #[runtime::pallet_index(1)]
+//! 		             pub type Balances = pallet_balances;
 //!                  }
 //! 			}]
 //! 			pattern = [{ System: frame_system }]
@@ -148,12 +148,12 @@
 //! 		#[frame::runtime]
 //!         mod runtime {
 //! 	        //...
-//! 	        {
-//!                  #[frame::pallet_index(0)]
-//! 		         System: frame_system, // Implicit definition of parts
-//!                  #[frame::pallet_index(1)]
-//! 		         Balances: pallet_balances + Pallet + Call, // Explicit definition of parts
-//! 	        }
+//! 
+//!             #[runtime::pallet_index(0)]
+//! 		    pub type System = frame_system; // Implicit definition of parts
+//! 
+//!             #[runtime::pallet_index(1)]
+//! 		    pub type Balances = pallet_balances + Pallet + Call; // Explicit definition of parts
 //!         }
 //! 	}]
 //! 	pattern = [{ System: frame_system }]
@@ -166,12 +166,12 @@
 //! #[frame::runtime]
 //! mod runtime {
 //! 	//...
-//! 	{
-//!          #[frame::pallet_index(0)]
-//! 		 System: frame_system + Pallet + Call,
-//!          #[frame::pallet_index(1)]
-//! 		 Balances: pallet_balances + Pallet + Call,
-//! 	}
+//! 
+//!     #[runtime::pallet_index(0)]
+//! 	pub type System = frame_system + Pallet + Call;
+//! 
+//!     #[runtime::pallet_index(1)]
+//! 	pub type Balances = pallet_balances + Pallet + Call;
 //! }
 //! ```
 //!

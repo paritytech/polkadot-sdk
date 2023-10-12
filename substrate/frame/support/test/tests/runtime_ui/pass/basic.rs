@@ -26,15 +26,12 @@ impl frame_system::Config for Runtime {
 
 #[frame_support::runtime]
 mod runtime {
-    #[frame::runtime]
+    #[runtime::runtime]
+    #[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeError)]
     pub struct Runtime;
 
-    #[frame::pallets]
-    #[frame::derive(RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeError)]
-    pub struct Pallets {
-        #[frame::pallet_index(0)]
-        System: frame_system
-    }
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system;
 }
 
 fn main() {}

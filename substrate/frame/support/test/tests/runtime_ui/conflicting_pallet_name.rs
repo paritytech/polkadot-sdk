@@ -29,17 +29,15 @@ mod pallet {
 
 #[frame_support::runtime]
 mod runtime {
-    #[frame::runtime]
+    #[runtime::runtime]
+    #[runtime::derive(RuntimeCall)]
     pub struct Runtime;
 
-    #[frame::pallets]
-    #[frame::derive(RuntimeCall)]
-    pub struct Pallets {
-        #[frame::pallet_index(0)]
-        System: frame_system,
-        #[frame::pallet_index(1)]
-        System: pallet,
-    }
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system;
+
+    #[runtime::pallet_index(1)]
+    pub type System = pallet;
 }
 
 fn main() {}
