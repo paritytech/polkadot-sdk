@@ -33,9 +33,9 @@ pub use location_conversion::{
 	Account32Hash, AccountId32Aliases, AccountKey20Aliases, AliasesIntoAccountId32,
 	ChildParachainConvertsVia, DescribeAccountId32Terminal, DescribeAccountIdTerminal,
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeBodyTerminal, DescribeFamily,
-	DescribeLocation, DescribePalletTerminal, DescribeTerminus, GlobalConsensusConvertsFor,
-	GlobalConsensusParachainConvertsFor, HashedDescription, ParentIsPreset,
-	SiblingParachainConvertsVia,
+	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
+	GlobalConsensusConvertsFor, GlobalConsensusParachainConvertsFor, HashedDescription,
+	LocalTreasuryVoiceConvertsVia, ParentIsPreset, SiblingParachainConvertsVia,
 };
 
 mod origin_conversion;
