@@ -583,6 +583,16 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -751,6 +761,8 @@
 				</span>.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			SubmitReportDisputeLost(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {},
+			DisabledValidators(relay_parent, disabled_validators) =&gt;
+				<span class="self">self</span>.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
 			ParaBackingState(relay_parent, para_id, constraints) =&gt; <span class="self">self
 				</span>.requests_cache
 				.cache_para_backing_state((relay_parent, para_id), constraints),
@@ -881,6 +893,8 @@
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
+			Request::DisabledValidators(sender) =&gt; <span class="macro">query!</span>(disabled_validators(), sender)
+				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) =&gt; <span class="macro">query!</span>(para_backing_state(para), sender)
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) =&gt; <span class="macro">query!</span>(async_backing_params(), sender)
@@ -1148,6 +1162,12 @@
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::DisabledValidators(sender) =&gt; <span class="macro">query!</span>(
+			DisabledValidators,
+			disabled_validators(),
+			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::ParaBackingState(para, sender) =&gt; {

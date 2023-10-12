@@ -2214,6 +2214,13 @@
 <a href="#2214" id="2214">2214</a>
 <a href="#2215" id="2215">2215</a>
 <a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2265,7 +2272,9 @@
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
 	paras_inherent <span class="kw">as </span>parachains_paras_inherent,
-	runtime_api_impl::v7 <span class="kw">as </span>parachains_runtime_api_impl,
+	runtime_api_impl::{
+		v7 <span class="kw">as </span>parachains_runtime_api_impl, vstaging <span class="kw">as </span>parachains_staging_runtime_api_impl,
+	},
 	scheduler <span class="kw">as </span>parachains_scheduler, session_info <span class="kw">as </span>parachains_session_info,
 	shared <span class="kw">as </span>parachains_shared,
 };
@@ -3801,7 +3810,7 @@
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">7</span>)]
+	<span class="attr">#[api_version(<span class="number">8</span>)]
 	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block, Hash, BlockNumber&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
@@ -3944,6 +3953,11 @@
 		<span class="kw">fn </span>async_backing_params() -&gt; primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::&lt;Runtime&gt;()
 		}
+
+		<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {
+			parachains_staging_runtime_api_impl::disabled_validators::&lt;Runtime&gt;()
+		}
+
 	}
 
 	<span class="attr">#[api_version(<span class="number">3</span>)]

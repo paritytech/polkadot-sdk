@@ -259,6 +259,13 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -509,6 +516,7 @@
 		</span><span class="attr">#[api_version(<span class="number">6</span>)]
 		</span><span class="kw">fn </span>minimum_backing_votes() -&gt; u32;
 
+
 		<span class="comment">/***** Added in v7: Asynchronous backing *****/
 
 		</span><span class="doccomment">/// Returns the state of parachain backing for a given para.
@@ -518,6 +526,12 @@
 		<span class="doccomment">/// Returns candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
 		</span><span class="attr">#[api_version(<span class="number">7</span>)]
 		</span><span class="kw">fn </span>async_backing_params() -&gt; AsyncBackingParams;
+
+		<span class="comment">/***** Added in v8 *****/
+
+		</span><span class="doccomment">/// Returns a list of all disabled validators at the given block.
+		</span><span class="attr">#[api_version(<span class="number">8</span>)]
+		</span><span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt;;
 	}
 }
 </code></pre></div></section></main></body></html>

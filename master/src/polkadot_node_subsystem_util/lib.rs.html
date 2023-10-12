@@ -439,6 +439,7 @@
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -667,6 +668,7 @@
 	<span class="kw">fn </span>request_unapplied_slashes() -&gt; Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;; UnappliedSlashes;
 	<span class="kw">fn </span>request_key_ownership_proof(validator_id: ValidatorId) -&gt; <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;; KeyOwnershipProof;
 	<span class="kw">fn </span>request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;; SubmitReportDisputeLost;
+	<span class="kw">fn </span>request_disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt;; DisabledValidators;
 	<span class="kw">fn </span>request_async_backing_params() -&gt; AsyncBackingParams; AsyncBackingParams;
 }
 

@@ -1134,6 +1134,11 @@
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1831,6 +1836,8 @@
 	),
 	<span class="doccomment">/// Get the minimum required backing votes.
 	</span>MinimumBackingVotes(SessionIndex, RuntimeApiSender&lt;u32&gt;),
+	<span class="doccomment">/// Returns all disabled validators at a given block height.
+	</span>DisabledValidators(RuntimeApiSender&lt;Vec&lt;ValidatorIndex&gt;&gt;),
 	<span class="doccomment">/// Get the backing state of the given para.
 	</span>ParaBackingState(ParaId, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt;),
 	<span class="doccomment">/// Get candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
@@ -1862,6 +1869,9 @@
 
 	<span class="doccomment">/// Minimum version to enable asynchronous backing: `AsyncBackingParams` and `ParaBackingState`.
 	</span><span class="kw">pub const </span>ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT: u32 = <span class="number">7</span>;
+
+	<span class="doccomment">/// `DisabledValidators`
+	</span><span class="kw">pub const </span>DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = <span class="number">8</span>;
 }
 
 <span class="doccomment">/// A message to the Runtime API subsystem.
