@@ -312,18 +312,18 @@ mod runtime {
 	pub type NestedModule3 = nested::module3;
 
 	#[runtime::pallet_index(35)]
-	#[frame::disable_unsigned]
+	#[runtime::disable_unsigned]
 	pub type Module3 = self::module3;
 
 	#[runtime::pallet_index(6)]
-	#[frame::disable_call]
+	#[runtime::disable_call]
 	pub type Module1_3 = module1<Instance3>;
 
 	#[runtime::pallet_index(3)]
 	pub type Module1_4 = module1<Instance4>;
 
 	#[runtime::pallet_index(4)]
-	#[frame::disable_call]
+	#[runtime::disable_call]
 	pub type Module1_5 = module1<Instance5>;
 
 	#[runtime::pallet_index(1)]
