@@ -25,7 +25,9 @@ use assets_common::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, Contains, Everything, EverythingBut, Get, Nothing, PalletInfoAccess},
+	traits::{
+		ConstU32, Contains, EqualsTo, Everything, EverythingBut, Get, Nothing, PalletInfoAccess,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -40,13 +42,12 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, Equals, FungiblesAdapter, GlobalConsensusParachainConvertsFor,
-	HashedDescription, InteriorLocationMatcher, IsConcrete, LocalMint, LocationMatcher,
-	NativeAsset, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
-	WithUniqueTopic,
+	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
+	InteriorLocationMatcher, IsConcrete, LocalMint, LocationMatcher, NativeAsset,
+	NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -493,12 +494,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// Allows Transacts with `report_bridge_status` from sibling BridgeHub.
 					bridging::AllowUnpaidStatusReportsFromSiblingBridgeHub<
 						ToWococoXcmRouter,
-						Equals<bridging::SiblingBridgeHub>,
+						EqualsTo<bridging::SiblingBridgeHub>,
 					>,
 					// Allows Transacts with `report_bridge_status` from sibling BridgeHub.
 					bridging::AllowUnpaidStatusReportsFromSiblingBridgeHub<
 						ToRococoXcmRouter,
-						Equals<bridging::SiblingBridgeHub>,
+						EqualsTo<bridging::SiblingBridgeHub>,
 					>,
 				),
 				UniversalLocation,
@@ -757,7 +758,7 @@ pub mod bridging {
 					WococoNetwork::get(),
 					InteriorLocationMatcher::<(
 						// allow to bridge to AssetHubWococo
-						Equals<AssetHubWococoInterior>,
+						EqualsTo<AssetHubWococoInterior>,
 						// and nothing else
 					)>::new(),
 					SiblingBridgeHub::get(),
@@ -777,7 +778,7 @@ pub mod bridging {
 					AssetHubWococo::get(),
 					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow receive WOC
-						Equals<WocLocation>,
+						EqualsTo<WocLocation>,
 						// and nothing else
 					)>::new()),
 				)
@@ -791,7 +792,7 @@ pub mod bridging {
 					AssetHubWococo::get(),
 					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow send only ROC
-						Equals<TokenLocation>,
+						EqualsTo<TokenLocation>,
 						// and nothing else
 					)>::new()),
 				)
@@ -856,7 +857,7 @@ pub mod bridging {
 					RococoNetwork::get(),
 					InteriorLocationMatcher::<(
 						// allow to bridge to AssetHubRococo
-						Equals<AssetHubRococoInterior>,
+						EqualsTo<AssetHubRococoInterior>,
 						// and nothing else
 					)>::new(),
 					SiblingBridgeHub::get(),
@@ -876,7 +877,7 @@ pub mod bridging {
 					AssetHubRococo::get(),
 					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow receive ROC
-						Equals<RocLocation>,
+						EqualsTo<RocLocation>,
 						// and nothing else
 					)>::new()),
 				)
@@ -890,7 +891,7 @@ pub mod bridging {
 					AssetHubRococo::get(),
 					sp_std::boxed::Box::new(LocationMatcher::<(
 						// allow send only WOC
-						Equals<TokenLocation>,
+						EqualsTo<TokenLocation>,
 						// and nothing else
 					)>::new()),
 				)
