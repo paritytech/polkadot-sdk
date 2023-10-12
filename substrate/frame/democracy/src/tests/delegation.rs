@@ -220,4 +220,3 @@ fn redelegation_keeps_lock() {
 		assert_eq!(VotingOf::<Test>::get(2).locked_balance(), 10);
 	});
 }
-
