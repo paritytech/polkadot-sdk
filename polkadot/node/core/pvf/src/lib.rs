@@ -19,8 +19,8 @@
 //! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
 //! For more background, refer to the Implementer's Guide: [PVF
-//! Pre-checking](https://paritytech.github.io/polkadot/book/pvf-prechecking.html) and [Candidate
-//! Validation](https://paritytech.github.io/polkadot/book/node/utility/candidate-validation.html#pvf-host).
+//! Pre-checking](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html) and [Candidate
+//! Validation](https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html#pvf-host).
 //!
 //! # Entrypoint
 //!
