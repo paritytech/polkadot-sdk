@@ -241,6 +241,13 @@ where
 			}
 		}
 
+		// finally get any keys that have been removed between start_block and end_block
+		for key in start_keys {
+			if storage_diff.iter().position(|r| r.0 == key).is_none() {
+				storage_diff.push((key, None))
+			}
+		}
+
 		Ok(storage_diff)
 
 	}
