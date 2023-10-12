@@ -30,7 +30,7 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use nix::sys::resource::Resource;
+use nix::sys::resource::{Resource, Usage, UsageWho};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -151,6 +151,8 @@ pub fn worker_entrypoint(
 
 				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)?;
+
 				// SAFETY: new process is spawned within a single threaded process
 				let result = match unsafe { libc::fork() } {
 					// error
@@ -170,8 +172,14 @@ pub fn worker_entrypoint(
 						// the read end will wait until all ends have been closed,
 						// this drop is necessary to avoid deadlock
 						drop(pipe_writer);
-						handle_parent_process(pipe_reader, temp_artifact_dest.clone(), worker_pid)
-							.await
+						handle_parent_process(
+							pipe_reader,
+							temp_artifact_dest.clone(),
+							worker_pid,
+							usage_before,
+							preparation_timeout.as_secs(),
+						)
+						.await
 					},
 				};
 				send_response(&mut stream, result)?;
@@ -316,19 +324,25 @@ async fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
+	usage_before: Usage,
+	timeout: u64,
 ) -> Result<PrepareStats, PrepareError> {
 	let mut received_data = Vec::new();
 
-	pipe_read.read_to_end(&mut received_data).map_err(|_| {
-		PrepareError::Panic(format!("error reading pipe for worker id {}", worker_pid))
-	})?;
-	return match nix::sys::wait::wait() {
+	pipe_read
+		.read_to_end(&mut received_data)
+		.map_err(|err| PrepareError::Panic(err.to_string()))?;
+	let status = nix::sys::wait::wait();
+	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+		.map_err(|err| PrepareError::Panic(err.to_string()))?;
+	let cpu_tv = (get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before)) as u64;
+
+	return match status {
 		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
 			let result: Result<Response, PrepareError> = parity_scale_codec::decode_from_bytes(
 				bytes::Bytes::copy_from_slice(received_data.as_slice()),
 			)
 			.map_err(|e| PrepareError::Panic(e.to_string()))?;
-
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
@@ -340,10 +354,10 @@ async fn handle_parent_process(
 					// is only required to send `Ok` to the pool to indicate the
 					// success.
 					gum::debug!(
-						target: LOG_TARGET,
-						%worker_pid,
-						"worker: writing artifact to {}",
-						temp_artifact_dest.display(),
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: writing artifact to {}",
+					temp_artifact_dest.display(),
 					);
 					if let Err(err) =
 						tokio::fs::write(&temp_artifact_dest, &response.artifact).await
@@ -351,12 +365,25 @@ async fn handle_parent_process(
 						return Err(PrepareError::Panic(format!("{:?}", err)))
 					};
 
-					Ok(PrepareStats { memory_stats: response.memory_stats })
+					Ok(PrepareStats {
+						memory_stats: response.memory_stats,
+						cpu_time_elapsed: Duration::from_secs(cpu_tv as u64),
+					})
 				},
 			}
 		},
-		Ok(nix::sys::wait::WaitStatus::Signaled(_, nix::sys::signal::Signal::SIGXCPU, _)) =>
-			Err(PrepareError::TimedOut),
-		_ => Err(PrepareError::Panic("child failed".to_string())),
+		_ => {
+			if cpu_tv >= timeout {
+				return Err(PrepareError::TimedOut)
+			}
+			Err(PrepareError::Panic("child finished with unknown status".to_string()))
+		},
 	}
+}
+
+fn get_total_cpu_usage(rusage: Usage) -> u64 {
+	return (rusage.user_time().tv_sec() +
+		rusage.system_time().tv_sec() +
+		((rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) / 1_000_000) as i64)
+		as u64
 }

@@ -19,6 +19,8 @@ use parity_scale_codec::{Decode, Encode};
 /// Preparation statistics, including the CPU time and memory taken.
 #[derive(Debug, Clone, Default, Encode, Decode)]
 pub struct PrepareStats {
+	/// The CPU time that elapsed for the preparation job.
+	pub cpu_time_elapsed: std::time::Duration,
 	/// The observed memory statistics for the preparation job.
 	pub memory_stats: MemoryStats,
 }

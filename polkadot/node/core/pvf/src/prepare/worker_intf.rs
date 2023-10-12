@@ -158,6 +158,7 @@ pub async fn start_work(
 						pid,
 						tmp_artifact_file,
 						artifact_path,
+						preparation_timeout,
 					)
 					.await,
 				Ok(Err(err)) => {
@@ -196,13 +197,27 @@ async fn handle_response(
 	worker_pid: u32,
 	tmp_file: PathBuf,
 	artifact_path: PathBuf,
+	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareStats { memory_stats } = match result.clone() {
+	let PrepareStats { cpu_time_elapsed, memory_stats } = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
 		Err(_) => return Outcome::Concluded { worker, result },
 	};
+
+	if cpu_time_elapsed > preparation_timeout {
+		// The job didn't complete within the timeout.
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"prepare job took {}ms cpu time, exceeded preparation timeout {}ms. Clearing WIP artifact {}",
+			cpu_time_elapsed.as_millis(),
+			preparation_timeout.as_millis(),
+			tmp_file.display(),
+		);
+		return Outcome::TimedOut
+	}
 
 	gum::debug!(
 		target: LOG_TARGET,
