@@ -798,6 +798,46 @@ fn decrease_candidacy_bond_works() {
 }
 
 #[test]
+fn update_candidacy_bond_with_identical_amount() {
+	new_test_ext().execute_with(|| {
+		// given
+		assert_eq!(CollatorSelection::desired_candidates(), 2);
+		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+
+		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
+		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+
+		// take three endowed, non-invulnerables accounts.
+		assert_eq!(Balances::free_balance(3), 100);
+		assert_eq!(Balances::free_balance(4), 100);
+		assert_eq!(Balances::free_balance(5), 100);
+
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
+
+		assert_eq!(Balances::free_balance(3), 90);
+		assert_eq!(Balances::free_balance(4), 90);
+		assert_eq!(Balances::free_balance(5), 90);
+
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 20));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 30));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 40));
+
+		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(Balances::free_balance(3), 80);
+		assert_eq!(Balances::free_balance(4), 70);
+		assert_eq!(Balances::free_balance(5), 60);
+
+		assert_noop!(
+			CollatorSelection::update_bond(RuntimeOrigin::signed(3), 20),
+			Error::<Test>::IdenticalDeposit
+		);
+		assert_eq!(Balances::free_balance(3), 80);
+	});
+}
+
+#[test]
 fn candidate_list_works() {
 	new_test_ext().execute_with(|| {
 		// given
