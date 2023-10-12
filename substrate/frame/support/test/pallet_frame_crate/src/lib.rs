@@ -18,11 +18,6 @@
 //! A basic pallet that can be used to test `construct_runtime!` when `frame_system` and
 //! `frame_support` are reexported by a `frame` crate.
 
-// Ensure docs are propagated properly by the macros.
-#![warn(missing_docs)]
-
-pub use pallet::*;
-
 use frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]
@@ -41,9 +36,6 @@ pub mod pallet {
 	// if `frame_system` is brought into scope.
 	pub trait Config: frame_system::Config {}
 
-	#[pallet::storage]
-	pub type Value<T> = StorageValue<_, u32>;
-
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -54,11 +46,5 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {}
-	}
-
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Something failed
-		Test,
 	}
 }
