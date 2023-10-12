@@ -2053,11 +2053,8 @@ impl pallet_mixnet::Config for Runtime {
 
 #[frame_support::runtime]
 mod runtime {
-	#[frame::runtime]
-	pub struct Runtime;
-
-	#[frame::pallets]
-	#[frame::derive(
+	#[runtime::runtime]
+	#[runtime::derive(
 		RuntimeCall,
 		RuntimeEvent,
 		RuntimeError,
@@ -2067,153 +2064,225 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId
 	)]
-	pub struct Pallets {
-		#[frame::pallet_index(0)]
-		System: frame_system,
-		#[frame::pallet_index(1)]
-		Utility: pallet_utility,
-		#[frame::pallet_index(2)]
-		Babe: pallet_babe,
-		#[frame::pallet_index(3)]
-		Timestamp: pallet_timestamp,
-		// Authorship must be before session in order to note author in the correct session and era
-		// for im-online and staking.
-		#[frame::pallet_index(4)]
-		Authorship: pallet_authorship,
-		#[frame::pallet_index(5)]
-		Indices: pallet_indices,
-		#[frame::pallet_index(6)]
-		Balances: pallet_balances,
-		#[frame::pallet_index(7)]
-		TransactionPayment: pallet_transaction_payment,
-		#[frame::pallet_index(8)]
-		AssetTxPayment: pallet_asset_tx_payment,
-		#[frame::pallet_index(9)]
-		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
-		#[frame::pallet_index(10)]
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-		#[frame::pallet_index(11)]
-		Staking: pallet_staking,
-		#[frame::pallet_index(12)]
-		Session: pallet_session,
-		#[frame::pallet_index(13)]
-		Democracy: pallet_democracy,
-		#[frame::pallet_index(14)]
-		Council: pallet_collective<Instance1>,
-		#[frame::pallet_index(15)]
-		TechnicalCommittee: pallet_collective<Instance2>,
-		#[frame::pallet_index(16)]
-		Elections: pallet_elections_phragmen,
-		#[frame::pallet_index(17)]
-		TechnicalMembership: pallet_membership<Instance1>,
-		#[frame::pallet_index(18)]
-		Grandpa: pallet_grandpa,
-		#[frame::pallet_index(19)]
-		Treasury: pallet_treasury,
-		#[frame::pallet_index(20)]
-		AssetRate: pallet_asset_rate,
-		#[frame::pallet_index(21)]
-		Contracts: pallet_contracts,
-		#[frame::pallet_index(22)]
-		Sudo: pallet_sudo,
-		#[frame::pallet_index(23)]
-		ImOnline: pallet_im_online,
-		#[frame::pallet_index(24)]
-		AuthorityDiscovery: pallet_authority_discovery,
-		#[frame::pallet_index(25)]
-		Offences: pallet_offences,
-		#[frame::pallet_index(26)]
-		Historical: pallet_session_historical + Pallet,
-		#[frame::pallet_index(27)]
-		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-		#[frame::pallet_index(28)]
-		Identity: pallet_identity,
-		#[frame::pallet_index(29)]
-		Society: pallet_society,
-		#[frame::pallet_index(30)]
-		Recovery: pallet_recovery,
-		#[frame::pallet_index(31)]
-		Vesting: pallet_vesting,
-		#[frame::pallet_index(32)]
-		Scheduler: pallet_scheduler,
-		#[frame::pallet_index(33)]
-		Glutton: pallet_glutton,
-		#[frame::pallet_index(34)]
-		Preimage: pallet_preimage,
-		#[frame::pallet_index(35)]
-		Proxy: pallet_proxy,
-		#[frame::pallet_index(36)]
-		Multisig: pallet_multisig,
-		#[frame::pallet_index(37)]
-		Bounties: pallet_bounties,
-		#[frame::pallet_index(38)]
-		Tips: pallet_tips,
-		#[frame::pallet_index(39)]
-		Assets: pallet_assets<Instance1>,
-		#[frame::pallet_index(40)]
-		PoolAssets: pallet_assets<Instance2>,
-		#[frame::pallet_index(41)]
-		Mmr: pallet_mmr,
-		#[frame::pallet_index(42)]
-		Lottery: pallet_lottery,
-		#[frame::pallet_index(43)]
-		Nis: pallet_nis,
-		#[frame::pallet_index(44)]
-		Uniques: pallet_uniques,
-		#[frame::pallet_index(45)]
-		Nfts: pallet_nfts,
-		#[frame::pallet_index(46)]
-		NftFractionalization: pallet_nft_fractionalization,
-		#[frame::pallet_index(47)]
-		Salary: pallet_salary,
-		#[frame::pallet_index(48)]
-		CoreFellowship: pallet_core_fellowship,
-		#[frame::pallet_index(49)]
-		TransactionStorage: pallet_transaction_storage,
-		#[frame::pallet_index(50)]
-		VoterList: pallet_bags_list<Instance1>,
-		#[frame::pallet_index(51)]
-		StateTrieMigration: pallet_state_trie_migration,
-		#[frame::pallet_index(52)]
-		ChildBounties: pallet_child_bounties,
-		#[frame::pallet_index(53)]
-		Referenda: pallet_referenda,
-		#[frame::pallet_index(54)]
-		Remark: pallet_remark,
-		#[frame::pallet_index(55)]
-		RootTesting: pallet_root_testing,
-		#[frame::pallet_index(56)]
-		ConvictionVoting: pallet_conviction_voting,
-		#[frame::pallet_index(57)]
-		Whitelist: pallet_whitelist,
-		#[frame::pallet_index(58)]
-		AllianceMotion: pallet_collective<Instance3>,
-		#[frame::pallet_index(59)]
-		Alliance: pallet_alliance,
-		#[frame::pallet_index(60)]
-		NominationPools: pallet_nomination_pools,
-		#[frame::pallet_index(61)]
-		RankedPolls: pallet_referenda<Instance2>,
-		#[frame::pallet_index(62)]
-		RankedCollective: pallet_ranked_collective,
-		#[frame::pallet_index(63)]
-		AssetConversion: pallet_asset_conversion,
-		#[frame::pallet_index(64)]
-		FastUnstake: pallet_fast_unstake,
-		#[frame::pallet_index(65)]
-		MessageQueue: pallet_message_queue,
-		#[frame::pallet_index(66)]
-		Pov: frame_benchmarking_pallet_pov,
-		#[frame::pallet_index(67)]
-		TxPause: pallet_tx_pause,
-		#[frame::pallet_index(68)]
-		SafeMode: pallet_safe_mode,
-		#[frame::pallet_index(69)]
-		Statement: pallet_statement,
-		#[frame::pallet_index(70)]
-		Broker: pallet_broker,
-		Mixnet: pallet_mixnet,
-	}
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type Utility= pallet_utility;
+
+	#[runtime::pallet_index(2)]
+	pub type Babe = pallet_babe;
+
+	#[runtime::pallet_index(3)]
+	pub type Timestamp = pallet_timestamp;
+
+	// Authorship must be before session in order to note author in the correct session and era
+	// for im-online and staking.
+	#[runtime::pallet_index(4)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(5)]
+	pub type Indices = pallet_indices;
+
+	#[runtime::pallet_index(6)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(7)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(8)]
+	pub type AssetTxPayment = pallet_asset_tx_payment;
+
+	#[runtime::pallet_index(9)]
+	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment;
+
+	#[runtime::pallet_index(10)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+
+	#[runtime::pallet_index(11)]
+	pub type Staking = pallet_staking;
+
+	#[runtime::pallet_index(12)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(13)]
+	pub type Democracy = pallet_democracy;
+
+	#[runtime::pallet_index(14)]
+	pub type Council = pallet_collective<Instance1>;
+
+	#[runtime::pallet_index(15)]
+	pub type TechnicalCommittee = pallet_collective<Instance2>;
+
+	#[runtime::pallet_index(16)]
+	pub type Elections = pallet_elections_phragmen;
+
+	#[runtime::pallet_index(17)]
+	pub type TechnicalMembership = pallet_membership<Instance1>;
+
+	#[runtime::pallet_index(18)]
+	pub type Grandpa = pallet_grandpa;
+
+	#[runtime::pallet_index(19)]
+	pub type Treasury = pallet_treasury;
+
+	#[runtime::pallet_index(20)]
+	pub type AssetRate = pallet_asset_rate;
+
+	#[runtime::pallet_index(21)]
+	pub type Contracts = pallet_contracts;
+
+	#[runtime::pallet_index(22)]
+	pub type Sudo = pallet_sudo;
+
+	#[runtime::pallet_index(23)]
+	pub type ImOnline = pallet_im_online;
+
+	#[runtime::pallet_index(24)]
+	pub type AuthorityDiscovery = pallet_authority_discovery;
+
+	#[runtime::pallet_index(25)]
+	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(26)]
+	pub type Historical = pallet_session_historical + Pallet;
+
+	#[runtime::pallet_index(27)]
+	pub type RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip;
+
+	#[runtime::pallet_index(28)]
+	pub type Identity = pallet_identity;
+
+	#[runtime::pallet_index(29)]
+	pub type Society = pallet_society;
+
+	#[runtime::pallet_index(30)]
+	pub type Recovery = pallet_recovery;
+
+	#[runtime::pallet_index(31)]
+	pub type Vesting = pallet_vesting;
+
+	#[runtime::pallet_index(32)]
+	pub type Scheduler = pallet_scheduler;
+
+	#[runtime::pallet_index(33)]
+	pub type Glutton = pallet_glutton;
+
+	#[runtime::pallet_index(34)]
+	pub type Preimage = pallet_preimage;
+
+	#[runtime::pallet_index(35)]
+	pub type Proxy = pallet_proxy;
+
+	#[runtime::pallet_index(36)]
+	pub type Multisig = pallet_multisig;
+
+	#[runtime::pallet_index(37)]
+	pub type Bounties = pallet_bounties;
+
+	#[runtime::pallet_index(38)]
+	pub type Tips = pallet_tips;
+
+	#[runtime::pallet_index(39)]
+	pub type Assets = pallet_assets<Instance1>;
+
+	#[runtime::pallet_index(40)]
+	pub type PoolAssets = pallet_assets<Instance2>;
+
+	#[runtime::pallet_index(41)]
+	pub type Mmr = pallet_mmr;
+
+	#[runtime::pallet_index(42)]
+	pub type Lottery = pallet_lottery;
+
+	#[runtime::pallet_index(43)]
+	pub type Nis = pallet_nis;
+
+	#[runtime::pallet_index(44)]
+	pub type Uniques = pallet_uniques;
+
+	#[runtime::pallet_index(45)]
+	pub type Nfts = pallet_nfts;
+
+	#[runtime::pallet_index(46)]
+	pub type NftFractionalization = pallet_nft_fractionalization;
+
+	#[runtime::pallet_index(47)]
+	pub type Salary = pallet_salary;
+
+	#[runtime::pallet_index(48)]
+	pub type CoreFellowship = pallet_core_fellowship;
+
+	#[runtime::pallet_index(49)]
+	pub type TransactionStorage = pallet_transaction_storage;
+
+	#[runtime::pallet_index(50)]
+	pub type VoterList = pallet_bags_list<Instance1>;
+
+	#[runtime::pallet_index(51)]
+	pub type StateTrieMigration = pallet_state_trie_migration;
+
+	#[runtime::pallet_index(52)]
+	pub type ChildBounties = pallet_child_bounties;
+
+	#[runtime::pallet_index(53)]
+	pub type Referenda = pallet_referenda;
+
+	#[runtime::pallet_index(54)]
+	pub type Remark = pallet_remark;
+
+	#[runtime::pallet_index(55)]
+	pub type RootTesting = pallet_root_testing;
+
+	#[runtime::pallet_index(56)]
+	pub type ConvictionVoting = pallet_conviction_voting;
+
+	#[runtime::pallet_index(57)]
+	pub type Whitelist = pallet_whitelist;
+
+	#[runtime::pallet_index(58)]
+	pub type AllianceMotion = pallet_collective<Instance3>;
+
+	#[runtime::pallet_index(59)]
+	pub type Alliance = pallet_alliance;
+
+	#[runtime::pallet_index(60)]
+	pub type NominationPools = pallet_nomination_pools;
+
+	#[runtime::pallet_index(61)]
+	pub type RankedPolls = pallet_referenda<Instance2>;
+
+	#[runtime::pallet_index(62)]
+	pub type RankedCollective = pallet_ranked_collective;
+
+	#[runtime::pallet_index(63)]
+	pub type AssetConversion = pallet_asset_conversion;
+
+	#[runtime::pallet_index(64)]
+	pub type FastUnstake = pallet_fast_unstake;
+
+	#[runtime::pallet_index(65)]
+	pub type MessageQueue = pallet_message_queue;
+
+	#[runtime::pallet_index(66)]
+	pub type Pov = frame_benchmarking_pallet_pov;
+
+	#[runtime::pallet_index(67)]
+	pub type TxPause = pallet_tx_pause;
+
+	#[runtime::pallet_index(68)]
+	pub type SafeMode = pallet_safe_mode;
+
+	#[runtime::pallet_index(69)]
+	pub type Statement = pallet_statement;
+
+	#[runtime::pallet_index(70)]
+	pub type Broker = pallet_broker;
+
+	#[runtime::pallet_index(71)]
+	pub type Mixnet = pallet_mixnet;
 }
 
 /// The address format for describing accounts.
