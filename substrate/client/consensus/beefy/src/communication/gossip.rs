@@ -278,8 +278,7 @@ where
 		self.known_peers.lock().note_vote_for(*sender, round);
 
 		// Verify general usefulness of the message.
-		// We are going to discard old votes right away (without verification)
-		// Also we keep track of already received votes to avoid verifying duplicates.
+		// We are going to discard old votes right away (without verification).
 		{
 			let filter = self.gossip_filter.read();
 
@@ -320,7 +319,7 @@ where
 		let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
 		self.known_peers.lock().note_vote_for(*sender, round);
 
-		let (action, valid_new) = {
+		let action = {
 			let guard = self.gossip_filter.read();
 
 			// Verify general usefulness of the justification.
@@ -349,14 +348,14 @@ where
 						let mut cost = cost::INVALID_PROOF;
 						cost.value +=
 							cost::PER_SIGNATURE_CHECKED.saturating_mul(signatures_checked as i32);
-						(Action::Discard(cost), false)
+						Action::Discard(cost)
 					} else {
-						(Action::Keep(self.justifs_topic, benefit::VALIDATED_PROOF), true)
+						Action::Keep(self.justifs_topic, benefit::VALIDATED_PROOF)
 					}
 				})
-				.unwrap_or((Action::Discard(cost::OUT_OF_SCOPE_MESSAGE), false))
+				.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
 		};
-		if valid_new {
+		if matches!(action, Action::Keep(_, _)) {
 			self.gossip_filter.write().mark_round_as_proven(round);
 		}
 		action
