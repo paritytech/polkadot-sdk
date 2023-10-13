@@ -15,7 +15,7 @@ rustflags = [
   "-Aclippy::all",
   "-Dclippy::correctness",
   "-Aclippy::if-same-then-else",
-  "-Aclippy::clone-double-ref",
+  "-Asuspicious_double_ref_op",
   "-Dclippy::complexity",
   "-Aclippy::zero-prefixed-literal",     # 00_1000_000
   "-Aclippy::type_complexity",           # raison d'etre
