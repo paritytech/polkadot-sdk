@@ -57,9 +57,6 @@ pub struct TasksDef {
 impl syn::parse::Parse for TasksDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_impl: ItemImpl = input.parse()?;
-		println!("________");
-		item_impl.pretty_print();
-		println!("________");
 		let (tasks_attrs, normal_attrs): (Vec<_>, Vec<_>) =
 			item_impl.attrs.clone().into_iter().partition(|attr| {
 				let mut path_segs = attr.path().segments.iter();
@@ -80,7 +77,6 @@ impl syn::parse::Parse for TasksDef {
 				"unexpected extra `#[pallet::tasks]` attribute",
 			))
 		}
-		println!("IS_SOME: {}", tasks_attr.is_some());
 		let tasks: Vec<TaskDef> = if tasks_attr.is_some() {
 			item_impl
 				.items

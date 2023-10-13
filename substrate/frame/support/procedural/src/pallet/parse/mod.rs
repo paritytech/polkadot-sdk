@@ -134,8 +134,15 @@ impl Def {
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(_)) if tasks.is_none() =>
-					tasks = Some(syn::parse2::<tasks::TasksDef>(get_tokens(item))?),
+				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+					let item_tokens = get_tokens(item);
+					// `TasksDef::parse` needs to know if attr was provided so we artificially
+					// re-insert it here
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+						#[pallet::tasks]
+						#item_tokens
+					})?);
+				}
 				Some(PalletAttr::TaskCondition(span)) => return Err(syn::Error::new(
 					span,
 					"`#[pallet::task_condition]` can only be used on items within an `impl` statement."
@@ -273,12 +280,15 @@ impl Def {
 		match (&task_enum, &tasks) {
 			(Some(_), None) =>
 				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl")),
-			(None, Some(tasks)) if tasks.tasks_attr.is_none() =>
-				return Err(syn::Error::new(
-					tasks.item_impl.impl_token.span(),
-					"A `#[pallet::tasks]` attribute must be attached to your `Task` impl if the \
-					task enum has been omitted",
-				)),
+			(None, Some(tasks)) =>
+				if tasks.tasks_attr.is_none() {
+					return Err(syn::Error::new(
+						tasks.item_impl.impl_token.span(),
+						"A `#[pallet::tasks]` attribute must be attached to your `Task` impl if the \
+						task enum has been omitted",
+					))
+				} else {
+				},
 			_ => (),
 		}
 

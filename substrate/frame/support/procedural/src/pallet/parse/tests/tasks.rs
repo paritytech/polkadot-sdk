@@ -216,9 +216,8 @@ fn test_parse_pallet_manual_task_enum_manual_impl() {
 
 #[test]
 fn test_parse_pallet_manual_task_enum_mismatch_ident() {
-	assert_pallet_parse_error! {
+	assert_pallet_parses! {
 		#[manifest_dir("../../examples/basic")]
-		#[error_regex(".*attribute must be attached to your.*")]
 		#[frame_support::pallet]
 		pub mod pallet {
 			pub enum WrongIdent<T: Config> {
