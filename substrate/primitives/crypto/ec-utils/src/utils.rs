@@ -25,9 +25,11 @@ use ark_ec::{
 	twisted_edwards::TECurveConfig,
 	CurveConfig, VariableBaseMSM,
 };
-use ark_scale::hazmat::ArkScaleProjective;
-use ark_std::vec::Vec;
-use codec::{Decode, Encode};
+use ark_scale::{
+	hazmat::ArkScaleProjective,
+	scale::{Decode, Encode},
+};
+use sp_std::vec::Vec;
 
 // Scale codec type which is expected to be used by the host functions.
 //
