@@ -23,8 +23,8 @@ pub enum ValidationError {
 	///
 	/// Whenever we are unsure if the error was due to the candidate or not, we must vote invalid.
 	InvalidCandidate(InvalidCandidate),
-	/// Some internal error occurred.
-	InternalError(InternalValidationError),
+	/// Non-deterministic prepare errors, typically cased by unexpected internal conditions.
+	Internal(InternalValidationError),
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination
@@ -67,7 +67,7 @@ pub enum InvalidCandidate {
 
 impl From<InternalValidationError> for ValidationError {
 	fn from(error: InternalValidationError) -> Self {
-		Self::InternalError(error)
+		Self::Internal(error)
 	}
 }
 
@@ -78,7 +78,7 @@ impl From<PrepareError> for ValidationError {
 		if error.is_deterministic() {
 			Self::InvalidCandidate(InvalidCandidate::PrepareError(error.to_string()))
 		} else {
-			Self::InternalError(InternalValidationError::NonDeterministicPrepareError(error))
+			Self::Internal(InternalValidationError::NonDeterministicPrepareError(error))
 		}
 	}
 }
