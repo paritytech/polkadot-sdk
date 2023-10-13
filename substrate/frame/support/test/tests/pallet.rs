@@ -21,7 +21,7 @@ use frame_support::{
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
 	parameter_types,
-	storage::unhashed,
+	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
@@ -2345,11 +2345,10 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 	TestExternalities::default().execute_with(|| {
 		let current_version = Example::current_storage_version();
 
-		// Check the on-chain storage version initially is not set and does not match the current
-		// version.
-		let on_chain_version_before = StorageVersion::get::<Example>();
-		assert_eq!(StorageVersion::exists::<Example>(), false);
-		assert_ne!(on_chain_version_before, current_version);
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
 
 		// [`frame_support::traits::BeforeAllRuntimeMigrations`] hook should initialize the storage
 		// version.
@@ -2364,9 +2363,13 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 	TestExternalities::default().execute_with(|| {
 		// Example4 current_storage_version is NoStorageVersionSet.
 
-		// Check the storage version is not set and implicitly 0.
+		// Check the pallet has no storage items set.
+		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
+		let exists = contains_prefixed_key(&pallet_hashed_prefix);
+		assert_eq!(exists, false);
+
+		// Confirm the storage version is implicitly 0.
 		let on_chain_version_before = StorageVersion::get::<Example4>();
-		assert_eq!(StorageVersion::exists::<Example4>(), false);
 		assert_eq!(on_chain_version_before, StorageVersion::new(0));
 
 		// [`frame_support::traits::BeforeAllRuntimeMigrations`] initializes the storage version.

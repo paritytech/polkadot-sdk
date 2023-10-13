@@ -207,12 +207,17 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		{
 			fn before_all_runtime_migrations() -> #frame_support::weights::Weight {
 				use #frame_support::traits::Get;
+				use #frame_support::__private::hashing::twox_128;
+				use #frame_support::storage::unhashed::contains_prefixed_key;
 				#frame_support::__private::sp_tracing::enter_span!(
 					#frame_support::__private::sp_tracing::trace_span!("before_all")
 				);
 
-				// Check if the on-chain version has been set yet
-				let exists = #frame_support::traits::StorageVersion::exists::<Self>();
+				// Check if the pallet has any keys set, including the storage version. If there are
+				// no keys set, the pallet was just added to the runtime and needs to have its
+				// version initialized.
+				let pallet_hashed_prefix = twox_128(#pallet_name.as_bytes());
+				let exists = contains_prefixed_key(&pallet_hashed_prefix);
 				if !exists {
 					#initialize_on_chain_storage_version
 					<T as #frame_system::Config>::DbWeight::get().reads_writes(1, 1)
