@@ -1646,8 +1646,7 @@ pub mod pallet_prelude {
 /// the enum:
 ///
 /// ```ignore
-/// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug
 /// ```
 ///
 /// The inverse is also true: if there are any #[derive] attributes present for the enum, then
@@ -1815,6 +1814,15 @@ pub mod pallet_prelude {
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T>(PhantomData<T>);
 ///
+///     // Declare a hold reason (this is optional).
+///     //
+///     // Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+///     // A similar enum can be defined for `FreezeReason`, `LockId` or `SlashReason`.
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason {
+/// 		SomeHoldReason
+/// 	}
+///
 /// 	// Declare validate_unsigned implementation (this is optional).
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -1948,6 +1956,11 @@ pub mod pallet_prelude {
 ///
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T, I = ()>(PhantomData<(T, I)>);
+///
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason<I: 'static = ()> {
+/// 		SomeHoldReason
+/// 	}
 ///
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config<I>, I: 'static> ValidateUnsigned for Pallet<T, I> {
