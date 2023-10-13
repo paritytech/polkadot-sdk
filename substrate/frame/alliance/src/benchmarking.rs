@@ -27,9 +27,7 @@ use sp_std::{
 	prelude::*,
 };
 
-use frame_benchmarking::{
-	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
-};
+use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin as SystemOrigin};
 
@@ -104,11 +102,11 @@ mod benchmarks {
 
 	// This tests when proposal is created and queued as "proposed"
 	#[benchmark]
-	fn propose_proposed() -> Result<(), BenchmarkError> {
-		let b = 1..MAX_BYTES;
-		let m = 2..T::MaxFellows::get();
-		let p = 1..T::MaxProposals::get();
-
+	fn propose_proposed(
+		b: Linear<1, MAX_BYTES>,
+		m: Linear<2, { T::MaxFellows::get() }>,
+		p: Linear<1, { T::MaxProposals::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let bytes_in_storage = b + size_of::<Cid>() as u32 + 32;
 
 		// Construct `members`.
@@ -138,19 +136,17 @@ mod benchmarks {
 		propose(
 			SystemOrigin::Signed(proposer.clone()),
 			threshold,
-			Box::new(proposal),
+			Box::new(proposal.clone()),
 			bytes_in_storage,
 		);
 
 		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(T::ProposalProvider::proposal_of(proposal_hash), Some(proposal));
+		assert_eq!(T::ProposalProvider::proposal_of(proposal_hash), Some(proposal));
 		Ok(())
 	}
 
 	#[benchmark]
-	fn vote() -> Result<(), BenchmarkError> {
-		let m = 5..T::MaxFellows::get();
-
+	fn vote(m: Linear<5, { T::MaxFellows::get() }>) -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
 		let bytes_in_storage = b + size_of::<Cid>() as u32 + 32;
@@ -217,10 +213,10 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn close_early_disapproved() -> Result<(), BenchmarkError> {
-		let m = 4..T::MaxFellows::get();
-		let p = 1..T::MaxProposals::get();
-
+	fn close_early_disapproved(
+		m: Linear<4, { T::MaxFellows::get() }>,
+		p: Linear<1, { T::MaxProposals::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let bytes = 100;
 		let bytes_in_storage = bytes + size_of::<Cid>() as u32 + 32;
 
@@ -288,16 +284,17 @@ mod benchmarks {
 		#[extrinsic_call]
 		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
-		ensure!(T::ProposalProvider::proposal_of(last_hash), None);
+		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
+		Ok(())
 	}
 
+	// We choose 4 as a minimum for param m, so we always trigger a vote in the voting loop (`for j in ...`)
 	#[benchmark]
-	fn close_early_approved() -> Result<(), BenchmarkError> {
-		let b = 1..MAX_BYTES;
-		// We choose 4 as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
-		let m = 4..T::MaxFellows::get();
-		let p = 1..T::MaxProposals::get();
-
+	fn close_early_approved(
+		b: Linear<1, MAX_BYTES>,
+		m: Linear<4, { T::MaxFellows::get() }>,
+		p: Linear<1, { T::MaxProposals::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let bytes_in_storage = b + size_of::<Cid>() as u32 + 32;
 
 		// Construct `members`.
@@ -308,8 +305,6 @@ mod benchmarks {
 		Alliance::<T, I>::init_members(SystemOrigin::Root.into(), fellows, vec![])?;
 
 		let proposer = members[0].clone();
-		let voter = members[1].clone();
-
 		// Threshold is 2 so any two ayes will approve the vote
 		let threshold = 2;
 
@@ -369,17 +364,17 @@ mod benchmarks {
 		#[extrinsic_call]
 		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
-		ensure!(T::ProposalProvider::proposal_of(last_hash), None);
+		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
 		Ok(())
 	}
 
+	// We choose 5 fellows as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
 	#[benchmark]
-	fn close_disapproved() -> Result<(), BenchmarkError> {
-		let b = 1..MAX_BYTES;
-		// We choose 4 fellows as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
-		let m = 5..T::MaxFellows::get();
-		let p = 1..T::MaxProposals::get();
-
+	fn close_disapproved(
+		b: Linear<1, MAX_BYTES>,
+		m: Linear<5, { T::MaxFellows::get() }>,
+		p: Linear<1, { T::MaxProposals::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let bytes_in_storage = b + size_of::<Cid>() as u32 + 32;
 
 		// Construct `members`.
@@ -390,8 +385,6 @@ mod benchmarks {
 		Alliance::<T, I>::init_members(SystemOrigin::Root.into(), fellows, vec![])?;
 
 		let proposer = members[0].clone();
-		let voter = members[1].clone();
-
 		// Threshold is two, so any two ayes will pass the vote
 		let threshold = 2;
 
@@ -444,15 +437,15 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		ensure!(T::ProposalProvider::proposal_of(last_hash), None);
+		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
+		Ok(())
 	}
 
 	#[benchmark]
-	fn init_members() -> Result<(), BenchmarkError> {
-		// at least 1 fellow
-		let m = 1..T::MaxFellows::get();
-		let z = 0..T::MaxAllies::get();
-
+	fn init_members(
+		m: Linear<1, { T::MaxFellows::get() }>,
+		z: Linear<0, { T::MaxAllies::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let mut fellows = (0..m).map(fellow::<T, I>).collect::<Vec<_>>();
 		let mut allies = (0..z).map(ally::<T, I>).collect::<Vec<_>>();
 
@@ -464,17 +457,17 @@ mod benchmarks {
 		assert_last_event::<T, I>(
 			Event::MembersInitialized { fellows: fellows.clone(), allies: allies.clone() }.into(),
 		);
-		ensure!(Alliance::<T, I>::members(MemberRole::Fellow), fellows);
-		ensure!(Alliance::<T, I>::members(MemberRole::Ally), allies);
+		assert_eq!(Alliance::<T, I>::members(MemberRole::Fellow), fellows);
+		assert_eq!(Alliance::<T, I>::members(MemberRole::Ally), allies);
+		Ok(())
 	}
 
 	#[benchmark]
-	fn disband() -> Result<(), BenchmarkError> {
-		// at least 1 founders
-		let x = 1..T::MaxFellows::get();
-		let y = 0..T::MaxAllies::get();
-		let z = 0..T::MaxMembersCount::get() / 2;
-
+	fn disband(
+		x: Linear<1, { T::MaxFellows::get() }>,
+		y: Linear<0, { T::MaxAllies::get() }>,
+		z: Linear<0, { T::MaxMembersCount::get() / 2 }>,
+	) -> Result<(), BenchmarkError> {
 		let fellows = (0..x).map(fellow::<T, I>).collect::<Vec<_>>();
 		let allies = (0..y).map(ally::<T, I>).collect::<Vec<_>>();
 		let witness = DisbandWitness { fellow_members: x, ally_members: y };
@@ -489,8 +482,8 @@ mod benchmarks {
 			<DepositOf<T, I>>::insert(&member, deposit);
 		}
 
-		ensure!(Alliance::<T, I>::voting_members_count(), x);
-		ensure!(Alliance::<T, I>::ally_members_count(), y);
+		assert_eq!(Alliance::<T, I>::voting_members_count(), x);
+		assert_eq!(Alliance::<T, I>::ally_members_count(), y);
 
 		#[extrinsic_call]
 		_(SystemOrigin::Root, witness);
@@ -505,6 +498,7 @@ mod benchmarks {
 		);
 
 		assert!(!Alliance::<T, I>::is_initialized());
+		Ok(())
 	}
 
 	#[benchmark]
@@ -519,9 +513,9 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
-		ensure!(Alliance::<T, I>::rule(), Some(rule.clone()));
+		assert_eq!(Alliance::<T, I>::rule(), Some(rule.clone()));
 		assert_last_event::<T, I>(Event::NewRuleSet { rule }.into());
 		Ok(())
 	}
@@ -538,11 +532,12 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
 
 		assert!(Alliance::<T, I>::announcements().contains(&announcement));
 		assert_last_event::<T, I>(Event::Announced { announcement }.into());
+		Ok(())
 	}
 
 	#[benchmark]
@@ -560,7 +555,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
 
 		assert!(!Alliance::<T, I>::announcements().contains(&announcement));
@@ -574,7 +569,7 @@ mod benchmarks {
 
 		let outsider = outsider::<T, I>(1);
 		assert!(!Alliance::<T, I>::is_member(&outsider));
-		ensure!(DepositOf::<T, I>::get(&outsider), None);
+		assert_eq!(DepositOf::<T, I>::get(&outsider), None);
 
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(outsider.clone()));
@@ -590,6 +585,7 @@ mod benchmarks {
 			}
 			.into(),
 		);
+		Ok(())
 	}
 
 	#[benchmark]
@@ -633,7 +629,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
 
 		assert!(!Alliance::<T, I>::is_ally(&ally1));
@@ -659,6 +655,7 @@ mod benchmarks {
 			Some(System::<T>::block_number() + T::RetirementPeriod::get())
 		);
 		assert_last_event::<T, I>(Event::MemberRetirementPeriodStarted { member: fellow2 }.into());
+		Ok(())
 	}
 
 	#[benchmark]
@@ -685,6 +682,7 @@ mod benchmarks {
 			Event::MemberRetired { member: fellow2, unreserved: Some(T::AllyDeposit::get()) }
 				.into(),
 		);
+		Ok(())
 	}
 
 	#[benchmark]
@@ -702,7 +700,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
 
 		assert!(!Alliance::<T, I>::is_member(&fellow2));
@@ -710,13 +708,14 @@ mod benchmarks {
 		assert_last_event::<T, I>(
 			Event::MemberKicked { member: fellow2, slashed: Some(T::AllyDeposit::get()) }.into(),
 		);
+		Ok(())
 	}
 
 	#[benchmark]
-	fn add_scrupulous_items() -> Result<(), BenchmarkError> {
-		let n = 0..T::MaxUnscrupulousItems::get();
-		let l = 0..T::MaxWebsiteUrlLength::get();
-
+	fn add_scrupulous_items(
+		n: Linear<0, { T::MaxUnscrupulousItems::get() }>,
+		l: Linear<0, { T::MaxWebsiteUrlLength::get() }>,
+	) -> Result<(), BenchmarkError> {
 		set_members::<T, I>();
 
 		let accounts = (0..n).map(|i| generate_unscrupulous_account::<T, I>(i)).collect::<Vec<_>>();
@@ -736,31 +735,31 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.dispatch_bypass_filter(origin)?
+			call.dispatch_bypass_filter(origin)?;
 		}
 
 		assert_last_event::<T, I>(Event::UnscrupulousItemAdded { items: unscrupulous_list }.into());
 		Ok(())
 	}
-}
 
-benchmarks_instance_pallet! {
-
-	remove_unscrupulous_items {
-		let n in 0 .. T::MaxUnscrupulousItems::get();
-		let l in 0 .. T::MaxWebsiteUrlLength::get();
-
+	#[benchmark]
+	fn remove_unscrupulous_items(
+		n: Linear<0, { T::MaxUnscrupulousItems::get() }>,
+		l: Linear<0, { T::MaxWebsiteUrlLength::get() }>,
+	) -> Result<(), BenchmarkError> {
 		set_members::<T, I>();
 
-		let mut accounts = (0 .. n)
-			.map(|i| generate_unscrupulous_account::<T, I>(i))
-			.collect::<Vec<_>>();
+		let mut accounts =
+			(0..n).map(|i| generate_unscrupulous_account::<T, I>(i)).collect::<Vec<_>>();
 		accounts.sort();
 		let accounts: BoundedVec<_, T::MaxUnscrupulousItems> = accounts.try_into().unwrap();
 		UnscrupulousAccounts::<T, I>::put(accounts.clone());
 
-		let mut websites = (0 .. n).map(|i| -> BoundedVec<_, T::MaxWebsiteUrlLength>
-			{ BoundedVec::try_from(vec![i as u8; l as usize]).unwrap() }).collect::<Vec<_>>();
+		let mut websites = (0..n)
+			.map(|i| -> BoundedVec<_, T::MaxWebsiteUrlLength> {
+				BoundedVec::try_from(vec![i as u8; l as usize]).unwrap()
+			})
+			.collect::<Vec<_>>();
 		websites.sort();
 		let websites: BoundedVec<_, T::MaxUnscrupulousItems> = websites.try_into().unwrap();
 		UnscrupulousWebsites::<T, I>::put(websites.clone());
@@ -770,24 +769,32 @@ benchmarks_instance_pallet! {
 		unscrupulous_list.extend(websites.into_iter().map(UnscrupulousItem::Website));
 
 		let call = Call::<T, I>::remove_unscrupulous_items { items: unscrupulous_list.clone() };
-		let origin =
-			T::AnnouncementOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
-		assert_last_event::<T, I>(Event::UnscrupulousItemRemoved { items: unscrupulous_list }.into());
+		let origin = T::AnnouncementOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		#[block]
+		{
+			call.dispatch_bypass_filter(origin)?;
+		}
+
+		assert_last_event::<T, I>(
+			Event::UnscrupulousItemRemoved { items: unscrupulous_list }.into(),
+		);
+		Ok(())
 	}
 
-	abdicate_fellow_status {
+	#[benchmark]
+	fn abdicate_fellow_status() -> Result<(), BenchmarkError> {
 		set_members::<T, I>();
 		let fellow2 = fellow::<T, I>(2);
 		assert!(Alliance::<T, I>::has_voting_rights(&fellow2));
-	}: _(SystemOrigin::Signed(fellow2.clone()))
-	verify {
-		assert!(Alliance::<T, I>::is_member_of(&fellow2, MemberRole::Ally));
 
-		assert_last_event::<T, I>(
-			Event::FellowAbdicated {fellow: fellow2}.into()
-		);
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(fellow2.clone()));
+
+		assert!(Alliance::<T, I>::is_member_of(&fellow2, MemberRole::Retiring));
+		assert_last_event::<T, I>(Event::FellowAbdicated { fellow: fellow2 }.into());
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Alliance, crate::mock::new_bench_ext(), crate::mock::Test);
