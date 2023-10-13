@@ -26,8 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -348,6 +349,8 @@ pub enum InconsistentError<BlockNumber> {
 	MaxHrmpInboundChannelsExceeded,
 	/// `minimum_backing_votes` is set to zero.
 	ZeroMinimumBackingVotes,
+	/// `executor_params` are inconsistent.
+	InconsistentExecutorParams { inner: ExecutorParamError },
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -430,6 +433,10 @@ where
 
 		if self.minimum_backing_votes.is_zero() {
 			return Err(ZeroMinimumBackingVotes)
+		}
+
+		if let Err(inner) = self.executor_params.check_consistency() {
+			return Err(InconsistentExecutorParams { inner })
 		}
 
 		Ok(())

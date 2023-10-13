@@ -16,7 +16,10 @@
 
 //! Interface to the Substrate Executor
 
-use polkadot_primitives::{ExecutorParam, ExecutorParams};
+use polkadot_primitives::{
+	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
+	ExecutorParam, ExecutorParams,
+};
 use sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
@@ -41,9 +44,6 @@ use std::any::{Any, TypeId};
 // are used for these needs by default.
 const DEFAULT_HEAP_PAGES_ESTIMATE: u32 = 32;
 const EXTRA_HEAP_PAGES: u32 = 2048;
-
-/// The number of bytes devoted for the stack during wasm execution of a PVF.
-pub const NATIVE_STACK_MAX: u32 = 256 * 1024 * 1024;
 
 // VALUES OF THE DEFAULT CONFIGURATION SHOULD NEVER BE CHANGED
 // They are used as base values for the execution environment parametrization.
@@ -73,8 +73,8 @@ pub const DEFAULT_CONFIG: Config = Config {
 		// also increase the native 256x. This hopefully should preclude wasm code from reaching
 		// the stack limit set by the wasmtime.
 		deterministic_stack_limit: Some(DeterministicStackLimit {
-			logical_max: 65536,
-			native_stack_max: NATIVE_STACK_MAX,
+			logical_max: DEFAULT_LOGICAL_STACK_MAX,
+			native_stack_max: DEFAULT_NATIVE_STACK_MAX,
 		}),
 		canonicalize_nans: true,
 		// Rationale for turning the multi-threaded compilation off is to make the preparation time
@@ -160,8 +160,9 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 	for p in par.iter() {
 		match p {
 			ExecutorParam::MaxMemoryPages(max_pages) =>
-				sem.heap_alloc_strategy =
-					HeapAllocStrategy::Dynamic { maximum_pages: Some(*max_pages) },
+				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
+					maximum_pages: Some((*max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
+				},
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
