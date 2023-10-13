@@ -23,6 +23,8 @@ pub enum ValidationError {
 	///
 	/// Whenever we are unsure if the error was due to the candidate or not, we must vote invalid.
 	InvalidCandidate(InvalidCandidate),
+	/// Deterministic prepare errors, typically related to PVF preparation.
+	Deterministic(PrepareError),
 	/// Non-deterministic prepare errors, typically cased by unexpected internal conditions.
 	Internal(InternalValidationError),
 }
@@ -31,8 +33,6 @@ pub enum ValidationError {
 /// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
 #[derive(Debug, Clone)]
 pub enum InvalidCandidate {
-	/// PVF preparation ended up with a deterministic error.
-	PrepareError(String),
 	/// The failure is reported by the execution worker. The string contains the error message.
 	WorkerReportedError(String),
 	/// The worker has died during validation of a candidate. That may fall in one of the following
@@ -76,7 +76,7 @@ impl From<PrepareError> for ValidationError {
 		// Here we need to classify the errors into two errors: deterministic and non-deterministic.
 		// See [`PrepareError::is_deterministic`].
 		if error.is_deterministic() {
-			Self::InvalidCandidate(InvalidCandidate::PrepareError(error.to_string()))
+			Self::Deterministic(error.to_string())
 		} else {
 			Self::Internal(InternalValidationError::NonDeterministicPrepareError(error))
 		}

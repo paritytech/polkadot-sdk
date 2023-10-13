@@ -630,6 +630,20 @@ async fn validate_candidate_exhaustive(
 	}
 
 	match result {
+		Err(ValidationError::Deterministic(e)) => {
+			// In principle if preparation of the `WASM` fails, the current candidate can not be the
+			// reason for that. So we can't say whether it is invalid or not. In addition, with
+			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
+			// reasonably sure that this is some local problem on the current node. However, as this
+			// particular error *seems* to indicate a deterministic error, we raise a warning.
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
+			);
+			Err(ValidationFailed(e.into()))
+		},
 		Err(ValidationError::Internal(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -649,20 +663,6 @@ async fn validate_candidate_exhaustive(
 			))),
 		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
-			// In principle if preparation of the `WASM` fails, the current candidate can not be the
-			// reason for that. So we can't say whether it is invalid or not. In addition, with
-			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
-			// reasonably sure that this is some local problem on the current node. However, as this
-			// particular error *seems* to indicate a deterministic error, we raise a warning.
-			gum::warn!(
-				target: LOG_TARGET,
-				?para_id,
-				?e,
-				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
-			);
-			Err(ValidationFailed(e))
-		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
