@@ -17,11 +17,8 @@
 //! Tests specific to the bridging primitives
 
 use super::mock::*;
-use crate::{universal_exports::*, InteriorLocationMatcher, WithTopicSource};
-use frame_support::{
-	parameter_types,
-	traits::{Everything, Get},
-};
+use crate::{universal_exports::*, WithTopicSource};
+use frame_support::{parameter_types, traits::Get};
 use std::{cell::RefCell, marker::PhantomData};
 use xcm_executor::{
 	traits::{export_xcm, validate_export},
@@ -46,8 +43,6 @@ parameter_types! {
 std::thread_local! {
 	static BRIDGE_TRAFFIC: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new());
 }
-
-type AllowAll = InteriorLocationMatcher<Everything>;
 
 fn maybe_with_topic(f: impl Fn()) {
 	UsingTopic::set(false);
