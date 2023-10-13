@@ -106,7 +106,7 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 			Attribute::<T, I>::get((
 				collection,
 				Option::<T::ItemId>::None,
-				AttributeNamespace::CollectionOwner,
+				AttributeNamespace::Pallet,
 				key,
 			))
 			.map(|a| a.0.into())
