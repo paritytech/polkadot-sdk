@@ -26,7 +26,6 @@ use crate::pallet::parse::tests::simulate_manifest_dir;
 use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::TokenStream as TokenStream2;
-use proc_utils::PrettyPrint;
 use quote::{quote, ToTokens};
 use syn::{
 	parse::ParseStream,
@@ -52,6 +51,7 @@ pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
+	pub scrate: Ident,
 }
 
 impl syn::parse::Parse for TasksDef {
@@ -100,7 +100,12 @@ impl syn::parse::Parse for TasksDef {
 		}
 		let mut item_impl = item_impl;
 		item_impl.attrs = normal_attrs;
-		Ok(TasksDef { tasks_attr, item_impl, tasks })
+
+		// We do this here because it would be improper to do something fallible like this at
+		// the expansion phase. Fallible stuff should happen during parsing.
+		let scrate = generate_crate_access_2018("frame-support")?;
+
+		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate })
 	}
 }
 
@@ -162,7 +167,9 @@ impl syn::parse::Parse for TaskEnumDef {
 		// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
 		let scrate = generate_crate_access_2018("frame-support")?;
+
 		let type_use_generics = quote!(T);
+
 		Ok(TaskEnumDef { attr, item_enum, scrate, type_use_generics })
 	}
 }
@@ -494,170 +501,188 @@ fn test_parse_tasks_attr() {
 
 #[test]
 fn test_parse_tasks_def_basic() {
-	let parsed = parse2::<TasksDef>(quote! {
-		#[pallet::tasks]
-		impl<T: Config<I>, I: 'static> Pallet<T, I> {
-			/// Add a pair of numbers into the totals and remove them.
-			#[pallet::task_list(Numbers::<T, I>::iter_keys())]
-			#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
-			#[pallet::task_index(0)]
-			pub fn add_number_into_total(i: u32) -> DispatchResult {
-				let v = Numbers::<T, I>::take(i).ok_or(Error::<T, I>::NotFound)?;
-				Total::<T, I>::mutate(|(total_keys, total_values)| {
-					*total_keys += i;
-					*total_values += v;
-				});
-				Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		let parsed = parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				/// Add a pair of numbers into the totals and remove them.
+				#[pallet::task_list(Numbers::<T, I>::iter_keys())]
+				#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
+				#[pallet::task_index(0)]
+				pub fn add_number_into_total(i: u32) -> DispatchResult {
+					let v = Numbers::<T, I>::take(i).ok_or(Error::<T, I>::NotFound)?;
+					Total::<T, I>::mutate(|(total_keys, total_values)| {
+						*total_keys += i;
+						*total_values += v;
+					});
+					Ok(())
+				}
 			}
-		}
-	})
-	.unwrap();
-	assert_eq!(parsed.tasks.len(), 1);
+		})
+		.unwrap();
+		assert_eq!(parsed.tasks.len(), 1);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_duplicate_index() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_list(Something::iter())]
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_index(0)]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
-				}
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_list(Something::iter())]
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_index(0)]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 
-				#[pallet::task_list(Numbers::<T, I>::iter_keys())]
-				#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
-				#[pallet::task_index(0)]
-				pub fn bar(i: u32) -> DispatchResult {
-					Ok(())
+					#[pallet::task_list(Numbers::<T, I>::iter_keys())]
+					#[pallet::task_condition(|i| Numbers::<T, I>::contains_key(i))]
+					#[pallet::task_index(0)]
+					pub fn bar(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		"duplicate task index `0`"
-	);
+			}),
+			"duplicate task index `0`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_missing_task_list() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_index(0)]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_index(0)]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"missing `#\[pallet::task_list\(\.\.\)\]`"
-	);
+			}),
+			r"missing `#\[pallet::task_list\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_missing_task_condition() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_list(Something::iter())]
-				#[pallet::task_index(0)]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_list(Something::iter())]
+					#[pallet::task_index(0)]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"missing `#\[pallet::task_condition\(\.\.\)\]`"
-	);
+			}),
+			r"missing `#\[pallet::task_condition\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_missing_task_index() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_list(Something::iter())]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_list(Something::iter())]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"missing `#\[pallet::task_index\(\.\.\)\]`"
-	);
+			}),
+			r"missing `#\[pallet::task_index\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_index(0)]
-				#[pallet::task_list(Something::iter())]
-				#[pallet::task_list(SomethingElse::iter())]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_index(0)]
+					#[pallet::task_list(Something::iter())]
+					#[pallet::task_list(SomethingElse::iter())]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"unexpected extra `#\[pallet::task_list\(\.\.\)\]`"
-	);
+			}),
+			r"unexpected extra `#\[pallet::task_list\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_condition_attr() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_condition(|i| i % 4 == 0)]
-				#[pallet::task_index(0)]
-				#[pallet::task_list(Something::iter())]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_condition(|i| i % 4 == 0)]
+					#[pallet::task_index(0)]
+					#[pallet::task_list(Something::iter())]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"unexpected extra `#\[pallet::task_condition\(\.\.\)\]`"
-	);
+			}),
+			r"unexpected extra `#\[pallet::task_condition\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {
-				#[pallet::task_condition(|i| i % 2 == 0)]
-				#[pallet::task_index(0)]
-				#[pallet::task_index(0)]
-				#[pallet::task_list(Something::iter())]
-				pub fn foo(i: u32) -> DispatchResult {
-					Ok(())
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {
+					#[pallet::task_condition(|i| i % 2 == 0)]
+					#[pallet::task_index(0)]
+					#[pallet::task_index(0)]
+					#[pallet::task_list(Something::iter())]
+					pub fn foo(i: u32) -> DispatchResult {
+						Ok(())
+					}
 				}
-			}
-		}),
-		r"unexpected extra `#\[pallet::task_index\(\.\.\)\]`"
-	);
+			}),
+			r"unexpected extra `#\[pallet::task_index\(\.\.\)\]`"
+		);
+	});
 }
 
 #[test]
 fn test_parse_tasks_def_extra_tasks_attribute() {
-	assert_error_matches!(
-		parse2::<TasksDef>(quote! {
-			#[pallet::tasks]
-			#[pallet::tasks]
-			impl<T: Config<I>, I: 'static> Pallet<T, I> {}
-		}),
-		r"unexpected extra `#\[pallet::tasks\]` attribute"
-	);
+	simulate_manifest_dir("../../examples/basic", || {
+		assert_error_matches!(
+			parse2::<TasksDef>(quote! {
+				#[pallet::tasks]
+				#[pallet::tasks]
+				impl<T: Config<I>, I: 'static> Pallet<T, I> {}
+			}),
+			r"unexpected extra `#\[pallet::tasks\]` attribute"
+		);
+	});
 }
 
 #[test]

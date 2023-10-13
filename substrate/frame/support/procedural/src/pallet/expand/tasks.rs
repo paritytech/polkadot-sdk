@@ -75,6 +75,74 @@ impl ToTokens for TaskEnumDef {
 	}
 }
 
+impl ToTokens for TasksDef {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		tokens.extend(quote! {
+			impl<T: Config> frame_support::traits::Task for Task<T>
+			where
+				T: TypeInfo,
+			{
+				type Enumeration = sp_std::vec::IntoIter<Task<T>>;
+
+				fn iter() -> Self::Enumeration {
+					sp_std::vec![Task::increment, Task::decrement].into_iter()
+				}
+
+				fn task_index(&self) -> u32 {
+					match self {
+						Task::increment => 1,
+						Task::decrement => 2,
+						Task::__Ignore(_, _) => unreachable!(),
+					}
+				}
+
+				fn is_valid(&self) -> bool {
+					let value = Value::<T>::get().unwrap();
+					match self {
+						Task::increment => value < 255,
+						Task::decrement => value > 0,
+						Task::__Ignore(_, _) => unreachable!(),
+					}
+				}
+
+				fn run(&self) -> Result<(), DispatchError> {
+					match self {
+						Task::increment => {
+							// Get the value and check if it can be incremented
+							let value = Value::<T>::get().unwrap_or_default();
+							if value >= 255 {
+								Err(Error::<T>::ValueOverflow.into())
+							} else {
+								let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
+								Value::<T>::put(new_val);
+								Pallet::<T>::deposit_event(Event::Incremented { new_val });
+								Ok(())
+							}
+						},
+						Task::decrement => {
+							// Get the value and check if it can be decremented
+							let value = Value::<T>::get().unwrap_or_default();
+							if value == 0 {
+								Err(Error::<T>::ValueUnderflow.into())
+							} else {
+								let new_val = value.checked_sub(1).ok_or(Error::<T>::ValueUnderflow)?;
+								Value::<T>::put(new_val);
+								Pallet::<T>::deposit_event(Event::Decremented { new_val });
+								Ok(())
+							}
+						},
+						Task::__Ignore(_, _) => unreachable!(),
+					}
+				}
+
+				fn weight(&self) -> Weight {
+					Weight::default()
+				}
+			}
+		})
+	}
+}
+
 pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
 	let tasks = &def.tasks;
 	if let Some(tasks_def) = tasks {
