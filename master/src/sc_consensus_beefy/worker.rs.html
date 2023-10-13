@@ -1667,6 +1667,11 @@
 <a href="#1667" id="1667">1667</a>
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2273,6 +2278,11 @@
 			VersionedFinalityProof::V1(<span class="kw-2">ref </span>sc) =&gt; sc.commitment.block_number,
 		};
 
+		<span class="kw">if </span>block_num &lt;= <span class="self">self</span>.persisted_state.voting_oracle.best_beefy_block {
+			<span class="comment">// we&#39;ve already finalized this round before, short-circuit.
+			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+
 		<span class="comment">// Finalize inner round and update voting_oracle state.
 		</span><span class="self">self</span>.persisted_state.voting_oracle.finalize(block_num)<span class="question-mark">?</span>;
 
@@ -2298,7 +2308,7 @@
 				<span class="self">self</span>.backend
 					.append_justification(hash, (BEEFY_ENGINE_ID, finality_proof.encode()))
 			}) {
-			<span class="macro">error!</span>(
+			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;🥩 Error {:?} on appending justification: {:?}&quot;</span>, e, finality_proof
 			);
@@ -2317,7 +2327,7 @@
 	}
 
 	<span class="doccomment">/// Handle previously buffered justifications, that now land in the voting interval.
-	</span><span class="kw">fn </span>try_pending_justififactions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+	</span><span class="kw">fn </span>try_pending_justifications(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="comment">// Interval of blocks for which we can process justifications and votes right now.
 		</span><span class="kw">let </span>(start, end) = <span class="self">self</span>.voting_oracle().accepted_interval()<span class="question-mark">?</span>;
 		<span class="comment">// Process pending justifications.
@@ -2451,7 +2461,7 @@
 
 	<span class="kw">fn </span>process_new_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// Handle pending justifications and/or votes for now GRANDPA finalized blocks.
-		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.try_pending_justififactions() {
+		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.try_pending_justifications() {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
 		}
 

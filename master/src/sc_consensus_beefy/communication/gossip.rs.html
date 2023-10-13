@@ -763,52 +763,6 @@
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
 <a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -827,11 +781,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 <span class="kw">use </span>sc_network::{PeerId, ReputationChange};
 <span class="kw">use </span>sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
-<span class="kw">use </span>sp_core::hashing::twox_64;
 <span class="kw">use </span>sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
@@ -926,9 +879,6 @@
 	&lt;&lt;B::Header <span class="kw">as </span>Header&gt;::Hashing <span class="kw">as </span>Hash&gt;::hash(<span class="string">b&quot;beefy-justifications&quot;</span>)
 }
 
-<span class="doccomment">/// A type that represents hash of the message.
-</span><span class="kw">pub type </span>MessageHash = [u8; <span class="number">8</span>];
-
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipFilterCfg&lt;<span class="lifetime">&#39;a</span>, B: Block&gt; {
 	<span class="kw">pub </span>start: NumberFor&lt;B&gt;,
@@ -944,18 +894,21 @@
 }
 
 <span class="kw">struct </span>Filter&lt;B: Block&gt; {
-	inner: <span class="prelude-ty">Option</span>&lt;FilterInner&lt;B&gt;&gt;,
-	live_votes: BTreeMap&lt;NumberFor&lt;B&gt;, fnv::FnvHashSet&lt;MessageHash&gt;&gt;,
+	<span class="comment">// specifies live rounds
+	</span>inner: <span class="prelude-ty">Option</span>&lt;FilterInner&lt;B&gt;&gt;,
+	<span class="comment">// cache of seen valid justifications in active rounds
+	</span>rounds_with_valid_proofs: BTreeSet&lt;NumberFor&lt;B&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;B: Block&gt; Filter&lt;B&gt; {
 	<span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ inner: <span class="prelude-val">None</span>, live_votes: BTreeMap::new() }
+		<span class="self">Self </span>{ inner: <span class="prelude-val">None</span>, rounds_with_valid_proofs: BTreeSet::new() }
 	}
 
 	<span class="doccomment">/// Update filter to new `start` and `set_id`.
 	</span><span class="kw">fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cfg: GossipFilterCfg&lt;B&gt;) {
-		<span class="self">self</span>.live_votes.retain(|<span class="kw-2">&amp;</span>round, <span class="kw">_</span>| round &gt;= cfg.start &amp;&amp; round &lt;= cfg.end);
+		<span class="self">self</span>.rounds_with_valid_proofs
+			.retain(|<span class="kw-2">&amp;</span>round| round &gt;= cfg.start &amp;&amp; round &lt;= cfg.end);
 		<span class="comment">// only clone+overwrite big validator_set if set_id changed
 		</span><span class="kw">match </span><span class="self">self</span>.inner.as_mut() {
 			<span class="prelude-val">Some</span>(f) <span class="kw">if </span>f.validator_set.id() == cfg.validator_set.id() =&gt; {
@@ -1014,14 +967,14 @@
 			.unwrap_or(Consider::RejectOutOfScope)
 	}
 
-	<span class="doccomment">/// Add new _known_ `hash` to the round&#39;s known votes.
-	</span><span class="kw">fn </span>add_known_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, round: NumberFor&lt;B&gt;, hash: MessageHash) {
-		<span class="self">self</span>.live_votes.entry(round).or_default().insert(hash);
+	<span class="doccomment">/// Add new _known_ `round` to the set of seen valid justifications.
+	</span><span class="kw">fn </span>mark_round_as_proven(<span class="kw-2">&amp;mut </span><span class="self">self</span>, round: NumberFor&lt;B&gt;) {
+		<span class="self">self</span>.rounds_with_valid_proofs.insert(round);
 	}
 
-	<span class="doccomment">/// Check if `hash` is already part of round&#39;s known votes.
-	</span><span class="kw">fn </span>is_known_vote(<span class="kw-2">&amp;</span><span class="self">self</span>, round: NumberFor&lt;B&gt;, hash: <span class="kw-2">&amp;</span>MessageHash) -&gt; bool {
-		<span class="self">self</span>.live_votes.get(<span class="kw-2">&amp;</span>round).map(|known| known.contains(hash)).unwrap_or(<span class="bool-val">false</span>)
+	<span class="doccomment">/// Check if `round` is already part of seen valid justifications.
+	</span><span class="kw">fn </span>is_already_proven(<span class="kw-2">&amp;</span><span class="self">self</span>, round: NumberFor&lt;B&gt;) -&gt; bool {
+		<span class="self">self</span>.rounds_with_valid_proofs.contains(<span class="kw-2">&amp;</span>round)
 	}
 
 	<span class="kw">fn </span>validator_set(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;&gt; {
@@ -1084,16 +1037,13 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
 		sender: <span class="kw-2">&amp;</span>PeerId,
-		data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; Action&lt;B::Hash&gt; {
-		<span class="kw">let </span>msg_hash = twox_64(data);
 		<span class="kw">let </span>round = vote.commitment.block_number;
 		<span class="kw">let </span>set_id = vote.commitment.validator_set_id;
 		<span class="self">self</span>.known_peers.lock().note_vote_for(<span class="kw-2">*</span>sender, round);
 
 		<span class="comment">// Verify general usefulness of the message.
-		// We are going to discard old votes right away (without verification)
-		// Also we keep track of already received votes to avoid verifying duplicates.
+		// We are going to discard old votes right away (without verification).
 		</span>{
 			<span class="kw">let </span>filter = <span class="self">self</span>.gossip_filter.read();
 
@@ -1102,10 +1052,6 @@
 				Consider::RejectFuture =&gt; <span class="kw">return </span>Action::Discard(cost::FUTURE_MESSAGE),
 				Consider::RejectOutOfScope =&gt; <span class="kw">return </span>Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
 				Consider::Accept =&gt; {},
-			}
-
-			<span class="kw">if </span>filter.is_known_vote(round, <span class="kw-2">&amp;</span>msg_hash) {
-				<span class="kw">return </span>Action::Keep(<span class="self">self</span>.votes_topic, benefit::KNOWN_VOTE_MESSAGE)
 			}
 
 			<span class="comment">// ensure authority is part of the set.
@@ -1120,7 +1066,6 @@
 		}
 
 		<span class="kw">if </span>BeefyKeystore::verify(<span class="kw-2">&amp;</span>vote.id, <span class="kw-2">&amp;</span>vote.signature, <span class="kw-2">&amp;</span>vote.commitment.encode()) {
-			<span class="self">self</span>.gossip_filter.write().add_known_vote(round, msg_hash);
 			Action::Keep(<span class="self">self</span>.votes_topic, benefit::VOTE_MESSAGE)
 		} <span class="kw">else </span>{
 			<span class="macro">debug!</span>(
@@ -1139,34 +1084,46 @@
 		<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B&gt;(<span class="kw-2">&amp;</span>proof);
 		<span class="self">self</span>.known_peers.lock().note_vote_for(<span class="kw-2">*</span>sender, round);
 
-		<span class="kw">let </span>guard = <span class="self">self</span>.gossip_filter.read();
-		<span class="comment">// Verify general usefulness of the justification.
-		</span><span class="kw">match </span>guard.consider_finality_proof(round, set_id) {
-			Consider::RejectPast =&gt; <span class="kw">return </span>Action::Discard(cost::OUTDATED_MESSAGE),
-			Consider::RejectFuture =&gt; <span class="kw">return </span>Action::Discard(cost::FUTURE_MESSAGE),
-			Consider::RejectOutOfScope =&gt; <span class="kw">return </span>Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
-			Consider::Accept =&gt; {},
+		<span class="kw">let </span>action = {
+			<span class="kw">let </span>guard = <span class="self">self</span>.gossip_filter.read();
+
+			<span class="comment">// Verify general usefulness of the justification.
+			</span><span class="kw">match </span>guard.consider_finality_proof(round, set_id) {
+				Consider::RejectPast =&gt; <span class="kw">return </span>Action::Discard(cost::OUTDATED_MESSAGE),
+				Consider::RejectFuture =&gt; <span class="kw">return </span>Action::Discard(cost::FUTURE_MESSAGE),
+				Consider::RejectOutOfScope =&gt; <span class="kw">return </span>Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				Consider::Accept =&gt; {},
+			}
+
+			<span class="kw">if </span>guard.is_already_proven(round) {
+				<span class="kw">return </span>Action::Discard(benefit::NOT_INTERESTED)
+			}
+
+			<span class="comment">// Verify justification signatures.
+			</span>guard
+				.validator_set()
+				.map(|validator_set| {
+					<span class="kw">if let </span><span class="prelude-val">Err</span>((<span class="kw">_</span>, signatures_checked)) =
+						verify_with_validator_set::&lt;B&gt;(round, validator_set, <span class="kw-2">&amp;</span>proof)
+					{
+						<span class="macro">debug!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;🥩 Bad signatures on message: {:?}, from: {:?}&quot;</span>, proof, sender
+						);
+						<span class="kw">let </span><span class="kw-2">mut </span>cost = cost::INVALID_PROOF;
+						cost.value +=
+							cost::PER_SIGNATURE_CHECKED.saturating_mul(signatures_checked <span class="kw">as </span>i32);
+						Action::Discard(cost)
+					} <span class="kw">else </span>{
+						Action::Keep(<span class="self">self</span>.justifs_topic, benefit::VALIDATED_PROOF)
+					}
+				})
+				.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
+		};
+		<span class="kw">if </span><span class="macro">matches!</span>(action, Action::Keep(<span class="kw">_</span>, <span class="kw">_</span>)) {
+			<span class="self">self</span>.gossip_filter.write().mark_round_as_proven(round);
 		}
-		<span class="comment">// Verify justification signatures.
-		</span>guard
-			.validator_set()
-			.map(|validator_set| {
-				<span class="kw">if let </span><span class="prelude-val">Err</span>((<span class="kw">_</span>, signatures_checked)) =
-					verify_with_validator_set::&lt;B&gt;(round, validator_set, <span class="kw-2">&amp;</span>proof)
-				{
-					<span class="macro">debug!</span>(
-						target: LOG_TARGET,
-						<span class="string">&quot;🥩 Bad signatures on message: {:?}, from: {:?}&quot;</span>, proof, sender
-					);
-					<span class="kw">let </span><span class="kw-2">mut </span>cost = cost::INVALID_PROOF;
-					cost.value +=
-						cost::PER_SIGNATURE_CHECKED.saturating_mul(signatures_checked <span class="kw">as </span>i32);
-					Action::Discard(cost)
-				} <span class="kw">else </span>{
-					Action::Keep(<span class="self">self</span>.justifs_topic, benefit::VALIDATED_PROOF)
-				}
-			})
-			.unwrap_or(Action::Discard(cost::OUT_OF_SCOPE_MESSAGE))
+		action
 	}
 }
 
@@ -1186,7 +1143,7 @@
 	) -&gt; ValidationResult&lt;B::Hash&gt; {
 		<span class="kw">let </span>raw = data;
 		<span class="kw">let </span>action = <span class="kw">match </span>GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
-			<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; <span class="self">self</span>.validate_vote(msg, sender, raw),
+			<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; <span class="self">self</span>.validate_vote(msg, sender),
 			<span class="prelude-val">Ok</span>(GossipMessage::FinalityProof(proof)) =&gt; <span class="self">self</span>.validate_finality_proof(proof, sender),
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Error decoding message: {}&quot;</span>, e);
@@ -1294,41 +1251,6 @@
 	};
 	<span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, Keystore};
 
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>known_votes_insert_remove() {
-		<span class="kw">let </span><span class="kw-2">mut </span>filter = Filter::&lt;Block&gt;::new();
-		<span class="kw">let </span>msg_hash = twox_64(<span class="string">b&quot;data&quot;</span>);
-		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
-		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">1</span>).unwrap();
-
-		filter.add_known_vote(<span class="number">1</span>, msg_hash);
-		filter.add_known_vote(<span class="number">1</span>, msg_hash);
-		filter.add_known_vote(<span class="number">2</span>, msg_hash);
-		<span class="macro">assert_eq!</span>(filter.live_votes.len(), <span class="number">2</span>);
-
-		filter.add_known_vote(<span class="number">3</span>, msg_hash);
-		<span class="macro">assert!</span>(filter.is_known_vote(<span class="number">3</span>, <span class="kw-2">&amp;</span>msg_hash));
-		<span class="macro">assert!</span>(!filter.is_known_vote(<span class="number">3</span>, <span class="kw-2">&amp;</span>twox_64(<span class="string">b&quot;other&quot;</span>)));
-		<span class="macro">assert!</span>(!filter.is_known_vote(<span class="number">4</span>, <span class="kw-2">&amp;</span>msg_hash));
-		<span class="macro">assert_eq!</span>(filter.live_votes.len(), <span class="number">3</span>);
-
-		<span class="macro">assert!</span>(filter.inner.is_none());
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">1</span>, <span class="number">1</span>), Consider::RejectOutOfScope);
-
-		filter.update(GossipFilterCfg { start: <span class="number">3</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
-		<span class="macro">assert_eq!</span>(filter.live_votes.len(), <span class="number">1</span>);
-		<span class="macro">assert!</span>(filter.live_votes.contains_key(<span class="kw-2">&amp;</span><span class="number">3</span>));
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">2</span>, <span class="number">1</span>), Consider::RejectPast);
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">3</span>, <span class="number">1</span>), Consider::Accept);
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">4</span>, <span class="number">1</span>), Consider::Accept);
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">20</span>, <span class="number">1</span>), Consider::RejectFuture);
-		<span class="macro">assert_eq!</span>(filter.consider_vote(<span class="number">4</span>, <span class="number">2</span>), Consider::RejectFuture);
-
-		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys, <span class="number">2</span>).unwrap();
-		filter.update(GossipFilterCfg { start: <span class="number">5</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
-		<span class="macro">assert!</span>(filter.live_votes.is_empty());
-	}
-
 	<span class="kw">struct </span>TestContext;
 	<span class="kw">impl</span>&lt;B: sp_runtime::traits::Block&gt; ValidatorContext&lt;B&gt; <span class="kw">for </span>TestContext {
 		<span class="kw">fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _topic: B::Hash, _force: bool) {
@@ -1421,20 +1343,6 @@
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VOTE_MESSAGE;
 		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
-		<span class="macro">assert_eq!</span>(
-			gv.gossip_filter
-				.read()
-				.live_votes
-				.get(<span class="kw-2">&amp;</span>vote.commitment.block_number)
-				.map(|x| x.len()),
-			<span class="prelude-val">Some</span>(<span class="number">1</span>)
-		);
-
-		<span class="comment">// second time we should hit the cache
-		</span><span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
-		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
-		expected_report.cost_benefit = benefit::KNOWN_VOTE_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
 
 		<span class="comment">// reject vote, voter not in validator set
 		</span><span class="kw">let </span><span class="kw-2">mut </span>bad_vote = vote.clone();
@@ -1503,7 +1411,7 @@
 		<span class="comment">// reject proof, bad signatures (Bob instead of Alice)
 		</span><span class="kw">let </span>bad_validator_set =
 			ValidatorSet::&lt;AuthorityId&gt;::new(<span class="macro">vec!</span>[Keyring::Bob.public()], <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>proof = dummy_proof(<span class="number">20</span>, <span class="kw-2">&amp;</span>bad_validator_set);
+		<span class="kw">let </span>proof = dummy_proof(<span class="number">21</span>, <span class="kw-2">&amp;</span>bad_validator_set);
 		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
