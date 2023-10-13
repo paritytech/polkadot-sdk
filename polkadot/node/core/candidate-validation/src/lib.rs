@@ -627,7 +627,7 @@ async fn validate_candidate_exhaustive(
 	}
 
 	match result {
-		Err(ValidationError::InternalError(e)) => {
+		Err(ValidationError::Internal(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
@@ -753,7 +753,7 @@ trait ValidationBackend {
 				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(_)))
 					if num_panic_retries_left > 0 =>
 					num_panic_retries_left -= 1,
-				Err(ValidationError::InternalError(_)) if num_internal_retries_left > 0 =>
+				Err(ValidationError::Internal(_)) if num_internal_retries_left > 0 =>
 					num_internal_retries_left -= 1,
 				_ => break,
 			}

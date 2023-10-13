@@ -345,7 +345,7 @@ fn handle_job_finish(
 			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
 			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
 		Outcome::HardTimeout =>
 			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
