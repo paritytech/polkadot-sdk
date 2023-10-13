@@ -18,7 +18,7 @@
 //! Home of the parsing and expansion code for the new pallet benchmarking syntax
 
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_crate_access_from_frame_or_deps;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -418,8 +418,8 @@ pub fn benchmarks(
 		true => quote!(T: Config<I>, I: 'static),
 	};
 
-	let krate = generate_crate_access_from_frame_or_deps("frame-benchmarking")?;
-	let frame_system = generate_crate_access_from_frame_or_deps("frame-system")?;
+	let krate = generate_access_from_frame_or_crate("frame-benchmarking")?;
+	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 
 	// benchmark name variables
 	let benchmark_names_str: Vec<String> = benchmark_names.iter().map(|n| n.to_string()).collect();
@@ -720,11 +720,11 @@ fn expand_benchmark(
 	where_clause: TokenStream2,
 ) -> TokenStream2 {
 	// set up variables needed during quoting
-	let krate = match generate_crate_access_from_frame_or_deps("frame-benchmarking") {
+	let krate = match generate_access_from_frame_or_crate("frame-benchmarking") {
 		Ok(ident) => ident,
 		Err(err) => return err.to_compile_error().into(),
 	};
-	let frame_system = match generate_crate_access_from_frame_or_deps("frame-system") {
+	let frame_system = match generate_access_from_frame_or_crate("frame-system") {
 		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};

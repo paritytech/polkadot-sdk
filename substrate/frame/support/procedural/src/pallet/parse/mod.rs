@@ -37,7 +37,7 @@ pub mod type_value;
 pub mod validate_unsigned;
 
 use composite::{keyword::CompositeKeyword, CompositeDef};
-use frame_support_procedural_tools::generate_crate_access_from_frame_or_deps;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -67,8 +67,8 @@ pub struct Def {
 
 impl Def {
 	pub fn try_from(mut item: syn::ItemMod, dev_mode: bool) -> syn::Result<Self> {
-		let frame_system = generate_crate_access_from_frame_or_deps("frame-system")?;
-		let frame_support = generate_crate_access_from_frame_or_deps("frame-support")?;
+		let frame_system = generate_access_from_frame_or_crate("frame-system")?;
+		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
 
 		let item_span = item.span();
 		let items = &mut item
