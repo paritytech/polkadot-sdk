@@ -43,7 +43,7 @@ pub trait EllipticCurves {
 	///   - `b: ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bls12_377::Config>>>`.
 	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>.
 	fn bls12_377_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop_generic::<ark_bls12_377::Bls12_377>(a, b)
+		multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
 	}
 
 	/// Pairing final exponentiation for BLS12-377.
@@ -51,7 +51,7 @@ pub trait EllipticCurves {
 	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>`.
 	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bls12_377::Config>>>`.
 	fn bls12_377_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation_generic::<ark_bls12_377::Bls12_377>(f)
+		final_exponentiation::<ark_bls12_377::Bls12_377>(f)
 	}
 
 	/// Projective multiplication on G1 for BLS12-377.
@@ -61,7 +61,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
 	fn bls12_377_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bls12_377::g1::Config>(base, scalar)
+		mul_projective_sw::<ark_bls12_377::g1::Config>(base, scalar)
 	}
 
 	/// Projective multiplication on G2 for BLS12-377.
@@ -71,7 +71,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
 	fn bls12_377_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bls12_377::g2::Config>(base, scalar)
+		mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
 	}
 
 	/// Multi scalar multiplication on G1 for BLS12-377.
@@ -81,7 +81,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
 	fn bls12_377_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bls12_377::g1::Config>(bases, scalars)
+		msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
 	}
 
 	/// Multi scalar multiplication on G2 for BLS12-377.
@@ -91,7 +91,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
 	fn bls12_377_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bls12_377::g2::Config>(bases, scalars)
+		msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
 	}
 
 	/// Pairing multi Miller loop for BLS12-381.
@@ -101,7 +101,7 @@ pub trait EllipticCurves {
 	///   - `b`: `ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bls12_381::Config>>>`.
 	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bls12_381::Config>>>
 	fn bls12_381_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop_generic::<ark_bls12_381::Bls12_381>(a, b)
+		multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
 	}
 
 	/// Pairing final exponentiation for BLS12-381.
@@ -109,7 +109,7 @@ pub trait EllipticCurves {
 	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bls12_381::Config>>>`.
 	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bls12_381::Config>>>`.
 	fn bls12_381_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation_generic::<ark_bls12_381::Bls12_381>(f)
+		final_exponentiation::<ark_bls12_381::Bls12_381>(f)
 	}
 
 	/// Projective multiplication on G1 for BLS12-381.
@@ -119,7 +119,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
 	fn bls12_381_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bls12_381::g1::Config>(base, scalar)
+		mul_projective_sw::<ark_bls12_381::g1::Config>(base, scalar)
 	}
 
 	/// Projective multiplication on G2 for BLS12-381.
@@ -129,7 +129,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G2Projective>`.
 	fn bls12_381_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bls12_381::g2::Config>(base, scalar)
+		mul_projective_sw::<ark_bls12_381::g2::Config>(base, scalar)
 	}
 
 	/// Multi scalar multiplication on G1 for BLS12-381.
@@ -139,7 +139,7 @@ pub trait EllipticCurves {
 	///   - scalars: `ArkScale<&[ark_bls12_381::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
 	fn bls12_381_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bls12_381::g1::Config>(bases, scalars)
+		msm_sw::<ark_bls12_381::g1::Config>(bases, scalars)
 	}
 
 	/// Multi scalar multiplication on G2 for BLS12-381.
@@ -149,7 +149,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_bls12_381::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G2Projective>`.
 	fn bls12_381_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bls12_381::g2::Config>(bases, scalars)
+		msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
 	}
 
 	/// Pairing multi Miller loop for BW6-761.
@@ -159,7 +159,7 @@ pub trait EllipticCurves {
 	///   - `b`: `ArkScale<Vec<ark_ec::bw6::G2Prepared::<ark_bw6_761::Config>>>`.
 	/// - Returns encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bw6_761::Config>>>`.
 	fn bw6_761_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop_generic::<ark_bw6_761::BW6_761>(a, b)
+		multi_miller_loop::<ark_bw6_761::BW6_761>(a, b)
 	}
 
 	/// Pairing final exponentiation for BW6-761.
@@ -167,7 +167,7 @@ pub trait EllipticCurves {
 	/// - Receives encoded: `ArkScale<MillerLoopOutput<BW6<ark_bw6_761::Config>>>`.
 	/// - Returns encoded: `ArkScale<PairingOutput<BW6<ark_bw6_761::Config>>>`.
 	fn bw6_761_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation_generic::<ark_bw6_761::BW6_761>(f)
+		final_exponentiation::<ark_bw6_761::BW6_761>(f)
 	}
 
 	/// Projective multiplication on G1 for BW6-761.
@@ -177,7 +177,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G1Projective>`.
 	fn bw6_761_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bw6_761::g1::Config>(base, scalar)
+		mul_projective_sw::<ark_bw6_761::g1::Config>(base, scalar)
 	}
 
 	/// Projective multiplication on G2 for BW6-761.
@@ -187,7 +187,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G2Projective>`.
 	fn bw6_761_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_bw6_761::g2::Config>(base, scalar)
+		mul_projective_sw::<ark_bw6_761::g2::Config>(base, scalar)
 	}
 
 	/// Multi scalar multiplication on G1 for BW6-761.
@@ -197,7 +197,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_bw6_761::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G1Projective>`.
 	fn bw6_761_msm_g1(bases: Vec<u8>, bigints: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bw6_761::g1::Config>(bases, bigints)
+		msm_sw::<ark_bw6_761::g1::Config>(bases, bigints)
 	}
 
 	/// Multi scalar multiplication on G2 for BW6-761.
@@ -207,7 +207,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_bw6_761::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G2Projective>`.
 	fn bw6_761_msm_g2(bases: Vec<u8>, bigints: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_bw6_761::g2::Config>(bases, bigints)
+		msm_sw::<ark_bw6_761::g2::Config>(bases, bigints)
 	}
 
 	/// Twisted Edwards projective multiplication for Ed-on-BLS12-377.
@@ -217,7 +217,7 @@ pub trait EllipticCurves {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
 	fn ed_on_bls12_377_mul_projective(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_te_generic::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
+		mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 
 	/// Twisted Edwards multi scalar multiplication for Ed-on-BLS12-377.
@@ -227,7 +227,7 @@ pub trait EllipticCurves {
 	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_377::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
 	fn ed_on_bls12_377_msm(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_te_generic::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
+		msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
 	}
 
 	/// Short Weierstrass projective multiplication for Ed-on-BLS12-381-Bandersnatch.
@@ -240,7 +240,7 @@ pub trait EllipticCurves {
 		base: Vec<u8>,
 		scalar: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		mul_projective_sw_generic::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+		mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 
 	/// Twisted Edwards projective multiplication for Ed-on-BLS12-381-Bandersnatch.
@@ -254,7 +254,7 @@ pub trait EllipticCurves {
 		base: Vec<u8>,
 		scalar: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		mul_projective_te_generic::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
+		mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
 	}
 
 	/// Short Weierstrass multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
@@ -267,7 +267,7 @@ pub trait EllipticCurves {
 		bases: Vec<u8>,
 		scalars: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		msm_sw_generic::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
+		msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
 	}
 
 	/// Twisted Edwards multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
@@ -281,6 +281,6 @@ pub trait EllipticCurves {
 		bases: Vec<u8>,
 		scalars: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		msm_te_generic::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
+		msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 }
