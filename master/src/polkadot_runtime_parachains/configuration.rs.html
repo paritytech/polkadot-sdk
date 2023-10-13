@@ -1378,6 +1378,13 @@
 <a href="#1378" id="1378">1378</a>
 <a href="#1379" id="1379">1379</a>
 <a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1406,8 +1413,9 @@
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 <span class="kw">use </span>primitives::{
-	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -1728,6 +1736,8 @@
 	</span>MaxHrmpInboundChannelsExceeded,
 	<span class="doccomment">/// `minimum_backing_votes` is set to zero.
 	</span>ZeroMinimumBackingVotes,
+	<span class="doccomment">/// `executor_params` are inconsistent.
+	</span>InconsistentExecutorParams { inner: ExecutorParamError },
 }
 
 <span class="kw">impl</span>&lt;BlockNumber&gt; HostConfiguration&lt;BlockNumber&gt;
@@ -1810,6 +1820,10 @@
 
 		<span class="kw">if </span><span class="self">self</span>.minimum_backing_votes.is_zero() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ZeroMinimumBackingVotes)
+		}
+
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(inner) = <span class="self">self</span>.executor_params.check_consistency() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InconsistentExecutorParams { inner })
 		}
 
 		<span class="prelude-val">Ok</span>(())

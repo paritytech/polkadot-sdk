@@ -371,6 +371,7 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -389,7 +390,10 @@
 
 </span><span class="doccomment">//! Interface to the Substrate Executor
 
-</span><span class="kw">use </span>polkadot_primitives::{ExecutorParam, ExecutorParams};
+</span><span class="kw">use </span>polkadot_primitives::{
+	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
+	ExecutorParam, ExecutorParams,
+};
 <span class="kw">use </span>sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
@@ -414,9 +418,6 @@
 // are used for these needs by default.
 </span><span class="kw">const </span>DEFAULT_HEAP_PAGES_ESTIMATE: u32 = <span class="number">32</span>;
 <span class="kw">const </span>EXTRA_HEAP_PAGES: u32 = <span class="number">2048</span>;
-
-<span class="doccomment">/// The number of bytes devoted for the stack during wasm execution of a PVF.
-</span><span class="kw">pub const </span>NATIVE_STACK_MAX: u32 = <span class="number">256 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 <span class="comment">// VALUES OF THE DEFAULT CONFIGURATION SHOULD NEVER BE CHANGED
 // They are used as base values for the execution environment parametrization.
@@ -446,8 +447,8 @@
 		// also increase the native 256x. This hopefully should preclude wasm code from reaching
 		// the stack limit set by the wasmtime.
 		</span>deterministic_stack_limit: <span class="prelude-val">Some</span>(DeterministicStackLimit {
-			logical_max: <span class="number">65536</span>,
-			native_stack_max: NATIVE_STACK_MAX,
+			logical_max: DEFAULT_LOGICAL_STACK_MAX,
+			native_stack_max: DEFAULT_NATIVE_STACK_MAX,
 		}),
 		canonicalize_nans: <span class="bool-val">true</span>,
 		<span class="comment">// Rationale for turning the multi-threaded compilation off is to make the preparation time
@@ -479,8 +480,9 @@
 	<span class="kw">for </span>p <span class="kw">in </span>par.iter() {
 		<span class="kw">match </span>p {
 			ExecutorParam::MaxMemoryPages(max_pages) =&gt;
-				sem.heap_alloc_strategy =
-					HeapAllocStrategy::Dynamic { maximum_pages: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>max_pages) },
+				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
+					maximum_pages: <span class="prelude-val">Some</span>((<span class="kw-2">*</span>max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
+				},
 			ExecutorParam::StackLogicalMax(slm) =&gt; stack_limit.logical_max = <span class="kw-2">*</span>slm,
 			ExecutorParam::StackNativeMax(snm) =&gt; stack_limit.native_stack_max = <span class="kw-2">*</span>snm,
 			ExecutorParam::WasmExtBulkMemory =&gt; sem.wasm_bulk_memory = <span class="bool-val">true</span>,

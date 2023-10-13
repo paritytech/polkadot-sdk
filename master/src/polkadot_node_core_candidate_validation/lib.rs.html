@@ -876,9 +876,6 @@
 <a href="#876" id="876">876</a>
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -925,6 +922,10 @@
 	ValidationParams, ValidationResult <span class="kw">as </span>WasmValidationResult,
 };
 <span class="kw">use </span>polkadot_primitives::{
+	executor_params::{
+		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
 	ValidationCode, ValidationCodeHash,
@@ -963,13 +964,6 @@
 </span><span class="kw">const </span>PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(<span class="number">3</span>);
 <span class="attr">#[cfg(test)]
 </span><span class="kw">const </span>PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(<span class="number">200</span>);
-
-<span class="comment">// Default PVF timeouts. Must never be changed! Use executor environment parameters in
-// `session_info` pallet to adjust them. See also `PvfTimeoutKind` docs.
-</span><span class="kw">const </span>DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">60</span>);
-<span class="kw">const </span>DEFAULT_LENIENT_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">360</span>);
-<span class="kw">const </span>DEFAULT_BACKING_EXECUTION_TIMEOUT: Duration = Duration::from_secs(<span class="number">2</span>);
-<span class="kw">const </span>DEFAULT_APPROVAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(<span class="number">12</span>);
 
 <span class="doccomment">/// Configuration for the candidate validation subsystem
 </span><span class="attr">#[derive(Clone)]
