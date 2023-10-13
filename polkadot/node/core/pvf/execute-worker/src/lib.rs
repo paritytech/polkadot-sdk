@@ -37,8 +37,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::ExecutorParams;
-use polkadot_primitives::executor_params::DEFAULT_NATIVE_STACK_MAX;
+use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
