@@ -37,6 +37,7 @@
 
 use std::{fmt, sync::Arc};
 
+use codec::Decode;
 use futures::{
 	future::{ready, Future},
 	prelude::*,
@@ -260,6 +261,10 @@ where
 			let tx_pool = self.transaction_pool.clone();
 			let custom_extensions = (*self.custom_extensions)(hash);
 
+			let keystore = self.keystore.clone();
+			let db = self.offchain_db.clone();
+			let tx_pool = self.transaction_pool.clone();
+
 			self.spawn_worker(move || {
 				let mut runtime = client.runtime_api();
 				let api = Box::new(api);
@@ -285,19 +290,19 @@ where
 
 				custom_extensions.into_iter().for_each(|ext| runtime.register_extension(ext));
 
-				if let Some(keystore) = self.keystore.as_ref() {
+				if let Some(keystore) = keystore {
 					runtime.register_extension(KeystoreExt(keystore.clone()));
 				}
 
-				if let Some(pool) = self.transaction_pool.as_ref() {
+				if let Some(pool) = tx_pool {
 					runtime.register_extension(offchain::TransactionPoolExt(Box::new(
-						TransactionPoolAdapter { hash, pool },
+						TransactionPoolAdapter { hash, pool: pool.clone() },
 					) as _));
 				}
 
-				if let Some(offchain_db) = self.offchain_db.as_ref() {
+				if let Some(offchain_db) = db {
 					runtime.register_extension(offchain::OffchainDbExt::new(
-						offchain::LimitedExternalities::new(capabilities, offchain_db.create()),
+						offchain::LimitedExternalities::new(capabilities, offchain_db.clone()),
 					));
 				}
 
