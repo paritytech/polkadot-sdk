@@ -5435,16 +5435,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "frame-support-test-pallet-frame-crate"
+name = "frame-support-test-stg-frame-crate"
 version = "0.1.0"
 dependencies = [
  "frame",
  "parity-scale-codec",
- "rustversion",
  "scale-info",
- "serde",
- "sp-runtime",
- "trybuild",
 ]
 
 [[package]]

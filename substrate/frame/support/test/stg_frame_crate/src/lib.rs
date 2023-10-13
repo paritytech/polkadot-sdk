@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A basic pallet that can be used to test `construct_runtime!` when `frame_system` and
-//! `frame_support` are reexported by a `frame` crate.
+// ! A basic pallet to test it compiles along with a runtime using it when `frame_system` and
+// `frame_support` are reexported by a `frame` crate.
 
 use frame::deps::{frame_support, frame_system};
 
@@ -45,5 +45,31 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {}
+	}
+}
+
+#[cfg(test)]
+// Dummy test to make sure a runtime would compile.
+mod tests {
+	use super::{
+		frame_support::{construct_runtime, derive_impl},
+		frame_system, pallet,
+	};
+
+	type Block = frame_system::mocking::MockBlock<Runtime>;
+
+	impl crate::pallet::Config for Runtime {}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	impl frame_system::Config for Runtime {
+		type Block = Block;
+	}
+
+	construct_runtime! {
+		pub struct Runtime
+		{
+			System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Pallet: pallet::{Pallet, Config<T>},
+		}
 	}
 }
