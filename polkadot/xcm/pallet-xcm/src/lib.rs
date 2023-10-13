@@ -1219,11 +1219,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<TransferType, Error<T>> {
 		let mut reserve = None;
 		for asset in assets.iter() {
-			// Ensure fungible asset.
-			ensure!(
-				matches!(asset.fun, Fungibility::Fungible(x) if !x.is_zero()),
-				Error::<T>::InvalidAsset(AssetTransferError::NotFungible)
-			);
+			if let Fungible(x) = asset.fun {
+				// If fungible asset, ensure non-zero amount.
+				ensure!(!x.is_zero(), Error::<T>::Empty);
+			}
 			let transfer_type =
 				<T::XcmExecutor as AssetTransferSupport>::determine_for(&asset, dest)
 					.map_err(Error::<T>::InvalidAsset)?;
@@ -1300,7 +1299,7 @@ impl<T: Config> Pallet<T> {
 			// and half at destination.
 			if let TransferType::RemoteReserve(assets_reserve) = assets_transfer_type {
 				// Halve amount of fees, each half will be sent to one chain.
-				Self::halve_fungible_asset(&mut fees)?;
+				Self::halve_fees(&mut fees)?;
 				// Halve weight limit again to be used for the two fees transfers.
 				let quarter_weight_limit = Self::halve_weight_limit(&weight_limit);
 				// Send half the `fees` to `beneficiary` on assets-reserve chain.
@@ -1874,14 +1873,14 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Halve `asset`s fungible amount.
-	pub(crate) fn halve_fungible_asset(asset: &mut MultiAsset) -> Result<(), Error<T>> {
-		match &mut asset.fun {
+	/// Halve `fees` fungible amount.
+	pub(crate) fn halve_fees(fees: &mut MultiAsset) -> Result<(), Error<T>> {
+		match &mut fees.fun {
 			Fungible(amount) => {
 				*amount = amount.saturating_div(2);
 				Ok(())
 			},
-			NonFungible(_) => Err(Error::<T>::InvalidAsset(AssetTransferError::NotFungible)),
+			NonFungible(_) => Err(Error::<T>::FeesNotMet),
 		}
 	}
 }

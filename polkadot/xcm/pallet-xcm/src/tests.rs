@@ -798,8 +798,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works
 		let mut expected_fee = fee_asset.reanchored(&dest, context).unwrap();
 
 		// fees are split between the asset-reserve chain and the destination chain
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee_on_reserve).unwrap();
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee_on_reserve).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee).unwrap();
 
 		// balances checks before
 		assert_eq!(Assets::balance(foreign_asset_id_multilocation, ALICE), foreign_initial_amount);
@@ -1172,8 +1172,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 		let mut expected_fee = fee_asset.reanchored(&dest, context).unwrap();
 
 		// fees are split between the asset-reserve chain and the destination chain
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee_on_reserve).unwrap();
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee_on_reserve).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee).unwrap();
 
 		// balances checks before
 		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
@@ -1971,8 +1971,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() 
 		let mut expected_fee = fee_asset.reanchored(&dest, context).unwrap();
 
 		// fees are split between the asset-reserve chain and the destination chain
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee_on_reserve).unwrap();
-		crate::Pallet::<Test>::halve_fungible_asset(&mut expected_fee).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee_on_reserve).unwrap();
+		crate::Pallet::<Test>::halve_fees(&mut expected_fee).unwrap();
 
 		// balances checks before
 		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);

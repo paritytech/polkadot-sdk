@@ -19,12 +19,11 @@ use scale_info::TypeInfo;
 use sp_runtime::codec::{Decode, Encode};
 use xcm::prelude::*;
 
+/// Errors related to determining asset transfer support.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
 	/// Invalid non-concrete asset.
 	NotConcrete,
-	/// Invalid non-fungible asset.
-	NotFungible,
 	/// Reserve chain could not be determined for assets.
 	UnknownReserve,
 }
@@ -33,11 +32,17 @@ impl PalletError for Error {
 	const MAX_ENCODED_SIZE: usize = 1;
 }
 
+/// Specify which type of asset transfer is required for a particular `(origin, asset, dest)`
+/// combination.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TransferType {
+	/// should teleport `asset` to `dest`
 	Teleport,
+	/// should reserve-transfer `asset` to `dest`, using local chain as reserve
 	LocalReserve,
+	/// should reserve-transfer `asset` to `dest`, using `dest` as reserve
 	DestinationReserve,
+	/// should reserve-transfer `asset` to `dest`, using remote chain `MultiLocation` as reserve
 	RemoteReserve(MultiLocation),
 }
 
