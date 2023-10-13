@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::helper;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 
@@ -108,6 +109,13 @@ impl CompositeDef {
 			return Err(syn::Error::new(item.span(), msg))
 		}
 
+		let has_instance = if item.generics.params.first().is_some() {
+			helper::check_config_def_gen(&item.generics, item.ident.span())?;
+			true
+		} else {
+			false
+		};
+
 		let has_derive_attr = item.attrs.iter().any(|attr| {
 			if let syn::Meta::List(syn::MetaList { path, .. }) = &attr.meta {
 				path.get_ident().map(|ident| ident == "derive").unwrap_or(false)
@@ -119,13 +127,27 @@ impl CompositeDef {
 		if !has_derive_attr {
 			let derive_attr: syn::Attribute = syn::parse_quote! {
 				#[derive(
-					Copy, Clone, Eq, PartialEq, Ord, PartialOrd,
+					Copy, Clone, Eq, PartialEq,
 					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
 					#scrate::__private::RuntimeDebug,
 				)]
 			};
 			item.attrs.push(derive_attr);
+		}
+
+		if has_instance {
+			item.attrs.push(syn::parse_quote! {
+				#[scale_info(skip_type_params(I))]
+			});
+
+			item.variants.push(syn::parse_quote! {
+				#[doc(hidden)]
+				#[codec(skip)]
+				__Ignore(
+					#scrate::__private::sp_std::marker::PhantomData<I>,
+				)
+			});
 		}
 
 		let composite_keyword =
