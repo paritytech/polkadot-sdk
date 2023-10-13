@@ -511,6 +511,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-scale"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
@@ -4382,7 +4396,7 @@ source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-scale",
+ "ark-scale 0.0.10",
  "ark-secret-scalar",
  "ark-serialize",
  "ark-std",
@@ -16562,21 +16576,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-ark-bls12-377"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9b60ba7d8fbb82e21f5be499b02438c9a79365acb441a4dc3993179f09c4cc9"
-dependencies = [
- "ark-bls12-377",
- "ark-ff",
- "ark-r1cs-std",
- "ark-scale",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-models",
-]
-
-[[package]]
 name = "sp-ark-bls12-381"
 version = "0.4.1-beta"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16584,7 +16583,7 @@ checksum = "c2cd101171d2e988a4e1b2320ad3f26f8746a263110c7153213fe86293e0552b"
 dependencies = [
  "ark-bls12-381",
  "ark-ff",
- "ark-scale",
+ "ark-scale 0.0.10",
  "ark-serialize",
  "ark-std",
  "parity-scale-codec",
@@ -16599,7 +16598,7 @@ checksum = "d94d66ba98893cc42dfe81d5b5dee9142577176bdbdba80ec25a37d8cdffdbd5"
 dependencies = [
  "ark-bw6-761",
  "ark-ff",
- "ark-scale",
+ "ark-scale 0.0.10",
  "ark-std",
  "parity-scale-codec",
  "sp-ark-models",
@@ -16614,7 +16613,7 @@ dependencies = [
  "ark-ed-on-bls12-377",
  "ark-ff",
  "ark-r1cs-std",
- "ark-scale",
+ "ark-scale 0.0.10",
  "ark-serialize",
  "ark-std",
  "parity-scale-codec",
@@ -16631,7 +16630,7 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ff",
  "ark-r1cs-std",
- "ark-scale",
+ "ark-scale 0.0.10",
  "ark-std",
  "parity-scale-codec",
  "sp-ark-bls12-381",
@@ -16899,11 +16898,10 @@ dependencies = [
  "ark-ed-on-bls12-377",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ff",
- "ark-scale",
+ "ark-scale 0.0.11",
  "ark-serialize",
  "ark-std",
  "parity-scale-codec",
- "sp-ark-bls12-377",
  "sp-ark-bls12-381",
  "sp-ark-bw6-761",
  "sp-ark-ed-on-bls12-377",

@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The generic executions of the operations on arkworks elliptic curves
-//! which get instantiatied by the corresponding curves.
+//! Generic executions of the operations for *Arkworks* elliptic curves.
+
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing, PairingOutput},
 	short_weierstrass,
@@ -29,8 +29,10 @@ use ark_scale::hazmat::ArkScaleProjective;
 use ark_std::vec::Vec;
 use codec::{Decode, Encode};
 
-const HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
-type ArkScale<T> = ark_scale::ArkScale<T, HOST_CALL>;
+// Scale codec type which is expected to be used by the host functions.
+//
+// Encoding is set to `HOST_CALL` which is a shortcut for "not-validated" and "not-compressed".
+type ArkScale<T> = ark_scale::ArkScale<T, { ark_scale::HOST_CALL }>;
 
 pub(crate) fn multi_miller_loop_generic<Curve: Pairing>(
 	g1: Vec<u8>,
@@ -97,7 +99,7 @@ pub(crate) fn msm_te_generic<Curve: TECurveConfig>(
 	Ok(result.encode())
 }
 
-pub(crate) fn mul_projective_generic<Group: SWCurveConfig>(
+pub(crate) fn mul_projective_sw_generic<Group: SWCurveConfig>(
 	base: Vec<u8>,
 	scalar: Vec<u8>,
 ) -> Result<Vec<u8>, ()> {
