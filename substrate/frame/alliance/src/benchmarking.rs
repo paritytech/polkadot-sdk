@@ -288,7 +288,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// We choose 4 as a minimum for param m, so we always trigger a vote in the voting loop (`for j in ...`)
+	// We choose 4 as a minimum for param m, so we always trigger a vote in the voting loop (`for j
+	// in ...`)
 	#[benchmark]
 	fn close_early_approved(
 		b: Linear<1, MAX_BYTES>,
@@ -325,7 +326,8 @@ mod benchmarks {
 		}
 
 		let index = p - 1;
-		// Caller switches vote to nay on their own proposal, allowing them to be the deciding approval vote
+		// Caller switches vote to nay on their own proposal, allowing them to be the deciding
+		// approval vote
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(proposer.clone()).into(),
 			last_hash.clone(),
@@ -373,19 +375,15 @@ mod benchmarks {
 		m: Linear<2, { T::MaxFellows::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-        let bytes = 100;
+		let bytes = 100;
 		let bytes_in_storage = bytes + size_of::<Cid>() as u32 + 32;
 
 		// Construct `members`.
-		let fellows = (0 .. m).map(fellow::<T, I>).collect::<Vec<_>>();
+		let fellows = (0..m).map(fellow::<T, I>).collect::<Vec<_>>();
 
 		let members = fellows.clone();
 
-		Alliance::<T, I>::init_members(
-			SystemOrigin::Root.into(),
-			fellows,
-			vec![],
-		)?;
+		Alliance::<T, I>::init_members(SystemOrigin::Root.into(), fellows, vec![])?;
 
 		let proposer = members[0].clone();
 		let voter = members[1].clone();
@@ -395,11 +393,10 @@ mod benchmarks {
 
 		// Add proposals
 		let mut last_hash = T::Hash::default();
-		for i in 0 .. p {
+		for i in 0..p {
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: T::Proposal = AllianceCall::<T, I>::set_rule {
-				rule: rule(vec![i as u8; bytes as usize])
-			}.into();
+			let proposal: T::Proposal =
+				AllianceCall::<T, I>::set_rule { rule: rule(vec![i as u8; bytes as usize]) }.into();
 			Alliance::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
 				threshold,
@@ -413,7 +410,7 @@ mod benchmarks {
 		let index = p - 1;
 		// Have almost everyone vote aye on last proposal, while keeping it from passing.
 		// A few abstainers will be the nay votes needed to fail the vote.
-		for j in 2 .. m - 1 {
+		for j in 2..m - 1 {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
@@ -430,19 +427,16 @@ mod benchmarks {
 			false,
 		)?;
 
-		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());et bytes = 100;
+		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
+		let bytes = 100;
 		let bytes_in_storage = bytes + size_of::<Cid>() as u32 + 32;
 
 		// Construct `members`.
-		let fellows = (0 .. m).map(fellow::<T, I>).collect::<Vec<_>>();
+		let fellows = (0..m).map(fellow::<T, I>).collect::<Vec<_>>();
 
 		let members = fellows.clone();
 
-		Alliance::<T, I>::init_members(
-			SystemOrigin::Root.into(),
-			fellows,
-			vec![],
-		)?;
+		Alliance::<T, I>::init_members(SystemOrigin::Root.into(), fellows, vec![])?;
 
 		let proposer = members[0].clone();
 		let voter = members[1].clone();
@@ -452,11 +446,10 @@ mod benchmarks {
 
 		// Add proposals
 		let mut last_hash = T::Hash::default();
-		for i in 0 .. p {
+		for i in 0..p {
 			// Proposals should be different so that different proposal hashes are generated
-			let proposal: T::Proposal = AllianceCall::<T, I>::set_rule {
-				rule: rule(vec![i as u8; bytes as usize])
-			}.into();
+			let proposal: T::Proposal =
+				AllianceCall::<T, I>::set_rule { rule: rule(vec![i as u8; bytes as usize]) }.into();
 			Alliance::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
 				threshold,
@@ -470,7 +463,7 @@ mod benchmarks {
 		let index = p - 1;
 		// Have almost everyone vote aye on last proposal, while keeping it from passing.
 		// A few abstainers will be the nay votes needed to fail the vote.
-		for j in 2 .. m - 1 {
+		for j in 2..m - 1 {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
@@ -489,14 +482,15 @@ mod benchmarks {
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 
-        #[extrinsic_call]
-        close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
+		#[extrinsic_call]
+		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
-        // The last proposal is removed.
+		// The last proposal is removed.
 		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
 	}
 
-	// We choose 5 fellows as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
+	// We choose 5 fellows as a minimum so we always trigger a vote in the voting loop (`for j in
+	// ...`)
 	#[benchmark]
 	fn close_approved(
 		b: Linear<1, MAX_BYTES>,
