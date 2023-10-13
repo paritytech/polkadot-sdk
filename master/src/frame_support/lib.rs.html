@@ -2278,6 +2278,19 @@
 <a href="#2278" id="2278">2278</a>
 <a href="#2279" id="2279">2279</a>
 <a href="#2280" id="2280">2280</a>
+<a href="#2281" id="2281">2281</a>
+<a href="#2282" id="2282">2282</a>
+<a href="#2283" id="2283">2283</a>
+<a href="#2284" id="2284">2284</a>
+<a href="#2285" id="2285">2285</a>
+<a href="#2286" id="2286">2286</a>
+<a href="#2287" id="2287">2287</a>
+<a href="#2288" id="2288">2288</a>
+<a href="#2289" id="2289">2289</a>
+<a href="#2290" id="2290">2290</a>
+<a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3926,8 +3939,7 @@
 /// the enum:
 ///
 /// ```ignore
-/// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug
 /// ```
 ///
 /// The inverse is also true: if there are any #[derive] attributes present for the enum, then
@@ -4095,6 +4107,15 @@
 /// 	#[pallet::origin]
 /// 	pub struct Origin&lt;T&gt;(PhantomData&lt;T&gt;);
 ///
+///     // Declare a hold reason (this is optional).
+///     //
+///     // Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+///     // A similar enum can be defined for `FreezeReason`, `LockId` or `SlashReason`.
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason {
+/// 		SomeHoldReason
+/// 	}
+///
 /// 	// Declare validate_unsigned implementation (this is optional).
 /// 	#[pallet::validate_unsigned]
 /// 	impl&lt;T: Config&gt; ValidateUnsigned for Pallet&lt;T&gt; {
@@ -4228,6 +4249,11 @@
 ///
 /// 	#[pallet::origin]
 /// 	pub struct Origin&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
+///
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason&lt;I: &#39;static = ()&gt; {
+/// 		SomeHoldReason
+/// 	}
 ///
 /// 	#[pallet::validate_unsigned]
 /// 	impl&lt;T: Config&lt;I&gt;, I: &#39;static&gt; ValidateUnsigned for Pallet&lt;T, I&gt; {

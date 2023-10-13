@@ -1401,7 +1401,7 @@
 
 		<span class="doccomment">/// The overarching hold reason.
 		</span><span class="attr">#[pallet::no_default_bounds]
-		</span><span class="kw">type </span>RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		</span><span class="kw">type </span>RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy;
 
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
@@ -1445,7 +1445,7 @@
 		</span><span class="kw">type </span>ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		<span class="doccomment">/// The ID type for freezes.
-		</span><span class="kw">type </span>FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		</span><span class="kw">type </span>FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		<span class="doccomment">/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.

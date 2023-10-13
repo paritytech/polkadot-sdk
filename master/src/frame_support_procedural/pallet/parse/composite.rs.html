@@ -134,6 +134,28 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -151,7 +173,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>quote::ToTokens;
+</span><span class="kw">use </span><span class="kw">super</span>::helper;
+<span class="kw">use </span>quote::ToTokens;
 <span class="kw">use </span>syn::spanned::Spanned;
 
 <span class="kw">pub mod </span>keyword {
@@ -244,6 +267,13 @@
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), msg))
 		}
 
+		<span class="kw">let </span>has_instance = <span class="kw">if </span>item.generics.params.first().is_some() {
+			helper::check_config_def_gen(<span class="kw-2">&amp;</span>item.generics, item.ident.span())<span class="question-mark">?</span>;
+			<span class="bool-val">true
+		</span>} <span class="kw">else </span>{
+			<span class="bool-val">false
+		</span>};
+
 		<span class="kw">let </span>has_derive_attr = item.attrs.iter().any(|attr| {
 			<span class="kw">if let </span>syn::Meta::List(syn::MetaList { path, .. }) = <span class="kw-2">&amp;</span>attr.meta {
 				path.get_ident().map(|ident| ident == <span class="string">&quot;derive&quot;</span>).unwrap_or(<span class="bool-val">false</span>)
@@ -255,13 +285,27 @@
 		<span class="kw">if </span>!has_derive_attr {
 			<span class="kw">let </span>derive_attr: syn::Attribute = <span class="macro">syn::parse_quote! </span>{
 				<span class="attr">#[derive(
-					Copy, Clone, Eq, PartialEq, Ord, PartialOrd,
+					Copy, Clone, Eq, PartialEq,
 					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
 					#scrate::__private::RuntimeDebug,
 				)]
 			</span>};
 			item.attrs.push(derive_attr);
+		}
+
+		<span class="kw">if </span>has_instance {
+			item.attrs.push(<span class="macro">syn::parse_quote! </span>{
+				<span class="attr">#[scale_info(skip_type_params(I))]
+			</span>});
+
+			item.variants.push(<span class="macro">syn::parse_quote! </span>{
+				<span class="attr">#[doc(hidden)]
+				#[codec(skip)]
+				</span>__Ignore(
+					#scrate::__private::sp_std::marker::PhantomData&lt;I&gt;,
+				)
+			});
 		}
 
 		<span class="kw">let </span>composite_keyword =
