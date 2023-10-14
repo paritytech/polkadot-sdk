@@ -18,7 +18,7 @@
 //! Home of the parsing and expansion code for the new pallet benchmarking syntax
 
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -418,7 +418,8 @@ pub fn benchmarks(
 		true => quote!(T: Config<I>, I: 'static),
 	};
 
-	let krate = generate_crate_access_2018("frame-benchmarking")?;
+	let krate = generate_access_from_frame_or_crate("frame-benchmarking")?;
+	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 
 	// benchmark name variables
 	let benchmark_names_str: Vec<String> = benchmark_names.iter().map(|n| n.to_string()).collect();
@@ -488,7 +489,7 @@ pub fn benchmarks(
 			}
 			#[cfg(any(feature = "runtime-benchmarks", test))]
 			impl<#type_impl_generics> #krate::Benchmarking for Pallet<#type_use_generics>
-			where T: frame_system::Config, #where_clause
+			where T: #frame_system::Config, #where_clause
 			{
 				fn benchmarks(
 					extra: bool,
@@ -535,7 +536,7 @@ pub fn benchmarks(
 						_ => return Err("Could not find extrinsic.".into()),
 					};
 					let mut whitelist = whitelist.to_vec();
-					let whitelisted_caller_key = <frame_system::Account<
+					let whitelisted_caller_key = <#frame_system::Account<
 						T,
 					> as #krate::__private::storage::StorageMap<_, _,>>::hashed_key_for(
 						#krate::whitelisted_caller::<T::AccountId>()
@@ -571,8 +572,8 @@ pub fn benchmarks(
 						>::instance(&selected_benchmark, c, verify)?;
 
 						// Set the block number to at least 1 so events are deposited.
-						if #krate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-							frame_system::Pallet::<T>::set_block_number(1u32.into());
+						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+							#frame_system::Pallet::<T>::set_block_number(1u32.into());
 						}
 
 						// Commit the externalities to the database, flushing the DB cache.
@@ -654,7 +655,7 @@ pub fn benchmarks(
 			}
 
 			#[cfg(test)]
-			impl<#type_impl_generics> Pallet<#type_use_generics> where T: ::frame_system::Config, #where_clause {
+			impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
 				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
@@ -719,8 +720,12 @@ fn expand_benchmark(
 	where_clause: TokenStream2,
 ) -> TokenStream2 {
 	// set up variables needed during quoting
-	let krate = match generate_crate_access_2018("frame-benchmarking") {
+	let krate = match generate_access_from_frame_or_crate("frame-benchmarking") {
 		Ok(ident) => ident,
+		Err(err) => return err.to_compile_error().into(),
+	};
+	let frame_system = match generate_access_from_frame_or_crate("frame-system") {
+		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
 	let codec = quote!(#krate::__private::codec);
@@ -762,7 +767,7 @@ fn expand_benchmark(
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
 					quote! {
-						<<T as frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
+						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
 				_ => quote! {
@@ -932,7 +937,7 @@ fn expand_benchmark(
 		}
 
 		#[cfg(test)]
-		impl<#type_impl_generics> Pallet<#type_use_generics> where T: ::frame_system::Config, #where_clause {
+		impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {
 				let selected_benchmark = SelectedBenchmark::#name;
@@ -951,8 +956,8 @@ fn expand_benchmark(
 					>::instance(&selected_benchmark, &c, true)?;
 
 					// Set the block number to at least 1 so events are deposited.
-					if #krate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-						frame_system::Pallet::<T>::set_block_number(1u32.into());
+					if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+						#frame_system::Pallet::<T>::set_block_number(1u32.into());
 					}
 
 					// Run execution + verification
