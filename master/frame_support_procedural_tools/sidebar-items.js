@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":["Parse","ToTokens"],"fn":["clean_type_string","generate_crate_access","generate_crate_access_2018","generate_hidden_includes","get_doc_literals"],"mod":["syn_ext"]};
+window.SIDEBAR_ITEMS = {"derive":["Parse","ToTokens"],"fn":["clean_type_string","generate_access_from_frame_or_crate","generate_crate_access","generate_hidden_includes","get_doc_literals","is_using_frame_crate"],"mod":["syn_ext"]};

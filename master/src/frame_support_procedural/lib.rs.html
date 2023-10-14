@@ -1688,7 +1688,7 @@
 <span class="kw">mod </span>transactional;
 <span class="kw">mod </span>tt_macro;
 
-<span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
+<span class="kw">use </span>frame_support_procedural_tools::generate_access_from_frame_or_crate;
 <span class="kw">use </span>macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 <span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>quote::{quote, ToTokens};
@@ -2409,9 +2409,9 @@
 </span><span class="attr">#[import_tokens_attr_verbatim {
     <span class="macro">format!</span>(
         <span class="string">&quot;{}::macro_magic&quot;</span>,
-        <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>) {
+        <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>) {
             <span class="prelude-val">Ok</span>(path) =&gt; <span class="prelude-val">Ok</span>(path),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; generate_crate_access_2018(<span class="string">&quot;frame&quot;</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; generate_access_from_frame_or_crate(<span class="string">&quot;frame&quot;</span>),
         }
         .expect(<span class="string">&quot;Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.&quot;</span>)
         .to_token_stream()
@@ -3267,9 +3267,9 @@
 </span><span class="attr">#[import_tokens_attr {
     <span class="macro">format!</span>(
         <span class="string">&quot;{}::macro_magic&quot;</span>,
-        <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>) {
+        <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>) {
             <span class="prelude-val">Ok</span>(path) =&gt; <span class="prelude-val">Ok</span>(path),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; generate_crate_access_2018(<span class="string">&quot;frame&quot;</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; generate_access_from_frame_or_crate(<span class="string">&quot;frame&quot;</span>),
         }
         .expect(<span class="string">&quot;Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.&quot;</span>)
         .to_token_stream()

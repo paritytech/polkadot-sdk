@@ -1060,7 +1060,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::pallet::parse::helper::two128_str;
 <span class="kw">use </span>cfg_expr::Predicate;
 <span class="kw">use </span>frame_support_procedural_tools::{
-	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
+	generate_access_from_frame_or_crate, generate_crate_access, generate_hidden_includes,
 };
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>parse::{ExplicitRuntimeDeclaration, ImplicitRuntimeDeclaration, Pallet, RuntimeDeclaration};
@@ -1118,7 +1118,7 @@
 	input: TokenStream2,
 	definition: ImplicitRuntimeDeclaration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream2&gt; {
-	<span class="kw">let </span>frame_support = generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>expansion = <span class="macro">quote::quote!</span>(
 		#<span class="macro">frame_support::construct_runtime! </span>{ #input }
 	);
@@ -1129,7 +1129,7 @@
 		expansion = <span class="macro">quote::quote!</span>(
 			#<span class="macro">frame_support::__private::tt_call! </span>{
 				<span class="kw">macro </span>= [{ #pallet_path::tt_default_parts }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~&gt; #<span class="macro">frame_support::match_and_insert! </span>{
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -1154,7 +1154,7 @@
 	input: TokenStream2,
 	definition: ExplicitRuntimeDeclaration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream2&gt; {
-	<span class="kw">let </span>frame_support = generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>expansion = <span class="macro">quote::quote!</span>(
 		#<span class="macro">frame_support::construct_runtime! </span>{ #input }
 	);
@@ -1165,7 +1165,7 @@
 		expansion = <span class="macro">quote::quote!</span>(
 			#<span class="macro">frame_support::__private::tt_call! </span>{
 				<span class="kw">macro </span>= [{ #pallet_path::tt_extra_parts }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~&gt; #<span class="macro">frame_support::match_and_insert! </span>{
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -1218,7 +1218,7 @@
 	<span class="kw">let </span>scrate = generate_crate_access(hidden_crate_name, <span class="string">&quot;frame-support&quot;</span>);
 	<span class="kw">let </span>scrate_decl = generate_hidden_includes(hidden_crate_name, <span class="string">&quot;frame-support&quot;</span>);
 
-	<span class="kw">let </span>frame_system = generate_crate_access_2018(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span>block = <span class="macro">quote!</span>(&lt;#name <span class="kw">as </span>#frame_system::Config&gt;::Block);
 	<span class="kw">let </span>unchecked_extrinsic = <span class="macro">quote!</span>(&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic);
 
@@ -1645,7 +1645,7 @@
 		<span class="macro">quote! </span>{
 			#<span class="macro">scrate::__private::tt_call! </span>{
 				<span class="kw">macro </span>= [{ #path::tt_error_token }]
-				frame_support = [{ #scrate }]
+				your_tt_return = [{ #scrate::__private::tt_return }]
 				~~&gt; #<span class="macro">scrate::assert_error_encoded_size! </span>{
 					path = [{ #path }]
 					runtime = [{ #runtime }]

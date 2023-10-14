@@ -73,6 +73,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","genesis.rs","lib.rs"]],\
 "fixed_point":["",[],["fixed_point.rs"]],\
 "fork_tree":["",[],["lib.rs"]],\
+"frame":["",[],["lib.rs"]],\
 "frame_benchmarking":["",[],["analysis.rs","lib.rs","utils.rs","v1.rs"]],\
 "frame_benchmarking_cli":["",[["block",[],["bench.rs","cmd.rs","mod.rs"]],["extrinsic",[],["bench.rs","cmd.rs","extrinsic_factory.rs","mod.rs"]],["machine",[],["hardware.rs","mod.rs"]],["overhead",[],["cmd.rs","mod.rs","template.rs"]],["pallet",[],["command.rs","mod.rs","writer.rs"]],["shared",[],["mod.rs","record.rs","stats.rs","weight_params.rs"]],["storage",[],["cmd.rs","mod.rs","read.rs","template.rs","write.rs"]]],["lib.rs"]],\
 "frame_benchmarking_pallet_pov":["",[],["lib.rs","weights.rs"]],\
@@ -87,6 +88,7 @@ var srcIndex = JSON.parse('{\
 "frame_support_test":["",[],["lib.rs"]],\
 "frame_support_test_compile_pass":["",[],["lib.rs"]],\
 "frame_support_test_pallet":["",[],["lib.rs"]],\
+"frame_support_test_stg_frame_crate":["",[],["lib.rs"]],\
 "frame_system":["",[["extensions",[],["check_genesis.rs","check_mortality.rs","check_non_zero_sender.rs","check_nonce.rs","check_spec_version.rs","check_tx_version.rs","check_weight.rs","mod.rs"]],["migrations",[],["mod.rs"]]],["lib.rs","limits.rs","mocking.rs","offchain.rs","weights.rs"]],\
 "frame_system_benchmarking":["",[],["lib.rs"]],\
 "frame_system_rpc_runtime_api":["",[],["lib.rs"]],\

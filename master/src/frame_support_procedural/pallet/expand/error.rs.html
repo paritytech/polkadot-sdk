@@ -226,9 +226,9 @@
 			</span><span class="macro">macro_rules! </span>#error_token_unique_id {
 				{
 					<span class="macro-nonterminal">$caller</span>:tt
-					frame_support = [{ $(<span class="macro-nonterminal">$frame_support</span>:ident)::* }]
+					your_tt_return = [{ <span class="macro-nonterminal">$my_tt_return</span>:path }]
 				} =&gt; {
-					$(<span class="macro-nonterminal">$frame_support</span>::)<span class="kw-2">*</span><span class="macro">__private::tt_return! </span>{
+					<span class="macro-nonterminal">$</span><span class="macro">my_tt_return! </span>{
 						<span class="macro-nonterminal">$caller
 					</span>}
 				};
@@ -354,9 +354,9 @@
 		</span><span class="macro">macro_rules! </span>#error_token_unique_id {
 			{
 				<span class="macro-nonterminal">$caller</span>:tt
-				frame_support = [{ $(<span class="macro-nonterminal">$frame_support</span>:ident)::* }]
+				your_tt_return = [{ <span class="macro-nonterminal">$my_tt_return</span>:path }]
 			} =&gt; {
-				$(<span class="macro-nonterminal">$frame_support</span>::)<span class="kw-2">*</span><span class="macro">__private::tt_return! </span>{
+				<span class="macro-nonterminal">$</span><span class="macro">my_tt_return! </span>{
 					<span class="macro-nonterminal">$caller
 					</span>error = [{ #error_ident }]
 				}

@@ -144,6 +144,7 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -163,6 +164,7 @@
 
 </span><span class="kw">use crate</span>::{pallet::Def, COUNTER};
 <span class="kw">use </span>frame_support_procedural_tools::get_doc_literals;
+<span class="kw">use </span>quote::ToTokens;
 <span class="kw">use </span>syn::{spanned::Spanned, Ident};
 
 <span class="doccomment">///
@@ -225,7 +227,7 @@
 	<span class="kw">let </span>genesis_config_item =
 		<span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">&quot;Checked by def parser&quot;</span>).<span class="number">1</span>[genesis_config.index];
 
-	<span class="kw">let </span>serde_crate = <span class="macro">format!</span>(<span class="string">&quot;{}::__private::serde&quot;</span>, frame_support);
+	<span class="kw">let </span>serde_crate = <span class="macro">format!</span>(<span class="string">&quot;{}::__private::serde&quot;</span>, frame_support.to_token_stream());
 
 	<span class="kw">match </span>genesis_config_item {
 		syn::Item::Enum(syn::ItemEnum { attrs, .. }) |

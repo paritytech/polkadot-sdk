@@ -250,7 +250,7 @@
 	<span class="kw">pub fn </span>try_from(
 		attr_span: proc_macro2::Span,
 		index: usize,
-		scrate: <span class="kw-2">&amp;</span>proc_macro2::Ident,
+		scrate: <span class="kw-2">&amp;</span>syn::Path,
 		item: <span class="kw-2">&amp;mut </span>syn::Item,
 	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Enum(item) = item {

@@ -103,11 +103,6 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -128,7 +123,6 @@
 </span><span class="doccomment">//! Implementation of the `create_tt_return_macro` macro
 
 </span><span class="kw">use </span><span class="kw">crate</span>::COUNTER;
-<span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
 <span class="kw">use </span>proc_macro2::{Ident, TokenStream};
 <span class="kw">use </span>quote::format_ident;
 
@@ -175,9 +169,9 @@
 /// macro_rules! my_tt_macro {
 ///     {
 ///         $caller:tt
-///         $(frame_support = [{ $($frame_support:ident)::* }])?
+///         $(your_tt_return = [{ $my_tt_return:path }])?
 ///     } =&gt; {
-///         frame_support::__private::tt_return! {
+///         $my_tt_return! {
 ///             $caller
 ///             foo = [{ bar }]
 ///         }
@@ -188,10 +182,6 @@
 	<span class="kw">let </span>CreateTtReturnMacroDef { name, args } =
 		<span class="macro">syn::parse_macro_input!</span>(input <span class="kw">as </span>CreateTtReturnMacroDef);
 
-	<span class="kw">let </span>frame_support = <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>) {
-		<span class="prelude-val">Ok</span>(i) =&gt; i,
-		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.into_compile_error().into(),
-	};
 	<span class="kw">let </span>(keys, values): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = args.into_iter().unzip();
 	<span class="kw">let </span>count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	<span class="kw">let </span>unique_name = <span class="macro">format_ident!</span>(<span class="string">&quot;{}_{}&quot;</span>, name, count);
@@ -202,9 +192,9 @@
 		</span><span class="macro">macro_rules! </span>#unique_name {
 			{
 				<span class="macro-nonterminal">$caller</span>:tt
-				$(frame_support = [{ $(<span class="macro-nonterminal">$frame_support</span>:ident)::* }])<span class="question-mark">?
+				$(your_tt_return = [{ <span class="macro-nonterminal">$my_tt_macro</span>:path }])<span class="question-mark">?
 			</span>} =&gt; {
-				#<span class="macro">frame_support::__private::tt_return! </span>{
+				<span class="macro-nonterminal">$</span><span class="macro">my_tt_return! </span>{
 					<span class="macro-nonterminal">$caller
 					</span>#(
 						#keys = [{ #values }]

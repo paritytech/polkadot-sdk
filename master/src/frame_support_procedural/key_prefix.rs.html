@@ -97,6 +97,11 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -114,7 +119,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>proc_macro2::{Span, TokenStream};
+</span><span class="kw">use </span>frame_support_procedural_tools::generate_access_from_frame_or_crate;
+<span class="kw">use </span>proc_macro2::{Span, TokenStream};
 <span class="kw">use </span>quote::{format_ident, quote, ToTokens};
 <span class="kw">use </span>syn::{Ident, <span class="prelude-ty">Result</span>};
 
@@ -126,6 +132,7 @@
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>all_trait_impls = TokenStream::new();
+	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
 
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">2</span>..=MAX_IDENTS {
 		<span class="kw">let </span>current_tuple = (<span class="number">0</span>..i)
@@ -163,7 +170,10 @@
 					#(#hashers: ReversibleStorageHasher,)*
 					#(#kargs: EncodeLike&lt;#prefixes&gt;),*
 				&gt; HasReversibleKeyPrefix&lt;( #( #kargs, )* )&gt; <span class="kw">for </span>( #( Key&lt;#hashers, #current_tuple&gt;, )* ) {
-					<span class="kw">fn </span>decode_partial_key(key_material: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Suffix, codec::Error&gt; {
+					<span class="kw">fn </span>decode_partial_key(key_material: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;
+						<span class="self">Self</span>::Suffix,
+						#frame_support::__private::codec::Error,
+					&gt; {
 						&lt;#suffix_keygen&gt;::decode_final_key(key_material).map(|k| k.<span class="number">0</span>)
 					}
 				}

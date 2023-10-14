@@ -1017,6 +1017,11 @@
 <a href="#1017" id="1017">1017</a>
 <a href="#1018" id="1018">1018</a>
 <a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1037,7 +1042,7 @@
 </span><span class="doccomment">//! Home of the parsing and expansion code for the new pallet benchmarking syntax
 
 </span><span class="kw">use </span>derive_syn_parse::Parse;
-<span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
+<span class="kw">use </span>frame_support_procedural_tools::generate_access_from_frame_or_crate;
 <span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>proc_macro2::{Ident, Span, TokenStream <span class="kw">as </span>TokenStream2};
 <span class="kw">use </span>quote::{quote, ToTokens};
@@ -1437,7 +1442,8 @@
 		<span class="bool-val">true </span>=&gt; <span class="macro">quote!</span>(T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>),
 	};
 
-	<span class="kw">let </span>krate = generate_crate_access_2018(<span class="string">&quot;frame-benchmarking&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>krate = generate_access_from_frame_or_crate(<span class="string">&quot;frame-benchmarking&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// benchmark name variables
 	</span><span class="kw">let </span>benchmark_names_str: Vec&lt;String&gt; = benchmark_names.iter().map(|n| n.to_string()).collect();
@@ -1507,7 +1513,7 @@
 			}
 			<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 			</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; #krate::Benchmarking <span class="kw">for </span>Pallet&lt;#type_use_generics&gt;
-			<span class="kw">where </span>T: frame_system::Config, #where_clause
+			<span class="kw">where </span>T: #frame_system::Config, #where_clause
 			{
 				<span class="kw">fn </span>benchmarks(
 					extra: bool,
@@ -1554,7 +1560,7 @@
 						<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Could not find extrinsic.&quot;</span>.into()),
 					};
 					<span class="kw">let </span><span class="kw-2">mut </span>whitelist = whitelist.to_vec();
-					<span class="kw">let </span>whitelisted_caller_key = &lt;frame_system::Account&lt;
+					<span class="kw">let </span>whitelisted_caller_key = &lt;#frame_system::Account&lt;
 						T,
 					&gt; <span class="kw">as </span>#krate::__private::storage::StorageMap&lt;<span class="kw">_</span>, <span class="kw">_</span>,&gt;&gt;::hashed_key_for(
 						#krate::whitelisted_caller::&lt;T::AccountId&gt;()
@@ -1590,8 +1596,8 @@
 						&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, c, verify)<span class="question-mark">?</span>;
 
 						<span class="comment">// Set the block number to at least 1 so events are deposited.
-						</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number()) {
-							frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
+						</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>#frame_system::Pallet::&lt;T&gt;::block_number()) {
+							#frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
 						}
 
 						<span class="comment">// Commit the externalities to the database, flushing the DB cache.
@@ -1673,7 +1679,7 @@
 			}
 
 			<span class="attr">#[cfg(test)]
-			</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; Pallet&lt;#type_use_generics&gt; <span class="kw">where </span>T: ::frame_system::Config, #where_clause {
+			</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; Pallet&lt;#type_use_generics&gt; <span class="kw">where </span>T: #frame_system::Config, #where_clause {
 				<span class="doccomment">/// Test a particular benchmark by name.
 				///
 				/// This isn&#39;t called `test_benchmark_by_name` just in case some end-user eventually
@@ -1738,8 +1744,12 @@
 	where_clause: TokenStream2,
 ) -&gt; TokenStream2 {
 	<span class="comment">// set up variables needed during quoting
-	</span><span class="kw">let </span>krate = <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-benchmarking&quot;</span>) {
+	</span><span class="kw">let </span>krate = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-benchmarking&quot;</span>) {
 		<span class="prelude-val">Ok</span>(ident) =&gt; ident,
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>err.to_compile_error().into(),
+	};
+	<span class="kw">let </span>frame_system = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>) {
+		<span class="prelude-val">Ok</span>(path) =&gt; path,
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>err.to_compile_error().into(),
 	};
 	<span class="kw">let </span>codec = <span class="macro">quote!</span>(#krate::__private::codec);
@@ -1781,7 +1791,7 @@
 				Expr::Cast(t) =&gt; {
 					<span class="kw">let </span>ty = t.ty.clone();
 					<span class="macro">quote! </span>{
-						&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>From&lt;#ty&gt;&gt;::from(#origin);
+						&lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>From&lt;#ty&gt;&gt;::from(#origin);
 					}
 				},
 				<span class="kw">_ </span>=&gt; <span class="macro">quote! </span>{
@@ -1951,7 +1961,7 @@
 		}
 
 		<span class="attr">#[cfg(test)]
-		</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; Pallet&lt;#type_use_generics&gt; <span class="kw">where </span>T: ::frame_system::Config, #where_clause {
+		</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; Pallet&lt;#type_use_generics&gt; <span class="kw">where </span>T: #frame_system::Config, #where_clause {
 			<span class="attr">#[allow(unused)]
 			</span><span class="kw">fn </span>#test_ident() -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt; {
 				<span class="kw">let </span>selected_benchmark = SelectedBenchmark::#name;
@@ -1970,8 +1980,8 @@
 					&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;</span>c, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 
 					<span class="comment">// Set the block number to at least 1 so events are deposited.
-					</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number()) {
-						frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
+					</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>#frame_system::Pallet::&lt;T&gt;::block_number()) {
+						#frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
 					}
 
 					<span class="comment">// Run execution + verification

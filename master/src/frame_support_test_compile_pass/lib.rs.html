@@ -85,6 +85,7 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -103,7 +104,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Test that `construct_runtime!` also works when `frame-support` is renamed in the `Cargo.toml`.
+</span><span class="doccomment">//! Test that `construct_runtime!` also works when `frame-support` or `frame-system` are renamed in
+//! the `Cargo.toml`.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
@@ -137,7 +139,7 @@
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 }
 
-<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>renamed_frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>BaseCallFilter = Everything;
 	<span class="kw">type </span>BlockWeights = ();
 	<span class="kw">type </span>BlockLength = ();
@@ -169,7 +171,7 @@
 
 <span class="macro">construct_runtime!</span>(
 	<span class="kw">pub struct </span>Runtime {
-		System: frame_system,
+		System: renamed_frame_system,
 	}
 );
 </code></pre></div></section></main></body></html>

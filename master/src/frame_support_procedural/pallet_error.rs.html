@@ -193,7 +193,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
+</span><span class="kw">use </span>frame_support_procedural_tools::generate_access_from_frame_or_crate;
 <span class="kw">use </span>quote::ToTokens;
 
 <span class="comment">// Derive `PalletError`
@@ -203,7 +203,7 @@
 		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.to_compile_error().into(),
 	};
 
-	<span class="kw">let </span>frame_support = <span class="kw">match </span>generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>) {
+	<span class="kw">let </span>frame_support = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>) {
 		<span class="prelude-val">Ok</span>(c) =&gt; c,
 		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.into_compile_error().into(),
 	};
@@ -289,7 +289,7 @@
 
 <span class="kw">fn </span>generate_field_types(
 	field: <span class="kw-2">&amp;</span>syn::Field,
-	scrate: <span class="kw-2">&amp;</span>syn::Ident,
+	scrate: <span class="kw-2">&amp;</span>syn::Path,
 ) -&gt; syn::Result&lt;<span class="prelude-ty">Option</span>&lt;proc_macro2::TokenStream&gt;&gt; {
 	<span class="kw">let </span>attrs = <span class="kw-2">&amp;</span>field.attrs;
 
@@ -321,7 +321,7 @@
 
 <span class="kw">fn </span>generate_variant_field_types(
 	variant: <span class="kw-2">&amp;</span>syn::Variant,
-	scrate: <span class="kw-2">&amp;</span>syn::Ident,
+	scrate: <span class="kw-2">&amp;</span>syn::Path,
 ) -&gt; syn::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;proc_macro2::TokenStream&gt;&gt;&gt; {
 	<span class="kw">let </span>attrs = <span class="kw-2">&amp;</span>variant.attrs;
 

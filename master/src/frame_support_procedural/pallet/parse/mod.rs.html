@@ -631,7 +631,7 @@
 <span class="kw">pub mod </span>validate_unsigned;
 
 <span class="kw">use </span>composite::{keyword::CompositeKeyword, CompositeDef};
-<span class="kw">use </span>frame_support_procedural_tools::generate_crate_access_2018;
+<span class="kw">use </span>frame_support_procedural_tools::generate_access_from_frame_or_crate;
 <span class="kw">use </span>syn::spanned::Spanned;
 
 <span class="doccomment">/// Parsed definition of a pallet.
@@ -654,15 +654,15 @@
 	<span class="kw">pub </span>extra_constants: <span class="prelude-ty">Option</span>&lt;extra_constants::ExtraConstantsDef&gt;,
 	<span class="kw">pub </span>composites: Vec&lt;composite::CompositeDef&gt;,
 	<span class="kw">pub </span>type_values: Vec&lt;type_value::TypeValueDef&gt;,
-	<span class="kw">pub </span>frame_system: syn::Ident,
-	<span class="kw">pub </span>frame_support: syn::Ident,
+	<span class="kw">pub </span>frame_system: syn::Path,
+	<span class="kw">pub </span>frame_support: syn::Path,
 	<span class="kw">pub </span>dev_mode: bool,
 }
 
 <span class="kw">impl </span>Def {
 	<span class="kw">pub fn </span>try_from(<span class="kw-2">mut </span>item: syn::ItemMod, dev_mode: bool) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">let </span>frame_system = generate_crate_access_2018(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
-		<span class="kw">let </span>frame_support = generate_crate_access_2018(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>item_span = item.span();
 		<span class="kw">let </span>items = <span class="kw-2">&amp;mut </span>item
