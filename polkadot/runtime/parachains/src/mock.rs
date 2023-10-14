@@ -17,14 +17,14 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_on_demand::{self, QueuePushDirection},
+	assigner_on_demand,
 	configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
 	},
 	session_info, shared, ParaId,
 };
@@ -389,13 +389,9 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 }
 
 /// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock 
-/// assigner acts like a `ParachainsAssigner` when acting on calls for `ParaId`s and 
-/// `CoreIndex`s pertaining to bulk time purchasers. But it acts like an `OnDemandAssigner` 
-/// when acting on on-demand `CoreIndex`s and `ParaId`s. Only the on demand functions of 
-/// the `MockAssigner` require the maintenance or use of any state.
-/// This mock assigner exposes a simplified assignment type for building mock `ParasEntry`s. 
-/// It also exposes the function `add_on_demand_order` which adds to a `MockAssignmentQueue`.
-/// This queue is later popped from to populate the scheduler `ClaimQueue`.
+/// assigner provides bare minimum functionality to test scheduler internals. Since they
+/// have no direct effect on scheduler state, AssignmentProvider functions such as 
+/// `push_back_assignment` can be left empty.
 pub mod mock_assigner {
 	use super::*;
 	pub use pallet::*;
@@ -418,23 +414,17 @@ pub mod mock_assigner {
 		#[pallet::storage]
 		pub(super) type MockProviderConfig<T: Config> =
 			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
+
+		#[pallet::storage]
+		pub(super) type MockCoreCount<T: Config> = 
+			StorageValue<_, u32, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
 		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the scheduler
 		/// when filling the claim queue for tests.
-		pub fn add_test_assignments(
-			assignment: V0Assignment,
-			location: QueuePushDirection,
-		) -> Result<(), DispatchError> {
-			MockAssignmentQueue::<T>::try_mutate(|queue| {
-				// Don't need to worry about max assignment queue size in scheduler tests
-				match location {
-					QueuePushDirection::Back => queue.push_back(assignment),
-					QueuePushDirection::Front => queue.push_front(assignment),
-				};
-				Ok(())
-			})
+		pub fn add_test_assignment(assignment: V0Assignment) {
+			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
 		}
 
 		// This configuration needs to be customized to service `get_provider_config` in 
@@ -443,12 +433,10 @@ pub mod mock_assigner {
 			MockProviderConfig::<T>::set(Some(config));
 		}
 
-		/// Checks whether the given core is associated with a parachain. This determines
-		/// whether the `MockAssigner` will act as a `ParachainsAssigner` or an 
-		/// `OnDemandAssigner` for the `AssignmentProvider` call in question.
-		fn is_legacy_core(core_idx: &CoreIndex) -> bool {
-			let parachain_cores = <paras::Pallet<Test>>::parachains().len() as u32;
-			(0..parachain_cores).contains(&core_idx.0)
+		// Allows for customized core count in scheduler tests, rather than a core count 
+		// derived from on-demand config + parachain count.
+		pub fn set_core_count(count: u32) {
+			MockCoreCount::<T>::set(Some(count));
 		}
 	}
 
@@ -456,7 +444,6 @@ pub mod mock_assigner {
 		// Simplest assignment used for testing
 		type AssignmentType = V0Assignment;
 		type OldAssignmentType = V0Assignment;
-		// Format has not changed for parachains, therefore still version 0.
 		const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
 
 		fn migrate_old_to_current(
@@ -466,51 +453,34 @@ pub mod mock_assigner {
 			old
 		}
 
-		// This can matter, even in tests. Using condensed form of calculation from actual assigner.
+		// Provides a core count for scheduler tests defaulting to the most common number,
+		// 5, if no explicit count was set.
 		fn session_core_count() -> u32 {
-			let config = <configuration::Pallet<Test>>::config();
-			(<paras::Pallet<Test>>::parachains().len() as u32)
-				.saturating_add(config.on_demand_cores)
+			match MockCoreCount::<T>::get() {
+				Some(count) => count,
+				None => 5 
+			}
 		}
 
-		// Create a new assignment to pass if core belongs to bulk buyer, else pop
-		// on demand assignment from front of queue.
-		fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-			if Self::is_legacy_core(&core_idx) {
-				// Bulk coretime behavior
-				<paras::Pallet<T>>::parachains()
-					.get(core_idx.0 as usize)
-					.copied()
-					.map(|para_id| V0Assignment::new(para_id))
-			} else {
-				// OnDemand behavior
-				let mut queue: VecDeque<V0Assignment> = MockAssignmentQueue::<T>::get();
-				let front = queue.pop_front().map(|assignment| assignment);
-				// Write changes to storage.
-				MockAssignmentQueue::<T>::set(queue);
-				front
-			}
+		// With regards to popping_assignments, the scheduler just needs to be tested under 
+		// the following two conditions:
+		// 1. An assignment is provided
+		// 2. No assignment is provided
+		// A simple assignment queue populated to fit each test fulfills these needs.
+		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+			let mut queue: VecDeque<V0Assignment> = MockAssignmentQueue::<T>::get();
+			let front = queue.pop_front();
+			// Write changes to storage.
+			MockAssignmentQueue::<T>::set(queue);
+			front
 		}
 
 		// We don't care about core affinity in the test assigner
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
-		// This is called for all `AssignmentProvider`s, but is a no-op for the bulk coretime
-		// assigner. The bulk assigner generates a new assignment for the same para whenever 
-		// called upon, whereas `OnDemandAssigner` needs to store a queue and occasionally 
-		// "push_back" onto it.
-		fn push_back_assignment(assignment: Self::AssignmentType) {
-			// Bulk coretime behavior
-			if <paras::Pallet<T>>::is_parachain(assignment.para_id()) {
-			} else {
-				// OnDemand behavior
-				match Pallet::<T>::add_test_assignments(assignment.into(), QueuePushDirection::Front)
-				{
-					Ok(_) => {},
-					Err(_) => {},
-				}
-			}
-		}
+		// The results of this are tested in assigner_on_demand tests. No need to represent it 
+		// in the mock assigner.
+		fn push_back_assignment(_assignment: Self::AssignmentType) {}
 
 		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
 		// back to the on demand parachain configuration if none was set.

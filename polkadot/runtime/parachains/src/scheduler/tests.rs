@@ -22,7 +22,6 @@ use primitives::{BlockNumber, SessionIndex, ValidationCode, ValidatorId};
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use crate::{
-	assigner_on_demand::QueuePushDirection,
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
@@ -224,7 +223,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		// Add a claim to the test assignment provider.
 		let assignment = TestAssignment::new(para_id);
 
-		assert_ok!(MockAssigner::add_test_assignments(assignment.clone(), QueuePushDirection::Back));
+		MockAssigner::add_test_assignment(assignment.clone());
 
 		// Drop expired claim.
 		Scheduler::drop_expired_claims_from_claimqueue();
@@ -441,18 +440,9 @@ fn fill_claimqueue_fills() {
 		}
 
 		// add a couple of parathread assignments.
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_b.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_c.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
+		MockAssigner::add_test_assignment(assignment_c.clone());
 
 		run_to_block(2, |_| None);
 		// cores 0 and 1 should be occupied. mark them as such.
@@ -567,14 +557,8 @@ fn schedule_schedules_including_just_freed() {
 		});
 
 		// add a couple of parathread claims now that the parathreads are live.
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_c.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_c.clone());
 
 		let mut now = 2;
 		run_to_block(now, |_| None);
@@ -612,18 +596,9 @@ fn schedule_schedules_including_just_freed() {
 		// add a couple more parathread claims - the claim on `b` will go to the 3rd parathread core
 		// (4) and the claim on `d` will go back to the 1st parathread core (2). The claim on `e`
 		// then will go for core `3`.
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_b.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_d.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_e.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_b.clone());
+		MockAssigner::add_test_assignment(assignment_d.clone());
+		MockAssigner::add_test_assignment(assignment_e.clone());
 		now = 3;
 		run_to_block(now, |_| None);
 
@@ -839,14 +814,8 @@ fn schedule_rotates_groups() {
 		let session_start_block = Scheduler::session_start_block();
 		assert_eq!(session_start_block, 1);
 
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_b.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
 
 		let mut now = 2;
 		run_to_block(now, |_| None);
@@ -925,10 +894,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			_ => None,
 		});
 
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
 
 		// #2
 		now += 1;
@@ -980,10 +946,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		now += max_retries + 2;
 
 		// Add assignment back to the mix.
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
 		run_to_block(now, |_| None);
 
 		assert!(claimqueue_contains_para_ids::<Test>(vec![thread_a]));
@@ -1198,10 +1161,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 			_ => None,
 		});
 
-		assert_ok!(MockAssigner::add_test_assignments(
-			assignment_a.clone(),
-			QueuePushDirection::Back
-		));
+		MockAssigner::add_test_assignment(assignment_a.clone());
 
 		run_to_block(2, |_| None);
 
@@ -1229,10 +1189,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 				ScheduledCore { para_id: thread_a, collator: None }
 			);
 
-			assert_ok!(MockAssigner::add_test_assignments(
-				assignment_b.clone(),
-				QueuePushDirection::Back
-			));
+			MockAssigner::add_test_assignment(assignment_b.clone());
 
 			// Pop assignment_b into the claimqueue
 			Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 2);

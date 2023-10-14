@@ -405,6 +405,60 @@ fn pop_assignment_for_core_works() {
 }
 
 #[test]
+fn push_back_assignment_works() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let para_b = ParaId::from(110);
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		schedule_blank_para(para_b, ParaKind::Parathread);
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+
+		let order_a = EnqueuedOrder::new(para_a);
+		let order_b = EnqueuedOrder::new(para_b);
+		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
+
+		// Add enough assignments to the order queue.
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
+
+		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
+
+		// Pop order a
+		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
+
+		// Para a should have affinity for core 0
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_idx, CoreIndex(0));
+
+		// Queue should still contain order b
+		{
+			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
+			assert_eq!(
+				queue,
+				vec![order_b.clone()]
+			);
+		}
+
+		// Push back order a
+		OnDemandAssigner::push_back_assignment(assignment_a);
+
+		// Para a should have no affinity
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).is_none(), true);
+
+		// Queue should contain orders a, b. A in front of b.
+		{
+			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
+			assert_eq!(
+				queue,
+				vec![order_a.clone(), order_b.clone()]
+			);
+		}
+	});
+}
+
+#[test]
 fn affinity_changes_work() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
