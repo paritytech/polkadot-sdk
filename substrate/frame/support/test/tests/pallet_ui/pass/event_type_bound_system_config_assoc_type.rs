@@ -15,22 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[rustversion::attr(not(stable), ignore)]
-#[cfg(not(feature = "disable-ui-tests"))]
-#[test]
-fn ui() {
-	// Only run the ui tests when `RUN_UI_TESTS` is set.
-	if std::env::var("RUN_UI_TESTS").is_err() {
-		return
+#[frame_support::pallet]
+mod pallet {
+	use frame_support::pallet_prelude::{Hooks, IsType};
+	use frame_system::pallet_prelude::BlockNumberFor;
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config<Hash = sp_core::H256> {
+		type Bar: Clone + std::fmt::Debug + Eq;
+		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
-	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	std::env::set_var("SKIP_WASM_BUILD", "1");
+	#[pallet::pallet]
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
-	// Deny all warnings since we emit warnings as part of a Runtime's UI.
-	std::env::set_var("RUSTFLAGS", "--deny warnings");
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-	let t = trybuild::TestCases::new();
-	t.compile_fail("tests/construct_runtime_ui/*.rs");
-	t.pass("tests/construct_runtime_ui/pass/*.rs");
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::event]
+	pub enum Event<T: Config> {
+		B { b: T::Bar },
+	}
 }
+
+fn main() {}

@@ -27,7 +27,6 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
-	executor_intf::NATIVE_STACK_MAX,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, stringify_panic_payload,
@@ -36,6 +35,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_primitives::executor_params::DEFAULT_NATIVE_STACK_MAX;
 use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
@@ -69,7 +69,7 @@ use tokio::io;
 //
 // Typically on Linux the main thread gets the stack size specified by the `ulimit` and
 // typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
-// NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
+// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
 //
 // Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
 // stack limit.
@@ -78,7 +78,7 @@ use tokio::io;
 //
 // The default Rust thread stack limit 2 MiB + 256 MiB wasm stack.
 /// The stack size for the execute thread.
-pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + NATIVE_STACK_MAX as usize;
+pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
 
 fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
