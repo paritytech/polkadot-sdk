@@ -32,6 +32,7 @@ use log::{debug, trace};
 use std::{
 	fmt,
 	future::Future,
+	num::NonZeroUsize,
 	ops::Deref,
 	pin::Pin,
 	sync::Arc,
@@ -129,16 +130,16 @@ pub struct IncomingBlock<B: BlockT> {
 /// Verify a justification of a block
 #[async_trait::async_trait]
 pub trait Verifier<B: BlockT>: Send + Sync {
-	/// Whether verifier supports stateless verification.
+	/// How many blocks can be verified concurrently.
 	///
-	/// Stateless verification means that verification on blocks can be done in arbitrary order,
-	/// doesn't expect parent block to be imported first, etc.
+	/// Defaults to 1, which means blocks are verified sequentially, one at a time.
 	///
-	/// Verifiers that support stateless verification can verify multiple blocks concurrently,
-	/// significantly improving sync speed.
-	fn supports_stateless_verification(&self) -> bool {
-		// Unless re-defined by verifier is assumed to not support stateless verification.
-		false
+	/// value higher than one means verification on blocks can be done in arbitrary order,
+	/// doesn't expect parent block to be imported first, etc. This significantly improves sync
+	/// speed by leveraging multiple CPU cores. Good value here is to make concurrency equal to
+	/// number of CPU cores available.
+	fn verification_concurrency(&self) -> NonZeroUsize {
+		NonZeroUsize::new(1).expect("Not zero; qed")
 	}
 
 	/// Verify the given block data and return the `BlockImportParams` to
@@ -150,8 +151,8 @@ impl<Block> Verifier<Block> for Arc<dyn Verifier<Block>>
 where
 	Block: BlockT,
 {
-	fn supports_stateless_verification(&self) -> bool {
-		(**self).supports_stateless_verification()
+	fn verification_concurrency(&self) -> NonZeroUsize {
+		(**self).verification_concurrency()
 	}
 
 	fn verify<'life0, 'async_trait>(
