@@ -68,6 +68,7 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
 use frame_support::{
+	ensure,
 	traits::{
 		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
 		OnUnbalanced, ReservableCurrency, SortedMembers,
@@ -75,6 +76,9 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -465,6 +469,14 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -610,5 +622,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			};
 			Tips::<T, I>::insert(hash, new_tip)
 		}
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	///
+	/// ## Invariants:
+	///
+	/// If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater that zero.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		for tips in Tips::<T, I>::iter_keys() {
+			let open_tip = Tips::<T, I>::get(&tips).unwrap();
+			if open_tip.finders_fee {
+				ensure!(
+					!open_tip.deposit.is_zero(),
+					TryRuntimeError::Other("finder's fee not present")
+				)
+			}
+		}
+		Ok(())
 	}
 }

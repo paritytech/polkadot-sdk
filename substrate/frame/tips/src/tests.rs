@@ -192,7 +192,7 @@ impl Config for Test {
 	type Tippers = TenToFourteen;
 	type TipCountdown = ConstU64<1>;
 	type TipFindersFee = TipFindersFee;
-	type TipReportDepositBase = ConstU64<1>;
+	type TipReportDepositBase = ConstU64<0>;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
@@ -263,8 +263,8 @@ fn report_awesome_and_tip_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
-		assert_eq!(Balances::reserved_balance(0), 12);
-		assert_eq!(Balances::free_balance(0), 88);
+		assert_eq!(Balances::reserved_balance(0), 11);
+		assert_eq!(Balances::free_balance(0), 89);
 
 		// other reports don't count.
 		assert_noop!(
@@ -290,8 +290,8 @@ fn report_awesome_from_beneficiary_and_tip_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));
-		assert_eq!(Balances::reserved_balance(0), 12);
-		assert_eq!(Balances::free_balance(0), 88);
+		assert_eq!(Balances::reserved_balance(0), 11);
+		assert_eq!(Balances::free_balance(0), 89);
 		let h = BlakeTwo256::hash_of(&(BlakeTwo256::hash(b"awesome.dot"), 0u128));
 		assert_ok!(Tips::tip(RuntimeOrigin::signed(10), h, 10));
 		assert_ok!(Tips::tip(RuntimeOrigin::signed(11), h, 10));
@@ -353,8 +353,8 @@ fn slash_tip_works() {
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
 
-		assert_eq!(Balances::reserved_balance(0), 12);
-		assert_eq!(Balances::free_balance(0), 88);
+		assert_eq!(Balances::reserved_balance(0), 11);
+		assert_eq!(Balances::free_balance(0), 89);
 
 		let h = tip_hash();
 		assert_eq!(last_event(), TipEvent::NewTip { tip_hash: h });
@@ -364,11 +364,11 @@ fn slash_tip_works() {
 
 		// can remove from root.
 		assert_ok!(Tips::slash_tip(RuntimeOrigin::root(), h));
-		assert_eq!(last_event(), TipEvent::TipSlashed { tip_hash: h, finder: 0, deposit: 12 });
+		assert_eq!(last_event(), TipEvent::TipSlashed { tip_hash: h, finder: 0, deposit: 11 });
 
 		// tipper slashed
 		assert_eq!(Balances::reserved_balance(0), 0);
-		assert_eq!(Balances::free_balance(0), 88);
+		assert_eq!(Balances::free_balance(0), 89);
 	});
 }
 
@@ -653,4 +653,16 @@ fn report_awesome_and_tip_works_second_instance() {
 		// Treasury 2 gave the funds
 		assert_eq!(Balances::free_balance(&Treasury1::account_id()), 191);
 	});
+}
+
+#[test]
+fn try_state_invariant_works() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"".to_vec(), 3));
+
+		assert_eq!(Tips::do_try_state(), Err(Other("finder's fee not present")))
+	})
 }
