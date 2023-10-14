@@ -14,15 +14,12 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{
-	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
-};
+use frame_support::{pallet_prelude::Get, traits::ContainsPair};
 use xcm::{
 	latest::prelude::{MultiAsset, MultiLocation},
 	prelude::*,
 };
-use xcm_builder::{ensure_is_remote, ExporterFor, MatchesLocation};
+use xcm_builder::ensure_is_remote;
 
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
 impl<Network: Get<NetworkId>> Contains<MultiLocation>
@@ -72,13 +69,13 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 
 /// Adapter verifies if it is allowed to receive `MultiAsset` from `MultiLocation`.
 ///
-/// Note: `MultiLocation` has to be from different global consensus.
+/// Note: `MultiLocation` has to be from a different global consensus.
 pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
 	sp_std::marker::PhantomData<(UniversalLocation, Reserves)>,
 );
 impl<
 		UniversalLocation: Get<InteriorMultiLocation>,
-		Reserves: Get<sp_std::vec::Vec<LocationWithAssetFilter>>,
+		Reserves: ContainsPair<MultiAsset, MultiLocation>,
 	> ContainsPair<MultiAsset, MultiLocation>
 	for IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>
 {
@@ -103,120 +100,7 @@ impl<
 			},
 		};
 
-		// check asset location
-		let asset_location = match &asset.id {
-			Concrete(location) => location,
-			_ => return false,
-		};
-
 		// check asset according to the configured reserve locations
-		for (reserve_location, asset_filter) in Reserves::get() {
-			if origin.eq(&reserve_location) && asset_filter.matches(asset_location) {
-				return true
-			}
-		}
-
-		false
+		Reserves::contains(asset, origin)
 	}
 }
-
-/// Disallow all assets the are either not `Concrete`, or not explicitly allowed by
-/// `LocationAssetFilters`, iff `dest` matches any location in `LocationAssetFilters`.
-///
-/// Returns `false` regardless of `assets`, if `dest` does not match any location in
-/// `LocationAssetFilters`. Otherwise, returns `true` if asset is either not `Concrete` or is not
-/// explicitly allowed by `LocationAssetFilters`, otherwise returns `false`.
-pub struct DisallowConcreteAssetUnless<LocationAssetFilters>(
-	sp_std::marker::PhantomData<LocationAssetFilters>,
-);
-impl<LocationAssetFilters: Get<sp_std::vec::Vec<LocationWithAssetFilter>>>
-	Contains<(MultiLocation, sp_std::vec::Vec<MultiAsset>)>
-	for DisallowConcreteAssetUnless<LocationAssetFilters>
-{
-	fn contains((dest, assets): &(MultiLocation, sp_std::vec::Vec<MultiAsset>)) -> bool {
-		for (allowed_dest, asset_filter) in LocationAssetFilters::get().iter() {
-			// we only disallow `assets` on explicitly configured destinations
-			if !allowed_dest.eq(dest) {
-				continue
-			}
-
-			// check all assets
-			for asset in assets {
-				let asset_location = match &asset.id {
-					Concrete(location) => location,
-					_ => return true,
-				};
-
-				if !asset_filter.matches(asset_location) {
-					// if asset does not match filter, disallow it
-					return true
-				}
-			}
-		}
-
-		// if we got here, allow it
-		false
-	}
-}
-
-/// Adapter for `Contains<(MultiLocation, sp_std::vec::Vec<MultiAsset>)>` which returns `true`
-/// iff `Exporters` contains exporter for **remote** `MultiLocation` _and_
-///`assets` also pass`Filter`, otherwise returns `false`.
-///
-/// Note: Assumes that `Exporters` do not depend on `XCM program` and works for `Xcm::default()`.
-pub struct ExcludeOnlyForRemoteDestination<UniversalLocation, Exporters, Exclude>(
-	sp_std::marker::PhantomData<(UniversalLocation, Exporters, Exclude)>,
-);
-impl<UniversalLocation, Exporters, Exclude> Contains<(MultiLocation, sp_std::vec::Vec<MultiAsset>)>
-	for ExcludeOnlyForRemoteDestination<UniversalLocation, Exporters, Exclude>
-where
-	UniversalLocation: Get<InteriorMultiLocation>,
-	Exporters: ExporterFor,
-	Exclude: Contains<(MultiLocation, sp_std::vec::Vec<MultiAsset>)>,
-{
-	fn contains(dest_and_assets: &(MultiLocation, sp_std::vec::Vec<MultiAsset>)) -> bool {
-		let universal_source = UniversalLocation::get();
-		log::trace!(
-			target: "xcm::contains",
-			"ExcludeOnlyForRemoteDestination dest: {:?}, assets: {:?}, universal_source: {:?}",
-			dest_and_assets.0, dest_and_assets.1, universal_source
-		);
-
-		// check if it is remote destination
-		match ensure_is_remote(universal_source, dest_and_assets.0) {
-			Ok((remote_network, remote_destination)) => {
-				if Exporters::exporter_for(&remote_network, &remote_destination, &Xcm::default())
-					.is_some()
-				{
-					// destination is remote, and has configured exporter, now check filter
-					Exclude::contains(dest_and_assets)
-				} else {
-					log::trace!(
-						target: "xcm::contains",
-						"ExcludeOnlyForRemoteDestination no exporter for dest: {:?}",
-						dest_and_assets.0
-					);
-					// no exporter means that we exclude by default
-					true
-				}
-			},
-			Err(_) => {
-				log::trace!(
-					target: "xcm::contains",
-					"ExcludeOnlyForRemoteDestination dest: {:?} is not remote to the universal_source: {:?}",
-					dest_and_assets.0, universal_source
-				);
-				// not a remote destination, do not exclude
-				false
-			},
-		}
-	}
-}
-
-/// A type alias for referring to the `MatchesLocation<MultiLocation` implementation.
-/// (`MultiLocation` represents here `AssetId::Concrete(location)`).
-pub type AssetFilter = sp_std::boxed::Box<dyn MatchesLocation<MultiLocation>>;
-
-/// A type alias for referring to the `MultiLocation` with `AssetFilter` capabilities.
-/// E.g. for `MultiLocation` we can accept assets that match `AssetFilter`.
-pub type LocationWithAssetFilter = (MultiLocation, AssetFilter);

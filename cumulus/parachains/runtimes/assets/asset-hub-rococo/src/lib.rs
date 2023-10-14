@@ -61,7 +61,7 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		EqualsTo, InstanceFilter,
+		Equals, InstanceFilter,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -834,13 +834,13 @@ impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime
 	type Bridges = xcm_config::bridging::to_wococo::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type BridgeHubOrigin = EnsureXcm<EqualsTo<xcm_config::bridging::SiblingBridgeHub>>;
+	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BridgeHubOrigin = EitherOfDiverse<
 		// for running benchmarks
 		EnsureRoot<AccountId>,
 		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<EqualsTo<xcm_config::bridging::SiblingBridgeHub>>,
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
 	type ToBridgeHubSender = XcmpQueue;
@@ -865,13 +865,13 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type Bridges = xcm_config::bridging::to_rococo::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type BridgeHubOrigin = EnsureXcm<EqualsTo<xcm_config::bridging::SiblingBridgeHub>>;
+	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BridgeHubOrigin = EitherOfDiverse<
 		// for running benchmarks
 		EnsureRoot<AccountId>,
 		// for running tests with `--feature runtime-benchmarks`
-		EnsureXcm<EqualsTo<xcm_config::bridging::SiblingBridgeHub>>,
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
 	type ToBridgeHubSender = XcmpQueue;
