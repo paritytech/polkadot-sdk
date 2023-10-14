@@ -154,7 +154,7 @@ pub mod pallet {
 
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum HoldReason<I: 'static = ()> {
 		/// The funds are held as deposit to start the referendum's decision phase.
 		Referendum,
 	}
