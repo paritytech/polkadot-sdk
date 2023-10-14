@@ -96,6 +96,8 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -131,6 +133,7 @@
 	<span class="kw">if </span>dev_mode {
 		<span class="kw">return
 	</span>}
+
 	<span class="kw">let </span>CallWeightDef::Immediate(w) = <span class="kw-2">&amp;</span>method.weight <span class="kw">else </span>{ <span class="kw">return </span>};
 
 	<span class="kw">let </span>partial_warning = Warning::new_deprecated(<span class="string">&quot;UncheckedWeightWitness&quot;</span>)
@@ -162,6 +165,7 @@
 	<span class="kw">if </span>dev_mode {
 		<span class="kw">return
 	</span>}
+
 	<span class="kw">let </span>syn::Expr::Lit(lit) = weight <span class="kw">else </span>{ <span class="kw">return </span>};
 
 	<span class="kw">let </span>warning = Warning::new_deprecated(<span class="string">&quot;ConstantWeight&quot;</span>)

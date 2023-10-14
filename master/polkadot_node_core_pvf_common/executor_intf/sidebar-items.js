@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CONFIG"],"fn":["params_to_wasmtime_semantics"],"struct":["Executor"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CONFIG"],"fn":["create_runtime_from_artifact_bytes","execute_artifact","params_to_wasmtime_semantics"]};

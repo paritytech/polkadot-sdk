@@ -301,7 +301,9 @@
 
 </span><span class="doccomment">//! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
+</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{
+	executor_intf::execute_artifact, worker_dir, SecurityStatus,
+};
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -320,7 +322,7 @@
 	},
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
-<span class="kw">use </span>polkadot_primitives::executor_params::DEFAULT_NATIVE_STACK_MAX;
+<span class="kw">use </span>polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 <span class="kw">use </span>std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
@@ -426,9 +428,6 @@
 			<span class="kw">let </span>artifact_path = worker_dir::execute_artifact(<span class="kw-2">&amp;</span>worker_dir_path);
 
 			<span class="kw">let </span>Handshake { executor_params } = recv_handshake(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
-			<span class="kw">let </span>executor = Executor::new(executor_params).map_err(|e| {
-				io::Error::new(io::ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;cannot create executor: {}&quot;</span>, e))
-			})<span class="question-mark">?</span>;
 
 			<span class="kw">loop </span>{
 				<span class="kw">let </span>(params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
@@ -470,14 +469,15 @@
 					Arc::clone(<span class="kw-2">&amp;</span>condvar),
 					WaitOutcome::TimedOut,
 				)<span class="question-mark">?</span>;
-				<span class="kw">let </span>executor_2 = executor.clone();
+
+				<span class="kw">let </span>executor_params_2 = executor_params.clone();
 				<span class="kw">let </span>execute_thread = thread::spawn_worker_thread_with_stack_size(
 					<span class="string">&quot;execute thread&quot;</span>,
 					<span class="kw">move </span>|| {
 						validate_using_artifact(
 							<span class="kw-2">&amp;</span>compiled_artifact_blob,
+							<span class="kw-2">&amp;</span>executor_params_2,
 							<span class="kw-2">&amp;</span>params,
-							executor_2,
 							cpu_time_start,
 						)
 					},
@@ -542,15 +542,15 @@
 
 <span class="kw">fn </span>validate_using_artifact(
 	compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
+	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 	params: <span class="kw-2">&amp;</span>[u8],
-	executor: Executor,
 	cpu_time_start: ProcessTime,
 ) -&gt; Response {
 	<span class="kw">let </span>descriptor_bytes = <span class="kw">match unsafe </span>{
 		<span class="comment">// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_intf::prepare`].
-		</span>executor.execute(compiled_artifact_blob, params)
+		</span>execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>Response::format_invalid(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>err),
 		<span class="prelude-val">Ok</span>(d) =&gt; d,

@@ -360,18 +360,6 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -469,6 +457,60 @@
 	},
 };
 
+<span class="doccomment">/// Executes the given PVF in the form of a compiled artifact and returns the result of
+/// execution upon success.
+///
+/// # Safety
+///
+/// The caller must ensure that the compiled artifact passed here was:
+///   1) produced by `prepare`,
+///   2) was not modified,
+///
+/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
+</span><span class="kw">pub unsafe fn </span>execute_artifact(
+	compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
+	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
+	params: <span class="kw-2">&amp;</span>[u8],
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, String&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>extensions = sp_externalities::Extensions::new();
+
+	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+
+	<span class="kw">let </span><span class="kw-2">mut </span>ext = ValidationExternalities(extensions);
+
+	<span class="kw">match </span>sc_executor::with_externalities_safe(<span class="kw-2">&amp;mut </span>ext, || {
+		<span class="kw">let </span>runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)<span class="question-mark">?</span>;
+		runtime.new_instance()<span class="question-mark">?</span>.call(InvokeMethod::Export(<span class="string">&quot;validate_block&quot;</span>), params)
+	}) {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(ok)) =&gt; <span class="prelude-val">Ok</span>(ok),
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) | <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
+	}
+	.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;execute error: {:?}&quot;</span>, err))
+}
+
+<span class="doccomment">/// Constructs the runtime for the given PVF, given the artifact bytes.
+///
+/// # Safety
+///
+/// The caller must ensure that the compiled artifact passed here was:
+///   1) produced by `prepare`,
+///   2) was not modified,
+///
+/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
+</span><span class="kw">pub unsafe fn </span>create_runtime_from_artifact_bytes(
+	compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
+	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
+) -&gt; <span class="prelude-ty">Result</span>&lt;WasmtimeRuntime, WasmError&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>config = DEFAULT_CONFIG.clone();
+	config.semantics =
+		params_to_wasmtime_semantics(executor_params).map_err(|err| WasmError::Other(err))<span class="question-mark">?</span>;
+
+	sc_executor_wasmtime::create_runtime_from_artifact_bytes::&lt;HostFunctions&gt;(
+		compiled_artifact_blob,
+		config,
+	)
+}
+
 <span class="kw">pub fn </span>params_to_wasmtime_semantics(par: <span class="kw-2">&amp;</span>ExecutorParams) -&gt; <span class="prelude-ty">Result</span>&lt;Semantics, String&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>sem = DEFAULT_CONFIG.semantics.clone();
 	<span class="kw">let </span><span class="kw-2">mut </span>stack_limit = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_limit) = sem.deterministic_stack_limit.clone() {
@@ -493,72 +535,6 @@
 	}
 	sem.deterministic_stack_limit = <span class="prelude-val">Some</span>(stack_limit);
 	<span class="prelude-val">Ok</span>(sem)
-}
-
-<span class="doccomment">/// A WASM executor with a given configuration. It is instantiated once per execute worker and is
-/// specific to that worker.
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Executor {
-	config: Config,
-}
-
-<span class="kw">impl </span>Executor {
-	<span class="kw">pub fn </span>new(params: ExecutorParams) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>config = DEFAULT_CONFIG.clone();
-		config.semantics = params_to_wasmtime_semantics(<span class="kw-2">&amp;</span>params)<span class="question-mark">?</span>;
-
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ config })
-	}
-
-	<span class="doccomment">/// Executes the given PVF in the form of a compiled artifact and returns the result of
-	/// execution upon success.
-	///
-	/// # Safety
-	///
-	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by `prepare`,
-	///   2) was not modified,
-	///
-	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-	</span><span class="kw">pub unsafe fn </span>execute(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
-		params: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, String&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>extensions = sp_externalities::Extensions::new();
-
-		extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
-
-		<span class="kw">let </span><span class="kw-2">mut </span>ext = ValidationExternalities(extensions);
-
-		<span class="kw">match </span>sc_executor::with_externalities_safe(<span class="kw-2">&amp;mut </span>ext, || {
-			<span class="kw">let </span>runtime = <span class="self">self</span>.create_runtime_from_bytes(compiled_artifact_blob)<span class="question-mark">?</span>;
-			runtime.new_instance()<span class="question-mark">?</span>.call(InvokeMethod::Export(<span class="string">&quot;validate_block&quot;</span>), params)
-		}) {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(ok)) =&gt; <span class="prelude-val">Ok</span>(ok),
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) | <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-		}
-		.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;execute error: {:?}&quot;</span>, err))
-	}
-
-	<span class="doccomment">/// Constructs the runtime for the given PVF, given the artifact bytes.
-	///
-	/// # Safety
-	///
-	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by `prepare`,
-	///   2) was not modified,
-	///
-	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-	</span><span class="kw">pub unsafe fn </span>create_runtime_from_bytes(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		compiled_artifact_blob: <span class="kw-2">&amp;</span>[u8],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmtimeRuntime, WasmError&gt; {
-		sc_executor_wasmtime::create_runtime_from_artifact_bytes::&lt;HostFunctions&gt;(
-			compiled_artifact_blob,
-			<span class="self">self</span>.config.clone(),
-		)
-	}
 }
 
 <span class="doccomment">/// Available host functions. We leave out:

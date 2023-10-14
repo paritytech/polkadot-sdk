@@ -362,7 +362,7 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	executor_intf::Executor,
+	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
@@ -475,7 +475,7 @@
 
 				<span class="kw">let </span>preparation_timeout = pvf.prep_timeout();
 				<span class="kw">let </span>prepare_job_kind = pvf.prep_kind();
-				<span class="kw">let </span>executor_params = (<span class="kw-2">*</span>pvf.executor_params()).clone();
+				<span class="kw">let </span>executor_params = pvf.executor_params();
 
 				<span class="comment">// Conditional variable to notify us when a thread is done.
 				</span><span class="kw">let </span>condvar = thread::get_condvar();
@@ -521,7 +521,10 @@
 						// anyway.
 						</span><span class="kw">if let </span>PrepareJobKind::Prechecking = prepare_job_kind {
 							result = result.and_then(|output| {
-								runtime_construction_check(output.<span class="number">0</span>.as_ref(), executor_params)<span class="question-mark">?</span>;
+								runtime_construction_check(
+									output.<span class="number">0</span>.as_ref(),
+									executor_params.as_ref(),
+								)<span class="question-mark">?</span>;
 								<span class="prelude-val">Ok</span>(output)
 							});
 						}
@@ -647,13 +650,10 @@
 <span class="doccomment">/// Try constructing the runtime to catch any instantiation errors during pre-checking.
 </span><span class="kw">fn </span>runtime_construction_check(
 	artifact_bytes: <span class="kw-2">&amp;</span>[u8],
-	executor_params: ExecutorParams,
+	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrepareError&gt; {
-	<span class="kw">let </span>executor = Executor::new(executor_params)
-		.map_err(|e| PrepareError::RuntimeConstruction(<span class="macro">format!</span>(<span class="string">&quot;cannot create executor: {}&quot;</span>, e)))<span class="question-mark">?</span>;
-
 	<span class="comment">// SAFETY: We just compiled this artifact.
-	</span><span class="kw">let </span>result = <span class="kw">unsafe </span>{ executor.create_runtime_from_bytes(<span class="kw-2">&amp;</span>artifact_bytes) };
+	</span><span class="kw">let </span>result = <span class="kw">unsafe </span>{ create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
