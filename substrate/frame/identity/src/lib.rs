@@ -1006,7 +1006,6 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `target`: The account for which to reap identity state.
-		/// - `num_subs`: Witness data. The maximum number of sub accounts that `target` has.
 		///
 		/// Origin must be the `ReapOrigin`.
 		#[pallet::call_index(15)]
