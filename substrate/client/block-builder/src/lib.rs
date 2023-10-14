@@ -250,10 +250,9 @@ where
 	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(
-		mut self,
-	) -> Result<BuiltBlock<Block, backend::StateBackendFor<Backend, Block>>, Error> {
-		let header: Block::Header = self.runtime_instance.finalize_block()?;
+	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+		let header: Block::Header =
+			BlockBuilderApi::<Block>::finalize_block(&self.runtime_instance)?;
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -265,12 +264,7 @@ where
 
 		let proof = self.runtime_instance.extract_proof();
 
-		let state = self.backend.state_at(self.parent_hash)?;
-
-		let storage_changes = self
-			.runtime_instance
-			.into_storage_changes(&state, self.parent_hash)
-			.map_err(sp_blockchain::Error::StorageChanges)?;
+		let storage_changes = self.runtime_instance.into_storage_changes()?;
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),

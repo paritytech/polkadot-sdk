@@ -345,27 +345,18 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					parent_hash: Block::Hash,
 				) -> core::result::Result<
 					#crate_::StorageChanges<Block>,
-				String
-					> where Self: Sized {
-						let state_version = #crate_::CallApiAt::<Block>::runtime_version_at(self.call, std::clone::Clone::clone(&parent_hash))
-							.map(|v| #crate_::RuntimeVersion::state_version(&v))
-							.map_err(|e| format!("Failed to get state version: {}", e))?;
+					String
+				> where Self: Sized {
+					let state_version = #crate_::CallApiAt::<Block>::runtime_version_at(self.call, std::clone::Clone::clone(&parent_hash))
+						.map(|v| #crate_::RuntimeVersion::state_version(&v))
+						.map_err(|e| format!("Failed to get state version: {}", e))?;
 
-						#crate_::OverlayedChanges::drain_storage_changes(
-							&mut std::cell::RefCell::borrow_mut(&self.changes),
-							backend,
-							state_version,
-						)
-					}
-
-				fn set_call_context(&mut self, call_context: #crate_::CallContext) {
-					self.call_context = call_context;
+					#crate_::OverlayedChanges::drain_storage_changes(
+						&mut std::cell::RefCell::borrow_mut(&self.changes),
+						backend,
+						state_version,
+					)
 				}
-
-				fn register_extension<E: #crate_::Extension>(&mut self, extension: E) {
-					std::cell::RefCell::borrow_mut(&self.extensions).register(extension);
-				}
-			}
 
 				fn set_call_context(&mut self, call_context: #crate_::CallContext) {
 					self.call_context = call_context;

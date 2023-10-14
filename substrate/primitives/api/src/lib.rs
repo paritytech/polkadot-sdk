@@ -671,10 +671,7 @@ pub trait CallApiAt<Block: BlockT> {
 impl<T: CallApiAt<Block>, Block: BlockT> CallApiAt<Block> for &T {
 	type StateBackend = T::StateBackend;
 
-	fn call_api_at(
-		&self,
-		params: CallApiAtParams<Block, Self::StateBackend>,
-	) -> Result<Vec<u8>, ApiError> {
+	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 		(*self).call_api_at(params)
 	}
 
@@ -888,7 +885,6 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 			block: self.block,
 			call_context: self.call_context,
 			overlayed_changes: Default::default(),
-			storage_transaction_cache: Default::default(),
 			extensions: self.extensions,
 		}
 	}
@@ -926,8 +922,7 @@ pub struct RuntimeInstance<C: CallApiAt<Block>, Block: BlockT, ProofRecorder> {
 	call_api_at: C,
 	block: Block::Hash,
 	call_context: CallContext,
-	overlayed_changes: RefCell<OverlayedChanges>,
-	storage_transaction_cache: RefCell<StorageTransactionCache<Block, C::StateBackend>>,
+	overlayed_changes: RefCell<OverlayedChanges<HashingFor<Block>>>,
 	recorder: ProofRecorder,
 	extensions: RefCell<Extensions>,
 }
@@ -958,7 +953,6 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 				function: (*fn_name)(version),
 				arguments: params,
 				overlayed_changes: &self.overlayed_changes,
-				storage_transaction_cache: &self.storage_transaction_cache,
 				call_context: self.call_context,
 				recorder: self.recorder.get(),
 				extensions: &self.extensions,
@@ -977,12 +971,27 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: GetProofRecorder<B>>
 		Ok(version.api_version(&Api::ID))
 	}
 
-	pub fn execute_in_transaction<R>(&self, mut inner: impl FnOnce(&Self) -> TransactionOutcome<R>) -> R {
+	pub fn execute_in_transaction<R>(
+		&self,
+		mut inner: impl FnOnce(&Self) -> TransactionOutcome<R>,
+	) -> R {
 		(inner)(self).into_inner()
 	}
 
 	pub fn extract_proof(&self) -> Option<StorageProof> {
 		self.recorder.get().map(|r| r.to_storage_proof())
+	}
+
+	pub fn into_storage_changes(self) -> Result<StorageChanges<B>, ApiError> {
+		let state_version = self.call_api_at.runtime_version_at(self.block)?;
+
+		self.overlayed_changes
+			.borrow_mut()
+			.drain_storage_changes(
+				&self.call_api_at.state_at(self.block)?,
+				state_version.state_version(),
+			)
+			.map_err(|e| ApiError::Application(Box::from(e)))
 	}
 }
 

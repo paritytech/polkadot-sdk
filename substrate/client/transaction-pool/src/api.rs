@@ -239,6 +239,7 @@ where
 		sp_tracing::within_span!(
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
+			/*
 			if api_version >= 3 {
 				runtime_api.validate_transaction(at, source, uxt, at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))

@@ -50,8 +50,10 @@ fn calling_runtime_signature_changed_old_function() {
 	let client = TestClientBuilder::new().build();
 	let best_hash = client.chain_info().best_hash;
 
+	let runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+
 	#[allow(deprecated)]
-	let res = runtime_api.function_signature_changed_before_version_2(best_hash).unwrap();
+	let res = runtime_api.function_signature_changed_before_version_2().unwrap();
 	assert_eq!(&res, &[1, 2]);
 }
 
@@ -111,8 +113,9 @@ fn record_proof_works() {
 	let genesis_hash = client.chain_info().genesis_hash;
 
 	// Build the block and record proof
-	let mut builder = BlockBuilder::with_proof_recording(&client, genesis_hash, 0, Default::default(), &*backend)
-		.expect("Creates block builder");
+	let mut builder =
+		BlockBuilder::with_proof_recording(&client, genesis_hash, 0, Default::default(), &*backend)
+			.expect("Creates block builder");
 	builder.push(transaction.clone()).unwrap();
 	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 

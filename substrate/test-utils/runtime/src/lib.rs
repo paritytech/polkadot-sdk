@@ -256,187 +256,6 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-cfg_if! {
-	if #[cfg(feature = "std")] {
-		decl_runtime_apis! {
-			#[api_version(2)]
-			pub trait TestAPI {
-				/// Return the balance of the given account id.
-				fn balance_of(id: AccountId) -> u64;
-				/// A benchmark function that adds one to the given value and returns the result.
-				fn benchmark_add_one(val: &u64) -> u64;
-				/// A benchmark function that adds one to each value in the given vector and returns the
-				/// result.
-				fn benchmark_vector_add_one(vec: &Vec<u64>) -> Vec<u64>;
-				/// A function that always fails to convert a parameter between runtime and node.
-				fn fail_convert_parameter(param: DecodeFails<Block>);
-				/// A function that always fails to convert its return value between runtime and node.
-				fn fail_convert_return_value() -> DecodeFails<Block>;
-				/// A function for that the signature changed in version `2`.
-				#[changed_in(2)]
-				fn function_signature_changed() -> Vec<u64>;
-				/// The new signature.
-				fn function_signature_changed() -> u64;
-				/// trie no_std testing
-				fn use_trie() -> u64;
-				fn benchmark_indirect_call() -> u64;
-				fn benchmark_direct_call() -> u64;
-				fn vec_with_capacity(size: u32) -> Vec<u8>;
-				/// Returns the initialized block number.
-				fn get_block_number() -> u64;
-				/// Takes and returns the initialized block number.
-				fn take_block_number() -> Option<u64>;
-				/// Test that `ed25519` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `ed25519` and the public key.
-				fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic);
-				/// Test that `sr25519` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `sr25519`.
-				fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic);
-				/// Test that `ecdsa` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `ecdsa`.
-				fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic);
-				/// Run various tests against storage.
-				fn test_storage();
-				/// Check a witness.
-				fn test_witness(proof: StorageProof, root: crate::Hash);
-				/// Test that ensures that we can call a function that takes multiple
-				/// arguments.
-				fn test_multiple_arguments(data: Vec<u8>, other: Vec<u8>, num: u32);
-				/// Traces log "Hey I'm runtime."
-				fn do_trace_log();
-				/// Verify the given signature, public & message bundle.
-				fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool;
-			}
-		}
-	} else {
-		decl_runtime_apis! {
-			pub trait TestAPI {
-				/// Return the balance of the given account id.
-				fn balance_of(id: AccountId) -> u64;
-				/// A benchmark function that adds one to the given value and returns the result.
-				fn benchmark_add_one(val: &u64) -> u64;
-				/// A benchmark function that adds one to each value in the given vector and returns the
-				/// result.
-				fn benchmark_vector_add_one(vec: &Vec<u64>) -> Vec<u64>;
-				/// A function that always fails to convert a parameter between runtime and node.
-				fn fail_convert_parameter(param: DecodeFails<Block>);
-				/// A function that always fails to convert its return value between runtime and node.
-				fn fail_convert_return_value() -> DecodeFails<Block>;
-				/// In wasm we just emulate the old behavior.
-				fn function_signature_changed() -> Vec<u64>;
-				/// trie no_std testing
-				fn use_trie() -> u64;
-				fn benchmark_indirect_call() -> u64;
-				fn benchmark_direct_call() -> u64;
-				fn vec_with_capacity(size: u32) -> Vec<u8>;
-				/// Returns the initialized block number.
-				fn get_block_number() -> u64;
-				/// Takes and returns the initialized block number.
-				fn take_block_number() -> Option<u64>;
-				/// Test that `ed25519` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `ed25519` and the public key.
-				fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic);
-				/// Test that `sr25519` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `sr25519`.
-				fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic);
-				/// Test that `ecdsa` crypto works in the runtime.
-				///
-				/// Returns the signature generated for the message `ecdsa`.
-				fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic);
-				/// Run various tests against storage.
-				fn test_storage();
-				/// Check a witness.
-				fn test_witness(proof: StorageProof, root: crate::Hash);
-				/// Test that ensures that we can call a function that takes multiple
-				/// arguments.
-				fn test_multiple_arguments(data: Vec<u8>, other: Vec<u8>, num: u32);
-				/// Traces log "Hey I'm runtime."
-				fn do_trace_log();
-				/// Verify the given signature, public & message bundle.
-				fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool;
-			}
-		}
-	}
-}
-
-#[derive(Clone, Eq, PartialEq, TypeInfo)]
-pub struct Runtime;
-
-impl GetNodeBlockType for Runtime {
-	type NodeBlock = Block;
-}
-
-impl GetRuntimeBlockType for Runtime {
-	type RuntimeBlock = Block;
-}
-
-#[derive(Clone, RuntimeDebug, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RuntimeOrigin;
-
-impl From<RawOrigin<<Runtime as frame_system::Config>::AccountId>> for RuntimeOrigin {
-	fn from(_: RawOrigin<<Runtime as frame_system::Config>::AccountId>) -> Self {
-		unimplemented!("Not required in tests!")
-	}
-}
-
-impl CallerTrait<<Runtime as frame_system::Config>::AccountId> for RuntimeOrigin {
-	fn into_system(self) -> Option<RawOrigin<<Runtime as frame_system::Config>::AccountId>> {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn as_system_ref(&self) -> Option<&RawOrigin<<Runtime as frame_system::Config>::AccountId>> {
-		unimplemented!("Not required in tests!")
-	}
-}
-
-impl From<RuntimeOrigin> for Result<frame_system::Origin<Runtime>, RuntimeOrigin> {
-	fn from(_origin: RuntimeOrigin) -> Result<frame_system::Origin<Runtime>, RuntimeOrigin> {
-		unimplemented!("Not required in tests!")
-	}
-}
-
-impl frame_support::traits::OriginTrait for RuntimeOrigin {
-	type Call = <Runtime as frame_system::Config>::RuntimeCall;
-	type PalletsOrigin = RuntimeOrigin;
-	type AccountId = <Runtime as frame_system::Config>::AccountId;
-
-	fn add_filter(&mut self, _filter: impl Fn(&Self::Call) -> bool + 'static) {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn reset_filter(&mut self) {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn set_caller_from(&mut self, _other: impl Into<Self>) {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn filter_call(&self, _call: &Self::Call) -> bool {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn caller(&self) -> &Self::PalletsOrigin {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn into_caller(self) -> Self::PalletsOrigin {
-		unimplemented!("Not required in tests!")
-	}
-
-	fn try_with_caller<R>(
-		self,
-		_origin: Self::RuntimeOrigin,
-	) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
-		panic!("This implementation should not be used for actual dispatch.");
-	}
-}
-
 impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 	type AccountId = AccountId;
 	type Call = RuntimeCall;
@@ -711,8 +530,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Index> for Runtime {
-		fn account_nonce(account: AccountId) -> Index {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
@@ -736,9 +555,9 @@ impl_runtime_apis! {
 			1
 		}
 
-				fn use_trie() -> u64 {
-					code_using_trie()
-				}
+		fn use_trie() -> u64 {
+			code_using_trie()
+		}
 
 		fn vec_with_capacity(size: u32) -> Vec<u8> {
 			Vec::with_capacity(size as usize)
@@ -788,6 +607,15 @@ impl_runtime_apis! {
 			if panic {
 				panic!("I'm just following my master");
 			}
+		}
+
+		fn benchmark_indirect_call() -> u64 {
+			let function = benchmark_add_one;
+			(0..1000).fold(0, |p, i| p + function(i))
+		}
+
+		fn benchmark_direct_call() -> u64 {
+			(0..1000).fold(0, |p, i| p + benchmark_add_one(i))
 		}
 	}
 
@@ -894,176 +722,13 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl sp_genesis_builder::GenesisBuilder for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-				fn use_trie() -> u64 {
-					code_using_trie()
-				}
-
-				fn benchmark_indirect_call() -> u64 {
-					(0..10000).fold(0, |p, i| p + BENCHMARK_ADD_ONE.get()(i))
-				}
-
-				fn benchmark_direct_call() -> u64 {
-					(0..10000).fold(0, |p, i| p + benchmark_add_one(i))
-				}
-
-				fn vec_with_capacity(size: u32) -> Vec<u8> {
-					Vec::with_capacity(size as usize)
-				}
-
-				fn get_block_number() -> u64 {
-					system::get_block_number().expect("Block number is initialized")
-				}
-
-				fn take_block_number() -> Option<u64> {
-					system::take_block_number()
-				}
-
-				fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
-					test_ed25519_crypto()
-				}
-
-				fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
-					test_sr25519_crypto()
-				}
-
-				fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
-					test_ecdsa_crypto()
-				}
-
-				fn test_storage() {
-					test_read_storage();
-					test_read_child_storage();
-				}
-
-				fn test_witness(proof: StorageProof, root: crate::Hash) {
-					test_witness(proof, root);
-				}
-
-				fn test_multiple_arguments(data: Vec<u8>, other: Vec<u8>, num: u32) {
-					assert_eq!(&data[..], &other[..]);
-					assert_eq!(data.len(), num as usize);
-				}
-
-				fn do_trace_log() {
-					log::trace!("Hey I'm runtime: {}", log::STATIC_MAX_LEVEL);
-				}
-
-				fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool {
-					sp_io::crypto::ed25519_verify(&sig, &message, &public)
-				}
-			}
-
-			impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-				fn slot_duration() -> sp_consensus_aura::SlotDuration {
-					sp_consensus_aura::SlotDuration::from_millis(1000)
-				}
-
-				fn authorities() -> Vec<AuraId> {
-					system::authorities().into_iter().map(|a| {
-						let authority: sr25519::Public = a.into();
-						AuraId::from(authority)
-					}).collect()
-				}
-			}
-
-			impl sp_consensus_babe::BabeApi<Block> for Runtime {
-				fn configuration() -> sp_consensus_babe::BabeConfiguration {
-					sp_consensus_babe::BabeConfiguration {
-						slot_duration: 1000,
-						epoch_length: EpochDuration::get(),
-						c: (3, 10),
-						authorities: system::authorities()
-							.into_iter().map(|x|(x, 1)).collect(),
-						randomness: <pallet_babe::Pallet<Runtime>>::randomness(),
-						allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-					}
-				}
-
-				fn current_epoch_start() -> Slot {
-					<pallet_babe::Pallet<Runtime>>::current_epoch_start()
-				}
-
-				fn current_epoch() -> sp_consensus_babe::Epoch {
-					<pallet_babe::Pallet<Runtime>>::current_epoch()
-				}
-
-				fn next_epoch() -> sp_consensus_babe::Epoch {
-					<pallet_babe::Pallet<Runtime>>::next_epoch()
-				}
-
-				fn submit_report_equivocation_unsigned_extrinsic(
-					_equivocation_proof: sp_consensus_babe::EquivocationProof<
-						<Block as BlockT>::Header,
-					>,
-					_key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
-				) -> Option<()> {
-					None
-				}
-
-				fn generate_key_ownership_proof(
-					_slot: sp_consensus_babe::Slot,
-					_authority_id: sp_consensus_babe::AuthorityId,
-				) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-					None
-				}
-			}
-
-			impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {
-				fn grandpa_authorities() -> sp_consensus_grandpa::AuthorityList {
-					Vec::new()
-				}
-
-				fn current_set_id() -> sp_consensus_grandpa::SetId {
-					0
-				}
-
-				fn submit_report_equivocation_unsigned_extrinsic(
-					_equivocation_proof: sp_consensus_grandpa::EquivocationProof<
-						<Block as BlockT>::Hash,
-						NumberFor<Block>,
-					>,
-					_key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
-				) -> Option<()> {
-					None
-				}
-
-				fn generate_key_ownership_proof(
-					_set_id: sp_consensus_grandpa::SetId,
-					_authority_id: sp_consensus_grandpa::AuthorityId,
-				) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
-					None
-				}
-			}
-
-			impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-				fn offchain_worker(header: &<Block as BlockT>::Header) {
-					let ex = Extrinsic::IncludeData(header.number.encode());
-					sp_io::offchain::submit_transaction(ex.encode()).unwrap()
-				}
-			}
-
-			impl sp_session::SessionKeys<Block> for Runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
-					SessionKeys::generate(None)
-				}
-
-				fn decode_session_keys(
-					encoded: Vec<u8>,
-				) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-					SessionKeys::decode_into_raw_public_keys(&encoded)
-				}
-			}
-
-			impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-				fn account_nonce(_account: AccountId) -> Index {
-					0
-				}
-			}
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

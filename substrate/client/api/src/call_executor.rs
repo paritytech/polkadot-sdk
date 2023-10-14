@@ -73,7 +73,7 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		method: &str,
 		call_data: &[u8],
 		changes: &RefCell<OverlayedChanges<HashingFor<B>>>,
-		proof_recorder: &Option<ProofRecorder<B>>,
+		proof_recorder: Option<&ProofRecorder<B>>,
 		call_context: CallContext,
 		extensions: &RefCell<Extensions>,
 	) -> sp_blockchain::Result<Vec<u8>>;

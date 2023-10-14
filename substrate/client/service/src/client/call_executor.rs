@@ -200,7 +200,7 @@ where
 		method: &str,
 		call_data: &[u8],
 		changes: &RefCell<OverlayedChanges<HashingFor<Block>>>,
-		recorder: &Option<ProofRecorder<Block>>,
+		recorder: Option<&ProofRecorder<Block>>,
 		call_context: CallContext,
 		extensions: &RefCell<Extensions>,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {

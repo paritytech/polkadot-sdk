@@ -78,12 +78,6 @@ pub enum Error {
 	#[error("Blockchain")]
 	Blockchain(#[source] Box<Error>),
 
-	/// A error used by various storage subsystems.
-	///
-	/// Eventually this will be replaced.
-	#[error("{0}")]
-	StorageChanges(sp_state_machine::DefaultError),
-
 	#[error("Invalid child storage key")]
 	InvalidChildStorageKey,
 

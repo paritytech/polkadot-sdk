@@ -485,11 +485,7 @@ where
 		operation: &mut ClientImportOperation<Block, B>,
 		import_block: BlockImportParams<Block>,
 		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
-	) -> sp_blockchain::Result<ImportResult>
-	where
-		Self: ProvideRuntimeApi<Block>,
-		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
-	{
+	) -> sp_blockchain::Result<ImportResult> {
 		let BlockImportParams {
 			origin,
 			header,
