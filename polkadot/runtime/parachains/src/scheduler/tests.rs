@@ -108,7 +108,6 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 		group_rotation_frequency: 10,
 		paras_availability_period: 3,
 		scheduling_lookahead: 2,
-		on_demand_retries: 1,
 		// This field does not affect anything that scheduler does. However, `HostConfiguration`
 		// is still a subject to consistency test. It requires that
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
@@ -166,7 +165,8 @@ fn claimqueue_ttl_drop_fn_works() {
 	let mut now = 10;
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert!(default_config().on_demand_ttl == 5);
+		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
+		assert!( assignment_provider_ttl == 5);
 		// Register and run to a blockheight where the para is in a valid state.
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
@@ -221,12 +221,10 @@ fn claimqueue_ttl_drop_fn_works() {
 		let cq = Scheduler::claimqueue();
 		assert!(cq.get(&core_idx).unwrap().len() == 3);
 
-		// Add claims to on demand assignment provider.
+		// Add a claim to the test assignment provider.
 		let assignment = TestAssignment::new(para_id);
 
-		assert_ok!(MockAssigner::add_on_demand_order(assignment.clone(), QueuePushDirection::Back));
-
-		assert_ok!(MockAssigner::add_on_demand_order(assignment.clone(), QueuePushDirection::Back));
+		assert_ok!(MockAssigner::add_test_assignments(assignment.clone(), QueuePushDirection::Back));
 
 		// Drop expired claim.
 		Scheduler::drop_expired_claims_from_claimqueue();
@@ -239,8 +237,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		// The first 2 claims in the queue should have a ttl of 17,
 		// being the ones set up prior in this test as claims 1 and 3.
 		// The third claim is popped from the assignment provider and
-		// has a new ttl set by the scheduler of now + config.on_demand_ttl.
-		// ttls = [17, 17, 22]
+		// has a new ttl set by the scheduler of now + 
+		// assignment_provider_ttl. ttls = [17, 17, 22]
 		assert!(cqc.iter().enumerate().all(|(index, entry)| {
 			match index {
 				0 | 1 => entry.clone().ttl == 17,
@@ -443,15 +441,15 @@ fn fill_claimqueue_fills() {
 		}
 
 		// add a couple of parathread assignments.
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_b.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_c.clone(),
 			QueuePushDirection::Back
 		));
@@ -569,11 +567,11 @@ fn schedule_schedules_including_just_freed() {
 		});
 
 		// add a couple of parathread claims now that the parathreads are live.
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_c.clone(),
 			QueuePushDirection::Back
 		));
@@ -614,15 +612,15 @@ fn schedule_schedules_including_just_freed() {
 		// add a couple more parathread claims - the claim on `b` will go to the 3rd parathread core
 		// (4) and the claim on `d` will go back to the 1st parathread core (2). The claim on `e`
 		// then will go for core `3`.
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_b.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_d.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_e.clone(),
 			QueuePushDirection::Back
 		));
@@ -803,9 +801,6 @@ fn schedule_clears_availability_cores() {
 fn schedule_rotates_groups() {
 	let config = {
 		let mut config = default_config();
-
-		// make sure on demand requests don't retry-out
-		config.on_demand_retries = config.group_rotation_frequency * 3;
 		config.on_demand_cores = 2;
 		config.scheduling_lookahead = 1;
 		config
@@ -844,11 +839,11 @@ fn schedule_rotates_groups() {
 		let session_start_block = Scheduler::session_start_block();
 		assert_eq!(session_start_block, 1);
 
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_b.clone(),
 			QueuePushDirection::Back
 		));
@@ -900,7 +895,6 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
 	config.on_demand_cores = 2;
-	config.on_demand_retries = max_retries;
 	let genesis_config = genesis_config(&config);
 
 	let thread_a = ParaId::from(1_u32);
@@ -908,6 +902,13 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let assignment_a = TestAssignment::new(thread_a);
 
 	new_test_ext(genesis_config).execute_with(|| {
+		// Need more timeouts for this test
+		MockAssigner::set_assignment_provider_config(
+			AssignmentProviderConfig {
+				max_availability_timeouts: max_retries,
+				ttl: BlockNumber::from(5u32),
+			}
+		);
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 
 		// #1
@@ -924,7 +925,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			_ => None,
 		});
 
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
@@ -979,7 +980,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		now += max_retries + 2;
 
 		// Add assignment back to the mix.
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
@@ -1197,7 +1198,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 			_ => None,
 		});
 
-		assert_ok!(MockAssigner::add_on_demand_order(
+		assert_ok!(MockAssigner::add_test_assignments(
 			assignment_a.clone(),
 			QueuePushDirection::Back
 		));
@@ -1228,7 +1229,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 				ScheduledCore { para_id: thread_a, collator: None }
 			);
 
-			assert_ok!(MockAssigner::add_on_demand_order(
+			assert_ok!(MockAssigner::add_test_assignments(
 				assignment_b.clone(),
 				QueuePushDirection::Back
 			));
@@ -1347,6 +1348,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 
 	assert_eq!(default_config().on_demand_cores, 3);
 	new_test_ext(genesis_config).execute_with(|| {
+		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
 		let chain_a = ParaId::from(1_u32);
 		let chain_b = ParaId::from(2_u32);
 
@@ -1405,7 +1407,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 				vec![ParasEntry::new(
 					TestAssignment::new(chain_a),
 					// At end of block 2
-					config.on_demand_ttl + 2
+					assignment_provider_ttl + 2
 				)]
 				.into_iter()
 				.collect()
@@ -1450,7 +1452,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 					vec![ParasEntry::new(
 						TestAssignment::new(chain_a),
 						// At block 3
-						config.on_demand_ttl + 3
+						assignment_provider_ttl + 3
 					)]
 					.into_iter()
 					.collect()
@@ -1460,7 +1462,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 					vec![ParasEntry::new(
 						TestAssignment::new(chain_b),
 						// At block 3
-						config.on_demand_ttl + 3
+						assignment_provider_ttl + 3
 					)]
 					.into_iter()
 					.collect()

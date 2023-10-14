@@ -124,6 +124,7 @@ impl AssignmentVersion {
 	}
 }
 
+#[derive(Encode, Decode, TypeInfo)]
 /// A set of variables required by the scheduler in order to operate.
 pub struct AssignmentProviderConfig<BlockNumber> {
 	/// How many times a collation can time out on availability.

@@ -394,7 +394,7 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 /// when acting on on-demand `CoreIndex`s and `ParaId`s. Only the on demand functions of 
 /// the `MockAssigner` require the maintenance or use of any state.
 /// This mock assigner exposes a simplified assignment type for building mock `ParasEntry`s. 
-/// It also exposes the function `add_on_demand_order` which adds to a `MockOnDemandQueue`.
+/// It also exposes the function `add_on_demand_order` which adds to a `MockAssignmentQueue`.
 /// This queue is later popped from to populate the scheduler `ClaimQueue`.
 pub mod mock_assigner {
 	use super::*;
@@ -412,25 +412,35 @@ pub mod mock_assigner {
 		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 
 		#[pallet::storage]
-		pub(super) type MockOnDemandQueue<T: Config> =
+		pub(super) type MockAssignmentQueue<T: Config> =
 			StorageValue<_, VecDeque<V0Assignment>, ValueQuery>;
+
+		#[pallet::storage]
+		pub(super) type MockProviderConfig<T: Config> =
+			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Adds a claim to the `MockOnDemandQueue` this claim can later be popped by the scheduler
+		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the scheduler
 		/// when filling the claim queue for tests.
-		pub fn add_on_demand_order(
-			order: V0Assignment,
+		pub fn add_test_assignments(
+			assignment: V0Assignment,
 			location: QueuePushDirection,
 		) -> Result<(), DispatchError> {
-			MockOnDemandQueue::<T>::try_mutate(|queue| {
+			MockAssignmentQueue::<T>::try_mutate(|queue| {
 				// Don't need to worry about max assignment queue size in scheduler tests
 				match location {
-					QueuePushDirection::Back => queue.push_back(order),
-					QueuePushDirection::Front => queue.push_front(order),
+					QueuePushDirection::Back => queue.push_back(assignment),
+					QueuePushDirection::Front => queue.push_front(assignment),
 				};
 				Ok(())
 			})
+		}
+
+		// This configuration needs to be customized to service `get_provider_config` in 
+		// scheduler tests.
+		pub fn set_assignment_provider_config(config: AssignmentProviderConfig<BlockNumber>) {
+			MockProviderConfig::<T>::set(Some(config));
 		}
 
 		/// Checks whether the given core is associated with a parachain. This determines
@@ -474,10 +484,10 @@ pub mod mock_assigner {
 					.map(|para_id| V0Assignment::new(para_id))
 			} else {
 				// OnDemand behavior
-				let mut queue: VecDeque<V0Assignment> = MockOnDemandQueue::<T>::get();
+				let mut queue: VecDeque<V0Assignment> = MockAssignmentQueue::<T>::get();
 				let front = queue.pop_front().map(|assignment| assignment);
 				// Write changes to storage.
-				MockOnDemandQueue::<T>::set(queue);
+				MockAssignmentQueue::<T>::set(queue);
 				front
 			}
 		}
@@ -494,7 +504,7 @@ pub mod mock_assigner {
 			if <paras::Pallet<T>>::is_parachain(assignment.para_id()) {
 			} else {
 				// OnDemand behavior
-				match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front)
+				match Pallet::<T>::add_test_assignments(assignment.into(), QueuePushDirection::Front)
 				{
 					Ok(_) => {},
 					Err(_) => {},
@@ -502,23 +512,14 @@ pub mod mock_assigner {
 			}
 		}
 
-		// Gives back a bulk or on demand `AssignmentProviderConfig` based on whether the passed
-		// `CoreIndex` corresponds to a bulk or on-demand core time purchaser.
-		fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
-			if Self::is_legacy_core(&core_idx) {
-				// Bulk config
-				AssignmentProviderConfig {
-					max_availability_timeouts: 0,
-					ttl: BlockNumber::from(10u32),
-				}
-			} else {
-				// On demand config
-				let config = <configuration::Pallet<Test>>::config();
-				// These numbers are set via config in individual scheduler tests. Just pass them through
-				// here.
-				AssignmentProviderConfig {
-					max_availability_timeouts: config.on_demand_retries,
-					ttl: config.on_demand_ttl,
+		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
+		// back to the on demand parachain configuration if none was set.
+		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
+			match MockProviderConfig::<T>::get() {
+				Some(config) => config,
+				None => AssignmentProviderConfig {
+					max_availability_timeouts: 1,
+					ttl: BlockNumber::from(5u32),
 				}
 			}
 		}
