@@ -539,7 +539,6 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 				validation_upgrade_cooldown,
 				..Default::default()
 			},
-			..Default::default()
 		},
 		..Default::default()
 	};
