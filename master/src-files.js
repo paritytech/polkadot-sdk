@@ -371,7 +371,7 @@ var srcIndex = JSON.parse('{\
 "sp_consensus_pow":["",[],["lib.rs"]],\
 "sp_consensus_sassafras":["",[],["digests.rs","lib.rs","ticket.rs","vrf.rs"]],\
 "sp_consensus_slots":["",[],["lib.rs"]],\
-"sp_core":["",[["offchain",[],["mod.rs","storage.rs","testing.rs"]]],["bandersnatch.rs","crypto.rs","defer.rs","ecdsa.rs","ed25519.rs","hash.rs","hasher.rs","hashing.rs","hexdisplay.rs","lib.rs","sr25519.rs","testing.rs","traits.rs","uint.rs"]],\
+"sp_core":["",[["offchain",[],["mod.rs","storage.rs","testing.rs"]]],["bandersnatch.rs","crypto.rs","defer.rs","ecdsa.rs","ed25519.rs","hash.rs","hasher.rs","hashing.rs","hexdisplay.rs","lib.rs","paired_crypto.rs","sr25519.rs","testing.rs","traits.rs","uint.rs"]],\
 "sp_core_hashing":["",[],["lib.rs"]],\
 "sp_core_hashing_proc_macro":["",[],["impls.rs","lib.rs"]],\
 "sp_crypto_ec_utils":["",[],["bls12_377.rs","bls12_381.rs","bw6_761.rs","ed_on_bls12_377.rs","ed_on_bls12_381_bandersnatch.rs","lib.rs","utils.rs"]],\

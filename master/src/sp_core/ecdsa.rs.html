@@ -799,6 +799,16 @@
 <a href="#799" id="799">799</a>
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -851,6 +861,12 @@
 <span class="doccomment">/// An identifier used to match public keys against ecdsa keys
 </span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;ecds&quot;</span>);
 
+<span class="doccomment">/// The byte length of public key
+</span><span class="kw">pub const </span>PUBLIC_KEY_SERIALIZED_SIZE: usize = <span class="number">33</span>;
+
+<span class="doccomment">/// The byte length of signature
+</span><span class="kw">pub const </span>SIGNATURE_SERIALIZED_SIZE: usize = <span class="number">65</span>;
+
 <span class="doccomment">/// A secret seed (which is bytewise essentially equivalent to a SecretKey).
 ///
 /// We need it as a different type because `Seed` is expected to be AsRef&lt;[u8]&gt;.
@@ -872,11 +888,11 @@
 	PartialOrd,
 	Ord,
 )]
-</span><span class="kw">pub struct </span>Public(<span class="kw">pub </span>[u8; <span class="number">33</span>]);
+</span><span class="kw">pub struct </span>Public(<span class="kw">pub </span>[u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
 <span class="kw">impl </span><span class="kw">crate</span>::crypto::FromEntropy <span class="kw">for </span>Public {
 	<span class="kw">fn </span>from_entropy(input: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>codec::Input) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="self">Self</span>([<span class="number">0u8</span>; <span class="number">33</span>]);
+		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="self">Self</span>([<span class="number">0u8</span>; PUBLIC_KEY_SERIALIZED_SIZE]);
 		input.read(<span class="kw-2">&amp;mut </span>result.<span class="number">0</span>[..])<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(result)
 	}
@@ -887,7 +903,7 @@
 	///
 	/// NOTE: No checking goes on to ensure this is a real public key. Only use it if
 	/// you are certain that the array actually is a pubkey. GIGO!
-	</span><span class="kw">pub fn </span>from_raw(data: [u8; <span class="number">33</span>]) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>from_raw(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(data)
 	}
 
@@ -910,7 +926,7 @@
 }
 
 <span class="kw">impl </span>ByteArray <span class="kw">for </span>Public {
-	<span class="kw">const </span>LEN: usize = <span class="number">33</span>;
+	<span class="kw">const </span>LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
 }
 
 <span class="kw">impl </span>TraitPublic <span class="kw">for </span>Public {}
@@ -949,8 +965,8 @@
 	}
 }
 
-<span class="kw">impl </span>UncheckedFrom&lt;[u8; <span class="number">33</span>]&gt; <span class="kw">for </span>Public {
-	<span class="kw">fn </span>unchecked_from(x: [u8; <span class="number">33</span>]) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>UncheckedFrom&lt;[u8; PUBLIC_KEY_SERIALIZED_SIZE]&gt; <span class="kw">for </span>Public {
+	<span class="kw">fn </span>unchecked_from(x: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -&gt; <span class="self">Self </span>{
 		Public(x)
 	}
 }
@@ -999,14 +1015,18 @@
 <span class="doccomment">/// A signature (a 512-bit value, plus 8 bits for recovery ID).
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>Signature(<span class="kw">pub </span>[u8; <span class="number">65</span>]);
+</span><span class="kw">pub struct </span>Signature(<span class="kw">pub </span>[u8; SIGNATURE_SERIALIZED_SIZE]);
+
+<span class="kw">impl </span>ByteArray <span class="kw">for </span>Signature {
+	<span class="kw">const </span>LEN: usize = SIGNATURE_SERIALIZED_SIZE;
+}
 
 <span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>[u8]&gt; <span class="kw">for </span>Signature {
 	<span class="kw">type </span>Error = ();
 
 	<span class="kw">fn </span>try_from(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">if </span>data.len() == <span class="number">65 </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>inner = [<span class="number">0u8</span>; <span class="number">65</span>];
+		<span class="kw">if </span>data.len() == SIGNATURE_SERIALIZED_SIZE {
+			<span class="kw">let </span><span class="kw-2">mut </span>inner = [<span class="number">0u8</span>; SIGNATURE_SERIALIZED_SIZE];
 			inner.copy_from_slice(data);
 			<span class="prelude-val">Ok</span>(Signature(inner))
 		} <span class="kw">else </span>{
@@ -1040,7 +1060,7 @@
 
 <span class="kw">impl </span>Clone <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>r = [<span class="number">0u8</span>; <span class="number">65</span>];
+		<span class="kw">let </span><span class="kw-2">mut </span>r = [<span class="number">0u8</span>; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..]);
 		Signature(r)
 	}
@@ -1048,18 +1068,18 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		Signature([<span class="number">0u8</span>; <span class="number">65</span>])
+		Signature([<span class="number">0u8</span>; SIGNATURE_SERIALIZED_SIZE])
 	}
 }
 
-<span class="kw">impl </span>From&lt;Signature&gt; <span class="kw">for </span>[u8; <span class="number">65</span>] {
-	<span class="kw">fn </span>from(v: Signature) -&gt; [u8; <span class="number">65</span>] {
+<span class="kw">impl </span>From&lt;Signature&gt; <span class="kw">for </span>[u8; SIGNATURE_SERIALIZED_SIZE] {
+	<span class="kw">fn </span>from(v: Signature) -&gt; [u8; SIGNATURE_SERIALIZED_SIZE] {
 		v.<span class="number">0
 	</span>}
 }
 
-<span class="kw">impl </span>AsRef&lt;[u8; <span class="number">65</span>]&gt; <span class="kw">for </span>Signature {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] {
+<span class="kw">impl </span>AsRef&lt;[u8; SIGNATURE_SERIALIZED_SIZE]&gt; <span class="kw">for </span>Signature {
+	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; SIGNATURE_SERIALIZED_SIZE] {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
 	</span>}
 }
@@ -1088,8 +1108,8 @@
 	}
 }
 
-<span class="kw">impl </span>UncheckedFrom&lt;[u8; <span class="number">65</span>]&gt; <span class="kw">for </span>Signature {
-	<span class="kw">fn </span>unchecked_from(data: [u8; <span class="number">65</span>]) -&gt; Signature {
+<span class="kw">impl </span>UncheckedFrom&lt;[u8; SIGNATURE_SERIALIZED_SIZE]&gt; <span class="kw">for </span>Signature {
+	<span class="kw">fn </span>unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -&gt; Signature {
 		Signature(data)
 	}
 }
@@ -1099,7 +1119,7 @@
 	///
 	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
 	/// you are certain that the array actually is a signature. GIGO!
-	</span><span class="kw">pub fn </span>from_raw(data: [u8; <span class="number">65</span>]) -&gt; Signature {
+	</span><span class="kw">pub fn </span>from_raw(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -&gt; Signature {
 		Signature(data)
 	}
 
@@ -1108,10 +1128,10 @@
 	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
 	/// you are certain that the array actually is a signature. GIGO!
 	</span><span class="kw">pub fn </span>from_slice(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">if </span>data.len() != <span class="number">65 </span>{
+		<span class="kw">if </span>data.len() != SIGNATURE_SERIALIZED_SIZE {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
-		<span class="kw">let </span><span class="kw-2">mut </span>r = [<span class="number">0u8</span>; <span class="number">65</span>];
+		<span class="kw">let </span><span class="kw-2">mut </span>r = [<span class="number">0u8</span>; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(data);
 		<span class="prelude-val">Some</span>(Signature(r))
 	}
@@ -1274,7 +1294,7 @@
 	</span><span class="kw">pub fn </span>verify_deprecated&lt;M: AsRef&lt;[u8]&gt;&gt;(sig: <span class="kw-2">&amp;</span>Signature, message: M, pubkey: <span class="kw-2">&amp;</span>Public) -&gt; bool {
 		<span class="kw">let </span>message = libsecp256k1::Message::parse(<span class="kw-2">&amp;</span>blake2_256(message.as_ref()));
 
-		<span class="kw">let </span>parse_signature_overflowing = |x: [u8; <span class="number">65</span>]| {
+		<span class="kw">let </span>parse_signature_overflowing = |x: [u8; SIGNATURE_SERIALIZED_SIZE]| {
 			<span class="kw">let </span>sig = libsecp256k1::Signature::parse_overflowing_slice(<span class="kw-2">&amp;</span>x[..<span class="number">64</span>]).ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>rid = libsecp256k1::RecoveryId::parse(x[<span class="number">64</span>]).ok()<span class="question-mark">?</span>;
 			<span class="prelude-val">Some</span>((sig, rid))
@@ -1527,7 +1547,7 @@
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="kw">let </span>serialized_signature = serde_json::to_string(<span class="kw-2">&amp;</span>signature).unwrap();
 		<span class="comment">// Signature is 65 bytes, so 130 chars + 2 quote chars
-		</span><span class="macro">assert_eq!</span>(serialized_signature.len(), <span class="number">132</span>);
+		</span><span class="macro">assert_eq!</span>(serialized_signature.len(), SIGNATURE_SERIALIZED_SIZE * <span class="number">2 </span>+ <span class="number">2</span>);
 		<span class="kw">let </span>signature = serde_json::from_str(<span class="kw-2">&amp;</span>serialized_signature).unwrap();
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>pair.public()));
 	}
