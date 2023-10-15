@@ -19,7 +19,7 @@
 use crate as pallet_xcm_bridge_hub_router;
 
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
-use frame_support::{construct_runtime, parameter_types, traits::Everything};
+use frame_support::{construct_runtime, parameter_types};
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
