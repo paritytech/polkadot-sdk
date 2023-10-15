@@ -44,10 +44,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, Forcing, MaxNominationsOf, NegativeImbalanceOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
-	UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	CheckedPayoutDestination, EraPayout, EraRewardPoints, Exposure, Forcing, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PayoutDestination, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 const STAKING_ID: LockIdentifier = *b"staking ";
@@ -323,11 +324,27 @@ pub mod pallet {
 
 	/// Where the reward payment should be made. Keyed by stash.
 	///
+	/// NOTE: Being lazily migrated and deprecated in favour of `Payees`.
+	/// Tracking at <https://github.com/paritytech/substrate/issues/14438>
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
+	#[pallet::storage_prefix = "Payee"]
 	#[pallet::getter(fn payee)]
-	pub type Payee<T: Config> =
+	pub type DeprecatedPayee<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
+
+	/// Where the reward payment should be made. Keyed by stash.
+	///
+	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
+	#[pallet::storage]
+	#[pallet::getter(fn payees)]
+	pub type Payees<T: Config> = CountedStorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		CheckedPayoutDestination<T::AccountId>,
+		ValueQuery,
+	>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
@@ -630,7 +647,7 @@ pub mod pallet {
 				frame_support::assert_ok!(<Pallet<T>>::bond(
 					T::RuntimeOrigin::from(Some(stash.clone()).into()),
 					balance,
-					RewardDestination::Staked,
+					PayoutDestination::Stake,
 				));
 				frame_support::assert_ok!(match status {
 					crate::StakerStatus::Validator => <Pallet<T>>::validate(
@@ -667,7 +684,7 @@ pub mod pallet {
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
-			dest: RewardDestination<T::AccountId>,
+			dest: PayoutDestination<T::AccountId>,
 			amount: BalanceOf<T>,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
@@ -826,11 +843,6 @@ pub mod pallet {
 		/// The dispatch origin for this call must be _Signed_ by the stash account.
 		///
 		/// Emits `Bonded`.
-		/// ## Complexity
-		/// - Independent of the arguments. Moderate complexity.
-		/// - O(1).
-		/// - Three extra DB entries.
-		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
 		/// unless the `origin` falls below _existential deposit_ and gets removed as dust.
 		#[pallet::call_index(0)]
@@ -838,7 +850,7 @@ pub mod pallet {
 		pub fn bond(
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,
-			payee: RewardDestination<T::AccountId>,
+			payee: PayoutDestination<T::AccountId>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 			let controller_to_be_deprecated = stash.clone();
@@ -858,10 +870,14 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
+			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
+			// respectively.
+			let checked_payee = PayoutDestination::to_checked(payee);
+
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
 			<Bonded<T>>::insert(&stash, &stash);
-			<Payee<T>>::insert(&stash, payee);
+			<Payees<T>>::insert(&stash, checked_payee);
 
 			let current_era = CurrentEra::<T>::get().unwrap_or(0);
 			let history_depth = T::HistoryDepth::get();
@@ -896,10 +912,6 @@ pub mod pallet {
 		/// any limitation on the amount that can be added.
 		///
 		/// Emits `Bonded`.
-		///
-		/// ## Complexity
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - O(1).
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::bond_extra())]
 		pub fn bond_extra(
@@ -1063,10 +1075,6 @@ pub mod pallet {
 		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
 		/// otherwise the call will fail. The call weight is directly propotional to
 		/// `num_slashing_spans`.
-		///
-		/// ## Complexity
-		/// O(S) where S is the number of slashing spans to remove
-		/// NOTE: Weight annotation is the kill scenario, we refund otherwise.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
 		pub fn withdraw_unbonded(
@@ -1122,11 +1130,6 @@ pub mod pallet {
 		/// Effects will be felt at the beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-		///
-		/// ## Complexity
-		/// - The transaction's complexity is proportional to the size of `targets` (N)
-		/// which is capped at CompactAssignments::LIMIT (T::MaxNominations).
-		/// - Both the reads and writes follow a similar pattern.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::nominate(targets.len() as u32))]
 		pub fn nominate(
@@ -1193,11 +1196,6 @@ pub mod pallet {
 		/// Effects will be felt at the beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-		///
-		/// ## Complexity
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains one read.
-		/// - Writes are limited to the `origin` account key.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>) -> DispatchResult {
@@ -1212,23 +1210,26 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
-		///
-		/// ## Complexity
-		/// - O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
-		/// ---------
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_payee())]
 		pub fn set_payee(
 			origin: OriginFor<T>,
-			payee: RewardDestination<T::AccountId>,
+			payee: PayoutDestination<T::AccountId>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
 			let stash = &ledger.stash;
-			<Payee<T>>::insert(stash, payee);
+
+			// Ensure a 100% or 0% `Split` variant is updated to a `Deposit` or `Stake` variant
+			// respectively.
+			let checked_payee = PayoutDestination::to_checked(payee);
+			Payees::<T>::insert(stash.clone(), checked_payee);
+
+			// In-progress lazy migration to `Payees` storage item.
+			// NOTE: To be removed in next runtime upgrade once migration is completed.
+			if DeprecatedPayee::<T>::contains_key(&stash) {
+				DeprecatedPayee::<T>::remove(stash);
+			}
 			Ok(())
 		}
 
@@ -1240,12 +1241,6 @@ pub mod pallet {
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
 		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
-		///
-		/// ## Complexity
-		/// O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::set_controller())]
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
@@ -1267,9 +1262,6 @@ pub mod pallet {
 		/// Sets the ideal number of validators.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// O(1)
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn set_validator_count(
@@ -1291,9 +1283,6 @@ pub mod pallet {
 		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// Same as [`Self::set_validator_count`].
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn increase_validator_count(
@@ -1316,9 +1305,6 @@ pub mod pallet {
 		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
-		///
-		/// ## Complexity
-		/// Same as [`Self::set_validator_count`].
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::set_validator_count())]
 		pub fn scale_validator_count(origin: OriginFor<T>, factor: Percent) -> DispatchResult {
@@ -1344,10 +1330,6 @@ pub mod pallet {
 		/// The election process starts multiple blocks before the end of the era.
 		/// Thus the election process may be ongoing when this is called. In this case the
 		/// election will continue until the next era is triggered.
-		///
-		/// ## Complexity
-		/// - No arguments.
-		/// - Weight: O(1)
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::force_no_eras())]
 		pub fn force_no_eras(origin: OriginFor<T>) -> DispatchResult {
@@ -1366,10 +1348,6 @@ pub mod pallet {
 		/// The election process starts multiple blocks before the end of the era.
 		/// If this is called just before a new era is triggered, the election process may not
 		/// have enough blocks to get a result.
-		///
-		/// ## Complexity
-		/// - No arguments.
-		/// - Weight: O(1)
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::force_new_era())]
 		pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
@@ -1472,9 +1450,6 @@ pub mod pallet {
 		///
 		/// The origin of this call must be _Signed_. Any account can call this function, even if
 		/// it is not one of the stakers.
-		///
-		/// ## Complexity
-		/// - At most O(MaxNominatorRewardedPerValidator).
 		#[pallet::call_index(18)]
 		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(
 			T::MaxNominatorRewardedPerValidator::get()
@@ -1491,10 +1466,6 @@ pub mod pallet {
 		/// Rebond a portion of the stash scheduled to be unlocked.
 		///
 		/// The dispatch origin must be signed by the controller.
-		///
-		/// ## Complexity
-		/// - Time complexity: O(L), where L is unlocking chunks
-		/// - Bounded by `MaxUnlockingChunks`.
 		#[pallet::call_index(19)]
 		#[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
 		pub fn rebond(
@@ -1535,7 +1506,7 @@ pub mod pallet {
 		/// 2. or, the `ledger.total` of the stash is below existential deposit.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
-		/// is still receiving staking rewards in `RewardDestination::Staked`.
+		/// is still receiving staking rewards in `PayoutDestination::Staked`.
 		///
 		/// It can be called by anyone, as long as `stash` meets the above requirements.
 		///
@@ -1779,6 +1750,40 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
 			Ok(())
+		}
+
+		/// Migrates an account's `RewardDestination` in `Payee` to `PayoutDestination` in `Payees`
+		/// if a record exists and if it has not already been migrated.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// This will waive the transaction fee if the payee is successfully migrated.
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::update_payee())]
+		pub fn update_payee(
+			origin: OriginFor<T>,
+			controller: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+			let stash = &ledger.stash;
+
+			// If this stash has already been migrated, return early and charge tx fees.
+			if Payees::<T>::contains_key(&stash) && !DeprecatedPayee::<T>::contains_key(&stash) {
+				return Ok(Pays::Yes.into())
+			}
+
+			Payees::<T>::insert(
+				stash.clone(),
+				PayoutDestination::from_reward_destination(
+					DeprecatedPayee::<T>::get(&stash),
+					stash.clone(),
+					controller,
+				),
+			);
+			DeprecatedPayee::<T>::remove(&stash);
+
+			Ok(Pays::No.into())
 		}
 	}
 }

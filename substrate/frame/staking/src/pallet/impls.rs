@@ -48,7 +48,7 @@ use sp_std::prelude::*;
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
-	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	MaxWinnersOf, Nominations, NominationsQuota, PayoutDestination, PositiveImbalanceOf,
 	SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
 				nominator_exposure_part * validator_leftover_payout;
 			// We can now make nominator payout:
 			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
-				// Note: this logic does not count payouts for `RewardDestination::None`.
+				// Note: this logic does not count payouts for `PayoutDestination::Forgo`.
 				nominator_payout_count += 1;
 				let e = Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
@@ -300,25 +300,48 @@ impl<T: Config> Pallet<T> {
 	fn make_payout(
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
-		let maybe_imbalance = match Self::payee(stash) {
-			RewardDestination::Controller => Self::bonded(stash)
-				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
-			RewardDestination::Staked => Self::bonded(stash)
-				.and_then(|c| Self::ledger(&c).map(|l| (c, l)))
-				.and_then(|(controller, mut l)| {
-					l.active += amount;
-					l.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
+	) -> Option<(PositiveImbalanceOf<T>, PayoutDestination<T::AccountId>)> {
+		// NOTE: temporary getter while `Payee` -> `Payees` lazy migration is taking place.
+		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
+		// Can replace with `dest = Self:payees(stash);` once migration is done.
+		let dest = Self::bonded(stash)
+			.and_then(|c| Some(Self::get_payout_destination_migrate(stash, c)))?;
+
+		// Closure to handle the `Stake` payout destination, used in `Stake` and `Split` variants.
+		let payout_destination_stake = |a: BalanceOf<T>| -> Option<PositiveImbalanceOf<T>> {
+			Self::bonded(stash).and_then(|c| Self::ledger(&c).map(|l| (c, l))).and_then(
+				|(controller, mut l)| {
+					l.active.saturating_accrue(a);
+					l.total.saturating_accrue(a);
+					let r = T::Currency::deposit_into_existing(stash, a).ok();
 					Self::update_ledger(&controller, &l);
 					r
-				}),
-			RewardDestination::Account(dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
-			RewardDestination::None => None,
+				},
+			)
 		};
-		maybe_imbalance.map(|imbalance| (imbalance, Self::payee(stash)))
+
+		let maybe_imbalance = match dest {
+			PayoutDestination::Stake => payout_destination_stake(amount),
+			PayoutDestination::Split((share, deposit_to)) => {
+				// `share` can never be 0% or 100%.
+				let amount_free = share * amount;
+				let amount_stake = amount.saturating_sub(amount_free);
+				let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+				total_imbalance.subsume(
+					payout_destination_stake(amount_stake)
+						.unwrap_or(PositiveImbalanceOf::<T>::zero()),
+				);
+				total_imbalance.subsume(T::Currency::deposit_creating(&deposit_to, amount_free));
+
+				Some(total_imbalance)
+			},
+			PayoutDestination::Deposit(deposit_to) =>
+				Some(T::Currency::deposit_creating(&deposit_to, amount)),
+			PayoutDestination::Forgo => None,
+		};
+
+		maybe_imbalance.map(|imbalance| (imbalance, Self::payees(stash).0))
 	}
 
 	/// Plan a new session potentially trigger a new era.
@@ -673,7 +696,14 @@ impl<T: Config> Pallet<T> {
 		<Bonded<T>>::remove(stash);
 		<Ledger<T>>::remove(&controller);
 
-		<Payee<T>>::remove(stash);
+		// NOTE: Checks both `Payees` and `Payee` records during migration period.
+		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
+		if Payees::<T>::contains_key(&stash) {
+			Payees::<T>::remove(stash);
+		} else {
+			DeprecatedPayee::<T>::remove(stash);
+		}
+
 		Self::do_remove_validator(stash);
 		Self::do_remove_nominator(stash);
 
@@ -1027,6 +1057,27 @@ impl<T: Config> Pallet<T> {
 			weight,
 			DispatchClass::Mandatory,
 		);
+	}
+
+	/// Temporary getter for `Payees`.
+	///
+	/// Migrates `Payee` to `Payees` if it has not been migrated already.
+	pub fn get_payout_destination_migrate(
+		stash: &T::AccountId,
+		controller: T::AccountId,
+	) -> PayoutDestination<T::AccountId> {
+		if !Payees::<T>::contains_key(stash) {
+			let current = PayoutDestination::from_reward_destination(
+				DeprecatedPayee::<T>::get(stash),
+				stash.clone(),
+				controller,
+			);
+			Payees::<T>::insert(stash, current.clone());
+			DeprecatedPayee::<T>::remove(stash);
+			current.0
+		} else {
+			Payees::<T>::get(stash).0
+		}
 	}
 }
 
@@ -1714,7 +1765,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::bond(
 			RawOrigin::Signed(who.clone()).into(),
 			value,
-			RewardDestination::Account(payee.clone()),
+			PayoutDestination::Deposit(payee.clone()),
 		)
 	}
 
