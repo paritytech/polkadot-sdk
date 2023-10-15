@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "*.rs"
+      - ".github/workflows/check-links.yml"
+      - ".config/lychee.toml"
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
