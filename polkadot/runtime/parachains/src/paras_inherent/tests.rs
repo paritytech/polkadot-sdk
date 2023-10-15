@@ -673,8 +673,8 @@ mod enter {
 
 			// TODO [now]: this assertion fails with async backing runtime.
 			assert_eq!(
-				// The length of this vec is equal to the number of candidates, so we know our 2
-				// backed candidates did not get filtered out
+				// The length of this vec is equal to the number of candidates, so we know 1 candidate 
+				// got filtered out
 				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
 				1
 			);
