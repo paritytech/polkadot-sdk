@@ -5,7 +5,7 @@
   before_script:
     - echo "Zombie-net Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
-    - echo "${RELAY_IMAGE}"
+    - echo "${POLKADOT_IMAGE}"
     - echo "${COL_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"

@@ -1302,7 +1302,7 @@ async fn gossipped_finality_proofs() {
 	// Only Alice and Bob are running the voter -> finality threshold not reached
 	let peers = [BeefyKeyring::Alice, BeefyKeyring::Bob];
 	let validator_set = ValidatorSet::new(make_beefy_ids(&validators), 0).unwrap();
-	let session_len = 30;
+	let session_len = 10;
 	let min_block_delta = 1;
 
 	let mut net = BeefyTestNet::new(3);
@@ -1332,14 +1332,8 @@ async fn gossipped_finality_proofs() {
 
 	let net = Arc::new(Mutex::new(net));
 
-	// Pump net + Charlie gossip to see peers.
-	let timeout = Box::pin(tokio::time::sleep(Duration::from_millis(200)));
-	let gossip_engine_pump = &mut charlie_gossip_engine;
-	let pump_with_timeout = future::select(gossip_engine_pump, timeout);
-	run_until(pump_with_timeout, &net).await;
-
-	// push 10 blocks
-	let hashes = net.lock().generate_blocks_and_sync(10, session_len, &validator_set, true).await;
+	// push 42 blocks
+	let hashes = net.lock().generate_blocks_and_sync(42, session_len, &validator_set, true).await;
 
 	let peers = peers.into_iter().enumerate();
 

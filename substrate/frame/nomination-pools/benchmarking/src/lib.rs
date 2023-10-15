@@ -27,7 +27,10 @@ use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	assert_ok, ensure,
-	traits::{Currency, Get},
+	traits::{
+		fungible::{Inspect, Mutate, Unbalanced},
+		Get,
+	},
 };
 use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
@@ -67,7 +70,7 @@ fn create_funded_user_with_balance<T: pallet_nomination_pools::Config>(
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, USER_SEED);
-	T::Currency::make_free_balance_be(&user, balance);
+	T::Currency::set_balance(&user, balance);
 	user
 }
 
@@ -148,8 +151,7 @@ impl<T: Config> ListScenario<T> {
 		);
 
 		// Burn the entire issuance.
-		let i = CurrencyOf::<T>::burn(CurrencyOf::<T>::total_issuance());
-		sp_std::mem::forget(i);
+		CurrencyOf::<T>::set_total_issuance(Zero::zero());
 
 		// Create accounts with the origin weight
 		let (pool_creator1, pool_origin1) =
@@ -206,7 +208,7 @@ impl<T: Config> ListScenario<T> {
 
 		let joiner: T::AccountId = account("joiner", USER_SEED, 0);
 		self.origin1_member = Some(joiner.clone());
-		CurrencyOf::<T>::make_free_balance_be(&joiner, amount * 2u32.into());
+		CurrencyOf::<T>::set_balance(&joiner, amount * 2u32.into());
 
 		let original_bonded = T::Staking::active_stake(&self.origin1).unwrap();
 
@@ -254,7 +256,7 @@ frame_benchmarking::benchmarks! {
 		whitelist_account!(joiner);
 	}: _(RuntimeOrigin::Signed(joiner.clone()), max_additional, 1)
 	verify {
-		assert_eq!(CurrencyOf::<T>::free_balance(&joiner), joiner_free - max_additional);
+		assert_eq!(CurrencyOf::<T>::balance(&joiner), joiner_free - max_additional);
 		assert_eq!(
 			T::Staking::active_stake(&scenario.origin1).unwrap(),
 			scenario.dest_weight
@@ -289,7 +291,7 @@ frame_benchmarking::benchmarks! {
 		// transfer exactly `extra` to the depositor of the src pool (1),
 		let reward_account1 = Pools::<T>::create_reward_account(1);
 		assert!(extra >= CurrencyOf::<T>::minimum_balance());
-		CurrencyOf::<T>::deposit_creating(&reward_account1, extra);
+		let _ = CurrencyOf::<T>::mint_into(&reward_account1, extra);
 
 	}: _(RuntimeOrigin::Signed(claimer), T::Lookup::unlookup(scenario.creator1.clone()), BondExtra::Rewards)
 	verify {
@@ -309,7 +311,7 @@ frame_benchmarking::benchmarks! {
 		let reward_account = Pools::<T>::create_reward_account(1);
 
 		// Send funds to the reward account of the pool
-		CurrencyOf::<T>::make_free_balance_be(&reward_account, ed + origin_weight);
+		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
 		// set claim preferences to `PermissionlessAll` so any account can claim rewards on member's
 		// behalf.
@@ -317,7 +319,7 @@ frame_benchmarking::benchmarks! {
 
 		// Sanity check
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&depositor),
+			CurrencyOf::<T>::balance(&depositor),
 			origin_weight
 		);
 
@@ -325,11 +327,11 @@ frame_benchmarking::benchmarks! {
 	}:claim_payout_other(RuntimeOrigin::Signed(claimer), depositor.clone())
 	verify {
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&depositor),
+			CurrencyOf::<T>::balance(&depositor),
 			origin_weight + commission * origin_weight
 		);
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&reward_account),
+			CurrencyOf::<T>::balance(&reward_account),
 			ed + commission * origin_weight
 		);
 	}
@@ -383,7 +385,7 @@ frame_benchmarking::benchmarks! {
 			T::Staking::active_stake(&pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-		assert_eq!(CurrencyOf::<T>::free_balance(&joiner), min_join_bond);
+		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 
 		// Unbond the new member
 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone()).unwrap();
@@ -403,7 +405,7 @@ frame_benchmarking::benchmarks! {
 	}: _(RuntimeOrigin::Signed(pool_account.clone()), 1, s)
 	verify {
 		// The joiners funds didn't change
-		assert_eq!(CurrencyOf::<T>::free_balance(&joiner), min_join_bond);
+		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 		// The unlocking chunk was removed
 		assert_eq!(pallet_staking::Ledger::<T>::get(pool_account).unwrap().unlocking.len(), 0);
 	}
@@ -426,7 +428,7 @@ frame_benchmarking::benchmarks! {
 			T::Staking::active_stake(&pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-		assert_eq!(CurrencyOf::<T>::free_balance(&joiner), min_join_bond);
+		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 
 		// Unbond the new member
 		pallet_staking::CurrentEra::<T>::put(0);
@@ -447,8 +449,7 @@ frame_benchmarking::benchmarks! {
 	}: withdraw_unbonded(RuntimeOrigin::Signed(joiner.clone()), joiner_lookup, s)
 	verify {
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&joiner),
-			min_join_bond * 2u32.into()
+			CurrencyOf::<T>::balance(&joiner), min_join_bond * 2u32.into()
 		);
 		// The unlocking chunk was removed
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 0);
@@ -485,7 +486,7 @@ frame_benchmarking::benchmarks! {
 			Zero::zero()
 		);
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&pool_account),
+			CurrencyOf::<T>::balance(&pool_account),
 			min_create_bond
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
@@ -515,7 +516,7 @@ frame_benchmarking::benchmarks! {
 
 		// Funds where transferred back correctly
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&depositor),
+			CurrencyOf::<T>::balance(&depositor),
 			// gets bond back + rewards collecting when unbonding
 			min_create_bond * 2u32.into() + CurrencyOf::<T>::minimum_balance()
 		);
@@ -527,7 +528,7 @@ frame_benchmarking::benchmarks! {
 		let depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
 		// Give the depositor some balance to bond
-		CurrencyOf::<T>::make_free_balance_be(&depositor, min_create_bond * 2u32.into());
+		CurrencyOf::<T>::set_balance(&depositor, min_create_bond * 2u32.into());
 
 		// Make sure no Pools exist at a pre-condition for our verify checks
 		assert_eq!(RewardPools::<T>::count(), 0);
@@ -782,7 +783,7 @@ frame_benchmarking::benchmarks! {
 		let ed = CurrencyOf::<T>::minimum_balance();
 		let (depositor, pool_account) = create_pool_account::<T>(0, origin_weight, Some(commission));
 		let reward_account = Pools::<T>::create_reward_account(1);
-		CurrencyOf::<T>::make_free_balance_be(&reward_account, ed + origin_weight);
+		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
 		// member claims a payout to make some commission available.
 		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer).into());
@@ -791,13 +792,27 @@ frame_benchmarking::benchmarks! {
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into())
 	verify {
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&depositor),
+			CurrencyOf::<T>::balance(&depositor),
 			origin_weight + commission * origin_weight
 		);
 		assert_eq!(
-			CurrencyOf::<T>::free_balance(&reward_account),
+			CurrencyOf::<T>::balance(&reward_account),
 			ed + commission * origin_weight
 		);
+	}
+
+	adjust_pool_deposit {
+		// Create a pool
+		let (depositor, _) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
+
+		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
+		let _ = Pools::<T>::unfreeze_pool_deposit(&Pools::<T>::create_reward_account(1));
+		assert!(&Pools::<T>::check_ed_imbalance().is_err());
+
+		whitelist_account!(depositor);
+	}:_(RuntimeOrigin::Signed(depositor), 1)
+	verify {
+		assert!(&Pools::<T>::check_ed_imbalance().is_ok());
 	}
 
 	impl_benchmark_test_suite!(

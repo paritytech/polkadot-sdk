@@ -45,6 +45,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -122,7 +123,40 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+pub type Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	InitStorageVersions,
+);
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		use sp_runtime::traits::Saturating;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Balances::on_chain_storage_version() == StorageVersion::new(0) {
+			Balances::current_storage_version().put::<Balances>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -1070,7 +1104,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaWococoInstance,
@@ -1113,7 +1147,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaRococoInstance,
@@ -1231,6 +1265,16 @@ impl_runtime_apis! {
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }
