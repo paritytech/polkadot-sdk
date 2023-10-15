@@ -11635,6 +11635,7 @@ dependencies = [
  "futures",
  "log",
  "polkadot-node-metrics",
+ "polkadot-node-primitives",
  "polkadot-service",
  "pyroscope",
  "pyroscope_pprofrs",
