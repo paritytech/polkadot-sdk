@@ -34,7 +34,7 @@ use xcm_emulator::{
 };
 
 decl_test_relay_chains! {
-	#[api_version(7)]
+	#[api_version(8)]
 	pub struct Westend {
 		genesis = westend::genesis(),
 		on_init = (),
@@ -51,7 +51,7 @@ decl_test_relay_chains! {
 			AssetRate: westend_runtime::AssetRate,
 		}
 	},
-	#[api_version(7)]
+	#[api_version(8)]
 	pub struct Rococo {
 		genesis = rococo::genesis(),
 		on_init = (),
@@ -66,7 +66,7 @@ decl_test_relay_chains! {
 			Balances: rococo_runtime::Balances,
 		}
 	},
-	#[api_version(7)]
+	#[api_version(8)]
 	pub struct Wococo {
 		genesis = rococo::genesis(),
 		on_init = (),

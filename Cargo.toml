@@ -345,6 +345,8 @@ members = [
 	"substrate/frame/support/test",
 	"substrate/frame/support/test/compile_pass",
 	"substrate/frame/support/test/pallet",
+	"substrate/frame/support/test/stg_frame_crate/frame",
+	"substrate/frame/support/test/stg_frame_crate",
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
 	"substrate/frame/system/rpc/runtime-api",
