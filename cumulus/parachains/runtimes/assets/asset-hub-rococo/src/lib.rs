@@ -102,7 +102,7 @@ use crate::xcm_config::{
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
-/// Enum for handling differences in the runtime configuration for AssetHubRococo vs AssetHubWococo.
+/// Enum for handling differences in the runtime configuration for `AssetHubRococo` vs. `AssetHubWococo`.
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
 pub enum RuntimeFlavor {
 	#[default]
