@@ -695,6 +695,8 @@ pub enum RuntimeApiRequest {
 	),
 	/// Get the minimum required backing votes.
 	MinimumBackingVotes(SessionIndex, RuntimeApiSender<u32>),
+	/// Returns all disabled validators at a given block height.
+	DisabledValidators(RuntimeApiSender<Vec<ValidatorIndex>>),
 	/// Get the backing state of the given para.
 	ParaBackingState(ParaId, RuntimeApiSender<Option<async_backing::BackingState>>),
 	/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
@@ -726,6 +728,9 @@ impl RuntimeApiRequest {
 
 	/// Minimum version to enable asynchronous backing: `AsyncBackingParams` and `ParaBackingState`.
 	pub const ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT: u32 = 7;
+
+	/// `DisabledValidators`
+	pub const DISABLED_VALIDATORS_RUNTIME_REQUIREMENT: u32 = 8;
 }
 
 /// A message to the Runtime API subsystem.
