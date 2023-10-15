@@ -1,0 +1,49 @@
+# Config file for lychee link checker: <https://github.com/lycheeverse/lychee>
+# Run with `lychee -c .config/lychee.toml ./**/*.rs`
+
+cache = true
+max_cache_age = "1d"
+max_redirects = 3
+max_retries = 6
+
+# Exclude localhost et.al.
+exclude_all_private = true
+
+# Treat these codes as success condition:
+accept = [
+	# Ok
+	200,
+
+	# Rate limited - GitHub likes to throw this.
+	429
+]
+
+exclude_path = [
+  "./target",
+
+  # TODO <https://github.com/paritytech/polkadot-sdk/issues/134>
+  "./polkadot/node/network/approval-distribution/src/lib.rs",
+  "./polkadot/node/network/gossip-support/src/lib.rs",
+  "./polkadot/node/overseer/src/lib.rs",
+  "./polkadot/node/service/src/relay_chain_selection.rs",
+  "./polkadot/primitives/src/runtime_api.rs",
+  "./polkadot/runtime/parachains/src/reward_points.rs",
+  "./polkadot/runtime/parachains/src/session_info.rs",
+  "./polkadot/runtime/rococo/constants/src/lib.rs",
+  "./polkadot/runtime/test-runtime/constants/src/lib.rs",
+  "./polkadot/runtime/westend/constants/src/lib.rs",
+  "./substrate/bin/node/runtime/src/constants.rs",
+  "./substrate/client/cli/src/commands/run_cmd.rs",
+  "./substrate/client/consensus/babe/src/lib.rs",
+  "./substrate/client/network/bitswap/src/lib.rs",
+  "./substrate/frame/paged-list/src/lib.rs",
+  "./substrate/frame/staking/reward-curve/src/lib.rs",
+  "./substrate/frame/staking/src/lib.rs",
+  "./substrate/frame/staking/src/slashing.rs",
+  "./substrate/frame/timestamp/src/lib.rs",
+  "./substrate/frame/transaction-payment/src/lib.rs",
+  "./substrate/frame/treasury/src/lib.rs",
+  "./substrate/primitives/crypto/ec-utils/src/bls12_381.rs",
+  "./substrate/primitives/npos-elections/src/balancing.rs",
+  "./substrate/utils/frame/remote-externalities/src/lib.rs"
+]
