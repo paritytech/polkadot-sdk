@@ -14,10 +14,7 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{
-	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
-};
+use frame_support::{pallet_prelude::Get, traits::ContainsPair};
 use xcm::{
 	latest::prelude::{MultiAsset, MultiLocation},
 	prelude::*,
