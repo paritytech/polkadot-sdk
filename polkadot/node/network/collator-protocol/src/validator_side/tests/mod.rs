@@ -357,7 +357,7 @@ async fn assert_fetch_collation_request(
 			),
 			Some(candidate_hash) => assert_matches!(
 				req,
-				Requests::CollationFetchingVStaging(req) => {
+				Requests::CollationFetchingV2(req) => {
 					let payload = req.payload;
 					assert_eq!(payload.relay_parent, relay_parent);
 					assert_eq!(payload.para_id, para_id);
@@ -394,12 +394,11 @@ async fn connect_and_declare_collator(
 			para_id,
 			collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 		)),
-		CollationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::CollatorProtocolMessage::Declare(
-				collator.public(),
-				para_id,
-				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
+		CollationVersion::V2 => Versioned::V2(protocol_v2::CollatorProtocolMessage::Declare(
+			collator.public(),
+			para_id,
+			collator.sign(&protocol_v1::declare_signature_payload(&peer)),
+		)),
 	};
 
 	overseer_send(
@@ -421,7 +420,7 @@ async fn advertise_collation(
 ) {
 	let wire_message = match candidate {
 		Some((candidate_hash, parent_head_data_hash)) =>
-			Versioned::VStaging(protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+			Versioned::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				relay_parent,
 				candidate_hash,
 				parent_head_data_hash,
@@ -444,7 +443,7 @@ async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOvers
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			relay_parent,
-			RuntimeApiRequest::StagingAsyncBackingParams(tx)
+			RuntimeApiRequest::AsyncBackingParams(tx)
 		)) => {
 			assert_eq!(relay_parent, hash);
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -499,10 +498,10 @@ fn act_on_advertisement() {
 	});
 }
 
-/// Tests that validator side works with vstaging network protocol
+/// Tests that validator side works with v2 network protocol
 /// before async backing is enabled.
 #[test]
-fn act_on_advertisement_vstaging() {
+fn act_on_advertisement_v2() {
 	let test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
@@ -529,13 +528,13 @@ fn act_on_advertisement_vstaging() {
 			peer_b,
 			pair.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::VStaging,
+			CollationVersion::V2,
 		)
 		.await;
 
 		let candidate_hash = CandidateHash::default();
 		let parent_head_data_hash = Hash::zero();
-		// vstaging advertisement.
+		// v2 advertisement.
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
