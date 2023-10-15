@@ -318,6 +318,29 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -378,6 +401,7 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::host::PrepareResultSender;
 <span class="kw">use </span>always_assert::always;
 <span class="kw">use </span>polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
+<span class="kw">use </span>polkadot_node_primitives::NODE_VERSION;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationCodeHash;
 <span class="kw">use </span>polkadot_primitives::ExecutorParamsHash;
 <span class="kw">use </span>std::{
@@ -395,6 +419,7 @@
 
 <span class="kw">impl </span>ArtifactId {
 	<span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;wasmtime_&quot;</span>;
+	<span class="kw">const </span>NODE_VERSION_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;polkadot_v&quot;</span>;
 
 	<span class="doccomment">/// Creates a new artifact ID with the given hash.
 	</span><span class="kw">pub fn </span>new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -&gt; <span class="self">Self </span>{
@@ -412,8 +437,13 @@
 		<span class="kw">use </span>polkadot_core_primitives::Hash;
 		<span class="kw">use </span>std::str::FromStr <span class="kw">as _</span>;
 
-		<span class="kw">let </span>file_name = file_name.strip_prefix(<span class="self">Self</span>::PREFIX)<span class="question-mark">?</span>;
-		<span class="kw">let </span>(code_hash_str, executor_params_hash_str) = file_name.split_once(<span class="string">&#39;_&#39;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>file_name =
+			file_name.strip_prefix(<span class="self">Self</span>::PREFIX)<span class="question-mark">?</span>.strip_prefix(<span class="self">Self</span>::NODE_VERSION_PREFIX)<span class="question-mark">?</span>;
+
+		<span class="comment">// [ node version | code hash | param hash ]
+		</span><span class="kw">let </span>parts: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = file_name.split(<span class="string">&#39;_&#39;</span>).collect();
+		<span class="kw">let </span>(_node_ver, code_hash_str, executor_params_hash_str) = (parts[<span class="number">0</span>], parts[<span class="number">1</span>], parts[<span class="number">2</span>]);
+
 		<span class="kw">let </span>code_hash = Hash::from_str(code_hash_str).ok()<span class="question-mark">?</span>.into();
 		<span class="kw">let </span>executor_params_hash =
 			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()<span class="question-mark">?</span>);
@@ -423,8 +453,14 @@
 
 	<span class="doccomment">/// Returns the expected path to this artifact given the root of the cache.
 	</span><span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>, cache_path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
-		<span class="kw">let </span>file_name =
-			<span class="macro">format!</span>(<span class="string">&quot;{}{:#x}_{:#x}&quot;</span>, <span class="self">Self</span>::PREFIX, <span class="self">self</span>.code_hash, <span class="self">self</span>.executor_params_hash);
+		<span class="kw">let </span>file_name = <span class="macro">format!</span>(
+			<span class="string">&quot;{}{}{}_{:#x}_{:#x}&quot;</span>,
+			<span class="self">Self</span>::PREFIX,
+			<span class="self">Self</span>::NODE_VERSION_PREFIX,
+			NODE_VERSION,
+			<span class="self">self</span>.code_hash,
+			<span class="self">self</span>.executor_params_hash
+		);
 		cache_path.join(file_name)
 	}
 }
@@ -573,20 +609,27 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::{ArtifactId, Artifacts};
+	<span class="kw">use super</span>::{ArtifactId, Artifacts, NODE_VERSION};
 	<span class="kw">use </span>polkadot_primitives::ExecutorParamsHash;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>std::{path::Path, str::FromStr};
+
+	<span class="kw">fn </span>file_name(code_hash: <span class="kw-2">&amp;</span>str, param_hash: <span class="kw-2">&amp;</span>str) -&gt; String {
+		<span class="macro">format!</span>(<span class="string">&quot;wasmtime_polkadot_v{}_0x{}_0x{}&quot;</span>, NODE_VERSION, code_hash, param_hash)
+	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>from_file_name() {
 		<span class="macro">assert!</span>(ArtifactId::from_file_name(<span class="string">&quot;&quot;</span>).is_none());
 		<span class="macro">assert!</span>(ArtifactId::from_file_name(<span class="string">&quot;junk&quot;</span>).is_none());
 
+		<span class="kw">let </span>file_name = file_name(
+			<span class="string">&quot;0022800000000000000000000000000000000000000000000000000000000000&quot;</span>,
+			<span class="string">&quot;0033900000000000000000000000000000000000000000000000000000000000&quot;</span>,
+		);
+
 		<span class="macro">assert_eq!</span>(
-			ArtifactId::from_file_name(
-				<span class="string">&quot;wasmtime_0x0022800000000000000000000000000000000000000000000000000000000000_0x0033900000000000000000000000000000000000000000000000000000000000&quot;
-			</span>),
+			ArtifactId::from_file_name(<span class="kw-2">&amp;</span>file_name),
 			<span class="prelude-val">Some</span>(ArtifactId::new(
 				<span class="macro">hex_literal::hex!</span>[
 					<span class="string">&quot;0022800000000000000000000000000000000000000000000000000000000000&quot;
@@ -601,16 +644,19 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>path() {
-		<span class="kw">let </span>path = Path::new(<span class="string">&quot;/test&quot;</span>);
-		<span class="kw">let </span>hash =
-			H256::from_str(<span class="string">&quot;1234567890123456789012345678901234567890123456789012345678901234&quot;</span>)
-				.unwrap();
+		<span class="kw">let </span>dir = Path::new(<span class="string">&quot;/test&quot;</span>);
+		<span class="kw">let </span>code_hash = <span class="string">&quot;1234567890123456789012345678901234567890123456789012345678901234&quot;</span>;
+		<span class="kw">let </span>params_hash = <span class="string">&quot;4321098765432109876543210987654321098765432109876543210987654321&quot;</span>;
+		<span class="kw">let </span>file_name = file_name(code_hash, params_hash);
+
+		<span class="kw">let </span>code_hash = H256::from_str(code_hash).unwrap();
+		<span class="kw">let </span>params_hash = H256::from_str(params_hash).unwrap();
 
 		<span class="macro">assert_eq!</span>(
-			ArtifactId::new(hash.into(), ExecutorParamsHash::from_hash(hash)).path(path).to_str(),
-			<span class="prelude-val">Some</span>(
-				<span class="string">&quot;/test/wasmtime_0x1234567890123456789012345678901234567890123456789012345678901234_0x1234567890123456789012345678901234567890123456789012345678901234&quot;
-			</span>),
+			ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
+				.path(dir)
+				.to_str(),
+			<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;/test/{}&quot;</span>, file_name).as_str()),
 		);
 	}
 

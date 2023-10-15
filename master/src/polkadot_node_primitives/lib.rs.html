@@ -651,6 +651,13 @@
 <a href="#651" id="651">651</a>
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -705,6 +712,13 @@
 	InvalidDisputeVote, SignedDisputeStatement, Timestamp, UncheckedDisputeMessage,
 	ValidDisputeVote, ACTIVE_DURATION_SECS,
 };
+
+<span class="doccomment">/// The current node version, which takes the basic SemVer form `&lt;major&gt;.&lt;minor&gt;.&lt;patch&gt;`.
+/// In general, minor should be bumped on every release while major or patch releases are
+/// relatively rare.
+///
+/// The associated worker binaries should use the same version as the node that spawns them.
+</span><span class="kw">pub const </span>NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;1.1.0&quot;</span>;
 
 <span class="comment">// For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
