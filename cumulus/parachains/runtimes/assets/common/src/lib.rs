@@ -22,7 +22,7 @@ pub mod matching;
 pub mod runtime_api;
 
 use crate::matching::{LocalMultiLocationPattern, ParentLocation};
-use frame_support::traits::{EqualsTo, EverythingBut};
+use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
 use xcm::prelude::MultiLocation;
 use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
@@ -67,7 +67,7 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalMultiLocationExclusionFilter
 	MultiLocationConvertedConcreteId<
 		EverythingBut<(
 			// Excludes relay/parent chain currency
-			EqualsTo<ParentLocation>,
+			Equals<ParentLocation>,
 			// Here we rely on fact that something like this works:
 			// assert!(MultiLocation::new(1,
 			// X1(Parachain(100))).starts_with(&MultiLocation::parent()));
@@ -96,9 +96,9 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::matching::StartsWithExplicitGlobalConsensus;
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
+	use xcm_builder::StartsWithExplicitGlobalConsensus;
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
 	#[test]

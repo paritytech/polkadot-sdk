@@ -138,8 +138,8 @@ impl<A, B, These: ContainsPair<A, B>, Those: ContainsPair<A, B>> ContainsPair<A,
 }
 
 /// An implementation of [`Contains`] which contains only equal members to `T`.
-pub struct EqualsTo<T>(PhantomData<T>);
-impl<X: PartialEq, T: super::Get<X>> Contains<X> for EqualsTo<T> {
+pub struct Equals<T>(PhantomData<T>);
+impl<X: PartialEq, T: super::Get<X>> Contains<X> for Equals<T> {
 	fn contains(t: &X) -> bool {
 		t == &T::get()
 	}

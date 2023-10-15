@@ -21,15 +21,6 @@ use xcm::{
 };
 use xcm_builder::ensure_is_remote;
 
-pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<Network: Get<NetworkId>> Contains<MultiLocation>
-	for StartsWithExplicitGlobalConsensus<Network>
-{
-	fn contains(t: &MultiLocation) -> bool {
-		matches!(t.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&Network::get()))
-	}
-}
-
 frame_support::parameter_types! {
 	pub LocalMultiLocationPattern: MultiLocation = MultiLocation::new(0, Here);
 	pub ParentLocation: MultiLocation = MultiLocation::parent();

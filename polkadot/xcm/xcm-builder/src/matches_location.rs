@@ -17,51 +17,11 @@
 //! Various implementations and utilities for matching and filtering `MultiLocation` and
 //! `InteriorMultiLocation` types.
 
-use frame_support::traits::{Contains, Everything, Get};
-use xcm::latest::{InteriorMultiLocation, MultiLocation};
+use frame_support::traits::{Contains, Get};
+use xcm::latest::{InteriorMultiLocation, MultiLocation, NetworkId};
 
-/// Trait for matching location of type `T`.
-pub trait MatchesLocation<T> {
-	fn matches(&self, location: &T) -> bool;
-}
-
-/// A [`MatchesLocation`] implementation that matches every value.
-impl<T> MatchesLocation<T> for Everything {
-	fn matches(&self, _: &T) -> bool {
-		true
-	}
-}
-
-/// Adapter for using `trait Contains` with `trait MatchesLocation` were we can provide a tuple of
-/// `Contains` implementations which are used for matching location of type `T`.
-pub struct MatchesLocationAdapter<T, Filter> {
-	_marker: sp_std::marker::PhantomData<(T, Filter)>,
-}
-impl<T, Filter> MatchesLocationAdapter<T, Filter>
-where
-	Filter: Contains<T>,
-{
-	pub fn new() -> Self {
-		Self { _marker: sp_std::marker::PhantomData }
-	}
-}
-impl<T, Filter> MatchesLocation<T> for MatchesLocationAdapter<T, Filter>
-where
-	Filter: Contains<T>,
-{
-	fn matches(&self, location: &T) -> bool {
-		Filter::contains(location)
-	}
-}
-
-/// Type alias for `MatchesLocationAdapter` implementation which works with `InteriorMultiLocation`.
-pub type InteriorLocationMatcher<Filter> = MatchesLocationAdapter<InteriorMultiLocation, Filter>;
-
-/// Type alias for `MatchesLocationAdapter` implementation which works with `MultiLocation`.
-pub type LocationMatcher<Filter> = MatchesLocationAdapter<MultiLocation, Filter>;
-
-/// An implementation of [frame_support::traits::Contains] that checks for `MultiLocation` or
-/// `InteriorMultiLocation` if it starts with the provided type `T`.
+/// An implementation of `Contains` that checks for `MultiLocation` or
+/// `InteriorMultiLocation` if starts with the provided type `T`.
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
 impl<T: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<T> {
 	fn contains(t: &MultiLocation) -> bool {
@@ -74,44 +34,17 @@ impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for StartsWi
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn matches_location_adapter_with_contains_tuple_works() {
-		type Loc = usize;
-		frame_support::match_types! {
-			pub type AllowOnly2000And3000And4000: impl Contains<Loc> = {
-				2000 | 3000 | 4000
-			};
-		}
-		struct Between5000And5003;
-		impl Contains<Loc> for Between5000And5003 {
-			fn contains(t: &Loc) -> bool {
-				(&5000 < t) && (t < &5003)
-			}
-		}
-
-		let test_data = vec![
-			(1000, false),
-			(2000, true),
-			(3000, true),
-			(4000, true),
-			(5000, false),
-			(5001, true),
-			(5002, true),
-			(5003, false),
-		];
-
-		for (location, expected_result) in test_data {
-			assert_eq!(
-				MatchesLocationAdapter::<
-					Loc,
-					(AllowOnly2000And3000And4000, Between5000And5003)
-				>::new().matches(&location),
-				expected_result,
-			)
-		}
+/// An implementation of `Contains` that checks for `MultiLocation` or
+/// `InteriorMultiLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
+/// `T`.
+pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
+impl<T: Get<NetworkId>> Contains<MultiLocation> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(location.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
+	}
+}
+impl<T: Get<NetworkId>> Contains<InteriorMultiLocation> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &InteriorMultiLocation) -> bool {
+		matches!(location.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
 	}
 }

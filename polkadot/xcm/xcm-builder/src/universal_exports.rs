@@ -16,10 +16,9 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
-use crate::matches_location::MatchesLocation;
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};
-use sp_std::{boxed::Box, convert::TryInto, marker::PhantomData, prelude::*};
+use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -122,8 +121,9 @@ impl ExporterFor for Tuple {
 pub struct NetworkExportTableItem {
 	/// Supported remote network.
 	pub remote_network: NetworkId,
-	/// Remote location filter.
-	pub remote_location_filter: Box<dyn MatchesLocation<InteriorMultiLocation>>,
+	/// Remote location filter, if specified `Some`, requested remote location must be equal to any
+	/// item. If `None` then `remote_location_filter` check is skipped.
+	pub remote_location_filter: Option<Vec<InteriorMultiLocation>>,
 	/// Locally-routable bridge with bridging capabilities to the `remote_network` and
 	/// `remote_location`. See [`ExporterFor`] for more details.
 	pub bridge: MultiLocation,
@@ -133,24 +133,19 @@ pub struct NetworkExportTableItem {
 }
 
 impl NetworkExportTableItem {
-	pub fn new<RemoteLocationFilter: MatchesLocation<InteriorMultiLocation> + 'static>(
+	pub fn new(
 		remote_network: NetworkId,
-		remote_location_filter: RemoteLocationFilter,
+		remote_location_filter: Option<Vec<InteriorMultiLocation>>,
 		bridge: MultiLocation,
 		payment: Option<MultiAsset>,
 	) -> Self {
-		Self {
-			remote_network,
-			remote_location_filter: Box::new(remote_location_filter),
-			bridge,
-			payment,
-		}
+		Self { remote_network, remote_location_filter, bridge, payment }
 	}
 }
 
-/// An adapter for the implementation of `ExporterFor`, which attempts to find the (bridge_location,
-/// payment) for the requested `network` and `remote_location` in the provided `T` table containing
-/// various exporters.
+/// An adapter for the implementation of `ExporterFor`, which attempts to find the
+/// `(bridge_location, payment)` for the requested `network` and `remote_location` in the provided
+/// `T` table containing various exporters.
 pub struct NetworkExportTable<T>(sp_std::marker::PhantomData<T>);
 impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> {
 	fn exporter_for(
@@ -162,7 +157,10 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 			.into_iter()
 			.find(|item| {
 				&item.remote_network == network &&
-					item.remote_location_filter.matches(remote_location)
+					item.remote_location_filter
+						.as_ref()
+						.map(|filters| filters.iter().any(|filter| filter == remote_location))
+						.unwrap_or(true)
 			})
 			.map(|item| (item.bridge, item.payment))
 	}
@@ -478,7 +476,6 @@ impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::InteriorLocationMatcher;
 
 	#[test]
 	fn ensure_is_remote_works() {
@@ -581,36 +578,41 @@ mod tests {
 
 	#[test]
 	fn network_export_table_works() {
-		frame_support::match_types! {
-			pub type AllowOnlySeveralRemoteDestinations: impl Contains<InteriorMultiLocation> = {
-				X1(Parachain(2000)) | X1(Parachain(3000)) | X1(Parachain(4000))
-			};
-		}
-
 		frame_support::parameter_types! {
-			pub BridgeLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
+			pub NetworkA: NetworkId = ByGenesis([0; 32]);
+			pub Parachain1000InNetworkA: InteriorMultiLocation = X1(Parachain(1000));
+
+			pub NetworkB: NetworkId = ByGenesis([1; 32]);
+
+			pub BridgeToALocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
+			pub BridgeToBLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(4321)));
 
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				// NetworkA allows only `Parachain(1000)` as remote location.
 				NetworkExportTableItem::new(
-					Kusama,
-					InteriorLocationMatcher::<AllowOnlySeveralRemoteDestinations>::new(),
-					BridgeLocation::get(),
+					NetworkA::get(),
+					Some(vec![Parachain1000InNetworkA::get()]),
+					BridgeToALocation::get(),
+					None
+				),
+				// NetworkB allows all remote location.
+				NetworkExportTableItem::new(
+					NetworkB::get(),
+					None,
+					BridgeToBLocation::get(),
 					None
 				)
 			];
 		}
 
 		let test_data = vec![
-			(Polkadot, X1(Parachain(1000)), None),
-			(Polkadot, X1(Parachain(2000)), None),
-			(Polkadot, X1(Parachain(3000)), None),
-			(Polkadot, X1(Parachain(4000)), None),
-			(Polkadot, X1(Parachain(5000)), None),
-			(Kusama, X1(Parachain(1000)), None),
-			(Kusama, X1(Parachain(2000)), Some((BridgeLocation::get(), None))),
-			(Kusama, X1(Parachain(3000)), Some((BridgeLocation::get(), None))),
-			(Kusama, X1(Parachain(4000)), Some((BridgeLocation::get(), None))),
-			(Kusama, X1(Parachain(5000)), None),
+			(NetworkA::get(), X1(Parachain(1000)), Some((BridgeToALocation::get(), None))),
+			(NetworkA::get(), X2(Parachain(1000), GeneralIndex(1)), None),
+			(NetworkA::get(), X1(Parachain(2000)), None),
+			(NetworkA::get(), X1(Parachain(3000)), None),
+			(NetworkB::get(), X1(Parachain(1000)), Some((BridgeToBLocation::get(), None))),
+			(NetworkB::get(), X1(Parachain(2000)), Some((BridgeToBLocation::get(), None))),
+			(NetworkB::get(), X1(Parachain(3000)), Some((BridgeToBLocation::get(), None))),
 		];
 
 		for (network, remote_location, expected_result) in test_data {

@@ -27,7 +27,7 @@ parameter_types! {
 	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
 		NetworkExportTableItem::new(
 			Remote::get(),
-			AllowAll::new(),
+			None,
 			(Parent, Parachain(1)).into(),
 			None
 		)
