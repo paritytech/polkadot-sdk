@@ -3,7 +3,7 @@
 
 cache = true
 max_cache_age = "1d"
-max_redirects = 3
+max_redirects = 10
 max_retries = 6
 
 # Exclude localhost et.al.
