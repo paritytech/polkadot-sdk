@@ -281,6 +281,29 @@ fn service_queues_low_weight_defensive() {
 	});
 }
 
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/pull/1873>.
+#[test]
+fn service_queues_regression_1873() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		DefaultWeightForCall::set(20.into());
+
+		MessageQueue::enqueue_message(msg("weight=100"), Here);
+		assert_eq!(MessageQueue::service_queues(100.into_weight()), 100.into());
+
+		// Before the MQ this would not emit any events:
+		assert_last_event::<Test>(
+			Event::OverweightEnqueued {
+				id: blake2_256(b"weight=100"),
+				origin: MessageOrigin::Here,
+				message_index: 0,
+				page_index: 0,
+			}
+			.into(),
+		);
+	});
+}
+
 #[test]
 fn reap_page_permanent_overweight_works() {
 	use MessageOrigin::*;
@@ -1181,7 +1204,7 @@ fn permanently_overweight_limit_is_valid_basic() {
 			set_weight("service_page_item", 10.into());
 			set_weight("ready_ring_unknit", 10.into());
 
-			let m = format!("weight=200");
+			let m = "weight=200".to_string();
 
 			MessageQueue::enqueue_message(msg(&m), Here);
 			MessageQueue::service_queues(w.into());
@@ -1241,7 +1264,7 @@ fn permanently_overweight_limit_is_valid_fuzzy() {
 				set_weight("service_page_item", s4.into());
 				set_weight("ready_ring_unknit", s5.into());
 
-				let m = format!("weight=200");
+				let m = "weight=200".to_string();
 
 				MessageQueue::enqueue_message(msg(&m), Here);
 				MessageQueue::service_queues(w.into());
