@@ -2238,6 +2238,34 @@
 <a href="#2238" id="2238">2238</a>
 <a href="#2239" id="2239">2239</a>
 <a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2626,7 +2654,16 @@
 		///
 		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
 		</span>included_at: BlockNumber,
+		<span class="doccomment">/// Whether or not the given para should be sent the `GoAhead` signal.
+		</span>set_go_ahead: SetGoAhead,
 	},
+}
+
+<span class="doccomment">/// Should the `GoAhead` signal be set after a successful check of the new wasm binary?
+</span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
+</span><span class="kw">pub enum </span>SetGoAhead {
+	Yes,
+	No,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber&gt; PvfCheckCause&lt;BlockNumber&gt; {
@@ -3128,7 +3165,13 @@
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
-			<span class="self">Self</span>::schedule_code_upgrade(para, new_code, relay_parent_number, <span class="kw-2">&amp;</span>config);
+			<span class="self">Self</span>::schedule_code_upgrade(
+				para,
+				new_code,
+				relay_parent_number,
+				<span class="kw-2">&amp;</span>config,
+				SetGoAhead::No,
+			);
 			<span class="self">Self</span>::deposit_event(Event::CodeUpgradeScheduled(para));
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -3426,6 +3469,7 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>schedule_code_upgrade_external(
 		id: ParaId,
 		new_code: ValidationCode,
+		set_go_ahead: SetGoAhead,
 	) -&gt; DispatchResult {
 		<span class="comment">// Check that we can schedule an upgrade at all.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::can_upgrade_validation_code(id), Error::&lt;T&gt;::CannotUpgradeCode);
@@ -3433,7 +3477,7 @@
 		<span class="kw">let </span>current_block = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="comment">// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		</span><span class="kw">let </span>upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
-		<span class="self">Self</span>::schedule_code_upgrade(id, new_code, upgrade_block, <span class="kw-2">&amp;</span>config);
+		<span class="self">Self</span>::schedule_code_upgrade(id, new_code, upgrade_block, <span class="kw-2">&amp;</span>config, set_go_ahead);
 		<span class="self">Self</span>::deposit_event(Event::CodeUpgradeScheduled(id));
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3774,8 +3818,15 @@
 				PvfCheckCause::Onboarding(id) =&gt; {
 					weight += <span class="self">Self</span>::proceed_with_onboarding(<span class="kw-2">*</span>id, sessions_observed);
 				},
-				PvfCheckCause::Upgrade { id, included_at } =&gt; {
-					weight += <span class="self">Self</span>::proceed_with_upgrade(<span class="kw-2">*</span>id, code_hash, now, <span class="kw-2">*</span>included_at, cfg);
+				PvfCheckCause::Upgrade { id, included_at, set_go_ahead } =&gt; {
+					weight += <span class="self">Self</span>::proceed_with_upgrade(
+						<span class="kw-2">*</span>id,
+						code_hash,
+						now,
+						<span class="kw-2">*</span>included_at,
+						cfg,
+						<span class="kw-2">*</span>set_go_ahead,
+					);
 				},
 			}
 		}
@@ -3808,6 +3859,7 @@
 		now: BlockNumberFor&lt;T&gt;,
 		relay_parent_number: BlockNumberFor&lt;T&gt;,
 		cfg: <span class="kw-2">&amp;</span>configuration::HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
+		set_go_ahead: SetGoAhead,
 	) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
 
@@ -3831,12 +3883,15 @@
 		weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">4</span>);
 		FutureCodeUpgrades::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, expected_at);
 
-		UpcomingUpgrades::&lt;T&gt;::mutate(|upcoming_upgrades| {
-			<span class="kw">let </span>insert_idx = upcoming_upgrades
-				.binary_search_by_key(<span class="kw-2">&amp;</span>expected_at, |<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b)
-				.unwrap_or_else(|idx| idx);
-			upcoming_upgrades.insert(insert_idx, (id, expected_at));
-		});
+		<span class="comment">// Only set an upcoming upgrade if `GoAhead` signal should be set for the respective para.
+		</span><span class="kw">if </span>set_go_ahead == SetGoAhead::Yes {
+			UpcomingUpgrades::&lt;T&gt;::mutate(|upcoming_upgrades| {
+				<span class="kw">let </span>insert_idx = upcoming_upgrades
+					.binary_search_by_key(<span class="kw-2">&amp;</span>expected_at, |<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b)
+					.unwrap_or_else(|idx| idx);
+				upcoming_upgrades.insert(insert_idx, (id, expected_at));
+			});
+		}
 
 		<span class="kw">let </span>expected_at = expected_at.saturated_into();
 		<span class="kw">let </span>log = ConsensusLog::ParaScheduleUpgradeCode(id, <span class="kw-2">*</span>code_hash, expected_at);
@@ -4075,6 +4130,7 @@
 		new_code: ValidationCode,
 		inclusion_block_number: BlockNumberFor&lt;T&gt;,
 		cfg: <span class="kw-2">&amp;</span>configuration::HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
+		set_go_ahead: SetGoAhead,
 	) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 
@@ -4124,7 +4180,7 @@
 		});
 
 		weight += <span class="self">Self</span>::kick_off_pvf_check(
-			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number },
+			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, set_go_ahead },
 			code_hash,
 			new_code,
 			cfg,

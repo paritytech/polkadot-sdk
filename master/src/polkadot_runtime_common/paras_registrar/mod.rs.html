@@ -1637,7 +1637,7 @@
 <span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 <span class="kw">use </span>runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{<span class="self">self</span>, ParaGenesisArgs},
+	paras::{<span class="self">self</span>, ParaGenesisArgs, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 <span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, result};
@@ -2020,7 +2020,7 @@
 			new_code: ValidationCode,
 		) -&gt; DispatchResult {
 			<span class="self">Self</span>::ensure_root_para_or_owner(origin, para)<span class="question-mark">?</span>;
-			runtime_parachains::schedule_code_upgrade::&lt;T&gt;(para, new_code)<span class="question-mark">?</span>;
+			runtime_parachains::schedule_code_upgrade::&lt;T&gt;(para, new_code, SetGoAhead::No)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 

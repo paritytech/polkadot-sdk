@@ -97,6 +97,7 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -152,7 +153,7 @@
 </span><span class="kw">mod </span>ump_tests;
 
 <span class="kw">pub use </span>origin::{ensure_parachain, Origin};
-<span class="kw">pub use </span>paras::ParaLifecycle;
+<span class="kw">pub use </span>paras::{ParaLifecycle, SetGoAhead};
 <span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode};
 <span class="kw">use </span>sp_runtime::{DispatchResult, FixedU128};
 
@@ -188,8 +189,9 @@
 </span><span class="kw">pub fn </span>schedule_code_upgrade&lt;T: paras::Config&gt;(
 	id: ParaId,
 	new_code: ValidationCode,
+	set_go_ahead: SetGoAhead,
 ) -&gt; DispatchResult {
-	paras::Pallet::&lt;T&gt;::schedule_code_upgrade_external(id, new_code)
+	paras::Pallet::&lt;T&gt;::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 }
 
 <span class="doccomment">/// Sets the current parachain head with the given id.

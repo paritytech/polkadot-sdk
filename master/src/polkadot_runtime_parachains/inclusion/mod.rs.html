@@ -1329,6 +1329,9 @@
 <a href="#1329" id="1329">1329</a>
 <a href="#1330" id="1330">1330</a>
 <a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1352,7 +1355,8 @@
 
 </span><span class="kw">use crate</span>::{
 	configuration::{<span class="self">self</span>, HostConfiguration},
-	disputes, dmp, hrmp, paras,
+	disputes, dmp, hrmp,
+	paras::{<span class="self">self</span>, SetGoAhead},
 	scheduler::{<span class="self">self</span>, AvailabilityTimeoutStatus},
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
 };
@@ -1779,8 +1783,9 @@
 				<span class="string">&quot;the ump queue would have grown past the max size permitted by config ({} &gt; {})&quot;</span>,
 				total_size, limit,
 			),
-			UmpAcceptanceCheckErr::IsOffboarding =&gt;
-				<span class="macro">write!</span>(fmt, <span class="string">&quot;upward message rejected because the para is off-boarding&quot;</span>,),
+			UmpAcceptanceCheckErr::IsOffboarding =&gt; {
+				<span class="macro">write!</span>(fmt, <span class="string">&quot;upward message rejected because the para is off-boarding&quot;</span>)
+			},
 		}
 	}
 }
@@ -2216,6 +2221,7 @@
 				new_code,
 				now,
 				<span class="kw-2">&amp;</span>config,
+				SetGoAhead::Yes,
 			));
 		}
 
