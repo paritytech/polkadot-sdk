@@ -301,7 +301,7 @@
 		<span class="kw">use </span>rand::{RngCore, SeedableRng};
 
 		<span class="kw">let </span>validator = T::Lookup::lookup(who).unwrap();
-		<span class="kw">let </span>controller = pallet_staking::Pallet::&lt;T&gt;::bonded(validator).unwrap();
+		<span class="kw">let </span>controller = pallet_staking::Pallet::&lt;T&gt;::bonded(<span class="kw-2">&amp;</span>validator).unwrap();
 
 		<span class="kw">let </span>keys = {
 			<span class="kw">let </span><span class="kw-2">mut </span>keys = [<span class="number">0u8</span>; <span class="number">128</span>];

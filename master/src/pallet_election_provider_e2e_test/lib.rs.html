@@ -727,7 +727,7 @@
 		ExtBuilder::default().staking(StakingExtBuilder::default()).build_offchainify();
 
 	ext.execute_with(|| {
-		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="kw-2">&amp;</span><span class="number">11</span>).unwrap().active, <span class="number">1000</span>);
+		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().active, <span class="number">1000</span>);
 
 		<span class="comment">// unbonding total of active stake fails because the active ledger balance would fall
 		// below the `MinNominatorBond`.
@@ -745,13 +745,13 @@
 
 		<span class="comment">// the active balance of the ledger entry is 0, while total balance is 1000 until
 		// `withdraw_unbonded` is called.
-		</span><span class="macro">assert_eq!</span>(Staking::ledger(<span class="kw-2">&amp;</span><span class="number">11</span>).unwrap().active, <span class="number">0</span>);
-		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="kw-2">&amp;</span><span class="number">11</span>).unwrap().total, <span class="number">1000</span>);
+		</span><span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().active, <span class="number">0</span>);
+		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().total, <span class="number">1000</span>);
 
 		<span class="comment">// trying to withdraw the unbonded balance won&#39;t work yet because not enough bonding
 		// eras have passed.
 		</span><span class="macro">assert_ok!</span>(Staking::withdraw_unbonded(RuntimeOrigin::signed(<span class="number">11</span>), <span class="number">0</span>));
-		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="kw-2">&amp;</span><span class="number">11</span>).unwrap().total, <span class="number">1000</span>);
+		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().total, <span class="number">1000</span>);
 
 		<span class="comment">// tries to reap stash after chilling, which fails since the stash total balance is
 		// above ED.
@@ -773,7 +773,7 @@
 			pool_state,
 		);
 		<span class="macro">assert_ok!</span>(Staking::withdraw_unbonded(RuntimeOrigin::signed(<span class="number">11</span>), <span class="number">0</span>));
-		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="kw-2">&amp;</span><span class="number">11</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert!</span>(Staking::ledger(<span class="number">11</span>.into()).is_err());
 	});
 }
 </code></pre></div></section></main></body></html>

@@ -856,8 +856,6 @@
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1457,15 +1455,11 @@
 	slashed_imbalance: <span class="kw-2">&amp;mut </span>NegativeImbalanceOf&lt;T&gt;,
 	slash_era: EraIndex,
 ) {
-	<span class="kw">let </span>controller = <span class="kw">match </span>&lt;Pallet&lt;T&gt;&gt;::bonded(stash).defensive() {
-		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
-		<span class="prelude-val">Some</span>(c) =&gt; c,
-	};
-
-	<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="kw">match </span>&lt;Pallet&lt;T&gt;&gt;::ledger(<span class="kw-2">&amp;</span>controller) {
-		<span class="prelude-val">Some</span>(ledger) =&gt; ledger,
-		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>, <span class="comment">// nothing to do.
-	</span>};
+	<span class="kw">let </span><span class="kw-2">mut </span>ledger =
+		<span class="kw">match </span>Pallet::&lt;T&gt;::ledger(sp_staking::StakingAccount::Stash(stash.clone())).defensive() {
+			<span class="prelude-val">Ok</span>(ledger) =&gt; ledger,
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span>, <span class="comment">// nothing to do.
+		</span>};
 
 	<span class="kw">let </span>value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
@@ -1478,7 +1472,9 @@
 			</span><span class="kw-2">*</span>reward_payout = reward_payout.saturating_sub(missing);
 		}
 
-		&lt;Pallet&lt;T&gt;&gt;::update_ledger(<span class="kw-2">&amp;</span>controller, <span class="kw-2">&amp;</span>ledger);
+		<span class="kw">let _ </span>= ledger
+			.update()
+			.defensive_proof(<span class="string">&quot;ledger fetched from storage so it exists in storage; qed.&quot;</span>);
 
 		<span class="comment">// trigger the event
 		</span>&lt;Pallet&lt;T&gt;&gt;::deposit_event(<span class="kw">super</span>::Event::&lt;T&gt;::Slashed {

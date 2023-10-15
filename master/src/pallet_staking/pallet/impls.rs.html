@@ -1873,23 +1873,6 @@
 <a href="#1873" id="1873">1873</a>
 <a href="#1874" id="1874">1874</a>
 <a href="#1875" id="1875">1875</a>
-<a href="#1876" id="1876">1876</a>
-<a href="#1877" id="1877">1877</a>
-<a href="#1878" id="1878">1878</a>
-<a href="#1879" id="1879">1879</a>
-<a href="#1880" id="1880">1880</a>
-<a href="#1881" id="1881">1881</a>
-<a href="#1882" id="1882">1882</a>
-<a href="#1883" id="1883">1883</a>
-<a href="#1884" id="1884">1884</a>
-<a href="#1885" id="1885">1885</a>
-<a href="#1886" id="1886">1886</a>
-<a href="#1887" id="1887">1887</a>
-<a href="#1888" id="1888">1888</a>
-<a href="#1889" id="1889">1889</a>
-<a href="#1890" id="1890">1890</a>
-<a href="#1891" id="1891">1891</a>
-<a href="#1892" id="1892">1892</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1919,8 +1902,8 @@
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
-		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance,
-		LockableCurrency, OnUnbalanced, TryCollect, UnixTime, WithdrawReasons,
+		Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance, OnUnbalanced,
+		TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -1933,7 +1916,9 @@
 <span class="kw">use </span>sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, Stake, StakingInterface,
+	EraIndex, SessionIndex, Stake,
+	StakingAccount::{<span class="self">self</span>, Controller, Stash},
+	StakingInterface,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -1944,7 +1929,7 @@
 	SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
-<span class="kw">use super</span>::{pallet::<span class="kw-2">*</span>, STAKING_ID};
+<span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>frame_support::ensure;
@@ -1960,10 +1945,24 @@
 </span><span class="kw">const </span>NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = <span class="number">2</span>;
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Fetches the ledger associated with a controller or stash account, if any.
+	</span><span class="kw">pub fn </span>ledger(account: StakingAccount&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;StakingLedger&lt;T&gt;, Error&lt;T&gt;&gt; {
+		StakingLedger::&lt;T&gt;::get(account)
+	}
+
+	<span class="kw">pub fn </span>payee(account: StakingAccount&lt;T::AccountId&gt;) -&gt; RewardDestination&lt;T::AccountId&gt; {
+		StakingLedger::&lt;T&gt;::reward_destination(account)
+	}
+
+	<span class="doccomment">/// Fetches the controller bonded to a stash account, if any.
+	</span><span class="kw">pub fn </span>bonded(stash: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
+		StakingLedger::&lt;T&gt;::paired_account(Stash(stash.clone()))
+	}
+
 	<span class="doccomment">/// The total balance that can be slashed from a stash account as of right now.
 	</span><span class="kw">pub fn </span>slashable_balance_of(stash: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
 		<span class="comment">// Weight note: consider making the stake accessible through stash.
-		</span><span class="self">Self</span>::bonded(stash).and_then(<span class="self">Self</span>::ledger).map(|l| l.active).unwrap_or_default()
+		</span><span class="self">Self</span>::ledger(Stash(stash.clone())).map(|l| l.active).unwrap_or_default()
 	}
 
 	<span class="doccomment">/// Internal impl of [`Self::slashable_balance_of`] that returns [`VoteWeight`].
@@ -1997,25 +1996,24 @@
 		controller: <span class="kw-2">&amp;</span>T::AccountId,
 		num_slashing_spans: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchError&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="self">Self</span>::ledger(<span class="kw-2">&amp;</span>controller).ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="self">Self</span>::ledger(Controller(controller.clone()))<span class="question-mark">?</span>;
 		<span class="kw">let </span>(stash, old_total) = (ledger.stash.clone(), ledger.total);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(current_era) = <span class="self">Self</span>::current_era() {
 			ledger = ledger.consolidate_unlocked(current_era)
 		}
+		<span class="kw">let </span>new_total = ledger.total;
 
 		<span class="kw">let </span>used_weight =
 			<span class="kw">if </span>ledger.unlocking.is_empty() &amp;&amp; ledger.active &lt; T::Currency::minimum_balance() {
 				<span class="comment">// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
-				</span><span class="self">Self</span>::kill_stash(<span class="kw-2">&amp;</span>stash, num_slashing_spans)<span class="question-mark">?</span>;
-				<span class="comment">// Remove the lock.
-				</span>T::Currency::remove_lock(STAKING_ID, <span class="kw-2">&amp;</span>stash);
+				</span><span class="self">Self</span>::kill_stash(<span class="kw-2">&amp;</span>ledger.stash, num_slashing_spans)<span class="question-mark">?</span>;
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} <span class="kw">else </span>{
 				<span class="comment">// This was the consequence of a partial unbond. just update the ledger and move on.
-				</span><span class="self">Self</span>::update_ledger(<span class="kw-2">&amp;</span>controller, <span class="kw-2">&amp;</span>ledger);
+				</span>ledger.update()<span class="question-mark">?</span>;
 
 				<span class="comment">// This is only an update, so we use less overall weight.
 				</span>T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
@@ -2023,9 +2021,9 @@
 
 		<span class="comment">// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
-		</span><span class="kw">if </span>ledger.total &lt; old_total {
+		</span><span class="kw">if </span>new_total &lt; old_total {
 			<span class="comment">// Already checked that this won&#39;t overflow by entry condition.
-			</span><span class="kw">let </span>value = old_total - ledger.total;
+			</span><span class="kw">let </span>value = old_total - new_total;
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Withdrawn { stash, amount: value });
 		}
 
@@ -2055,10 +2053,15 @@
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
 		})<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>controller = <span class="self">Self</span>::bonded(<span class="kw-2">&amp;</span>validator_stash).ok_or_else(|| {
-			Error::&lt;T&gt;::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>))
+		<span class="kw">let </span>account = StakingAccount::Stash(validator_stash.clone());
+		<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="self">Self</span>::ledger(account.clone()).or_else(|<span class="kw">_</span>| {
+			<span class="kw">if </span>StakingLedger::&lt;T&gt;::is_bonded(account) {
+				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotController.into())
+			} <span class="kw">else </span>{
+				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(<span class="number">0</span>)))
+			}
 		})<span class="question-mark">?</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>ledger = &lt;Ledger&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
+		<span class="kw">let </span>stash = ledger.stash.clone();
 
 		ledger
 			.claimed_rewards
@@ -2077,11 +2080,11 @@
 				</span>.defensive_map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BoundNotMet)<span class="question-mark">?</span>,
 		}
 
-		<span class="kw">let </span>exposure = &lt;ErasStakersClipped&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era, <span class="kw-2">&amp;</span>ledger.stash);
+		<span class="kw">let </span>exposure = &lt;ErasStakersClipped&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era, <span class="kw-2">&amp;</span>stash);
 
 		<span class="comment">// Input data seems good, no errors allowed after this point
 
-		</span>&lt;Ledger&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>controller, <span class="kw-2">&amp;</span>ledger);
+		</span>ledger.update()<span class="question-mark">?</span>;
 
 		<span class="comment">// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -2092,11 +2095,8 @@
 
 		</span><span class="kw">let </span>era_reward_points = &lt;ErasRewardPoints&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era);
 		<span class="kw">let </span>total_reward_points = era_reward_points.total;
-		<span class="kw">let </span>validator_reward_points = era_reward_points
-			.individual
-			.get(<span class="kw-2">&amp;</span>ledger.stash)
-			.copied()
-			.unwrap_or_else(Zero::zero);
+		<span class="kw">let </span>validator_reward_points =
+			era_reward_points.individual.get(<span class="kw-2">&amp;</span>stash).copied().unwrap_or_else(Zero::zero);
 
 		<span class="comment">// Nothing to do if they have no reward points.
 		</span><span class="kw">if </span>validator_reward_points.is_zero() {
@@ -2123,19 +2123,15 @@
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PayoutStarted {
 			era_index: era,
-			validator_stash: ledger.stash.clone(),
+			validator_stash: stash.clone(),
 		});
 
 		<span class="kw">let </span><span class="kw-2">mut </span>total_imbalance = PositiveImbalanceOf::&lt;T&gt;::zero();
 		<span class="comment">// We can now make total validator payout:
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>((imbalance, dest)) =
-			<span class="self">Self</span>::make_payout(<span class="kw-2">&amp;</span>ledger.stash, validator_staking_payout + validator_commission_payout)
+			<span class="self">Self</span>::make_payout(<span class="kw-2">&amp;</span>stash, validator_staking_payout + validator_commission_payout)
 		{
-			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Rewarded {
-				stash: ledger.stash,
-				dest,
-				amount: imbalance.peek(),
-			});
+			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Rewarded { stash, dest, amount: imbalance.peek() });
 			total_imbalance.subsume(imbalance);
 		}
 
@@ -2170,14 +2166,6 @@
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
 	}
 
-	<span class="doccomment">/// Update the ledger for a controller.
-	///
-	/// This will also update the stash lock.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_ledger(controller: <span class="kw-2">&amp;</span>T::AccountId, ledger: <span class="kw-2">&amp;</span>StakingLedger&lt;T&gt;) {
-		T::Currency::set_lock(STAKING_ID, <span class="kw-2">&amp;</span>ledger.stash, ledger.total, WithdrawReasons::all());
-		&lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger);
-	}
-
 	<span class="doccomment">/// Chill a stash account.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>chill_stash(stash: <span class="kw-2">&amp;</span>T::AccountId) {
 		<span class="kw">let </span>chilled_as_validator = <span class="self">Self</span>::do_remove_validator(stash);
@@ -2193,24 +2181,30 @@
 		stash: <span class="kw-2">&amp;</span>T::AccountId,
 		amount: BalanceOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(PositiveImbalanceOf&lt;T&gt;, RewardDestination&lt;T::AccountId&gt;)&gt; {
-		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span><span class="self">Self</span>::payee(stash) {
+		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()));
+		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span>dest {
 			RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
 				.map(|controller| T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)),
 			RewardDestination::Stash =&gt; T::Currency::deposit_into_existing(stash, amount).ok(),
-			RewardDestination::Staked =&gt; <span class="self">Self</span>::bonded(stash)
-				.and_then(|c| <span class="self">Self</span>::ledger(<span class="kw-2">&amp;</span>c).map(|l| (c, l)))
-				.and_then(|(controller, <span class="kw-2">mut </span>l)| {
-					l.active += amount;
-					l.total += amount;
+			RewardDestination::Staked =&gt; <span class="self">Self</span>::ledger(Stash(stash.clone()))
+				.and_then(|<span class="kw-2">mut </span>ledger| {
+					ledger.active += amount;
+					ledger.total += amount;
 					<span class="kw">let </span>r = T::Currency::deposit_into_existing(stash, amount).ok();
-					<span class="self">Self</span>::update_ledger(<span class="kw-2">&amp;</span>controller, <span class="kw-2">&amp;</span>l);
-					r
-				}),
+
+					<span class="kw">let _ </span>= ledger
+						.update()
+						.defensive_proof(<span class="string">&quot;ledger fetched from storage, so it exists; qed.&quot;</span>);
+
+					<span class="prelude-val">Ok</span>(r)
+				})
+				.unwrap_or_default(),
 			RewardDestination::Account(dest_account) =&gt;
 				<span class="prelude-val">Some</span>(T::Currency::deposit_creating(<span class="kw-2">&amp;</span>dest_account, amount)),
 			RewardDestination::None =&gt; <span class="prelude-val">None</span>,
 		};
-		maybe_imbalance.map(|imbalance| (imbalance, <span class="self">Self</span>::payee(stash)))
+		maybe_imbalance
+			.map(|imbalance| (imbalance, <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()))))
 	}
 
 	<span class="doccomment">/// Plan a new session potentially trigger a new era.
@@ -2299,7 +2293,6 @@
 	}
 
 	<span class="doccomment">/// Start a new era. It does:
-	///
 	/// * Increment `active_era.index`,
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
@@ -2558,18 +2551,16 @@
 	/// - after a `withdraw_unbonded()` call that frees all of a stash&#39;s bonded balance.
 	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>kill_stash(stash: <span class="kw-2">&amp;</span>T::AccountId, num_slashing_spans: u32) -&gt; DispatchResult {
-		<span class="kw">let </span>controller = &lt;Bonded&lt;T&gt;&gt;::get(stash).ok_or(Error::&lt;T&gt;::NotStash)<span class="question-mark">?</span>;
+		slashing::clear_stash_metadata::&lt;T&gt;(<span class="kw-2">&amp;</span>stash, num_slashing_spans)<span class="question-mark">?</span>;
 
-		slashing::clear_stash_metadata::&lt;T&gt;(stash, num_slashing_spans)<span class="question-mark">?</span>;
+		<span class="comment">// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
+		// setting of the stash in `Payee`.
+		</span>StakingLedger::&lt;T&gt;::kill(<span class="kw-2">&amp;</span>stash)<span class="question-mark">?</span>;
 
-		&lt;Bonded&lt;T&gt;&gt;::remove(stash);
-		&lt;Ledger&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>controller);
+		<span class="self">Self</span>::do_remove_validator(<span class="kw-2">&amp;</span>stash);
+		<span class="self">Self</span>::do_remove_nominator(<span class="kw-2">&amp;</span>stash);
 
-		&lt;Payee&lt;T&gt;&gt;::remove(stash);
-		<span class="self">Self</span>::do_remove_validator(stash);
-		<span class="self">Self</span>::do_remove_nominator(stash);
-
-		frame_system::Pallet::&lt;T&gt;::dec_consumers(stash);
+		frame_system::Pallet::&lt;T&gt;::dec_consumers(<span class="kw-2">&amp;</span>stash);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3015,13 +3006,7 @@
 		&lt;Bonded&lt;T&gt;&gt;::insert(voter.clone(), voter.clone());
 		&lt;Ledger&lt;T&gt;&gt;::insert(
 			voter.clone(),
-			StakingLedger {
-				stash: voter.clone(),
-				active: stake,
-				total: stake,
-				unlocking: Default::default(),
-				claimed_rewards: Default::default(),
-			},
+			StakingLedger::&lt;T&gt;::new(voter.clone(), stake, Default::default()),
 		);
 
 		<span class="self">Self</span>::do_add_nominator(<span class="kw-2">&amp;</span>voter, Nominations { targets, submitted_in: <span class="number">0</span>, suppressed: <span class="bool-val">false </span>});
@@ -3033,13 +3018,7 @@
 		&lt;Bonded&lt;T&gt;&gt;::insert(target.clone(), target.clone());
 		&lt;Ledger&lt;T&gt;&gt;::insert(
 			target.clone(),
-			StakingLedger {
-				stash: target.clone(),
-				active: stake,
-				total: stake,
-				unlocking: Default::default(),
-				claimed_rewards: Default::default(),
-			},
+			StakingLedger::&lt;T&gt;::new(target.clone(), stake, Default::default()),
 		);
 		<span class="self">Self</span>::do_add_validator(
 			<span class="kw-2">&amp;</span>target,
@@ -3074,13 +3053,7 @@
 			&lt;Bonded&lt;T&gt;&gt;::insert(v.clone(), v.clone());
 			&lt;Ledger&lt;T&gt;&gt;::insert(
 				v.clone(),
-				StakingLedger {
-					stash: v.clone(),
-					active: stake,
-					total: stake,
-					unlocking: Default::default(),
-					claimed_rewards: Default::default(),
-				},
+				StakingLedger::&lt;T&gt;::new(v.clone(), stake, Default::default()),
 			);
 			<span class="self">Self</span>::do_add_validator(
 				<span class="kw-2">&amp;</span>v,
@@ -3095,13 +3068,7 @@
 			&lt;Bonded&lt;T&gt;&gt;::insert(v.clone(), v.clone());
 			&lt;Ledger&lt;T&gt;&gt;::insert(
 				v.clone(),
-				StakingLedger {
-					stash: v.clone(),
-					active: stake,
-					total: stake,
-					unlocking: Default::default(),
-					claimed_rewards: Default::default(),
-				},
+				StakingLedger::&lt;T&gt;::new(v.clone(), stake, Default::default()),
 			);
 			<span class="self">Self</span>::do_add_nominator(
 				<span class="kw-2">&amp;</span>v,
@@ -3351,9 +3318,9 @@
 		<span class="comment">// this will clearly results in an inconsistent state, but it should not matter for a
 		// benchmark.
 		</span><span class="kw">let </span>active: BalanceOf&lt;T&gt; = weight.try_into().map_err(|<span class="kw">_</span>| ()).unwrap();
-		<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="kw">match </span><span class="self">Self</span>::ledger(who) {
-			<span class="prelude-val">None </span>=&gt; StakingLedger::default_from(who.clone()),
-			<span class="prelude-val">Some</span>(l) =&gt; l,
+		<span class="kw">let </span><span class="kw-2">mut </span>ledger = <span class="kw">match </span><span class="self">Self</span>::ledger(StakingAccount::Stash(who.clone())) {
+			<span class="prelude-val">Ok</span>(l) =&gt; l,
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; StakingLedger::default_from(who.clone()),
 		};
 		ledger.active = active;
 
@@ -3544,9 +3511,9 @@
 	}
 
 	<span class="kw">fn </span>stash_by_ctrl(controller: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AccountId, DispatchError&gt; {
-		<span class="self">Self</span>::ledger(controller)
+		<span class="self">Self</span>::ledger(Controller(controller.clone()))
 			.map(|l| l.stash)
-			.ok_or(Error::&lt;T&gt;::NotController.into())
+			.map_err(|e| e.into())
 	}
 
 	<span class="kw">fn </span>is_exposed_in_era(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool {
@@ -3564,10 +3531,9 @@
 	}
 
 	<span class="kw">fn </span>stake(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Stake&lt;BalanceOf&lt;T&gt;&gt;, DispatchError&gt; {
-		<span class="self">Self</span>::bonded(who)
-			.and_then(|c| <span class="self">Self</span>::ledger(c))
+		<span class="self">Self</span>::ledger(Stash(who.clone()))
 			.map(|l| Stake { total: l.total, active: l.active })
-			.ok_or(Error::&lt;T&gt;::NotStash.into())
+			.map_err(|e| e.into())
 	}
 
 	<span class="kw">fn </span>bond_extra(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, extra: <span class="self">Self</span>::Balance) -&gt; DispatchResult {
@@ -3592,7 +3558,7 @@
 		who: <span class="self">Self</span>::AccountId,
 		num_slashing_spans: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
-		<span class="kw">let </span>ctrl = <span class="self">Self</span>::bonded(who).ok_or(Error::&lt;T&gt;::NotStash)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ctrl = <span class="self">Self</span>::bonded(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T&gt;::NotStash)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
 			.map(|<span class="kw">_</span>| !Ledger::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>ctrl))
 			.map_err(|with_post| with_post.error)
@@ -3619,8 +3585,7 @@
 	<span class="kw">fn </span>status(
 		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_staking::StakerStatus&lt;<span class="self">Self</span>::AccountId&gt;, DispatchError&gt; {
-		<span class="kw">let </span>is_bonded = <span class="self">Self</span>::bonded(who).is_some();
-		<span class="kw">if </span>!is_bonded {
+		<span class="kw">if </span>!StakingLedger::&lt;T&gt;::is_bonded(StakingAccount::Stash(who.clone())) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotStash.into())
 		}
 
@@ -3774,7 +3739,8 @@
 
 	<span class="kw">fn </span>ensure_ledger_consistent(ctrl: T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="comment">// ensures ledger.total == ledger.active + sum(ledger.unlocking).
-		</span><span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(ctrl.clone()).ok_or(<span class="string">&quot;Not a controller.&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(StakingAccount::Controller(ctrl.clone()))<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>real_total: BalanceOf&lt;T&gt; =
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		<span class="macro">ensure!</span>(real_total == ledger.total, <span class="string">&quot;ledger.total corrupt&quot;</span>);
