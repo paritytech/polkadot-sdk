@@ -2,7 +2,7 @@
 name = "sp-crypto-ec-utils"
 version = "0.4.0"
 authors.workspace = true
-description = "Host function interface for common elliptic curve operations in Substrate runtimes"
+description = "Host functions for common Arkworks elliptic curve operations"
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
@@ -12,51 +12,26 @@ repository.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ark-serialize = { version = "0.4.2", default-features = false }
-ark-ff = { version = "0.4.2", default-features = false }
 ark-ec = { version = "0.4.2", default-features = false }
-ark-std = { version = "0.4.0", default-features = false }
 ark-bls12-377 = { version = "0.4.0", features = ["curve"], default-features = false }
 ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
 ark-bw6-761 = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
-sp-std = { path = "../../std", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-ark-scale = { version = "0.0.10", features = ["hazmat"], default-features = false }
+ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
-
-[dev-dependencies]
-sp-io = { path = "../../io", default-features = false }
-ark-algebra-test-templates = { version = "0.4.2", default-features = false }
-sp-ark-models = { version = "0.4.1-beta", default-features = false }
-sp-ark-bls12-377 = { version = "0.4.1-beta", default-features = false }
-sp-ark-bls12-381 = { version = "0.4.1-beta", default-features = false }
-sp-ark-bw6-761 = { version = "0.4.1-beta", default-features = false }
-sp-ark-ed-on-bls12-377 = { version = "0.4.1-beta", default-features = false }
-sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.1-beta", default-features = false }
+sp-std = { path = "../../std", default-features = false }
 
 [features]
 default = [ "std" ]
 std = [
-	"ark-algebra-test-templates/std",
 	"ark-bls12-377/std",
 	"ark-bls12-381/std",
 	"ark-bw6-761/std",
 	"ark-ec/std",
 	"ark-ed-on-bls12-377/std",
 	"ark-ed-on-bls12-381-bandersnatch/std",
-	"ark-ff/std",
 	"ark-scale/std",
-	"ark-serialize/std",
-	"ark-std/std",
-	"codec/std",
-	"sp-ark-bls12-377/std",
-	"sp-ark-bls12-381/std",
-	"sp-ark-bw6-761/std",
-	"sp-ark-ed-on-bls12-377/std",
-	"sp-ark-ed-on-bls12-381-bandersnatch/std",
-	"sp-io/std",
 	"sp-runtime-interface/std",
 	"sp-std/std",
 ]
