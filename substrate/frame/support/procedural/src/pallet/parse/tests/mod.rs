@@ -86,8 +86,8 @@ macro_rules! assert_pallet_parse_error {
 /// the closure panics.
 ///
 /// This is useful in tests of `Def::try_from` and other pallet-related methods that internally
-/// make use of [`generate_crate_access_2018`], which is sensitive to entries in the "current"
-/// `Cargo.toml` files.
+/// make use of [`generate_access_from_frame_or_crate`], which is sensitive to entries in the
+/// "current" `Cargo.toml` files.
 ///
 /// This function uses a [`Mutex`] to avoid a race condition created when multiple tests try to
 /// modify and then restore the `CARGO_MANIFEST_DIR` ENV var in an overlapping way.

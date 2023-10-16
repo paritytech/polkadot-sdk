@@ -41,9 +41,7 @@ pub mod validate_unsigned;
 pub mod tests;
 
 use composite::{keyword::CompositeKeyword, CompositeDef};
-use frame_support_procedural_tools::{
-	generate_access_from_frame_or_crate, generate_crate_access_2018,
-};
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 

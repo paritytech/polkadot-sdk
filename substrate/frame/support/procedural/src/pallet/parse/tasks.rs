@@ -24,7 +24,7 @@ use crate::assert_error_matches;
 use crate::pallet::parse::tests::simulate_manifest_dir;
 
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -32,8 +32,8 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, PathArguments,
-	Result, TypePath,
+	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path,
+	PathArguments, Result, TypePath,
 };
 
 pub mod keywords {
@@ -52,7 +52,7 @@ pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
-	pub scrate: Ident,
+	pub scrate: Path,
 	pub enum_ident: Ident,
 	pub enum_arguments: PathArguments,
 }
@@ -119,7 +119,7 @@ impl syn::parse::Parse for TasksDef {
 
 		// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_crate_access_2018("frame-support")?;
+		let scrate = generate_access_from_frame_or_crate("frame-support")?;
 
 		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate, enum_ident, enum_arguments })
 	}
@@ -136,7 +136,7 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
 	pub item_enum: ItemEnum,
-	pub scrate: Ident,
+	pub scrate: Path,
 	pub type_use_generics: TokenStream2,
 }
 
@@ -182,7 +182,7 @@ impl syn::parse::Parse for TaskEnumDef {
 
 		// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_crate_access_2018("frame-support")?;
+		let scrate = generate_access_from_frame_or_crate("frame-support")?;
 
 		let type_use_generics = quote!(T);
 
