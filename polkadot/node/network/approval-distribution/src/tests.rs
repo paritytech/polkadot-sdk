@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use crate::worker::state::*;
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
 use polkadot_node_network_protocol::{
@@ -23,6 +24,7 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion,
 	view, ObservedRole,
 };
+
 use polkadot_node_primitives::approval::{
 	AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,
 };
