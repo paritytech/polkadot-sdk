@@ -60,15 +60,7 @@ const PREOUT_SERIALIZED_LEN: usize = 33;
 //
 // This size is dependent on the ring domain size and the actual value
 // is equal to the SCALE encoded size of the `KZG` backend.
-//
-// Some values:
-//  ring_size → ~serialized_size
-//   512        →  74 KB
-//  1024        → 147 KB
-//  2048        → 295 KB
-// NOTE: This is quite big but looks like there is an upcoming fix
-// in the backend.
-const RING_CONTEXT_SERIALIZED_LEN: usize = 147748;
+const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
 
 /// Bandersnatch public key.
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
