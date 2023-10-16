@@ -2367,15 +2367,6 @@ pub mod pallet_macros {
 	/// 	type BazCountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u32, u32>;
 	/// }
 	/// ```
-	/// 
-	/// ## Related Macros
-	/// 
-	/// The following macros can be used in conjunction with the storage macro:
-	///
-	/// * [`macro@getter`]: Creates a custom getter function.
-	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
-	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
-	///
 	/// ## Storage Type Usage
 	///
 	/// The following details are relevant to all of the aforementioned storage types.
@@ -2492,8 +2483,16 @@ pub mod pallet_macros {
 	///
 	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
 	/// required. For map types, the prefix is extended with one or more keys defined by the map.
+	/// 
+	/// ## Related Macros
+	/// 
+	/// The following macros can be used in conjunction with the storage macro:
+	///
+	/// * [`macro@getter`]: Creates a custom getter function.
+	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
+	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
 	pub use frame_support_procedural::storage;
-	
+
 	#[cfg(test)]
 	mod test {
 		// use super::*;
