@@ -83,6 +83,7 @@ pub mod old {
 		}
 	}
 }
+
 /// This migration moves all the state to v2 of Assets
 pub struct VersionUncheckedMigrateToV2<
 	T: Config<I>,

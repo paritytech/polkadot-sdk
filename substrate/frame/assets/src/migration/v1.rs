@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	migration::v2::old::{Asset, AssetDetails},
-	AssetStatus, Config, DepositBalanceOf, Pallet, LOG_TARGET,
-};
+use crate::{AssetStatus, Config, DepositBalanceOf, Pallet, LOG_TARGET};
 use frame_support::{
 	pallet_prelude::*, sp_runtime::traits::Saturating, traits::OnRuntimeUpgrade, weights::Weight,
 };
@@ -70,6 +67,35 @@ mod old {
 			}
 		}
 	}
+}
+
+#[frame_support::storage_alias]
+/// Details of an asset.
+pub(crate) type Asset<T: Config<I>, I: 'static> = StorageMap<
+	Pallet<T, I>,
+	Blake2_128Concat,
+	<T as Config<I>>::AssetId,
+	AssetDetails<
+		<T as Config<I>>::Balance,
+		<T as frame_system::Config>::AccountId,
+		DepositBalanceOf<T, I>,
+	>,
+>;
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub(crate) struct AssetDetails<Balance, AccountId, DepositBalance> {
+	pub owner: AccountId,
+	pub issuer: AccountId,
+	pub admin: AccountId,
+	pub freezer: AccountId,
+	pub supply: Balance,
+	pub deposit: DepositBalance,
+	pub min_balance: Balance,
+	pub is_sufficient: bool,
+	pub accounts: u32,
+	pub sufficients: u32,
+	pub approvals: u32,
+	pub status: AssetStatus,
 }
 
 pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
@@ -134,9 +160,9 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 
 		Asset::<T, ()>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
 			ensure!(
-					asset.status == AssetStatus::Live || asset.status == AssetStatus::Frozen,
-					 "assets should only be live or frozen. None should be in destroying status, or undefined state"
-				);
+                asset.status == AssetStatus::Live || asset.status == AssetStatus::Frozen,
+                "assets should only be live or frozen. None should be in destroying status, or undefined state"
+            );
 			Ok(())
 		})?;
 		Ok(())
