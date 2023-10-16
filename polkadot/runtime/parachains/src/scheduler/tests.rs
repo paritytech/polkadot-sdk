@@ -373,10 +373,6 @@ fn session_change_takes_only_max_per_core() {
 fn fill_claimqueue_fills() {
 	let genesis_config = genesis_config(&default_config());
 
-	let lookahead = genesis_config.configuration.config.scheduling_lookahead as usize;
-	let chain_a = ParaId::from(1_u32);
-	let chain_b = ParaId::from(2_u32);
-
 	let thread_a = ParaId::from(3_u32);
 	let thread_b = ParaId::from(4_u32);
 	let thread_c = ParaId::from(5_u32);
@@ -386,18 +382,15 @@ fn fill_claimqueue_fills() {
 	let assignment_c = TestAssignment::new(thread_c);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(default_config().on_demand_cores, 3);
-
-		// register 2 lease holding parachains
-		schedule_blank_para(chain_a, ParaKind::Parachain);
-		schedule_blank_para(chain_b, ParaKind::Parachain);
+		MockAssigner::set_core_count(2);
+		let AssignmentProviderConfig { ttl: config_ttl, .. } = MockAssigner::get_provider_config(CoreIndex(0));
 
 		// and 3 parathreads (on-demand parachains)
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 		schedule_blank_para(thread_c, ParaKind::Parathread);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 3 validators for 3 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: default_config(),
@@ -405,39 +398,11 @@ fn fill_claimqueue_fills() {
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
 					ValidatorId::from(Sr25519Keyring::Charlie.public()),
-					ValidatorId::from(Sr25519Keyring::Dave.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
 				],
 				..Default::default()
 			}),
 			_ => None,
 		});
-
-		{
-			assert_eq!(Scheduler::claimqueue_len(), 2 * lookahead);
-			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
-
-			// Cannot assert on indices anymore as they depend on the assignment providers
-			assert!(claimqueue_contains_para_ids::<Test>(vec![chain_a, chain_b]));
-
-			assert_eq!(
-				scheduled.get(&CoreIndex(0)).unwrap(),
-				&ParasEntry {
-					assignment: TestAssignment::new(chain_a),
-					availability_timeouts: 0,
-					ttl: 6
-				},
-			);
-
-			assert_eq!(
-				scheduled.get(&CoreIndex(1)).unwrap(),
-				&ParasEntry {
-					assignment: TestAssignment::new(chain_b),
-					availability_timeouts: 0,
-					ttl: 6
-				},
-			);
-		}
 
 		// add a couple of parathread assignments.
 		MockAssigner::add_test_assignment(assignment_a.clone());
@@ -445,58 +410,35 @@ fn fill_claimqueue_fills() {
 		MockAssigner::add_test_assignment(assignment_c.clone());
 
 		run_to_block(2, |_| None);
-		// cores 0 and 1 should be occupied. mark them as such.
-		Scheduler::occupied(
-			vec![(CoreIndex(0), chain_a), (CoreIndex(1), chain_b)].into_iter().collect(),
-		);
-
-		run_to_block(3, |_| None);
 
 		{
-			assert_eq!(Scheduler::claimqueue_len(), 5);
+			assert_eq!(Scheduler::claimqueue_len(), 3);
 			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
-
-			assert_eq!(
-				scheduled.get(&CoreIndex(0)).unwrap(),
-				&ParasEntry {
-					assignment: TestAssignment::new(chain_a),
-					availability_timeouts: 0,
-					ttl: 6
-				},
-			);
-			assert_eq!(
-				scheduled.get(&CoreIndex(1)).unwrap(),
-				&ParasEntry {
-					assignment: TestAssignment::new(chain_b),
-					availability_timeouts: 0,
-					ttl: 6
-				},
-			);
 
 			// Was added a block later, note the TTL.
 			assert_eq!(
-				scheduled.get(&CoreIndex(2)).unwrap(),
+				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(thread_a),
+					assignment: assignment_a.clone(),
 					availability_timeouts: 0,
-					ttl: 7
+					ttl: 2 + config_ttl
 				},
 			);
 			// Sits on the same core as `thread_a`
 			assert_eq!(
-				Scheduler::claimqueue().get(&CoreIndex(2)).unwrap()[1],
+				Scheduler::claimqueue().get(&CoreIndex(0)).unwrap()[1],
 				ParasEntry {
-					assignment: TestAssignment::new(thread_b),
+					assignment: assignment_b.clone(),
 					availability_timeouts: 0,
-					ttl: 7
+					ttl: 2 + config_ttl
 				}
 			);
 			assert_eq!(
-				scheduled.get(&CoreIndex(3)).unwrap(),
+				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(thread_c),
+					assignment: assignment_c.clone(),
 					availability_timeouts: 0,
-					ttl: 7
+					ttl: 2 + config_ttl
 				},
 			);
 		}
@@ -511,9 +453,6 @@ fn schedule_schedules_including_just_freed() {
 	config.scheduling_lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
-	let chain_a = ParaId::from(1_u32);
-	let chain_b = ParaId::from(2_u32);
-
 	let thread_a = ParaId::from(3_u32);
 	let thread_b = ParaId::from(4_u32);
 	let thread_c = ParaId::from(5_u32);
@@ -527,11 +466,7 @@ fn schedule_schedules_including_just_freed() {
 	let assignment_e = TestAssignment::new(thread_e);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(default_config().on_demand_cores, 3);
-
-		// register 2 lease holding parachains
-		schedule_blank_para(chain_a, ParaKind::Parachain);
-		schedule_blank_para(chain_b, ParaKind::Parachain);
+		MockAssigner::set_core_count(3);
 
 		// and 5 parathreads (on-demand parachains)
 		schedule_blank_para(thread_a, ParaKind::Parathread);
@@ -540,7 +475,7 @@ fn schedule_schedules_including_just_freed() {
 		schedule_blank_para(thread_d, ParaKind::Parathread);
 		schedule_blank_para(thread_e, ParaKind::Parathread);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// start a new session to activate, 3 validators for 3 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: default_config(),
@@ -548,8 +483,6 @@ fn schedule_schedules_including_just_freed() {
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
 					ValidatorId::from(Sr25519Keyring::Charlie.public()),
-					ValidatorId::from(Sr25519Keyring::Dave.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
 				],
 				..Default::default()
 			}),
@@ -563,27 +496,23 @@ fn schedule_schedules_including_just_freed() {
 		let mut now = 2;
 		run_to_block(now, |_| None);
 
-		assert_eq!(Scheduler::scheduled_paras().collect::<Vec<_>>().len(), 4);
+		assert_eq!(Scheduler::scheduled_paras().collect::<Vec<_>>().len(), 2);
 
-		// cores 0, 1, 2, and 3 should be occupied. mark them as such.
+		// cores 0, 1 should be occupied. mark them as such.
 		let mut occupied_map: BTreeMap<CoreIndex, ParaId> = BTreeMap::new();
-		occupied_map.insert(CoreIndex(0), chain_a);
-		occupied_map.insert(CoreIndex(1), chain_b);
-		occupied_map.insert(CoreIndex(2), thread_a);
-		occupied_map.insert(CoreIndex(3), thread_c);
+		occupied_map.insert(CoreIndex(0), thread_a);
+		occupied_map.insert(CoreIndex(1), thread_c);
 		Scheduler::occupied(occupied_map);
 
 		{
 			let cores = AvailabilityCores::<Test>::get();
 
-			// cores 0, 1, 2, and 3 are all `CoreOccupied::Paras(ParasEntry...)`
+			// cores 0, 1 are `CoreOccupied::Paras(ParasEntry...)`
 			assert!(cores[0] != CoreOccupied::Free);
 			assert!(cores[1] != CoreOccupied::Free);
-			assert!(cores[2] != CoreOccupied::Free);
-			assert!(cores[3] != CoreOccupied::Free);
 
-			// core 4 is free
-			assert!(cores[4] == CoreOccupied::Free);
+			// core 2 is free
+			assert!(cores[2] == CoreOccupied::Free);
 
 			assert!(Scheduler::scheduled_paras().collect::<Vec<_>>().is_empty());
 
@@ -594,8 +523,8 @@ fn schedule_schedules_including_just_freed() {
 		}
 
 		// add a couple more parathread claims - the claim on `b` will go to the 3rd parathread core
-		// (4) and the claim on `d` will go back to the 1st parathread core (2). The claim on `e`
-		// then will go for core `3`.
+		// (2) and the claim on `d` will go back to the 1st parathread core (0). The claim on `e`
+		// then will go for core `1`.
 		MockAssigner::add_test_assignment(assignment_b.clone());
 		MockAssigner::add_test_assignment(assignment_d.clone());
 		MockAssigner::add_test_assignment(assignment_e.clone());
@@ -605,11 +534,10 @@ fn schedule_schedules_including_just_freed() {
 		{
 			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
-			// cores 0 and 1 are occupied by lease holding parachains. cores 2 and 3 are occupied by
-			// on-demand parachain claims. core 4 was free.
+			// cores 0 and 1 are occupied by on-demand parachain claims. core 2 was free.
 			assert_eq!(scheduled.len(), 1);
 			assert_eq!(
-				scheduled.get(&CoreIndex(4)).unwrap(),
+				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
 					assignment: TestAssignment::new(thread_b),
 					availability_timeouts: 0,
@@ -618,11 +546,10 @@ fn schedule_schedules_including_just_freed() {
 			);
 		}
 
-		// now note that cores 0, 2, and 3 were freed.
+		// now note that cores 0 and 1 were freed.
 		let just_updated: BTreeMap<CoreIndex, FreedReason> = vec![
 			(CoreIndex(0), FreedReason::Concluded),
-			(CoreIndex(2), FreedReason::Concluded),
-			(CoreIndex(3), FreedReason::TimedOut), // should go back on queue.
+			(CoreIndex(1), FreedReason::TimedOut), // should go back on queue.
 		]
 		.into_iter()
 		.collect();
@@ -631,27 +558,19 @@ fn schedule_schedules_including_just_freed() {
 		{
 			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
-			// 1 thing scheduled before, + 3 cores freed.
-			assert_eq!(scheduled.len(), 4);
+			// 1 thing scheduled before, + 2 cores freed.
+			assert_eq!(scheduled.len(), 3);
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
-				&ParasEntry {
-					assignment: TestAssignment::new(chain_a),
-					availability_timeouts: 0,
-					ttl: 8
-				},
-			);
-			assert_eq!(
-				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
 					assignment: TestAssignment::new(thread_d),
 					availability_timeouts: 0,
 					ttl: 8
 				},
 			);
-			// Although C was descheduled, the core `4` was occupied so C goes back to the queue.
+			// Although C was descheduled, the core `2` was occupied so C goes back to the queue.
 			assert_eq!(
-				scheduled.get(&CoreIndex(3)).unwrap(),
+				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
 					assignment: TestAssignment::new(thread_c),
 					availability_timeouts: 1,
@@ -659,7 +578,7 @@ fn schedule_schedules_including_just_freed() {
 				},
 			);
 			assert_eq!(
-				scheduled.get(&CoreIndex(4)).unwrap(),
+				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
 					assignment: TestAssignment::new(thread_b),
 					availability_timeouts: 0,
@@ -667,9 +586,6 @@ fn schedule_schedules_including_just_freed() {
 				},
 			);
 
-			// Chain B's core was not marked concluded or timed out, it should be on an
-			// availability core
-			assert!(availability_cores_contains_para_ids::<Test>(vec![chain_b]));
 			// Thread A claim should have been wiped, but thread C claim should remain.
 			assert!(!claimqueue_contains_para_ids::<Test>(vec![thread_a]));
 			assert!(claimqueue_contains_para_ids::<Test>(vec![thread_c]));
@@ -688,15 +604,24 @@ fn schedule_clears_availability_cores() {
 	let chain_b = ParaId::from(2_u32);
 	let chain_c = ParaId::from(3_u32);
 
+	let assignment_a = TestAssignment::new(chain_a);
+	let assignment_b = TestAssignment::new(chain_b);
+	let assignment_c = TestAssignment::new(chain_c);
+
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(config.on_demand_cores, 3);
+		MockAssigner::set_core_count(3);
 
 		// register 3 parachains
 		schedule_blank_para(chain_a, ParaKind::Parachain);
 		schedule_blank_para(chain_b, ParaKind::Parachain);
 		schedule_blank_para(chain_c, ParaKind::Parachain);
 
-		// start a new session to activate, 5 validators for 5 cores.
+		// Adding assignments to mimic parachain
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
+		MockAssigner::add_test_assignment(assignment_c.clone());
+
+		// start a new session to activate, 3 validators for 3 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: config.clone(),
@@ -704,8 +629,6 @@ fn schedule_clears_availability_cores() {
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
 					ValidatorId::from(Sr25519Keyring::Charlie.public()),
-					ValidatorId::from(Sr25519Keyring::Dave.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
 				],
 				..Default::default()
 			}),
@@ -736,6 +659,10 @@ fn schedule_clears_availability_cores() {
 				.for_each(|(_core_idx, core_queue)| assert!(core_queue.len() == 0))
 		}
 
+		// Add more assignments to continue mimicing parachain assigner
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_c.clone());
+
 		run_to_block(3, |_| None);
 
 		// now note that cores 0 and 2 were freed.
@@ -754,11 +681,11 @@ fn schedule_clears_availability_cores() {
 			assert_eq!(claimqueue_0.len(), 1);
 			assert_eq!(claimqueue_2.len(), 1);
 			let queue_0_expectation: VecDeque<ParasEntryType<Test>> =
-				vec![ParasEntry::new(TestAssignment::new(chain_a), entry_ttl as u32)]
+				vec![ParasEntry::new(assignment_a, entry_ttl as u32)]
 					.into_iter()
 					.collect();
 			let queue_2_expectation: VecDeque<ParasEntryType<Test>> =
-				vec![ParasEntry::new(TestAssignment::new(chain_c), entry_ttl as u32)]
+				vec![ParasEntry::new(assignment_c, entry_ttl as u32)]
 					.into_iter()
 					.collect();
 			assert_eq!(claimqueue_0, queue_0_expectation,);
@@ -776,13 +703,12 @@ fn schedule_clears_availability_cores() {
 fn schedule_rotates_groups() {
 	let config = {
 		let mut config = default_config();
-		config.on_demand_cores = 2;
 		config.scheduling_lookahead = 1;
 		config
 	};
 
 	let rotation_frequency = config.group_rotation_frequency;
-	let on_demand_cores = config.on_demand_cores;
+	let on_demand_cores = 2;
 
 	let genesis_config = genesis_config(&config);
 
@@ -793,7 +719,7 @@ fn schedule_rotates_groups() {
 	let assignment_b = TestAssignment::new(thread_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert_eq!(config.on_demand_cores, 2);
+		MockAssigner::set_core_count(on_demand_cores);
 
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
@@ -863,7 +789,6 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let max_retries = 20;
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
-	config.on_demand_cores = 2;
 	let genesis_config = genesis_config(&config);
 
 	let thread_a = ParaId::from(1_u32);
@@ -871,6 +796,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let assignment_a = TestAssignment::new(thread_a);
 
 	new_test_ext(genesis_config).execute_with(|| {
+		MockAssigner::set_core_count(2);
 		// Need more timeouts for this test
 		MockAssigner::set_assignment_provider_config(
 			AssignmentProviderConfig {
@@ -1065,22 +991,20 @@ fn availability_predicate_works() {
 
 #[test]
 fn next_up_on_available_uses_next_scheduled_or_none_for_thread() {
-	let mut config = default_config();
-	config.on_demand_cores = 1;
-
-	let genesis_config = genesis_config(&config);
+	let genesis_config = genesis_config(&default_config());
 
 	let thread_a = ParaId::from(1_u32);
 	let thread_b = ParaId::from(2_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
+		MockAssigner::set_core_count(1);
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 
 		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
+				new_config: default_config(),
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Eve.public()),
@@ -1133,10 +1057,7 @@ fn next_up_on_available_uses_next_scheduled_or_none_for_thread() {
 
 #[test]
 fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
-	let mut config = default_config();
-	config.on_demand_cores = 1;
-
-	let genesis_config = genesis_config(&config);
+	let genesis_config = genesis_config(&default_config());
 
 	let thread_a = ParaId::from(1_u32);
 	let thread_b = ParaId::from(2_u32);
@@ -1145,13 +1066,14 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 	let assignment_b = TestAssignment::new(thread_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
+		MockAssigner::set_core_count(1);
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 		schedule_blank_para(thread_b, ParaKind::Parathread);
 
 		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
+				new_config: default_config(),
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Eve.public()),
@@ -1204,114 +1126,27 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 }
 
 #[test]
-fn next_up_on_available_is_parachain_always() {
-	let mut config = default_config();
-	config.on_demand_cores = 0;
-	let genesis_config = genesis_config(&config);
-	let chain_a = ParaId::from(1_u32);
-
-	new_test_ext(genesis_config).execute_with(|| {
-		schedule_blank_para(chain_a, ParaKind::Parachain);
-
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
-		run_to_block(2, |_| None);
-
-		{
-			assert_eq!(Scheduler::claimqueue().len(), 1);
-			assert_eq!(Scheduler::availability_cores().len(), 1);
-
-			Scheduler::occupied(vec![(CoreIndex(0), chain_a)].into_iter().collect());
-
-			let cores = Scheduler::availability_cores();
-			match &cores[0] {
-				CoreOccupied::Paras(pe) if pe.para_id() == chain_a => {},
-				_ => panic!("with no threads, only core should be a chain core"),
-			}
-
-			// Now that there is an earlier next-up, we use that.
-			assert_eq!(
-				Scheduler::next_up_on_available(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: chain_a, collator: None }
-			);
-		}
-	});
-}
-
-#[test]
-fn next_up_on_time_out_is_parachain_always() {
-	let mut config = default_config();
-	config.on_demand_cores = 0;
-
-	let genesis_config = genesis_config(&config);
-
-	let chain_a = ParaId::from(1_u32);
-
-	new_test_ext(genesis_config).execute_with(|| {
-		schedule_blank_para(chain_a, ParaKind::Parachain);
-
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
-		run_to_block(2, |_| None);
-
-		{
-			assert_eq!(Scheduler::claimqueue().len(), 1);
-			assert_eq!(Scheduler::availability_cores().len(), 1);
-
-			Scheduler::occupied(vec![(CoreIndex(0), chain_a)].into_iter().collect());
-
-			let cores = Scheduler::availability_cores();
-			match &cores[0] {
-				CoreOccupied::Paras(pe) if pe.para_id() == chain_a => {},
-				_ => panic!("Core should be occupied by chain_a ParaId"),
-			}
-
-			// Now that there is an earlier next-up, we use that.
-			assert_eq!(
-				Scheduler::next_up_on_time_out(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: chain_a, collator: None }
-			);
-		}
-	});
-}
-
-#[test]
 fn session_change_requires_reschedule_dropping_removed_paras() {
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
-	assert_eq!(default_config().on_demand_cores, 3);
+	let chain_a = ParaId::from(1_u32);
+	let chain_b = ParaId::from(2_u32);
+
+	let assignment_a = TestAssignment::new(chain_a);
+	let assignment_b = TestAssignment::new(chain_b);
+
 	new_test_ext(genesis_config).execute_with(|| {
 		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
-		let chain_a = ParaId::from(1_u32);
-		let chain_b = ParaId::from(2_u32);
 
 		// ensure that we have 5 groups by registering 2 parachains.
 		schedule_blank_para(chain_a, ParaKind::Parachain);
 		schedule_blank_para(chain_b, ParaKind::Parachain);
+
+		// Add assignments to mimic parachain assigner
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
 
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
@@ -1337,6 +1172,10 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 		assert_eq!(groups.len(), 5);
 
 		assert_ok!(Paras::schedule_para_cleanup(chain_b));
+
+		// Add assignment to mimic parachains assigner
+		MockAssigner::add_test_assignment(assignment_a.clone());
+
 		run_to_end_of_block(2, |number| match number {
 			2 => Some(SessionChangeNotification {
 				new_config: default_config(),
@@ -1375,6 +1214,10 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 
 		// Add parachain back
 		schedule_blank_para(chain_b, ParaKind::Parachain);
+
+		// Add assignment to mimic parachains assigner
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
 
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
