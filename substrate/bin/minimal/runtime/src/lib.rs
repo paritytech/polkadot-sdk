@@ -26,12 +26,7 @@ use frame::{
 	prelude::*,
 	runtime::{
 		apis::{
-			// TODO: cleaner imports.
-			self,
-			impl_runtime_apis,
-			ApplyExtrinsicResult,
-			CheckInherentsResult,
-			OpaqueMetadata,
+			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult, OpaqueMetadata,
 		},
 		prelude::*,
 	},
@@ -175,9 +170,6 @@ impl_runtime_apis! {
 	}
 
 	impl apis::OffchainWorkerApi<Block> for Runtime {
-		// TODO: in `HeaderFor<Runtime>` you should think that using `HeaderFor<Self>` would be
-		// equivalent, but it is not. A simple patch to `impl_runtime_apis` should simply prevent
-		// the use of `Self` in this block of code.
 		fn offchain_worker(header: &HeaderFor<Runtime>) {
 			RuntimeExecutive::offchain_worker(header)
 		}
@@ -226,14 +218,14 @@ impl_runtime_apis! {
 // TODO: this should be standardized in some way, see:
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
-	use super::*;
+	use super::Runtime;
+	use frame::deps::frame_system;
 
-	pub type Block = Block;
+	pub type Block = super::Block;
 	pub type OpaqueBlock = frame::runtime::types_common::OpaqueBlockOf<Runtime>;
 	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 	pub type Nonce = <Runtime as frame_system::Config>::Nonce;
 	pub type Hash = <Runtime as frame_system::Config>::Hash;
 	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
-
 	pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
 }
