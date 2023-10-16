@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
