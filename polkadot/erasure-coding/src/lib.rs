@@ -149,6 +149,10 @@ pub fn reconstruct_from_systematic<T: Decode>(
 		return Err(Error::NonUniformChunks)
 	}
 
+	if chunks.iter().any(|c| c.len() != shard_len) {
+		return Err(Error::NonUniformChunks)
+	}
+
 	if shard_len % 2 != 0 {
 		return Err(Error::UnevenLength)
 	}
@@ -157,25 +161,15 @@ pub fn reconstruct_from_systematic<T: Decode>(
 		return Err(Error::NotEnoughChunks)
 	}
 
-	let mut check_shard_len = true;
 	let mut systematic_bytes = Vec::with_capacity(shard_len * kpow2);
 
 	for i in (0..shard_len).step_by(2) {
 		for chunk in chunks.iter().take(kpow2) {
-			if check_shard_len {
-				if chunk.len() != shard_len {
-					return Err(Error::NonUniformChunks)
-				}
-			}
-
 			// No need to check for index out of bounds because i goes up to shard_len and
 			// we return an error for non uniform chunks.
 			systematic_bytes.push(chunk[i]);
 			systematic_bytes.push(chunk[i + 1]);
 		}
-
-		// After the first check, stop checking the shard lengths.
-		check_shard_len = false;
 	}
 
 	Decode::decode(&mut &systematic_bytes[..]).map_err(|_| Error::BadPayload)

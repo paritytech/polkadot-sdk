@@ -83,9 +83,6 @@ pub enum Error {
 	#[error("Cannot find block number for given relay parent")]
 	BlockNumberNotFound,
 
-	#[error("Oneshot for receiving response from Chain API got cancelled")]
-	ChainApiSenderDropped(#[source] oneshot::Canceled),
-
 	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
 	ChainApi(#[from] ChainApiError),
 }
@@ -405,7 +402,7 @@ where
 	let (tx, rx) = oneshot::channel();
 	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
 
-	let block_number = rx.await.map_err(Error::ChainApiSenderDropped)?.map_err(Error::ChainApi)?;
+	let block_number = rx.await.map_err(Error::Oneshot)?.map_err(Error::ChainApi)?;
 
 	if let Some(number) = block_number {
 		Ok(number)
