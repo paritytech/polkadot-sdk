@@ -22,9 +22,9 @@ pub use integration_tests_common::{
 	},
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubPolkadot,
-	BridgeHubPolkadotReceiver, BridgeHubRococo, BridgeHubRococoPallet, BridgeHubRococoSender,
-	BridgeHubWococo, CollectivesPolkadot, CollectivesPolkadotReceiver, PenpalRococoA, Rococo,
+	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo,
+	BridgeHubRococo, BridgeHubRococoPallet, BridgeHubRococoSender,
+	BridgeHubWococo, PenpalRococoA, Rococo,
 	RococoPallet,
 };
 pub use parachains_common::{AccountId, Balance};
