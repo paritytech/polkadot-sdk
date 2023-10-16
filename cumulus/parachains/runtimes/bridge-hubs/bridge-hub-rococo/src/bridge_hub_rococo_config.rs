@@ -68,18 +68,22 @@ parameter_types! {
 }
 
 fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
-	sp_std::vec![Transact {
-		origin_kind: OriginKind::Xcm,
-		require_weight_at_most: bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-		call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-			bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-				bridge_id: Default::default(),
-				is_congested,
-			}
-		)
-		.encode()
-		.into(),
-	}]
+	sp_std::vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			require_weight_at_most:
+				bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+			call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested,
+				}
+			)
+			.encode()
+			.into(),
+		}
+	]
 }
 
 /// Proof of messages, coming from Wococo.

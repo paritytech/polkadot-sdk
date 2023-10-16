@@ -31,7 +31,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{AllowUnpaidTransactsFrom, AssetFeeAsExistentialDepositMultiplier},
+	xcm_config::{AllowTransactsFrom, AssetFeeAsExistentialDepositMultiplier},
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
@@ -488,19 +488,27 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and its pluralities (i.e. governance bodies) get free execution.
-					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
+					// Parent, its pluralities (i.e. governance bodies) and BridgeHub get free
+					// execution.
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						Equals<bridging::SiblingBridgeHub>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
-					// Allows Transacts with `report_bridge_status` from sibling BridgeHub.
-					bridging::AllowUnpaidStatusReportsFromSiblingBridgeHub<
+					// An additional check ensures that a `Transact` with `report_bridge_status` is
+					// only accepted from a sibling BridgeHub. First check is done by
+					// `SafeCallFilter`.
+					bridging::AllowStatusReportsFromSiblingBridgeHub<
+						Equals<bridging::SiblingBridgeHub>,
 						ToWococoXcmRouter,
-						Equals<bridging::SiblingBridgeHub>,
 					>,
-					// Allows Transacts with `report_bridge_status` from sibling BridgeHub.
-					bridging::AllowUnpaidStatusReportsFromSiblingBridgeHub<
-						ToRococoXcmRouter,
+					// An additional check ensures that a `Transact` with `report_bridge_status` is
+					// only accepted from a sibling BridgeHub. First check is done by
+					// `SafeCallFilter`.
+					bridging::AllowStatusReportsFromSiblingBridgeHub<
 						Equals<bridging::SiblingBridgeHub>,
+						ToRococoXcmRouter,
 					>,
 				),
 				UniversalLocation,
@@ -924,8 +932,8 @@ pub mod bridging {
 
 	/// Barrier for `pallet_xcm_bridge_hub_router::Pallet` to receive congestion statuses from
 	/// sibling BridgeHub.
-	pub type AllowUnpaidStatusReportsFromSiblingBridgeHub<XcmBridgeHubRouter, AllowedBridgeHub> =
-		AllowUnpaidTransactsFrom<RuntimeCall, XcmBridgeHubRouter, AllowedBridgeHub>;
+	pub type AllowStatusReportsFromSiblingBridgeHub<AllowedBridgeHub, AllowedCallFilter> =
+		AllowTransactsFrom<RuntimeCall, AllowedBridgeHub, AllowedCallFilter>;
 
 	/// Benchmarks helper for bridging configuration.
 	#[cfg(feature = "runtime-benchmarks")]

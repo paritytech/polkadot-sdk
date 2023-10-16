@@ -741,35 +741,41 @@ mod asset_hub_rococo_tests {
 			WeightLimit::Unlimited,
 			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
-				sp_std::vec![Transact {
-					origin_kind: OriginKind::Xcm,
-					require_weight_at_most:
-						bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-					call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-						bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-							bridge_id: Default::default(),
-							is_congested: true,
-						}
-					)
-					.encode()
-					.into(),
-				}]
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: true,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
 				.into()
 			},
 			|| {
-				sp_std::vec![Transact {
-					origin_kind: OriginKind::Xcm,
-					require_weight_at_most:
-						bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-					call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-						bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-							bridge_id: Default::default(),
-							is_congested: false,
-						}
-					)
-					.encode()
-					.into(),
-				}]
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: false,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
 				.into()
 			},
 		)
@@ -940,35 +946,41 @@ mod asset_hub_wococo_tests {
 			WeightLimit::Unlimited,
 			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
-				sp_std::vec![Transact {
-					origin_kind: OriginKind::Xcm,
-					require_weight_at_most:
-						bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-					call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-						bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-							bridge_id: Default::default(),
-							is_congested: true,
-						}
-					)
-					.encode()
-					.into(),
-				}]
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
+							bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: true,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
 				.into()
 			},
 			|| {
-				sp_std::vec![Transact {
-					origin_kind: OriginKind::Xcm,
-					require_weight_at_most:
-						bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-					call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-						bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-							bridge_id: Default::default(),
-							is_congested: false,
-						}
-					)
-					.encode()
-					.into(),
-				}]
+				sp_std::vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						require_weight_at_most:
+							bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+						call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
+							bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
+								bridge_id: Default::default(),
+								is_congested: false,
+							}
+						)
+						.encode()
+						.into(),
+					}
+				]
 				.into()
 			},
 		)
