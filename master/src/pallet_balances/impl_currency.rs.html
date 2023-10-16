@@ -908,6 +908,16 @@
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1010,6 +1020,11 @@
 			mem::forget(<span class="self">self</span>);
 			(<span class="self">Self</span>(first), <span class="self">Self</span>(second))
 		}
+		<span class="kw">fn </span>extract(<span class="kw-2">&amp;mut </span><span class="self">self</span>, amount: T::Balance) -&gt; <span class="self">Self </span>{
+			<span class="kw">let </span>new = <span class="self">self</span>.<span class="number">0</span>.min(amount);
+			<span class="self">self</span>.<span class="number">0 </span>= <span class="self">self</span>.<span class="number">0 </span>- new;
+			<span class="self">Self</span>(new)
+		}
 		<span class="kw">fn </span>merge(<span class="kw-2">mut </span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 			<span class="self">self</span>.<span class="number">0 </span>= <span class="self">self</span>.<span class="number">0</span>.saturating_add(other.<span class="number">0</span>);
 			mem::forget(other);
@@ -1068,6 +1083,11 @@
 
 			mem::forget(<span class="self">self</span>);
 			(<span class="self">Self</span>(first), <span class="self">Self</span>(second))
+		}
+		<span class="kw">fn </span>extract(<span class="kw-2">&amp;mut </span><span class="self">self</span>, amount: T::Balance) -&gt; <span class="self">Self </span>{
+			<span class="kw">let </span>new = <span class="self">self</span>.<span class="number">0</span>.min(amount);
+			<span class="self">self</span>.<span class="number">0 </span>= <span class="self">self</span>.<span class="number">0 </span>- new;
+			<span class="self">Self</span>(new)
 		}
 		<span class="kw">fn </span>merge(<span class="kw-2">mut </span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 			<span class="self">self</span>.<span class="number">0 </span>= <span class="self">self</span>.<span class="number">0</span>.saturating_add(other.<span class="number">0</span>);
