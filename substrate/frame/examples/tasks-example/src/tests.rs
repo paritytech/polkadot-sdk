@@ -73,22 +73,22 @@ fn runtime_task_enumerate_works_via_pallet_config() {
 
 #[test]
 fn task_index_works_at_pallet_level() {
-	assert_eq!(crate::pallet::Task::<Runtime>::Increment.task_index(), 1);
-	assert_eq!(crate::pallet::Task::<Runtime>::Decrement.task_index(), 2);
+	assert_eq!(crate::pallet::Task::<Runtime>::increment.task_index(), 1);
+	assert_eq!(crate::pallet::Task::<Runtime>::decrement.task_index(), 2);
 }
 
 #[test]
 fn task_index_works_at_runtime_level() {
 	assert_eq!(
 		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
-			crate::pallet::Task::<Runtime>::Increment
+			crate::pallet::Task::<Runtime>::increment
 		)
 		.task_index(),
 		1
 	);
 	assert_eq!(
 		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
-			crate::pallet::Task::<Runtime>::Decrement
+			crate::pallet::Task::<Runtime>::decrement
 		)
 		.task_index(),
 		2

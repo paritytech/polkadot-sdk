@@ -166,7 +166,7 @@ impl ToTokens for TasksDef {
 pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
 	let Some(tasks) = &mut def.tasks else { return quote!() };
 	let output: ItemImpl = parse_quote!(#tasks);
-	output.pretty_print();
+	// output.pretty_print();
 	let Some(content) = &mut def.item.content else { return quote!() };
 	for item in content.1.iter_mut() {
 		let Item::Impl(item_impl) = item else { continue };
@@ -189,10 +189,13 @@ pub struct ExpandedTaskEnum {
 pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
 	let Some(task_enum) = &mut def.task_enum else { return quote!() };
 	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
-	item_enum.pretty_print();
-	debug_impl.pretty_print();
-	task_enum.item_enum = item_enum;
-	quote!(#debug_impl)
+	// item_enum.pretty_print();
+	// debug_impl.pretty_print();
+	// task_enum.item_enum = item_enum;
+	quote! {
+		#item_enum
+		#debug_impl
+	}
 }
 
 pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
