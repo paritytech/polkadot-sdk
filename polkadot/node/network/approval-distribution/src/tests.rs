@@ -264,6 +264,21 @@ async fn send_message_from_peer(
 async fn send_message_from_peer_v2(
 	virtual_overseer: &mut VirtualOverseer,
 	peer_id: &PeerId,
+	msg: protocol_v2::ApprovalDistributionMessage,
+) {
+	overseer_send(
+		virtual_overseer,
+		ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+			*peer_id,
+			Versioned::V2(msg),
+		)),
+	)
+	.await;
+}
+
+async fn send_message_from_peer_vstaging(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: &PeerId,
 	msg: protocol_vstaging::ApprovalDistributionMessage,
 ) {
 	overseer_send(
@@ -498,7 +513,7 @@ fn try_import_the_same_assignment_v2() {
 		let assignments = vec![(cert.clone(), cores.clone().try_into().unwrap())];
 
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments.clone());
-		send_message_from_peer_v2(overseer, &peer_a, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_a, msg).await;
 
 		expect_reputation_change(overseer, &peer_a, COST_UNEXPECTED_MESSAGE).await;
 
@@ -536,7 +551,7 @@ fn try_import_the_same_assignment_v2() {
 
 		// send the same assignment from peer_d
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments);
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		expect_reputation_change(overseer, &peer_d, COST_UNEXPECTED_MESSAGE).await;
 		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE).await;
@@ -3150,6 +3165,126 @@ fn resends_messages_periodically() {
 		}
 
 		assert!(overseer.recv().timeout(TIMEOUT).await.is_none(), "no message should be sent");
+		virtual_overseer
+	});
+}
+
+/// Tests that peers correctly receive versioned messages.
+#[test]
+fn import_versioned_approval() {
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let state = state_without_reputation_delay();
+	let _ = test_harness(state, |mut virtual_overseer| async move {
+		let overseer = &mut virtual_overseer;
+		// All peers are aware of relay parent.
+		setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V2).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
+		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V2).await;
+
+		// new block `hash_a` with 1 candidates
+		let meta = BlockApprovalMeta {
+			hash,
+			parent_hash,
+			number: 1,
+			candidates: vec![Default::default(); 1],
+			slot: 1.into(),
+			session: 1,
+		};
+		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+		overseer_send(overseer, msg).await;
+
+		// import an assignment related to `hash` locally
+		let validator_index = ValidatorIndex(0);
+		let candidate_index = 0u32;
+		let cert = fake_assignment_cert(hash, validator_index);
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeAssignment(cert.into(), candidate_index.into()),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+					protocol_v1::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert_eq!(peers, vec![peer_b]);
+				assert_eq!(assignments.len(), 1);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+					protocol_v2::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert_eq!(peers.len(), 2);
+				assert!(peers.contains(&peer_a));
+				assert!(peers.contains(&peer_c));
+
+				assert_eq!(assignments.len(), 1);
+			}
+		);
+
+		// send the an approval from peer_a
+		let approval = IndirectSignedApprovalVote {
+			block_hash: hash,
+			candidate_index,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v2::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v2(overseer, &peer_a, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				vote,
+				tx,
+			)) => {
+				assert_eq!(vote, approval);
+				tx.send(ApprovalCheckResult::Accepted).unwrap();
+			}
+		);
+
+		expect_reputation_change(overseer, &peer_a, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		// Peers b and c receive versioned approval messages.
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+					protocol_v1::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert_eq!(peers, vec![peer_b]);
+				assert_eq!(approvals.len(), 1);
+			}
+		);
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+					protocol_v2::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert_eq!(peers, vec![peer_c]);
+				assert_eq!(approvals.len(), 1);
+			}
+		);
 		virtual_overseer
 	});
 }

@@ -25,13 +25,14 @@
 use always_assert::never;
 use futures::{channel::oneshot, FutureExt};
 
+use net_protocol::filter_by_peer_version;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
@@ -93,6 +94,11 @@ impl BitfieldGossipMessage {
 		match ValidationVersion::try_from(recipient_version).ok() {
 			Some(ValidationVersion::V1) =>
 				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
+					self.relay_parent,
+					self.signed_availability.into(),
+				)),
+			Some(ValidationVersion::V2) =>
+				Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
@@ -492,18 +498,13 @@ async fn relay_message<Context>(
 	} else {
 		let _span = span.child("gossip");
 
-		let filter_by_version = |peers: &[(PeerId, ProtocolVersion)],
-		                         version: ValidationVersion| {
-			peers
-				.iter()
-				.filter(|(_, v)| v == &version.into())
-				.map(|(peer_id, _)| *peer_id)
-				.collect::<Vec<_>>()
-		};
+		let v1_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V1.into());
+		let v2_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
 
-		let v1_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V1);
 		let vstaging_interested_peers =
-			filter_by_version(&interested_peers, ValidationVersion::VStaging);
+			filter_by_peer_version(&interested_peers, ValidationVersion::VStaging.into());
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -511,6 +512,14 @@ async fn relay_message<Context>(
 				message.clone().into_validation_protocol(ValidationVersion::V1.into()),
 			))
 			.await;
+		}
+
+		if !v2_interested_peers.is_empty() {
+			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				v2_interested_peers,
+				message.clone().into_validation_protocol(ValidationVersion::V2.into()),
+			))
+			.await
 		}
 
 		if !vstaging_interested_peers.is_empty() {
@@ -538,6 +547,10 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
+		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
+			relay_parent,
+			bitfield,
+		)) |
 		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,

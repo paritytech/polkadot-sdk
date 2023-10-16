@@ -114,9 +114,9 @@
 //! separated from the stable primitives.
 
 use crate::{
-	vstaging::{self, ApprovalVotingParams},
-	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, OccupiedCoreAssumption,
+	async_backing, slashing, vstaging::ApprovalVotingParams, AsyncBackingParams, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
@@ -225,41 +225,41 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>;
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn key_ownership_proof(
 			validator_id: ValidatorId,
-		) -> Option<vstaging::slashing::OpaqueKeyOwnershipProof>;
+		) -> Option<slashing::OpaqueKeyOwnershipProof>;
 
 		/// Submit an unsigned extrinsic to slash validators who lost a dispute about
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn submit_report_dispute_lost(
-			dispute_proof: vstaging::slashing::DisputeProof,
-			key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+			dispute_proof: slashing::DisputeProof,
+			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
-		/***** Staging *****/
+		/***** Added in v6 *****/
 
 		/// Get the minimum number of backing votes for a parachain candidate.
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
+		/***** Added in v7: Asynchronous backing *****/
+
+		/// Returns the state of parachain backing for a given para.
+		#[api_version(7)]
+		fn para_backing_state(_: ppp::Id) -> Option<async_backing::BackingState<H, N>>;
+
+		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
+		#[api_version(7)]
+		fn async_backing_params() -> AsyncBackingParams;
+
 		/// Approval voting configuration parameters
 		#[api_version(99)]
 		fn approval_voting_params() -> ApprovalVotingParams;
-		/***** Asynchronous backing *****/
-
-		/// Returns the state of parachain backing for a given para.
-		/// This is a staging method! Do not use on production runtimes!
-		#[api_version(99)]
-		fn staging_para_backing_state(_: ppp::Id) -> Option<vstaging::BackingState<H, N>>;
-
-		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
-		#[api_version(99)]
-		fn staging_async_backing_params() -> vstaging::AsyncBackingParams;
 	}
 }

@@ -29,8 +29,8 @@ use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::MAX_NOTIFICATION_SIZE,
-	v1 as protocol_v1, vstaging as protocol_vstaging, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, PeerId,
+	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::approval::{
 	v1::{AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert},
@@ -966,6 +966,7 @@ impl State {
 		peer_id: PeerId,
 		msg: Versioned<
 			protocol_v1::ApprovalDistributionMessage,
+			protocol_v2::ApprovalDistributionMessage,
 			protocol_vstaging::ApprovalDistributionMessage,
 		>,
 		rng: &mut R,
@@ -994,7 +995,8 @@ impl State {
 				)
 				.await;
 			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) => {
+			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -1019,7 +1021,8 @@ impl State {
 			)) => {
 				self.process_incoming_approvals(ctx, metrics, peer_id, approvals).await;
 			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) => {
+			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
+			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
 				self.process_incoming_approvals(
 					ctx,
 					metrics,
@@ -1762,7 +1765,6 @@ impl State {
 				num_peers = peers.len(),
 				"Sending an approval to peers",
 			);
-
 			send_approvals_batched(ctx.sender(), approvals, &peers).await;
 		}
 	}
@@ -2511,13 +2513,17 @@ async fn send_assignments_batched_inner(
 				})
 			})
 			.collect();
-		sender
-			.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				peers,
-				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-					protocol_v1::ApprovalDistributionMessage::Assignments(batch),
-				)),
+		let message = if peer_version == ValidationVersion::V1 {
+			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+				protocol_v1::ApprovalDistributionMessage::Assignments(batch),
 			))
+		} else {
+			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+				protocol_v2::ApprovalDistributionMessage::Assignments(batch),
+			))
+		};
+		sender
+			.send_message(NetworkBridgeTxMessage::SendValidationMessage(peers, message))
 			.await;
 	}
 }
@@ -2533,9 +2539,12 @@ pub(crate) async fn send_assignments_batched(
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
 	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::VStaging.into());
+	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
+	let vstaging_peers = filter_by_peer_version(peers, ValidationVersion::VStaging.into());
 
-	if !v1_peers.is_empty() {
+	// V1 and V2 validation protocol do not have any changes with regard to
+	// ApprovalDistributionMessage so they can be treated the same.
+	if !v1_peers.is_empty() || !v2_peers.is_empty() {
 		// Older peers(v1) do not understand `AssignmentsV2` messages, so we have to filter these
 		// out.
 		let v1_assignments = v2_assignments
@@ -2547,17 +2556,35 @@ pub(crate) async fn send_assignments_batched(
 
 		while v1_batches.peek().is_some() {
 			let batch: Vec<_> = v1_batches.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect();
-			send_assignments_batched_inner(sender, batch, &v1_peers, ValidationVersion::V1).await;
+			if !v1_peers.is_empty() {
+				send_assignments_batched_inner(
+					sender,
+					batch.clone(),
+					&v1_peers,
+					ValidationVersion::V1,
+				)
+				.await;
+			}
+
+			if !v2_peers.is_empty() {
+				send_assignments_batched_inner(sender, batch, &v2_peers, ValidationVersion::V2)
+					.await;
+			}
 		}
 	}
 
-	if !v2_peers.is_empty() {
-		let mut v2_batches = v2_assignments.into_iter().peekable();
+	if !vstaging_peers.is_empty() {
+		let mut vstaging = v2_assignments.into_iter().peekable();
 
-		while v2_batches.peek().is_some() {
-			let batch = v2_batches.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect::<Vec<_>>();
-			send_assignments_batched_inner(sender, batch, &v2_peers, ValidationVersion::VStaging)
-				.await;
+		while vstaging.peek().is_some() {
+			let batch = vstaging.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect::<Vec<_>>();
+			send_assignments_batched_inner(
+				sender,
+				batch,
+				&vstaging_peers,
+				ValidationVersion::VStaging,
+			)
+			.await;
 		}
 	}
 }
@@ -2569,9 +2596,10 @@ pub(crate) async fn send_approvals_batched(
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
 	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::VStaging.into());
+	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
+	let vstaging_peers = filter_by_peer_version(peers, ValidationVersion::VStaging.into());
 
-	if !v1_peers.is_empty() {
+	if !v1_peers.is_empty() || !v2_peers.is_empty() {
 		let mut batches = approvals
 			.clone()
 			.into_iter()
@@ -2582,18 +2610,31 @@ pub(crate) async fn send_approvals_batched(
 		while batches.peek().is_some() {
 			let batch: Vec<_> = batches.by_ref().take(MAX_APPROVAL_BATCH_SIZE).collect();
 
-			sender
-				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-					v1_peers.clone(),
-					Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-						protocol_v1::ApprovalDistributionMessage::Approvals(batch),
-					)),
-				))
-				.await;
+			if !v1_peers.is_empty() {
+				sender
+					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+						v1_peers.clone(),
+						Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+							protocol_v1::ApprovalDistributionMessage::Approvals(batch.clone()),
+						)),
+					))
+					.await;
+			}
+
+			if !v2_peers.is_empty() {
+				sender
+					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+						v2_peers.clone(),
+						Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
+							protocol_v2::ApprovalDistributionMessage::Approvals(batch),
+						)),
+					))
+					.await;
+			}
 		}
 	}
 
-	if !v2_peers.is_empty() {
+	if !vstaging_peers.is_empty() {
 		let mut batches = approvals.into_iter().peekable();
 
 		while batches.peek().is_some() {
@@ -2601,7 +2642,7 @@ pub(crate) async fn send_approvals_batched(
 
 			sender
 				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-					v2_peers.clone(),
+					vstaging_peers.clone(),
 					Versioned::VStaging(
 						protocol_vstaging::ValidationProtocol::ApprovalDistribution(
 							protocol_vstaging::ApprovalDistributionMessage::Approvals(batch),

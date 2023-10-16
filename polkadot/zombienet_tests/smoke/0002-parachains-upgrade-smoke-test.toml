@@ -30,7 +30,7 @@ cumulus_based = true
 
   [parachains.collator]
   name = "collator01"
-  image = "{{COL_IMAGE}}"
+  image = "{{CUMULUS_IMAGE}}"
   command = "polkadot-parachain"
 
   [[parachains.collator.env]]
