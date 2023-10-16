@@ -881,8 +881,10 @@ impl pallet_identity::Config for Runtime {
 	type Currency = Balances;
 	type Slashed = ();
 	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;

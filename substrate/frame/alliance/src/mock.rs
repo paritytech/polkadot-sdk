@@ -116,8 +116,10 @@ impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
@@ -261,7 +263,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
 
 		let info = IdentityInfo {
-			additional: Default::default(),
+			additional: BoundedVec::default(),
 			display: Data::Raw(b"name".to_vec().try_into().unwrap()),
 			legal: Data::default(),
 			web: Data::Raw(b"website".to_vec().try_into().unwrap()),

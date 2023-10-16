@@ -130,12 +130,16 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 		self.fields().0.bits() & fields == fields
 	}
 
+	fn additional(&self) -> usize {
+		self.additional.len()
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info() -> Self {
+	fn create_identity_info(num_fields: u32) -> Self {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
-			additional: Default::default(),
+			additional: vec![(data.clone(), data.clone()); num_fields as usize].try_into().unwrap(),
 			display: data.clone(),
 			legal: data.clone(),
 			web: data.clone(),

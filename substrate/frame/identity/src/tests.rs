@@ -105,8 +105,10 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type Slashed = ();
 	type BasicDeposit = ConstU64<10>;
+	type FieldDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<10>;
 	type MaxSubAccounts = ConstU32<2>;
+	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
@@ -559,6 +561,33 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 			),
 			Error::<Test>::JudgementPaymentFailed
 		);
+	});
+}
+
+#[test]
+fn field_deposit_should_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(10),
+			Box::new(IdentityInfo {
+				additional: vec![
+					(
+						Data::Raw(b"number".to_vec().try_into().unwrap()),
+						Data::Raw(10u32.encode().try_into().unwrap())
+					),
+					(
+						Data::Raw(b"text".to_vec().try_into().unwrap()),
+						Data::Raw(b"10".to_vec().try_into().unwrap())
+					),
+				]
+				.try_into()
+				.unwrap(),
+				..Default::default()
+			})
+		));
+		assert_eq!(Balances::free_balance(10), 70);
 	});
 }
 

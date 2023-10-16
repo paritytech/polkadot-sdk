@@ -26,8 +26,8 @@ use scale_info::{
 	build::{Fields, Variants},
 	meta_type, Path, Type, TypeInfo, TypeParameter,
 };
-use sp_runtime::RuntimeDebug;
-use sp_std::{fmt::Debug, iter::once, prelude::*};
+use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
@@ -239,8 +239,18 @@ pub trait IdentityInformationProvider:
 	type IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
 
 	fn has_identity(&self, fields: u64) -> bool;
+
+	/// Interface for providing the number of additional fields this identity information provider
+	/// holds, used to charge for additional storage and weight. This interface is present for
+	/// backwards compatibility reasons only and will be removed as soon as the reference identity
+	/// provider removes additional fields.
+	#[deprecated]
+	fn additional(&self) -> usize {
+		0
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info() -> Self;
+	fn create_identity_info(num_fields: u32) -> Self;
 }
 
 /// Information on an identity along with judgements from registrars.
@@ -262,8 +272,26 @@ pub struct Registration<
 	/// may be only a single judgement from each registrar.
 	pub judgements: BoundedVec<(RegistrarIndex, Judgement<Balance>), MaxJudgements>,
 
+	/// Amount held on deposit for this information.
+	pub deposit: Balance,
+
 	/// Information on the identity.
 	pub info: IdentityInfo,
+}
+
+impl<
+		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
+		MaxJudgements: Get<u32>,
+		IdentityInfo: IdentityInformationProvider,
+	> Registration<Balance, MaxJudgements, IdentityInfo>
+{
+	pub(crate) fn total_deposit(&self) -> Balance {
+		self.deposit +
+			self.judgements
+				.iter()
+				.map(|(_, ref j)| if let Judgement::FeePaid(fee) = j { *fee } else { Zero::zero() })
+				.fold(Zero::zero(), |a, i| a + i)
+	}
 }
 
 impl<
@@ -274,8 +302,8 @@ impl<
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
 		// TODO consider removing this, will probably do migration
-		let (judgements, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
-		Ok(Self { judgements, info })
+		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
+		Ok(Self { judgements, deposit, info })
 	}
 }
 

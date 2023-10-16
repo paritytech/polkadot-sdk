@@ -113,6 +113,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type BasicDeposit: Get<BalanceOf<Self>>;
 
+		/// The amount held on deposit per additional field for a registered identity.
+		#[pallet::constant]
+		type FieldDeposit: Get<BalanceOf<Self>>;
+
 		/// The amount held on deposit for a registered subaccount. This should account for the fact
 		/// that one storage item's value will increase by the size of an account ID, and there will
 		/// be another trie item whose value is the size of an account ID plus 32 bytes.
@@ -122,6 +126,11 @@ pub mod pallet {
 		/// The maximum number of sub-accounts allowed per identified account.
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
+
+		/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
+		/// required to access an identity, but can be pretty high.
+		#[pallet::constant]
+		type MaxAdditionalFields: Get<u32>;
 
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
@@ -227,6 +236,8 @@ pub mod pallet {
 		InvalidIndex,
 		/// The target is invalid.
 		InvalidTarget,
+		/// Too many additional fields.
+		TooManyFields,
 		/// Maximum amount of registrars reached. Cannot add any more.
 		TooManyRegistrars,
 		/// Account ID is already named.
@@ -317,36 +328,50 @@ pub mod pallet {
 		/// - `info`: The identity information.
 		///
 		/// Emits `IdentitySet` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R)`
-		///   - where `R` judgements-count (registrar-count-bounded)
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_identity(T::MaxRegistrars::get()))]
+		#[pallet::weight(T::WeightInfo::set_identity(
+			T::MaxRegistrars::get(),
+			T::MaxAdditionalFields::get(),
+		))]
 		pub fn set_identity(
 			origin: OriginFor<T>,
 			info: Box<T::IdentityInformation>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
+			#[allow(deprecated)]
+			let extra_fields = info.additional() as u32;
+			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
+			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
 
-			let id = match <IdentityOf<T>>::get(&sender) {
+			let mut id = match <IdentityOf<T>>::get(&sender) {
 				Some(mut id) => {
 					// Only keep non-positive judgements.
 					id.judgements.retain(|j| j.1.is_sticky());
 					id.info = *info;
 					id
 				},
-				None => {
-					T::Currency::reserve(&sender, T::BasicDeposit::get())?;
-					Registration { info: *info, judgements: BoundedVec::default() }
+				None => Registration {
+					info: *info,
+					judgements: BoundedVec::default(),
+					deposit: Zero::zero(),
 				},
 			};
+
+			let old_deposit = id.deposit;
+			id.deposit = T::BasicDeposit::get() + fd;
+			if id.deposit > old_deposit {
+				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
+			}
+			if old_deposit > id.deposit {
+				let err_amount = T::Currency::unreserve(&sender, old_deposit - id.deposit);
+				debug_assert!(err_amount.is_zero());
+			}
 
 			let judgements = id.judgements.len();
 			<IdentityOf<T>>::insert(&sender, id);
 			Self::deposit_event(Event::IdentitySet { who: sender });
 
-			Ok(Some(T::WeightInfo::set_identity(judgements as u32)).into()) // R
+			Ok(Some(T::WeightInfo::set_identity(judgements as u32, extra_fields)).into()) // R
 		}
 
 		/// Set the sub-accounts of the sender.
@@ -431,22 +456,18 @@ pub mod pallet {
 		/// identity.
 		///
 		/// Emits `IdentityCleared` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R + S)`
-		///   - where `R` registrar-count (governance-bounded).
-		///   - where `S` subs-count (hard- and deposit-bounded).
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::clear_identity(
-			T::MaxRegistrars::get(), // R
-			T::MaxSubAccounts::get(), // S
+			T::MaxRegistrars::get(),
+			T::MaxSubAccounts::get(),
+			T::MaxAdditionalFields::get(),
 		))]
 		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
 			let id = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
-			let deposit = T::BasicDeposit::get() + subs_deposit;
+			let deposit = id.total_deposit() + subs_deposit;
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -456,9 +477,11 @@ pub mod pallet {
 
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
 
+			#[allow(deprecated)]
 			Ok(Some(T::WeightInfo::clear_identity(
-				id.judgements.len() as u32, // R
-				sub_ids.len() as u32,       // S
+				id.judgements.len() as u32,
+				sub_ids.len() as u32,
+				id.info.additional() as u32,
 			))
 			.into())
 		}
@@ -479,12 +502,11 @@ pub mod pallet {
 		/// ```
 		///
 		/// Emits `JudgementRequested` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::request_judgement(T::MaxRegistrars::get()))]
+		#[pallet::weight(T::WeightInfo::request_judgement(
+			T::MaxRegistrars::get(),
+			T::MaxAdditionalFields::get(),
+		))]
 		pub fn request_judgement(
 			origin: OriginFor<T>,
 			#[pallet::compact] reg_index: RegistrarIndex,
@@ -514,6 +536,8 @@ pub mod pallet {
 			T::Currency::reserve(&sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
+			#[allow(deprecated)]
+			let extra_fields = id.info.additional();
 			<IdentityOf<T>>::insert(&sender, id);
 
 			Self::deposit_event(Event::JudgementRequested {
@@ -521,7 +545,8 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::request_judgement(judgements as u32)).into()) // R
+			Ok(Some(T::WeightInfo::request_judgement(judgements as u32, extra_fields as u32))
+				.into())
 		}
 
 		/// Cancel a previous request.
@@ -534,12 +559,11 @@ pub mod pallet {
 		/// - `reg_index`: The index of the registrar whose judgement is no longer requested.
 		///
 		/// Emits `JudgementUnrequested` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::cancel_request(T::MaxRegistrars::get()))]
+		#[pallet::weight(T::WeightInfo::cancel_request(
+			T::MaxRegistrars::get(),
+			T::MaxAdditionalFields::get(),
+		))]
 		pub fn cancel_request(
 			origin: OriginFor<T>,
 			reg_index: RegistrarIndex,
@@ -560,6 +584,8 @@ pub mod pallet {
 			let err_amount = T::Currency::unreserve(&sender, fee);
 			debug_assert!(err_amount.is_zero());
 			let judgements = id.judgements.len();
+			#[allow(deprecated)]
+			let extra_fields = id.info.additional();
 			<IdentityOf<T>>::insert(&sender, id);
 
 			Self::deposit_event(Event::JudgementUnrequested {
@@ -567,7 +593,7 @@ pub mod pallet {
 				registrar_index: reg_index,
 			});
 
-			Ok(Some(T::WeightInfo::cancel_request(judgements as u32)).into()) // R
+			Ok(Some(T::WeightInfo::cancel_request(judgements as u32, extra_fields as u32)).into())
 		}
 
 		/// Set the fee required for a judgement to be requested from a registrar.
@@ -577,10 +603,6 @@ pub mod pallet {
 		///
 		/// - `index`: the index of the registrar whose fee is to be set.
 		/// - `fee`: the new fee.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_fee(T::MaxRegistrars::get()))] // R
 		pub fn set_fee(
@@ -604,7 +626,7 @@ pub mod pallet {
 					.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
 				Ok(rs.len())
 			})?;
-			Ok(Some(T::WeightInfo::set_fee(registrars as u32)).into()) // R
+			Ok(Some(T::WeightInfo::set_fee(registrars as u32)).into())
 		}
 
 		/// Change the account associated with a registrar.
@@ -642,7 +664,7 @@ pub mod pallet {
 					.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
 				Ok(rs.len())
 			})?;
-			Ok(Some(T::WeightInfo::set_account_id(registrars as u32)).into()) // R
+			Ok(Some(T::WeightInfo::set_account_id(registrars as u32)).into())
 		}
 
 		/// Set the field information for a registrar.
@@ -652,12 +674,8 @@ pub mod pallet {
 		///
 		/// - `index`: the index of the registrar whose fee is to be set.
 		/// - `fields`: the fields that the registrar concerns themselves with.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::set_fields(T::MaxRegistrars::get()))] // R
+		#[pallet::weight(T::WeightInfo::set_fields(T::MaxRegistrars::get()))]
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
@@ -681,7 +699,7 @@ pub mod pallet {
 					.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
 				Ok(rs.len())
 			})?;
-			Ok(Some(T::WeightInfo::set_fields(registrars as u32)).into()) // R
+			Ok(Some(T::WeightInfo::set_fields(registrars as u32)).into())
 		}
 
 		/// Provide a judgement for an account's identity.
@@ -696,12 +714,11 @@ pub mod pallet {
 		/// - `identity`: The hash of the [`IdentityInfo`] for that the judgement is provided.
 		///
 		/// Emits `JudgementGiven` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::provide_judgement(T::MaxRegistrars::get()))] // R
+		#[pallet::weight(T::WeightInfo::provide_judgement(
+			T::MaxRegistrars::get(),
+			T::MaxAdditionalFields::get(),
+		))]
 		pub fn provide_judgement(
 			origin: OriginFor<T>,
 			#[pallet::compact] reg_index: RegistrarIndex,
@@ -744,10 +761,13 @@ pub mod pallet {
 			}
 
 			let judgements = id.judgements.len();
+			#[allow(deprecated)]
+			let extra_fields = id.info.additional();
 			<IdentityOf<T>>::insert(&target, id);
 			Self::deposit_event(Event::JudgementGiven { target, registrar_index: reg_index });
 
-			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32)).into()) // R
+			Ok(Some(T::WeightInfo::provide_judgement(judgements as u32, extra_fields as u32))
+				.into())
 		}
 
 		/// Remove an account's identity and sub-account information and slash the deposits.
@@ -762,15 +782,11 @@ pub mod pallet {
 		///   with a registered identity.
 		///
 		/// Emits `IdentityKilled` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R + S)`
-		///   - where `R` registrar-count (governance-bounded).
-		///   - where `S` subs-count (hard- and deposit-bounded).
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::kill_identity(
-			T::MaxRegistrars::get(), // R
-			T::MaxSubAccounts::get(), // S
+			T::MaxRegistrars::get(),
+			T::MaxSubAccounts::get(),
+			T::MaxAdditionalFields::get(),
 		))]
 		pub fn kill_identity(
 			origin: OriginFor<T>,
@@ -783,7 +799,7 @@ pub mod pallet {
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
 			let id = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
-			let deposit = T::BasicDeposit::get() + subs_deposit;
+			let deposit = id.total_deposit() + subs_deposit;
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -792,9 +808,11 @@ pub mod pallet {
 
 			Self::deposit_event(Event::IdentityKilled { who: target, deposit });
 
+			#[allow(deprecated)]
 			Ok(Some(T::WeightInfo::kill_identity(
-				id.judgements.len() as u32, // R
-				sub_ids.len() as u32,       // S
+				id.judgements.len() as u32,
+				sub_ids.len() as u32,
+				id.info.additional() as u32,
 			))
 			.into())
 		}
