@@ -77,15 +77,22 @@ impl ToTokens for TaskEnumDef {
 
 impl ToTokens for TasksDef {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let scrate = &self.scrate;
+		let enum_ident = &self.enum_ident;
+		let enum_arguments = &self.enum_arguments;
+		let enum_use = quote!(#enum_ident #enum_arguments);
+		let task_fn_idents = self.tasks.iter().map(|task| &task.item.sig.ident);
+		let sp_std = quote!(#scrate::__private::sp_std);
+		let impl_generics = &self.item_impl.generics;
 		tokens.extend(quote! {
-			impl<T: Config> frame_support::traits::Task for Task<T>
+			impl #impl_generics #scrate::traits::Task for #enum_use
 			where
-				T: TypeInfo,
+				T: #scrate::pallet_prelude::TypeInfo,
 			{
-				type Enumeration = sp_std::vec::IntoIter<Task<T>>;
+				type Enumeration = #sp_std::vec::IntoIter<#enum_use>;
 
 				fn iter() -> Self::Enumeration {
-					sp_std::vec![Task::increment, Task::decrement].into_iter()
+					#sp_std::vec![#(#enum_ident::#task_fn_idents),*].into_iter()
 				}
 
 				fn task_index(&self) -> u32 {
@@ -105,7 +112,7 @@ impl ToTokens for TasksDef {
 					}
 				}
 
-				fn run(&self) -> Result<(), DispatchError> {
+				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
 					match self {
 						Task::increment => {
 							// Get the value and check if it can be incremented
@@ -135,8 +142,8 @@ impl ToTokens for TasksDef {
 					}
 				}
 
-				fn weight(&self) -> Weight {
-					Weight::default()
+				fn weight(&self) -> #scrate::pallet_prelude::Weight {
+					#scrate::pallet_prelude::Weight::default()
 				}
 			}
 		})

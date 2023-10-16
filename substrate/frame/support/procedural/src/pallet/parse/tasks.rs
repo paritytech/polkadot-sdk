@@ -32,7 +32,8 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Result, Token,
+	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, PathArguments,
+	Result, Token, TypePath,
 };
 
 pub mod keywords {
@@ -52,6 +53,8 @@ pub struct TasksDef {
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
 	pub scrate: Ident,
+	pub enum_ident: Ident,
+	pub enum_arguments: PathArguments,
 }
 
 impl syn::parse::Parse for TasksDef {
@@ -101,11 +104,24 @@ impl syn::parse::Parse for TasksDef {
 		let mut item_impl = item_impl;
 		item_impl.attrs = normal_attrs;
 
+		// we require the path on the impl to be a TypePath
+		let enum_path = parse2::<TypePath>(item_impl.self_ty.to_token_stream())?;
+		let segments = enum_path.path.segments.iter().collect::<Vec<_>>();
+		let (Some(last_seg), None) = (segments.get(0), segments.get(1)) else {
+			return Err(Error::new(
+				enum_path.span(),
+				"if specified manually, the task enum must be defined locally in this \
+				pallet and cannot be a re-export",
+			))
+		};
+		let enum_ident = last_seg.ident.clone();
+		let enum_arguments = last_seg.arguments.clone();
+
 		// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
 		let scrate = generate_crate_access_2018("frame-support")?;
 
-		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate })
+		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate, enum_ident, enum_arguments })
 	}
 }
 

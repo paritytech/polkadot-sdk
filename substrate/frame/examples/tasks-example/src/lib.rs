@@ -51,7 +51,7 @@ pub mod pallet {
 	{
 		type Enumeration = sp_std::vec::IntoIter<Task<T>>;
 
-		fn iter() -> Self::Enumeration {
+		fn iter(&self) -> Self::Enumeration {
 			sp_std::vec![Task::increment, Task::decrement].into_iter()
 		}
 
