@@ -747,14 +747,14 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 
 		let span = trait_.span();
 		if let Some(other_span) = processed_traits.insert(trait_, span) {
-			let mut error = Error::new(span, "Two traits with the same name detected! \
+			let mut error = Error::new(
+				span,
+				"Two traits with the same name detected! \
 					The trait name is used to generate its ID. \
-					Please rename one trait at the declaration!");
+					Please rename one trait at the declaration!",
+			);
 
-			error.combine(Error::new(
-				other_span,
-				"First trait implementation.",
-			));
+			error.combine(Error::new(other_span, "First trait implementation."));
 
 			return Err(error)
 		}
