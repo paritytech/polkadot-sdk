@@ -519,3 +519,7 @@ test-syscalls:
     - cd polkadot/scripts/list-syscalls
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
+  after_script:
+    - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      fi
