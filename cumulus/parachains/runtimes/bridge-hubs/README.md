@@ -1,26 +1,26 @@
 - [Bridge-hub Parachains](#bridge-hub-parachains)
-  * [Requirements for local run/testing](#requirements-for-local-runtesting)
-  * [How to test local Rococo <-> Wococo bridge](#how-to-test-local-rococo---wococo-bridge)
-    + [Run chains (Rococo + BridgeHub, Wococo + BridgeHub) with zombienet](#run-chains-rococo--bridgehub-wococo--bridgehub-with-zombienet)
-    + [Run relayer (BridgeHubRococo, BridgeHubWococo)](#run-relayer-bridgehubrococo-bridgehubwococo)
+  - [Requirements for local run/testing](#requirements-for-local-runtesting)
+  - [How to test local Rococo <-> Wococo bridge](#how-to-test-local-rococo---wococo-bridge)
+    - [Run chains (Rococo + BridgeHub, Wococo + BridgeHub) with
+      zombienet](#run-chains-rococo--bridgehub-wococo--bridgehub-with-zombienet)
+    - [Run relayer (BridgeHubRococo, BridgeHubWococo)](#run-relayer-bridgehubrococo-bridgehubwococo)
       - [Run with script (alternative 1)](#run-with-script-alternative-1)
       - [Run with binary (alternative 2)](#run-with-binary-alternative-2)
-    + [Send messages - transfer asset over bridge](#send-messages---transfer-asset-over-bridge)
-  * [How to test live BridgeHubRococo/BridgeHubWococo](#how-to-test-live-bridgehubrococobridgehubwococo)
-  * [How to test local BridgeHubKusama/BridgeHubPolkadot](#how-to-test-local-bridgehubkusamabridgehubpolkadot)
+    - [Send messages - transfer asset over bridge](#send-messages---transfer-asset-over-bridge)
+  - [How to test live BridgeHubRococo/BridgeHubWococo](#how-to-test-live-bridgehubrococobridgehubwococo)
+  - [How to test local BridgeHubKusama/BridgeHubPolkadot](#how-to-test-local-bridgehubkusamabridgehubpolkadot)
 
 # Bridge-hub Parachains
 
-_BridgeHub(s)_ are **_system parachains_** that will house trustless bridges from the local
-ecosystem to others.
-The current trustless bridges planned for the BridgeHub(s) are:
+_BridgeHub(s)_ are **_system parachains_** that will house trustless bridges from the local ecosystem to others. The
+current trustless bridges planned for the BridgeHub(s) are:
 - `BridgeHubPolkadot` system parachain:
 	1. Polkadot <-> Kusama bridge
 	2. Polkadot <-> Ethereum bridge (Snowbridge)
 - `BridgeHubKusama` system parachain:
 	1. Kusama <-> Polkadot bridge
-	2. Kusama <-> Ethereum bridge
-	   The high-level responsibilities of each bridge living on BridgeHub:
+	2. Kusama <-> Ethereum bridge The high-level
+	responsibilities of each bridge living on BridgeHub:
 - sync finality proofs between relay chains (or equivalent)
 - sync finality proofs between BridgeHub parachains
 - pass (XCM) messages between different BridgeHub parachains
@@ -192,43 +192,40 @@ RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
 ```
 
 **Check relay-chain headers relaying:**
-- Rococo parachain:
-	- https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate
-	- Pallet: **bridgeWococoGrandpa**
-	- Keys: **bestFinalized()**
-- Wococo parachain:
-	- https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate
-	- Pallet: **bridgeRococoGrandpa**
-	- Keys: **bestFinalized()**
+- Rococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate - Pallet:
+	**bridgeWococoGrandpa** - Keys: **bestFinalized()**
+- Wococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate - Pallet:
+	**bridgeRococoGrandpa** - Keys: **bestFinalized()**
 
 **Check parachain headers relaying:**
-- Rococo parachain:
-	- https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate
-	- Pallet: **bridgeWococoParachain**
-	- Keys: **bestParaHeads()**
-- Wococo parachain:
-	- https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate
-	- Pallet: **bridgeRococoParachain**
-	- Keys: **bestParaHeads()**
+- Rococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate - Pallet:
+	**bridgeWococoParachain** - Keys: **bestParaHeads()**
+- Wococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate - Pallet:
+	**bridgeRococoParachain** - Keys: **bestParaHeads()**
 
 ### Send messages - transfer asset over bridge
 
 TODO: see `# !!! READ HERE` above
 
 ## How to test live BridgeHubRococo/BridgeHubWococo
-(here is still deployed older PoC from branch `origin/bko-transfer-asset-via-bridge`, which uses custom extrinsic, which is going to be replaced by `pallet_xcm` usage)
+(here is still deployed older PoC from branch `origin/bko-transfer-asset-via-bridge`, which uses custom extrinsic, which
+is going to be replaced by `pallet_xcm` usage)
 - uses account seed on Live Rococo:Rockmine2
   ```
   cd <cumulus-git-repo-dir>
   ./scripts/bridges_rococo_wococo.sh transfer-asset-from-asset-hub-rococo
   ```
 
-- open explorers:
-	- Rockmine2 (see events `xcmpQueue.XcmpMessageSent`, `bridgeTransfer.ReserveAssetsDeposited`, `bridgeTransfer.TransferInitiated`) https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fws-rococo-rockmine2-collator-node-0.parity-testnet.parity.io#/explorer
-	- BridgeHubRococo (see `bridgeWococoMessages.MessageAccepted`) https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-bridge-hub-rpc.polkadot.io#/explorer
-	- BridgeHubWococo (see `bridgeRococoMessages.MessagesReceived`) https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwococo-bridge-hub-rpc.polkadot.io#/explorer
-	- Wockmint (see `xcmpQueue.Success` for `transfer-asset` and `xcmpQueue.Fail` for `ping-via-bridge`) https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwococo-wockmint-rpc.polkadot.io#/explorer
-	- BridgeHubRococo (see `bridgeWococoMessages.MessagesDelivered`)
+- open explorers: - Rockmine2 (see events `xcmpQueue.XcmpMessageSent`, `bridgeTransfer.ReserveAssetsDeposited`,
+	`bridgeTransfer.TransferInitiated`)
+	https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fws-rococo-rockmine2-collator-node-0.parity-testnet.parity.io#/explorer
+	- BridgeHubRococo (see `bridgeWococoMessages.MessageAccepted`)
+	https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-bridge-hub-rpc.polkadot.io#/explorer - BridgeHubWococo (see
+	`bridgeRococoMessages.MessagesReceived`)
+	https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwococo-bridge-hub-rpc.polkadot.io#/explorer - Wockmint (see
+	`xcmpQueue.Success` for `transfer-asset` and `xcmpQueue.Fail` for `ping-via-bridge`)
+	https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwococo-wockmint-rpc.polkadot.io#/explorer - BridgeHubRococo (see
+	`bridgeWococoMessages.MessagesDelivered`)
 
 
 ## How to test local BridgeHubKusama/BridgeHubPolkadot

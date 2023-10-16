@@ -7,6 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+cfg-if = "1.0"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.139"
@@ -17,7 +18,7 @@ tokio = { version = "1.24.2", features = ["fs", "process"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
 polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain = { path = "../../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../../parachain" }
 polkadot-primitives = { path = "../../../../primitives" }
 
 sc-executor = { path = "../../../../../substrate/client/executor" }
@@ -32,4 +33,7 @@ tikv-jemalloc-ctl = "0.5.0"
 
 [features]
 builder = []
-jemalloc-allocator = [ "dep:tikv-jemalloc-ctl" ]
+jemalloc-allocator = [
+	"dep:tikv-jemalloc-ctl",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
+]

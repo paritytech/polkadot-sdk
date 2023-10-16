@@ -16,8 +16,9 @@
 
 use super::*;
 use futures::{channel::oneshot, executor, stream::BoxStream};
+use overseer::jaeger;
 use polkadot_node_network_protocol::{self as net_protocol, OurView};
-use polkadot_node_subsystem::{messages::NetworkBridgeEvent, ActivatedLeaf};
+use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -36,15 +37,14 @@ use polkadot_node_network_protocol::{
 	view, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		AllMessages, ApprovalDistributionMessage, BitfieldDistributionMessage,
 		GossipSupportMessage, StatementDistributionMessage,
 	},
-	ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::{
-	SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
+	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};
@@ -427,12 +427,7 @@ fn send_our_view_upon_connection() {
 		let head = Hash::repeat_byte(1);
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: head,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
 			)))
 			.await;
 
@@ -514,12 +509,7 @@ fn sends_view_updates_to_peers() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -585,12 +575,7 @@ fn do_not_send_view_update_until_synced() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -601,12 +586,7 @@ fn do_not_send_view_update_until_synced() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_b,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_b, 1)),
 			)))
 			.await;
 
@@ -672,12 +652,7 @@ fn do_not_send_view_update_when_only_finalized_block_changed() {
 		// This should trigger the view update to our peers.
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -895,12 +870,7 @@ fn peer_disconnect_from_just_one_peerset() {
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_a,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_a, 1)),
 			)))
 			.await;
 
@@ -1132,12 +1102,7 @@ fn sent_views_include_finalized_number_update() {
 			.await;
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: hash_b,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash_b, 1)),
 			)))
 			.await;
 
@@ -1211,12 +1176,7 @@ fn our_view_updates_decreasing_order_and_limited_to_max() {
 			// get the correct view.
 			virtual_overseer
 				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-					ActiveLeavesUpdate::start_work(ActivatedLeaf {
-						hash,
-						number: i as _,
-						status: LeafStatus::Fresh,
-						span: Arc::new(jaeger::Span::Disabled),
-					}),
+					ActiveLeavesUpdate::start_work(new_leaf(hash, i as _)),
 				)))
 				.await;
 		}
@@ -1256,21 +1216,16 @@ fn network_protocol_versioning_view_update() {
 
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::VStaging),
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
 			(peer_ids[1], PeerSet::Collation, ValidationVersion::V1),
 			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::VStaging),
+			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
 		];
 
 		let head = Hash::repeat_byte(1);
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash: head,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
 			)))
 			.await;
 
@@ -1290,8 +1245,8 @@ fn network_protocol_versioning_view_update() {
 				ValidationVersion::V1 =>
 					WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
-				ValidationVersion::VStaging =>
-					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(view.clone())
+				ValidationVersion::V2 =>
+					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
 			};
 			assert_network_actions_contains(
@@ -1313,12 +1268,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(
-				peer,
-				ValidationVersion::VStaging,
-				PeerSet::Validation,
-				ObservedRole::Full,
-			)
+			.connect_peer(peer, ValidationVersion::V2, PeerSet::Validation, ObservedRole::Full)
 			.await;
 
 		// bridge will inform about all connected peers.
@@ -1327,7 +1277,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::VStaging.into(),
+					ValidationVersion::V2.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1342,9 +1292,9 @@ fn network_protocol_versioning_subsystem_msg() {
 		}
 
 		let approval_distribution_message =
-			protocol_vstaging::ApprovalDistributionMessage::Approvals(Vec::new());
+			protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
 
-		let msg = protocol_vstaging::ValidationProtocol::ApprovalDistribution(
+		let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
 			approval_distribution_message.clone(),
 		);
 
@@ -1360,7 +1310,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::ApprovalDistribution(
 				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::VStaging(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -1375,10 +1325,10 @@ fn network_protocol_versioning_subsystem_msg() {
 			signature: sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		};
 		let statement_distribution_message =
-			protocol_vstaging::StatementDistributionMessage::V1Compatibility(
+			protocol_v2::StatementDistributionMessage::V1Compatibility(
 				protocol_v1::StatementDistributionMessage::LargeStatement(metadata),
 			);
-		let msg = protocol_vstaging::ValidationProtocol::StatementDistribution(
+		let msg = protocol_v2::ValidationProtocol::StatementDistribution(
 			statement_distribution_message.clone(),
 		);
 
@@ -1394,7 +1344,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
 				StatementDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::VStaging(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
 				)
 			) => {
 				assert_eq!(p, peer);

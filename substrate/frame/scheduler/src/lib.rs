@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/scheduler) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
@@ -87,14 +87,12 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{
-		DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter, RawOrigin,
-	},
+	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
 	traits::{
 		schedule::{self, DispatchTime, MaybeHashed},
-		Bounded, CallerTrait, EnsureOrigin, Get, Hash as PreimageHash, IsType, OriginTrait,
-		PalletInfoAccess, PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
+		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PalletInfoAccess,
+		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -105,8 +103,8 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, One, Saturating, Zero},
-	BoundedVec, RuntimeDebug,
+	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	BoundedVec, DispatchError, RuntimeDebug,
 };
 use sp_std::{borrow::Borrow, cmp::Ordering, marker::PhantomData, prelude::*};
 
@@ -120,6 +118,9 @@ pub type TaskAddress<BlockNumber> = (BlockNumber, u32);
 
 pub type CallOrHashOf<T> =
 	MaybeHashed<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hash>;
+
+pub type BoundedCallOf<T> =
+	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
 #[derive(Clone, RuntimeDebug, Encode, Decode)]
@@ -167,7 +168,7 @@ pub type ScheduledV3Of<T> = ScheduledV3<
 
 pub type ScheduledOf<T> = Scheduled<
 	TaskName,
-	Bounded<<T as Config>::RuntimeCall>,
+	BoundedCallOf<T>,
 	BlockNumberFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
@@ -256,7 +257,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The preimage provider with which we look up call hashes to get the call.
-		type Preimages: QueryPreimage + StorePreimage;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 	}
 
 	#[pallet::storage]
@@ -320,7 +321,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight_counter = WeightMeter::from_limit(T::MaximumWeight::get());
+			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
 		}
@@ -442,7 +443,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>> Pallet<T> {
+impl<T: Config> Pallet<T> {
 	/// Migrate storage format from V1 to V4.
 	///
 	/// Returns the weight consumed by this migration.
@@ -629,7 +630,7 @@ impl<T: Config<Hash = PreimageHash>> Pallet<T> {
 										>(&bounded)
 										{
 											log::error!(
-												"Dropping undecodable call {}: {:?}",
+												"Dropping undecodable call {:?}: {:?}",
 												&h,
 												&err
 											);
@@ -697,7 +698,7 @@ impl<T: Config> Pallet<T> {
 				Option<
 					Scheduled<
 						TaskName,
-						Bounded<<T as Config>::RuntimeCall>,
+						BoundedCallOf<T>,
 						BlockNumberFor<T>,
 						OldOrigin,
 						T::AccountId,
@@ -799,7 +800,7 @@ impl<T: Config> Pallet<T> {
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<<T as Config>::RuntimeCall>,
+		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
@@ -888,7 +889,7 @@ impl<T: Config> Pallet<T> {
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<<T as Config>::RuntimeCall>,
+		call: BoundedCallOf<T>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		// ensure id it is unique
 		if Lookup::<T>::contains_key(&id) {
@@ -1193,8 +1194,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>>
-	schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin> for Pallet<T>
+impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
 	type Hash = T::Hash;
@@ -1227,8 +1228,8 @@ impl<T: Config<Hash = PreimageHash>>
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>>
-	schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin> for Pallet<T>
+impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
 	type Hash = T::Hash;
@@ -1272,13 +1273,14 @@ impl<T: Config> schedule::v3::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
+	type Hasher = T::Hashing;
 
 	fn schedule(
 		when: DispatchTime<BlockNumberFor<T>>,
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<<T as Config>::RuntimeCall>,
+		call: BoundedCallOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_schedule(when, maybe_periodic, priority, origin, call)
 	}
@@ -1310,6 +1312,7 @@ impl<T: Config> schedule::v3::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
+	type Hasher = T::Hashing;
 
 	fn schedule_named(
 		id: TaskName,
@@ -1317,7 +1320,7 @@ impl<T: Config> schedule::v3::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<<T as Config>::RuntimeCall>,
+		call: BoundedCallOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_schedule_named(id, when, maybe_periodic, priority, origin, call)
 	}

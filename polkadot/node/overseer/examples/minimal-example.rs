@@ -76,6 +76,7 @@ impl Subsystem1 {
 			let msg = CandidateValidationMessage::ValidateFromChainState(
 				candidate_receipt,
 				PoV { block_data: BlockData(Vec::new()) }.into(),
+				Default::default(),
 				PvfExecTimeoutKind::Backing,
 				tx,
 			);
@@ -162,7 +163,6 @@ fn main() {
 			.unwrap();
 
 		let overseer_fut = overseer.run().fuse();
-		let timer_stream = timer_stream;
 
 		pin_mut!(timer_stream);
 		pin_mut!(overseer_fut);

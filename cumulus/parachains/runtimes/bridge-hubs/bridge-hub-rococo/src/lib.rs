@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -24,11 +24,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_hub_rococo_config;
 pub mod bridge_hub_wococo_config;
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
-use constants::{consensus::*, currency::*};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -47,6 +45,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -79,7 +78,6 @@ use crate::{
 		BridgeRefundBridgeHubRococoMessages, OnBridgeHubWococoBlobDispatcher,
 		WithBridgeHubRococoMessageBridge,
 	},
-	constants::fee::WeightToFee,
 	xcm_config::XcmRouter,
 };
 use bridge_runtime_common::{
@@ -87,8 +85,10 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{XcmAsPlainPayload, XcmBlobMessageDispatch},
 };
 use parachains_common::{
-	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees,
+	rococo::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use xcm_executor::XcmExecutor;
 
@@ -123,7 +123,40 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+pub type Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	InitStorageVersions,
+);
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		use sp_runtime::traits::Saturating;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Balances::on_chain_storage_version() == StorageVersion::new(0) {
+			Balances::current_storage_version().put::<Balances>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -1040,7 +1073,11 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
-			use bridge_runtime_common::messages_benchmarking::{prepare_message_delivery_proof_from_parachain, prepare_message_proof_from_parachain};
+			use bridge_runtime_common::messages_benchmarking::{
+				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_parachain,
+				generate_xcm_builder_bridge_message_sample,
+			};
 			use pallet_bridge_messages::benchmarking::{
 				Config as BridgeMessagesConfig,
 				Pallet as BridgeMessagesBench,
@@ -1067,12 +1104,12 @@ impl_runtime_apis! {
 				) -> (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaWococoInstance,
 						bridge_hub_rococo_config::WithBridgeHubWococoMessageBridge,
-					>(params, X2(GlobalConsensus(Rococo), Parachain(42)))
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1110,12 +1147,12 @@ impl_runtime_apis! {
 				) -> (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaRococoInstance,
 						bridge_hub_wococo_config::WithBridgeHubRococoMessageBridge,
-					>(params, X2(GlobalConsensus(Wococo), Parachain(42)))
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Wococo), Parachain(42))))
 				}
 
 				fn prepare_message_delivery_proof(
@@ -1230,6 +1267,16 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1240,55 +1287,67 @@ cumulus_pallet_parachain_system::register_validate_block! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::TransactionEra;
-	use bridge_hub_test_utils::test_header;
 	use codec::Encode;
-
-	pub type TestBlockHeader =
-		sp_runtime::generic::Header<bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher>;
+	use sp_runtime::{
+		generic::Era,
+		traits::{SignedExtension, Zero},
+	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		let payload: SignedExtra = (
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::from(10),
-			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(10),
-			BridgeRejectObsoleteHeadersAndMessages {},
-			(
-				BridgeRefundBridgeHubRococoMessages::default(),
-				BridgeRefundBridgeHubWococoMessages::default(),
-			),
-		);
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
-		{
-			use bp_bridge_hub_rococo::BridgeHubSignedExtension;
-			let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: SignedExtra = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					BridgeRefundBridgeHubRococoMessages::default(),
+					BridgeRefundBridgeHubWococoMessages::default(),
+				),
 			);
-			assert_eq!(payload.encode(), bhr_indirect_payload.encode());
-		}
 
-		{
-			use bp_bridge_hub_wococo::BridgeHubSignedExtension;
-			let bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
-			);
-			assert_eq!(payload.encode(), bhw_indirect_payload.encode());
-		}
+			{
+				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+
+			{
+				let bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhw_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhw_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+		});
 	}
 }

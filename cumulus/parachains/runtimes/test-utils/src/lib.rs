@@ -22,14 +22,14 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
-	dispatch::{DispatchResult, RawOrigin, UnfilteredDispatchable},
+	dispatch::{DispatchResult, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
-	traits::{OnFinalize, OnInitialize, OriginTrait},
+	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use parachains_common::{AccountId, SLOT_DURATION};
-use polkadot_parachain::primitives::{
+use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};

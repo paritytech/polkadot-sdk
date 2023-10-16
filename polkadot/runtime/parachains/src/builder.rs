@@ -18,18 +18,20 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{self, common::AssignmentProviderConfig},
+	scheduler::{
+		self,
+		common::{Assignment, AssignmentProviderConfig},
+		CoreOccupied, ParasEntry,
+	},
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use primitives::{
-	collator_signature_payload,
-	v5::{Assignment, ParasEntry},
-	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
-	CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt, CompactStatement,
-	CoreIndex, CoreOccupied, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
+	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
 	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
 	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,

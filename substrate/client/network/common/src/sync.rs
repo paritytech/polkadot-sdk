@@ -27,7 +27,7 @@ use futures::Stream;
 
 use libp2p_identity::PeerId;
 
-use message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse};
+use message::{BlockAnnounce, BlockRequest, BlockResponse};
 use sc_consensus::{import_queue::RuntimeOrigin, IncomingBlock};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 use warp::WarpSyncProgress;
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc, task::Poll};
+use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -116,11 +116,18 @@ impl fmt::Display for BadPeer {
 
 impl std::error::Error for BadPeer {}
 
+/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportBlocksAction<B: BlockT> {
+	pub origin: BlockOrigin,
+	pub blocks: Vec<IncomingBlock<B>>,
+}
+
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
-	Import(BlockOrigin, Vec<IncomingBlock<Block>>),
+	Import(ImportBlocksAction<Block>),
 	/// A new block request needs to be made to the given peer.
 	Request(PeerId, BlockRequest<Block>),
 	/// Continue processing events.
@@ -134,7 +141,7 @@ pub enum OnBlockJustification<Block: BlockT> {
 	Nothing,
 	/// The justification should be imported.
 	Import {
-		peer: PeerId,
+		peer_id: PeerId,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justifications: Justifications,
@@ -155,38 +162,6 @@ pub enum OnStateData<Block: BlockT> {
 pub enum ImportResult<B: BlockT> {
 	BlockImport(BlockOrigin, Vec<IncomingBlock<B>>),
 	JustificationImport(RuntimeOrigin, B::Hash, NumberFor<B>, Justifications),
-}
-
-/// Value polled from `ChainSync`
-#[derive(Debug)]
-pub enum PollResult<B: BlockT> {
-	Import(ImportResult<B>),
-	Announce(PollBlockAnnounceValidation<B::Header>),
-}
-
-/// Result of [`ChainSync::poll_block_announce_validation`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PollBlockAnnounceValidation<H> {
-	/// The announcement failed at validation.
-	///
-	/// The peer reputation should be decreased.
-	Failure {
-		/// Who sent the processed block announcement?
-		who: PeerId,
-		/// Should the peer be disconnected?
-		disconnect: bool,
-	},
-	/// The announcement does not require further handling.
-	Nothing {
-		/// Who sent the processed block announcement?
-		who: PeerId,
-		/// Was this their new best block?
-		is_best: bool,
-		/// The announcement.
-		announce: BlockAnnounce<H>,
-	},
-	/// The block announcement should be skipped.
-	Skip,
 }
 
 /// Sync operation mode.
@@ -236,6 +211,23 @@ pub enum PeerRequest<B: BlockT> {
 	WarpProof,
 }
 
+#[derive(Debug)]
+pub enum PeerRequestType {
+	Block,
+	State,
+	WarpProof,
+}
+
+impl<B: BlockT> PeerRequest<B> {
+	pub fn get_type(&self) -> PeerRequestType {
+		match self {
+			PeerRequest::Block(_) => PeerRequestType::Block,
+			PeerRequest::State => PeerRequestType::State,
+			PeerRequest::WarpProof => PeerRequestType::WarpProof,
+		}
+	}
+}
+
 /// Wrapper for implementation-specific state request.
 ///
 /// NOTE: Implementation must be able to encode and decode it for network purposes.
@@ -255,28 +247,6 @@ pub struct OpaqueStateResponse(pub Box<dyn Any + Send>);
 impl fmt::Debug for OpaqueStateResponse {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OpaqueStateResponse").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific block response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueBlockResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueBlockResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueBlockResponse").finish()
 	}
 }
 
@@ -343,12 +313,10 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Returns the current number of peers stored within this state machine.
 	fn num_peers(&self) -> usize;
 
-	/// Returns the number of peers we're connected to and that are being queried.
-	fn num_active_peers(&self) -> usize;
-
 	/// Handle a new connected peer.
 	///
 	/// Call this method whenever we connect to a new peer.
+	#[must_use]
 	fn new_peer(
 		&mut self,
 		who: PeerId,
@@ -380,6 +348,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	///
 	/// If this corresponds to a valid block, this outputs the block that
 	/// must be imported in the import queue.
+	#[must_use]
 	fn on_block_data(
 		&mut self,
 		who: &PeerId,
@@ -390,6 +359,7 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Handle a response from the remote to a justification request that we made.
 	///
 	/// `request` must be the original request that triggered `response`.
+	#[must_use]
 	fn on_block_justification(
 		&mut self,
 		who: PeerId,
@@ -408,54 +378,20 @@ pub trait ChainSync<Block: BlockT>: Send {
 	/// Notify about finalization of the given block.
 	fn on_block_finalized(&mut self, hash: &Block::Hash, number: NumberFor<Block>);
 
-	/// Push a block announce validation.
-	///
-	/// It is required that [`ChainSync::poll_block_announce_validation`] is called
-	/// to check for finished block announce validations.
-	fn push_block_announce_validation(
+	/// Notify about pre-validated block announcement.
+	fn on_validated_block_announce(
 		&mut self,
-		who: PeerId,
-		hash: Block::Hash,
-		announce: BlockAnnounce<Block::Header>,
 		is_best: bool,
+		who: PeerId,
+		announce: &BlockAnnounce<Block::Header>,
 	);
-
-	/// Poll block announce validation.
-	///
-	/// Block announce validations can be pushed by using
-	/// [`ChainSync::push_block_announce_validation`].
-	///
-	/// This should be polled until it returns [`Poll::Pending`].
-	fn poll_block_announce_validation(
-		&mut self,
-		cx: &mut std::task::Context<'_>,
-	) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
 
 	/// Call when a peer has disconnected.
 	/// Canceled obsolete block request may result in some blocks being ready for
 	/// import, so this functions checks for such blocks and returns them.
-	fn peer_disconnected(&mut self, who: &PeerId);
+	#[must_use]
+	fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<Block>>;
 
 	/// Return some key metrics.
 	fn metrics(&self) -> Metrics;
-
-	/// Access blocks from implementation-specific block response.
-	fn block_response_into_blocks(
-		&self,
-		request: &BlockRequest<Block>,
-		response: OpaqueBlockResponse,
-	) -> Result<Vec<BlockData<Block>>, String>;
-
-	/// Advance the state of `ChainSync`
-	///
-	/// Internally calls [`ChainSync::poll_block_announce_validation()`] and
-	/// this function should be polled until it returns [`Poll::Pending`] to
-	/// consume all pending events.
-	fn poll(
-		&mut self,
-		cx: &mut std::task::Context,
-	) -> Poll<PollBlockAnnounceValidation<Block::Header>>;
-
-	/// Send block request to peer
-	fn send_block_request(&mut self, who: PeerId, request: BlockRequest<Block>);
 }

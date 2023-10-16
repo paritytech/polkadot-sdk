@@ -1,5 +1,5 @@
 error: Expected `,` or `{`
- --> $DIR/no_comma_after_where.rs:6:3
-  |
-6 |         Block = Block,
-  |         ^^^^^
+  --> tests/construct_runtime_ui/no_comma_after_where.rs:23:3
+   |
+23 |         Block = Block,
+   |         ^^^^^

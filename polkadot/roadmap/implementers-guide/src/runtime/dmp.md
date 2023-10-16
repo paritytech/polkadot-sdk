@@ -28,7 +28,8 @@ No initialization routine runs for this module.
 Candidate Acceptance Function:
 
 * `check_processed_downward_messages(P: ParaId, relay_parent_number: BlockNumber, processed_downward_messages: u32)`:
-    1. Checks that `processed_downward_messages` is at least 1 if `DownwardMessageQueues` for `P` is not empty at the given `relay_parent_number`.
+    1. Checks that `processed_downward_messages` is at least 1 if `DownwardMessageQueues` for `P` is not empty at the
+       given `relay_parent_number`.
     1. Checks that `DownwardMessageQueues` for `P` is at least `processed_downward_messages` long.
 
 Candidate Enactment:
@@ -38,11 +39,11 @@ Candidate Enactment:
 
 Utility routines.
 
-`queue_downward_message(P: ParaId, M: DownwardMessage)`:
-    1. Check if the size of `M` exceeds the `config.max_downward_message_size`. If so, return an error.
-    1. Wrap `M` into `InboundDownwardMessage` using the current block number for `sent_at`.
-    1. Obtain a new MQC link for the resulting `InboundDownwardMessage` and replace `DownwardMessageQueueHeads` for `P` with the resulting hash.
-    1. Add the resulting `InboundDownwardMessage` into `DownwardMessageQueues` for `P`.
+`queue_downward_message(P: ParaId, M: DownwardMessage)`: 1. Check if the size of `M` exceeds the
+    `config.max_downward_message_size`. If so, return an error. 1. Wrap `M` into `InboundDownwardMessage` using the
+    current block number for `sent_at`. 1. Obtain a new MQC link for the resulting `InboundDownwardMessage` and replace
+    `DownwardMessageQueueHeads` for `P` with the resulting hash. 1. Add the resulting `InboundDownwardMessage` into
+    `DownwardMessageQueues` for `P`.
 
 ## Session Change
 

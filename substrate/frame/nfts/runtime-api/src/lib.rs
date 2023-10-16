@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::Vec;
+use sp_api::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	pub trait NftsApi<AccountId, CollectionId, ItemId>

@@ -103,7 +103,9 @@ pub mod weights;
 #[cfg(test)]
 mod tests;
 use crate::{
-	exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Key, MomentOf, Stack as ExecStack},
+	exec::{
+		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
+	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
@@ -111,10 +113,7 @@ use crate::{
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
-	dispatch::{
-		DispatchError, Dispatchable, GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin,
-		WithPostDispatchInfo,
-	},
+	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
 	ensure,
 	error::BadOrigin,
 	traits::{
@@ -137,8 +136,8 @@ use pallet_contracts_primitives::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Hash, Saturating, StaticLookup, Zero},
-	RuntimeDebug,
+	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -661,8 +660,8 @@ pub mod pallet {
 				} else {
 					return Err(<Error<T>>::ContractNotFound.into())
 				};
-				<WasmBlob<T>>::increment_refcount(code_hash)?;
-				<WasmBlob<T>>::decrement_refcount(contract.code_hash);
+				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
+				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
 				Self::deposit_event(
 					vec![T::Hashing::hash_of(&dest), code_hash, contract.code_hash],
 					Event::ContractCodeUpdated {

@@ -1,4 +1,4 @@
-// Copyright 2017-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -119,7 +119,7 @@ impl PendingCollation {
 	}
 }
 
-/// vstaging advertisement that was rejected by the backing
+/// v2 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 #[derive(Debug, Clone)]
