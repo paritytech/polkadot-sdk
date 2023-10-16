@@ -17,7 +17,7 @@ pub use bp_messages::LaneId;
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_rococo::ED as ASSET_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
+		bridge_hub_rococo::ED as BRIDGE_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
 	test_parachain_is_trusted_teleporter,
