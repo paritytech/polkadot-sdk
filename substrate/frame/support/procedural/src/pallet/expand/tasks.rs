@@ -191,7 +191,6 @@ pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
 	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
 	// item_enum.pretty_print();
 	// debug_impl.pretty_print();
-	// task_enum.item_enum = item_enum;
 	quote! {
 		#item_enum
 		#debug_impl
