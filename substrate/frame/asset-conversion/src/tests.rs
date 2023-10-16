@@ -1615,9 +1615,8 @@ fn can_not_swap_same_asset() {
 	});
 }
 
-//also Can destroy pool that has never had any liquidity in it.
 #[test]
-fn can_destroy_pool() {
+fn can_destroy_pool_after_asset_has_been_destroyed() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
 		let token_1 = NativeOrAssetId::Native;
@@ -1666,6 +1665,63 @@ fn can_destroy_pool() {
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
 
 		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+	});
+}
+
+
+#[test]
+fn can_destroy_pool_after_asset_has_been_recreated() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let pool_id = (token_1, token_2);
+		let user_sig = RuntimeOrigin::signed(user);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(user_sig.clone(), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			user_sig.clone(),
+			token_1,
+			token_2,
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		assert_noop!(
+			AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolNotDestroyable
+		);
+
+		assert_ok!(Assets::start_destroy(user_sig.clone(), 2));
+		assert_ok!(Assets::destroy_accounts(user_sig.clone(), 2));
+		assert_ok!(Assets::finish_destroy(user_sig.clone(), 2));
+
+		// Now instantly recreate an asset with the same id:
+		assert_ok!(Assets::create(RuntimeOrigin::signed(user), 2, 1, 1));
+
+		assert_noop!(
+			AssetConversion::create_pool(user_sig.clone(), token_1, token_2),
+			Error::<Test>::PoolExists
+		);
+
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
+		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
+
+		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
+
 		assert_ok!(AssetConversion::create_pool(user_sig.clone(), token_1, token_2));
 	});
 }
