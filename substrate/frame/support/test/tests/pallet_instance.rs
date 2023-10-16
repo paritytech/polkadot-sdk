@@ -87,12 +87,13 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Doc comment put in metadata
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(*_foo as u64, 0))]
+		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
 			origin: OriginFor<T>,
-			#[pallet::compact] _foo: u32,
+			#[pallet::compact] foo: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = origin;
+			let _ = foo;
 			Self::deposit_event(Event::Something(3));
 			Ok(().into())
 		}
