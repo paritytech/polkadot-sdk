@@ -617,11 +617,11 @@ pub mod pallet {
 			let amount2 = Self::mul_div(&lp_redeem_amount, &reserve2, &total_supply)?;
 
 			ensure!(
-				!amount1.is_zero() && amount1 >= amount1_min_receive,
+				amount1 >= amount1_min_receive,
 				Error::<T>::AssetOneWithdrawalDidNotMeetMinimum
 			);
 			ensure!(
-				!amount2.is_zero() && amount2 >= amount2_min_receive,
+				amount2 >= amount2_min_receive,
 				Error::<T>::AssetTwoWithdrawalDidNotMeetMinimum
 			);
 			let reserve1_left = reserve1.saturating_sub(amount1);
@@ -634,8 +634,12 @@ pub mod pallet {
 			// burn the provided lp token amount that includes the fee
 			T::PoolAssets::burn_from(pool.lp_token.clone(), &sender, lp_token_burn, Exact, Polite)?;
 
-			Self::transfer(&asset1, &pool_account, &withdraw_to, amount1, false)?;
-			Self::transfer(&asset2, &pool_account, &withdraw_to, amount2, false)?;
+			if !amount1.is_zero() {
+				Self::transfer(&asset1, &pool_account, &withdraw_to, amount1, false)?;
+			}
+			if !amount2.is_zero() {
+				Self::transfer(&asset2, &pool_account, &withdraw_to, amount2, false)?;
+			}
 
 			Self::deposit_event(Event::LiquidityRemoved {
 				who: sender,
@@ -907,9 +911,8 @@ pub mod pallet {
 						Force,
 					)?;
 				},
-				MultiAssetIdConversionResult::Unsupported(_asset_id) => {
-					return Err(Error::<T>::UnsupportedAsset.into())
-				},
+				MultiAssetIdConversionResult::Unsupported(_asset_id) =>
+					return Err(Error::<T>::UnsupportedAsset.into()),
 			};
 			Ok(())
 		}
