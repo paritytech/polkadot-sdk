@@ -23,6 +23,7 @@ exclude_path = [ "./target" ]
 exclude = [
   # Place holders (no need to fix these):
   "http://visitme/",
+  "https://visitme/",
   
   # TODO <https://github.com/paritytech/polkadot-sdk/issues/134>
   "https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
