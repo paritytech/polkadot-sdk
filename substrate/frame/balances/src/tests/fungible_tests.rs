@@ -146,7 +146,7 @@ fn unbalanced_trait_decrease_balance_works_2() {
 		assert_eq!(Balances::total_balance_on_hold(&1337), 60);
 		assert_noop!(
 			Balances::decrease_balance(&1337, 40, Exact, Expendable, Polite),
-			Error::<Test>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 		assert_eq!(Balances::decrease_balance(&1337, 39, Exact, Expendable, Polite), Ok(39));
 		assert_eq!(<Balances as fungible::Inspect<_>>::balance(&1337), 1);
