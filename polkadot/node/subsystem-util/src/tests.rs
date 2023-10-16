@@ -21,6 +21,7 @@ use executor::block_on;
 use futures::{channel::mpsc, executor, FutureExt, SinkExt, StreamExt};
 use polkadot_primitives_test_helpers::AlwaysZeroRng;
 use std::{
+	collections::HashSet,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
@@ -95,62 +96,170 @@ fn subset_predefined_generation_check() {
 	}
 }
 
-// #[test]
-// fn test_availability_chunk_indices() {
-// 	let block_number = 89;
-// 	let n_validators = 11;
-// 	let babe_randomness = [12u8; 32];
-// 	let n_cores = 4;
+#[test]
+fn test_availability_chunk_indices() {
+	let block_number = 89;
+	let n_validators = 11u32;
+	let babe_randomness = [12u8; 32];
+	let session_index = 0;
+	let n_paras = 5u32;
 
-// 	let client_features = Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING);
-// 	let (shuffle, core_start_pos) = availability_chunk_indices(
-// 		client_features,
-// 		block_number,
-// 		babe_randomness,
-// 		n_validators,
-// 		n_cores,
-// 	);
-// 	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-// 	// assert_eq!(core_start_pos, repeat(ValidatorIndex(0)).take(n_cores).collect::<Vec<_>>());
+	// Test the `_for_validator` methods
+	{
+		let para_id = 2.into();
+		let mut index_registry = ChunkIndexCacheRegistry::new(2);
 
-// 	for index in 0..n_cores {
-// 		for validator in 0..n_validators {
-// 			let chunk_index = availability_chunk_index(
-// 				client_features,
-// 				block_number,
-// 				babe_randomness,
-// 				n_validators,
-// 				CoreIndex(index as u32),
-// 				n_cores,
-// 				ValidatorIndex(validator as u32),
-// 			);
+		for validator in 0..n_validators {
+			assert!(index_registry
+				.query_cache_for_validator(block_number, session_index, para_id, validator.into())
+				.is_none());
+		}
 
-// 			assert_eq!(
-// 				&chunk_index,
-// 				(shuffle
-// 					.iter()
-// 					.cycle()
-// 					.skip(core_start_pos[index].0 as usize)
-// 					.take(n_validators)
-// 					.collect::<Vec<_>>())[validator]
-// 			);
-// 		}
-// 	}
+		for validator in 0..n_validators {
+			// Check that if the client feature is not set, we'll always return the validator index.
+			let chunk_index = index_registry.populate_for_validator(
+				None,
+				babe_randomness,
+				n_validators as usize,
+				block_number,
+				session_index,
+				para_id,
+				validator.into(),
+			);
+			assert_eq!(
+				index_registry
+					.query_cache_for_validator(
+						block_number,
+						session_index,
+						para_id,
+						validator.into()
+					)
+					.unwrap(),
+				chunk_index
+			);
+			assert_eq!(chunk_index.0, validator);
+			assert_eq!(
+				chunk_index,
+				availability_chunk_index(
+					None,
+					babe_randomness,
+					n_validators as usize,
+					block_number,
+					para_id,
+					validator.into(),
+				)
+			);
 
-// 	// let shuffle =
-// 	// 	availability_chunk_indices(Some(ClientFeatures::empty()), block_number, n_validators);
-// 	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+			// Check for when the client feature is set.
+			let chunk_index = index_registry.populate_for_validator(
+				Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+				babe_randomness,
+				n_validators as usize,
+				block_number,
+				session_index,
+				para_id,
+				validator.into(),
+			);
+			assert_eq!(
+				index_registry
+					.query_cache_for_validator(
+						block_number,
+						session_index,
+						para_id,
+						validator.into()
+					)
+					.unwrap(),
+				chunk_index
+			);
+			assert_ne!(chunk_index.0, validator);
+			assert_eq!(
+				chunk_index,
+				availability_chunk_index(
+					Some(&ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+					babe_randomness,
+					n_validators as usize,
+					block_number,
+					para_id,
+					validator.into(),
+				)
+			);
+		}
+	}
 
-// 	// let shuffle =
-// 	// 	availability_chunk_indices(ClientFeatures::from_bits(0b10), block_number, n_validators);
-// 	// assert_eq!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
+	// Test the `_for_para` methods
+	{
+		let mut index_registry = ChunkIndexCacheRegistry::new(2);
 
-// 	// let shuffle = availability_chunk_indices(
-// 	// 	Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
-// 	// 	block_number,
-// 	// 	n_validators,
-// 	// );
-// 	// assert_ne!(shuffle, (0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>());
-// 	// assert_eq!(shuffle.len(), n_validators);
-// 	// assert_eq!(shuffle.iter().collect::<HashSet<_>>().len(), n_validators);
-// }
+		for para in 0..n_paras {
+			assert!(index_registry
+				.query_cache_for_para(block_number, session_index, para.into())
+				.is_none());
+		}
+
+		for para in 0..n_paras {
+			// Check that if the client feature is not set, we'll always return the identity vector.
+			let chunk_indices = index_registry.populate_for_para(
+				None,
+				babe_randomness,
+				n_validators as usize,
+				block_number,
+				session_index,
+				para.into(),
+			);
+			assert_eq!(
+				index_registry
+					.query_cache_for_para(block_number, session_index, para.into())
+					.unwrap(),
+				chunk_indices
+			);
+			assert_eq!(chunk_indices, (0..n_validators).map(|i| ChunkIndex(i)).collect::<Vec<_>>());
+
+			for validator in 0..n_validators {
+				assert_eq!(
+					availability_chunk_index(
+						None,
+						babe_randomness,
+						n_validators as usize,
+						block_number,
+						para.into(),
+						validator.into(),
+					),
+					chunk_indices[validator as usize]
+				);
+			}
+
+			// Check for when the client feature is set.
+			let chunk_indices = index_registry.populate_for_para(
+				Some(ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+				babe_randomness,
+				n_validators as usize,
+				block_number,
+				session_index,
+				para.into(),
+			);
+			assert_eq!(
+				index_registry
+					.query_cache_for_para(block_number, session_index, para.into())
+					.unwrap(),
+				chunk_indices
+			);
+			assert_eq!(chunk_indices.len(), n_validators as usize);
+			assert_ne!(chunk_indices, (0..n_validators).map(|i| ChunkIndex(i)).collect::<Vec<_>>());
+			assert_eq!(chunk_indices.iter().collect::<HashSet<_>>().len(), n_validators as usize);
+
+			for validator in 0..n_validators {
+				assert_eq!(
+					availability_chunk_index(
+						Some(&ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING),
+						babe_randomness,
+						n_validators as usize,
+						block_number,
+						para.into(),
+						validator.into(),
+					),
+					chunk_indices[validator as usize]
+				);
+			}
+		}
+	}
+}
