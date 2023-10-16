@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use staging_chain_spec_builder as chain_spec_builder;
 use chain_spec_builder::{
 	generate_authority_keys_and_store, generate_chain_spec, print_seeds, ChainSpecBuilder,
 };
