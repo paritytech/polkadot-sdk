@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
-// Para id of sibling chain (Rockmine/Wockmint) used in tests.
+// Para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 1000;
 
 parameter_types! {
