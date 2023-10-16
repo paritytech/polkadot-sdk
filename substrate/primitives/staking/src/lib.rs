@@ -37,6 +37,23 @@ pub type SessionIndex = u32;
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
 
+/// Representation of a staking account, which may be a stash or controller account.
+///
+/// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of
+/// the stash account. Tracking issue: <https://github.com/paritytech/substrate/issues/6927>.
+#[derive(Clone, Debug)]
+pub enum StakingAccount<AccountId> {
+	Stash(AccountId),
+	Controller(AccountId),
+}
+
+#[cfg(feature = "std")]
+impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
+	fn from(account: AccountId) -> Self {
+		StakingAccount::Stash(account)
+	}
+}
+
 /// Representation of the status of a staker.
 #[derive(RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
@@ -121,10 +138,12 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// * `slashed_active` - The new bonded balance of the staker after the slash was applied.
 	/// * `slashed_unlocking` - A map of slashed eras, and the balance of that unlocking chunk after
 	///   the slash is applied. Any era not present in the map is not affected at all.
+	/// * `slashed_total` - The aggregated balance that was lost due to the slash.
 	fn on_slash(
 		_stash: &AccountId,
 		_slashed_active: Balance,
 		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
+		_slashed_total: Balance,
 	) {
 	}
 }
