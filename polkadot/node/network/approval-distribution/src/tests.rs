@@ -873,8 +873,9 @@ fn import_approval_happy_path_v1_v2_peers() {
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_b, msg).await;
+		let msg: protocol_vstaging::ApprovalDistributionMessage =
+			protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_vstaging(overseer, &peer_b, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -975,7 +976,7 @@ fn import_approval_happy_path_v2() {
 			signature: dummy_signature(),
 		};
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_b, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_b, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1059,7 +1060,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			assignment,
 			(0 as CandidateIndex).into(),
 		)]);
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1101,7 +1102,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			(1 as CandidateIndex).into(),
 		)]);
 
-		send_message_from_peer_v2(overseer, &peer_c, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_c, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1137,7 +1138,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			signature: dummy_signature(),
 		};
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1241,7 +1242,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			assignment,
 			(0 as CandidateIndex).into(),
 		)]);
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1268,7 +1269,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			(1 as CandidateIndex).into(),
 		)]);
 
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1289,7 +1290,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			signature: dummy_signature(),
 		};
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_d, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1410,7 +1411,7 @@ fn import_approval_bad() {
 			signature: dummy_signature(),
 		};
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_b, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_b, msg).await;
 
 		expect_reputation_change(overseer, &peer_b, COST_UNEXPECTED_MESSAGE).await;
 
@@ -1436,7 +1437,7 @@ fn import_approval_bad() {
 
 		// and try again
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, &peer_b, msg).await;
+		send_message_from_peer_vstaging(overseer, &peer_b, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1762,7 +1763,7 @@ fn import_remotely_then_locally() {
 			signature: dummy_signature(),
 		};
 		let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer_v2(overseer, peer, msg).await;
+		send_message_from_peer_vstaging(overseer, peer, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -3172,12 +3173,13 @@ fn resends_messages_periodically() {
 /// Tests that peers correctly receive versioned messages.
 #[test]
 fn import_versioned_approval() {
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
-
 	let state = state_without_reputation_delay();
 	let _ = test_harness(state, |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
@@ -3185,6 +3187,10 @@ fn import_versioned_approval() {
 		setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V2).await;
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V2).await;
+
+		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// testing.
+		setup_gossip_topology(overseer, make_gossip_topology(1, &peers, &[0, 1], &[2, 4], 3)).await;
 
 		// new block `hash_a` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -3253,7 +3259,7 @@ fn import_versioned_approval() {
 				vote,
 				tx,
 			)) => {
-				assert_eq!(vote, approval);
+				assert_eq!(vote, approval.into());
 				tx.send(ApprovalCheckResult::Accepted).unwrap();
 			}
 		);
@@ -3273,6 +3279,7 @@ fn import_versioned_approval() {
 				assert_eq!(approvals.len(), 1);
 			}
 		);
+
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
