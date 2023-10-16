@@ -368,6 +368,7 @@ impl crate::inclusion::Config for Test {
 
 impl crate::paras_inherent::Config for Test {
 	type WeightInfo = crate::paras_inherent::TestWeightInfo;
+	type DisabledValidators = ();
 }
 
 pub struct MockValidatorSet;

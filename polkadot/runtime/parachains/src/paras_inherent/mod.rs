@@ -37,7 +37,7 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
 	pallet_prelude::*,
-	traits::Randomness,
+	traits::{DisabledValidators, Randomness},
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
@@ -121,14 +121,11 @@ pub mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config:
-		inclusion::Config
-		+ scheduler::Config
-		+ initializer::Config
-		+ pallet_babe::Config
-		+ pallet_session::Config
+		inclusion::Config + scheduler::Config + initializer::Config + pallet_babe::Config
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+		type DisabledValidators: DisabledValidators;
 	}
 
 	#[pallet::error]
@@ -1054,7 +1051,7 @@ fn filter_backed_statements<T: Config>(
 	// `disabled_validators` in pallet session contains 'raw indexes' (see the previous comment). We
 	// want them converted to `ValidatorIndex` so that we can look them up easily when processing
 	// backed candidates. We skip disabled validators which are not found in the active set.
-	let disabled_validators = <pallet_session::Pallet<T>>::disabled_validators()
+	let disabled_validators = <T as pallet::Config>::DisabledValidators::disabled_validators()
 		.iter()
 		.filter_map(|i| raw_idx_to_val_index.get(i))
 		.collect::<BTreeSet<_>>();

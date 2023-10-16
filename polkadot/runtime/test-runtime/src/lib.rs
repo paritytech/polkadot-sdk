@@ -520,6 +520,7 @@ impl parachains_slashing::Config for Runtime {
 
 impl parachains_paras_inherent::Config for Runtime {
 	type WeightInfo = parachains_paras_inherent::TestWeightInfo;
+	type DisabledValidators = Session;
 }
 
 impl parachains_initializer::Config for Runtime {
