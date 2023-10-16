@@ -116,9 +116,9 @@ where
 
 /// Implements [`QueryKindTrait`](frame_support::storage::types::QueryKindTrait) with `Query` type
 /// being `Value`.
-/// 
+///
 /// ## Example
-/// 
+///
 /// The `ValueQuery` implementation accommodates two generic type parameters defined by
 /// [`QueryKindTrait`]: `Value` and `OnEmpty`. By default, all FRAME storage items set `OnEmpty` to
 /// [`GetDefault`](frame_support::traits::GetDefault). This returns `Default::default()` for `Value`
@@ -176,9 +176,9 @@ mod test {
 	}
 
 	struct Prefix;
-		impl StorageInstance for Prefix {
- 			fn pallet_prefix() -> &'static str {
- 			"test"
+	impl StorageInstance for Prefix {
+		fn pallet_prefix() -> &'static str {
+			"test"
 		}
 		const STORAGE_PREFIX: &'static str = "foo";
 	}

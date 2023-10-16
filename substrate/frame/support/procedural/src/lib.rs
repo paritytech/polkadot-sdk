@@ -972,7 +972,7 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
@@ -982,7 +982,7 @@ pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
@@ -1097,7 +1097,7 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
@@ -1276,9 +1276,9 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
-/// 
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::storage`.
 #[proc_macro_attribute]
@@ -1383,9 +1383,9 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
-/// 
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
@@ -1393,9 +1393,9 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// 
+///
 /// ---
-/// 
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]

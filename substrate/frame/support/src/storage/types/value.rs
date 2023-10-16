@@ -35,9 +35,9 @@ use sp_std::prelude::*;
 ///
 /// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// #[frame_support::pallet]
 /// mod pallet {

@@ -52,7 +52,7 @@ use sp_std::prelude::*;
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Example
-/// 
+///
 /// ```
 /// #[frame_support::pallet]
 /// mod pallet {
@@ -74,10 +74,9 @@ use sp_std::prelude::*;
 /// 	>;
 /// }
 /// ```
-/// 
+///
 /// The total number of items currently stored in the map can be retrieved with the
 /// [`count()`](#method.count) method.
-/// 
 #[doc = docify::embed!("src/storage/types/counted_map.rs", test_simple_count_works)]
 pub struct CountedStorageMap<
 	Prefix,
