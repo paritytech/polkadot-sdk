@@ -20,7 +20,7 @@
 use sp_std::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use frame_support::weights::Weight;
+use sp_weights::Weight;
 use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
