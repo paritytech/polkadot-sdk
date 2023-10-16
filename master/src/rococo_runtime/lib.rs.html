@@ -2221,6 +2221,67 @@
 <a href="#2221" id="2221">2221</a>
 <a href="#2222" id="2222">2222</a>
 <a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
+<a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
+<a href="#2280" id="2280">2280</a>
+<a href="#2281" id="2281">2281</a>
+<a href="#2282" id="2282">2282</a>
+<a href="#2283" id="2283">2283</a>
+<a href="#2284" id="2284">2284</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3637,6 +3698,52 @@
 </span><span class="kw">pub mod </span>migrations {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+	<span class="kw">use </span>frame_support::traits::LockIdentifier;
+	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+
+	<span class="macro">parameter_types! </span>{
+		<span class="kw">pub const </span>DemocracyPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Democracy&quot;</span>;
+		<span class="kw">pub const </span>CouncilPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Council&quot;</span>;
+		<span class="kw">pub const </span>TechnicalCommitteePalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TechnicalCommittee&quot;</span>;
+		<span class="kw">pub const </span>PhragmenElectionPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;PhragmenElection&quot;</span>;
+		<span class="kw">pub const </span>TechnicalMembershipPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TechnicalMembership&quot;</span>;
+		<span class="kw">pub const </span>TipsPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Tips&quot;</span>;
+		<span class="kw">pub const </span>PhragmenElectionPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;phrelect&quot;</span>;
+	}
+
+	<span class="comment">// Special Config for Gov V1 pallets, allowing us to run migrations for them without
+	// implementing their configs on [`Runtime`].
+	</span><span class="kw">pub struct </span>UnlockConfig;
+	<span class="kw">impl </span>pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockConfig <span class="kw">for </span>UnlockConfig {
+		<span class="kw">type </span>Currency = Balances;
+		<span class="kw">type </span>MaxVotes = ConstU32&lt;<span class="number">100</span>&gt;;
+		<span class="kw">type </span>MaxDeposits = ConstU32&lt;<span class="number">100</span>&gt;;
+		<span class="kw">type </span>AccountId = AccountId;
+		<span class="kw">type </span>BlockNumber = BlockNumberFor&lt;Runtime&gt;;
+		<span class="kw">type </span>DbWeight = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight;
+		<span class="kw">type </span>PalletName = DemocracyPalletName;
+	}
+	<span class="kw">impl </span>pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockConfig
+		<span class="kw">for </span>UnlockConfig
+	{
+		<span class="kw">type </span>Currency = Balances;
+		<span class="kw">type </span>MaxVotesPerVoter = ConstU32&lt;<span class="number">16</span>&gt;;
+		<span class="kw">type </span>PalletId = PhragmenElectionPalletId;
+		<span class="kw">type </span>AccountId = AccountId;
+		<span class="kw">type </span>DbWeight = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight;
+		<span class="kw">type </span>PalletName = PhragmenElectionPalletName;
+	}
+	<span class="kw">impl </span>pallet_tips::migrations::unreserve_deposits::UnlockConfig&lt;()&gt; <span class="kw">for </span>UnlockConfig {
+		<span class="kw">type </span>Currency = Balances;
+		<span class="kw">type </span>Hash = Hash;
+		<span class="kw">type </span>DataDepositPerByte = DataDepositPerByte;
+		<span class="kw">type </span>TipReportDepositBase = TipReportDepositBase;
+		<span class="kw">type </span>AccountId = AccountId;
+		<span class="kw">type </span>BlockNumber = BlockNumberFor&lt;Runtime&gt;;
+		<span class="kw">type </span>DbWeight = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight;
+		<span class="kw">type </span>PalletName = TipsPalletName;
+	}
+
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
 		pallet_society::migrations::VersionCheckedMigrateToV2&lt;Runtime, (), ()&gt;,
@@ -3649,6 +3756,21 @@
 		paras_registrar::migration::VersionCheckedMigrateToV1&lt;Runtime, ()&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, pallet_referenda::Instance2&gt;,
+
+		<span class="comment">// Unlock &amp; unreserve Gov1 funds
+
+		</span>pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
+		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds&lt;UnlockConfig&gt;,
+		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits&lt;UnlockConfig, ()&gt;,
+
+		<span class="comment">// Delete all Gov v1 pallet storage key/values.
+
+		</span>frame_support::migrations::RemovePallet&lt;DemocracyPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		frame_support::migrations::RemovePallet&lt;CouncilPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		frame_support::migrations::RemovePallet&lt;TechnicalCommitteePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		frame_support::migrations::RemovePallet&lt;PhragmenElectionPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		frame_support::migrations::RemovePallet&lt;TechnicalMembershipPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		frame_support::migrations::RemovePallet&lt;TipsPalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
 	);
 }
 

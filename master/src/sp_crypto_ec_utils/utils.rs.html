@@ -123,11 +123,6 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -145,8 +140,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! The generic executions of the operations on arkworks elliptic curves
-//! which get instantiatied by the corresponding curves.
+</span><span class="doccomment">//! Generic executions of the operations for *Arkworks* elliptic curves.
+
 </span><span class="kw">use </span>ark_ec::{
 	pairing::{MillerLoopOutput, Pairing, PairingOutput},
 	short_weierstrass,
@@ -155,17 +150,18 @@
 	twisted_edwards::TECurveConfig,
 	CurveConfig, VariableBaseMSM,
 };
-<span class="kw">use </span>ark_scale::hazmat::ArkScaleProjective;
-<span class="kw">use </span>ark_std::vec::Vec;
-<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>ark_scale::{
+	hazmat::ArkScaleProjective,
+	scale::{Decode, Encode},
+};
+<span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="kw">const </span>HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
-<span class="kw">type </span>ArkScale&lt;T&gt; = ark_scale::ArkScale&lt;T, HOST_CALL&gt;;
+<span class="comment">// Scale codec type which is expected to be used by the host functions.
+//
+// Encoding is set to `HOST_CALL` which is a shortcut for &quot;not-validated&quot; and &quot;not-compressed&quot;.
+</span><span class="kw">type </span>ArkScale&lt;T&gt; = ark_scale::ArkScale&lt;T, { ark_scale::HOST_CALL }&gt;;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>multi_miller_loop_generic&lt;Curve: Pairing&gt;(
-	g1: Vec&lt;u8&gt;,
-	g2: Vec&lt;u8&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
+<span class="kw">pub fn </span>multi_miller_loop&lt;Curve: Pairing&gt;(g1: Vec&lt;u8&gt;, g2: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
 	<span class="kw">let </span>g1 = &lt;ArkScale&lt;Vec&lt;&lt;Curve <span class="kw">as </span>Pairing&gt;::G1Affine&gt;&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>g1.as_slice())
 		.map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 	<span class="kw">let </span>g2 = &lt;ArkScale&lt;Vec&lt;&lt;Curve <span class="kw">as </span>Pairing&gt;::G2Affine&gt;&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>g2.as_slice())
@@ -177,7 +173,7 @@
 	<span class="prelude-val">Ok</span>(result.encode())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>final_exponentiation_generic&lt;Curve: Pairing&gt;(target: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
+<span class="kw">pub fn </span>final_exponentiation&lt;Curve: Pairing&gt;(target: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
 	<span class="kw">let </span>target =
 		&lt;ArkScale&lt;&lt;Curve <span class="kw">as </span>Pairing&gt;::TargetField&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>target.as_slice())
 			.map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
@@ -188,10 +184,7 @@
 	<span class="prelude-val">Ok</span>(result.encode())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>msm_sw_generic&lt;Curve: SWCurveConfig&gt;(
-	bases: Vec&lt;u8&gt;,
-	scalars: Vec&lt;u8&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
+<span class="kw">pub fn </span>msm_sw&lt;Curve: SWCurveConfig&gt;(bases: Vec&lt;u8&gt;, scalars: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
 	<span class="kw">let </span>bases =
 		&lt;ArkScale&lt;Vec&lt;short_weierstrass::Affine&lt;Curve&gt;&gt;&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>bases.as_slice())
 			.map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
@@ -208,10 +201,7 @@
 	<span class="prelude-val">Ok</span>(result.encode())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>msm_te_generic&lt;Curve: TECurveConfig&gt;(
-	bases: Vec&lt;u8&gt;,
-	scalars: Vec&lt;u8&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
+<span class="kw">pub fn </span>msm_te&lt;Curve: TECurveConfig&gt;(bases: Vec&lt;u8&gt;, scalars: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
 	<span class="kw">let </span>bases =
 		&lt;ArkScale&lt;Vec&lt;twisted_edwards::Affine&lt;Curve&gt;&gt;&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>bases.as_slice())
 			.map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
@@ -227,7 +217,7 @@
 	<span class="prelude-val">Ok</span>(result.encode())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>mul_projective_generic&lt;Group: SWCurveConfig&gt;(
+<span class="kw">pub fn </span>mul_projective_sw&lt;Group: SWCurveConfig&gt;(
 	base: Vec&lt;u8&gt;,
 	scalar: Vec&lt;u8&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
@@ -243,7 +233,7 @@
 	<span class="prelude-val">Ok</span>(result.encode())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>mul_projective_te_generic&lt;Group: TECurveConfig&gt;(
+<span class="kw">pub fn </span>mul_projective_te&lt;Group: TECurveConfig&gt;(
 	base: Vec&lt;u8&gt;,
 	scalar: Vec&lt;u8&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {

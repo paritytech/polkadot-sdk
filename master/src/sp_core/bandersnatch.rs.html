@@ -1075,21 +1075,6 @@
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
 <a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1152,15 +1137,7 @@
 //
 // This size is dependent on the ring domain size and the actual value
 // is equal to the SCALE encoded size of the `KZG` backend.
-//
-// Some values:
-//  ring_size → ~serialized_size
-//   512        →  74 KB
-//  1024        → 147 KB
-//  2048        → 295 KB
-// NOTE: This is quite big but looks like there is an upcoming fix
-// in the backend.
-</span><span class="kw">const </span>RING_CONTEXT_SERIALIZED_LEN: usize = <span class="number">147748</span>;
+</span><span class="kw">const </span>RING_CONTEXT_SERIALIZED_LEN: usize = <span class="number">147716</span>;
 
 <span class="doccomment">/// Bandersnatch public key.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;full_crypto&quot;</span>, derive(Hash))]
@@ -1630,10 +1607,7 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">impl </span>Pair {
 		<span class="kw">fn </span>vrf_sign_gen&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData) -&gt; VrfSignature {
-			<span class="kw">let </span>ios = core::array::from_fn(|i| {
-				<span class="kw">let </span>input = data.inputs[i].<span class="number">0</span>.clone();
-				<span class="self">self</span>.secret.vrf_inout(input)
-			});
+			<span class="kw">let </span>ios = core::array::from_fn(|i| <span class="self">self</span>.secret.vrf_inout(data.inputs[i].<span class="number">0</span>));
 
 			<span class="kw">let </span>thin_signature: ThinVrfSignature&lt;N&gt; =
 				<span class="self">self</span>.secret.sign_thin_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>ios);
@@ -1659,7 +1633,7 @@
 			input: <span class="kw-2">&amp;</span>VrfInput,
 		) -&gt; [u8; N] {
 			<span class="kw">let </span>transcript = Transcript::new_labeled(context);
-			<span class="kw">let </span>inout = <span class="self">self</span>.secret.vrf_inout(input.<span class="number">0</span>.clone());
+			<span class="kw">let </span>inout = <span class="self">self</span>.secret.vrf_inout(input.<span class="number">0</span>);
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -1675,7 +1649,7 @@
 			</span>};
 
 			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| signature.outputs[i].<span class="number">0</span>.clone());
+				core::array::from_fn(|i| signature.outputs[i].<span class="number">0</span>);
 
 			<span class="comment">// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
@@ -1688,7 +1662,7 @@
 			</span>};
 			<span class="kw">let </span>signature = ThinVrfSignature { proof, preouts };
 
-			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>.clone());
+			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>);
 
 			public.verify_thin_vrf(data.transcript.clone(), inputs, <span class="kw-2">&amp;</span>signature).is_ok()
 		}
@@ -1702,8 +1676,7 @@
 			input: <span class="kw-2">&amp;</span>VrfInput,
 		) -&gt; [u8; N] {
 			<span class="kw">let </span>transcript = Transcript::new_labeled(context);
-			<span class="kw">let </span>inout =
-				bandersnatch_vrfs::VrfInOut { input: input.<span class="number">0</span>.clone(), preoutput: <span class="self">self</span>.<span class="number">0</span>.clone() };
+			<span class="kw">let </span>inout = bandersnatch_vrfs::VrfInOut { input: input.<span class="number">0</span>, preoutput: <span class="self">self</span>.<span class="number">0 </span>};
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -1825,10 +1798,7 @@
 			data: <span class="kw-2">&amp;</span>VrfSignData,
 			prover: <span class="kw-2">&amp;</span>RingProver,
 		) -&gt; RingVrfSignature {
-			<span class="kw">let </span>ios = core::array::from_fn(|i| {
-				<span class="kw">let </span>input = data.inputs[i].<span class="number">0</span>.clone();
-				<span class="self">self</span>.secret.vrf_inout(input)
-			});
+			<span class="kw">let </span>ios = core::array::from_fn(|i| <span class="self">self</span>.secret.vrf_inout(data.inputs[i].<span class="number">0</span>));
 
 			<span class="kw">let </span>ring_signature: bandersnatch_vrfs::RingVrfSignature&lt;N&gt; =
 				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: <span class="kw-2">&amp;</span><span class="self">self</span>.secret }
@@ -1884,12 +1854,12 @@
 			</span>};
 
 			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| <span class="self">self</span>.outputs[i].<span class="number">0</span>.clone());
+				core::array::from_fn(|i| <span class="self">self</span>.outputs[i].<span class="number">0</span>);
 
 			<span class="kw">let </span>signature =
 				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
 
-			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>.clone());
+			<span class="kw">let </span>inputs = data.inputs.iter().map(|i| i.<span class="number">0</span>);
 
 			bandersnatch_vrfs::RingVerifier(verifier)
 				.verify_ring_vrf(data.transcript.clone(), inputs, <span class="kw-2">&amp;</span>signature)
