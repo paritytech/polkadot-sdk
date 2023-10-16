@@ -30,7 +30,6 @@ pub use integration_tests_common::{
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
-	BridgeHubWestend, BridgeHubWestendReceiver, CollectivesWestend, CollectivesWestendReceiver,
 	PenpalWestendA, PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend,
 	WestendPallet, WestendReceiver, WestendSender,
 };

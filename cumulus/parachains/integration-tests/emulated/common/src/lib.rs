@@ -114,39 +114,6 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 		}
 	},
-	pub struct CollectivesWestend {
-		genesis = collectives::genesis(),
-		on_init = {
-			collectives_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = collectives_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: collectives_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: collectives_polkadot_runtime::DmpQueue,
-			LocationToAccountId: collectives_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: collectives_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: collectives_polkadot_runtime::PolkadotXcm,
-			Balances: collectives_polkadot_runtime::Balances,
-		}
-	},
-	pub struct BridgeHubWestend {
-		genesis = bridge_hub_kusama::genesis(),
-		on_init = {
-			bridge_hub_kusama_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_kusama_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_kusama_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_kusama_runtime::PolkadotXcm,
-		}
-	},
 	pub struct PenpalWestendA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
 		on_init = {
