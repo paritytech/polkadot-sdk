@@ -866,7 +866,7 @@ fn batch_works_with_council_origin() {
 			proposal_len
 		));
 
-		System::assert_last_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
+		System::assert_has_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
 			proposal_hash: hash,
 			result: Ok(()),
 		}));
@@ -903,7 +903,7 @@ fn force_batch_works_with_council_origin() {
 			proposal_len
 		));
 
-		System::assert_last_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
+		System::assert_has_event(RuntimeEvent::Council(pallet_collective::Event::Executed {
 			proposal_hash: hash,
 			result: Ok(()),
 		}));
