@@ -15,7 +15,7 @@ publish = false
 array-bytes = "6.1"
 clap = { version = "4.4.6", features = ["derive"] }
 log = "0.4.17"
-node-primitives = { path = "../primitives" }
+node-primitives = { package = "staging-node-primitives", path = "../primitives" }
 node-testing = { path = "../testing" }
 kitchensink-runtime = { path = "../runtime" }
 sc-client-api = { path = "../../../client/api" }

@@ -1,5 +1,5 @@
 [package]
-name = "node-rpc"
+name = "staging-node-rpc"
 version = "3.0.0-dev"
 authors.workspace = true
 description = "Substrate node rpc methods."
@@ -13,7 +13,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.16.2", features = ["server"] }
-node-primitives = { path = "../primitives" }
+node-primitives = { package = "staging-node-primitives", path = "../primitives" }
 pallet-transaction-payment-rpc = { path = "../../../frame/transaction-payment/rpc" }
 mmr-rpc = { path = "../../../client/merkle-mountain-range/rpc" }
 sc-chain-spec = { path = "../../../client/chain-spec" }
