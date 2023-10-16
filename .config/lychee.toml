@@ -1,5 +1,5 @@
 # Config file for lychee link checker: <https://github.com/lycheeverse/lychee>
-# Run with `lychee -c .config/lychee.toml ./**/*.rs`
+# Run with `lychee -c .config/lychee.toml ./**/*.rs ./**/*.prdoc`
 
 cache = true
 max_cache_age = "1d"
