@@ -190,7 +190,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			Box::new(chain_spec::asset_hubs::asset_hub_wococo_local_config()),
 		// the chain spec as used for generating the upgrade genesis values
 		"asset-hub-wococo-genesis" => Box::new(chain_spec::asset_hubs::asset_hub_wococo_config()),
-		// the shell-based chain spec as used for syncing
 		"asset-hub-wococo" =>
 			Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_bytes(
 				&include_bytes!("../chain-specs/asset-hub-wococo.json")[..],
