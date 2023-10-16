@@ -258,6 +258,11 @@ pub trait RuntimeApiSubsystemClient {
 
 	// === v8 ===
 
+	/// Gets the disabled validators at a specific block height
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
+
+	// === v9 ===
+
 	/// Get the client features.
 	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError>;
 }
@@ -502,7 +507,6 @@ where
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
-	/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 	async fn async_backing_params(
 		&self,
 		at: Hash,
@@ -512,5 +516,9 @@ where
 
 	async fn client_features(&self, at: Hash) -> Result<vstaging::ClientFeatures, ApiError> {
 		self.client.runtime_api().client_features(at)
+	}
+
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		self.client.runtime_api().disabled_validators(at)
 	}
 }

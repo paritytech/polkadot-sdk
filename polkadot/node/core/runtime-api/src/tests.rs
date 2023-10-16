@@ -272,6 +272,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn client_features(&self, _: Hash) -> Result<ClientFeatures, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

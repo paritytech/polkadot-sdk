@@ -510,7 +510,7 @@ pub async fn request_min_backing_votes(
 }
 
 /// Request the availability chunk shuffling params.
-/// Prior to runtime API version 7, just return `None`.
+/// Prior to runtime API version 9, just return `None`.
 pub async fn request_client_features(
 	parent: Hash,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,

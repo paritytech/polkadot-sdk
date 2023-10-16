@@ -17,7 +17,7 @@
 //! # Overseer
 //!
 //! `overseer` implements the Overseer architecture described in the
-//! [implementers-guide](https://w3f.github.io/parachain-implementers-guide/node/index.html).
+//! [implementers' guide][overseer-page].
 //! For the motivations behind implementing the overseer itself you should
 //! check out that guide, documentation in this crate will be mostly discussing
 //! technical stuff.
@@ -53,6 +53,8 @@
 //!             .  +--------------------+               +---------------------+  .
 //!             ..................................................................
 //! ```
+//!
+//! [overseer-page]: https://paritytech.github.io/polkadot-sdk/book/node/overseer.html
 
 // #![deny(unused_results)]
 // unused dependencies can not work for test and examples at the same time

@@ -347,8 +347,11 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_minimum_backing_votes(at, session_index).await?)
 	}
 
-	async fn client_features(&self, at: Hash) -> Result<ClientFeatures, ApiError> {
-		Ok(self.rpc_client.parachain_host_client_features(at).await?)
+	async fn disabled_validators(
+		&self,
+		at: Hash,
+	) -> Result<Vec<polkadot_primitives::ValidatorIndex>, ApiError> {
+		Ok(self.rpc_client.parachain_host_disabled_validators(at).await?)
 	}
 
 	async fn async_backing_params(&self, at: Hash) -> Result<AsyncBackingParams, ApiError> {
@@ -361,6 +364,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
+	}
+
+	async fn client_features(&self, at: Hash) -> Result<ClientFeatures, ApiError> {
+		Ok(self.rpc_client.parachain_host_client_features(at).await?)
 	}
 }
 
