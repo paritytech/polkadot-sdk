@@ -386,9 +386,9 @@ impl<
 	fn issue(amount: Self::Balance) -> Credit<AccountId, Self> {
 		Imbalance::new(<F as fungibles::Balanced<AccountId>>::issue(A::get(), amount).peek())
 	}
-	fn pair(amount: Self::Balance) -> (Credit<AccountId, Self>, Debt<AccountId, Self>) {
-		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
-		(Imbalance::new(a.peek()), Imbalance::new(b.peek()))
+	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
+		let (d, c) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
+		(Imbalance::new(d.peek()), Imbalance::new(c.peek()))
 	}
 	fn rescind(amount: Self::Balance) -> Debt<AccountId, Self> {
 		Imbalance::new(<F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount).peek())

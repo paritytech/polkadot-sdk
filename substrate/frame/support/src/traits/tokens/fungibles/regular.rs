@@ -197,7 +197,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		let free = Self::reducible_balance(asset.clone(), who, preservation, force);
 		match precision {
 			BestEffort => amount = amount.min(free),
-			Exact => ensure!(free >= amount, TokenError::FundsUnavailable),
+			Exact => ensure!(free >= amount, TokenError::BelowMinimum),
 		}
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(asset.clone(), who, new_balance)? {
@@ -473,7 +473,16 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		asset: Self::AssetId,
 		amount: Self::Balance,
 	) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		(Self::rescind(asset.clone(), amount), Self::issue(asset, amount))
+		let debt =
+			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(
+				asset.clone(),
+				amount,
+			);
+		let credit =
+			Imbalance::<Self::AssetId, Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(
+				asset, amount,
+			);
+		(debt, credit)
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.

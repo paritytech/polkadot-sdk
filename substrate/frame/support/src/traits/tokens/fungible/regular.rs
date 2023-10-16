@@ -184,7 +184,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		let free = Self::reducible_balance(who, preservation, force);
 		match precision {
 			BestEffort => amount = amount.min(free),
-			Exact => ensure!(free >= amount, TokenError::FundsUnavailable),
+			Exact => ensure!(free >= amount, TokenError::BelowMinimum),
 		}
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(who, new_balance)? {
@@ -409,8 +409,12 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
-	fn pair(amount: Self::Balance) -> (Credit<AccountId, Self>, Debt<AccountId, Self>) {
-		(Self::issue(amount), Self::rescind(amount))
+	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
+		// Create credit and debt in-line to avoid overflow or underflow which could occur when
+		// calling `issue` and `rescind` directly.
+		let credit = Imbalance::<Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(amount);
+		let debt = Imbalance::<Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(amount);
+		(debt, credit)
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.
