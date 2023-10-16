@@ -83,8 +83,8 @@ use parachains_common::{
 use sp_runtime::RuntimeDebug;
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
-	FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
+	TokenLocation, TrustBackedAssetsConvertedConcreteId, XcmConfig,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -636,21 +636,13 @@ impl parachain_info::Config for Runtime {}
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
-parameter_types! {
-	// Fellows pluralistic body.
-	pub const FellowsBodyId: BodyId = BodyId::Technical;
-}
-
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type ControllerOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
-	>;
+	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = xcm_config::XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = ();
