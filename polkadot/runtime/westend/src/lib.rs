@@ -45,12 +45,12 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing, vstaging::ApprovalVotingParams, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -70,7 +70,9 @@ use runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent, reward_points as parachains_reward_points,
-	runtime_api_impl::v7 as parachains_runtime_api_impl,
+	runtime_api_impl::{
+		v7 as parachains_runtime_api_impl, vstaging as parachains_runtime_api_impl_staging,
+	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -1696,7 +1698,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(7)]
+	#[api_version(8)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1838,6 +1840,10 @@ sp_api::impl_runtime_apis! {
 
 		fn async_backing_params() -> primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::<Runtime>()
+		}
+
+		fn approval_voting_params() -> ApprovalVotingParams {
+			parachains_runtime_api_impl_staging::approval_voting_params::<Runtime>()
 		}
 	}
 

@@ -259,7 +259,7 @@ sp_api::decl_runtime_apis! {
 		fn async_backing_params() -> AsyncBackingParams;
 
 		/// Approval voting configuration parameters
-		#[api_version(99)]
+		#[api_version(8)]
 		fn approval_voting_params() -> ApprovalVotingParams;
 	}
 }

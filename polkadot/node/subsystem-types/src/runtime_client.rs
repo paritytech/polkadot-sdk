@@ -256,6 +256,7 @@ pub trait RuntimeApiSubsystemClient {
 		para_id: Id,
 	) -> Result<Option<async_backing::BackingState>, ApiError>;
 
+	// == v8: Approval voting params ==
 	/// Approval voting configuration parameters
 	async fn approval_voting_params(&self, at: Hash) -> Result<ApprovalVotingParams, ApiError>;
 }

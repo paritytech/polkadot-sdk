@@ -558,7 +558,7 @@ where
 			sender
 		),
 		Request::ApprovalVotingParams(sender) => {
-			query!(ApprovalVotingParams, approval_voting_params(), ver = 6, sender)
+			query!(ApprovalVotingParams, approval_voting_params(), ver = 8, sender)
 		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,

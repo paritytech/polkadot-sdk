@@ -11,7 +11,7 @@ chain_spec_command = "polkadot build-spec --chain rococo-local --disable-default
   relay_vrf_modulo_samples = 3
 
 [relaychain.genesis.runtime.configuration.config.approval_voting_params]
-  max_approval_coalesce_count = 6
+  max_approval_coalesce_count = 5
 
 [relaychain.default_resources]
 limits = { memory = "4G", cpu = "2" }
