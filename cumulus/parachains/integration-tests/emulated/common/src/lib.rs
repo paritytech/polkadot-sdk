@@ -228,8 +228,6 @@ decl_test_networks! {
 		relay_chain = Westend,
 		parachains = vec![
 			AssetHubWestend,
-			CollectivesWestend,
-			BridgeHubWestend,
 			PenpalWestendA,
 		],
 		bridge = ()
