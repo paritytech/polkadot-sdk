@@ -15,7 +15,7 @@
 
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
-	constants::asset_hub_polkadot::ED as ASSET_HUB_ROCOCO_ED, test_parachain_is_trusted_teleporter,
+	constants::asset_hub_rococo::ED as ASSET_HUB_ROCOCO_ED, test_parachain_is_trusted_teleporter,
 	AssetHubRococo, AssetHubRococoPallet, AssetHubRococoSender, BridgeHubRococo,
 	BridgeHubRococoReceiver,
 };
