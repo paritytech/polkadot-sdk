@@ -475,7 +475,7 @@ pub mod pallet {
 
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum HoldReason<I: 'static = ()> {
 		/// The funds are reserved during a user's bid for entry.
 		Society,
 	}
