@@ -95,10 +95,10 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungible::{Inspect as InspectFungible, Mutate as MutateFungible},
-			fungibles::{Create, Inspect, Mutate},
+			fungibles::{Create, Destroy, Inspect, Mutate},
 			tokens::{
-				Fortitude::Polite,
-				Precision::Exact,
+				Fortitude::{Force, Polite},
+				Precision::{BestEffort, Exact},
 				Preservation::{Expendable, Preserve},
 			},
 			AccountTouch, ContainsPair,
@@ -168,6 +168,7 @@ pub mod pallet {
 		/// the assets.
 		type PoolAssets: Inspect<Self::AccountId, AssetId = Self::PoolAssetId, Balance = Self::AssetBalance>
 			+ Create<Self::AccountId>
+			+ Destroy<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId>;
 
@@ -365,6 +366,9 @@ pub mod pallet {
 		/// with another. For example, an array of assets constituting a `path` should have a
 		/// corresponding array of `amounts` along the path.
 		CorrespondenceError,
+		/// A pool can only be destroyed if one of the underlying assets is destroyed.
+		/// This error occurs if you try and destroy a pool but both asset in the pool still exist.
+		PoolNotDestroyable,
 	}
 
 	#[pallet::hooks]
@@ -702,6 +706,104 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// This can only be called if one of the underlying assets
+		/// in the pool has been destroyed OR if the pool has been
+		/// created but no liquidity has ever been put in it.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::start_destroy_pool())]
+		pub fn start_destroy_pool(
+			origin: OriginFor<T>,
+			asset1: T::MultiAssetId,
+			asset2: T::MultiAssetId,
+		) -> DispatchResult {
+			let _sender = ensure_signed(origin)?;
+
+			let pool_id = Self::get_pool_id(asset1, asset2);
+			let maybe_pool = Pools::<T>::get(&pool_id);
+			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
+
+			// check that one set of reserves in account is 0
+
+			let pool_account = Self::get_pool_account(&pool_id);
+			let (asset1, asset2) = &pool_id;
+			let reserve1 = Self::get_balance(&pool_account, asset1)?;
+			let reserve2 = Self::get_balance(&pool_account, asset2)?;
+
+			if !(reserve1.is_zero() || reserve2.is_zero()) {
+				return Err(Error::<T>::PoolNotDestroyable.into())
+			}
+
+			T::PoolAssets::start_destroy(pool.lp_token.clone(), None)?;
+			Ok(())
+		}
+
+		/// This can only be called during destroy pool.
+		/// This destroys the lP tokens associated with a
+		/// pool that is being destroyed.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::destroy_lp_token_accounts())]
+		pub fn destroy_lp_token_accounts(
+			origin: OriginFor<T>,
+			pool_id: PoolIdOf<T>,
+			max_items: u32,
+		) -> DispatchResult {
+			let _sender = ensure_signed(origin)?;
+			let maybe_pool = Pools::<T>::get(&pool_id);
+			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
+			T::PoolAssets::destroy_accounts(pool.lp_token.clone(), max_items)?;
+			Ok(())
+		}
+
+		/// This can only be called during destroy pool.
+		/// This destroys any approvals associated with the
+		/// now defunct lp token.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::destroy_lp_token_approvals())]
+		pub fn destroy_lp_token_approvals(
+			origin: OriginFor<T>,
+			pool_id: PoolIdOf<T>,
+			max_items: u32,
+		) -> DispatchResult {
+			let _sender = ensure_signed(origin)?;
+			let maybe_pool = Pools::<T>::get(&pool_id);
+			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
+			T::PoolAssets::destroy_approvals(pool.lp_token.clone(), max_items)?;
+			Ok(())
+		}
+
+		/// Once all the lp accounts have been destroyed,
+		/// the pool is now deleted.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::finish_destroy_pool())]
+		pub fn finish_destroy_pool(
+			origin: OriginFor<T>,
+			asset1: T::MultiAssetId,
+			asset2: T::MultiAssetId,
+		) -> DispatchResult {
+			let _sender = ensure_signed(origin)?;
+
+			let pool_id = Self::get_pool_id(asset1, asset2);
+			let maybe_pool = Pools::<T>::get(&pool_id);
+			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
+
+			let (asset1, asset2) = &pool_id;
+			let pool_account = Self::get_pool_account(&pool_id);
+			let reserve1 = Self::get_balance(&pool_account, asset1)?;
+			let reserve2 = Self::get_balance(&pool_account, asset2)?;
+
+			T::PoolAssets::finish_destroy(pool.lp_token.clone())?;
+
+			let _ = frame_system::Pallet::<T>::dec_providers(&pool_account);
+
+			// burn contents of pool... from here on in we destroy things as best we can.
+			let _ = Self::do_burn(&pool_account, asset1, reserve1.into());
+			let _ = Self::do_burn(&pool_account, asset2, reserve2.into());
+
+			// remove pool id
+			Pools::<T>::remove(pool_id);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -779,6 +881,37 @@ pub mod pallet {
 
 			Self::do_swap(sender, &amounts, path, send_to, keep_alive)?;
 			Ok(amount_in)
+		}
+
+		// Burn leftover assets from a defunct pool
+		fn do_burn(
+			pool_account: &T::AccountId,
+			asset_id: &T::MultiAssetId,
+			amount: T::HigherPrecisionBalance,
+		) -> DispatchResult {
+			match T::MultiAssetIdConverter::try_convert(asset_id) {
+				MultiAssetIdConversionResult::Converted(asset_id) => {
+					<T::Assets as Mutate<_>>::burn_from(
+						asset_id,
+						pool_account,
+						amount.try_into().map_err(|_| Error::<T>::Overflow)?,
+						BestEffort,
+						Force,
+					)?;
+				},
+				MultiAssetIdConversionResult::Native => {
+					<T::Currency as MutateFungible<_>>::burn_from(
+						pool_account,
+						amount.try_into().map_err(|_| Error::<T>::Overflow)?,
+						BestEffort,
+						Force,
+					)?;
+				},
+				MultiAssetIdConversionResult::Unsupported(_asset_id) => {
+					return Err(Error::<T>::UnsupportedAsset.into())
+				},
+			};
+			Ok(())
 		}
 
 		/// Transfer an `amount` of `asset_id`, respecting the `keep_alive` requirements.
@@ -1281,6 +1414,22 @@ impl<T: Config> Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId> f
 		Ok(amount_in.into())
 	}
 }
+
+// impl AssetsCallback<AssetId, AccountId> for Pallet<T>
+// where T::AccountId : AccountId
+// {
+// 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
+// 	}
+
+// 	fn destroyed(id: &AssetId) -> Result<(), ()> {
+// 		// if Self::should_err() {
+// 		// 	Err(())
+// 		// } else {
+// 		// 	storage::set(Self::DESTROYED.as_bytes(), &().encode());
+// 		// 	Ok(())
+// 		// }
+// 	}
+// }
 
 sp_api::decl_runtime_apis! {
 	/// This runtime api allows people to query the size of the liquidity pools

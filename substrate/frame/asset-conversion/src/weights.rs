@@ -50,6 +50,10 @@ use core::marker::PhantomData;
 /// Weight functions needed for pallet_asset_conversion.
 pub trait WeightInfo {
 	fn create_pool() -> Weight;
+	fn start_destroy_pool() -> Weight;
+	fn destroy_lp_token_accounts() -> Weight;
+	fn destroy_lp_token_approvals() -> Weight;
+	fn finish_destroy_pool() -> Weight;
 	fn add_liquidity() -> Weight;
 	fn remove_liquidity() -> Weight;
 	fn swap_exact_tokens_for_tokens() -> Weight;
@@ -79,6 +83,29 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `6196`
 		// Minimum execution time: 131_688_000 picoseconds.
 		Weight::from_parts(134_092_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
+
+	fn destroy_lp_token_accounts() -> Weight {
+			Weight::from_parts(134_092_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
+
+	fn destroy_lp_token_approvals() -> Weight {
+			Weight::from_parts(134_092_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
+
+	fn start_destroy_pool() -> Weight {
+			Weight::from_parts(134_092_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
+	fn finish_destroy_pool() -> Weight {
+			Weight::from_parts(134_092_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
@@ -173,6 +200,43 @@ impl WeightInfo for () {
 	/// Storage: `PoolAssets::Account` (r:1 w:1)
 	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	fn create_pool() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `729`
+		//  Estimated: `6196`
+		// Minimum execution time: 131_688_000 picoseconds.
+		Weight::from_parts(134_092_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
+	}
+
+	fn start_destroy_pool() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `729`
+		//  Estimated: `6196`
+		// Minimum execution time: 131_688_000 picoseconds.
+		Weight::from_parts(134_092_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
+	}
+	fn destroy_lp_token_accounts() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `729`
+		//  Estimated: `6196`
+		// Minimum execution time: 131_688_000 picoseconds.
+		Weight::from_parts(134_092_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
+	}
+	fn destroy_lp_token_approvals() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `729`
+		//  Estimated: `6196`
+		// Minimum execution time: 131_688_000 picoseconds.
+		Weight::from_parts(134_092_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
+	}
+	fn finish_destroy_pool() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `729`
 		//  Estimated: `6196`
