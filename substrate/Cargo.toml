@@ -1,6 +1,6 @@
 [[bin]]
 name = "substrate-node"
-path = "bin/node/cli/main.rs"
+path = "bin/node/cli/bin/main.rs"
 
 [package]
 name = "substrate"
