@@ -249,7 +249,7 @@ where
 			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
 			Metrics::register(registry)?,
 		))
-		.availability_recovery(AvailabilityRecoverySubsystem::with_systematic_chunks(
+		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
