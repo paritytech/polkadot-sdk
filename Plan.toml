@@ -21939,7 +21939,7 @@ feature = "runtime-benchmarks"
 value = "polkadot-test-client/runtime-benchmarks"
 
 [[crate]]
-publish = false
+publish = true
 name = "xcm-emulator"
 path = "cumulus/xcm/xcm-emulator"
 from = "0.1.0"
