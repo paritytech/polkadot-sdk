@@ -14,21 +14,14 @@
 // limitations under the License.
 
 use crate::impls::AccountIdOf;
-use codec::Decode;
 use frame_support::{
-	ensure,
-	traits::{
-		fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair,
-		ProcessMessageError,
-	},
+	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, ContainsPair},
 	weights::Weight,
 };
 use log;
 use sp_runtime::traits::Get;
-use sp_std::{marker::PhantomData, ops::ControlFlow};
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
-use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::traits::ShouldExecute;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
 /// a given WeightToFee implementation an amount charged in
@@ -83,153 +76,5 @@ impl<Location: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
 			asset, origin, Location::get());
 		matches!(asset.id, Concrete(ref id) if id == origin && origin == &Location::get())
-	}
-}
-
-/// Allows execution from `origin` if it is contained in
-/// `AllowedOrigin` and if it is just a straight `Transact` (only with `OriginKind::Xcm`) which
-/// passes `AllowedCall` matcher.
-pub struct AllowTransactsFrom<RuntimeCall, AllowedOrigin, AllowedCall>(
-	sp_std::marker::PhantomData<(RuntimeCall, AllowedOrigin, AllowedCall)>,
-);
-impl<
-		RuntimeCall: Decode,
-		AllowedOrigin: Contains<MultiLocation>,
-		AllowedCall: Contains<RuntimeCall>,
-	> ShouldExecute for AllowTransactsFrom<RuntimeCall, AllowedOrigin, AllowedCall>
-{
-	fn should_execute<Call>(
-		origin: &MultiLocation,
-		instructions: &mut [Instruction<Call>],
-		_max_weight: Weight,
-		_properties: &mut xcm_executor::traits::Properties,
-	) -> Result<(), ProcessMessageError> {
-		log::trace!(
-			target: "xcm::barriers",
-			"AllowTransactsFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
-		);
-
-		// We only allow instructions from configured origins.
-		ensure!(AllowedOrigin::contains(origin), ProcessMessageError::Unsupported);
-
-		// We need to ensure that all `Transact` calls pass the `AllowedCall` filter.
-		instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				Transact { origin_kind: OriginKind::Xcm, call: encoded_call, .. } => {
-					// Generic `Call` to `RuntimeCall` conversion - don't know if there's a way to
-					// do that properly?
-					let runtime_call: RuntimeCall = encoded_call
-						.clone()
-						.into::<RuntimeCall>()
-						.try_into()
-						.map_err(|_| ProcessMessageError::BadFormat)?;
-					ensure!(AllowedCall::contains(&runtime_call), ProcessMessageError::Unsupported);
-					Ok(ControlFlow::Continue(()))
-				},
-				Transact { .. } => Err(ProcessMessageError::BadFormat),
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
-
-		Ok(())
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use codec::{Decode, Encode};
-
-	#[test]
-	fn allow_unpaid_transacts_from_works() {
-		#[derive(Encode, Decode)]
-		enum RuntimeCall {
-			CallA,
-			CallB,
-		}
-		frame_support::match_types! {
-			pub type AcceptOnlyFromSibling1002: impl Contains<MultiLocation> = {
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) }
-			};
-			pub type AcceptOnlyRuntimeCallA: impl Contains<RuntimeCall> = { RuntimeCall::CallA };
-		}
-
-		fn transact(origin_kind: OriginKind, encoded_data: impl Encode) -> Instruction<()> {
-			Transact {
-				origin_kind,
-				require_weight_at_most: Default::default(),
-				call: encoded_data.encode().into(),
-			}
-		}
-
-		type Barrier =
-			AllowTransactsFrom<RuntimeCall, AcceptOnlyFromSibling1002, AcceptOnlyRuntimeCallA>;
-
-		let test_data: Vec<(MultiLocation, Vec<Instruction<()>>, Result<(), ProcessMessageError>)> = vec![
-			// success case
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
-				vec![transact(OriginKind::Xcm, RuntimeCall::CallA)],
-				Ok(()),
-			),
-			// success case - multiple
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
-				vec![
-					transact(OriginKind::Xcm, RuntimeCall::CallA),
-					ClearOrigin,
-					transact(OriginKind::Xcm, RuntimeCall::CallA),
-				],
-				Ok(()),
-			),
-			// invalid `OriginKind`
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
-				vec![transact(OriginKind::Native, RuntimeCall::CallA)],
-				Err(ProcessMessageError::BadFormat),
-			),
-			// unsupported call
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
-				vec![transact(OriginKind::Xcm, RuntimeCall::CallB)],
-				Err(ProcessMessageError::Unsupported),
-			),
-			// multiple Transacts and one is unsupported
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(1002)) },
-				vec![
-					transact(OriginKind::Xcm, RuntimeCall::CallA),
-					transact(OriginKind::Xcm, RuntimeCall::CallB),
-				],
-				Err(ProcessMessageError::Unsupported),
-			),
-			// unsupported origin
-			(
-				MultiLocation { parents: 1, interior: X1(Parachain(2105)) },
-				vec![transact(OriginKind::Xcm, RuntimeCall::CallA)],
-				Err(ProcessMessageError::Unsupported),
-			),
-		];
-
-		for (origin, mut xcm, expected_result) in test_data {
-			assert_eq!(
-				Barrier::should_execute(
-					&origin,
-					&mut xcm,
-					Default::default(),
-					&mut xcm_executor::traits::Properties {
-						weight_credit: Default::default(),
-						message_id: None,
-					},
-				),
-				expected_result,
-				"expected_result: {:?} not matched for origin: {:?} and xcm: {:?}!",
-				expected_result,
-				origin,
-				xcm
-			)
-		}
 	}
 }

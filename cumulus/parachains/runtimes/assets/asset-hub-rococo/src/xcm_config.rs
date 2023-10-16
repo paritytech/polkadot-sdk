@@ -29,10 +29,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{
-	impls::ToStakingPot,
-	xcm_config::{AllowTransactsFrom, AssetFeeAsExistentialDepositMultiplier},
-};
+use parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
@@ -496,20 +493,6 @@ pub type Barrier = TrailingSetTopicAsId<
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
-					// An additional check ensures that a `Transact` with `report_bridge_status` is
-					// only accepted from a sibling BridgeHub. First check is done by
-					// `SafeCallFilter`.
-					bridging::AllowStatusReportsFromSiblingBridgeHub<
-						Equals<bridging::SiblingBridgeHub>,
-						ToWococoXcmRouter,
-					>,
-					// An additional check ensures that a `Transact` with `report_bridge_status` is
-					// only accepted from a sibling BridgeHub. First check is done by
-					// `SafeCallFilter`.
-					bridging::AllowStatusReportsFromSiblingBridgeHub<
-						Equals<bridging::SiblingBridgeHub>,
-						ToRococoXcmRouter,
-					>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -929,11 +912,6 @@ pub mod bridging {
 			}
 		}
 	}
-
-	/// Barrier for `pallet_xcm_bridge_hub_router::Pallet` to receive congestion statuses from
-	/// sibling BridgeHub.
-	pub type AllowStatusReportsFromSiblingBridgeHub<AllowedBridgeHub, AllowedCallFilter> =
-		AllowTransactsFrom<RuntimeCall, AllowedBridgeHub, AllowedCallFilter>;
 
 	/// Benchmarks helper for bridging configuration.
 	#[cfg(feature = "runtime-benchmarks")]
