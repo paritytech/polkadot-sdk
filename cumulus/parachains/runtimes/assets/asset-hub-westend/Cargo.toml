@@ -4,6 +4,7 @@ version = "0.9.420"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }

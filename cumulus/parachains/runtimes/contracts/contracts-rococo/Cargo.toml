@@ -4,6 +4,7 @@ version = "0.2.0"
 description = "Parachain testnet runtime for FRAME Contracts pallet."
 authors.workspace = true
 edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
