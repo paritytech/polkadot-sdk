@@ -345,7 +345,7 @@
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">enum </span>LightClientError {
-	<span class="attr">#[error(<span class="string">&quot;Error occured while executing smoldot request: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Error occurred while executing smoldot request: {0}&quot;</span>)]
 	</span>SmoldotError(String),
 	<span class="attr">#[error(<span class="string">&quot;Nothing returned from json_rpc_responses&quot;</span>)]
 	</span>EmptyResult,

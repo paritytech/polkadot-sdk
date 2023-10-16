@@ -345,7 +345,7 @@
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>RelayChainError {
-	<span class="attr">#[error(<span class="string">&quot;Error occured while calling relay chain runtime: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Error occurred while calling relay chain runtime: {0}&quot;</span>)]
 	</span>ApiError(<span class="attr">#[from] </span>ApiError),
 	<span class="attr">#[error(<span class="string">&quot;Timeout while waiting for relay-chain block `{0}` to be imported.&quot;</span>)]
 	</span>WaitTimeout(PHash),
@@ -357,7 +357,7 @@
 	</span>WaitBlockchainError(PHash, sp_blockchain::Error),
 	<span class="attr">#[error(<span class="string">&quot;Blockchain returned an error: {0}&quot;</span>)]
 	</span>BlockchainError(<span class="attr">#[from] </span>sp_blockchain::Error),
-	<span class="attr">#[error(<span class="string">&quot;State machine error occured: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;State machine error occurred: {0}&quot;</span>)]
 	</span>StateMachineError(Box&lt;<span class="kw">dyn </span>sp_state_machine::Error&gt;),
 	<span class="attr">#[error(<span class="string">&quot;Unable to call RPC method &#39;{0}&#39;&quot;</span>)]
 	</span>RpcCallError(String),
@@ -371,7 +371,7 @@
 	</span>Application(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;),
 	<span class="attr">#[error(<span class="string">&quot;Prometheus error: {0}&quot;</span>)]
 	</span>PrometheusError(<span class="attr">#[from] </span>PrometheusError),
-	<span class="attr">#[error(<span class="string">&quot;Unspecified error occured: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">&quot;Unspecified error occurred: {0}&quot;</span>)]
 	</span>GenericError(String),
 }
 
