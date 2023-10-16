@@ -17,6 +17,10 @@
 //! The Polkadot multiplexing assignment provider.
 //! Provides blockspace assignments for both bulk and on demand parachains.
 
+mod mock_helpers;
+#[cfg(test)]
+mod tests;
+
 use scale_info::TypeInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
