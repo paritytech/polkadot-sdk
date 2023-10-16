@@ -2358,13 +2358,13 @@ pub mod pallet_macros {
 	///     # #[pallet::pallet]
 	///     # pub struct Pallet<T>(_);
 	/// 	#[pallet::storage]
-	/// 	type Foo<T> = StorageValue<_, u32>;
+	/// 	type FooValue<T> = StorageValue<_, u32>;
 	///
 	/// 	#[pallet::storage]
-	/// 	type Bar<T> = StorageMap<_, Blake2_128Concat, u32, u32>;
+	/// 	type BarMap<T> = StorageMap<_, Blake2_128Concat, u32, u32>;
 	///
 	/// 	#[pallet::storage]
-	/// 	type Baz<T> = CountedStorageMap<_, Blake2_128Concat, u32, u32>;
+	/// 	type BazCountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u32, u32>;
 	/// }
 	/// ```
 	/// 
@@ -2376,7 +2376,7 @@ pub mod pallet_macros {
 	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
 	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
 	///
-	/// ## Common Details to All Storage Types
+	/// ## Storage Type Usage
 	///
 	/// The following details are relevant to all of the aforementioned storage types.
 	///
@@ -2384,8 +2384,8 @@ pub mod pallet_macros {
 	///
 	/// Two general syntaxes are supported, as demonstrated below:
 	///
-	/// 1. Named generics, e.g., `type Foo<T> = StorageValue<Value = u32>`.
-	/// 2. Unnamed generics, e.g., `type Foo<T> = StorageValue<_, u32>`.
+	/// 1. Named type parameters, e.g., `type Foo<T> = StorageValue<Value = u32>`.
+	/// 2. Positional type parameters, e.g., `type Foo<T> = StorageValue<_, u32>`.
 	///
 	/// In both instances, declaring `<T>` is mandatory. While it can optionally be written as `<T:
 	/// Config>`, in the generated code, it is always `<T: Config>`.
@@ -2432,7 +2432,7 @@ pub mod pallet_macros {
 	///    where `V` is the value type, and `E` is the pallet error type defined by the
 	///    [`#[pallet::error]`](frame_support::pallet_macros::error) attribute.
 	///
-	/// ### Appending
+	/// ### Optimized Appending
 	///
 	/// All storage items — such as [`StorageValue`](frame_support::storage::types::StorageValue),
 	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their variants—offer an
@@ -2442,14 +2442,17 @@ pub mod pallet_macros {
 	/// storing a large list of bytes, `::append()` lets you directly add bytes to the end in
 	/// storage without processing the full list. Depending on the storage type, additional key
 	/// specifications may be needed.
-	///
+	#[doc = docify::embed!("src/lib.rs", test_storage_value_append)]
+	/// Similarly, there also exists a `::try_append()` method, which can be used when handling
+	/// types where an append operation might fail, such as a [`BoundedVec`](frame_support::BoundedVec).
+	#[doc = docify::embed!("src/lib.rs", test_storage_value_try_append)]
 	/// ### Optimized Length Decoding
 	///
 	/// All storage items — such as [`StorageValue`](frame_support::storage::types::StorageValue),
 	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
 	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of a
 	/// collection's length without the necessity of decoding the entire dataset.
-	///
+	#[doc = docify::embed!("src/lib.rs", test_storage_value_decode_len)]
 	/// ### Hashers
 	///
 	/// For all storage types, except [`StorageValue`](frame_support::storage::types::StorageValue),
@@ -2490,6 +2493,68 @@ pub mod pallet_macros {
 	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
 	/// required. For map types, the prefix is extended with one or more keys defined by the map.
 	pub use frame_support_procedural::storage;
+	
+	#[cfg(test)]
+	mod test {
+		// use super::*;
+		use crate::{
+			BoundedVec,
+			storage::types::{StorageValue, ValueQuery},
+			traits::{ConstU32, StorageInstance},
+		};
+		use sp_io::TestExternalities;
+		// use sp_runtime::traits::Bounded;
+		// use sp_runtime::bounded_vec;
+
+
+		struct Prefix;
+		impl StorageInstance for Prefix {
+			fn pallet_prefix() -> &'static str {
+				"test"
+			}
+			const STORAGE_PREFIX: &'static str = "foo";
+		}
+
+		#[docify::export]
+		#[test]
+		pub fn test_storage_value_try_append() {
+			type MyVal = StorageValue<Prefix, BoundedVec<u8,ConstU32<10>>, ValueQuery>;
+
+			TestExternalities::default().execute_with(|| {
+				MyVal::set(BoundedVec::try_from(vec![42,43]).unwrap());
+				assert_eq!(MyVal::get(), vec![42,43]);
+				// Try to append a single u32 to BoundedVec stored in `MyVal`
+				assert_ok!(MyVal::try_append(40));
+				assert_eq!(MyVal::get(), vec![42,43,40]);
+			});
+		}
+
+		#[docify::export]
+		#[test]
+		pub fn test_storage_value_append() {
+			type MyVal = StorageValue<Prefix, Vec<u8>, ValueQuery>;
+
+			TestExternalities::default().execute_with(|| {
+				MyVal::set(vec![42,43]);
+				assert_eq!(MyVal::get(), vec![42,43]);
+				// Append a single u32 to Vec stored in `MyVal`
+				MyVal::append(40);
+				assert_eq!(MyVal::get(), vec![42,43,40]);
+			});
+		}
+
+		#[docify::export]
+		#[test]
+		pub fn test_storage_value_decode_len() {
+			type MyVal = StorageValue<Prefix, BoundedVec<u8,ConstU32<10>>, ValueQuery>;
+
+			TestExternalities::default().execute_with(|| {
+				MyVal::set(BoundedVec::try_from(vec![42,43]).unwrap());
+				assert_eq!(MyVal::decode_len().unwrap(), 2);
+			});
+		}
+
+	}
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
