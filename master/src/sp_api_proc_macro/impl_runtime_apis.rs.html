@@ -955,6 +955,10 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -995,7 +999,7 @@
 	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
 };
 
-<span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>std::collections::HashMap;
 
 <span class="doccomment">/// The structure used for parsing the runtime api implementations.
 </span><span class="kw">struct </span>RuntimeApiImpls {
@@ -1683,7 +1687,7 @@
 </span><span class="kw">fn </span>generate_runtime_api_versions(impls: <span class="kw-2">&amp;</span>[ItemImpl]) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>result = Vec::&lt;TokenStream&gt;::with_capacity(impls.len());
 	<span class="kw">let </span><span class="kw-2">mut </span>sections = Vec::&lt;TokenStream&gt;::with_capacity(impls.len());
-	<span class="kw">let </span><span class="kw-2">mut </span>processed_traits = HashSet::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>processed_traits = HashMap::new();
 
 	<span class="kw">let </span>c = generate_crate_access();
 
@@ -1703,13 +1707,17 @@
 			.ident;
 
 		<span class="kw">let </span>span = trait_.span();
-		<span class="kw">if </span>!processed_traits.insert(trait_) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(other_span) = processed_traits.insert(trait_, span) {
+			<span class="kw">let </span><span class="kw-2">mut </span>error = Error::new(
 				span,
 				<span class="string">&quot;Two traits with the same name detected! \
 					The trait name is used to generate its ID. \
 					Please rename one trait at the declaration!&quot;</span>,
-			))
+			);
+
+			error.combine(Error::new(other_span, <span class="string">&quot;First trait implementation.&quot;</span>));
+
+			<span class="kw">return </span><span class="prelude-val">Err</span>(error)
 		}
 
 		<span class="kw">let </span>id: Path = <span class="macro">parse_quote!</span>( #path ID );
