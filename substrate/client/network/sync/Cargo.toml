@@ -29,6 +29,7 @@ prost = "0.11"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
 thiserror = "1.0"
+tokio-stream = "0.1.14"
 fork-tree = { path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
