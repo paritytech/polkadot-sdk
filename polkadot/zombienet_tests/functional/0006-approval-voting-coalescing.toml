@@ -6,11 +6,11 @@ default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
 chain_spec_command = "polkadot build-spec --chain rococo-local --disable-default-bootnode"
 
-[relaychain.genesis.runtime.runtime_genesis_config.configuration.config]
+[relaychain.genesis.runtime.configuration.config]
   needed_approvals = 5
   relay_vrf_modulo_samples = 3
 
-[relaychain.genesis.runtime.runtime_genesis_config.configuration.config.approval_voting_params]
+[relaychain.genesis.runtime.configuration.config.approval_voting_params]
   max_approval_coalesce_count = 6
 
 [relaychain.default_resources]
