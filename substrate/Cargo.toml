@@ -13,7 +13,7 @@ version = "1.0.0"
 aquamarine = "0.3.2"
 
 subkey = { path = "bin/utils/subkey" }
-chain-spec-builder = { path = "bin/utils/chain-spec-builder" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "bin/utils/chain-spec-builder" }
 
 sc-service = { path = "client/service" }
 sc-cli = { path = "client/cli" }
