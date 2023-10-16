@@ -98,14 +98,14 @@ pallet-im-online = { path = "../../../frame/im-online", default-features = false
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
-node-rpc = { path = "../rpc" }
-node-primitives = { path = "../primitives" }
-node-executor = { path = "../executor" }
+node-rpc = { package = "staging-node-rpc", path = "../rpc" }
+node-primitives = { package = "staging-node-primitives", path = "../primitives" }
+node-executor = { package = "staging-node-executor", path = "../executor" }
 
 # CLI-specific dependencies
 sc-cli = { path = "../../../client/cli", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
-node-inspect = { path = "../inspect", optional = true}
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
 serde_json = "1.0.107"
 
@@ -138,7 +138,7 @@ substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 [build-dependencies]
 clap = { version = "4.4.6", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
-node-inspect = { path = "../inspect", optional = true}
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
 substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true}
 substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true}
