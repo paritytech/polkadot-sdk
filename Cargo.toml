@@ -63,6 +63,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/common",
+	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-kusama",
