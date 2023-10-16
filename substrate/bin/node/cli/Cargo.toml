@@ -9,7 +9,6 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 default-run = "substrate-node"
 homepage = "https://substrate.io"
 repository.workspace = true
-publish = false
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see
