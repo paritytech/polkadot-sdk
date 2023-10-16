@@ -11,7 +11,15 @@ impl TaskEnumDef {
 		type_use_generics: TokenStream2,
 	) -> Self {
 		let variants = match tasks.tasks_attr.is_some() {
-			true => tasks.tasks.iter().map(|task| task.item.sig.ident.clone()).collect::<Vec<_>>(),
+			true => tasks
+				.tasks
+				.iter()
+				.map(|task| {
+					let ident = &task.item.sig.ident;
+					let args = &task.item.sig.inputs;
+					quote!(#ident(#args))
+				})
+				.collect::<Vec<_>>(),
 			false => Vec::new(),
 		};
 		let mut task_enum_def: TaskEnumDef = parse_quote! {
@@ -29,6 +37,7 @@ impl TaskEnumDef {
 			}
 		};
 		task_enum_def.type_use_generics = type_use_generics;
+		task_enum_def.pretty_print();
 		task_enum_def
 	}
 }

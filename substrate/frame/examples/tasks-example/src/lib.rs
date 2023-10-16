@@ -44,66 +44,44 @@ pub mod pallet {
 		ValueUnderflow,
 	}
 
-	// this will be auto-generated from `#[pallet::tasks]`
-	impl<T: Config> frame_support::traits::Task for Task<T>
-	where
-		T: TypeInfo,
-	{
-		type Enumeration = sp_std::vec::IntoIter<Task<T>>;
-
-		fn iter(&self) -> Self::Enumeration {
-			sp_std::vec![Task::increment, Task::decrement].into_iter()
-		}
-
-		fn task_index(&self) -> u32 {
-			match self {
-				Task::increment => 1,
-				Task::decrement => 2,
-				Task::__Ignore(_, _) => unreachable!(),
-			}
-		}
-
-		fn is_valid(&self) -> bool {
+	#[pallet::tasks]
+	impl<T: Config> frame_support::traits::Task for Task<T> {
+		#[pallet::task_index(0)]
+		#[pallet::task_condition(|| {
 			let value = Value::<T>::get().unwrap();
-			match self {
-				Task::increment => value < 255,
-				Task::decrement => value > 0,
-				Task::__Ignore(_, _) => unreachable!(),
+			value < 255
+		})]
+		#[pallet::task_list(Vec::<Task<T>>::new())]
+		fn increment() -> DispatchResult {
+			// Get the value and check if it can be incremented
+			let value = Value::<T>::get().unwrap_or_default();
+			if value >= 255 {
+				Err(Error::<T>::ValueOverflow.into())
+			} else {
+				let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
+				Value::<T>::put(new_val);
+				Pallet::<T>::deposit_event(Event::Incremented { new_val });
+				Ok(())
 			}
 		}
 
-		fn run(&self) -> Result<(), DispatchError> {
-			match self {
-				Task::increment => {
-					// Get the value and check if it can be incremented
-					let value = Value::<T>::get().unwrap_or_default();
-					if value >= 255 {
-						Err(Error::<T>::ValueOverflow.into())
-					} else {
-						let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
-						Value::<T>::put(new_val);
-						Pallet::<T>::deposit_event(Event::Incremented { new_val });
-						Ok(())
-					}
-				},
-				Task::decrement => {
-					// Get the value and check if it can be decremented
-					let value = Value::<T>::get().unwrap_or_default();
-					if value == 0 {
-						Err(Error::<T>::ValueUnderflow.into())
-					} else {
-						let new_val = value.checked_sub(1).ok_or(Error::<T>::ValueUnderflow)?;
-						Value::<T>::put(new_val);
-						Pallet::<T>::deposit_event(Event::Decremented { new_val });
-						Ok(())
-					}
-				},
-				Task::__Ignore(_, _) => unreachable!(),
+		#[pallet::task_index(1)]
+		#[pallet::task_condition(|| {
+			let value = Value::<T>::get().unwrap();
+			value > 0
+		})]
+		#[pallet::task_list(Vec::<Task<T>>::new())]
+		fn decrement() -> DispatchResult {
+			// Get the value and check if it can be decremented
+			let value = Value::<T>::get().unwrap_or_default();
+			if value == 0 {
+				Err(Error::<T>::ValueUnderflow.into())
+			} else {
+				let new_val = value.checked_sub(1).ok_or(Error::<T>::ValueUnderflow)?;
+				Value::<T>::put(new_val);
+				Pallet::<T>::deposit_event(Event::Decremented { new_val });
+				Ok(())
 			}
-		}
-
-		fn weight(&self) -> Weight {
-			Weight::default()
 		}
 	}
 

@@ -33,7 +33,7 @@ use syn::{
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
 	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, PathArguments,
-	Result, Token, TypePath,
+	Result, TypePath,
 };
 
 pub mod keywords {
@@ -335,12 +335,6 @@ pub struct TaskConditionAttrMeta {
 	#[paren]
 	_paren: Paren,
 	#[inside(_paren)]
-	pub pipe1: Token![|],
-	#[inside(_paren)]
-	pub ident: Ident,
-	#[inside(_paren)]
-	pub pipe2: Token![|],
-	#[inside(_paren)]
 	pub expr: Expr,
 }
 
@@ -368,11 +362,8 @@ impl ToTokens for TaskListAttrMeta {
 impl ToTokens for TaskConditionAttrMeta {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		let task_condition = self.task_condition;
-		let pipe1 = self.pipe1;
-		let ident = &self.ident;
-		let pipe2 = self.pipe2;
 		let expr = &self.expr;
-		tokens.extend(quote!(#task_condition(#pipe1 #ident #pipe2 #expr)));
+		tokens.extend(quote!(#task_condition(#expr)));
 	}
 }
 
@@ -493,14 +484,8 @@ fn test_parse_task_index() {
 fn test_parse_task_condition() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|x| x.is_some())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|_x| some_expr())])).unwrap();
-	assert_error_matches!(
-		parse2::<TaskAttr>(quote!(#[pallet::task_condition(x.is_some())])),
-		"expected `|`"
-	);
-	assert_error_matches!(
-		parse2::<TaskAttr>(quote!(#[pallet::task_condition(|| something())])),
-		"expected identifier"
-	);
+	parse2::<TaskAttr>(quote!(#[pallet::task_condition(|| some_expr())])).unwrap();
+	parse2::<TaskAttr>(quote!(#[pallet::task_condition(some_expr())])).unwrap();
 }
 
 #[test]
