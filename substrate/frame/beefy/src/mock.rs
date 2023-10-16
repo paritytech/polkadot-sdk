@@ -29,8 +29,12 @@ use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_io::TestExternalities;
 use sp_runtime::{
-	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
-	traits::OpaqueKeys, BuildStorage, Perbill,
+	app_crypto::ecdsa::Public,
+	curve::PiecewiseLinear,
+	impl_opaque_keys,
+	testing::TestXt,
+	traits::{Keccak256, OpaqueKeys},
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -58,6 +62,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Beefy: pallet_beefy,
+		Mmr: pallet_mmr,
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Offences: pallet_offences,
@@ -96,6 +101,18 @@ impl pallet_beefy::Config for Test {
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
+}
+
+impl pallet_mmr::Config for Test {
+	const INDEXING_PREFIX: &'static [u8] = b"mmr";
+
+	type Hashing = Keccak256;
+
+	type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
+
+	type OnNewRoot = ();
+
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -299,6 +316,7 @@ pub fn start_session(session_index: SessionIndex) {
 		Session::on_initialize(System::block_number());
 		Staking::on_initialize(System::block_number());
 		Beefy::on_initialize(System::block_number());
+		Mmr::on_initialize(System::block_number());
 	}
 
 	assert_eq!(Session::current_index(), session_index);

@@ -124,7 +124,7 @@ where
 pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
 
 /// Equivocation evidence convenience alias.
-pub enum EquivocationEvidenceFor<T: Config> {
+pub enum EquivocationEvidenceFor<T: Config + pallet_mmr::Config> {
 	VoteEquivocationProof(
 		VoteEquivocationProof<
 			BlockNumberFor<T>,
@@ -139,7 +139,7 @@ pub enum EquivocationEvidenceFor<T: Config> {
 			<T as Config>::BeefyId,
 			<<T as Config>::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<T as frame_system::Config>::Hash,
+			<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
 		>,
 		Vec<<T as Config>::KeyOwnerProof>,
 	),
@@ -148,7 +148,10 @@ pub enum EquivocationEvidenceFor<T: Config> {
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config
+		+ pallet_authorship::Config
+		+ pallet_mmr::Config
+		+ frame_system::offchain::SendTransactionTypes<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -286,6 +289,8 @@ where
 			EquivocationEvidenceFor::ForkEquivocationProof(equivocation_proof, _) => {
 				let block_number = equivocation_proof.commitment.block_number;
 				let expected_block_hash = <frame_system::Pallet<T>>::block_hash(block_number);
+				let mmr_size = <pallet_mmr::Pallet<T>>::mmr_size();
+				let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
 
 				// Validate equivocation proof (check commitment is to unexpected payload and
 				// signatures are valid).
@@ -295,10 +300,15 @@ where
 				// beefy light client at least once every 4096 blocks. See
 				// https://github.com/paritytech/polkadot-sdk/issues/1441 for
 				// replacement solution.
-				if !sp_consensus_beefy::check_fork_equivocation_proof(
-					&equivocation_proof,
-					&expected_block_hash,
-				) {
+				if !sp_consensus_beefy::check_fork_equivocation_proof::<
+					_,
+					_,
+					_,
+					_,
+					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
+					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
+				>(equivocation_proof, expected_mmr_root, mmr_size, &expected_block_hash)
+				{
 					return Err(Error::<T>::InvalidForkEquivocationProof.into())
 				}
 			},

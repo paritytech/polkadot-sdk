@@ -37,10 +37,11 @@ mod payload;
 #[cfg(feature = "std")]
 mod test_utils;
 pub mod witness;
+use core::fmt::Debug;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
-use sp_mmr_primitives::AncestryProof;
+use sp_mmr_primitives::{mmr_lib, AncestryProof};
 #[cfg(feature = "std")]
 pub use test_utils::*;
 
@@ -348,7 +349,7 @@ where
 /// finalized by GRANDPA. This is fine too, since the slashing risk of committing to
 /// an incorrect block implies validators will only sign blocks they *know* will be
 /// finalized by GRANDPA.
-pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash>(
+pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash, Hasher>(
 	proof: &ForkEquivocationProof<
 		Number,
 		Id,
@@ -356,6 +357,8 @@ pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash>(
 		Header,
 		NodeHash,
 	>,
+	expected_root: Hasher::Item,
+	mmr_size: u64,
 	expected_header_hash: &Header::Hash,
 ) -> bool
 where
@@ -363,8 +366,19 @@ where
 	Number: Clone + Encode + PartialEq,
 	MsgHash: Hash,
 	Header: sp_api::HeaderT,
+	NodeHash: Clone + Debug + PartialEq + Encode,
+	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
 	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
+
+	if Ok(false) ==
+		sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+			expected_root,
+			mmr_size,
+			ancestry_proof.clone(),
+		) {
+		return false
+	}
 
 	if correct_header.hash() != *expected_header_hash {
 		return false

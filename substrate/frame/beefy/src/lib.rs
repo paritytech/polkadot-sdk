@@ -66,7 +66,7 @@ pub mod pallet {
 	use sp_consensus_beefy::ForkEquivocationProof;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_mmr::Config {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
@@ -214,7 +214,7 @@ pub mod pallet {
 		/// against the extracted offender. If both are valid, the offence
 		/// will be reported.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -252,7 +252,7 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -302,7 +302,7 @@ pub mod pallet {
 		/// will be reported.
 		// TODO: fix key_owner_proofs[0].validator_count()
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
 			key_owner_proofs[0].validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -314,7 +314,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<T as frame_system::Config>::Hash,
+					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -343,7 +343,7 @@ pub mod pallet {
 		/// reporter.
 		// TODO: fix key_owner_proofs[0].validator_count()
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::report_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(),))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(),))]
 		pub fn report_fork_equivocation_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
@@ -352,7 +352,7 @@ pub mod pallet {
 					T::BeefyId,
 					<T::BeefyId as RuntimeAppPublic>::Signature,
 					HeaderFor<T>,
-					<T as frame_system::Config>::Hash,
+					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
 				>,
 			>,
 			key_owner_proofs: Vec<T::KeyOwnerProof>,
@@ -423,7 +423,7 @@ impl<T: Config> Pallet<T> {
 			T::BeefyId,
 			<T::BeefyId as RuntimeAppPublic>::Signature,
 			HeaderFor<T>,
-			<T as frame_system::Config>::Hash,
+			<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
 		>,
 		key_owner_proofs: Vec<T::KeyOwnerProof>,
 	) -> Option<()> {

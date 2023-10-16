@@ -2394,7 +2394,7 @@ dependencies = [
 [[package]]
 name = "ckb-merkle-mountain-range"
 version = "0.5.2"
-source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=linearize-proof-rebase-v0.5.1#b55b6805d35b6ccbd8dc83c30caf1cae19943981"
+source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=linearize-proof-rebase-v0.5.1#a74c5561cd64dcc777ccdc7dfc21499d200e6da9"
 dependencies = [
  "cfg-if",
 ]
@@ -9075,6 +9075,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-mmr",
  "pallet-offences",
  "pallet-session",
  "pallet-staking",
@@ -9086,6 +9087,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-io",
+ "sp-mmr-primitives",
  "sp-runtime",
  "sp-session",
  "sp-staking",

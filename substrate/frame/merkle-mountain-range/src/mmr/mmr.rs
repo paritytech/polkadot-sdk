@@ -117,6 +117,41 @@ where
 			.map_err(|e| Error::Verify.log_debug(e))
 	}
 
+	pub fn verify_ancestry_proof(
+		&self,
+		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
+	) -> Result<bool, Error> {
+		let p = mmr_lib::MerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
+			self.mmr.mmr_size(),
+			ancestry_proof
+				.proof
+				.items
+				.into_iter()
+				.map(|(index, hash)| (index, Node::Hash(hash)))
+				.collect(),
+		);
+
+		let ancestry_proof = mmr_lib::AncestryProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>> {
+			prev_peaks: ancestry_proof
+				.prev_peaks
+				.into_iter()
+				.map(|hash| Node::Hash(hash))
+				.collect(),
+			prev_size: ancestry_proof.prev_size,
+			proof: p,
+		};
+
+		let prev_root =
+			mmr_lib::bagging_peaks_hashes::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>(
+				ancestry_proof.prev_peaks.clone(),
+			)
+			.map_err(|e| Error::Verify.log_debug(e))?;
+		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
+		ancestry_proof
+			.verify_ancestor(root, prev_root)
+			.map_err(|e| Error::Verify.log_debug(e))
+	}
+
 	/// Return the internal size of the MMR (number of nodes).
 	#[cfg(test)]
 	pub fn size(&self) -> NodeIndex {
@@ -195,8 +230,7 @@ where
 	pub fn generate_ancestry_proof(
 		&self,
 		prev_mmr_size: NodeIndex,
-	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error>
-	{
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
 		let leaf_count = self.leaves;
 		self.mmr
 			.gen_prefix_proof(prev_mmr_size)
