@@ -23,5 +23,4 @@ pub use xcm::prelude::*;
 pub use xcm_emulator::{assert_expected_events, bx, Chain, Parachain, TestExt};
 
 #[cfg(test)]
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;

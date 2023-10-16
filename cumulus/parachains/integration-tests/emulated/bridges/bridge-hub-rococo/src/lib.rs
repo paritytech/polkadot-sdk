@@ -64,5 +64,4 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;

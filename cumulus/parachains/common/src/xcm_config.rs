@@ -96,7 +96,7 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 			// Others
 			_ => false,
 		};
-		matches!(asset.id, Concrete(id) if id == AssetLocation::get() && is_system)
+		matches!(asset.id, Concrete(id) if id == AssetLocation::get()) && is_system
 	}
 }
 
