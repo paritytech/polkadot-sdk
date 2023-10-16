@@ -234,17 +234,17 @@ async fn follow_with_runtime() {
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 
 	// it is basically json-encoded substrate_test_runtime_client::runtime::VERSION
-	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
+	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":0,\
 		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",4],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
 		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
-		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":1}";
+		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":0}";
 
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
 
 	let finalized_block_runtime =
-		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	// Runtime must always be reported with the first event.
 	let expected = FollowEvent::Initialized(Initialized {
 		finalized_block_hash: format!("{:?}", finalized_hash),
@@ -308,7 +308,8 @@ async fn follow_with_runtime() {
 	let best_hash = block.header.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	let new_runtime = Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+	let new_runtime =
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
 		block_hash: format!("{:?}", best_hash),
@@ -2352,6 +2353,7 @@ async fn check_continue_operation() {
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	builder.push_storage_change(b":mo".to_vec(), Some(b"ab".to_vec())).unwrap();
 	builder.push_storage_change(b":moc".to_vec(), Some(b"abc".to_vec())).unwrap();
+	builder.push_storage_change(b":moD".to_vec(), Some(b"abcmoD".to_vec())).unwrap();
 	builder.push_storage_change(b":mock".to_vec(), Some(b"abcd".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
@@ -2428,6 +2430,25 @@ async fn check_continue_operation() {
 			res.items.len() == 1 &&
 			res.items[0].key == hex_string(b":mo") &&
 			res.items[0].result == StorageResultType::Value(hex_string(b"ab"))
+	);
+
+	// Pagination event.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
+	);
+	does_not_produce_event::<FollowEvent<String>>(
+		&mut sub,
+		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
+	)
+	.await;
+	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
+			res.items.len() == 1 &&
+			res.items[0].key == hex_string(b":moD") &&
+			res.items[0].result == StorageResultType::Value(hex_string(b"abcmoD"))
 	);
 
 	// Pagination event.

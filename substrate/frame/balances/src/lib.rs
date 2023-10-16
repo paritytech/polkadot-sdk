@@ -216,7 +216,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU128};
+		use frame_support::{derive_impl, traits::ConstU64};
 
 		pub struct TestDefaultConfig;
 
@@ -230,8 +230,8 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeHoldReason = ();
 
-			type Balance = u128;
-			type ExistentialDeposit = ConstU128<1>;
+			type Balance = u64;
+			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = ();
@@ -287,6 +287,7 @@ pub mod pallet {
 		///
 		/// Bottom line: Do yourself a favour and make it at least one!
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ExistentialDeposit: Get<Self::Balance>;
 
 		/// The means of storing the balances of an account.
