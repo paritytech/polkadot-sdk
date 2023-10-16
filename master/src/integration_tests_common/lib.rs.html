@@ -295,6 +295,18 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -312,6 +324,7 @@
 
 </span><span class="kw">pub mod </span>constants;
 <span class="kw">pub mod </span>impls;
+<span class="kw">pub mod </span>macros;
 <span class="kw">pub mod </span>xcm_helpers;
 
 <span class="kw">use </span>constants::{
@@ -319,15 +332,23 @@
 	asset_hub_rococo, asset_hub_westend, bridge_hub_rococo, penpal, rococo, westend,
 };
 <span class="kw">use </span>impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
+<span class="kw">pub use </span>paste;
 
 <span class="comment">// Substrate
 </span><span class="kw">use </span>frame_support::traits::OnInitialize;
+<span class="kw">pub use </span>pallet_balances;
 
 <span class="comment">// Cumulus
-</span><span class="kw">use </span>xcm_emulator::{
+</span><span class="kw">pub use </span>cumulus_pallet_xcmp_queue;
+<span class="kw">pub use </span>xcm_emulator::Chain;
+<span class="kw">use </span>xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
 	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
 };
+
+<span class="comment">// Polkadot
+</span><span class="kw">pub use </span>pallet_xcm;
+<span class="kw">pub use </span>xcm::prelude::{AccountId32, WeightLimit};
 
 <span class="macro">decl_test_relay_chains! </span>{
 	<span class="attr">#[api_version(<span class="number">8</span>)]
@@ -417,6 +438,7 @@
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 	<span class="comment">// Rococo Parachains
@@ -453,6 +475,7 @@
 		pallets = {
 			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
 			Assets: asset_hub_kusama_runtime::Assets,
+			Balances: asset_hub_kusama_runtime::Balances,
 		}
 	},
 	<span class="comment">// Wococo Parachains
@@ -487,6 +510,7 @@
 		pallets = {
 			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
 			Assets: asset_hub_polkadot_runtime::Assets,
+			Balances: asset_hub_polkadot_runtime::Balances,
 		}
 	},
 	<span class="kw">pub struct </span>PenpalRococoA {

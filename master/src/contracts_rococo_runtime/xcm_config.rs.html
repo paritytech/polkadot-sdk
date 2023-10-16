@@ -248,6 +248,9 @@
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -274,6 +277,7 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
+<span class="kw">use </span>parachains_common::xcm_config::ConcreteAssetFromSystem;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -394,6 +398,8 @@
 	&gt;,
 &gt;;
 
+<span class="kw">pub type </span>TrustedTeleporter = ConcreteAssetFromSystem&lt;RelayLocation&gt;;
+
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
@@ -401,7 +407,7 @@
 	<span class="kw">type </span>AssetTransactor = CurrencyTransactor;
 	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>IsReserve = NativeAsset;
-	<span class="kw">type </span>IsTeleporter = NativeAsset;
+	<span class="kw">type </span>IsTeleporter = TrustedTeleporter;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = FixedWeightBounds&lt;UnitWeightCost, RuntimeCall, MaxInstructions&gt;;

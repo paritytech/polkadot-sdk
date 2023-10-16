@@ -2,6 +2,7 @@ var srcIndex = JSON.parse('{\
 "adder_collator":["",[],["cli.rs","main.rs"]],\
 "asset_hub_kusama_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_hub_polkadot_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
+"asset_hub_rococo_integration_tests":["",[],["lib.rs"]],\
 "asset_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "asset_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_test_utils":["",[],["lib.rs","test_cases.rs"]],\
@@ -95,7 +96,7 @@ var srcIndex = JSON.parse('{\
 "frame_try_runtime":["",[],["lib.rs"]],\
 "generate_bags":["",[],["lib.rs"]],\
 "glutton_runtime":["",[["weights",[],["mod.rs","pallet_glutton.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]],\
-"integration_tests_common":["",[],["constants.rs","impls.rs","lib.rs","xcm_helpers.rs"]],\
+"integration_tests_common":["",[],["constants.rs","impls.rs","lib.rs","macros.rs","xcm_helpers.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
 "malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
 "mmr_gadget":["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]],\

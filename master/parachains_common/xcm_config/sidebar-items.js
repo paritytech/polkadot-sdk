@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AssetFeeAsExistentialDepositMultiplier","ConcreteNativeAssetFrom"]};
+window.SIDEBAR_ITEMS = {"struct":["AssetFeeAsExistentialDepositMultiplier","ConcreteAssetFromSystem","ConcreteNativeAssetFrom"]};

@@ -274,6 +274,9 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -300,7 +303,7 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
-<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
+<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -457,6 +460,10 @@
 	&gt;,
 &gt;;
 
+<span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - DOT with the parent Relay Chain and sibling parachains.
+</span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;DotRelayLocation&gt;;
+
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
@@ -466,8 +473,7 @@
 	<span class="comment">// BridgeHub does not recognize a reserve location for any asset. Users must teleport DOT
 	// where allowed (e.g. with the Relay Chain).
 	</span><span class="kw">type </span>IsReserve = ();
-	<span class="doccomment">/// Only allow teleportation of DOT.
-	</span><span class="kw">type </span>IsTeleporter = ConcreteNativeAssetFrom&lt;DotRelayLocation&gt;;
+	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;

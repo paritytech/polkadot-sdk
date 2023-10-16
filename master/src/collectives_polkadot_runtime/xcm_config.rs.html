@@ -328,6 +328,9 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -354,7 +357,7 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
-<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
+<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -570,6 +573,10 @@
 	&gt;,
 &gt;;
 
+<span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - DOT with the parent Relay Chain and sibling parachains.
+</span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;DotLocation&gt;;
+
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
@@ -579,8 +586,7 @@
 	<span class="comment">// Collectives does not recognize a reserve location for any asset. Users must teleport DOT
 	// where allowed (e.g. with the Relay Chain).
 	</span><span class="kw">type </span>IsReserve = ();
-	<span class="doccomment">/// Only allow teleportation of DOT.
-	</span><span class="kw">type </span>IsTeleporter = ConcreteNativeAssetFrom&lt;DotLocation&gt;;
+	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = FixedWeightBounds&lt;TempFixedXcmWeight, RuntimeCall, MaxInstructions&gt;;

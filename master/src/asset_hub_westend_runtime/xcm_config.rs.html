@@ -631,6 +631,12 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -664,7 +670,10 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
-<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
+<span class="kw">use </span>parachains_common::{
+	impls::ToStakingPot,
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>sp_runtime::traits::ConvertInto;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
@@ -672,8 +681,8 @@
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
-	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
@@ -1114,6 +1123,15 @@
 	TrustBackedAssetsInstance,
 &gt;;
 
+<span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+///
+/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - Sibling parachains&#39; assets from where they originate (as `ForeignCreators`).
+</span><span class="kw">pub type </span>TrustedTeleporters = (
+	ConcreteAssetFromSystem&lt;WestendLocation&gt;,
+	IsForeignConcreteAsset&lt;FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;&gt;&gt;,
+);
+
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
@@ -1124,13 +1142,7 @@
 	// Asset Hub acting _as_ a reserve location for WND and assets created under `pallet-assets`.
 	// For WND, users must use teleport where allowed (e.g. with the Relay Chain).
 	</span><span class="kw">type </span>IsReserve = ();
-	<span class="comment">// We allow:
-	// - teleportation of WND
-	// - teleportation of sibling parachain&#39;s assets (as ForeignCreators)
-	</span><span class="kw">type </span>IsTeleporter = (
-		NativeAsset,
-		IsForeignConcreteAsset&lt;FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;&gt;&gt;,
-	);
+	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
