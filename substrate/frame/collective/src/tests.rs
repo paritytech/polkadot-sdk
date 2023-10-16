@@ -330,12 +330,7 @@ fn close_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -479,12 +474,7 @@ fn close_with_prime_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -556,12 +546,7 @@ fn close_with_voting_prime_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -636,12 +621,7 @@ fn close_with_no_prime_but_majority_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::CollectiveMajority(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1057,12 +1037,7 @@ fn motions_vote_after_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1211,12 +1186,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1275,12 +1245,10 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(
+					e.event,
+					RuntimeEvent::Collective(_) | RuntimeEvent::Democracy(_)
+				))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1355,12 +1323,7 @@ fn motions_disapproval_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1423,12 +1386,7 @@ fn motions_approval_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1589,12 +1547,7 @@ fn disapprove_proposal_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::Collective(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -1696,26 +1649,25 @@ fn migration_v4() {
 #[cfg(all(feature = "try-runtime", test))]
 #[test]
 fn migration_v5() {
+	use crate::migrations::v5;
+	use frame_support::traits::OnRuntimeUpgrade;
 	ExtBuilder::default().build_and_execute(|| {
-		use frame_support::traits::OnRuntimeUpgrade;
 		StorageVersion::new(4).put::<Pallet<Test, ()>>();
 
 		// Setup the members.
 		let members: Vec<<Test as frame_system::Config>::AccountId> =
 			(1..<Test as Config>::MaxMembers::get()).map(|i| i.into()).collect();
 
-		crate::migrations::v5::Members::<Test, ()>::put(members.clone());
+		v5::old::Members::<Test, ()>::put(members.clone());
 
 		// Create a proposal.
 		let proposal = make_proposal(59);
 		let proposal_hash = <Test as frame_system::Config>::Hashing::hash_of(&proposal);
-		crate::migrations::v5::Proposals::<Test, ()>::put::<BoundedVec<_, _>>(bounded_vec![
-			proposal_hash
-		]);
-		crate::migrations::v5::ProposalOf::<Test, ()>::insert(proposal_hash, proposal);
+		v5::old::Proposals::<Test, ()>::put::<BoundedVec<_, _>>(bounded_vec![proposal_hash]);
+		v5::old::ProposalOf::<Test, ()>::insert(proposal_hash, proposal);
 		ProposalCount::<Test, ()>::put(1);
 
-		let vote = crate::migrations::v5::OldVotes {
+		let vote = v5::old::Votes {
 			index: 0,
 			threshold: 1,
 			ayes: members.clone(),
@@ -1724,18 +1676,14 @@ fn migration_v5() {
 		};
 
 		// Insert the vote
-		crate::migrations::v5::Voting::<Test, ()>::insert(proposal_hash, vote.clone());
+		v5::old::Voting::<Test, ()>::insert(proposal_hash, vote.clone());
 
 		// Run migration.
-		assert_ok!(
-			crate::migrations::v5::VersionCheckedMigrateToV5::<Test, ()>::try_on_runtime_upgrade(
-				true
-			)
-		);
+		assert_ok!(v5::VersionCheckedMigrateToV5::<Test, ()>::try_on_runtime_upgrade(true));
 
 		// Check that the vote is present and bounded
 		assert_eq!(
-			crate::Voting::<Test, ()>::get(proposal_hash).unwrap().ayes,
+			Voting::<Test, ()>::get(proposal_hash).unwrap().ayes,
 			BoundedVec::<
 				<Test as frame_system::Config>::AccountId,
 				<Test as Config>::MaxMembers

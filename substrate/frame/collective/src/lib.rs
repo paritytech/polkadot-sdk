@@ -46,7 +46,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
-	DispatchError, RuntimeDebug,
+	DispatchError, RuntimeDebug, Saturating,
 };
 use sp_std::{marker::PhantomData, prelude::*, result};
 
@@ -966,8 +966,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Removes a proposal from the pallet, cleaning up votes.
 	/// Returns the number of proposals prior to the removal.
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
+		T::Preimages::unnote(&proposal_hash);
 		Voting::<T, I>::remove(&proposal_hash);
-		Voting::<T, I>::count().saturating_add(1)
+		Voting::<T, I>::count().saturating_plus_one()
 	}
 
 	/// Ensure the correctness of the state of this pallet.

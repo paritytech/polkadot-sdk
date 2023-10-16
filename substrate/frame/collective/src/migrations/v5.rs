@@ -27,72 +27,75 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::prelude::*;
 
-#[frame_support::storage_alias]
-pub type Proposals<T: Config<I>, I: 'static> = StorageValue<
-	Pallet<T, I>,
-	BoundedVec<<T as frame_system::Config>::Hash, <T as Config<I>>::MaxProposals>,
-	ValueQuery,
->;
+pub mod old {
+	use super::*;
 
-#[frame_support::storage_alias]
-pub type ProposalOf<T: Config<I>, I: 'static> = StorageMap<
-	Pallet<T, I>,
-	Identity,
-	<T as frame_system::Config>::Hash,
-	<T as Config<I>>::Proposal,
-	OptionQuery,
->;
+	#[frame_support::storage_alias]
+	pub type Proposals<T: Config<I>, I: 'static> = StorageValue<
+		Pallet<T, I>,
+		BoundedVec<<T as frame_system::Config>::Hash, <T as Config<I>>::MaxProposals>,
+		ValueQuery,
+	>;
 
-#[frame_support::storage_alias]
-pub type Voting<T: Config<I>, I: 'static> = StorageMap<
-	Pallet<T, I>,
-	Identity,
-	<T as frame_system::Config>::Hash,
-	OldVotes<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>,
-	OptionQuery,
->;
+	#[frame_support::storage_alias]
+	pub type ProposalOf<T: Config<I>, I: 'static> = StorageMap<
+		Pallet<T, I>,
+		Identity,
+		<T as frame_system::Config>::Hash,
+		<T as Config<I>>::Proposal,
+		OptionQuery,
+	>;
 
-#[frame_support::storage_alias]
-pub type Members<T: Config<I>, I: 'static> =
-	StorageValue<Pallet<T, I>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+	#[frame_support::storage_alias]
+	pub type Voting<T: Config<I>, I: 'static> = StorageMap<
+		Pallet<T, I>,
+		Identity,
+		<T as frame_system::Config>::Hash,
+		Votes<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>,
+		OptionQuery,
+	>;
 
-/// Info for keeping track of a motion being voted on.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct OldVotes<AccountId, BlockNumber> {
-	/// The proposal's unique index.
-	pub index: crate::ProposalIndex,
-	/// The number of approval votes that are needed to pass the motion.
-	pub threshold: crate::MemberCount,
-	/// The current set of voters that approved it.
-	pub ayes: Vec<AccountId>,
-	/// The current set of voters that rejected it.
-	pub nays: Vec<AccountId>,
-	/// The hard end time of this vote.
-	pub end: BlockNumber,
+	#[frame_support::storage_alias]
+	pub type Members<T: Config<I>, I: 'static> =
+		StorageValue<Pallet<T, I>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	/// Info for keeping track of a motion being voted on.
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub struct Votes<AccountId, BlockNumber> {
+		/// The proposal's unique index.
+		pub index: crate::ProposalIndex,
+		/// The number of approval votes that are needed to pass the motion.
+		pub threshold: crate::MemberCount,
+		/// The current set of voters that approved it.
+		pub ayes: Vec<AccountId>,
+		/// The current set of voters that rejected it.
+		pub nays: Vec<AccountId>,
+		/// The hard end time of this vote.
+		pub end: BlockNumber,
+	}
 }
-
 /// This migration moves all the state to v5 of Collective
 pub struct VersionUncheckedMigrateToV5<T, I>(sp_std::marker::PhantomData<(T, I)>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<T, I> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::info!("pre-migration collective v5");
-		let count = ProposalOf::<T, I>::iter().count();
-		if Proposals::<T, I>::get().len() != count {
+		let count = old::ProposalOf::<T, I>::iter().count();
+		if old::Proposals::<T, I>::get().len() != count {
 			log::info!("collective proposals count inconsistency");
 		}
-		if Members::<T, I>::get().len() > <T as Config<I>>::MaxMembers::get() as usize {
+		if old::Members::<T, I>::get().len() > <T as Config<I>>::MaxMembers::get() as usize {
 			log::info!("collective members exceeds MaxMembers");
 		}
 
-		Ok((Proposals::<T, I>::get()).encode())
+		Ok((old::Proposals::<T, I>::get()).encode())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::zero();
 
 		// ProposalOf
-		for (hash, proposal) in ProposalOf::<T, I>::drain() {
+		for (hash, proposal) in old::ProposalOf::<T, I>::drain() {
 			weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 			let Ok(new_hash) = <T as Config<I>>::Preimages::note(proposal.encode().into()) else {
 				log::info!(
@@ -121,11 +124,11 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<
 		}
 
 		// Proposals
-		Proposals::<T, I>::kill();
+		old::Proposals::<T, I>::kill();
 		weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 		// Voting
-		for (hash, vote) in Voting::<T, I>::drain() {
+		for (hash, vote) in old::Voting::<T, I>::drain() {
 			weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
 			crate::Voting::<T, I>::insert(
 				hash,
@@ -142,7 +145,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<
 		}
 
 		// Members
-		crate::Members::<T, I>::put(BoundedVec::truncate_from(Members::<T, I>::get()));
+		crate::Members::<T, I>::put(BoundedVec::truncate_from(old::Members::<T, I>::get()));
 		weight.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 	}
 
@@ -170,10 +173,13 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for VersionUncheckedMigrateToV5<
 			);
 		}
 		ensure!(
-			ProposalOf::<T, I>::iter().count() == 0,
+			old::ProposalOf::<T, I>::iter().count() == 0,
 			"collective v4 ProposalOf should be empty"
 		);
-		ensure!(Proposals::<T, I>::get().len() == 0, "collective v4 Proposals should be empty");
+		ensure!(
+			old::Proposals::<T, I>::get().len() == 0,
+			"collective v4 Proposals should be empty"
+		);
 
 		Pallet::<T, I>::do_try_state()
 	}

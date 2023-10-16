@@ -219,12 +219,7 @@ fn vote_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::AllianceMotion(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
@@ -271,12 +266,7 @@ fn close_works() {
 		assert_eq!(
 			System::events()
 				.iter()
-				.filter(|e| {
-					// We filter out Preimage events because introducing them would be a long manual
-					// process, and since we are testing the Collective events, they can be
-					// considered superfluous.
-					!matches!(e.event, RuntimeEvent::Preimage(_))
-				})
+				.filter(|e| matches!(e.event, RuntimeEvent::AllianceMotion(_)))
 				.cloned()
 				.collect::<Vec<_>>(),
 			vec![
