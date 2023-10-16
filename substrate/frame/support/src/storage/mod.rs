@@ -167,6 +167,13 @@ pub trait StorageValue<T: FullCodec> {
 	{
 		T::decode_len(&Self::hashed_key())
 	}
+
+	fn decode_raw_len() -> Option<usize>
+	where
+		T: StorageDecodeRawLength,
+	{
+		T::decode_raw_len(&Self::hashed_key())
+	}
 }
 
 /// A non-continuous container type.
@@ -1421,6 +1428,17 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
+pub trait StorageDecodeRawLength: private::Sealed {
+	/// Decode the raw length of the storage value at `key`, including any duplicate values.
+	fn decode_raw_len(key: &[u8]) -> Option<usize> {
+		// `Compact<u32>` is 5 bytes in maximum.
+		let mut data = [0u8; 5];
+		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = data.len().min(len as usize);
+		Some(len)
+	}
+}
+
 /// Provides `Sealed` trait to prevent implementing trait `StorageAppend` & `StorageDecodeLength`
 /// & `EncodeLikeTuple` outside of this crate.
 mod private {
@@ -2027,6 +2045,23 @@ mod test {
 			FooSet::append(7);
 
 			assert_eq!(FooSet::decode_len().unwrap(), 7);
+		});
+	}
+
+	#[crate::storage_alias]
+	type Store = StorageValue<Prefix, BTreeSet<u32>>;
+
+	#[test]
+	fn btree_set_decode_raw_len_works() {
+		TestExternalities::default().execute_with(|| {
+			let btree = BTreeSet::from([1, 2, 3]);
+			Store::put(btree);
+
+			Store::append(4);
+			Store::append(5);
+			Store::append(6);
+
+			assert_eq!(Store::decode_len().unwrap(), Store::get().unwrap().len());
 		});
 	}
 }
