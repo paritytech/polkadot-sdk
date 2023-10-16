@@ -5,6 +5,7 @@
 .env*
 .idea
 .local
+.lycheecache
 .vscode
 .wasm-binaries
 *.adoc
