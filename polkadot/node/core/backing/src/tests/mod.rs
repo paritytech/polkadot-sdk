@@ -1595,8 +1595,8 @@ fn retry_works() {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_,
-					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
-				)) if sess_idx == 1 => {
+					RuntimeApiRequest::SessionExecutorParams(1, tx),
+				)) => {
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
 				msg => {
