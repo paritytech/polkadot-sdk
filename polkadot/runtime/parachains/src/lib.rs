@@ -53,7 +53,7 @@ mod mock;
 mod ump_tests;
 
 pub use origin::{ensure_parachain, Origin};
-pub use paras::ParaLifecycle;
+pub use paras::{ParaLifecycle, SetGoAhead};
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
@@ -89,8 +89,9 @@ pub fn schedule_parachain_downgrade<T: paras::Config>(id: ParaId) -> Result<(), 
 pub fn schedule_code_upgrade<T: paras::Config>(
 	id: ParaId,
 	new_code: ValidationCode,
+	set_go_ahead: SetGoAhead,
 ) -> DispatchResult {
-	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code)
+	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 }
 
 /// Sets the current parachain head with the given id.
