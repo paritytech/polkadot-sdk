@@ -760,7 +760,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// The maximal weight that a single message.
+	/// The maximal weight that a single message can consume.
 	///
 	/// Any message using more than this will be marked as permanently overweight and not
 	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
