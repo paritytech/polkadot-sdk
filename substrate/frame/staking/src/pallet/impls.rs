@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 				// Remove the lock.
 				// todo(ank4n): this lock removal needs to be abstracted. For delegated accounts,
 				// locks are removed by delegator..
-				// T::Currency::remove_lock(STAKING_ID, &stash);
+				T::Currency::remove_lock(crate::STAKING_ID, &stash);
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
@@ -1810,13 +1810,12 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		ensure!(ledger.active > value + T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 		// Unbond `value` from delegatee and transfer it to delegator.
-		// fixme(ankan): Use the new staking ledger apis.
-		// T::Currency::set_lock(
-		// 	STAKING_ID,
-		// 	&delegatee,
-		// 	active_direct - value,
-		// 	WithdrawReasons::all(),
-		// );
+		T::Currency::set_lock(
+			crate::STAKING_ID,
+			&delegatee,
+			active_direct - value,
+			WithdrawReasons::all(),
+		);
 		T::Currency::transfer(&delegatee, &delegator, value, KeepAlive)?;
 
 		// Delegate the unbonded fund.
