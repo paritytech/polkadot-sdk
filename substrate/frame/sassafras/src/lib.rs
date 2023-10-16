@@ -284,7 +284,7 @@ pub mod pallet {
 				RingContext::<T>::put(ring_ctx);
 			}
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(self.epoch_config.clone());
+			EpochConfig::<T>::put(self.epoch_config);
 		}
 	}
 
@@ -660,7 +660,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let next_config = PendingEpochConfigChange::<T>::take();
-		if let Some(next_config) = next_config.clone() {
+		if let Some(next_config) = next_config {
 			NextEpochConfig::<T>::put(next_config);
 		}
 

@@ -25,7 +25,6 @@ type ExtendedHostFunctions = (
 type ExtendedHostFunctions = sp_crypto_ec_utils::elliptic_curves::HostFunctions;
 
 impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-	#[cfg(feature = "runtime-benchmarks")]
 	type ExtendHostFunctions = ExtendedHostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
