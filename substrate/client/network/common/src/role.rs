@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// file-level lint whitelist to avoid problem with bitflags macro below
+// TODO: can be dropped after an update to bitflags 2.4
+#![allow(clippy::bad_bit_mask)]
+
 use codec::{self, Encode, EncodeLike, Input, Output};
 
 /// Role that the peer sent to us during the handshake, with the addition of what our local node

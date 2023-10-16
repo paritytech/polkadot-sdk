@@ -17,7 +17,7 @@
 
 //! Simple BLS (Boneh–Lynn–Shacham) Signature API.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
@@ -28,8 +28,12 @@ use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
+
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
+
 use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
 #[cfg(feature = "full_crypto")]
 use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
@@ -39,6 +43,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS377;
 
@@ -60,6 +65,7 @@ pub mod bls377 {
 
 /// BLS-381 specialized types
 pub mod bls381 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS381;
 
@@ -83,17 +89,17 @@ trait BlsBound: EngineBLS + HardJunctionId + Send + Sync + 'static {}
 
 impl<T: EngineBLS + HardJunctionId + Send + Sync + 'static> BlsBound for T {}
 
-// Secret key serialized size
+/// Secret key serialized size
 #[cfg(feature = "full_crypto")]
 const SECRET_KEY_SERIALIZED_SIZE: usize =
 	<SecretKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
-// Public key serialized size
-const PUBLIC_KEY_SERIALIZED_SIZE: usize =
+/// Public key serialized size
+pub const PUBLIC_KEY_SERIALIZED_SIZE: usize =
 	<DoublePublicKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
-// Signature serialized size
-const SIGNATURE_SERIALIZED_SIZE: usize =
+/// Signature serialized size
+pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
@@ -258,7 +264,7 @@ impl<T> sp_std::fmt::Debug for Public<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<T: BlsBound> Serialize for Public<T> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -268,7 +274,7 @@ impl<T: BlsBound> Serialize for Public<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<'de, T: BlsBound> Deserialize<'de> for Public<T> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -317,6 +323,10 @@ impl<T> sp_std::hash::Hash for Signature<T> {
 	}
 }
 
+impl<T> ByteArray for Signature<T> {
+	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
+}
+
 impl<T> TryFrom<&[u8]> for Signature<T> {
 	type Error = ();
 
@@ -330,7 +340,7 @@ impl<T> TryFrom<&[u8]> for Signature<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<T> Serialize for Signature<T> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -340,7 +350,7 @@ impl<T> Serialize for Signature<T> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 impl<'de, T> Deserialize<'de> for Signature<T> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -444,10 +454,9 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		path: Iter,
 		_seed: Option<Seed>,
 	) -> Result<(Self, Option<Seed>), DeriveError> {
-		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
-			self.0.secret.to_bytes().try_into().expect(
-				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size",
-			);
+		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] = self.0.secret.to_bytes().try_into().expect(
+			"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
+		);
 		for j in path {
 			match j {
 				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
@@ -529,11 +538,10 @@ mod test {
 		);
 	}
 
-	// Only passes if the seed = (seed mod ScalarField)
 	#[test]
 	fn seed_and_derive_should_work() {
 		let seed = array_bytes::hex2array_unchecked(
-			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f00",
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
 		);
 		let pair = Pair::from_seed(&seed);
 		// we are using hash to field so this is not going to work
@@ -543,7 +551,7 @@ mod test {
 		assert_eq!(
 			derived.to_raw_vec(),
 			array_bytes::hex2array_unchecked::<_, 32>(
-				"a4f2269333b3e87c577aa00c4a2cd650b3b30b2e8c286a47c251279ff3a26e0d"
+				"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
 			)
 		);
 	}
