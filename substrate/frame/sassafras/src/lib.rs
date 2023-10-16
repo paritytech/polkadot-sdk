@@ -247,13 +247,14 @@ pub mod pallet {
 	pub type NextTicketsSegments<T: Config> =
 		StorageMap<_, Identity, u32, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
 
-	/// Parameters used to verify tickets validity via ring-proof.
+	/// Parameters used to construct the epoch's ring verifier.
 	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
 	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
+	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
 	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
 
@@ -373,7 +374,7 @@ pub mod pallet {
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
 			debug!(target: LOG_TARGET, "Loading ring verifier");
-			let Some(verifier) = RingVerifierData::<T>::get().map(|vd| vd.into()) else {
+			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
 				warn!(target: LOG_TARGET, "Ring verifier not initialized");
 				return Err("Ring context not initialized".into())
 			};
@@ -598,7 +599,7 @@ impl<T: Config> Pallet<T> {
 
 		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {}", pks.len());
 		let verifier_data = ring_ctx
-			.verifier_data(pks.as_slice())
+			.verifier_data(&pks)
 			.expect("Failed to build ring verifier. This is a bug");
 
 		RingVerifierData::<T>::put(verifier_data);
