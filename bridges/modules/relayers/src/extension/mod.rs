@@ -2326,7 +2326,11 @@ mod tests {
 				last_confirmed_nonce: 0,
 				relayers: vec![UnrewardedRelayer {
 					relayer: relayer_account_at_bridged_chain(),
-					messages: DeliveredMessages { begin: 1, end: best_delivered_message },
+					messages: DeliveredMessages {
+						begin: 1,
+						end: best_delivered_message,
+						relayer_reward_per_message: 0,
+					},
 				}]
 				.into(),
 				..Default::default()

@@ -76,6 +76,9 @@ pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
+/// Maximal reward that may be paid to relayer for delivering a single message.
+pub const MAX_REWARD_PER_MESSAGE: ThisChainBalance = 100_000;
+
 /// Underlying chain of `ThisChain`.
 pub struct ThisUnderlyingChain;
 
@@ -249,6 +252,13 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<TestRuntime>;
 }
 
+pub type TestDeliveryConfirmationPaymentsAdapter =
+	pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		TestRuntime,
+		(),
+		ConstU64<MAX_REWARD_PER_MESSAGE>,
+	>;
+
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
@@ -258,11 +268,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type InboundPayload = Vec<u8>;
 	type DeliveryPayments = ();
 
-	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
-		TestRuntime,
-		(),
-		ConstU64<100_000>,
-	>;
+	type DeliveryConfirmationPayments = TestDeliveryConfirmationPaymentsAdapter;
 	type OnMessagesDelivered = ();
 
 	type MessageDispatch = DummyMessageDispatch;
@@ -360,9 +366,18 @@ impl MessageDispatch for DummyMessageDispatch {
 	}
 }
 
+/// Lane identifier used in tests.
+pub fn test_lane_id() -> LaneId {
+	LaneId::new(1, 2)
+}
+
 /// Reward account params that we are using in tests.
 pub fn test_reward_account_param() -> RewardsAccountParams {
-	RewardsAccountParams::new(LaneId::new(1, 2), *b"test", RewardsAccountOwner::ThisChain)
+	RewardsAccountParams::new(
+		test_lane_id(),
+		TEST_BRIDGED_CHAIN_ID,
+		RewardsAccountOwner::BridgedChain,
+	)
 }
 
 /// Return test externalities to use in tests.

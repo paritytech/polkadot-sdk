@@ -27,7 +27,7 @@ use crate::{
 
 use bp_header_chain::{ChainWithGrandpa, StoredHeaderData};
 use bp_messages::{
-	calc_relayers_rewards,
+	calc_relayers_rewards_at_source,
 	source_chain::{
 		DeliveryConfirmationPayments, FromBridgedChainMessagesDeliveryProof, OnMessagesDelivered,
 	},
@@ -36,7 +36,8 @@ use bp_messages::{
 		MessageDispatch,
 	},
 	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, LaneState, Message, MessageKey,
-	MessageNonce, OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
+	MessageNonce, OutboundLaneData, RelayerRewardAtSource, UnrewardedRelayer,
+	UnrewardedRelayersState,
 };
 use bp_runtime::{
 	messages::MessageDispatchResult, Chain, ChainId, Size, UnverifiedStorageProofParams,
@@ -258,6 +259,9 @@ pub const TEST_RELAYER_B: AccountId = 101;
 /// Account id of additional test relayer - C.
 pub const TEST_RELAYER_C: AccountId = 102;
 
+/// Reward that is paid for delivering single message.
+pub const RELAYER_REWARD_PER_MESSAGE: Balance = 77;
+
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> LaneId {
 	LaneId::new(1, 2)
@@ -284,7 +288,7 @@ impl TestDeliveryPayments {
 	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
 	/// cleared after the call.
 	pub fn is_reward_paid(relayer: AccountId) -> bool {
-		let key = (b":delivery-relayer-reward:", relayer).encode();
+		let key = (b":delivery-relayer-relayer_reward_per_message:", relayer).encode();
 		frame_support::storage::unhashed::take::<bool>(&key).is_some()
 	}
 }
@@ -292,13 +296,18 @@ impl TestDeliveryPayments {
 impl DeliveryPayments<AccountId> for TestDeliveryPayments {
 	type Error = &'static str;
 
+	fn relayer_reward_per_message(_lane_id: LaneId, _relayer: &AccountId) -> RelayerRewardAtSource {
+		RELAYER_REWARD_PER_MESSAGE
+	}
+
 	fn pay_reward(
+		_lane_id: LaneId,
 		relayer: AccountId,
 		_total_messages: MessageNonce,
 		_valid_messages: MessageNonce,
 		_actual_weight: Weight,
 	) {
-		let key = (b":delivery-relayer-reward:", relayer).encode();
+		let key = (b":delivery-relayer-relayer_reward_per_message:", relayer).encode();
 		frame_support::storage::unhashed::put(&key, &true);
 	}
 }
@@ -311,7 +320,7 @@ impl TestDeliveryConfirmationPayments {
 	/// Returns true if given relayer has been rewarded with given balance. The reward-paid flag is
 	/// cleared after the call.
 	pub fn is_reward_paid(relayer: AccountId, fee: TestMessageFee) -> bool {
-		let key = (b":relayer-reward:", relayer, fee).encode();
+		let key = (b":relayer-relayer_reward_per_message:", relayer, fee).encode();
 		frame_support::storage::unhashed::take::<bool>(&key).is_some()
 	}
 }
@@ -325,10 +334,14 @@ impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayment
 		_confirmation_relayer: &AccountId,
 		received_range: &RangeInclusive<MessageNonce>,
 	) -> MessageNonce {
-		let relayers_rewards = calc_relayers_rewards(messages_relayers, received_range);
+		let relayers_rewards = calc_relayers_rewards_at_source::<AccountId, Balance>(
+			messages_relayers,
+			received_range,
+			|messages, relayer_reward_per_message| messages * relayer_reward_per_message,
+		);
 		let rewarded_relayers = relayers_rewards.len();
 		for (relayer, reward) in &relayers_rewards {
-			let key = (b":relayer-reward:", relayer, reward).encode();
+			let key = (b":relayer-relayer_reward_per_message:", relayer, reward).encode();
 			frame_support::storage::unhashed::put(&key, &true);
 		}
 
@@ -445,7 +458,14 @@ pub fn unrewarded_relayer(
 	end: MessageNonce,
 	relayer: TestRelayer,
 ) -> UnrewardedRelayer<TestRelayer> {
-	UnrewardedRelayer { relayer, messages: DeliveredMessages { begin, end } }
+	UnrewardedRelayer {
+		relayer,
+		messages: DeliveredMessages {
+			begin,
+			end,
+			relayer_reward_per_message: RELAYER_REWARD_PER_MESSAGE,
+		},
+	}
 }
 
 /// Returns unrewarded relayers state at given lane.

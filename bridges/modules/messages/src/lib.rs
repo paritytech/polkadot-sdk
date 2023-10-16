@@ -60,9 +60,9 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, FromBridgedChainMessagesProof, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages,
 	},
-	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
-	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
+	ChainWithMessages, InboundLaneData, InboundMessageDetails, LaneId, MessageKey, MessageNonce,
+	MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
+	UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
 	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
@@ -268,6 +268,11 @@ pub mod pallet {
 				}
 			}
 
+			// compute the per-message reward that is paid at the bridged (source) chain to relayer
+			// that has delivered message
+			let relayer_reward_per_message =
+				T::DeliveryPayments::relayer_reward_per_message(lane_id, &relayer_id_at_this_chain);
+
 			let mut messages_received_status =
 				ReceivedMessages::new(lane_id, Vec::with_capacity(lane_data.messages.len()));
 			for mut message in lane_data.messages {
@@ -294,6 +299,7 @@ pub mod pallet {
 					&relayer_id_at_bridged_chain,
 					message.key.nonce,
 					message.data,
+					relayer_reward_per_message,
 				);
 
 				// note that we're returning unspent weight to relayer even if message has been
@@ -320,6 +326,7 @@ pub mod pallet {
 
 			// let's now deal with relayer payments
 			T::DeliveryPayments::pay_reward(
+				lane_id,
 				relayer_id_at_this_chain,
 				total_messages,
 				valid_messages,
@@ -381,12 +388,12 @@ pub mod pallet {
 				)
 				.map_err(Error::<T, I>::ReceptionConfirmation)?;
 
-			if let Some(confirmed_messages) = confirmed_messages {
+			if let Some(received_range) = confirmed_messages {
 				// emit 'delivered' event
-				let received_range = confirmed_messages.begin..=confirmed_messages.end;
 				Self::deposit_event(Event::MessagesDelivered {
 					lane_id,
-					messages: confirmed_messages,
+					messages_begin: *received_range.start(),
+					messages_end: *received_range.end(),
 				});
 
 				// if some new messages have been confirmed, reward relayers
@@ -452,8 +459,10 @@ pub mod pallet {
 		MessagesDelivered {
 			/// Lane for which the delivery has been confirmed.
 			lane_id: LaneId,
-			/// Delivered messages.
-			messages: DeliveredMessages,
+			/// Nonce of the first delivered message.
+			messages_begin: MessageNonce,
+			/// Nonce of the last delivered message.
+			messages_end: MessageNonce,
 		},
 	}
 

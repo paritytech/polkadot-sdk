@@ -19,9 +19,9 @@
 use crate::{Config, LOG_TARGET};
 
 use bp_messages::{
-	ChainWithMessages, DeliveredMessages, LaneId, LaneState, MessageNonce, OutboundLaneData,
-	UnrewardedRelayer,
+	ChainWithMessages, LaneId, LaneState, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 };
+use bp_runtime::RangeInclusiveExt;
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
@@ -133,19 +133,21 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 		max_allowed_messages: MessageNonce,
 		latest_delivered_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<RelayerId>>,
-	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
+	) -> Result<
+		Option<RangeInclusive<MessageNonce>>,
+		crate::outbound_lane::ReceptionConfirmationError,
+	> {
 		let mut data = self.storage.data();
-		let confirmed_messages = DeliveredMessages {
-			begin: data.latest_received_nonce.saturating_add(1),
-			end: latest_delivered_nonce,
-		};
-		if confirmed_messages.total_messages() == 0 {
+		let confirmed_messages =
+			data.latest_received_nonce.saturating_add(1)..=latest_delivered_nonce;
+		let confirmed_messages_count = confirmed_messages.saturating_len();
+		if confirmed_messages_count == 0 {
 			return Ok(None)
 		}
-		if confirmed_messages.end > data.latest_generated_nonce {
+		if *confirmed_messages.end() > data.latest_generated_nonce {
 			return Err(ReceptionConfirmationError::FailedToConfirmFutureMessages)
 		}
-		if confirmed_messages.total_messages() > max_allowed_messages {
+		if confirmed_messages_count > max_allowed_messages {
 			// that the relayer has declared correct number of messages that the proof contains (it
 			// is checked outside of the function). But it may happen (but only if this/bridged
 			// chain storage is corrupted, though) that the actual number of confirmed messages if
@@ -154,20 +156,20 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			log::trace!(
 				target: LOG_TARGET,
 				"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
-				confirmed_messages.total_messages(),
+				confirmed_messages_count,
 				max_allowed_messages,
 			);
 			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}
 
-		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)?;
+		ensure_unrewarded_relayers_are_correct(*confirmed_messages.end(), relayers)?;
 
 		// prune all confirmed messages
-		for nonce in confirmed_messages.begin..=confirmed_messages.end {
+		for nonce in *confirmed_messages.start()..=*confirmed_messages.end() {
 			self.storage.remove_message(&nonce);
 		}
 
-		data.latest_received_nonce = confirmed_messages.end;
+		data.latest_received_nonce = *confirmed_messages.end();
 		data.oldest_unpruned_nonce = data.latest_received_nonce.saturating_add(1);
 		self.storage.set_data(data);
 
@@ -239,14 +241,10 @@ mod tests {
 			.collect()
 	}
 
-	fn delivered_messages(nonces: RangeInclusive<MessageNonce>) -> DeliveredMessages {
-		DeliveredMessages { begin: *nonces.start(), end: *nonces.end() }
-	}
-
 	fn assert_3_messages_confirmation_fails(
 		latest_received_nonce: MessageNonce,
 		relayers: &VecDeque<UnrewardedRelayer<TestRelayer>>,
-	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
+	) -> Result<Option<RangeInclusive<MessageNonce>>, ReceptionConfirmationError> {
 		run_test(|| {
 			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -282,10 +280,7 @@ mod tests {
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
-			assert_eq!(
-				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
-				Ok(Some(delivered_messages(1..=3))),
-			);
+			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(Some(1..=3)),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
@@ -303,18 +298,12 @@ mod tests {
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 
-			assert_eq!(
-				lane.confirm_delivery(3, 2, &unrewarded_relayers(1..=2)),
-				Ok(Some(delivered_messages(1..=2))),
-			);
+			assert_eq!(lane.confirm_delivery(3, 2, &unrewarded_relayers(1..=2)), Ok(Some(1..=2)),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 2);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 3);
 
-			assert_eq!(
-				lane.confirm_delivery(3, 3, &unrewarded_relayers(3..=3)),
-				Ok(Some(delivered_messages(3..=3))),
-			);
+			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(3..=3)), Ok(Some(3..=3)),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
@@ -331,10 +320,7 @@ mod tests {
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
 			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
-			assert_eq!(
-				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
-				Ok(Some(delivered_messages(1..=3))),
-			);
+			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(Some(1..=3)),);
 			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(None),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
@@ -416,10 +402,7 @@ mod tests {
 				lane.confirm_delivery(2, 3, &unrewarded_relayers(1..=3)),
 				Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected),
 			);
-			assert_eq!(
-				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
-				Ok(Some(delivered_messages(1..=3))),
-			);
+			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(Some(1..=3)),);
 		});
 	}
 }

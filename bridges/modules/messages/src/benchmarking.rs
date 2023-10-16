@@ -131,7 +131,7 @@ fn receive_messages<T: Config<I>, I: 'static>(nonce: MessageNonce) {
 			state: LaneState::Opened,
 			relayers: vec![UnrewardedRelayer {
 				relayer: T::bridged_relayer_id(),
-				messages: DeliveredMessages::new(nonce),
+				messages: DeliveredMessages::new(nonce, 1),
 			}]
 			.into(),
 			last_confirmed_nonce: 0,
@@ -368,7 +368,7 @@ mod benchmarks {
 				state: LaneState::Opened,
 				relayers: vec![UnrewardedRelayer {
 					relayer: relayer_id.clone(),
-					messages: DeliveredMessages::new(1),
+					messages: DeliveredMessages::new(1, 1),
 				}]
 				.into_iter()
 				.collect(),
@@ -412,7 +412,7 @@ mod benchmarks {
 			total_messages: 2,
 			last_delivered_nonce: 2,
 		};
-		let mut delivered_messages = DeliveredMessages::new(1);
+		let mut delivered_messages = DeliveredMessages::new(1, 1);
 		delivered_messages.note_dispatched_message();
 		let proof = T::prepare_message_delivery_proof(MessageDeliveryProofParams {
 			lane: T::bench_lane_id(),
@@ -472,11 +472,11 @@ mod benchmarks {
 				relayers: vec![
 					UnrewardedRelayer {
 						relayer: relayer1_id.clone(),
-						messages: DeliveredMessages::new(1),
+						messages: DeliveredMessages::new(1, 1),
 					},
 					UnrewardedRelayer {
 						relayer: relayer2_id.clone(),
-						messages: DeliveredMessages::new(2),
+						messages: DeliveredMessages::new(2, 1),
 					},
 				]
 				.into_iter()

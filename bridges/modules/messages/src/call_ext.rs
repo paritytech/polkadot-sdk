@@ -260,7 +260,11 @@ mod tests {
 		for n in 0..BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX {
 			inbound_lane_state.relayers.push_back(UnrewardedRelayer {
 				relayer: Default::default(),
-				messages: DeliveredMessages { begin: n + 1, end: n + 1 },
+				messages: DeliveredMessages {
+					begin: n + 1,
+					end: n + 1,
+					relayer_reward_per_message: 0,
+				},
 			});
 		}
 		InboundLanes::<TestRuntime>::insert(test_lane_id(), inbound_lane_state);
@@ -273,6 +277,7 @@ mod tests {
 			messages: DeliveredMessages {
 				begin: 1,
 				end: BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				relayer_reward_per_message: 0,
 			},
 		});
 		InboundLanes::<TestRuntime>::insert(test_lane_id(), inbound_lane_state);

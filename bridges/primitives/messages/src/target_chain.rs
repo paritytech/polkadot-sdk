@@ -16,7 +16,10 @@
 
 //! Primitives of messages module, that are used on the target chain.
 
-use crate::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
+use crate::{
+	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
+	RelayerRewardAtSource,
+};
 
 use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
 use codec::{Decode, Encode, Error as CodecError};
@@ -126,6 +129,14 @@ pub trait DeliveryPayments<AccountId> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
+	/// Returns current reward that needs be paid at the bridged (source) chain for delivering
+	/// single message at given lane by given relayer. This value is a part of message delivery
+	/// proof, so it will eventually be reported to the source chain.
+	///
+	/// Keep in mind that it is not necessary a real reward that will be paid. See
+	/// [`crate::RelayerRewardAtSource`] for more details.
+	fn relayer_reward_per_message(lane: LaneId, relayer: &AccountId) -> RelayerRewardAtSource;
+
 	/// Pay rewards for delivering messages to the given relayer.
 	///
 	/// This method is called during message delivery transaction which has been submitted
@@ -133,6 +144,7 @@ pub trait DeliveryPayments<AccountId> {
 	/// `valid_messages` have been accepted. The post-dispatch transaction weight is the
 	/// `actual_weight`.
 	fn pay_reward(
+		lane_id: LaneId,
 		relayer: AccountId,
 		total_messages: MessageNonce,
 		valid_messages: MessageNonce,
@@ -161,7 +173,12 @@ impl<DispatchPayload: Decode> From<MessagePayload> for DispatchMessageData<Dispa
 impl<AccountId> DeliveryPayments<AccountId> for () {
 	type Error = &'static str;
 
+	fn relayer_reward_per_message(_lane: LaneId, _relayer: &AccountId) -> RelayerRewardAtSource {
+		0
+	}
+
 	fn pay_reward(
+		_lane_id: LaneId,
 		_relayer: AccountId,
 		_total_messages: MessageNonce,
 		_valid_messages: MessageNonce,

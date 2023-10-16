@@ -55,8 +55,8 @@ impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHe
 	}
 }
 
-/// Number of messages, delivered by relayers.
-pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;
+/// Rewards that need to be paid to relayers.
+pub type RelayersRewards<AccountId, Reward> = BTreeMap<AccountId, Reward>;
 
 /// Manages payments that are happening at the source chain during delivery confirmation
 /// transaction.
