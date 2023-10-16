@@ -114,6 +114,7 @@ jobs:
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
     needs: fetch-artifacts
+    environment: master
 
     steps:
       - name: Checkout sources
