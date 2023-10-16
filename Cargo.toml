@@ -60,6 +60,7 @@ members = [
 	"cumulus/parachain-template/pallets/template",
 	"cumulus/parachain-template/runtime",
 	"cumulus/parachains/common",
+	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/common",
