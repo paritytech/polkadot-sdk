@@ -526,6 +526,56 @@ fn test_parse_tasks_def_basic() {
 }
 
 #[test]
+fn test_parse_tasks_def_basic_increment_decrement() {
+	simulate_manifest_dir("../../examples/basic", || {
+		let parsed = parse2::<TasksDef>(quote! {
+			#[pallet::tasks]
+			impl<T: Config<I>, I: 'static> Pallet<T, I> {
+				/// Get the value and check if it can be incremented
+				#[pallet::task_index(0)]
+				#[pallet::task_condition(|| {
+					let value = Value::<T>::get().unwrap();
+					value < 255
+				})]
+				#[pallet::task_list(Vec::<Task<T>>::new())]
+				fn increment() -> DispatchResult {
+					let value = Value::<T>::get().unwrap_or_default();
+					if value >= 255 {
+						Err(Error::<T>::ValueOverflow.into())
+					} else {
+						let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
+						Value::<T>::put(new_val);
+						Pallet::<T>::deposit_event(Event::Incremented { new_val });
+						Ok(())
+					}
+				}
+
+				// Get the value and check if it can be decremented
+				#[pallet::task_index(1)]
+				#[pallet::task_condition(|| {
+					let value = Value::<T>::get().unwrap();
+					value > 0
+				})]
+				#[pallet::task_list(Vec::<Task<T>>::new())]
+				fn decrement() -> DispatchResult {
+					let value = Value::<T>::get().unwrap_or_default();
+					if value == 0 {
+						Err(Error::<T>::ValueUnderflow.into())
+					} else {
+						let new_val = value.checked_sub(1).ok_or(Error::<T>::ValueUnderflow)?;
+						Value::<T>::put(new_val);
+						Pallet::<T>::deposit_event(Event::Decremented { new_val });
+						Ok(())
+					}
+				}
+			}
+		})
+		.unwrap();
+		assert_eq!(parsed.tasks.len(), 2);
+	});
+}
+
+#[test]
 fn test_parse_tasks_def_duplicate_index() {
 	simulate_manifest_dir("../../examples/basic", || {
 		assert_error_matches!(

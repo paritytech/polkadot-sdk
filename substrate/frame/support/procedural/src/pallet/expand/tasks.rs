@@ -1,8 +1,9 @@
 use crate::pallet::{parse::tasks::*, Def};
+use derive_syn_parse::Parse;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_utils::PrettyPrint;
 use quote::{quote, ToTokens};
-use syn::{parse_quote, spanned::Spanned};
+use syn::{parse_quote, spanned::Spanned, Item, ItemEnum, ItemImpl};
 
 impl TaskEnumDef {
 	pub fn generate(
@@ -16,8 +17,12 @@ impl TaskEnumDef {
 				.iter()
 				.map(|task| {
 					let ident = &task.item.sig.ident;
-					let args = &task.item.sig.inputs;
-					quote!(#ident(#args))
+					let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
+					if args.is_empty() {
+						quote!(#ident)
+					} else {
+						quote!(#ident(#(#args),*))
+					}
 				})
 				.collect::<Vec<_>>(),
 			false => Vec::new(),
@@ -32,12 +37,11 @@ impl TaskEnumDef {
 			pub enum Task<#type_decl_bounded_generics> {
 				#(
 					#[allow(non_camel_case_types)]
-					#variants
-				),*
+					#variants,
+				)*
 			}
 		};
 		task_enum_def.type_use_generics = type_use_generics;
-		task_enum_def.pretty_print();
 		task_enum_def
 	}
 }
@@ -155,13 +159,44 @@ impl ToTokens for TasksDef {
 					#scrate::pallet_prelude::Weight::default()
 				}
 			}
-		})
+		});
 	}
 }
 
+pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
+	let Some(tasks) = &mut def.tasks else { return quote!() };
+	let output: ItemImpl = parse_quote!(#tasks);
+	output.pretty_print();
+	let Some(content) = &mut def.item.content else { return quote!() };
+	for item in content.1.iter_mut() {
+		let Item::Impl(item_impl) = item else { continue };
+		let Some(trait_) = &item_impl.trait_ else { continue };
+		let Some(last_seg) = trait_.1.segments.last() else { continue };
+		if last_seg.ident == "Task" {
+			*item_impl = output;
+			break
+		}
+	}
+	quote!()
+}
+
+#[derive(Parse)]
+pub struct ExpandedTaskEnum {
+	pub item_enum: ItemEnum,
+	pub debug_impl: ItemImpl,
+}
+
+pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
+	let Some(task_enum) = &mut def.task_enum else { return quote!() };
+	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
+	item_enum.pretty_print();
+	debug_impl.pretty_print();
+	task_enum.item_enum = item_enum;
+	quote!(#debug_impl)
+}
+
 pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
-	let tasks = &def.tasks;
-	if let Some(tasks_def) = tasks {
+	if let Some(tasks_def) = &def.tasks {
 		if def.task_enum.is_none() {
 			def.task_enum = Some(TaskEnumDef::generate(
 				&tasks_def,
@@ -170,11 +205,10 @@ pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
 			));
 		}
 	}
-	let task_enum = &def.task_enum;
-	// TODO: add ToTokens impl for TasksDef so we can output it here
-	let output = quote! {
-		#task_enum
-	};
-	output.pretty_print();
-	output
+	let tasks_extra_output = expand_tasks_impl(def);
+	let task_enum_extra_output = expand_task_enum(def);
+	quote! {
+		#tasks_extra_output
+		#task_enum_extra_output
+	}
 }
