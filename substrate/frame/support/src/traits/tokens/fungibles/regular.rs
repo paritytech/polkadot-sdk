@@ -197,7 +197,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		let free = Self::reducible_balance(asset.clone(), who, preservation, force);
 		match precision {
 			BestEffort => amount = amount.min(free),
-			Exact => ensure!(free >= amount, TokenError::BelowMinimum),
+			Exact => ensure!(free >= amount, TokenError::FundsUnavailable),
 		}
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(asset.clone(), who, new_balance)? {

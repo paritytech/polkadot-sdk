@@ -889,7 +889,7 @@ pub mod unbalanced {
 				Preservation::Expendable,
 				Fortitude::Polite,
 			),
-			Err(TokenError::BelowMinimum.into())
+			Err(TokenError::FundsUnavailable.into())
 		);
 		// Balance unchanged
 		assert_eq!(T::balance(&account_0), balance_before);
@@ -931,7 +931,7 @@ pub mod unbalanced {
 				Preservation::Preserve,
 				Fortitude::Polite,
 			),
-			Err(TokenError::BelowMinimum.into()),
+			Err(TokenError::FundsUnavailable.into()),
 		);
 		// Balance should not have changed.
 		assert_eq!(T::balance(&account_0), account_0_initial_balance);
@@ -1298,7 +1298,7 @@ pub mod balanced {
 			Fortitude::Polite,
 		) {
 			Ok(_) => panic!("should have failed"),
-			Err(e) => assert_eq!(e, TokenError::BelowMinimum.into()),
+			Err(e) => assert_eq!(e, TokenError::FundsUnavailable.into()),
 		};
 		assert_eq!(T::total_issuance(), balance_before);
 		assert_eq!(T::balance(&account), balance_before);
