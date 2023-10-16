@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
 
       - name: install parity-publish
-        run: cargo install --git https://github.com/paritytech/parity-publish --branch ci
+        run: cargo install --git https://github.com/paritytech/parity-publish --branch ci --profile dev
 
       - name: parity-publish check
         run: parity-publish check --allow-unpublished
