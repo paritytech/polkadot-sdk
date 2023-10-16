@@ -46,6 +46,8 @@ decl_test_relay_chains! {
 			XcmPallet: westend_runtime::XcmPallet,
 			Sudo: westend_runtime::Sudo,
 			Balances: westend_runtime::Balances,
+			Treasury: westend_runtime::Treasury,
+			AssetRate: westend_runtime::AssetRate,
 		}
 	},
 	#[api_version(8)]
@@ -248,30 +250,22 @@ decl_test_bridges! {
 		target = BridgeHubRococo,
 		handler = WococoRococoMessageHandler
 	}
-	// TODO: uncomment when https://github.com/paritytech/polkadot-sdk/pull/1352 is merged
-	// pub struct PolkadotKusamaMockBridge {
-	// 	source = BridgeHubPolkadot,
-	// 	target = BridgeHubKusama,
-	//  handler = PolkadotKusamaMessageHandler
-	// },
-	// pub struct KusamaPolkadotMockBridge {
-	// 	source = BridgeHubKusama,
-	// 	target = BridgeHubPolkadot,
-	// 	handler = KusamaPolkadotMessageHandler
-	// }
 }
 
 // Westend implementation
 impl_accounts_helpers_for_relay_chain!(Westend);
 impl_assert_events_helpers_for_relay_chain!(Westend);
+impl_send_transact_helpers_for_relay_chain!(Westend);
 
 // Rococo implementation
 impl_accounts_helpers_for_relay_chain!(Rococo);
 impl_assert_events_helpers_for_relay_chain!(Rococo);
+impl_send_transact_helpers_for_relay_chain!(Rococo);
 
 // Wococo implementation
 impl_accounts_helpers_for_relay_chain!(Wococo);
 impl_assert_events_helpers_for_relay_chain!(Wococo);
+impl_send_transact_helpers_for_relay_chain!(Wococo);
 
 // AssetHubWestend implementation
 impl_accounts_helpers_for_parachain!(AssetHubWestend);
