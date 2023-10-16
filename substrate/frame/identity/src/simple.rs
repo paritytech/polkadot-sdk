@@ -30,14 +30,14 @@ use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag
 #[repr(u64)]
 #[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 pub enum IdentityField {
-	Display = 1u64 << 0,
-	Legal = 1u64 << 1,
-	Web = 1u64 << 2,
-	Riot = 1u64 << 3,
-	Email = 1u64 << 4,
-	PgpFingerprint = 1u64 << 5,
-	Image = 1u64 << 6,
-	Twitter = 1u64 << 7,
+	Display,
+	Legal,
+	Web,
+	Riot,
+	Email,
+	PgpFingerprint,
+	Image,
+	Twitter,
 }
 
 impl TypeInfo for IdentityField {

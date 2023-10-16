@@ -143,6 +143,43 @@ fn twenty() -> IdentityInfo<MaxAdditionalFields> {
 }
 
 #[test]
+fn identity_fields_repr_works() {
+	// `SimpleIdentityField` sanity checks.
+	assert_eq!(SimpleIdentityField::Display as u64, 1 << 0);
+	assert_eq!(SimpleIdentityField::Legal as u64, 1 << 1);
+	assert_eq!(SimpleIdentityField::Web as u64, 1 << 2);
+	assert_eq!(SimpleIdentityField::Riot as u64, 1 << 3);
+	assert_eq!(SimpleIdentityField::Email as u64, 1 << 4);
+	assert_eq!(SimpleIdentityField::PgpFingerprint as u64, 1 << 5);
+	assert_eq!(SimpleIdentityField::Image as u64, 1 << 6);
+	assert_eq!(SimpleIdentityField::Twitter as u64, 1 << 7);
+
+	let fields = IdentityFields(
+		SimpleIdentityField::Legal |
+			SimpleIdentityField::Web |
+			SimpleIdentityField::Riot |
+			SimpleIdentityField::PgpFingerprint |
+			SimpleIdentityField::Twitter,
+	);
+
+	assert!(!fields.0.contains(SimpleIdentityField::Display));
+	assert!(fields.0.contains(SimpleIdentityField::Legal));
+	assert!(fields.0.contains(SimpleIdentityField::Web));
+	assert!(fields.0.contains(SimpleIdentityField::Riot));
+	assert!(!fields.0.contains(SimpleIdentityField::Email));
+	assert!(fields.0.contains(SimpleIdentityField::PgpFingerprint));
+	assert!(!fields.0.contains(SimpleIdentityField::Image));
+	assert!(fields.0.contains(SimpleIdentityField::Twitter));
+
+	// The `IdentityFields` inner `BitFlags::bits` is used for `Encode`/`Decode`, so we ensure that
+	// the `u64` representation matches what we expect during encode/decode operations.
+	assert_eq!(
+		fields.0.bits(),
+		0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_10101110
+	);
+}
+
+#[test]
 fn editing_subaccounts_should_work() {
 	new_test_ext().execute_with(|| {
 		let data = |x| Data::Raw(vec![x; 1].try_into().unwrap());
