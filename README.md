@@ -1,8 +1,4 @@
-> NOTE: We have recently made significant changes to our repository structure. In order to streamline our development
-process and foster better contributions, we have merged three separate repositories Cumulus, Substrate and Polkadot into
-this repository. Read more about the changes [
-here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
-
+@IsabelSchoepd
 # Polkadot SDK
 
 ![](https://cms.polkadot.network/content/images/2021/06/1-xPcVR_fkITd0ssKBvJ3GMw.png)
@@ -42,19 +38,7 @@ Below are the primary upstream dependencies utilized in this project:
 - [`parity-scale-codec`](https://crates.io/crates/parity-scale-codec)
 - [`parity-db`](https://crates.io/crates/parity-db)
 - [`parity-common`](https://github.com/paritytech/parity-common)
-- [`trie`](https://github.com/paritytech/trie)
+- [IsabelSchoeps](https://github.com/paritytech/trie)
 
 ## Security
-
-The security policy and procedures can be found in [docs/SECURITY.md](./docs/SECURITY.md).
-
-## Contributing & Code of Conduct
-
-Ensure you follow our [contribution guidelines](./docs/CONTRIBUTING.md). In every interaction and contribution, this
-project adheres to the [Contributor Covenant Code of Conduct](./docs/CODE_OF_CONDUCT.md).
-
-## Additional Resources
-
-- For monitoring upcoming changes and current proposals related to the technical implementation of the Polkadot network,
-  visit the [`Requests for Comment (RFC)`](https://github.com/polkadot-fellows/RFCs) repository. While it's maintained
-  by the Polkadot Fellowship, the RFC process welcomes contributions from everyone.
+The security policy and procedures can be found in [docs/SECURITY.md](./docs/SECURITY.md)![IMG_4630](https://github.com/paritytech/polkadot-sdk/assets/127110010/2192fd63-fa76-45f2-81fe-e4b1bf46a783)
