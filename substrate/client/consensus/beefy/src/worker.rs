@@ -46,6 +46,7 @@ use sp_consensus_beefy::{
 	BeefyApi, Commitment, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
 	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
+use sp_mmr_primitives::MmrApi;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
 	traits::{Block, Header, NumberFor, Zero},
@@ -356,7 +357,7 @@ where
 	P: PayloadProvider<B>,
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	F: BeefyFisherman<B>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
@@ -1726,7 +1727,6 @@ pub(crate) mod tests {
 			.header(hashes[block_number as usize])
 			.unwrap()
 			.unwrap();
-		let ancestry_proof = unimplemented!();
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, "amievil".encode());
 		let votes: Vec<_> = peers
 			.iter()
@@ -1737,8 +1737,17 @@ pub(crate) mod tests {
 			.collect();
 
 		// verify: Alice reports Bob
-		let proof =
-			generate_fork_equivocation_proof_vote(votes[1].clone(), header.clone(), ancestry_proof);
+		let ancestry_proof = alice_worker
+			.runtime
+			.runtime_api()
+			.generate_ancestry_proof(*hashes.last().unwrap(), block_number)
+			.unwrap()
+			.unwrap();
+		let proof = generate_fork_equivocation_proof_vote(
+			votes[1].clone(),
+			header.clone(),
+			ancestry_proof.clone(),
+		);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
@@ -1757,8 +1766,11 @@ pub(crate) mod tests {
 		}
 
 		// verify: Alice does not self-report
-		let proof =
-			generate_fork_equivocation_proof_vote(votes[0].clone(), header.clone(), ancestry_proof);
+		let proof = generate_fork_equivocation_proof_vote(
+			votes[0].clone(),
+			header.clone(),
+			ancestry_proof.clone(),
+		);
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(

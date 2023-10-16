@@ -29,9 +29,10 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
 	check_fork_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, ForkEquivocationProof, MmrRootHash, Payload, PayloadProvider, SignedCommitment,
-	ValidatorSet, VoteMessage,
+	BeefyApi, ForkEquivocationProof, MmrHashing, MmrRootHash, Payload, PayloadProvider,
+	SignedCommitment, ValidatorSet, VoteMessage,
 };
+use sp_mmr_primitives::MmrApi;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor},
@@ -71,7 +72,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn expected_header_and_payload(
 		&self,
@@ -118,6 +119,17 @@ where
 			.expect_block_hash_from_id(&BlockId::Number(proof.commitment.block_number))
 			.map_err(|e| Error::Backend(e.to_string()))?;
 
+		let best_hash = self.backend.blockchain().info().best_hash;
+
+		let expected_mmr_root =
+			self.runtime.runtime_api().mmr_root(best_hash).map_err(Error::RuntimeApi)?;
+
+		let mmr_size = self
+			.runtime
+			.runtime_api()
+			.mmr_leaf_count(best_hash)
+			.map_err(Error::RuntimeApi)?;
+
 		if proof.commitment.validator_set_id != set_id ||
 			!check_fork_equivocation_proof::<
 				NumberFor<B>,
@@ -125,7 +137,8 @@ where
 				BeefySignatureHasher,
 				B::Header,
 				MmrRootHash,
-			>(&proof, &expected_header_hash)
+				sp_mmr_primitives::utils::AncestryHasher<MmrHashing>,
+			>(&proof, expected_mmr_root.unwrap(), mmr_size.unwrap(), &expected_header_hash)
 		{
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
 			return Ok(())
@@ -182,7 +195,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	/// Check `vote` for contained block against expected payload.
 	fn check_vote(
@@ -191,8 +204,13 @@ where
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
 		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
-		let ancestry_proof = unimplemented!();
 		if vote.commitment.payload != expected_payload {
+			let ancestry_proof = self
+				.runtime
+				.runtime_api()
+				.generate_ancestry_proof(correct_header.hash(), number)
+				.unwrap()
+				.unwrap();
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
@@ -212,8 +230,13 @@ where
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
 		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
-		let ancestry_proof = unimplemented!();
 		if commitment.payload != expected_payload {
+			let ancestry_proof = self
+				.runtime
+				.runtime_api()
+				.generate_ancestry_proof(correct_header.hash(), number)
+				.unwrap()
+				.unwrap();
 			let validator_set = self.active_validator_set_at(&correct_header)?;
 			if signatures.len() != validator_set.validators().len() {
 				// invalid proof

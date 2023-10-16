@@ -62,7 +62,7 @@ use sp_consensus_beefy::{
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
-use sp_mmr_primitives::{Error as MmrError, MmrApi};
+use sp_mmr_primitives::{AncestryProof, Error as MmrError, LeafIndex, MmrApi, Proof};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
@@ -378,6 +378,21 @@ sp_api::mock_impl_runtime_apis! {
 	impl MmrApi<Block, MmrRootHash, NumberFor<Block>> for RuntimeApi {
 		fn mmr_root() -> Result<MmrRootHash, MmrError> {
 			Ok(self.inner.mmr_root_hash)
+		}
+
+		fn mmr_leaf_count() -> Result<LeafIndex, MmrError> {
+			Ok(0)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_best_block: NumberFor<Block>,
+			_best_known_number: Option<NumberFor<Block>>,
+		) -> Result<AncestryProof<MmrRootHash>, MmrError> {
+			Ok(AncestryProof {
+				prev_peaks: vec![],
+				prev_size: 0,
+				proof: Proof { leaf_indices: vec![], leaf_count: 0, items: vec![] },
+			})
 		}
 	}
 }
