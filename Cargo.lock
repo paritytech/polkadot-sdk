@@ -317,26 +317,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
 
 [[package]]
-name = "ark-algebra-test-templates"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "400bd3a79c741b1832f1416d4373ae077ef82ca14a8b4cee1248a2f11c8b9172"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "hex",
- "num-bigint",
- "num-integer",
- "num-traits",
- "serde",
- "serde_derive",
- "serde_json",
- "sha2 0.10.7",
-]
-
-[[package]]
 name = "ark-bls12-377"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,51 +449,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-r1cs-std"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de1d1472e5cb020cb3405ce2567c91c8d43f21b674aef37b0202f5c3304761db"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-relations",
- "ark-std",
- "derivative",
- "num-bigint",
- "num-integer",
- "num-traits",
- "tracing",
-]
-
-[[package]]
-name = "ark-relations"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00796b6efc05a3f48225e59cb6a2cda78881e7c390872d5786aaf112f31fb4f0"
-dependencies = [
- "ark-ff",
- "ark-std",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ark-scale"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b08346a3e38e2be792ef53ee168623c9244d968ff00cd70fb9932f6fe36393"
+checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
  "ark-std",
  "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -561,7 +513,7 @@ dependencies = [
 [[package]]
 name = "ark-transcript"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -1195,7 +1147,7 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.1"
-source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -2683,7 +2635,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
+source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4415,7 +4367,7 @@ checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=f4fe253#f4fe2534ccc6d916cd10d9c16891e673728ec8b4"
+source = "git+https://github.com/w3f/ring-vrf?rev=4b09416#4b09416fd23383ec436ddac127d58c7b7cd392c6"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5730,10 +5682,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -13934,7 +13884,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof?rev=8657210#86572101f4210647984ab4efedba6b3fcc890895"
+source = "git+https://github.com/w3f/ring-proof#edd1e90b847e560bf60fc2e8712235ccfa11a9a9"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -16762,100 +16712,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-ark-bls12-377"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9b60ba7d8fbb82e21f5be499b02438c9a79365acb441a4dc3993179f09c4cc9"
-dependencies = [
- "ark-bls12-377",
- "ark-ff",
- "ark-r1cs-std",
- "ark-scale",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-models",
-]
-
-[[package]]
-name = "sp-ark-bls12-381"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2cd101171d2e988a4e1b2320ad3f26f8746a263110c7153213fe86293e0552b"
-dependencies = [
- "ark-bls12-381",
- "ark-ff",
- "ark-scale",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-models",
-]
-
-[[package]]
-name = "sp-ark-bw6-761"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d94d66ba98893cc42dfe81d5b5dee9142577176bdbdba80ec25a37d8cdffdbd5"
-dependencies = [
- "ark-bw6-761",
- "ark-ff",
- "ark-scale",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-models",
-]
-
-[[package]]
-name = "sp-ark-ed-on-bls12-377"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37f6ea96c9b1cd4cbd05d741225ff7f6328ab035bda16cf3fac105c87ad98959"
-dependencies = [
- "ark-ed-on-bls12-377",
- "ark-ff",
- "ark-r1cs-std",
- "ark-scale",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-models",
-]
-
-[[package]]
-name = "sp-ark-ed-on-bls12-381-bandersnatch"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4db7a801260397cd58077befcee87acfdde8c189f48718bba1bc3783c799b67b"
-dependencies = [
- "ark-ec",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff",
- "ark-r1cs-std",
- "ark-scale",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-bls12-381",
- "sp-ark-models",
-]
-
-[[package]]
-name = "sp-ark-models"
-version = "0.4.1-beta"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd77599e09f12893739e1ef822ae065f2f46c3be040ba1979bb786ae21059f44"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "derivative",
- "getrandom 0.2.10",
- "itertools 0.10.5",
- "num-traits",
- "zeroize",
-]
-
-[[package]]
 name = "sp-authority-discovery"
 version = "4.0.0-dev"
 dependencies = [
@@ -17091,25 +16947,13 @@ dependencies = [
 name = "sp-crypto-ec-utils"
 version = "0.4.0"
 dependencies = [
- "ark-algebra-test-templates",
  "ark-bls12-377",
  "ark-bls12-381",
  "ark-bw6-761",
  "ark-ec",
  "ark-ed-on-bls12-377",
  "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff",
  "ark-scale",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
- "sp-ark-bls12-377",
- "sp-ark-bls12-381",
- "sp-ark-bw6-761",
- "sp-ark-ed-on-bls12-377",
- "sp-ark-ed-on-bls12-381-bandersnatch",
- "sp-ark-models",
- "sp-io",
  "sp-runtime-interface",
  "sp-std",
 ]
