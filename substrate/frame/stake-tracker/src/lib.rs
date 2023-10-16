@@ -319,6 +319,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
 		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
+		_slashed_total: BalanceOf<T>,
 	) {
 		frame_support::defensive!("unexpected call to OnStakingUpdate::on_slash");
 	}
