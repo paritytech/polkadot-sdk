@@ -595,7 +595,7 @@ mod tests {
 		// We need to properly set db version for upgrade to work.
 		fs::write(version_file_path(db_dir.path()), "3").expect("Failed to write DB version");
 		let expected_candidates = {
-			let db = Database::open(&db_cfg, db_path.clone()).unwrap();
+			let db = Database::open(&db_cfg, db_path).unwrap();
 			assert_eq!(db.num_columns(), super::columns::v3::NUM_COLUMNS as u32);
 			let db = DbAdapter::new(db, columns::v3::ORDERED_COL);
 			// Fill the approval voting column with test data.
