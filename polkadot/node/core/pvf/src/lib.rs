@@ -19,8 +19,10 @@
 //! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
 //! For more background, refer to the Implementer's Guide: [PVF
-//! Pre-checking](https://paritytech.github.io/polkadot/book/pvf-prechecking.html) and [Candidate
-//! Validation](https://paritytech.github.io/polkadot/book/node/utility/candidate-validation.html#pvf-host).
+//! Pre-checking](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html), [Candidate
+//! Validation](https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html)
+//! and [PVF Host and Workers](https://paritytech.github.io/polkadot-sdk/book/node/utility/pvf-host-and-workers.html).
+//!
 //!
 //! # Entrypoint
 //!
@@ -33,8 +35,8 @@
 //! compile) in order to pre-check its validity.
 //!
 //! (b) PVF execution. This accepts the PVF
-//! [`params`][`polkadot_parachain::primitives::ValidationParams`]     and the `Pvf` code, prepares
-//! (verifies and compiles) the code, and then executes PVF     with the `params`.
+//! [`params`][`polkadot_parachain_primitives::primitives::ValidationParams`]     and the `Pvf`
+//! code, prepares (verifies and compiles) the code, and then executes PVF     with the `params`.
 //!
 //! (c) Heads up. This request allows to signal that the given PVF may be needed soon and that it
 //!     should be prepared for execution.
@@ -86,7 +88,7 @@
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
-//! [`params`][`polkadot_parachain::primitives::ValidationParams`].
+//! [`params`][`polkadot_parachain_primitives::primitives::ValidationParams`].
 
 mod artifacts;
 mod error;
@@ -100,10 +102,6 @@ mod worker_intf;
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-// Used by `decl_puppet_worker_main!`.
-#[cfg(feature = "test-utils")]
-pub use sp_tracing;
-
 pub use error::{InvalidCandidate, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 pub use metrics::Metrics;
@@ -115,13 +113,8 @@ pub use polkadot_node_core_pvf_common::{
 	error::{InternalValidationError, PrepareError},
 	prepare::{PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
-
-// Re-export worker entrypoints.
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_execute_worker::worker_entrypoint as execute_worker_entrypoint;
-#[cfg(feature = "test-utils")]
-pub use polkadot_node_core_pvf_prepare_worker::worker_entrypoint as prepare_worker_entrypoint;
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";

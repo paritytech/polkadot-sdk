@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,6 @@
 use sp_std::marker::PhantomData;
 
 use crate::{
-	dispatch::DispatchError,
 	ensure,
 	traits::{
 		tokens::{
@@ -38,7 +37,7 @@ use crate::{
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{traits::Saturating, ArithmeticError, TokenError};
+use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 

@@ -1,11 +1,11 @@
 [package]
 name = "pallet-election-provider-e2e-test"
 version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME election provider multi phase pallet tests with staking pallet, bags-list and session pallets"
 publish = false
 
@@ -28,6 +28,7 @@ sp-tracing = { path = "../../../primitives/tracing" }
 
 frame-system = { path = "../../system" }
 frame-support = { path = "../../support" }
+frame-support-test = { path = "../../support/test" }
 frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-election-provider-multi-phase = { path = ".." }
@@ -36,4 +37,3 @@ pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
 pallet-timestamp = { path = "../../timestamp" }
 pallet-session = { path = "../../session" }
-

@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::collections::HashSet;
 
-use lru::LruCache;
 use rand::{seq::SliceRandom, thread_rng};
+use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
@@ -37,7 +37,7 @@ pub struct SessionCache {
 	/// Note: Performance of fetching is really secondary here, but we need to ensure we are going
 	/// to get any existing cache entry, before fetching new information, as we should not mess up
 	/// the order of validators in `SessionInfo::validator_groups`.
-	session_info_cache: LruCache<SessionIndex, SessionInfo>,
+	session_info_cache: LruMap<SessionIndex, SessionInfo>,
 }
 
 /// Localized session information, tailored for the needs of availability distribution.
@@ -83,7 +83,7 @@ impl SessionCache {
 	pub fn new() -> Self {
 		SessionCache {
 			// We need to cache the current and the last session the most:
-			session_info_cache: LruCache::new(NonZeroUsize::new(2).unwrap()),
+			session_info_cache: LruMap::new(ByLength::new(2)),
 		}
 	}
 
@@ -115,7 +115,7 @@ impl SessionCache {
 			gum::trace!(target: LOG_TARGET, session_index, "Calling `with_info`");
 			let r = with_info(&info);
 			gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
-			self.session_info_cache.put(session_index, info);
+			self.session_info_cache.insert(session_index, info);
 			Ok(Some(r))
 		} else {
 			Ok(None)
@@ -142,7 +142,7 @@ impl SessionCache {
 	/// will be put at the beginning of the group.
 	pub fn report_bad(&mut self, report: BadValidators) -> Result<()> {
 		let available_sessions = self.session_info_cache.iter().map(|(k, _)| *k).collect();
-		let session = self.session_info_cache.get_mut(&report.session_index).ok_or(
+		let session = self.session_info_cache.get(&report.session_index).ok_or(
 			Error::NoSuchCachedSession {
 				available_sessions,
 				missing_session: report.session_index,

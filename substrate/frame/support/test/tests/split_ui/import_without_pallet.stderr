@@ -1,5 +1,5 @@
 error: `#[import_section]` can only be applied to a valid pallet module
-  --> tests/split_ui/import_without_pallet.rs:12:9
+  --> tests/split_ui/import_without_pallet.rs:29:9
    |
-12 | pub mod pallet {
+29 | pub mod pallet {
    |         ^^^^^^

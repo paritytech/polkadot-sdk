@@ -1,7 +1,7 @@
 error: No api implementation given!
-  --> tests/ui/empty_impl_runtime_apis_call.rs:11:1
+  --> tests/ui/empty_impl_runtime_apis_call.rs:28:1
    |
-11 | sp_api::impl_runtime_apis! {}
+28 | sp_api::impl_runtime_apis! {}
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `sp_api::impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)

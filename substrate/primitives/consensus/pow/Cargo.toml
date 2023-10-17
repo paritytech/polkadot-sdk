@@ -1,12 +1,12 @@
 [package]
 name = "sp-consensus-pow"
 version = "0.10.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Primitives for Aura consensus"
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 readme = "README.md"
 
 [package.metadata.docs.rs]

@@ -100,7 +100,7 @@ parameter_types! {
 }
 
 /// Parameterized slow adjusting fee updated based on
-/// https://research.web3.foundation/Polkadot/overview/token-economics#2-slow-adjusting-mechanism
+/// <https://research.web3.foundation/Polkadot/overview/token-economics#2-slow-adjusting-mechanism>
 pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 	R,
 	TargetBlockFullness,

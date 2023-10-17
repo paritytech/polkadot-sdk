@@ -1,7 +1,7 @@
 error[E0433]: failed to resolve: use of undeclared type `MyStorageMap`
-  --> tests/split_ui/section_not_imported.rs:27:4
+  --> tests/split_ui/section_not_imported.rs:44:4
    |
-27 |             MyStorageMap::<T>::insert(1, 2);
+44 |             MyStorageMap::<T>::insert(1, 2);
    |             ^^^^^^^^^^^^
    |             |
    |             use of undeclared type `MyStorageMap`

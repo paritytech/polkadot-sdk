@@ -1,18 +1,17 @@
-// Copyright Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::*;
 
@@ -36,11 +35,8 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	);
 }
 
-fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
-	AssetHubWestend::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(1_000_000_000, 0)),
-		Some(Error::UntrustedReserveLocation),
-	);
+fn system_para_dest_assertions(_t: RelayToSystemParaTest) {
+	AssetHubWestend::assert_dmp_queue_error(Error::WeightNotComputable);
 }
 
 fn system_para_to_relay_assertions(_t: SystemParaToRelayTest) {
@@ -179,7 +175,7 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
 	test.set_dispatchable::<Westend>(relay_limited_reserve_transfer_assets);
 	test.assert();
 
@@ -238,7 +234,7 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions_incomplete);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
 	test.set_dispatchable::<Westend>(relay_reserve_transfer_assets);
 	test.assert();
 
@@ -353,6 +349,7 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 
@@ -388,6 +385,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 		ASSET_MIN_BALANCE,
 		true,
 		AssetHubWestendSender::get(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000,
 	);
 

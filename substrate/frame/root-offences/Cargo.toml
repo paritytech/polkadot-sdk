@@ -1,11 +1,11 @@
 [package]
 name = "pallet-root-offences"
 version = "1.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME root offences pallet"
 readme = "README.md"
 
@@ -25,6 +25,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-staking = { path = "../../primitives/staking", default-features = false}
 
 [dev-dependencies]
+frame-support-test = { path = "../support/test" }
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "../staking/reward-curve" }

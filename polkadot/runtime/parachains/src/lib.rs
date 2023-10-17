@@ -53,7 +53,7 @@ mod mock;
 mod ump_tests;
 
 pub use origin::{ensure_parachain, Origin};
-pub use paras::ParaLifecycle;
+pub use paras::{ParaLifecycle, SetGoAhead};
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
@@ -63,8 +63,6 @@ pub trait FeeTracker {
 }
 
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.
-///
-/// See [`paras::Pallet::schedule_para_initialize`] for more details.
 pub fn schedule_para_initialize<T: paras::Config>(
 	id: ParaId,
 	genesis: paras::ParaGenesisArgs,
@@ -73,8 +71,6 @@ pub fn schedule_para_initialize<T: paras::Config>(
 }
 
 /// Schedule a para to be cleaned up at the start of the next session.
-///
-/// See [`paras::Pallet::schedule_para_cleanup`] for more details.
 pub fn schedule_para_cleanup<T: paras::Config>(id: primitives::Id) -> Result<(), ()> {
 	<paras::Pallet<T>>::schedule_para_cleanup(id).map_err(|_| ())
 }
@@ -90,18 +86,15 @@ pub fn schedule_parachain_downgrade<T: paras::Config>(id: ParaId) -> Result<(), 
 }
 
 /// Schedules a validation code upgrade to a parachain with the given id.
-///
-/// This simply calls [`crate::paras::Pallet::schedule_code_upgrade_external`].
 pub fn schedule_code_upgrade<T: paras::Config>(
 	id: ParaId,
 	new_code: ValidationCode,
+	set_go_ahead: SetGoAhead,
 ) -> DispatchResult {
-	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code)
+	paras::Pallet::<T>::schedule_code_upgrade_external(id, new_code, set_go_ahead)
 }
 
 /// Sets the current parachain head with the given id.
-///
-/// This simply calls [`crate::paras::Pallet::set_current_head`].
 pub fn set_current_head<T: paras::Config>(id: ParaId, new_head: HeadData) {
 	paras::Pallet::<T>::set_current_head(id, new_head)
 }

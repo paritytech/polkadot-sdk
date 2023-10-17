@@ -26,6 +26,7 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
+use frame_support_test::TestRandomness;
 use pallet_staking::StakerStatus;
 use sp_core::H256;
 use sp_runtime::{
@@ -190,6 +191,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Randomness = TestRandomness<Self>;
 }
 
 impl pallet_session::historical::Config for Test {

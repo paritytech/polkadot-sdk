@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-common"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.163", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.188", default-features = false, features = ["alloc"] }
 serde_derive = { version = "1.0.117" }
 static_assertions = "1.1.0"
 
@@ -38,6 +38,7 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
@@ -49,7 +50,8 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
-xcm = { path = "../../xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -58,21 +60,23 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.96"
+serde_json = "1.0.107"
 libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
 [features]
 default = [ "std" ]
-experimental = [ "frame-support/experimental" ]
 no_std = []
 std = [
 	"bitvec/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
 	"inherents/std",
 	"libsecp256k1/std",
 	"log/std",
+	"pallet-asset-rate/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-election-provider-multi-phase/std",
@@ -99,21 +103,41 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
 	"libsecp256k1/static-context",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support-test/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authorship/try-runtime",
+	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
@@ -122,4 +146,5 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-vesting/try-runtime",
 	"runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
 ]
