@@ -804,7 +804,7 @@ pub trait NotificationService: Debug + Send {
 /// [`NotificationService`] due to synchronization required to keep the underlying notification
 /// sink up to date with possible sink replacement events.
 #[async_trait::async_trait]
-pub trait MessageSink: Send {
+pub trait MessageSink: Send + Sync {
 	/// Send synchronous `notification` to the peer associated with this [`MessageSink`].
 	fn send_sync_notification(&self, notification: Vec<u8>);
 
