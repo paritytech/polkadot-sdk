@@ -27,8 +27,14 @@ parameter_types! {
 	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(100));
 	pub RelayUniversalLocation: Junctions = X1(GlobalConsensus(Local::get()));
 	pub RemoteUniversalLocation: Junctions = X1(GlobalConsensus(Remote::get()));
-	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
-		= vec![(Remote::get(), MultiLocation::parent(), Some((Parent, 200u128 + if UsingTopic::get() { 20 } else { 0 }).into()))];
+	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
+		NetworkExportTableItem::new(
+			Remote::get(),
+			None,
+			MultiLocation::parent(),
+			Some((Parent, 200u128 + if UsingTopic::get() { 20 } else { 0 }).into())
+		)
+	];
 	// ^^^ 100 to use the bridge (export) and 100 for the remote execution weight (5 instructions
 	//     x (10 + 10) weight each).
 }
