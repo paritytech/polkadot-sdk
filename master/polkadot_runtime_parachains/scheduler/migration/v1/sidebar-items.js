@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MigrateToV1"]};
+window.SIDEBAR_ITEMS = {"struct":["UncheckedMigrateToV1"],"type":["MigrateToV1"]};

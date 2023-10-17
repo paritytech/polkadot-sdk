@@ -163,6 +163,8 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -183,7 +185,8 @@
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
-	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
+	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
 <span class="kw">mod </span>v0 {
@@ -248,22 +251,26 @@
 <span class="kw">pub mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::scheduler;
-	<span class="kw">use </span>frame_support::traits::StorageVersion;
 
-	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">pub type </span>MigrateToV1&lt;T&gt; = VersionedMigration&lt;
+		<span class="number">0</span>,
+		<span class="number">1</span>,
+		UncheckedMigrateToV1&lt;T&gt;,
+		Pallet&lt;T&gt;,
+		&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
+	&gt;;
+
+	<span class="attr">#[deprecated(note = <span class="string">&quot;Use MigrateToV1 instead&quot;</span>)]
+	</span><span class="kw">pub struct </span>UncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateToV1&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-			<span class="kw">if </span>StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">0 </span>{
-				<span class="kw">let </span>weight_consumed = migrate_to_v1::&lt;T&gt;();
+			<span class="kw">let </span>weight_consumed = migrate_to_v1::&lt;T&gt;();
 
-				<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">&quot;Migrating para scheduler storage to v1&quot;</span>);
-				StorageVersion::new(<span class="number">1</span>).put::&lt;Pallet&lt;T&gt;&gt;();
+			<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">&quot;Migrating para scheduler storage to v1&quot;</span>);
 
-				weight_consumed
-			} <span class="kw">else </span>{
-				<span class="macro">log::warn!</span>(target: scheduler::LOG_TARGET, <span class="string">&quot;Para scheduler v1 migration should be removed.&quot;</span>);
-				T::DbWeight::get().reads(<span class="number">1</span>)
-			}
+			weight_consumed
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -282,10 +289,7 @@
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
 			<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">&quot;Running post_upgrade()&quot;</span>);
-			<span class="macro">ensure!</span>(
-				StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() &gt;= <span class="number">1</span>,
-				<span class="string">&quot;Storage version should be at least `1` after the migration&quot;
-			</span>);
+
 			<span class="macro">ensure!</span>(
 				v0::Scheduled::&lt;T&gt;::get().len() == <span class="number">0</span>,
 				<span class="string">&quot;Scheduled should be empty after the migration&quot;
