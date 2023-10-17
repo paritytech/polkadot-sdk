@@ -114,13 +114,6 @@ test-rust-feature-propagation:
     - |
       export RUST_LOG=remote-ext=debug,runtime=debug
 
-      echo "---------- Upgrading glibc (required for try-runtime binary) ----------"
-      # Add the repository containing glibc
-      add-apt-repository ppa:ubuntu-toolchain-r/test -y
-      apt-get update
-      # Upgrade glibc
-      apt-get install -y libc6
-
       echo "---------- Downloading try-runtime CLI ----------"
       curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime.3-x86_64-unknown-linux-gnu -o try-runtime
       chmod +x ./try-runtime
