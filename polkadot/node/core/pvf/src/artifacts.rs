@@ -257,14 +257,12 @@ impl Artifacts {
 					Ok(None) => break,
 					Ok(Some(entry)) => {
 						let file_name = entry.file_name();
-						let file_name = file_name
-							.to_str()
-							.expect("existing file path should always be valid unicode");
-
-						if is_stale(file_name) {
-							prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
-						} else if let Some(id) = ArtifactId::from_file_name(file_name) {
-							insert_cache(artifacts, id);
+						if let Some(file_name) = file_name.to_str() {
+							if is_stale(file_name) {
+								prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
+							} else if let Some(id) = ArtifactId::from_file_name(file_name) {
+								insert_cache(artifacts, id);
+							}
 						}
 					},
 					Err(err) => gum::error!(
