@@ -279,12 +279,29 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
+		/// Reset BEEFY consensus by setting a new BEEFY genesis at `delay_in_blocks` blocks in the
+		/// future.
+		///
+		/// Note: `delay_in_blocks` has to be at least 1.
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_new_genesis())]
+		pub fn set_new_genesis(
+			origin: OriginFor<T>,
+			delay_in_blocks: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(delay_in_blocks >= One::one(), Error::<T>::InvalidConfiguration);
+			let genesis_block = frame_system::Pallet::<T>::block_number() + delay_in_blocks;
+			GenesisBlock::<T>::put(Some(genesis_block));
+			Ok(())
+		}
+
 		/// Report voter voting on invalid fork. This method will verify the
 		/// invalid fork proof and validate the given key ownership proof
 		/// against the extracted offender. If both are valid, the offence
 		/// will be reported.
 		// TODO: fix key_owner_proofs[0].validator_count()
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::report_equivocation(
 			key_owner_proofs[0].validator_count(),
 			T::MaxNominators::get(),
@@ -324,7 +341,7 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		// TODO: fix key_owner_proofs[0].validator_count()
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::report_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(),))]
 		pub fn report_fork_equivocation_unsigned(
 			origin: OriginFor<T>,
@@ -349,23 +366,6 @@ pub mod pallet {
 			)?;
 			// Waive the fee since the report is valid and beneficial
 			Ok(Pays::No.into())
-		}
-
-		/// Reset BEEFY consensus by setting a new BEEFY genesis at `delay_in_blocks` blocks in the
-		/// future.
-		///
-		/// Note: `delay_in_blocks` has to be at least 1.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_new_genesis())]
-		pub fn set_new_genesis(
-			origin: OriginFor<T>,
-			delay_in_blocks: BlockNumberFor<T>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			ensure!(delay_in_blocks >= One::one(), Error::<T>::InvalidConfiguration);
-			let genesis_block = frame_system::Pallet::<T>::block_number() + delay_in_blocks;
-			GenesisBlock::<T>::put(Some(genesis_block));
-			Ok(())
 		}
 	}
 
