@@ -103,7 +103,6 @@ pub mod v1 {
 			let weight_consumed = migrate_to_v1::<T>();
 
 			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
-			StorageVersion::new(1).put::<Pallet<T>>();
 
 			weight_consumed
 		}
