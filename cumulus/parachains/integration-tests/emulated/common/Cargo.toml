@@ -42,7 +42,7 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "2.0.0" }
 parachains-common = { version = "2.0.0", path = "../../../common" }
 cumulus-primitives-core = { version = "0.2.0", path = "../../../../primitives/core" }
-penpal-runtime = { version = "0.9.27", path = "../../../runtimes/testing/penpal" }
+penpal-runtime = { version = "0.8.0", path = "../../../runtimes/testing/penpal" }
 asset-hub-polkadot-runtime = { version = "0.10.0", path = "../../../runtimes/assets/asset-hub-polkadot" }
 asset-hub-kusama-runtime = { version = "0.10.0", path = "../../../runtimes/assets/asset-hub-kusama" }
 asset-hub-westend-runtime = { version = "0.10.0", path = "../../../runtimes/assets/asset-hub-westend" }
@@ -50,7 +50,7 @@ collectives-polkadot-runtime = { version = "2.0.0", path = "../../../runtimes/co
 bridge-hub-kusama-runtime = { version = "0.2.0", path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { version = "0.2.0", path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
 bridge-hub-rococo-runtime = { version = "0.2.0", path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false, version = "0.0.0" }
+xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false, version = "0.0.1" }
 cumulus-pallet-dmp-queue = { version = "0.2.0", path = "../../../../pallets/dmp-queue" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.2.0" }
 cumulus-pallet-parachain-system = { version = "0.2.0", path = "../../../../pallets/parachain-system" }

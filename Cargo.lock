@@ -1484,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-cumulus"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-messages",
  "bp-polkadot-core",
@@ -1498,7 +1498,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-kusama"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -1511,7 +1511,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-polkadot"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -1524,7 +1524,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-rococo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -1537,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-wococo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -1550,7 +1550,7 @@ dependencies = [
 
 [[package]]
 name = "bp-header-chain"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-runtime",
  "bp-test-utils",
@@ -1581,7 +1581,7 @@ dependencies = [
 
 [[package]]
 name = "bp-messages"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-runtime",
@@ -1597,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "bp-parachains"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "bp-polkadot-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-messages",
  "bp-runtime",
@@ -1643,7 +1643,7 @@ dependencies = [
 
 [[package]]
 name = "bp-relayers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-messages",
  "bp-runtime",
@@ -1670,7 +1670,7 @@ dependencies = [
 
 [[package]]
 name = "bp-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -1693,7 +1693,7 @@ dependencies = [
 
 [[package]]
 name = "bp-test-utils"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-parachains",
@@ -1725,7 +1725,7 @@ dependencies = [
 
 [[package]]
 name = "bp-xcm-bridge-hub-router"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -2009,7 +2009,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -9060,7 +9060,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-grandpa"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-runtime",
@@ -9082,7 +9082,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-messages"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-messages",
  "bp-runtime",
@@ -9103,7 +9103,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-header-chain",
  "bp-parachains",
@@ -9126,7 +9126,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-relayers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bp-messages",
  "bp-relayers",
@@ -11110,7 +11110,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.9.27"
+version = "0.8.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -17735,7 +17735,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -20641,7 +20641,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",

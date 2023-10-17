@@ -31,5 +31,5 @@ cumulus-pallet-parachain-system = { version = "0.2.0", path = "../../../../../pa
 collectives-polkadot-runtime = { version = "2.0.0", path = "../../../../runtimes/collectives/collectives-polkadot" }
 
 # Local
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.0" }
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.1" }
 integration-tests-common = { path = "../../common", default-features = false, version = "0.0.0" }

@@ -10742,7 +10742,7 @@ path = "substrate/test-utils/runtime/client"
 publish = true
 name = "staging-xcm-builder"
 from = "1.0.0"
-to = "2.0.0"
+to = "2.0.1"
 bump = "unknown"
 reason = "changed"
 path = "polkadot/xcm/xcm-builder"
@@ -27258,10 +27258,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "xcm-emulator"
 from = "0.0.0"
-to = "0.0.0"
+to = "0.0.1"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/xcm/xcm-emulator"
@@ -30293,10 +30293,10 @@ version = "12.0.0"
 path = "substrate/utils/wasm-builder"
 
 [[crate]]
-publish = false
+publish = true
 name = "penpal-runtime"
 from = "0.9.27"
-to = "0.9.27"
+to = "0.8.0"
 bump = "unknown"
 reason = "changed"
 path = "cumulus/parachains/runtimes/testing/penpal"
@@ -31612,7 +31612,7 @@ path = "cumulus/parachains/common"
 
 [[crate.rewrite_dep]]
 name = "penpal-runtime"
-version = "0.9.27"
+version = "0.8.0"
 path = "cumulus/parachains/runtimes/testing/penpal"
 
 [[crate.rewrite_dep]]
@@ -31697,7 +31697,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -32248,7 +32248,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -32339,7 +32339,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -32430,7 +32430,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -32511,7 +32511,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -32612,7 +32612,7 @@ path = "polkadot/xcm"
 
 [[crate.rewrite_dep]]
 name = "xcm-emulator"
-version = "0.0.0"
+version = "0.0.1"
 path = "cumulus/xcm/xcm-emulator"
 
 [[crate]]
@@ -33519,7 +33519,7 @@ path = "cumulus/parachains/common"
 
 [[crate.rewrite_dep]]
 name = "penpal-runtime"
-version = "0.9.27"
+version = "0.8.0"
 path = "cumulus/parachains/runtimes/testing/penpal"
 
 [[crate.rewrite_dep]]

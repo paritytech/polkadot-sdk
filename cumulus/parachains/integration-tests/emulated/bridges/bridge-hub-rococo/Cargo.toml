@@ -27,5 +27,5 @@ pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", def
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false, version = "0.2.0" }
 
 # Local
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.0" }
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.0.1" }
 integration-tests-common = { path = "../../common", default-features = false, version = "0.0.0" }
