@@ -116,6 +116,7 @@ std = [
 	"thiserror",
 	"tiny-bip39",
 	"tracing",
+	"w3f-bls/std",
 	"zeroize/alloc",
 ]
 
