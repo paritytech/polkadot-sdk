@@ -21,14 +21,13 @@
 
 use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::VariantCount;
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
 		tokens::fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, WhitelistedStorageKeys,
+		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
