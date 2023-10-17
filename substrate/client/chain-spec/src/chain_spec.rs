@@ -18,7 +18,6 @@
 
 //! Substrate chain configurations.
 #![warn(missing_docs)]
-
 use crate::{
 	extension::GetExtension, ChainType, GenesisConfigBuilderRuntimeCaller as RuntimeCaller,
 	Properties, RuntimeGenesis,
@@ -184,23 +183,24 @@ impl From<sp_core::storage::Storage> for RawGenesis {
 	}
 }
 
-/// Represents different options for the GenesisConfig configuration.
+/// Represents different formats for the GenesisConfig configuration.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
-enum Genesis<G> {
-	/// [Deprecated] Contains the JSON representation of G (the native type representing the
+pub enum Genesis<G> {
+	/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime GenesisConfig struct) (will be removed with `ChainSpec::from_genesis`).
 	Runtime(G),
-	/// The genesis storage as raw data.
+	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
 	StateRootHash(StorageData),
-	/// Represents the full runtime genesis config in JSON format.
+	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
 	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
 	RuntimeGenesisConfig(json::Value),
-	/// Represents a patch for the default runtime genesis config in JSON format.
-	/// The contained value is a JSON object that can be parsed by a compatible runtime.
+	/// Represents a patch for the default runtime genesis config in JSON format which is
+	/// essentially a list of keys that are to be customized in runtime genesis config.
+	/// The contained value is a JSON blob that can be parsed by a compatible runtime.
 	RuntimeGenesisConfigPatch(json::Value),
 }
 
@@ -867,6 +867,40 @@ mod tests {
 		json
 	}
 
+	#[docify::export]
+	#[test]
+	fn build_chain_spec_with_patch_works() {
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({
+			"babe": {
+				"epochConfig": {
+					"c": [
+						7,
+						10
+					],
+					"allowed_slots": "PrimaryAndSecondaryPlainSlots"
+				}
+			},
+			"substrateTest": {
+				"authorities": [
+					AccountKeyring::Ferdie.public().to_ss58check(),
+					AccountKeyring::Alice.public().to_ss58check()
+				],
+			}
+		}))
+		.build();
+
+		let raw_chain_spec = output.as_json(true);
+		assert!(raw_chain_spec.is_ok());
+	}
+
+	#[docify::export]
 	#[test]
 	fn generate_chain_spec_with_patch_works() {
 		let output: ChainSpec<()> = ChainSpec::builder(

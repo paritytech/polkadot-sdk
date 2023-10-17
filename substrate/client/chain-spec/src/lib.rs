@@ -16,19 +16,155 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate chain configurations.
+#![allow(rustdoc::private_intra_doc_links)]
+
+//! # Substrate chain configurations.
+//! This crate includes structs and utilities for defining configuration files (known as chain
+//! specification) for both runtime and node.
 //!
-//! This crate contains structs and utilities to declare
-//! a runtime-specific configuration file (a.k.a chain spec).
+//! The chain specification is a JSON file that describes the properties and intial state of the
+//! chain.
 //!
-//! Basic chain spec type containing all required parameters is
-//! [`GenericChainSpec`]. It can be extended with
-//! additional options that contain configuration specific to your chain.
-//! Usually the extension is going to be an amalgamate of types exposed
-//! by Substrate core modules. To allow the core modules to retrieve
-//! their configuration from your extension you should use `ChainSpecExtension`
-//! macro exposed by this crate.
+//! In summary, though not restirced to, the main role of the chain spec is to provide a list of
+//! well-known boot nodes for the blockchain network and the means for initializing the genesis
+//! storage. This initialization is necessary for creating a genesis block upon which subsequent
+//! blocks are built. When the node is launched for the first time, it reads the chain spec,
+//! initializes the genesis block, and establishes connections with the boot nodes.
 //!
+//! It is divided into three main logical sections:
+//! - one section details general chain properties,
+//! - the other explicitly or indirectly defines the genesis storage, which, in turn,
+//! determines the genesis hash of the chain,
+//! - third deals with the runtime code.
+//!
+//! The chain specification consits of the following fields:
+//!
+//! | Chain spec key | descirption |
+//! |---------|---------|
+//! |`name`|The human readable name of the chain.|
+//! |`id`|The id of the chain.|
+//! |`chainType`|The chain type of this chain (refer to [`ChainType`]).|
+//! |`bootNodes`|A list of multi addresses that belong to boot nodes of the chain.|
+//! |`telemetryEndpoints`|Optional list of `multi address, verbosity` of telemetry endpoints.  The verbosity goes from `0` to `9`. With `0` being the mode with the lowest verbosity.|
+//! |`protocolId`|Optional networking protocol id that identifies the chain.|
+//! |`forkId`|Optional fork id. Should most likely be left empty. Can be used to signal a fork on the network level when two chains have the same genesis hash.|
+//! |`properties`|Custom properties. Shall be provided in the form of `key`, `value` json object.|
+//! |`consensusEngine`|Deprecated field. Should be ignored.|
+//! |`codeSubstitutes`|Optional map of `block_number` to `wasm_code`. More details in material to follow.|
+//! |||
+//! |`genesis`|Defines the initial state of the runtime. More details in material to follow.|
+//! |||
+//! |`code`|The runtime wasm code blob in hex format.|
+//!
+//!
+//! # Initial runtime state aka genesis storage
+//!
+//! The `genesis` key of the chain specification definition describes the
+//! initial state of the runtime. For example it may contain:
+//! - initial list of funded accoumts,
+//! - the sudo key,
+//! - initial authorities set for consensus, etc.
+//!
+//! The genesis state can be represented in the formats described by [`chain_spec::Genesis<G>`]
+//! enum. It includes:
+//!
+//! - `runtime` - a JSON object that is an explicit and comprehensive representation of the
+//!   `RuntimeGenesisConfig` struct. The `RuntimeGenesisConfig` struct is declared by the runtime
+//!   and opaque to the node.
+//! - `runtimeGenesisConfig` - an alias for `runtime`,
+//! - `runtimeGenesisConfigPatch` - a JSON object that is partial representation of
+//!   `RuntimeGenesisConfig` provided by runtime. It contains a patch which is essentially a list of
+//!   keys that are to be customized in the default runtime's `RuntimeGenesisConfig`. It is opaque
+//!   to the node.
+//! - `raw` is a JSON object with two fields `top` and `children_default`. Each of these fields is a
+//!   map of `key => value`. These key/value pairs represent the entries in a genesis storage trie.
+//! - `stateRootHash` is a single hex encoded hash that represents the genesis hash. The hash type
+//!   depends on the hash used by the chain.
+//!
+//! For production or long living chain specification `raw` format is recommended.
+//!
+//! # From initial state to raw genesis.
+//!
+//! To generate a raw genesis storage from the JSON representation of the runtime genesis config the
+//! node needs to interact with the runtime.
+//!
+//! This interaction involves passing the runtime genesis config JSON blob to the runtime using the
+//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. It is a crucial step for
+//! computing the storage root hash, which is a key component in determining the genesis hash.
+//!
+//! Consequently, the runtime must support the [`sp_genesis_builder::GenesisBuilder`] API to
+//! utilize either [`chain_spec::Genesis<G>::RuntimeGenesisConfigPatch`] or
+//! [`chain_spec::Genesis<G>::RuntimeGenesisConfig`] formats.
+//!
+//! This whole process is encapsulated within the implementation of the [`BuildStorage`] trait,
+//! which can be accessed through the [`ChainSpec::as_storage_builder`] method.
+//!
+//! In case of `raw` genesis state the node does not interact with the runtime regarding the
+//! computation of initial state.
+//!
+//! # Optional code mapping
+//! Optional map of `block_number` to `wasm_code`.
+//!
+//! The given `wasm_code` will be used to substitute the on-chain wasm code starting with the
+//! given block number until the `spec_version` on-chain changes. The given `wasm_code` should
+//! be as close as possible to the on-chain wasm code. A substitute should be used to fix a bug
+//! that can not be fixed with a runtime upgrade, if for example the runtime is constantly
+//! panicking. Introducing new runtime apis isn't supported, because the node
+//! will read the runtime version from the on-chain wasm code. Use this functionality only when
+//! there is no other way around it and only patch the problematic bug, the rest should be done
+//! with a on-chain runtime upgrade.
+//!
+//! # JSON chain specification example
+//! Example of the full default Substrate chain specification is the following:
+//! ```
+//! {
+//!   "name": "Flaming Fir",
+//!   "id": "flamingfir9",
+//!   "chainType": "Live",
+//!   "bootNodes": [
+//!     "/dns/0.flamingfir.paritytech.net/tcp/30333/p2p/12D3KooWLK2gMLhWsYJzjW3q35zAs9FDDVqfqVfVuskiGZGRSMvR",
+//!   ],
+//!   "telemetryEndpoints": [
+//!     [
+//!       "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
+//!       0
+//!     ]
+//!   ],
+//!   "protocolId": "fir9",
+//!   "forkId": "random_fork",
+//!   "properties": {
+//!     "tokenDecimals": 15,
+//!     "tokenSymbol": "FIR"
+//!   },
+//!   "genesis": { "runtime": { ... } },
+//!   "codeSubstitutes": [],
+//! }
+//! ```
+//!
+//! The [`ChainSpec`] trait represents the API to access values defined in JSON chain specification.
+//!
+//! # Building a chain specification.
+//! The [`ChainSpecBuilder`] shall be used to create an instance of chain specification. Its API
+//! allows to configure all fields of the chain spec. For details on how to generate a JSON
+//! representation of chain specification refer to [`ChainSpec::as_json`].
+//!
+//! The sample code to generate a chain spec is as follows:
+#![doc = docify::embed!("src/chain_spec.rs", build_chain_spec_with_patch_works)]
+//! The following are the `raw` and plain versions of the chain specification JSON files:
+//! ```
+#![doc = include_str!("../res/substrate_test_runtime_from_patch.json")]
+//! ```
+//! ```
+#![doc = include_str!("../res/substrate_test_runtime_from_patch_raw.json")]
+//! ```
+//!
+//! # Custom chain spec extensions
+//! Basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
+//! extended with additional options that contain configuration specific to your chain. Usually the
+//! extension is going to be an amalgamate of types exposed by Substrate core modules.
+//!
+//! To allow the core modules to retrieve their configuration from your extension you should use
+//! `ChainSpecExtension` macro exposed by this crate.
 //! ```rust
 //! use std::collections::HashMap;
 //! use sc_chain_spec::{GenericChainSpec, ChainSpecExtension};
@@ -41,13 +177,10 @@
 //! pub type MyChainSpec<G> = GenericChainSpec<G, MyExtension>;
 //! ```
 //!
-//! Some parameters may require different values depending on the
-//! current blockchain height (a.k.a. forks). You can use `ChainSpecGroup`
-//! macro and provided [`Forks`](./struct.Forks.html) structure to put
-//! such parameters to your chain spec.
-//! This will allow to override a single parameter starting at specific
-//! block number.
-//!
+//! Some parameters may require different values depending on the current blockchain height (a.k.a.
+//! forks). You can use `ChainSpecGroup` macro and provided [`Forks`](./struct.Forks.html) structure
+//! to put such parameters to your chain spec. This will allow to override a single parameter
+//! starting at specific block number.
 //! ```rust
 //! use sc_chain_spec::{Forks, ChainSpecGroup, ChainSpecExtension, GenericChainSpec};
 //!
@@ -77,11 +210,9 @@
 //! pub type MyChainSpec2<G> = GenericChainSpec<G, Forks<BlockNumber, Extension>>;
 //! ```
 //!
-//! It's also possible to have a set of parameters that is allowed to change
-//! with block numbers (i.e. is forkable), and another set that is not subject to changes.
-//! This is also possible by declaring an extension that contains `Forks` within it.
-//!
-//!
+//! It's also possible to have a set of parameters that is allowed to change with block numbers
+//! (i.e. is forkable), and another set that is not subject to changes. This is also possible by
+//! declaring an extension that contains `Forks` within it.
 //! ```rust
 //! use serde::{Serialize, Deserialize};
 //! use sc_chain_spec::{Forks, GenericChainSpec, ChainSpecGroup, ChainSpecExtension};
@@ -106,90 +237,6 @@
 //!
 //! pub type MyChainSpec<G> = GenericChainSpec<G, Extension>;
 //! ```
-//!
-//! # Substrate chain specification format
-//!
-//! The Substrate chain specification is a `json` file that describes the basics of a chain. Most
-//! importantly it lays out the genesis storage which leads to the genesis hash. The default
-//! Substrate chain specification format is the following:
-//!
-//! ```json
-//! // The human readable name of the chain.
-//! "name": "Flaming Fir",
-//!
-//! // The id of the chain.
-//! "id": "flamingfir9",
-//!
-//! // The chain type of this chain.
-//! // Possible values are `Live`, `Development`, `Local`.
-//! "chainType": "Live",
-//!
-//! // A list of multi addresses that belong to boot nodes of the chain.
-//! "bootNodes": [
-//!   "/dns/0.flamingfir.paritytech.net/tcp/30333/p2p/12D3KooWLK2gMLhWsYJzjW3q35zAs9FDDVqfqVfVuskiGZGRSMvR",
-//! ],
-//!
-//! // Optional list of "multi address, verbosity" of telemetry endpoints.
-//! // The verbosity goes from `0` to `9`. With `0` being the mode with the lowest verbosity.
-//! "telemetryEndpoints": [
-//!   [
-//!     "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
-//!     0
-//!   ]
-//! ],
-//!
-//! // Optional networking protocol id that identifies the chain.
-//! "protocolId": "fir9",
-//!
-//! // Optional fork id. Should most likely be left empty.
-//! // Can be used to signal a fork on the network level when two chains have the
-//! // same genesis hash.
-//! "forkId": "random_fork",
-//!
-//! // Custom properties.
-//! "properties": {
-//!   "tokenDecimals": 15,
-//!   "tokenSymbol": "FIR"
-//! },
-//!
-//! // Deprecated field. Should be ignored.
-//! "consensusEngine": null,
-//!
-//! // The genesis declaration of the chain.
-//! //
-//! // `runtime`, `runtimeGenesisConfig`, `runtimeGenesisConfigPatch`, `raw`, `stateRootHash` denote
-//! // the type of the genesis declaration.
-//! //
-//! // These declarations are in the following formats:
-//! // - `runtime` is a `json` object that can be parsed by a compatible `GenesisConfig`. This
-//! //  `GenesisConfig` is declared by a runtime and opaque to the node.
-//! // - `runtimeGenesisConfig` is a json object that can be parsed by compatible runtime. It is a
-//! //    json object the represents full `GenesisConfig` of the runtime. Similar to `runtime`.
-//! // - `runtimeGenesisConfigPatch` is a json object that can be parsed by compatible runtime. It
-//! //   contains a patch to default runtime's `GenesisConfig`. It is opaque to the node.
-//! // - `raw` is a `json` object with two fields `top` and `children_default`. Each of these
-//! //   fields is a map of `key => value`. These key/value pairs represent the genesis storage.
-//! // - `stateRootHash` is a single hex encoded hash that represents the genesis hash. The hash
-//! //   type depends on the hash used by the chain.
-//! //
-//! // Runtime must support `GenesisBuilder` API in order to use `runtimeGenesisConfigPatch` or
-//! // `runtimeGenesisConfig`.
-//! "genesis": { "runtime": {} },
-//!
-//! /// Optional map of `block_number` to `wasm_code`.
-//! ///
-//! /// The given `wasm_code` will be used to substitute the on-chain wasm code starting with the
-//! /// given block number until the `spec_version` on-chain changes. The given `wasm_code` should
-//! /// be as close as possible to the on-chain wasm code. A substitute should be used to fix a bug
-//! /// that can not be fixed with a runtime upgrade, if for example the runtime is constantly
-//! /// panicking. Introducing new runtime apis isn't supported, because the node
-//! /// will read the runtime version from the on-chain wasm code. Use this functionality only when
-//! /// there is no other way around it and only patch the problematic bug, the rest should be done
-//! /// with a on-chain runtime upgrade.
-//! "codeSubstitutes": [],
-//! ```
-//!
-//! See [`ChainSpec`] for a trait representation of the above.
 //!
 //! The chain spec can be extended with other fields that are opaque to the default chain spec.
 //! Specific node implementations will need to be able to deserialize these extensions.
