@@ -18,16 +18,16 @@
 
 //! Contains mock implementations of `ChainSync` and 'BlockDownloader'.
 
-use crate::block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResponseError};
+use crate::{
+	block_relay_protocol::{BlockDownloader as BlockDownloaderT, BlockResponseError},
+	chain_sync::{ChainSync as ChainSyncT, ImportBlocksAction, OnBlockData, OnBlockJustification},
+	types::{BadPeer, Metrics, PeerInfo, SyncStatus},
+};
 
 use futures::channel::oneshot;
 use libp2p::PeerId;
 use sc_network::RequestFailure;
-use sc_network_common::sync::{
-	message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse},
-	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
-	OnBlockJustification, PeerInfo, SyncStatus,
-};
+use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockRequest, BlockResponse};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 mockall::mock! {

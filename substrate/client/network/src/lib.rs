@@ -266,14 +266,7 @@ pub use event::{DhtEvent, Event, SyncEvent};
 #[doc(inline)]
 pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
-pub use sc_network_common::{
-	role::ObservedRole,
-	sync::{
-		warp::{WarpSyncPhase, WarpSyncProgress},
-		ExtendedPeerInfo, StateDownloadProgress, SyncEventStream, SyncState, SyncStatusProvider,
-	},
-	types::ReputationChange,
-};
+pub use sc_network_common::{role::ObservedRole, types::ReputationChange};
 pub use service::{
 	signature::Signature,
 	traits::{

@@ -33,11 +33,9 @@ use sc_network::{
 	NetworkSyncForkRequest, NotificationSenderError, NotificationSenderT as NotificationSender,
 	PeerId, ReputationChange,
 };
-use sc_network_common::{
-	role::ObservedRole,
-	sync::{SyncEvent as SyncStreamEvent, SyncEventStream},
-};
+use sc_network_common::role::ObservedRole;
 use sc_network_gossip::Validator;
+use sc_network_sync::{SyncEvent as SyncStreamEvent, SyncEventStream};
 use sc_network_test::{Block, Hash};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_consensus_grandpa::AuthorityList;

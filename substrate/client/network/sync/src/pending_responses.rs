@@ -19,6 +19,7 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them.
 
+use crate::types::PeerRequest;
 use futures::{
 	channel::oneshot,
 	future::BoxFuture,
@@ -28,7 +29,6 @@ use futures::{
 use libp2p::PeerId;
 use log::error;
 use sc_network::request_responses::RequestFailure;
-use sc_network_common::sync::PeerRequest;
 use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll};
 use tokio_stream::StreamMap;

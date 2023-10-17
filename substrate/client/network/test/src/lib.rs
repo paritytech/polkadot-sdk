@@ -60,16 +60,15 @@ use sc_network::{
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
 	NetworkWorker,
 };
-use sc_network_common::{
-	role::Roles,
-	sync::warp::{AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncProvider},
-};
+use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	service::{chain_sync::SyncingService, network::NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
-	warp::WarpSyncParams,
+	warp::{
+		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
+	},
 	warp_request_handler,
 };
 use sc_service::client::Client;

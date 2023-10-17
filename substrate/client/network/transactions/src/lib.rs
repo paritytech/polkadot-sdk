@@ -42,11 +42,8 @@ use sc_network::{
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
 };
-use sc_network_common::{
-	role::ObservedRole,
-	sync::{SyncEvent, SyncEventStream},
-	ExHashT,
-};
+use sc_network_common::{role::ObservedRole, ExHashT};
+use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 

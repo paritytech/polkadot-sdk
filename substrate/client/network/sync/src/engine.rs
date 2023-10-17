@@ -24,10 +24,14 @@ use crate::{
 		BlockAnnounceValidationResult, BlockAnnounceValidator as BlockAnnounceValidatorStream,
 	},
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
+	chain_sync::ChainSync as ChainSyncT,
 	pending_responses::{PendingResponses, ResponseEvent},
 	schema::v1::{StateRequest, StateResponse},
 	service::{self, chain_sync::ToServiceCommand},
-	warp::WarpSyncParams,
+	types::{
+		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
+	},
+	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 	BlockRequestAction, ChainSync, ClientError, ImportBlocksAction, ImportJustificationsAction,
 	OnBlockResponse, SyncingService,
 };
@@ -61,12 +65,7 @@ use sc_network::{
 };
 use sc_network_common::{
 	role::Roles,
-	sync::{
-		message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
-		warp::{EncodedProof, WarpProofRequest},
-		BadPeer, ChainSync as ChainSyncT, ExtendedPeerInfo, OpaqueStateRequest,
-		OpaqueStateResponse, PeerRequest, SyncEvent,
-	},
+	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HeaderMetadata;

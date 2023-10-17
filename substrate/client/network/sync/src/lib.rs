@@ -30,9 +30,16 @@
 
 use crate::{
 	blocks::BlockCollection,
+	chain_sync::{
+		ChainSync as ChainSyncT, ImportBlocksAction, OnBlockData, OnBlockJustification, OnStateData,
+	},
 	schema::v1::StateResponse,
 	state::StateSync,
-	warp::{WarpProofImportResult, WarpSync, WarpSyncConfig},
+	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode},
+	warp::{
+		EncodedProof, WarpProofImportResult, WarpProofRequest, WarpSync, WarpSyncConfig,
+		WarpSyncPhase, WarpSyncProgress,
+	},
 };
 
 use codec::Encode;
@@ -43,15 +50,8 @@ use log::{debug, error, info, trace, warn};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::types::ProtocolName;
-use sc_network_common::sync::{
-	message::{
-		BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction,
-		FromBlock,
-	},
-	warp::{EncodedProof, WarpProofRequest, WarpSyncPhase, WarpSyncProgress},
-	BadPeer, ChainSync as ChainSyncT, ImportBlocksAction, Metrics, OnBlockData,
-	OnBlockJustification, OnStateData, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode,
-	SyncState, SyncStatus,
+use sc_network_common::sync::message::{
+	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -71,12 +71,16 @@ use std::{
 };
 
 pub use service::chain_sync::SyncingService;
+pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusProvider};
 
 mod block_announce_validator;
+mod chain_sync;
 mod extra_requests;
 mod futures_stream;
 mod pending_responses;
+mod request_metrics;
 mod schema;
+mod types;
 
 pub mod block_relay_protocol;
 pub mod block_request_handler;

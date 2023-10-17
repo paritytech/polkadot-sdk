@@ -39,10 +39,8 @@ use sc_network::{
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
 };
-use sc_network_common::{
-	role::ObservedRole,
-	sync::{SyncEvent, SyncEventStream},
-};
+use sc_network_common::role::ObservedRole;
+use sc_network_sync::{SyncEvent, SyncEventStream};
 use sp_statement_store::{
 	Hash, NetworkPriority, Statement, StatementSource, StatementStore, SubmitResult,
 };

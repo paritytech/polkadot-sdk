@@ -16,11 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{PeerSync, PeerSyncState};
+use crate::{request_metrics::Metrics, PeerSync, PeerSyncState};
 use fork_tree::ForkTree;
 use libp2p::PeerId;
 use log::{debug, trace, warn};
-use sc_network_common::sync::metrics::Metrics;
 use sp_blockchain::Error as ClientError;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use std::{
