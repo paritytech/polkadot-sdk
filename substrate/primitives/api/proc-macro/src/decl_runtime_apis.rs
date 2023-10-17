@@ -724,7 +724,6 @@ fn decl_runtime_apis_impl_inner(api_decls: &[ItemTrait]) -> Result<TokenStream> 
 
 	let decl = quote! {
 		#runtime_decls
-
 		#client_side_decls
 	};
 

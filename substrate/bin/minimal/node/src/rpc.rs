@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use jsonrpsee::RpcModule;
-use runtime::interface::{AccountId, Block, Nonce};
+use runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;
@@ -41,30 +41,6 @@ pub struct FullDeps<C, P> {
 	pub deny_unsafe: DenyUnsafe,
 }
 
-pub type OpaqueBlock1 = frame::deps::sp_runtime::generic::Block<
-	frame::deps::sp_runtime::generic::Header<u32, frame::primitives::BlakeTwo256>,
-	frame::deps::sp_runtime::OpaqueExtrinsic,
->;
-pub type OpaqueBlock2 = runtime::interface::OpaqueBlock;
-
-trait AssertSameType<A, B> {}
-impl<T> AssertSameType<T, T> for Tester<T, T> {}
-
-struct Tester<A, B>(std::marker::PhantomData<(A, B)>);
-
-impl<A, B> Tester<A, B> {
-	fn is_equal()
-	where
-		Self: AssertSameType<A, B>,
-	{
-	}
-}
-
-// HELP: Works with OpaqueBlock1, but not with, even though they are really really the same damn
-// type, see `Tester`. Or try printing the `type_id()` inside `fn main()`. Yes, they even have the
-// same type-id.
-type OpaqueBlock = OpaqueBlock1;
-
 /// Instantiate all full RPC extensions.
 pub fn create_full<C, P>(
 	deps: FullDeps<C, P>,
@@ -81,10 +57,6 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
-	// Tester::<u32, u64>::is_equal(); // will fail to compile.
-	Tester::<u32, u32>::is_equal();
-	Tester::<OpaqueBlock1, OpaqueBlock2>::is_equal();
-
 	let mut module = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 

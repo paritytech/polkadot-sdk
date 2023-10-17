@@ -7818,6 +7818,7 @@ dependencies = [
  "sp-blockchain",
  "sp-io",
  "sp-keyring",
+ "sp-runtime",
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",

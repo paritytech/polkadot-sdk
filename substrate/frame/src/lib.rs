@@ -252,25 +252,24 @@ pub mod runtime {
 	///   `AccountIdLookup` in [`frame_system::Config::Lookup`].
 	pub mod types_common {
 		use frame_system::Config as SysConfig;
+		use sp_runtime::{generic, traits, OpaqueExtrinsic};
 
 		/// A signature type compatible capably of handling multiple crypto-schemes.
 		pub type Signature = sp_runtime::MultiSignature;
 
 		/// The corresponding account-id type of [`Signature`].
-		pub type AccountId = <
-			<Signature as sp_runtime::traits::Verify>::Signer
-			as
-			sp_runtime::traits::IdentifyAccount
-		>::AccountId;
+		pub type AccountId =
+			<<Signature as traits::Verify>::Signer as traits::IdentifyAccount>::AccountId;
 
 		/// The block-number type, which should be fed into [`frame_system::Config`].
 		pub type BlockNumber = u32;
 
-		type HeaderInner<T> = sp_runtime::generic::Header<BlockNumber, <T as SysConfig>::Hashing>;
+		/// TODO: Ideally we want the hashing type to be equal to SysConfig::Hashing?
+		type HeaderInner = generic::Header<BlockNumber, traits::BlakeTwo256>;
 
 		// NOTE: `AccountIndex` is provided for future compatibility, if you want to introduce
 		// something like `pallet-indices`.
-		type ExtrinsicInner<T, Extra, AccountIndex = ()> = sp_runtime::generic::UncheckedExtrinsic<
+		type ExtrinsicInner<T, Extra, AccountIndex = ()> = generic::UncheckedExtrinsic<
 			sp_runtime::MultiAddress<AccountId, AccountIndex>,
 			<T as SysConfig>::RuntimeCall,
 			Signature,
@@ -283,18 +282,17 @@ pub mod runtime {
 		/// When in doubt, use [`SystemSignedExtensionsOf`].
 		// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
-		pub type BlockOf<T, Extra = ()> =
-			sp_runtime::generic::Block<HeaderInner<T>, ExtrinsicInner<T, Extra>>;
+		pub type BlockOf<T, Extra = ()> = generic::Block<HeaderInner, ExtrinsicInner<T, Extra>>;
 
 		/// The opaque block type. This is the same [`BlockOf`], but it has
-		/// [`sp_runtime::OpaqueExtrinsic`] as its final extrinsic type. This should be provided to
-		/// the client side as the extrinsic type.
-		pub type OpaqueBlockOf<T> =
-			sp_runtime::generic::Block<HeaderInner<T>, sp_runtime::OpaqueExtrinsic>;
+		/// [`sp_runtime::OpaqueExtrinsic`] as its final extrinsic type.
+		///
+		/// This should be provided to the client side as the extrinsic type.
+		pub type OpaqueBlock = generic::Block<HeaderInner, OpaqueExtrinsic>;
 
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
-		/// crucially, this does not contain any tx-payment extension.
+		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemSignedExtensionsOf<T> = (
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
