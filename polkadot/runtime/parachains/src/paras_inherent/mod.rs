@@ -1040,21 +1040,7 @@ fn limit_and_sanitize_disputes<
 fn filter_backed_statements<T: Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 ) -> Result<bool, DispatchErrorWithPostInfo> {
-	// `active_validator_indices` contain 'raw indexes' aka indexes in the broad validator set.
-	// We want mapping from `ValidatorIndex` (which is an index within `active_validator_indices`)
-	// to 'raw indexes' to process disabled validators.
-	let raw_idx_to_val_index = shared::Pallet::<T>::active_validator_indices()
-		.iter()
-		.enumerate()
-		.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
-		.collect::<BTreeMap<_, _>>();
-	// `disabled_validators` in pallet session contains 'raw indexes' (see the previous comment). We
-	// want them converted to `ValidatorIndex` so that we can look them up easily when processing
-	// backed candidates. We skip disabled validators which are not found in the active set.
-	let disabled_validators = <T as pallet::Config>::DisabledValidators::disabled_validators()
-		.iter()
-		.filter_map(|i| raw_idx_to_val_index.get(i))
-		.collect::<BTreeSet<_>>();
+	let disabled_validators = shared::Pallet::<T>::disabled_validators();
 
 	// `BackedCandidate` contains `validator_indices` which are indecies within the validator group.
 	// To obtain `ValidatorIndex` from them we do the following steps:
