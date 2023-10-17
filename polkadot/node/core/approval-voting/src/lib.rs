@@ -181,6 +181,7 @@ struct MetricsInner {
 	approved_by_one_third: prometheus::Counter<prometheus::U64>,
 	wakeups_triggered_total: prometheus::Counter<prometheus::U64>,
 	coalesced_approvals_buckets: prometheus::Histogram,
+	coalesced_approvals_waiting_times: prometheus::Histogram,
 	candidate_approval_time_ticks: prometheus::Histogram,
 	block_approval_time_ticks: prometheus::Histogram,
 	time_db_transaction: prometheus::Histogram,
@@ -213,6 +214,12 @@ impl Metrics {
 			for _ in 0..num_coalesced {
 				metrics.coalesced_approvals_buckets.observe(num_coalesced as f64)
 			}
+		}
+	}
+
+	fn on_delayed_approval(&self, delayed_ticks: u64) {
+		if let Some(metrics) = &self.0 {
+			metrics.coalesced_approvals_waiting_times.observe(delayed_ticks as f64)
 		}
 	}
 
@@ -370,6 +377,15 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_approvals_coalesced_approvals_buckets",
 						"Number of coalesced approvals.",
 					).buckets(vec![1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5]),
+				)?,
+				registry,
+			)?,
+			coalesced_approvals_waiting_times: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_approvals_coalesced_approvals_waiting_times",
+						"Number of ticks we delay the sending of a candidate approval",
+					).buckets(vec![1.1, 2.1, 3.1, 4.1, 6.1, 8.1, 12.1, 20.1, 32.1]),
 				)?,
 				registry,
 			)?,
@@ -3297,6 +3313,7 @@ async fn issue_approval<Context>(
 				&block_entry,
 				&candidate_entry,
 				session_info,
+				&metrics,
 			),
 		)
 		.is_some()
@@ -3535,6 +3552,7 @@ fn compute_delayed_approval_sending_tick(
 	block_entry: &BlockEntry,
 	candidate_entry: &CandidateEntry,
 	session_info: &SessionInfo,
+	metrics: &Metrics,
 ) -> Tick {
 	let current_block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
 	let assignment_tranche = candidate_entry
@@ -3551,11 +3569,14 @@ fn compute_delayed_approval_sending_tick(
 	);
 	let tick_now = state.clock.tick_now();
 
-	min(
+	let sign_no_later_than = min(
 		tick_now + MAX_APPROVAL_COALESCE_WAIT_TICKS as Tick,
 		// We don't want to accidentally cause, no-shows so if we are past
 		// the seconnd half of the no show time, force the sending of the
 		// approval immediately.
 		assignment_triggered_tick + no_show_duration_ticks / 2,
-	)
+	);
+
+	metrics.on_delayed_approval(sign_no_later_than.checked_sub(tick_now).unwrap_or_default());
+	sign_no_later_than
 }
