@@ -1019,16 +1019,24 @@ fn report_fork_equivocation_vote_old_set_works() {
 fn report_fork_equivocation_vote_invalid_set_id() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let (block_num, header) = ext.execute_with(|| {
 		let mut era = 1;
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1040,6 +1048,7 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
@@ -1063,12 +1072,16 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 fn report_fork_equivocation_vote_invalid_session() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header, equivocation_keyring, key_owner_proof) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1085,10 +1098,15 @@ fn report_fork_equivocation_vote_invalid_session() {
 
 		era += 1;
 		start_era(era);
+		(block_num, header, equivocation_keyring, key_owner_proof)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let set_id = Beefy::validator_set().unwrap().id();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation proof at following era set id = 3
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
@@ -1113,16 +1131,24 @@ fn report_fork_equivocation_vote_invalid_session() {
 fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1139,6 +1165,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation for a future set
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id + 1, &equivocation_keyring),
@@ -1168,32 +1195,44 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		start_era(1);
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
 
-		let block_num = System::block_number();
-		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
-		let validator_set = Beefy::validator_set().unwrap();
-		let authorities = validator_set.validators();
-		let set_id = validator_set.id();
+	let mut era = 1;
+	let (block_num, header, set_id, equivocation_keyring, key_owner_proof) =
+		ext.execute_with(|| {
+			start_era(era);
+			let block_num = System::block_number();
+			let header = System::finalize();
 
-		let equivocation_authority_index = 0;
-		let equivocation_key = &authorities[equivocation_authority_index];
-		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
+			let validator_set = Beefy::validator_set().unwrap();
+			let authorities = validator_set.validators();
+			let set_id = validator_set.id();
 
-		// generate a key ownership proof at set id in era 1
-		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
+			let equivocation_authority_index = 0;
+			let equivocation_key = &authorities[equivocation_authority_index];
+			let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
-		start_era(2);
+			// generate a key ownership proof at set id in era 1
+			let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
+			era += 1;
+			start_era(era);
+			(block_num, header, set_id, equivocation_keyring, key_owner_proof)
+		});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 
 		// vote targets different round than finalized payload, there is no equivocation.
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num + 1, payload.clone(), set_id, &equivocation_keyring),
 			header.clone(),
-			ancestry_proof,
+			ancestry_proof.clone(),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1208,7 +1247,7 @@ fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload.clone(), set_id, &BeefyKeyring::Dave),
 			header.clone(),
-			ancestry_proof,
+			ancestry_proof.clone(),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1245,16 +1284,24 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1265,6 +1312,7 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
@@ -1337,16 +1385,24 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1357,6 +1413,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 
 		// generate equivocation proof
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
@@ -1413,19 +1470,24 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 fn report_fork_equivocation_sc_current_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		assert_eq!(Staking::current_era(), Some(0));
-		assert_eq!(Session::current_index(), 0);
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
 
-		let mut era = 1;
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1454,6 +1516,7 @@ fn report_fork_equivocation_sc_current_set_works() {
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
@@ -1516,12 +1579,24 @@ fn report_fork_equivocation_sc_current_set_works() {
 fn report_fork_equivocation_sc_old_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (
+		block_num,
+		header,
+		validators,
+		old_set_id,
+		equivocation_authority_indices,
+		equivocation_keys,
+		key_owner_proofs,
+	) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1535,7 +1610,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 		let equivocation_authority_indices = [0, 2];
 		let equivocation_keys = equivocation_authority_indices
 			.iter()
-			.map(|i| &authorities[*i])
+			.map(|i| authorities[*i].clone())
 			.collect::<Vec<_>>();
 
 		// create the key ownership proofs in the "old" set
@@ -1547,6 +1622,19 @@ fn report_fork_equivocation_sc_old_set_works() {
 		era += 1;
 		start_era(era);
 
+		(
+			block_num,
+			header,
+			validators,
+			old_set_id,
+			equivocation_authority_indices,
+			equivocation_keys,
+			key_owner_proofs,
+		)
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
 		// make sure that all authorities have the same balance
 		for validator in &validators {
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
@@ -1568,6 +1656,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an fork equivocation proof, with a vote in the same round for a
 		// different payload than finalized
 		let commitment =
@@ -1627,16 +1716,24 @@ fn report_fork_equivocation_sc_old_set_works() {
 fn report_fork_equivocation_sc_invalid_set_id() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1657,6 +1754,7 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation for a future set
 		let commitment =
 			Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
@@ -1683,12 +1781,16 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 fn report_fork_equivocation_sc_invalid_session() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header, equivocation_keyrings, key_owner_proofs) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
@@ -1699,7 +1801,7 @@ fn report_fork_equivocation_sc_invalid_session() {
 		let equivocation_authority_indices = [0, 2];
 		let equivocation_keys = equivocation_authority_indices
 			.iter()
-			.map(|i| &authorities[*i])
+			.map(|i| authorities[*i].clone())
 			.collect::<Vec<_>>();
 		let equivocation_keyrings = equivocation_keys
 			.iter()
@@ -1714,10 +1816,15 @@ fn report_fork_equivocation_sc_invalid_session() {
 
 		era += 1;
 		start_era(era);
+		(block_num, header, equivocation_keyrings, key_owner_proofs)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let set_id = Beefy::validator_set().unwrap().id();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation proof at following era set id = 3
 		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
@@ -1744,16 +1851,24 @@ fn report_fork_equivocation_sc_invalid_session() {
 fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1780,6 +1895,7 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		// generate an equivocation proof for the authorities at indices [0, 2]
 		let commitment =
 			Commitment { validator_set_id: set_id + 1, block_number: block_num, payload };
@@ -1812,12 +1928,24 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		start_era(1);
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
 
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
+		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
+
+		era += 1;
+		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1841,6 +1969,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 		start_era(2);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 
 		// commitment targets different round than finalized payload, there is no equivocation.
 		let equivocation_proof = generate_fork_equivocation_proof_sc(
@@ -1851,7 +1980,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			},
 			equivocation_keyrings.clone(),
 			header.clone(),
-			ancestry_proof,
+			ancestry_proof.clone(),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1871,7 +2000,7 @@ fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 			},
 			vec![BeefyKeyring::Eve],
 			header.clone(),
-			ancestry_proof,
+			ancestry_proof.clone(),
 		);
 		assert_err!(
 			Beefy::report_fork_equivocation_unsigned(
@@ -1913,16 +2042,24 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -1933,6 +2070,7 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
@@ -2005,16 +2143,24 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let mut era = 1;
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -2025,6 +2171,7 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 
 		// generate equivocation proof
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let equivocation_proof = generate_fork_equivocation_proof_vote(
 			(block_num, payload, set_id, &equivocation_keyring),
 			header,
@@ -2079,19 +2226,32 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	let mut ext = new_test_ext_raw_authorities(authorities);
+	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+
+	let mut era = 1;
+	let (block_num, header) = ext.execute_with(|| {
 		assert_eq!(Staking::current_era(), Some(0));
 		assert_eq!(Session::current_index(), 0);
-
-		let mut era = 1;
 		start_era(era);
 		let block_num = System::block_number();
 		let header = System::finalize();
-		let ancestry_proof = unimplemented!();
 
 		era += 1;
 		start_era(era);
+		(block_num, header)
+	});
+	ext.persist_offchain_overlay();
 
+	let (
+		commitment,
+		validators,
+		equivocation_keyrings,
+		equivocation_authority_indices,
+		key_owner_proofs,
+	) = ext.execute_with(|| {
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
@@ -2120,6 +2280,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			.collect();
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
 		let commitment = Commitment { validator_set_id: set_id, block_number: block_num, payload };
 		// generate two fork equivocation proofs with a signed commitment in the same round for a
 		// different payload than finalized
@@ -2129,13 +2290,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			commitment.clone(),
 			vec![equivocation_keyrings[0]],
 			header.clone(),
-			ancestry_proof,
-		);
-		let equivocation_proof_full = generate_fork_equivocation_proof_sc(
-			commitment,
-			equivocation_keyrings,
-			header,
-			ancestry_proof,
+			ancestry_proof.clone(),
 		);
 
 		// create the key ownership proof
@@ -2150,9 +2305,26 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			Box::new(equivocation_proof_singleton),
 			vec![key_owner_proofs[0].clone()],
 		),);
-
 		era += 1;
 		start_era(era);
+		(
+			commitment,
+			validators,
+			equivocation_keyrings,
+			equivocation_authority_indices,
+			key_owner_proofs,
+		)
+	});
+	ext.persist_offchain_overlay();
+
+	ext.execute_with(|| {
+		let ancestry_proof = Mmr::generate_ancestry_proof(block_num, None).unwrap();
+		let equivocation_proof_full = generate_fork_equivocation_proof_sc(
+			commitment,
+			equivocation_keyrings,
+			header,
+			ancestry_proof,
+		);
 
 		// check that the balance of the reported equivocating validator is slashed 100%.
 		let equivocation_validator_ids = equivocation_authority_indices
