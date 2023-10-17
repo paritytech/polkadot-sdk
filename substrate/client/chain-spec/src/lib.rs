@@ -18,14 +18,17 @@
 
 #![allow(rustdoc::private_intra_doc_links)]
 
-//! # Substrate chain configurations.
 //! This crate includes structs and utilities for defining configuration files (known as chain
 //! specification) for both runtime and node.
 //!
-//! The chain specification is a JSON file that describes the properties and initial state of the
-//! chain.
+//! # Intro: chain specification.
 //!
-//! In summary, though not restirced to, the main role of the chain spec is to provide a list of
+//! The chain specification is a collection of information that describes the properties and an
+//! initial state of a chain. Typically user interacts with the JSON representation of the chain
+//! spec. Internally the chain spec is embodied by [`GenericChainSpec`] struct, specific
+//! properties can be accessed using the [`ChainSpec`] trait.
+//!
+//! In summary, though not restirced to, the primary role of the chain spec is to provide a list of
 //! well-known boot nodes for the blockchain network and the means for initializing the genesis
 //! storage. This initialization is necessary for creating a genesis block upon which subsequent
 //! blocks are built. When the node is launched for the first time, it reads the chain spec,
@@ -108,31 +111,68 @@
 //!   </tbody>
 //! </table>
 //!
-//! # Initial runtime state aka genesis storage
+//! # `genesis`: initial runtime state
+//!
+//! All nodes in the network must build subsequent blocks upon exactly the same genesis block.
+//!
+//! The information configured in the `genesis` section of a chain specification is used to build
+//! the genesis storage, which is essential for creating the genesis block, since the block header
+//! includes the storage root hash.
 //!
 //! The `genesis` key of the chain specification definition describes the
 //! initial state of the runtime. For example it may contain:
 //! - initial list of funded accounts,
-//! - the sudo key,
+//! - the administrative account that controls the sudo key
 //! - initial authorities set for consensus, etc.
+//!
+//! The compiled WASM blob of the runtime code is stored in the state (and therefore on the chain).
+//! As a result, the initial runtime must also be provided within the chain specification (under the
+//! `code` field).
 //!
 //! The genesis state can be represented in the formats described by [`chain_spec::Genesis<G>`]
 //! enum. It includes:
+//! <table>
+//!   <thead>
+//!     <tr>
+//!       <th>Format</th>
+//!       <th>Description</th>
+//!     </tr>
+//!   </thead>
+//!   <tbody>
+//!     <tr>
+//!       <td><code>runtime</code></td>
+//!       <td>A JSON object that provides an explicit and comprehensive representation of the
+//! <code>RuntimeGenesisConfig</code> struct. This struct is declared by the runtime and is opaque
+//! to the node.</td>
+//!     </tr>
+//!     <tr>
+//!       <td><code>runtimeGenesisConfig</code></td>
+//!       <td>An alias for the <code>runtime</code> format.</td>
+//!     </tr>
+//!     <tr>
+//!       <td><code>runtimeGenesisConfigPatch</code></td>
+//!       <td>A JSON object that offers a partial representation of the
+//!       <code>RuntimeGenesisConfig</code>
+//! provided by the runtime. It contains a patch, which is essentially a list of keys to customize
+//! in the default runtime's <code>RuntimeGenesisConfig</code>. It is opaque to the node.</td>
+//!     </tr>
+//!     <tr>
+//!       <td><code>raw</code></td>
+//!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code> Each
+//! field is a map of <code>key => value</code> pairs representing entries in a genesis storage
+//! trie.</td>     </tr>
+//!     <tr>
+//!       <td><code>stateRootHash</code></td>
+//!       <td>A single hex-encoded hash representing the genesis hash. The hash type
+//!   depends on the hash used by the chain.</td>
+//!     </tr>
+//!   </tbody>
+//! </table>
 //!
-//! - `runtime` - a JSON object that is an explicit and comprehensive representation of the
-//!   `RuntimeGenesisConfig` struct. The `RuntimeGenesisConfig` struct is declared by the runtime
-//!   and opaque to the node.
-//! - `runtimeGenesisConfig` - an alias for `runtime`,
-//! - `runtimeGenesisConfigPatch` - a JSON object that is partial representation of
-//!   `RuntimeGenesisConfig` provided by runtime. It contains a patch which is essentially a list of
-//!   keys that are to be customized in the default runtime's `RuntimeGenesisConfig`. It is opaque
-//!   to the node.
-//! - `raw` is a JSON object with two fields `top` and `children_default`. Each of these fields is a
-//!   map of `key => value`. These key/value pairs represent the entries in a genesis storage trie.
-//! - `stateRootHash` is a single hex encoded hash that represents the genesis hash. The hash type
-//!   depends on the hash used by the chain.
+//! For production or long lasting chain specification `raw` format is recommended.
 //!
-//! For production or long living chain specification `raw` format is recommended.
+//! JSON examples in the [following section](#json-chain-specification-example) illustrate the `raw`
+//! and `runtimeGenesisConfigPatch` genesis fields.
 //!
 //! # From initial state to raw genesis.
 //!
@@ -140,18 +180,28 @@
 //! node needs to interact with the runtime.
 //!
 //! This interaction involves passing the runtime genesis config JSON blob to the runtime using the
-//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. It is a crucial step for
-//! computing the storage root hash, which is a key component in determining the genesis hash.
+//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. During this operation runtime
+//! converts the JSON representation of genesis config into [`sp_io::storage`] items. It is a
+//! crucial step for computing the storage root hash, which is a key component in determining the
+//! genesis hash.
 //!
 //! Consequently, the runtime must support the [`sp_genesis_builder::GenesisBuilder`] API to
-//! utilize either [`chain_spec::Genesis<G>::RuntimeGenesisConfigPatch`] or
-//! [`chain_spec::Genesis<G>::RuntimeGenesisConfig`] formats.
+//! utilize either [`RuntimeGenesisConfigPatch`][patch] or [`RuntimeGenesisConfig`][full] formats.
 //!
-//! This whole process is encapsulated within the implementation of the [`BuildStorage`] trait,
-//! which can be accessed through the [`ChainSpec::as_storage_builder`] method.
+//! [patch]: chain_spec::Genesis<G>::RuntimeGenesisConfigPatch
+//! [full]: chain_spec::Genesis<G>::RuntimeGenesisConfig
+//!
+//! This entire process is encapsulated within the implementation of the [`BuildStorage`] trait,
+//! which can be accessed through the [`ChainSpec::as_storage_builder`] method. There is an
+//! intermediate internal helper that facilitates this interaction,
+//! [`GenesisConfigBuilderRuntimeCaller`], which serves as a straightforward wrapper for
+//! [`sc_executor::WasmExecutor`].
 //!
 //! In case of `raw` genesis state the node does not interact with the runtime regarding the
 //! computation of initial state.
+//!
+//! The plain and `raw` chain specification JSON blobs can be found in
+//! [JSON examples](#json-chain-specification-example) section.
 //!
 //! # Optional code mapping
 //! Optional map of `block_number` to `wasm_code`.
@@ -165,24 +215,24 @@
 //! there is no other way around it and only patch the problematic bug, the rest should be done
 //! with a on-chain runtime upgrade.
 //!
-//! The [`ChainSpec`] trait represents the API to access values defined in JSON chain specification.
-//!
 //! # Building a chain specification.
 //! The [`ChainSpecBuilder`] shall be used to create an instance of chain specification. Its API
-//! allows to configure all fields of the chain spec. For details on how to generate a JSON
-//! representation of chain specification refer to [`ChainSpec::as_json`].
+//! allows to configure all fields of the chain spec. To generate a JSON representation of chain
+//! specification, use [`ChainSpec::as_json`].
 //!
 //! The sample code to generate a chain spec is as follows:
 #![doc = docify::embed!("src/chain_spec.rs", build_chain_spec_with_patch_works)]
 //! # JSON chain specification example
-//! The following are the `raw` and plain versions of the chain specification JSON files, resulting
-//! from executing above example:
-//! ```
+//! The following are the plain and `raw` ersions of the chain specification JSON files, resulting
+//! from executing of the above [example](#building-a-chain-specification):
+//! ```ignore
 #![doc = include_str!("../res/substrate_test_runtime_from_patch.json")]
 //! ```
-//! ```
+//! ```ignore
 #![doc = include_str!("../res/substrate_test_runtime_from_patch_raw.json")]
 //! ```
+//! The [`ChainSpec`] trait represents the API to access values defined in JSON chain specification.
+//!
 //! # Custom chain spec extensions
 //! Basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
 //! extended with additional options that contain configuration specific to your chain. Usually the
