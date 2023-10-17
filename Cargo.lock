@@ -20518,6 +20518,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-nfts",
  "pallet-uniques",
  "pallet-xcm",
  "parity-scale-codec",
