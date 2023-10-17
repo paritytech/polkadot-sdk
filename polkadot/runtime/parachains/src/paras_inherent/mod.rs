@@ -37,7 +37,7 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
 	pallet_prelude::*,
-	traits::{DisabledValidators, Randomness},
+	traits::Randomness,
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
