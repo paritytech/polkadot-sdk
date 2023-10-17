@@ -630,6 +630,13 @@ impl sp_std::str::FromStr for AccountId32 {
 	}
 }
 
+/// Creates an [`AccountId32`] from the input, which should contain at least 32 bytes.
+impl FromEntropy for AccountId32 {
+	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
+		Ok(AccountId32::new(FromEntropy::from_entropy(input)?))
+	}
+}
+
 #[cfg(feature = "std")]
 pub use self::dummy::*;
 
@@ -1154,6 +1161,8 @@ pub mod key_types {
 	pub const STAKING: KeyTypeId = KeyTypeId(*b"stak");
 	/// A key type for signing statements
 	pub const STATEMENT: KeyTypeId = KeyTypeId(*b"stmt");
+	/// Key type for Mixnet module, used to sign key-exchange public keys. Identified as `mixn`.
+	pub const MIXNET: KeyTypeId = KeyTypeId(*b"mixn");
 	/// A key type ID useful for tests.
 	pub const DUMMY: KeyTypeId = KeyTypeId(*b"dumy");
 }
@@ -1168,6 +1177,13 @@ pub trait FromEntropy: Sized {
 impl FromEntropy for bool {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
 		Ok(input.read_byte()? % 2 == 1)
+	}
+}
+
+/// Create the unit type for any given input.
+impl FromEntropy for () {
+	fn from_entropy(_: &mut impl codec::Input) -> Result<Self, codec::Error> {
+		Ok(())
 	}
 }
 

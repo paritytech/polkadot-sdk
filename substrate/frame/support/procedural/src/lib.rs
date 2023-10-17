@@ -33,8 +33,8 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use frame_support_procedural_tools::generate_crate_access_2018;
-use macro_magic::import_tokens_attr;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
+use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
@@ -442,8 +442,8 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 		quote::quote!(
 			const _: () = {
-				impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
 						fmt.write_str("<wasm:stripped>")
 					}
 				}
@@ -473,7 +473,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 	quote::quote_spanned!(name.span() =>
 		const _: () = {
-			impl #impl_generics core::cmp::Eq for #name #ty_generics #where_clause {}
+			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
 	)
 	.into()
@@ -751,12 +751,12 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Items that lack a `syn::Ident` for whatever reason are first checked to see if they exist,
 /// verbatim, in the local/destination trait before they are copied over, so you should not need to
 /// worry about collisions between identical unnamed items.
-#[import_tokens_attr {
+#[import_tokens_attr_verbatim {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
@@ -864,7 +864,12 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
 	// internally wrap macro_magic's `#[export_tokens]` macro
-	match macro_magic::mm_core::export_tokens_internal(attrs, item_impl.to_token_stream(), true) {
+	match macro_magic::mm_core::export_tokens_internal(
+		attrs,
+		item_impl.to_token_stream(),
+		true,
+		false,
+	) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -877,6 +882,8 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
@@ -1563,7 +1570,7 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	let _mod = parse_macro_input!(tokens_clone as ItemMod);
 
 	// use macro_magic's export_tokens as the internal implementation otherwise
-	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false) {
+	match macro_magic::mm_core::export_tokens_internal(attr, tokens, false, true) {
 		Ok(tokens) => tokens.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -1605,9 +1612,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 #[import_tokens_attr {
     format!(
         "{}::macro_magic",
-        match generate_crate_access_2018("frame-support") {
+        match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_crate_access_2018("frame"),
+            Err(_) => generate_access_from_frame_or_crate("frame"),
         }
         .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
         .to_token_stream()

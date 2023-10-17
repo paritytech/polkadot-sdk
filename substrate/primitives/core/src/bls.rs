@@ -17,7 +17,7 @@
 
 //! Simple BLS (Boneh–Lynn–Shacham) Signature API.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
@@ -28,8 +28,12 @@ use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
+
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
+
 use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
 #[cfg(feature = "full_crypto")]
 use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
@@ -39,6 +43,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS377;
 
@@ -60,6 +65,7 @@ pub mod bls377 {
 
 /// BLS-381 specialized types
 pub mod bls381 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS381;
 
@@ -448,10 +454,9 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		path: Iter,
 		_seed: Option<Seed>,
 	) -> Result<(Self, Option<Seed>), DeriveError> {
-		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
-			self.0.secret.to_bytes().try_into().expect(
-				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size",
-			);
+		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] = self.0.secret.to_bytes().try_into().expect(
+			"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
+		);
 		for j in path {
 			match j {
 				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
