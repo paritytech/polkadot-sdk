@@ -124,13 +124,22 @@ where
 		let expected_mmr_root =
 			self.runtime.runtime_api().mmr_root(best_hash).map_err(Error::RuntimeApi)?;
 
-		let mmr_size = self
+		let leaf_count = self
 			.runtime
 			.runtime_api()
 			.mmr_leaf_count(best_hash)
 			.map_err(Error::RuntimeApi)?;
 
-		let first_mmr_block_num = unimplemented!();
+		// TODO: if ancestry proof can't be constructed, report equivocation nonetheless if valid
+		// header proof can be provided
+		let first_mmr_block_num = {
+			let best_block_num = self.backend.blockchain().info().best_number;
+			sp_mmr_primitives::utils::first_mmr_block_num::<B::Header>(
+				best_block_num,
+				*leaf_count.as_ref().unwrap(),
+			)
+			.map_err(|e| Error::Backend(e.to_string()))?
+		};
 
 		if proof.commitment.validator_set_id != set_id ||
 			!check_fork_equivocation_proof::<
@@ -142,7 +151,7 @@ where
 			>(
 				&proof,
 				expected_mmr_root.unwrap(),
-				mmr_size.unwrap(),
+				leaf_count.unwrap(),
 				&expected_header_hash,
 				first_mmr_block_num,
 			) {
