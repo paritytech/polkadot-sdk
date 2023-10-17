@@ -1080,11 +1080,16 @@ fn filter_backed_statements<T: Config>(
 
 
 		// Get the group index for the core
-		let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
+		let group_idx = match <scheduler::Pallet<T>>::group_assigned_to_core(
 			core_idx,
 			relay_parent_block_number + One::one(),
-		)
-		.unwrap();
+		) {
+			Some(group_idx) => group_idx,
+			None => {
+						log::debug!(target: LOG_TARGET, "Can't fetch group index for core idx {:?}. Dropping the candidate.", core_idx);
+						return false
+			},
+		};
 
 		// And finally get the validator group for this group index
 		let validator_group = match <scheduler::Pallet<T>>::group_validators(group_idx) {
