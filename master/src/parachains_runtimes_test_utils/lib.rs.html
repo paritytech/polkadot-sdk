@@ -951,8 +951,8 @@
 	expected_symbol: <span class="kw-2">&amp;</span>str,
 	expected_decimals: u8,
 ) <span class="kw">where
-	</span>Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect&lt;AccountId&gt;
-		+ frame_support::traits::tokens::fungibles::Inspect&lt;AccountId&gt;,
+	</span>Fungibles: frame_support::traits::fungibles::metadata::Inspect&lt;AccountId&gt;
+		+ frame_support::traits::fungibles::Inspect&lt;AccountId&gt;,
 {
 	<span class="macro">assert_eq!</span>(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
 	<span class="macro">assert_eq!</span>(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
@@ -964,8 +964,8 @@
 	expected_total_issuance: <span class="kw">impl </span>Into&lt;Fungibles::Balance&gt;,
 	expected_active_issuance: <span class="kw">impl </span>Into&lt;Fungibles::Balance&gt;,
 ) <span class="kw">where
-	</span>Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect&lt;AccountId&gt;
-		+ frame_support::traits::tokens::fungibles::Inspect&lt;AccountId&gt;,
+	</span>Fungibles: frame_support::traits::fungibles::metadata::Inspect&lt;AccountId&gt;
+		+ frame_support::traits::fungibles::Inspect&lt;AccountId&gt;,
 {
 	<span class="macro">assert_eq!</span>(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
 	<span class="macro">assert_eq!</span>(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());

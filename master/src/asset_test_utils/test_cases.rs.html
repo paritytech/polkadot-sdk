@@ -2531,7 +2531,7 @@
 				.is_empty());
 
 			<span class="comment">// check update metadata
-			</span><span class="kw">use </span>frame_support::traits::tokens::fungibles::roles::Inspect <span class="kw">as </span>InspectRoles;
+			</span><span class="kw">use </span>frame_support::traits::fungibles::roles::Inspect <span class="kw">as </span>InspectRoles;
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::owner(
 					asset_id.into()
