@@ -121,8 +121,10 @@ impl ExporterFor for Tuple {
 pub struct NetworkExportTableItem {
 	/// Supported remote network.
 	pub remote_network: NetworkId,
-	/// Remote location filter, if specified `Some`, requested remote location must be equal to any
-	/// item. If `None` then `remote_location_filter` check is skipped.
+	/// Remote location filter.
+	/// If `Some`, the requested remote location must be equal to one of the items in the vector.
+	/// These are locations in the remote network.
+	/// If `None`, then the check is skipped.
 	pub remote_location_filter: Option<Vec<InteriorMultiLocation>>,
 	/// Locally-routable bridge with bridging capabilities to the `remote_network` and
 	/// `remote_location`. See [`ExporterFor`] for more details.
