@@ -45,13 +45,14 @@
 //! |`id`|The id of the chain.|
 //! |`chainType`|The chain type of this chain (refer to [`ChainType`]).|
 //! |`bootNodes`|A list of multi addresses that belong to boot nodes of the chain.|
-//! |`telemetryEndpoints`|Optional list of `multi address, verbosity` of telemetry endpoints.  The verbosity goes from `0` to `9`. With `0` being the mode with the lowest verbosity.|
+//! |`telemetryEndpoints`|Optional list of `multi address, verbosity` of telemetry endpoints.  The
+//! verbosity goes from `0` to `9`. With `0` being the mode with the lowest verbosity.|
 //! |`protocolId`|Optional networking protocol id that identifies the chain.|
-//! |`forkId`|Optional fork id. Should most likely be left empty. Can be used to signal a fork on the network level when two chains have the same genesis hash.|
-//! |`properties`|Custom properties. Shall be provided in the form of `key`, `value` json object.|
-//! |`consensusEngine`|Deprecated field. Should be ignored.|
-//! |`codeSubstitutes`|Optional map of `block_number` to `wasm_code`. More details in material to follow.|
-//! |||
+//! |`forkId`|Optional fork id. Should most likely be left empty. Can be used to signal a fork on
+//! the network level when two chains have the same genesis hash.| |`properties`|Custom properties.
+//! Shall be provided in the form of `key`, `value` json object.| |`consensusEngine`|Deprecated
+//! field. Should be ignored.| |`codeSubstitutes`|Optional map of `block_number` to `wasm_code`.
+//! More details in material to follow.| |||
 //! |`genesis`|Defines the initial state of the runtime. More details in material to follow.|
 //! |||
 //! |`code`|The runtime wasm code blob in hex format.|
@@ -157,7 +158,7 @@
 //! ```
 #![doc = include_str!("../res/substrate_test_runtime_from_patch_raw.json")]
 //! ```
-//!
+//! 
 //! # Custom chain spec extensions
 //! Basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
 //! extended with additional options that contain configuration specific to your chain. Usually the
@@ -176,7 +177,7 @@
 //!
 //! pub type MyChainSpec<G> = GenericChainSpec<G, MyExtension>;
 //! ```
-//!
+//! 
 //! Some parameters may require different values depending on the current blockchain height (a.k.a.
 //! forks). You can use `ChainSpecGroup` macro and provided [`Forks`](./struct.Forks.html) structure
 //! to put such parameters to your chain spec. This will allow to override a single parameter
@@ -209,7 +210,7 @@
 //! /// A chain spec supporting forkable `Extension`.
 //! pub type MyChainSpec2<G> = GenericChainSpec<G, Forks<BlockNumber, Extension>>;
 //! ```
-//!
+//! 
 //! It's also possible to have a set of parameters that is allowed to change with block numbers
 //! (i.e. is forkable), and another set that is not subject to changes. This is also possible by
 //! declaring an extension that contains `Forks` within it.
@@ -237,7 +238,7 @@
 //!
 //! pub type MyChainSpec<G> = GenericChainSpec<G, Extension>;
 //! ```
-//!
+//! 
 //! The chain spec can be extended with other fields that are opaque to the default chain spec.
 //! Specific node implementations will need to be able to deserialize these extensions.
 
