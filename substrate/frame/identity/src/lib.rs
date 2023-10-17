@@ -371,7 +371,7 @@ pub mod pallet {
 			<IdentityOf<T>>::insert(&sender, id);
 			Self::deposit_event(Event::IdentitySet { who: sender });
 
-			Ok(Some(T::WeightInfo::set_identity(judgements as u32, extra_fields)).into()) // R
+			Ok(Some(T::WeightInfo::set_identity(judgements as u32, extra_fields)).into())
 		}
 
 		/// Set the sub-accounts of the sender.
@@ -604,7 +604,7 @@ pub mod pallet {
 		/// - `index`: the index of the registrar whose fee is to be set.
 		/// - `fee`: the new fee.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::set_fee(T::MaxRegistrars::get()))] // R
+		#[pallet::weight(T::WeightInfo::set_fee(T::MaxRegistrars::get()))]
 		pub fn set_fee(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
@@ -636,12 +636,8 @@ pub mod pallet {
 		///
 		/// - `index`: the index of the registrar whose fee is to be set.
 		/// - `new`: the new account ID.
-		///
-		/// ## Complexity
-		/// - `O(R)`.
-		///   - where `R` registrar-count (governance-bounded).
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::set_account_id(T::MaxRegistrars::get()))] // R
+		#[pallet::weight(T::WeightInfo::set_account_id(T::MaxRegistrars::get()))]
 		pub fn set_account_id(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
