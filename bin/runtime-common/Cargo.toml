@@ -1,6 +1,7 @@
 [package]
 name = "bridge-runtime-common"
 version = "0.1.0"
+description = "Common types and functions that may be used by substrate-based runtimes of all bridged chains"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
