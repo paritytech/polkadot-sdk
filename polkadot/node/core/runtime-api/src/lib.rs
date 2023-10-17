@@ -168,6 +168,8 @@ where
 			RequestResult::ApprovalVotingParams(relay_parent, params) =>
 				self.requests_cache.cache_approval_voting_params(relay_parent, params),
 			SubmitReportDisputeLost(_, _, _, _) => {},
+			DisabledValidators(relay_parent, disabled_validators) =>
+				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
 			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
 				.cache_para_backing_state((relay_parent, para_id), constraints),
@@ -300,6 +302,8 @@ where
 				),
 			Request::ApprovalVotingParams(sender) => query!(approval_voting_params(), sender)
 				.map(|sender| Request::ApprovalVotingParams(sender)),
+			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
+				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
@@ -558,7 +562,12 @@ where
 			sender
 		),
 		Request::ApprovalVotingParams(sender) => {
-			query!(ApprovalVotingParams, approval_voting_params(), ver = 8, sender)
+			query!(
+				ApprovalVotingParams,
+				approval_voting_params(),
+				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
+				sender
+			)
 		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
@@ -570,6 +579,12 @@ where
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::DisabledValidators(sender) => query!(
+			DisabledValidators,
+			disabled_validators(),
+			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::ParaBackingState(para, sender) => {

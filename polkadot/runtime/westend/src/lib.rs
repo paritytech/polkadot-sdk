@@ -71,7 +71,7 @@ use runtime_parachains::{
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent, reward_points as parachains_reward_points,
 	runtime_api_impl::{
-		v7 as parachains_runtime_api_impl, vstaging as parachains_runtime_api_impl_staging,
+		v7 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
@@ -1698,7 +1698,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(8)]
+	#[api_version(9)]
 	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1843,7 +1843,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn approval_voting_params() -> ApprovalVotingParams {
-			parachains_runtime_api_impl_staging::approval_voting_params::<Runtime>()
+			parachains_staging_runtime_api_impl::approval_voting_params::<Runtime>()
+		}
+
+		fn disabled_validators() -> Vec<ValidatorIndex> {
+			parachains_staging_runtime_api_impl::disabled_validators::<Runtime>()
 		}
 	}
 

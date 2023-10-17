@@ -65,6 +65,7 @@ pub(crate) struct RequestResultCache {
 	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
+	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 }
@@ -98,6 +99,7 @@ impl Default for RequestResultCache {
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			approval_voting_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
@@ -461,6 +463,21 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
+	pub(crate) fn disabled_validators(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&Vec<ValidatorIndex>> {
+		self.disabled_validators.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_disabled_validators(
+		&mut self,
+		relay_parent: Hash,
+		disabled_validators: Vec<ValidatorIndex>,
+	) {
+		self.disabled_validators.insert(relay_parent, disabled_validators);
+	}
+
 	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
@@ -538,6 +555,7 @@ pub(crate) enum RequestResult {
 		Option<()>,
 	),
 	ApprovalVotingParams(Hash, ApprovalVotingParams),
+	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 }

@@ -248,6 +248,7 @@ sp_api::decl_runtime_apis! {
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
+
 		/***** Added in v7: Asynchronous backing *****/
 
 		/// Returns the state of parachain backing for a given para.
@@ -258,8 +259,15 @@ sp_api::decl_runtime_apis! {
 		#[api_version(7)]
 		fn async_backing_params() -> AsyncBackingParams;
 
-		/// Approval voting configuration parameters
+		/***** Added in v8 *****/
+
+		/// Returns a list of all disabled validators at the given block.
 		#[api_version(8)]
+		fn disabled_validators() -> Vec<ValidatorIndex>;
+
+		/// Approval voting configuration parameters
+		#[api_version(9)]
 		fn approval_voting_params() -> ApprovalVotingParams;
+
 	}
 }
