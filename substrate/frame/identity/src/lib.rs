@@ -290,9 +290,6 @@ pub mod pallet {
 		/// - `account`: the account of the registrar.
 		///
 		/// Emits `RegistrarAdded` if successful.
-		///
-		/// ## Complexity
-		/// - `O(R)` where `R` registrar-count (governance-bounded and code-bounded).
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::add_registrar(T::MaxRegistrars::get()))]
 		pub fn add_registrar(
@@ -385,11 +382,6 @@ pub mod pallet {
 		/// identity.
 		///
 		/// - `subs`: The identity's (new) sub-accounts.
-		///
-		/// ## Complexity
-		/// - `O(P + S)`
-		///   - where `P` old-subs-count (hard- and deposit-bounded).
-		///   - where `S` subs-count (hard- and deposit-bounded).
 		// TODO: This whole extrinsic screams "not optimized". For example we could
 		// filter any overlap between new and old subs, and avoid reading/writing
 		// to those values... We could also ideally avoid needing to write to
@@ -397,8 +389,8 @@ pub mod pallet {
 		// is a large overestimate due to the fact that it could potentially write
 		// to 2 x T::MaxSubAccounts::get().
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_subs_old(T::MaxSubAccounts::get()) // P: Assume max sub accounts removed.
-			.saturating_add(T::WeightInfo::set_subs_new(subs.len() as u32)) // S: Assume all subs are new.
+		#[pallet::weight(T::WeightInfo::set_subs_old(T::MaxSubAccounts::get())
+			.saturating_add(T::WeightInfo::set_subs_new(subs.len() as u32))
 		)]
 		pub fn set_subs(
 			origin: OriginFor<T>,
