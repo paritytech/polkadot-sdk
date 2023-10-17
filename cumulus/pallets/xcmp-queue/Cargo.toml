@@ -14,6 +14,7 @@ scale-info = { version = "2.9.0", default-features = false, features = ["derive"
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../substrate/frame/system", default-features = false}
 sp-io = { path = "../../../substrate/primitives/io", default-features = false}
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
 sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
@@ -56,6 +57,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-core/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

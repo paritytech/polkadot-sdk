@@ -65,6 +65,7 @@ use rand_chacha::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
+use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
