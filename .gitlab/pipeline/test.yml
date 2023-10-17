@@ -181,10 +181,8 @@ test-rustdoc:
     - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
-    RUSTDOCFLAGS: "-Dwarnings"
   script:
     - time cargo doc --workspace --all-features --no-deps
-  allow_failure: true
 
 cargo-check-all-benches:
   stage: test
@@ -229,12 +227,12 @@ test-deterministic-wasm:
       artifacts: false
   script:
     # build runtime
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
     # make checksum
     - sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
     - cargo clean
     # build again
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
     # confirm checksum
     - sha256sum -c checksum.sha256
 
@@ -505,3 +503,23 @@ cargo-hfuzz:
     - cargo hfuzz build
     - for target in $(cargo read-manifest | jq -r '.targets | .[] | .name'); do
       cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; }; done
+
+# cf https://github.com/paritytech/polkadot-sdk/issues/1652
+test-syscalls:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+  variables:
+    SKIP_WASM_BUILD: 1
+  script:
+    - cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
+    - cd polkadot/scripts/list-syscalls
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
+  after_script:
+    - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      fi
+  allow_failure: true # TODO: remove this once we have an idea how often the syscall lists will change

@@ -44,6 +44,10 @@ use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
 use polkadot_primitives::{
+	executor_params::{
+		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
+	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfExecTimeoutKind, PvfPrepTimeoutKind,
 	ValidationCode, ValidationCodeHash,
@@ -82,13 +86,6 @@ const PVF_BACKING_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
-
-// Default PVF timeouts. Must never be changed! Use executor environment parameters in
-// `session_info` pallet to adjust them. See also `PvfTimeoutKind` docs.
-const DEFAULT_PRECHECK_PREPARATION_TIMEOUT: Duration = Duration::from_secs(60);
-const DEFAULT_LENIENT_PREPARATION_TIMEOUT: Duration = Duration::from_secs(360);
-const DEFAULT_BACKING_EXECUTION_TIMEOUT: Duration = Duration::from_secs(2);
-const DEFAULT_APPROVAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Configuration for the candidate validation subsystem
 #[derive(Clone)]

@@ -32,7 +32,7 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 			syn::Fields::Named(named) => {
 				let fields = named.named.iter().map(|i| &i.ident).map(|i| {
 					quote::quote_spanned!(i.span() =>
-						#i: core::clone::Clone::clone(&self.#i)
+						#i: ::core::clone::Clone::clone(&self.#i)
 					)
 				});
 
@@ -42,7 +42,7 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 				let fields =
 					unnamed.unnamed.iter().enumerate().map(|(i, _)| syn::Index::from(i)).map(|i| {
 						quote::quote_spanned!(i.span() =>
-							core::clone::Clone::clone(&self.#i)
+							::core::clone::Clone::clone(&self.#i)
 						)
 					});
 
@@ -59,8 +59,8 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 					syn::Fields::Named(named) => {
 						let captured = named.named.iter().map(|i| &i.ident);
 						let cloned = captured.clone().map(|i| {
-							quote::quote_spanned!(i.span() =>
-								#i: core::clone::Clone::clone(#i)
+							::quote::quote_spanned!(i.span() =>
+								#i: ::core::clone::Clone::clone(#i)
 							)
 						});
 						quote::quote!(
@@ -75,7 +75,7 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 							.map(|(i, f)| syn::Ident::new(&format!("_{}", i), f.span()));
 						let cloned = captured.clone().map(|i| {
 							quote::quote_spanned!(i.span() =>
-								core::clone::Clone::clone(#i)
+								::core::clone::Clone::clone(#i)
 							)
 						});
 						quote::quote!(
@@ -98,7 +98,7 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 
 	quote::quote!(
 		const _: () = {
-			impl #impl_generics core::clone::Clone for #name #ty_generics #where_clause {
+			impl #impl_generics ::core::clone::Clone for #name #ty_generics #where_clause {
 				fn clone(&self) -> Self {
 					#impl_
 				}
