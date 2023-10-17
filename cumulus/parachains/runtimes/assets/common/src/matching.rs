@@ -14,37 +14,11 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{
-	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
-};
+use frame_support::{pallet_prelude::Get, traits::ContainsPair};
 use xcm::{
 	latest::prelude::{MultiAsset, MultiLocation},
 	prelude::*,
 };
-
-pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<Location> {
-	fn contains(t: &MultiLocation) -> bool {
-		t.starts_with(&Location::get())
-	}
-}
-
-pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for Equals<Location> {
-	fn contains(t: &MultiLocation) -> bool {
-		t == &Location::get()
-	}
-}
-
-pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<Network: Get<NetworkId>> Contains<MultiLocation>
-	for StartsWithExplicitGlobalConsensus<Network>
-{
-	fn contains(t: &MultiLocation) -> bool {
-		matches!(t.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&Network::get()))
-	}
-}
 
 frame_support::parameter_types! {
 	pub LocalMultiLocationPattern: MultiLocation = MultiLocation::new(0, Here);
