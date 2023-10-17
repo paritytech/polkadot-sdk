@@ -8773,7 +8773,7 @@ path = "substrate/test-utils/runtime/client"
 name = "staging-xcm-builder"
 path = "polkadot/xcm/xcm-builder"
 from = "2.0.0"
-to = "3.0.0"
+to = "3.0.1"
 bump = "unknown"
 reason = "changed"
 

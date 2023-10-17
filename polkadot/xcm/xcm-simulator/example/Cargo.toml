@@ -24,7 +24,7 @@ sp-tracing = { version = "13.0.0", path = "../../../../substrate/primitives/trac
 xcm = { package = "staging-xcm", path = "../..", version = "3.0.0" }
 xcm-simulator = { version = "3.0.0", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "3.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "3.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "3.0.1" }
 pallet-xcm = { version = "3.0.0", path = "../../pallet-xcm" }
 polkadot-core-primitives = { version = "3.0.0", path = "../../../core-primitives" }
 polkadot-runtime-parachains = { version = "3.0.0", path = "../../../runtime/parachains" }
