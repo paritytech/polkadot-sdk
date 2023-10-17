@@ -25,7 +25,10 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
-use parachains_common::{xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains}, TREASURY_PALLET_ID};
+use parachains_common::{
+	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	TREASURY_PALLET_ID,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::SystemParachains;

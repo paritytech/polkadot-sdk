@@ -373,8 +373,8 @@ fn xcmp_queue_send_xcm_works() {
 
 #[test]
 fn verify_fee_factor_increase_and_decrease() {
-	use sp_runtime::FixedU128;
 	use cumulus_primitives_core::AbridgedHrmpChannel;
+	use sp_runtime::FixedU128;
 
 	let sibling_para_id = ParaId::from(12345);
 	let destination = (Parent, Parachain(sibling_para_id.into())).into();

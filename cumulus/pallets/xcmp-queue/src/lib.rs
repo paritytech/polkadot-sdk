@@ -23,11 +23,11 @@
 //! XCM over XCMP if the destination is `Parent/Parachain`. It requires an implementation of
 //! `XcmExecutor` for dispatching incoming XCM messages.
 //!
-//! To prevent out of memory errors on the `OutboundXcmpMessages` queue, an exponential fee factor (`DeliveryFeeFactor`)
-//! is set, much like the one used in DMP.
-//! The fee factor increases whenever the total size of messages in a particular channel passes a threshold.
-//! This threshold is defined as a percentage of the maximum total size the channel can have.
-//! More concretely, the threshold is `max_total_size` / `THRESHOLD_FACTOR`, where:
+//! To prevent out of memory errors on the `OutboundXcmpMessages` queue, an exponential fee factor
+//! (`DeliveryFeeFactor`) is set, much like the one used in DMP.
+//! The fee factor increases whenever the total size of messages in a particular channel passes a
+//! threshold. This threshold is defined as a percentage of the maximum total size the channel can
+//! have. More concretely, the threshold is `max_total_size` / `THRESHOLD_FACTOR`, where:
 //! - `max_total_size` is the maximum size, in bytes, of the channel, not number of messages.
 //! It is defined in the channel configuration.
 //! - `THRESHOLD_FACTOR` just declares which percentage of the max size is the actual threshold.
@@ -64,8 +64,8 @@ use rand_chacha::{
 	ChaChaRng,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 use sp_core::MAX_POSSIBLE_ALLOCATION;
+use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
@@ -538,7 +538,8 @@ impl<T: Config> Pallet<T> {
 	/// we can concatenate them into a single aggregate blob without needing to be concerned
 	/// about encoding fragment boundaries.
 	///
-	/// If successful, returns the number of pages in the outbound queue after enqueuing the new fragment.
+	/// If successful, returns the number of pages in the outbound queue after enqueuing the new
+	/// fragment.
 	fn send_fragment<Fragment: Encode>(
 		recipient: ParaId,
 		format: XcmpMessageFormat,
@@ -555,27 +556,41 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut all_channels = <OutboundXcmpStatus<T>>::get();
-		let channel_details = if let Some(details) = all_channels.iter_mut().find(|channel| channel.recipient == recipient) {
+		let channel_details = if let Some(details) =
+			all_channels.iter_mut().find(|channel| channel.recipient == recipient)
+		{
 			details
 		} else {
 			all_channels.push(OutboundChannelDetails::new(recipient));
-			all_channels.last_mut().expect("can't be empty; a new element was just pushed; qed")
+			all_channels
+				.last_mut()
+				.expect("can't be empty; a new element was just pushed; qed")
 		};
 		let have_active = channel_details.last_index > channel_details.first_index;
 		// Try to append fragment to the last page, if there is enough space.
 		// We return the size of the last page inside of the option, to not calculate it again.
-		let appended_to_last_page = have_active.then(|| <OutboundXcmpMessages<T>>::mutate(recipient, channel_details.last_index - 1, |page| {
-			if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &page[..]) !=
-				Ok(format)
-			{
-				return None;
-			}
-			if page.len() + encoded_fragment.len() > max_message_size {
-				return None;
-			}
-			page.extend_from_slice(&encoded_fragment[..]);
-			Some(page.len())
-		})).flatten();
+		let appended_to_last_page = have_active
+			.then(|| {
+				<OutboundXcmpMessages<T>>::mutate(
+					recipient,
+					channel_details.last_index - 1,
+					|page| {
+						if XcmpMessageFormat::decode_with_depth_limit(
+							MAX_XCM_DECODE_DEPTH,
+							&mut &page[..],
+						) != Ok(format)
+						{
+							return None
+						}
+						if page.len() + encoded_fragment.len() > max_message_size {
+							return None
+						}
+						page.extend_from_slice(&encoded_fragment[..]);
+						Some(page.len())
+					},
+				)
+			})
+			.flatten();
 
 		let (number_of_pages, last_page_size) = if let Some(size) = appended_to_last_page {
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
@@ -593,9 +608,11 @@ impl<T: Config> Pallet<T> {
 			(number_of_pages, last_page_size)
 		};
 
-		// We have to count the total size here since `channel_info.total_size` is not updated at this point in time.
-		// We assume all previous pages are filled, which, in practice, is not always the case.
-		let total_size = number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
+		// We have to count the total size here since `channel_info.total_size` is not updated at
+		// this point in time. We assume all previous pages are filled, which, in practice, is not
+		// always the case.
+		let total_size =
+			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
 		if total_size > threshold {
 			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
@@ -1166,10 +1183,10 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
 				},
 			};
-			let threshold = max_total_size
-				.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
+			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
 			let remaining_total_size: usize = (first_index..last_index)
-				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap()).sum();
+				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
+				.sum();
 			if remaining_total_size <= threshold as usize {
 				Self::decrease_fee_factor(para_id);
 			}
@@ -1262,7 +1279,9 @@ impl<T: Config> FeeTracker for Pallet<T> {
 
 	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
 		<DeliveryFeeFactor<T>>::mutate(id, |f| {
-			*f = f.saturating_mul(delivery_fee_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+			*f = f.saturating_mul(
+				delivery_fee_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
+			);
 			*f
 		})
 	}

@@ -29,10 +29,10 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, DmpMessageHandler,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
-	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
+	DmpMessageHandler, GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage,
+	MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage,
+	UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -1507,16 +1507,13 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	pub fn open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
 		target_parachain: ParaId,
-		channel: cumulus_primitives_core::AbridgedHrmpChannel
+		channel: cumulus_primitives_core::AbridgedHrmpChannel,
 	) {
 		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
 			dmq_mqc_head: Default::default(),
 			relay_dispatch_queue_remaining_capacity: Default::default(),
 			ingress_channels: Default::default(),
-			egress_channels: vec![(
-				target_parachain,
-				channel,
-			)],
+			egress_channels: vec![(target_parachain, channel)],
 		})
 	}
 

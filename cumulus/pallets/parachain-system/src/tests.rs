@@ -1512,15 +1512,22 @@ fn ump_fee_factor_increases_and_decreases() {
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 
 				ParachainSystem::send_upward_message(
-					b"This message will be enough to increase the fee factor".to_vec()
-				).unwrap();
-				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_rational(105, 100));
+					b"This message will be enough to increase the fee factor".to_vec(),
+				)
+				.unwrap();
+				assert_eq!(
+					UpwardDeliveryFeeFactor::<Test>::get(),
+					FixedU128::from_rational(105, 100)
+				);
 			},
 			|| {
 				// Factor decreases in `on_finalize`, but only if we are below the threshold
 				let messages = UpwardMessages::<Test>::get();
 				assert_eq!(messages, vec![b"Test".to_vec()]);
-				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_rational(105, 100));
+				assert_eq!(
+					UpwardDeliveryFeeFactor::<Test>::get(),
+					FixedU128::from_rational(105, 100)
+				);
 			},
 		)
 		.add_with_post_test(
@@ -1530,9 +1537,10 @@ fn ump_fee_factor_increases_and_decreases() {
 			},
 			|| {
 				let messages = UpwardMessages::<Test>::get();
-				assert_eq!(messages, vec![
-					b"This message will be enough to increase the fee factor".to_vec(),
-				]);
+				assert_eq!(
+					messages,
+					vec![b"This message will be enough to increase the fee factor".to_vec(),]
+				);
 				// Now the delivery fee factor is decreased, since we are below the threshold
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},
