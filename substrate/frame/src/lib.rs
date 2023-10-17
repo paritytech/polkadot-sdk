@@ -92,6 +92,7 @@
 //! [`substrate`]: ../substrate/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg(feature = "experimental")]
 
 /// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
 /// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.

@@ -46,7 +46,7 @@ sp-runtime = { path = "../../../primitives/runtime" }
 
 substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
 
-frame = { path = "../../../frame", features = ["runtime"] }
+frame = { path = "../../../frame", features = ["runtime", "experimental"] }
 runtime = { package = "minimal-runtime", path = "../runtime" }
 
 [build-dependencies]
