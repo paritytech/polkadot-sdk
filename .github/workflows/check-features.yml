@@ -15,4 +15,3 @@ jobs:
         with:
           crate: substrate/bin/node/runtime
           features: std,runtime-benchmarks,try-runtime
-          default-std: true
