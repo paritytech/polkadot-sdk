@@ -98,6 +98,7 @@ impl Def {
 
 		for (index, item) in items.iter_mut().enumerate() {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
+
 			match pallet_attr {
 				Some(PalletAttr::Config(span, with_default)) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(

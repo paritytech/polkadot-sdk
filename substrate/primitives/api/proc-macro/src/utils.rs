@@ -28,10 +28,8 @@ use syn::{
 /// Generates the access to the `sc_client` crate.
 pub fn generate_crate_access() -> TokenStream {
 	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
-		// TODO: add tes to make sure `frame` always contains `frame::deps::sp_api`.
-		// TODO: handle error.
 		let path = format!("{}::deps::{}", name, "sp_api");
-		let path = syn::parse_str::<syn::Path>(&path).unwrap();
+		let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
 		return path.into_token_stream()
 	}
 

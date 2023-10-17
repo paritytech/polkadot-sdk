@@ -324,10 +324,6 @@ pub mod pallet {
 		use frame_support::derive_impl;
 
 		/// Default prelude sensible to be used in a testing environment.
-		///
-		/// ## Assumptions:
-		///
-		/// - The balance type being u128.
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]

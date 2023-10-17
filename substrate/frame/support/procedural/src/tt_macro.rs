@@ -76,6 +76,7 @@ impl syn::parse::Parse for CreateTtReturnMacroDef {
 pub fn create_tt_return_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let CreateTtReturnMacroDef { name, args } =
 		syn::parse_macro_input!(input as CreateTtReturnMacroDef);
+
 	let (keys, values): (Vec<_>, Vec<_>) = args.into_iter().unzip();
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	let unique_name = format_ident!("{}_{}", name, count);
