@@ -224,7 +224,9 @@ impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
 	pub async fn queue_work(
 		&mut self,
 		work_item: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem,
-		context: Option<<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::Context>,
+		context: Option<
+			<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::Context,
+		>,
 	) {
 		if let Err(e) = self.to_pool.send(WorkerPoolMessage::Queue(work_item, context)).await {
 			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::Queue`")

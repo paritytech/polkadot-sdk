@@ -16,6 +16,7 @@
 
 //! Approval worker configuration and implementation.
 use self::state::MessageSource;
+use crate::metrics::Metrics;
 use async_trait::async_trait;
 use bounded_collections::ConstU32;
 
@@ -24,7 +25,8 @@ use polkadot_node_subsystem::{
 		network_bridge_event::NewGossipTopology, ApprovalCheckResult, ApprovalDistributionMessage,
 		ApprovalVotingMessage, AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
 	},
-	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer, ApprovalDistributionContextTrait, ApprovalDistributionSenderTrait, FromOrchestra,
+	OverseerSignal, SpawnedSubsystem, SubsystemContext, SubsystemError, SubsystemSender,
 };
 use polkadot_node_subsystem_util::worker_pool::{
 	ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage, WorkerPool,
@@ -57,7 +59,7 @@ pub mod state;
 
 /// Approval work item definition.
 #[derive(Clone, Debug)]
-pub enum ApprovalWorkerMessage {
+pub(crate) enum ApprovalWorkerMessage {
 	/// Process an assignment.
 	ProcessAssignment(IndirectAssignmentCert, CandidateIndex, MessageSource),
 	/// Process an approval
@@ -95,30 +97,61 @@ impl WorkContext for ApprovalWorkerMessage {
 		}
 	}
 }
-struct ApprovalWorkerConfig;
+
+pub(crate) struct ApprovalWorkerConfig<F>
+where
+	F: overseer::ApprovalDistributionSenderTrait,
+{
+	pub sender: F,
+	pub metrics: Metrics,
+}
 
 #[derive(Clone)]
-struct ApprovalWorkerHandle(mpsc::Sender<WorkerMessage<ApprovalWorkerConfig>>);
+pub(crate) struct ApprovalWorkerHandle<F>(mpsc::Sender<WorkerMessage<ApprovalWorkerConfig<F>>>)
+where
+	F: overseer::ApprovalDistributionSenderTrait;
 
 #[async_trait]
-impl WorkerHandle for ApprovalWorkerHandle {
-	type Config = ApprovalWorkerConfig;
+impl<F> WorkerHandle for ApprovalWorkerHandle<F>
+where
+	F: overseer::ApprovalDistributionSenderTrait,
+{
+	type Config = ApprovalWorkerConfig<F>;
 
 	async fn send(&self, message: WorkerMessage<Self::Config>) {
 		let _ = self.0.send(message).await;
 	}
 }
 
-async fn worker_loop<ApprovalWorkerConfig: WorkerConfig>(
+async fn dispatch_work(
+	sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+	state: &mut state::ApprovalWorkerState,
+	metrics: &Metrics,
+	rng: &mut (impl CryptoRng + Rng),
+	work_item: ApprovalWorkerMessage,
+) {
+	match work_item {
+		ApprovalWorkerMessage::NewBlocks(metas) =>
+			state.handle_new_blocks(sender, &metrics, metas, rng).await,
+		_ => {},
+	}
+}
+
+async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorkerMessage>>(
 	mut from_pool: mpsc::Receiver<WorkerMessage<ApprovalWorkerConfig>>,
+	mut sender: impl overseer::ApprovalDistributionSenderTrait,
+	metrics: Metrics,
 ) {
 	let mut rng = rand::rngs::StdRng::from_entropy();
-	let worker_state = state::ApprovalWorkerState::default();
+	let mut worker_state = state::ApprovalWorkerState::default();
 
 	loop {
 		if let Some(worker_message) = from_pool.recv().await {
 			match worker_message {
-				WorkerMessage::Queue(work_item) => {},
+				WorkerMessage::Queue(work_item) => {
+					dispatch_work(&mut sender, &mut worker_state, &metrics, &mut rng, work_item)
+						.await;
+				},
 				WorkerMessage::PruneWork(_) => {},
 				WorkerMessage::SetupContext(context) => {},
 				WorkerMessage::Batch(_, _) => {},
@@ -130,17 +163,20 @@ async fn worker_loop<ApprovalWorkerConfig: WorkerConfig>(
 	}
 }
 
-impl WorkerConfig for ApprovalWorkerConfig {
+impl<F> WorkerConfig for ApprovalWorkerConfig<F>
+where
+	F: overseer::ApprovalDistributionSenderTrait,
+{
 	type WorkItem = ApprovalWorkerMessage;
-	type Worker = ApprovalWorkerHandle;
+	type Worker = ApprovalWorkerHandle<F>;
 	type Context = ApprovalContext;
 	type ChannelCapacity = ConstU32<4096>;
 	type PoolCapacity = ConstU32<4>;
 
-	fn new_worker(&mut self) -> ApprovalWorkerHandle {
+	fn new_worker(&mut self) -> ApprovalWorkerHandle<F> {
 		let (to_worker, mut from_pool) = Self::new_worker_channel();
 
-		tokio::spawn(worker_loop(from_pool));
+		tokio::spawn(worker_loop(from_pool, self.sender.clone(), self.metrics.clone()));
 
 		ApprovalWorkerHandle(to_worker)
 	}

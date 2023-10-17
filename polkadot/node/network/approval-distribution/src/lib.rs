@@ -32,7 +32,9 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
 };
-use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
+use polkadot_node_subsystem_util::{
+	reputation::REPUTATION_CHANGE_INTERVAL, worker_pool::WorkerPool,
+};
 use worker::state::MessageSource;
 
 use polkadot_node_subsystem::{
@@ -70,125 +72,114 @@ impl ApprovalDistribution {
 	}
 
 	async fn run<Context>(self, ctx: Context) {
-		let mut state = State::default();
-
 		// According to the docs of `rand`, this is a ChaCha12 RNG in practice
 		// and will always be chosen for strong performance and security properties.
-		let mut rng = rand::rngs::StdRng::from_entropy();
-		self.run_inner(ctx, &mut state, REPUTATION_CHANGE_INTERVAL, &mut rng).await
+		self.run_inner(ctx).await
 	}
 
 	/// Used for testing.
-	async fn run_inner<Context>(
-		self,
-		mut ctx: Context,
-		state: &mut State,
-		reputation_interval: Duration,
-		rng: &mut (impl CryptoRng + Rng),
-	) {
-		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
-		let mut reputation_delay = new_reputation_delay();
+	async fn run_inner<Context>(self, mut ctx: Context) {
+		let sender = ctx.sender().clone();
+		let metrics = self.metrics;
+		let mut approval_worker_config = worker::ApprovalWorkerConfig { sender, metrics };
+
+		let approval_worker_pool = WorkerPool::with_config(&mut approval_worker_config);
 
 		loop {
-			select! {
-				_ = reputation_delay => {
-					state.reputation.send(ctx.sender()).await;
-					reputation_delay = new_reputation_delay();
-				},
-				message = ctx.recv().fuse() => {
-					let message = match message {
-						Ok(message) => message,
-						Err(e) => {
-							gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer, exiting");
-							return
-						},
-					};
-					match message {
-						FromOrchestra::Communication { msg } =>
-							Self::handle_incoming(&mut ctx, state, msg, &self.metrics, rng).await,
-						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
-							// the relay chain blocks relevant to the approval subsystems
-							// are those that are available, but not finalized yet
-							// actived and deactivated heads hence are irrelevant to this subsystem, other than
-							// for tracing purposes.
-							if let Some(activated) = update.activated {
-								let head = activated.hash;
-								let approval_distribution_span =
-									jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
-								state.spans.insert(head, approval_distribution_span);
-							}
-						},
-						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
-							gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
-							state.handle_block_finalized(&mut ctx, &self.metrics, number).await;
-						},
-						FromOrchestra::Signal(OverseerSignal::Conclude) => return,
-					}
-				},
-			}
+			// select! {
+			// 	message = ctx.recv().fuse() => {
+			// 		let message = match message {
+			// 			Ok(message) => message,
+			// 			Err(e) => {
+			// 				gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer,
+			// exiting"); 				return
+			// 			},
+			// 		};
+			// 		match message {
+			// 			FromOrchestra::Communication { msg } =>
+			// 				Self::handle_incoming(&mut ctx, state, msg, &self.metrics, rng).await,
+			// 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+			// 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
+			// 				// the relay chain blocks relevant to the approval subsystems
+			// 				// are those that are available, but not finalized yet
+			// 				// actived and deactivated heads hence are irrelevant to this subsystem, other than
+			// 				// for tracing purposes.
+			// 				if let Some(activated) = update.activated {
+			// 					let head = activated.hash;
+			// 					let approval_distribution_span =
+			// 						jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
+			// 					state.spans.insert(head, approval_distribution_span);
+			// 				}
+			// 			},
+			// 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
+			// 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
+			// 				state.handle_block_finalized(&mut ctx, &self.metrics, number).await;
+			// 			},
+			// 			FromOrchestra::Signal(OverseerSignal::Conclude) => return,
+			// 		}
+			// 	},
+			// }
 		}
 	}
 
 	async fn handle_incoming<Context>(
 		ctx: &mut Context,
-		state: &mut State,
 		msg: ApprovalDistributionMessage,
 		metrics: &Metrics,
 		rng: &mut (impl CryptoRng + Rng),
 	) {
-		match msg {
-			ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
-				state.handle_network_msg(ctx, metrics, event, rng).await;
-			},
-			ApprovalDistributionMessage::NewBlocks(metas) => {
-				state.handle_new_blocks(ctx, metrics, metas, rng).await;
-			},
-			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					"Distributing our assignment on candidate (block={}, index={})",
-					cert.block_hash,
-					candidate_index,
-				);
+		// match msg {
+		// 	ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
+		// 		state.handle_network_msg(ctx, metrics, event, rng).await;
+		// 	},
+		// 	ApprovalDistributionMessage::NewBlocks(metas) => {
+		// 		state.handle_new_blocks(ctx, metrics, metas, rng).await;
+		// 	},
+		// 	ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
+		// 		gum::debug!(
+		// 			target: LOG_TARGET,
+		// 			"Distributing our assignment on candidate (block={}, index={})",
+		// 			cert.block_hash,
+		// 			candidate_index,
+		// 		);
 
-				state
-					.import_and_circulate_assignment(
-						ctx,
-						&metrics,
-						MessageSource::Local,
-						cert,
-						candidate_index,
-						rng,
-					)
-					.await;
-			},
-			ApprovalDistributionMessage::DistributeApproval(vote) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					"Distributing our approval vote on candidate (block={}, index={})",
-					vote.block_hash,
-					vote.candidate_index,
-				);
+		// 		state
+		// 			.import_and_circulate_assignment(
+		// 				ctx,
+		// 				&metrics,
+		// 				MessageSource::Local,
+		// 				cert,
+		// 				candidate_index,
+		// 				rng,
+		// 			)
+		// 			.await;
+		// 	},
+		// 	ApprovalDistributionMessage::DistributeApproval(vote) => {
+		// 		gum::debug!(
+		// 			target: LOG_TARGET,
+		// 			"Distributing our approval vote on candidate (block={}, index={})",
+		// 			vote.block_hash,
+		// 			vote.candidate_index,
+		// 		);
 
-				state
-					.import_and_circulate_approval(ctx, metrics, MessageSource::Local, vote)
-					.await;
-			},
-			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
-				let sigs = state.get_approval_signatures(indices);
-				if let Err(_) = tx.send(sigs) {
-					gum::debug!(
-						target: LOG_TARGET,
-						"Sending back approval signatures failed, oneshot got closed"
-					);
-				}
-			},
-			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
-				gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
-				state.approval_checking_lag = lag;
-			},
-		}
+		// 		state
+		// 			.import_and_circulate_approval(ctx, metrics, MessageSource::Local, vote)
+		// 			.await;
+		// 	},
+		// 	ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+		// 		let sigs = state.get_approval_signatures(indices);
+		// 		if let Err(_) = tx.send(sigs) {
+		// 			gum::debug!(
+		// 				target: LOG_TARGET,
+		// 				"Sending back approval signatures failed, oneshot got closed"
+		// 			);
+		// 		}
+		// 	},
+		// 	ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
+		// 		gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
+		// 		state.approval_checking_lag = lag;
+		// 	},
+		// }
 	}
 }
 

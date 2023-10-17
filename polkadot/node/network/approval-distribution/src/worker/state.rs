@@ -347,9 +347,9 @@ pub struct ApprovalWorkerState {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
-	async fn handle_network_msg<Context>(
+	async fn handle_network_msg(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
 		rng: &mut (impl CryptoRng + Rng),
@@ -385,7 +385,7 @@ impl ApprovalWorkerState {
 			},
 			NetworkBridgeEvent::NewGossipTopology(topology) => {
 				self.handle_new_session_topology(
-					ctx,
+					sender,
 					topology.session,
 					topology.topology,
 					topology.local_index,
@@ -393,7 +393,7 @@ impl ApprovalWorkerState {
 				.await;
 			},
 			NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
-				self.handle_peer_view_change(ctx, metrics, peer_id, view, rng).await;
+				self.handle_peer_view_change(sender, metrics, peer_id, view, rng).await;
 			},
 			NetworkBridgeEvent::OurViewChange(view) => {
 				gum::trace!(target: LOG_TARGET, ?view, "Own view change");
@@ -416,7 +416,7 @@ impl ApprovalWorkerState {
 				});
 			},
 			NetworkBridgeEvent::PeerMessage(peer_id, msg) => {
-				self.process_incoming_peer_message(ctx, metrics, peer_id, msg, rng).await;
+				self.process_incoming_peer_message(sender, metrics, peer_id, msg, rng).await;
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
 				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
@@ -424,9 +424,9 @@ impl ApprovalWorkerState {
 		}
 	}
 
-	async fn handle_new_blocks<Context>(
+	pub async fn handle_new_blocks(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		metas: Vec<BlockApprovalMeta>,
 		rng: &mut (impl CryptoRng + Rng),
@@ -476,7 +476,6 @@ impl ApprovalWorkerState {
 		);
 
 		{
-			let sender = ctx.sender();
 			for (peer_id, data) in self.peer_data.iter() {
 				let intersection = data.view.iter().filter(|h| new_hashes.contains(h));
 				let view_intersection =
@@ -528,7 +527,7 @@ impl ApprovalWorkerState {
 					match message {
 						PendingMessage::Assignment(assignment, claimed_index) => {
 							self.import_and_circulate_assignment(
-								ctx,
+								sender,
 								metrics,
 								MessageSource::Peer(peer_id),
 								assignment,
@@ -539,7 +538,7 @@ impl ApprovalWorkerState {
 						},
 						PendingMessage::Approval(approval_vote) => {
 							self.import_and_circulate_approval(
-								ctx,
+								sender,
 								metrics,
 								MessageSource::Peer(peer_id),
 								approval_vote,
@@ -551,12 +550,12 @@ impl ApprovalWorkerState {
 			}
 		}
 
-		self.enable_aggression(ctx, Resend::Yes, metrics).await;
+		self.enable_aggression(sender, Resend::Yes, metrics).await;
 	}
 
-	async fn handle_new_session_topology<Context>(
+	async fn handle_new_session_topology(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		session: SessionIndex,
 		topology: SessionGridTopology,
 		local_index: Option<ValidatorIndex>,
@@ -570,7 +569,7 @@ impl ApprovalWorkerState {
 		let topology = self.topologies.get_topology(session).expect("just inserted above; qed");
 
 		adjust_required_routing_and_propagate(
-			ctx,
+			sender,
 			&self.peer_data,
 			&mut self.blocks,
 			&self.topologies,
@@ -586,9 +585,9 @@ impl ApprovalWorkerState {
 		.await;
 	}
 
-	async fn process_incoming_peer_message<Context, R>(
+	async fn process_incoming_peer_message<R>(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		peer_id: PeerId,
 		msg: net_protocol::ApprovalDistributionMessage,
@@ -627,7 +626,7 @@ impl ApprovalWorkerState {
 					}
 
 					self.import_and_circulate_assignment(
-						ctx,
+						sender,
 						metrics,
 						MessageSource::Peer(peer_id),
 						assignment,
@@ -666,7 +665,7 @@ impl ApprovalWorkerState {
 					}
 
 					self.import_and_circulate_approval(
-						ctx,
+						sender,
 						metrics,
 						MessageSource::Peer(peer_id),
 						approval_vote,
@@ -679,9 +678,9 @@ impl ApprovalWorkerState {
 
 	// handle a peer view change: requires that the peer is already connected
 	// and has an entry in the `PeerData` struct.
-	async fn handle_peer_view_change<Context, R>(
+	async fn handle_peer_view_change<R>(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		peer_id: PeerId,
 		view: View,
@@ -719,7 +718,7 @@ impl ApprovalWorkerState {
 		}
 
 		Self::unify_with_peer(
-			ctx.sender(),
+			sender,
 			metrics,
 			&mut self.blocks,
 			&self.topologies,
@@ -732,9 +731,9 @@ impl ApprovalWorkerState {
 		.await;
 	}
 
-	async fn handle_block_finalized<Context>(
+	async fn handle_block_finalized(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		finalized_number: BlockNumber,
 	) {
@@ -758,12 +757,12 @@ impl ApprovalWorkerState {
 
 		// If a block was finalized, this means we may need to move our aggression
 		// forward to the now oldest block(s).
-		self.enable_aggression(ctx, Resend::No, metrics).await;
+		self.enable_aggression(sender, Resend::No, metrics).await;
 	}
 
-	async fn import_and_circulate_assignment<Context, R>(
+	async fn import_and_circulate_assignment<R>(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		source: MessageSource,
 		assignment: IndirectAssignmentCert,
@@ -804,7 +803,7 @@ impl ApprovalWorkerState {
 					if !self.recent_outdated_blocks.is_recent_outdated(&block_hash) {
 						modify_reputation(
 							&mut self.reputation,
-							ctx.sender(),
+							sender,
 							peer_id,
 							COST_UNEXPECTED_MESSAGE,
 						)
@@ -835,7 +834,7 @@ impl ApprovalWorkerState {
 							);
 							modify_reputation(
 								&mut self.reputation,
-								ctx.sender(),
+								sender,
 								peer_id,
 								COST_DUPLICATE_MESSAGE,
 							)
@@ -853,7 +852,7 @@ impl ApprovalWorkerState {
 					);
 					modify_reputation(
 						&mut self.reputation,
-						ctx.sender(),
+						sender,
 						peer_id,
 						COST_UNEXPECTED_MESSAGE,
 					)
@@ -863,13 +862,8 @@ impl ApprovalWorkerState {
 
 			// if the assignment is known to be valid, reward the peer
 			if entry.knowledge.contains(&message_subject, message_kind) {
-				modify_reputation(
-					&mut self.reputation,
-					ctx.sender(),
-					peer_id,
-					BENEFIT_VALID_MESSAGE,
-				)
-				.await;
+				modify_reputation(&mut self.reputation, sender, peer_id, BENEFIT_VALID_MESSAGE)
+					.await;
 				if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
 					gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
 					peer_knowledge.received.insert(message_subject, message_kind);
@@ -879,12 +873,13 @@ impl ApprovalWorkerState {
 
 			let (tx, rx) = oneshot::channel();
 
-			ctx.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
-				assignment.clone(),
-				claimed_candidate_index,
-				tx,
-			))
-			.await;
+			sender
+				.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
+					assignment.clone(),
+					claimed_candidate_index,
+					tx,
+				))
+				.await;
 
 			let timer = metrics.time_awaiting_approval_voting();
 			let result = match rx.await {
@@ -907,7 +902,7 @@ impl ApprovalWorkerState {
 				AssignmentCheckResult::Accepted => {
 					modify_reputation(
 						&mut self.reputation,
-						ctx.sender(),
+						sender,
 						peer_id,
 						BENEFIT_VALID_MESSAGE_FIRST,
 					)
@@ -941,7 +936,7 @@ impl ApprovalWorkerState {
 					);
 					modify_reputation(
 						&mut self.reputation,
-						ctx.sender(),
+						sender,
 						peer_id,
 						COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
 					)
@@ -956,13 +951,8 @@ impl ApprovalWorkerState {
 						%error,
 						"Got a bad assignment from peer",
 					);
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						COST_INVALID_MESSAGE,
-					)
-					.await;
+					modify_reputation(&mut self.reputation, sender, peer_id, COST_INVALID_MESSAGE)
+						.await;
 					return
 				},
 			}
@@ -1088,25 +1078,27 @@ impl ApprovalWorkerState {
 		};
 
 		if !v1_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v1_peers,
-				versioned_assignments_packet(ValidationVersion::V1, assignments.clone()),
-			))
-			.await;
+			sender
+				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+					v1_peers,
+					versioned_assignments_packet(ValidationVersion::V1, assignments.clone()),
+				))
+				.await;
 		}
 
 		if !v2_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v2_peers,
-				versioned_assignments_packet(ValidationVersion::V2, assignments.clone()),
-			))
-			.await;
+			sender
+				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+					v2_peers,
+					versioned_assignments_packet(ValidationVersion::V2, assignments.clone()),
+				))
+				.await;
 		}
 	}
 
-	async fn import_and_circulate_approval<Context>(
+	async fn import_and_circulate_approval(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		source: MessageSource,
 		vote: IndirectSignedApprovalVote,
@@ -1137,7 +1129,7 @@ impl ApprovalWorkerState {
 					if !self.recent_outdated_blocks.is_recent_outdated(&block_hash) {
 						modify_reputation(
 							&mut self.reputation,
-							ctx.sender(),
+							sender,
 							peer_id,
 							COST_UNEXPECTED_MESSAGE,
 						)
@@ -1160,13 +1152,8 @@ impl ApprovalWorkerState {
 					?message_subject,
 					"Unknown approval assignment",
 				);
-				modify_reputation(
-					&mut self.reputation,
-					ctx.sender(),
-					peer_id,
-					COST_UNEXPECTED_MESSAGE,
-				)
-				.await;
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_UNEXPECTED_MESSAGE)
+					.await;
 				return
 			}
 
@@ -1185,7 +1172,7 @@ impl ApprovalWorkerState {
 
 							modify_reputation(
 								&mut self.reputation,
-								ctx.sender(),
+								sender,
 								peer_id,
 								COST_DUPLICATE_MESSAGE,
 							)
@@ -1203,7 +1190,7 @@ impl ApprovalWorkerState {
 					);
 					modify_reputation(
 						&mut self.reputation,
-						ctx.sender(),
+						sender,
 						peer_id,
 						COST_UNEXPECTED_MESSAGE,
 					)
@@ -1214,13 +1201,8 @@ impl ApprovalWorkerState {
 			// if the approval is known to be valid, reward the peer
 			if entry.knowledge.contains(&message_subject, message_kind) {
 				gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known approval");
-				modify_reputation(
-					&mut self.reputation,
-					ctx.sender(),
-					peer_id,
-					BENEFIT_VALID_MESSAGE,
-				)
-				.await;
+				modify_reputation(&mut self.reputation, sender, peer_id, BENEFIT_VALID_MESSAGE)
+					.await;
 				if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
 					peer_knowledge.received.insert(message_subject.clone(), message_kind);
 				}
@@ -1229,7 +1211,8 @@ impl ApprovalWorkerState {
 
 			let (tx, rx) = oneshot::channel();
 
-			ctx.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone(), tx))
+			sender
+				.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone(), tx))
 				.await;
 
 			let timer = metrics.time_awaiting_approval_voting();
@@ -1253,7 +1236,7 @@ impl ApprovalWorkerState {
 				ApprovalCheckResult::Accepted => {
 					modify_reputation(
 						&mut self.reputation,
-						ctx.sender(),
+						sender,
 						peer_id,
 						BENEFIT_VALID_MESSAGE_FIRST,
 					)
@@ -1265,13 +1248,8 @@ impl ApprovalWorkerState {
 					}
 				},
 				ApprovalCheckResult::Bad(error) => {
-					modify_reputation(
-						&mut self.reputation,
-						ctx.sender(),
-						peer_id,
-						COST_INVALID_MESSAGE,
-					)
-					.await;
+					modify_reputation(&mut self.reputation, sender, peer_id, COST_INVALID_MESSAGE)
+						.await;
 					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
@@ -1425,19 +1403,21 @@ impl ApprovalWorkerState {
 		let approvals = vec![vote];
 
 		if !v1_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v1_peers,
-				versioned_approvals_packet(ValidationVersion::V1, approvals.clone()),
-			))
-			.await;
+			sender
+				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+					v1_peers,
+					versioned_approvals_packet(ValidationVersion::V1, approvals.clone()),
+				))
+				.await;
 		}
 
 		if !v2_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v2_peers,
-				versioned_approvals_packet(ValidationVersion::V2, approvals),
-			))
-			.await;
+			sender
+				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+					v2_peers,
+					versioned_approvals_packet(ValidationVersion::V2, approvals),
+				))
+				.await;
 		}
 	}
 
@@ -1625,9 +1605,9 @@ impl ApprovalWorkerState {
 		}
 	}
 
-	async fn enable_aggression<Context>(
+	async fn enable_aggression(
 		&mut self,
-		ctx: &mut Context,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		resend: Resend,
 		metrics: &Metrics,
 	) {
@@ -1656,7 +1636,7 @@ impl ApprovalWorkerState {
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
 		adjust_required_routing_and_propagate(
-			ctx,
+			sender,
 			&self.peer_data,
 			&mut self.blocks,
 			&self.topologies,
@@ -1684,7 +1664,7 @@ impl ApprovalWorkerState {
 		.await;
 
 		adjust_required_routing_and_propagate(
-			ctx,
+			sender,
 			&self.peer_data,
 			&mut self.blocks,
 			&self.topologies,
@@ -1867,9 +1847,8 @@ fn versioned_assignments_packet(
 //
 // Note that the required routing of a message can be modified even if the
 // topology is unknown yet.
-#[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
-async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModifier>(
-	ctx: &mut Context,
+async fn adjust_required_routing_and_propagate<BlockFilter, RoutingModifier>(
+	sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 	peer_data: &HashMap<PeerId, PeerData>,
 	blocks: &mut HashMap<Hash, BlockEntry>,
 	topologies: &SessionGridTopologies,
@@ -1965,8 +1944,7 @@ async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModi
 			Some(v) => v,
 		};
 
-		send_assignments_batched(ctx.sender(), assignments_packet, peer, peer_protocol_version)
-			.await;
+		send_assignments_batched(sender, assignments_packet, peer, peer_protocol_version).await;
 	}
 
 	for (peer, approvals_packet) in peer_approvals {
@@ -1975,6 +1953,6 @@ async fn adjust_required_routing_and_propagate<Context, BlockFilter, RoutingModi
 			Some(v) => v,
 		};
 
-		send_approvals_batched(ctx.sender(), approvals_packet, peer, peer_protocol_version).await;
+		send_approvals_batched(sender, approvals_packet, peer, peer_protocol_version).await;
 	}
 }
