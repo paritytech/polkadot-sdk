@@ -606,6 +606,11 @@ where
 			VersionedFinalityProof::V1(ref sc) => sc.commitment.block_number,
 		};
 
+		if block_num <= self.persisted_state.voting_oracle.best_beefy_block {
+			// we've already finalized this round before, short-circuit.
+			return Ok(())
+		}
+
 		// Finalize inner round and update voting_oracle state.
 		self.persisted_state.voting_oracle.finalize(block_num)?;
 
@@ -631,7 +636,7 @@ where
 				self.backend
 					.append_justification(hash, (BEEFY_ENGINE_ID, finality_proof.encode()))
 			}) {
-			error!(
+			debug!(
 				target: LOG_TARGET,
 				"🥩 Error {:?} on appending justification: {:?}", e, finality_proof
 			);
@@ -650,7 +655,7 @@ where
 	}
 
 	/// Handle previously buffered justifications, that now land in the voting interval.
-	fn try_pending_justififactions(&mut self) -> Result<(), Error> {
+	fn try_pending_justifications(&mut self) -> Result<(), Error> {
 		// Interval of blocks for which we can process justifications and votes right now.
 		let (start, end) = self.voting_oracle().accepted_interval()?;
 		// Process pending justifications.
@@ -784,7 +789,7 @@ where
 
 	fn process_new_state(&mut self) {
 		// Handle pending justifications and/or votes for now GRANDPA finalized blocks.
-		if let Err(err) = self.try_pending_justififactions() {
+		if let Err(err) = self.try_pending_justifications() {
 			debug!(target: LOG_TARGET, "🥩 {}", err);
 		}
 

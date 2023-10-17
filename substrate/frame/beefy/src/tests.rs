@@ -2131,3 +2131,25 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 		}
 	});
 }
+
+#[test]
+fn set_new_genesis_works() {
+	let authorities = test_authorities();
+
+	new_test_ext_raw_authorities(authorities).execute_with(|| {
+		start_era(1);
+
+		let new_genesis_delay = 10u64;
+		// the call for setting new genesis should work
+		assert_ok!(Beefy::set_new_genesis(RuntimeOrigin::root(), new_genesis_delay,));
+		let expected = System::block_number() + new_genesis_delay;
+		// verify new genesis was set
+		assert_eq!(Beefy::genesis_block(), Some(expected));
+
+		// setting delay < 1 should fail
+		assert_err!(
+			Beefy::set_new_genesis(RuntimeOrigin::root(), 0u64,),
+			Error::<Test>::InvalidConfiguration,
+		);
+	});
+}
