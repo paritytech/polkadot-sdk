@@ -160,7 +160,7 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
-	fn clear_expired_multi(s: u32) -> Weight {
+	fn clear_expired_multi(_s: u32) -> Weight {
 		unimplemented!()
 	}
 }
