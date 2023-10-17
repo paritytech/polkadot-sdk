@@ -46,7 +46,7 @@ impl<
 			let dest = AccountId32 { network: None, id: receiver.into() }.into();
 			for asset in fees.into_inner() {
 				if let Err(e) = XcmConfig::AssetTransactor::deposit_asset(&asset, &dest, context) {
-					log::warn!(
+					log::trace!(
 						target: "xcm::fees",
 						"`AssetTransactor::deposit_asset` returned error: {:?}, burning fees: {:?}",
 						e, asset,
