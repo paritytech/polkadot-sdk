@@ -22,7 +22,7 @@
 //! This crate includes structs and utilities for defining configuration files (known as chain
 //! specification) for both runtime and node.
 //!
-//! The chain specification is a JSON file that describes the properties and intial state of the
+//! The chain specification is a JSON file that describes the properties and initial state of the
 //! chain.
 //!
 //! In summary, though not restirced to, the main role of the chain spec is to provide a list of
@@ -31,7 +31,7 @@
 //! blocks are built. When the node is launched for the first time, it reads the chain spec,
 //! initializes the genesis block, and establishes connections with the boot nodes.
 //!
-//! It is divided into three main logical sections:
+//! JSON chain spec is divided into three main logical sections:
 //! - one section details general chain properties,
 //! - the other explicitly or indirectly defines the genesis storage, which, in turn,
 //! determines the genesis hash of the chain,
@@ -39,30 +39,80 @@
 //!
 //! The chain specification consits of the following fields:
 //!
-//! | Chain spec key | descirption |
-//! |---------|---------|
-//! |`name`|The human readable name of the chain.|
-//! |`id`|The id of the chain.|
-//! |`chainType`|The chain type of this chain (refer to [`ChainType`]).|
-//! |`bootNodes`|A list of multi addresses that belong to boot nodes of the chain.|
-//! |`telemetryEndpoints`|Optional list of `multi address, verbosity` of telemetry endpoints.  The
-//! verbosity goes from `0` to `9`. With `0` being the mode with the lowest verbosity.|
-//! |`protocolId`|Optional networking protocol id that identifies the chain.|
-//! |`forkId`|Optional fork id. Should most likely be left empty. Can be used to signal a fork on
-//! the network level when two chains have the same genesis hash.| |`properties`|Custom properties.
-//! Shall be provided in the form of `key`, `value` json object.| |`consensusEngine`|Deprecated
-//! field. Should be ignored.| |`codeSubstitutes`|Optional map of `block_number` to `wasm_code`.
-//! More details in material to follow.| |||
-//! |`genesis`|Defines the initial state of the runtime. More details in material to follow.|
-//! |||
-//! |`code`|The runtime wasm code blob in hex format.|
-//!
+//! <table>
+//!   <thead>
+//!     <tr>
+//!       <th>Chain spec key</th>
+//!       <th>Description</th>
+//!     </tr>
+//!   </thead>
+//!   <tbody>
+//!     <tr>
+//!       <td>name</td>
+//!       <td>The human readable name of the chain.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>id</td>
+//!       <td>The id of the chain.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>chainType</td>
+//!       <td>The chain type of this chain
+//!           (refer to
+//!            <a href="enum.ChainType.html" title="enum sc_chain_spec::ChainType">
+//!              <code>ChainType</code>
+//!            </a>).
+//!       </td>
+//!     </tr>
+//!     <tr>
+//!       <td>bootNodes</td>
+//!       <td>A list of multi addresses that belong to boot nodes of the chain.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>telemetryEndpoints</td>
+//!       <td>Optional list of <code>multi address, verbosity</code> of telemetry endpoints. The
+//! verbosity goes from 0 to 9. With 0 being the mode with the lowest verbosity.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>protocolId</td>
+//!       <td>Optional networking protocol id that identifies the chain.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>forkId</td>
+//!       <td>Optional fork id. Should most likely be left empty. Can be used to signal a fork on
+//! the network level when two chains have the same genesis hash.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>properties</td>
+//!       <td>Custom properties. Shall be provided in the form of
+//! <code>key</code>-<code>value</code> json object.
+//!     </td>
+//!     </tr>
+//!     <tr>
+//!       <td>consensusEngine</td>
+//!       <td>Deprecated field. Should be ignored.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>codeSubstitutes</td>
+//!       <td>Optional map of <code>block_number</code> to <code>wasm_code</code> More details in
+//! material to follow.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>genesis</td>
+//!       <td>Defines the initial state of the runtime. More details in material to follow.</td>
+//!     </tr>
+//!     <tr>
+//!       <td>code</td>
+//!       <td>The runtime wasm code blob in hex format.</td>
+//!     </tr>
+//!   </tbody>
+//! </table>
 //!
 //! # Initial runtime state aka genesis storage
 //!
 //! The `genesis` key of the chain specification definition describes the
 //! initial state of the runtime. For example it may contain:
-//! - initial list of funded accoumts,
+//! - initial list of funded accounts,
 //! - the sudo key,
 //! - initial authorities set for consensus, etc.
 //!
@@ -115,33 +165,6 @@
 //! there is no other way around it and only patch the problematic bug, the rest should be done
 //! with a on-chain runtime upgrade.
 //!
-//! # JSON chain specification example
-//! Example of the full default Substrate chain specification is the following:
-//! ```
-//! {
-//!   "name": "Flaming Fir",
-//!   "id": "flamingfir9",
-//!   "chainType": "Live",
-//!   "bootNodes": [
-//!     "/dns/0.flamingfir.paritytech.net/tcp/30333/p2p/12D3KooWLK2gMLhWsYJzjW3q35zAs9FDDVqfqVfVuskiGZGRSMvR",
-//!   ],
-//!   "telemetryEndpoints": [
-//!     [
-//!       "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
-//!       0
-//!     ]
-//!   ],
-//!   "protocolId": "fir9",
-//!   "forkId": "random_fork",
-//!   "properties": {
-//!     "tokenDecimals": 15,
-//!     "tokenSymbol": "FIR"
-//!   },
-//!   "genesis": { "runtime": { ... } },
-//!   "codeSubstitutes": [],
-//! }
-//! ```
-//!
 //! The [`ChainSpec`] trait represents the API to access values defined in JSON chain specification.
 //!
 //! # Building a chain specification.
@@ -151,14 +174,15 @@
 //!
 //! The sample code to generate a chain spec is as follows:
 #![doc = docify::embed!("src/chain_spec.rs", build_chain_spec_with_patch_works)]
-//! The following are the `raw` and plain versions of the chain specification JSON files:
+//! # JSON chain specification example
+//! The following are the `raw` and plain versions of the chain specification JSON files, resulting
+//! from executing above example:
 //! ```
 #![doc = include_str!("../res/substrate_test_runtime_from_patch.json")]
 //! ```
 //! ```
 #![doc = include_str!("../res/substrate_test_runtime_from_patch_raw.json")]
 //! ```
-//! 
 //! # Custom chain spec extensions
 //! Basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
 //! extended with additional options that contain configuration specific to your chain. Usually the
@@ -177,7 +201,6 @@
 //!
 //! pub type MyChainSpec<G> = GenericChainSpec<G, MyExtension>;
 //! ```
-//! 
 //! Some parameters may require different values depending on the current blockchain height (a.k.a.
 //! forks). You can use `ChainSpecGroup` macro and provided [`Forks`](./struct.Forks.html) structure
 //! to put such parameters to your chain spec. This will allow to override a single parameter
@@ -210,7 +233,6 @@
 //! /// A chain spec supporting forkable `Extension`.
 //! pub type MyChainSpec2<G> = GenericChainSpec<G, Forks<BlockNumber, Extension>>;
 //! ```
-//! 
 //! It's also possible to have a set of parameters that is allowed to change with block numbers
 //! (i.e. is forkable), and another set that is not subject to changes. This is also possible by
 //! declaring an extension that contains `Forks` within it.
@@ -238,7 +260,6 @@
 //!
 //! pub type MyChainSpec<G> = GenericChainSpec<G, Extension>;
 //! ```
-//! 
 //! The chain spec can be extended with other fields that are opaque to the default chain spec.
 //! Specific node implementations will need to be able to deserialize these extensions.
 
