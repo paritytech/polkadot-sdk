@@ -39,7 +39,7 @@ use sp_std::prelude::*;
 /// However, a double map offers functions specific to each key, enabling partial iteration and
 /// deletion based on one key alone.
 ///
-/// Additionally, a double map is an alias for
+/// Conceptionally, a double map is a special case of a
 /// [`StorageNMap`](frame_support::storage::types::StorageNMap) using two keys.
 ///
 /// For general information regarding the `#[pallet::storage]` attribute, refer to

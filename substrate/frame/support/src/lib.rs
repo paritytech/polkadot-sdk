@@ -2206,7 +2206,7 @@ pub mod pallet_macros {
 	///
 	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
 	///
-	/// ## Example:
+	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2266,7 +2266,7 @@ pub mod pallet_macros {
 	/// by [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
 	/// into metadata.
 	///
-	/// ## Example:
+	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2297,7 +2297,7 @@ pub mod pallet_macros {
 	/// which encapsulates the different functions, alongside their arguments, except for
 	/// `origin`. [`sp_runtime::traits::Dispatchable`] is then implemented for `enum Call`.
 	///
-	/// ## Example:
+	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2346,7 +2346,7 @@ pub mod pallet_macros {
 	/// the syntax, for example: `type Foo = StorageValue<..>`. For specific information about
 	/// each storage type, refer to the documentation of the respective type.
 	///
-	/// ### Example:
+	/// ### Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2380,7 +2380,7 @@ pub mod pallet_macros {
 	/// In both instances, declaring `<T>` is mandatory. While it can optionally be written as
 	/// `<T: Config>`, in the generated code, it is always `<T: Config>`.
 	///
-	/// #### Example:
+	/// #### Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
