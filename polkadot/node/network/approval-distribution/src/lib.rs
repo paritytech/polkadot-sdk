@@ -16,7 +16,10 @@
 
 //! [`ApprovalDistribution`] implementation.
 //!
-//! <https://w3f.github.io/parachain-implementers-guide/node/approval/approval-distribution.html>
+//! See the documentation on [approval distribution][approval-distribution-page] in the
+//! implementers' guide.
+//!
+//! [approval-distribution-page]: https://paritytech.github.io/polkadot-sdk/book/node/approval/approval-distribution.html
 
 #![warn(missing_docs)]
 

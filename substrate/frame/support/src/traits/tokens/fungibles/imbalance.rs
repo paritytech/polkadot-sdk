@@ -109,6 +109,15 @@ impl<
 		sp_std::mem::forget(self);
 		(Imbalance::new(asset.clone(), first), Imbalance::new(asset, second))
 	}
+
+	/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	pub fn extract(&mut self, amount: B) -> Self {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Imbalance::new(self.asset.clone(), new)
+	}
+
 	pub fn merge(mut self, other: Self) -> Result<Self, (Self, Self)> {
 		if self.asset == other.asset {
 			self.amount = self.amount.saturating_add(other.amount);
