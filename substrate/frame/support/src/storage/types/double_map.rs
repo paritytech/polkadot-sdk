@@ -45,8 +45,8 @@ use sp_std::prelude::*;
 /// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
-/// # Example
-///
+/// # Examples
+/// ### Kitchen-sink
 /// ```
 /// #[frame_support::pallet]
 /// mod pallet {
@@ -70,6 +70,11 @@ use sp_std::prelude::*;
 /// 	>;
 /// }
 /// ```
+/// ### Partial Iteration
+/// When `Hasher1` and `Hasher2` implement the 
+/// [`ReversibleStorageHasher`](frame_support::ReversibleStorageHasher) trait, we can iterate
+/// over keys and values of the double map partially.
+#[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_iteration)]
 pub struct StorageDoubleMap<
 	Prefix,
 	Hasher1,
@@ -989,5 +994,23 @@ mod test {
 			assert_eq!(A::iter_prefix(4).collect::<Vec<_>>(), vec![]);
 			assert_eq!(A::drain_prefix(4).collect::<Vec<_>>(), vec![]);
 		})
+	}
+
+	#[docify::export]
+	#[test]
+	fn example_double_map_partial_iteration() {
+		use sp_std::collections::btree_set::BTreeSet;
+		type FooDoubleMap = StorageDoubleMap<Prefix, Blake2_128Concat, u32, Blake2_128Concat, u32, u32, ValueQuery>;
+		TestExternalities::default().execute_with(|| {
+			FooDoubleMap::insert(0, 0, 42);
+			FooDoubleMap::insert(0, 1, 43);
+			FooDoubleMap::insert(1, 0, 314);
+			let collected_k2_keys: BTreeSet<_> = FooDoubleMap::iter_key_prefix(0,).collect();
+			// `collected_k2_keys` should be equal to {0,1} (ordering is random)
+			assert_eq!(collected_k2_keys, [0, 1].iter().copied().collect::<BTreeSet<_>>());
+			let collected_k2_valus: BTreeSet<_> = FooDoubleMap::iter_prefix_values(0,).collect();
+			// `collected_k2_values` should be equal to {42,43} (ordering is random)
+			assert_eq!(collected_k2_valus, [42,43].iter().copied().collect::<BTreeSet<_>>());
+		});
 	}
 }
