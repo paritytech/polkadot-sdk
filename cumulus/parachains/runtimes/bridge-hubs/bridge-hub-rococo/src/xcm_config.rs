@@ -32,7 +32,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{ConcreteNativeAssetFrom, ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;

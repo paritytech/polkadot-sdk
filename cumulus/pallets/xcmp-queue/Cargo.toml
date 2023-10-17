@@ -54,10 +54,10 @@ std = [
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-core/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
