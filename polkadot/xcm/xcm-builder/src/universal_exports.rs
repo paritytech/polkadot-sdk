@@ -583,19 +583,29 @@ mod tests {
 		frame_support::parameter_types! {
 			pub NetworkA: NetworkId = ByGenesis([0; 32]);
 			pub Parachain1000InNetworkA: InteriorMultiLocation = X1(Parachain(1000));
+			pub Parachain2000InNetworkA: InteriorMultiLocation = X1(Parachain(2000));
 
 			pub NetworkB: NetworkId = ByGenesis([1; 32]);
 
 			pub BridgeToALocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
 			pub BridgeToBLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(4321)));
 
+			pub PaymentForNetworkAAndParachain2000: MultiAsset = (MultiLocation::parent(), 150).into();
+
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
-				// NetworkA allows only `Parachain(1000)` as remote location.
+				// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.
 				NetworkExportTableItem::new(
 					NetworkA::get(),
 					Some(vec![Parachain1000InNetworkA::get()]),
 					BridgeToALocation::get(),
 					None
+				),
+				// NetworkA allows `Parachain(2000)` as remote location WITH payment.
+				NetworkExportTableItem::new(
+					NetworkA::get(),
+					Some(vec![Parachain2000InNetworkA::get()]),
+					BridgeToALocation::get(),
+					Some(PaymentForNetworkAAndParachain2000::get())
 				),
 				// NetworkB allows all remote location.
 				NetworkExportTableItem::new(
@@ -610,7 +620,12 @@ mod tests {
 		let test_data = vec![
 			(NetworkA::get(), X1(Parachain(1000)), Some((BridgeToALocation::get(), None))),
 			(NetworkA::get(), X2(Parachain(1000), GeneralIndex(1)), None),
-			(NetworkA::get(), X1(Parachain(2000)), None),
+			(
+				NetworkA::get(),
+				X1(Parachain(2000)),
+				Some((BridgeToALocation::get(), Some(PaymentForNetworkAAndParachain2000::get()))),
+			),
+			(NetworkA::get(), X2(Parachain(2000), GeneralIndex(1)), None),
 			(NetworkA::get(), X1(Parachain(3000)), None),
 			(NetworkB::get(), X1(Parachain(1000)), Some((BridgeToBLocation::get(), None))),
 			(NetworkB::get(), X1(Parachain(2000)), Some((BridgeToBLocation::get(), None))),
@@ -625,6 +640,10 @@ mod tests {
 					&Xcm::default()
 				),
 				expected_result,
+				"expected_result: {:?} not matched for network: {:?} and remote_location: {:?}",
+				expected_result,
+				network,
+				remote_location,
 			)
 		}
 	}
