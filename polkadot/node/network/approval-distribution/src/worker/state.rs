@@ -348,6 +348,10 @@ pub struct ApprovalWorkerState {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
+	pub(crate) fn reputation(&mut self) -> &mut ReputationAggregator {
+		&mut self.reputation
+	}
+
 	pub(crate) async fn handle_peer_connect(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
@@ -410,20 +414,6 @@ impl ApprovalWorkerState {
 			}
 			live
 		});
-	}
-
-	async fn handle_network_msg(
-		&mut self,
-		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
-		metrics: &Metrics,
-		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
-		rng: &mut (impl CryptoRng + Rng),
-	) {
-			NetworkBridgeEvent::PeerMessage(peer_id, msg) => {
-				self.process_incoming_peer_message(sender, metrics, peer_id, msg, rng).await;
-			},
-			
-		}
 	}
 
 	pub async fn handle_new_blocks(
@@ -735,7 +725,7 @@ impl ApprovalWorkerState {
 		.await;
 	}
 
-	async fn handle_block_finalized(
+	pub(crate) async fn handle_block_finalized(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,

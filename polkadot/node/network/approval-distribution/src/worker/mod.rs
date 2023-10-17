@@ -19,7 +19,7 @@ use self::state::MessageSource;
 use crate::metrics::Metrics;
 use async_trait::async_trait;
 use bounded_collections::ConstU32;
-
+use futures::{select, FutureExt};
 use polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, ApprovalCheckResult, ApprovalDistributionMessage,
@@ -28,8 +28,11 @@ use polkadot_node_subsystem::{
 	overseer, ApprovalDistributionContextTrait, ApprovalDistributionSenderTrait, FromOrchestra,
 	OverseerSignal, SpawnedSubsystem, SubsystemContext, SubsystemError, SubsystemSender,
 };
-use polkadot_node_subsystem_util::worker_pool::{
-	ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage, WorkerPool,
+use polkadot_node_subsystem_util::{
+	reputation::REPUTATION_CHANGE_INTERVAL,
+	worker_pool::{
+		ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage, WorkerPool,
+	},
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
@@ -78,6 +81,8 @@ pub(crate) enum ApprovalWorkerMessage {
 	NewBlocks(Vec<BlockApprovalMeta>),
 	/// Lag update from finality chainn selection.
 	ApprovalCheckingLagUpdate(BlockNumber),
+	/// Block was finalized
+	BlockFinalized(BlockNumber),
 }
 
 // Use `MessageSubject` as `ContextCookie`.
@@ -153,12 +158,15 @@ async fn dispatch_work(
 					sender,
 					topology.session,
 					topology.topology,
-					topology.local_index,net_protocol::ApprovalDistributionMessage
+					topology.local_index,
 				)
 				.await,
 		ApprovalWorkerMessage::OurViewChange(view) => state.handle_our_view_change(view).await,
 		ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag) => {
 			state.update_approval_checking_lag(lag);
+		},
+		ApprovalWorkerMessage::BlockFinalized(block_number) => {
+			state.handle_block_finalized(sender, metrics, block_number).await;
 		},
 	}
 }
@@ -171,27 +179,39 @@ async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorke
 	let mut rng = rand::rngs::StdRng::from_entropy();
 	let mut worker_state = state::ApprovalWorkerState::default();
 
+	let new_reputation_delay = || futures_timer::Delay::new(REPUTATION_CHANGE_INTERVAL).fuse();
+	let mut reputation_delay = new_reputation_delay();
+
 	loop {
-        // TODO: Add reputation aggregation timer.
-		if let Some(worker_message) = from_pool.recv().await {
-			match worker_message {
-				WorkerMessage::Queue(work_item) => {
-					dispatch_work(&mut sender, &mut worker_state, &metrics, &mut rng, work_item)
-						.await;
-				},
-				WorkerMessage::PruneWork(_) => {
-					// This message might not be needed as `ApprovalWorkerMessage` can send the
-					// block finalized event. In that case, workers need to notify worker pool that
-					// a context has been removed, but this creates a cycle which is likely to cause
-					// issues. To avoid the pool loop can periodically ask workers about pruned
-					// tasks and delete them accordingly from the hashmap. More thinking required.
-				},
-				WorkerMessage::SetupContext(context) => {},
-				WorkerMessage::Batch(_, _) => {},
+		select! {
+			_ = reputation_delay => {
+				worker_state.reputation().send(&mut sender).await;
+				reputation_delay = new_reputation_delay();
+			},
+			worker_message = from_pool.recv().fuse() => {
+				let worker_message = if let Some(worker_message) = worker_message {
+					worker_message
+				} else {
+					// Worker pool exiting.
+					return
+				};
+
+				match worker_message {
+					WorkerMessage::Queue(work_item) => {
+						dispatch_work(&mut sender, &mut worker_state, &metrics, &mut rng, work_item)
+							.await;
+					},
+					WorkerMessage::PruneWork(_) => {
+						// This message might not be needed as `ApprovalWorkerMessage` can send the
+						// block finalized event. In that case, workers need to notify worker pool that
+						// a context has been removed, but this creates a cycle which is likely to cause
+						// issues. To avoid the pool loop can periodically ask workers about pruned
+						// tasks and delete them accordingly from the hashmap. More thinking required.
+					},
+					WorkerMessage::SetupContext(context) => {},
+					WorkerMessage::Batch(_, _) => {},
+				}
 			}
-		} else {
-			// channel closed, end worker.
-			break
 		}
 	}
 }

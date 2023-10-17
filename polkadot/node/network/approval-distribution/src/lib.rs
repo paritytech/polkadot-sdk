@@ -78,46 +78,47 @@ impl ApprovalDistribution {
 	}
 
 	/// Used for testing.
-	async fn run_inner<Context>(self, mut ctx: Context) {
-		let sender = ctx.sender().clone();
-		let metrics = self.metrics;
-		let mut approval_worker_config = worker::ApprovalWorkerConfig { sender, metrics };
+	async fn run_inner<Context>(mut self, mut ctx: Context) {
+		let mut sender = ctx.sender().clone();
+		let metrics = self.metrics.clone();
+		let mut approval_worker_config =
+			worker::ApprovalWorkerConfig { sender: sender.clone(), metrics: metrics.clone() };
 		let (mut approval_worker_pool, _) = WorkerPool::with_config(&mut approval_worker_config);
 
 		loop {
-			// select! {
-			// 	message = ctx.recv().fuse() => {
-			// 		let message = match message {
-			// 			Ok(message) => message,
-			// 			Err(e) => {
-			// 				gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer,
-			// exiting"); 				return
-			// 			},
-			// 		};
-			// 		match message {
-			// 			FromOrchestra::Communication { msg } =>
-			// 				Self::handle_incoming(&mut ctx, state, msg, &self.metrics, rng).await,
-			// 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-			// 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
-			// 				// the relay chain blocks relevant to the approval subsystems
-			// 				// are those that are available, but not finalized yet
-			// 				// actived and deactivated heads hence are irrelevant to this subsystem, other than
-			// 				// for tracing purposes.
-			// 				if let Some(activated) = update.activated {
-			// 					let head = activated.hash;
-			// 					let approval_distribution_span =
-			// 						jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
-			// 					state.spans.insert(head, approval_distribution_span);
-			// 				}
-			// 			},
-			// 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
-			// 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
-			// 				state.handle_block_finalized(&mut ctx, &self.metrics, number).await;
-			// 			},
-			// 			FromOrchestra::Signal(OverseerSignal::Conclude) => return,
-			// 		}
-			// 	},
-			// }
+			select! {
+				message = ctx.recv().fuse() => {
+					let message = match message {
+						Ok(message) => message,
+						Err(e) => {
+							gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer,
+			exiting"); 				return
+						},
+					};
+					match message {
+						FromOrchestra::Communication { msg } =>
+							self.handle_incoming(&mut approval_worker_pool, &mut sender, msg, &metrics).await,
+						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
+							// the relay chain blocks relevant to the approval subsystems
+							// are those that are available, but not finalized yet
+							// actived and deactivated heads hence are irrelevant to this subsystem, other than
+							// for tracing purposes.
+							// if let Some(activated) = update.activated {
+							// 	let head = activated.hash;
+							// 	let approval_distribution_span =
+							// 		jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
+							// 	state.spans.insert(head, approval_distribution_span);
+							// }
+						},
+						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
+							gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
+							approval_worker_pool.queue_work(ApprovalWorkerMessage::BlockFinalized(number), None).await;
+						},
+						FromOrchestra::Signal(OverseerSignal::Conclude) => return,
+					}
+				},
+			}
 		}
 	}
 
@@ -153,40 +154,38 @@ impl ApprovalDistribution {
 			NetworkBridgeEvent::OurViewChange(view) => {
 				worker_pool.queue_work(ApprovalWorkerMessage::OurViewChange(view), None).await;
 			},
-			NetworkBridgeEvent::PeerMessage(peer_id, msg) => {
-				match msg {
-					Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(
-						assignments,
-					)) |
-					Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(
-						assignments,
-					)) =>
-						for assignment in assignments {
-							worker_pool.queue_work(
+			NetworkBridgeEvent::PeerMessage(peer_id, msg) => match msg {
+				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(
+					assignments,
+				)) |
+				Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(
+					assignments,
+				)) =>
+					for assignment in assignments {
+						worker_pool
+							.queue_work(
 								ApprovalWorkerMessage::ProcessAssignment(
 									assignment.0,
 									assignment.1,
 									MessageSource::Peer(peer_id),
 								),
 								Some(ApprovalContext),
-							).await;
-						},
-					Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(
-						approvals,
-					)) |
-					Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(
-						approvals,
-					)) =>
-						for approval in approvals.into_iter() {
-							worker_pool.queue_work(
+							)
+							.await;
+					},
+				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
+				Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =>
+					for approval in approvals.into_iter() {
+						worker_pool
+							.queue_work(
 								ApprovalWorkerMessage::ProcessApproval(
 									approval,
 									MessageSource::Peer(peer_id),
 								),
 								Some(ApprovalContext),
-							).await;
-						},
-				}
+							)
+							.await;
+					},
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
 				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
@@ -200,7 +199,6 @@ impl ApprovalDistribution {
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		msg: ApprovalDistributionMessage,
 		metrics: &Metrics,
-		rng: &mut (impl CryptoRng + Rng),
 	) where
 		F: overseer::ApprovalDistributionSenderTrait,
 	{
