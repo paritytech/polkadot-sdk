@@ -866,7 +866,6 @@ impl<T: Config> Pallet<T> {
 
 		let QueueConfigData {
 			resume_threshold,
-			suspend_threshold,
 			threshold_weight,
 			weight_restrict_decay,
 			xcmp_max_individual_weight,
@@ -1159,8 +1158,13 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				result.push((para_id, page));
 			}
 
-			// TODO: Remove the expect
-			let max_total_size = T::ChannelInfo::get_channel_info(para_id).expect("this should be here; qed").max_total_size;
+			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
+				Some(channel_info) => channel_info.max_total_size,
+				None => {
+					log::warn!("calling `get_channel_info` with no RelevantMessagingState?!");
+					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
+				},
+			};
 			let threshold = max_total_size
 				.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
 			let remaining_total_size: usize = (first_index..last_index)
