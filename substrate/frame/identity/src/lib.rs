@@ -82,11 +82,13 @@ pub mod weights;
 use frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
-use types::IdentityInformationProvider;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
-pub use types::{Data, IdentityFields, Judgement, RegistrarIndex, RegistrarInfo, Registration};
+pub use types::{
+	Data, IdentityFields, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
+	Registration,
+};
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -707,7 +709,8 @@ pub mod pallet {
 		/// - `target`: the account whose identity the judgement is upon. This must be an account
 		///   with a registered identity.
 		/// - `judgement`: the judgement of the registrar of index `reg_index` about `target`.
-		/// - `identity`: The hash of the [`IdentityInfo`] for that the judgement is provided.
+		/// - `identity`: The hash of the [`IdentityInformationProvider`] for that the judgement is
+		///   provided.
 		///
 		/// Emits `JudgementGiven` if successful.
 		#[pallet::call_index(9)]

@@ -238,6 +238,7 @@ pub trait IdentityInformationProvider:
 	/// flags in `u64` format.
 	type IdentityField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag;
 
+	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: u64) -> bool;
 
 	/// Interface for providing the number of additional fields this identity information provider
@@ -256,8 +257,7 @@ pub trait IdentityInformationProvider:
 /// Information on an identity along with judgements from registrars.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
-/// backwards compatible way through a specialized `Decode` impl. Is this still the case? We need to
-/// do a migration if we removed the additional fields.
+/// backwards compatible way through a specialized `Decode` impl.
 #[derive(
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
@@ -301,7 +301,6 @@ impl<
 	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		// TODO consider removing this, will probably do migration
 		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
 		Ok(Self { judgements, deposit, info })
 	}
