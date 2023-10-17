@@ -165,7 +165,7 @@ pub struct PalletAttr {
 	typ: PalletAttrType,
 }
 
-/// Parse for `IsType<<Sef as $path>::RuntimeEvent>` and retrieve `$path`
+/// Parse for `IsType<<Self as $path>::RuntimeEvent>` and retrieve `$path`
 pub struct IsTypeBoundEventParse(syn::Path);
 
 impl syn::parse::Parse for IsTypeBoundEventParse {
@@ -231,25 +231,11 @@ fn check_event_type(
 					no generics nor where_clause";
 				return Err(syn::Error::new(trait_item.span(), msg))
 			}
-			// Check bound contains IsType and From
 
+			// Check bound contains IsType and From
 			let has_is_type_bound = type_.bounds.iter().any(|s| {
-				syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream()).map_or(false, |b| {
-					let mut expected_system_config = if is_using_frame_crate(&frame_system) {
-						// in this case, we know that the only valid frame_system path is one that
-						// is `frame_system`, as `frame` re-exports it as such.
-						let fixed_frame_system =
-							syn::parse2::<syn::Path>(quote::quote!(frame_system))
-								.expect("is a valid path; qed");
-						fixed_frame_system
-					} else {
-						frame_system.clone()
-					};
-					expected_system_config
-						.segments
-						.push(syn::PathSegment::from(syn::Ident::new("Config", b.0.span())));
-					b.0 == expected_system_config
-				})
+				syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream())
+					.map_or(false, |b| has_expected_system_config(b.0, frame_system))
 			});
 
 			if !has_is_type_bound {
@@ -286,6 +272,43 @@ fn check_event_type(
 	} else {
 		Ok(false)
 	}
+}
+
+/// Check that the path to `frame_system::Config` is valid, this is that the path is just
+/// `frame_system::Config` or when using the `frame` crate it is `frame::xyz::frame_system::Config`.
+fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
+	// Check if `frame_system` is actually 'frame_system'.
+	if path.segments.iter().all(|s| s.ident != "frame_system") {
+		return false
+	}
+
+	let mut expected_system_config =
+		match (is_using_frame_crate(&path), is_using_frame_crate(&frame_system)) {
+			(true, false) =>
+			// We can't use the path to `frame_system` from `frame` if `frame_system` is not being
+			// in scope through `frame`.
+				return false,
+			(false, true) =>
+			// We know that the only valid frame_system path is one that is `frame_system`, as
+			// `frame` re-exports it as such.
+				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed"),
+			(_, _) =>
+			// They are either both `frame_system` or both `frame::xyz::frame_system`.
+				frame_system.clone(),
+		};
+
+	expected_system_config
+		.segments
+		.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
+
+	// the parse path might be something like `frame_system::Config<...>`, so we
+	// only compare the idents along the path.
+	expected_system_config
+		.segments
+		.into_iter()
+		.map(|ps| ps.ident)
+		.collect::<Vec<_>>() ==
+		path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
 }
 
 /// Replace ident `Self` by `T`
@@ -345,32 +368,8 @@ impl ConfigDef {
 		};
 
 		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
-			syn::parse2::<syn::Path>(s.to_token_stream()).map_or(false, |b| {
-				let mut expected_system_config = if is_using_frame_crate(&frame_system) {
-					// in this case, we know that the only valid supertrait is one that
-					// `frame_system::Config`, as `frame` re-exports it as such.
-					let fixed_frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system))
-						.expect("is a valid path; qed");
-					fixed_frame_system
-				} else {
-					// a possibly renamed frame-system, which is a direct dependency.
-					frame_system.clone()
-				};
-				expected_system_config
-					.segments
-					.push(syn::PathSegment::from(syn::Ident::new("Config", b.span())));
-				// the parse path (b.0) might be something like `frame_system::Config<...>`, so we
-				// only compare the idents along the path.
-				expected_system_config
-					.segments
-					.into_iter()
-					.map(|ps| ps.ident)
-					.collect::<Vec<_>>() == b
-					.segments
-					.into_iter()
-					.map(|ps| ps.ident)
-					.collect::<Vec<_>>()
-			})
+			syn::parse2::<syn::Path>(s.to_token_stream())
+				.map_or(false, |b| has_expected_system_config(b, frame_system))
 		});
 
 		let mut has_event_type = false;
@@ -493,5 +492,99 @@ impl ConfigDef {
 			attr_span,
 			default_sub_trait,
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	#[test]
+	fn has_expected_system_config_works() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_assoc_type() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame_system::Config<RuntimeCall = Call>))
+				.unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_frame() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_other_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_other_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_work_with_frame_full_path_if_not_frame_crate() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_unexpected_frame_system() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(framez::deps::frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_unexpected_path() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::ConfigSystem)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_not_frame_system() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(something)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(something::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
 	}
 }
