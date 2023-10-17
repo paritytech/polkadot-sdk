@@ -44,6 +44,12 @@ pub trait VariantCount {
 	fn variant_count() -> u32;
 }
 
+impl VariantCount for () {
+	fn variant_count() -> u32 {
+		0
+	}
+}
+
 /// Generic function to mark an execution path as ONLY defensive.
 ///
 /// Similar to mark a match arm or `if/else` branch as `unreachable!`.
