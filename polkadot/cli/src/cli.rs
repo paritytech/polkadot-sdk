@@ -16,11 +16,10 @@
 
 //! Polkadot CLI library.
 
+pub use polkadot_node_primitives::NODE_VERSION;
+
 use clap::Parser;
 use std::path::PathBuf;
-
-/// The version of the node. The passed-in version of the workers should match this.
-pub const NODE_VERSION: &'static str = env!("SUBSTRATE_CLI_IMPL_VERSION");
 
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
@@ -50,10 +49,6 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// Runs performance checks such as PVF compilation in order to measure machine
-	/// capabilities of running a validator.
-	HostPerfCheck,
 
 	/// Try-runtime has migrated to a standalone CLI
 	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and

@@ -1,4 +1,4 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -48,7 +48,7 @@ const MAX_SUBSCRIPTIONS: u32 = 64;
 
 #[derive(thiserror::Error, Debug)]
 enum LightClientError {
-	#[error("Error occured while executing smoldot request: {0}")]
+	#[error("Error occurred while executing smoldot request: {0}")]
 	SmoldotError(String),
 	#[error("Nothing returned from json_rpc_responses")]
 	EmptyResult,

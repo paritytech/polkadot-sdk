@@ -1,10 +1,10 @@
 [package]
 name = "pallet-beefy"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate"
+repository.workspace = true
 description = "BEEFY FRAME pallet"
 homepage = "https://substrate.io"
 
@@ -12,7 +12,7 @@ homepage = "https://substrate.io"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
-serde = { version = "1.0.163", optional = true }
+serde = { version = "1.0.188", optional = true }
 frame-support = { path = "../support", default-features = false}
 frame-system = { path = "../system", default-features = false}
 pallet-authorship = { path = "../authorship", default-features = false}

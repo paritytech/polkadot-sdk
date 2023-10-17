@@ -19,7 +19,6 @@ use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::traits::SpawnNamed;
 
-use lru::LruCache;
 use polkadot_availability_distribution::IncomingRequestReceivers;
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_core_av_store::Config as AvailabilityConfig;
@@ -29,7 +28,7 @@ use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
-		v1 as request_v1, vstaging as request_vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 #[cfg(any(feature = "malus", test))]
@@ -41,6 +40,7 @@ use polkadot_overseer::{
 	metrics::Metrics as OverseerMetrics, InitializedOverseerBuilder, MetricsTrait, Overseer,
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
+use schnellru::{ByLength, LruMap};
 
 use polkadot_primitives::runtime_api::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
@@ -104,17 +104,15 @@ where
 	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
 	/// Collations request receiver for network protocol v1.
 	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	/// Collations request receiver for network protocol vstaging.
-	pub collation_req_vstaging_receiver:
-		IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	/// Collations request receiver for network protocol v2.
+	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	/// Receiver for available data requests.
 	pub available_data_req_receiver:
 		IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
-	pub candidate_req_vstaging_receiver:
-		IncomingRequestReceiver<request_vstaging::AttestedCandidateRequest>,
+	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -139,7 +137,7 @@ where
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	/// Request-response protocol names source.
 	pub req_protocol_names: ReqProtocolNames,
-	/// [`PeerSet`] protocol names to protocols mapping.
+	/// `PeerSet` protocol names to protocols mapping.
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
 	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
@@ -158,10 +156,10 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		pov_req_receiver,
 		chunk_req_receiver,
 		collation_req_v1_receiver,
-		collation_req_vstaging_receiver,
+		collation_req_v2_receiver,
 		available_data_req_receiver,
 		statement_req_receiver,
-		candidate_req_vstaging_receiver,
+		candidate_req_v2_receiver,
 		dispute_req_receiver,
 		registry,
 		spawner,
@@ -288,7 +286,7 @@ where
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
 					request_receiver_v1: collation_req_v1_receiver,
-					request_receiver_vstaging: collation_req_vstaging_receiver,
+					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
 				},
 				IsParachainNode::FullNode => ProtocolSide::None,
@@ -309,7 +307,7 @@ where
 		.statement_distribution(StatementDistributionSubsystem::new(
 			keystore.clone(),
 			statement_req_receiver,
-			candidate_req_vstaging_receiver,
+			candidate_req_v2_receiver,
 			Metrics::register(registry)?,
 			rand::rngs::StdRng::from_entropy(),
 		))
@@ -344,7 +342,7 @@ where
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_api_client)
-		.known_leaves(LruCache::new(KNOWN_LEAVES_CACHE_SIZE))
+		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(metrics)
 		.spawner(spawner);
 

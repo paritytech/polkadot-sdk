@@ -1,8 +1,8 @@
 [package]
 name = "cumulus-pallet-aura-ext"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
 
 [dependencies]
@@ -35,10 +35,18 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-aura/std",
+	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]

@@ -26,13 +26,13 @@ use crate::{
 
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchError, ensure, traits::Get, weights::Weight};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
 use pallet_contracts_proc_macro::define_env;
 use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 use sp_runtime::{
 	traits::{Bounded, Zero},
-	RuntimeDebug,
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
@@ -608,7 +608,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let mut bound_checked = memory
 			.get(ptr..ptr + D::max_encoded_len() as usize)
 			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
-		let decoded = D::decode_all_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
+		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)
 	}

@@ -1,5 +1,5 @@
 error: expected one of: `getter`, `storage_prefix`, `unbounded`, `whitelist_storage`
-  --> $DIR/storage_invalid_attribute.rs:16:12
+  --> tests/pallet_ui/storage_invalid_attribute.rs:33:12
    |
-16 |     #[pallet::generate_store(pub trait Store)]
+33 |     #[pallet::generate_store(pub trait Store)]
    |               ^^^^^^^^^^^^^^

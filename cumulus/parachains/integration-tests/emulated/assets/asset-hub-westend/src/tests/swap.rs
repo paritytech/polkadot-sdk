@@ -1,3 +1,18 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::*;
 
 #[test]
@@ -155,11 +170,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		.encode()
 		.into();
 
-	let buy_execution_fee_amount =
-		asset_hub_westend_runtime::constants::fee::WeightToFee::weight_to_fee(&Weight::from_parts(
-			10_100_000_000_000,
-			300_000,
-		));
+	let buy_execution_fee_amount = parachains_common::westend::fee::WeightToFee::weight_to_fee(
+		&Weight::from_parts(10_100_000_000_000, 300_000),
+	);
 	let buy_execution_fee = MultiAsset {
 		id: Concrete(MultiLocation { parents: 1, interior: Here }),
 		fun: Fungible(buy_execution_fee_amount),

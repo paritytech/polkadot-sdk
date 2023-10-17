@@ -73,7 +73,7 @@ where
 	W: XcmWeightInfo<C>,
 	C: Decode + GetDispatchInfo,
 	M: Get<u32>,
-	Instruction<C>: xcm::GetWeight<W>,
+	Instruction<C>: xcm::latest::GetWeight<W>,
 {
 	fn weight(message: &mut Xcm<C>) -> Result<Weight, ()> {
 		log::trace!(target: "xcm::weight", "WeightInfoBounds message: {:?}", message);
@@ -90,7 +90,7 @@ where
 	W: XcmWeightInfo<C>,
 	C: Decode + GetDispatchInfo,
 	M: Get<u32>,
-	Instruction<C>: xcm::GetWeight<W>,
+	Instruction<C>: xcm::latest::GetWeight<W>,
 {
 	fn weight_with_limit(message: &Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
 		let mut r: Weight = Weight::zero();
@@ -104,7 +104,6 @@ where
 		instruction: &Instruction<C>,
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
-		use xcm::GetWeight;
 		let instr_weight = match instruction {
 			Transact { require_weight_at_most, .. } => *require_weight_at_most,
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,

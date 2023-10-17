@@ -23,6 +23,11 @@ use scale_info::TypeInfo;
 
 use super::*;
 
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
+
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
@@ -273,7 +278,7 @@ pub type SendResult = result::Result<(), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use xcm::v2::prelude::*;
+/// # use staging_xcm::v2::prelude::*;
 /// # use parity_scale_codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.

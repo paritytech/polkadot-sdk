@@ -4,12 +4,12 @@ description = "Test parachain which adds to a number as its state transition"
 build = "build.rs"
 edition.workspace = true
 license.workspace = true
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 publish = false
 
 [dependencies]
-parachain = { package = "polkadot-parachain", path = "../..", default-features = false, features = [ "wasm-api" ] }
+parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = [ "wasm-api" ] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
@@ -23,4 +23,4 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = [ "std" ]
-std = [ "parachain/std", "sp-std/std" ]
+std = [ "parachain/std", "sp-io/std", "sp-std/std" ]

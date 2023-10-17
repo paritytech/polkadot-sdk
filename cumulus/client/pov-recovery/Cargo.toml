@@ -1,9 +1,9 @@
 [package]
 name = "cumulus-client-pov-recovery"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Cumulus-specific networking protocol"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }

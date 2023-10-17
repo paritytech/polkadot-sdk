@@ -17,6 +17,7 @@
 
 //! Keystore traits
 
+#[cfg(feature = "std")]
 pub mod testing;
 
 #[cfg(feature = "bandersnatch-experimental")]
@@ -631,3 +632,15 @@ impl KeystoreExt {
 		Self(Arc::new(keystore))
 	}
 }
+
+sp_core::generate_feature_enabled_macro!(
+	bandersnatch_experimental_enabled,
+	feature = "bandersnatch-experimental",
+	$
+);
+
+sp_core::generate_feature_enabled_macro!(
+	bls_experimental_enabled,
+	feature = "bls-experimental",
+	$
+);

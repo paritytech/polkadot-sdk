@@ -371,7 +371,7 @@ where
 	}
 
 	async fn claim_slot(
-		&self,
+		&mut self,
 		_header: &B::Header,
 		slot: Slot,
 		authorities: &Self::AuxData,
@@ -790,7 +790,7 @@ mod tests {
 		let client = peer.client().as_client();
 		let environ = DummyFactory(client.clone());
 
-		let worker = AuraWorker {
+		let mut worker = AuraWorker {
 			client: client.clone(),
 			block_import: client,
 			env: environ,

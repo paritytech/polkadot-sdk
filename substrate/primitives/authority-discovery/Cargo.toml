@@ -1,12 +1,12 @@
 [package]
 name = "sp-authority-discovery"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Authority discovery primitives"
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 readme = "README.md"
 
 [package.metadata.docs.rs]

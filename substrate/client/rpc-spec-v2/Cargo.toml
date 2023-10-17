@@ -1,11 +1,11 @@
 [package]
 name = "sc-rpc-spec-v2"
 version = "0.10.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate RPC interface v2."
 readme = "README.md"
 
@@ -31,12 +31,11 @@ serde = "1.0"
 hex = "0.4"
 futures = "0.3.21"
 parking_lot = "0.12.1"
-tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.22.0", features = ["sync"] }
 array-bytes = "6.1"
 log = "0.4.17"
 futures-util = { version = "0.3.19", default-features = false }
-
 [dev-dependencies]
 serde_json = "1.0"
 tokio = { version = "1.22.0", features = ["macros"] }
