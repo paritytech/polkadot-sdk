@@ -20,27 +20,16 @@ use crate::metrics::Metrics;
 use async_trait::async_trait;
 use bounded_collections::ConstU32;
 use futures::{select, FutureExt};
-use polkadot_node_subsystem::{
-	messages::{
-		network_bridge_event::NewGossipTopology, ApprovalCheckResult, ApprovalDistributionMessage,
-		ApprovalVotingMessage, AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
-	},
-	overseer, ApprovalDistributionContextTrait, ApprovalDistributionSenderTrait, FromOrchestra,
-	OverseerSignal, SpawnedSubsystem, SubsystemContext, SubsystemError, SubsystemSender,
-};
+use polkadot_node_subsystem::{messages::network_bridge_event::NewGossipTopology, overseer};
 use polkadot_node_subsystem_util::{
 	reputation::REPUTATION_CHANGE_INTERVAL,
-	worker_pool::{
-		ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage, WorkerPool,
-	},
+	worker_pool::{ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage},
 };
-use polkadot_primitives::{
-	BlockNumber, CandidateIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
-};
+use polkadot_primitives::{BlockNumber, CandidateIndex};
 use tokio::sync::mpsc;
 
 use polkadot_node_primitives::approval::{
-	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+	BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
 };
 
 use rand::{CryptoRng, Rng, SeedableRng};
@@ -50,14 +39,10 @@ use std::{
 };
 
 use polkadot_node_network_protocol::{
-	self as net_protocol,
-	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
-	peer_set::{ProtocolVersion, ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 as protocol_v1, v2 as protocol_v2, ObservedRole, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, VersionedValidationProtocol, View,
+	peer_set::ProtocolVersion, ObservedRole, OurView, PeerId, View,
 };
 
-use state::{MessageKind, MessageSubject};
+use state::MessageSubject;
 pub mod state;
 
 /// Approval work item definition.
@@ -179,11 +164,9 @@ async fn dispatch_work(
 		ApprovalWorkerMessage::NewBlocks(metas) =>
 			state.handle_new_blocks(sender, metrics, metas, rng).await,
 		ApprovalWorkerMessage::PeerConnected(peer_id, role, protocol_version) =>
-			state
-				.handle_peer_connect(sender, metrics, peer_id, role, protocol_version, rng)
-				.await,
+			state.handle_peer_connect(peer_id, role, protocol_version).await,
 		ApprovalWorkerMessage::PeerDisconnected(peer_id) =>
-			state.handle_peer_disconnect(sender, metrics, peer_id).await,
+			state.handle_peer_disconnect(peer_id).await,
 		ApprovalWorkerMessage::NewGossipTopology(topology) =>
 			state
 				.handle_new_session_topology(
@@ -240,7 +223,7 @@ async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorke
 						// issues. To avoid the pool loop can periodically ask workers about pruned
 						// tasks and delete them accordingly from the hashmap. More thinking required.
 					},
-					WorkerMessage::SetupContext(context) => {},
+					WorkerMessage::SetupContext(_context) => {},
 					WorkerMessage::Batch(_, _) => {},
 				}
 			}
@@ -256,10 +239,10 @@ where
 	type Worker = ApprovalWorkerHandle<F>;
 	type Context = ApprovalContext;
 	type ChannelCapacity = ConstU32<4096>;
-	type PoolCapacity = ConstU32<4>;
+	type PoolCapacity = ConstU32<8>;
 
 	fn new_worker(&mut self) -> ApprovalWorkerHandle<F> {
-		let (to_worker, mut from_pool) = Self::new_worker_channel();
+		let (to_worker, from_pool) = Self::new_worker_channel();
 
 		tokio::spawn(worker_loop(from_pool, self.sender.clone(), self.metrics.clone()));
 

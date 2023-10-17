@@ -31,16 +31,15 @@ use polkadot_node_primitives::approval::{
 
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalCheckResult, ApprovalDistributionMessage, ApprovalVotingMessage,
-		AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ApprovalCheckResult, ApprovalVotingMessage, AssignmentCheckResult, NetworkBridgeTxMessage,
 	},
-	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer,
 };
 use polkadot_node_subsystem_util::reputation::ReputationAggregator;
 use polkadot_primitives::{
 	BlockNumber, CandidateIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
-use rand::{CryptoRng, Rng, SeedableRng};
+use rand::{CryptoRng, Rng};
 use std::collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::metrics::Metrics;
@@ -354,12 +353,9 @@ impl ApprovalWorkerState {
 
 	pub(crate) async fn handle_peer_connect(
 		&mut self,
-		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
-		metrics: &Metrics,
 		peer_id: PeerId,
 		role: ObservedRole,
 		version: ProtocolVersion,
-		rng: &mut (impl CryptoRng + Rng),
 	) {
 		// insert a blank view if none already present
 		gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
@@ -382,12 +378,7 @@ impl ApprovalWorkerState {
 			.or_insert_with(|| PeerData { version, view: Default::default() });
 	}
 
-	pub(crate) async fn handle_peer_disconnect(
-		&mut self,
-		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
-		metrics: &Metrics,
-		peer_id: PeerId,
-	) {
+	pub(crate) async fn handle_peer_disconnect(&mut self, peer_id: PeerId) {
 		gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
 		self.peer_data.remove(&peer_id);
 		self.blocks.iter_mut().for_each(|(_hash, entry)| {
@@ -655,13 +646,8 @@ impl ApprovalWorkerState {
 			return
 		}
 
-		self.import_and_circulate_approval(
-			sender,
-			metrics,
-			MessageSource::Peer(peer_id),
-			vote,
-		)
-		.await;
+		self.import_and_circulate_approval(sender, metrics, MessageSource::Peer(peer_id), vote)
+			.await;
 	}
 
 	// handle a peer view change: requires that the peer is already connected

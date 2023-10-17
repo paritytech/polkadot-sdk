@@ -234,6 +234,8 @@ impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
 		}
 	}
 
+	/// Notify workers that the specified `contexts` will not receive any more work and any
+	/// state relevant should be pruned.
 	pub async fn prune_work(&self, contexts: &[ContextCookie]) {
 		if let Err(e) = self.to_pool.send(WorkerPoolMessage::PruneWork(Vec::from(contexts))).await {
 			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::PruneWork`")
@@ -242,7 +244,7 @@ impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
 }
 
 impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
-	// Create with specified worker builder.
+	/// Create with specified worker builder.
 	pub fn with_config(config: &mut Config) -> (Self, WorkerPoolHandler<Config>) {
 		let context_per_worker = HashMap::new();
 
@@ -258,7 +260,7 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 		)
 	}
 
-	// Returns an iterator over worker handles.
+	/// Returns an iterator over worker handles.
 	pub fn worker_handles(&self) -> &[<Config as WorkerConfig>::Worker] {
 		&self.worker_handles
 	}

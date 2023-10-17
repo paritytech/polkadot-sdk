@@ -21,33 +21,17 @@
 #![warn(missing_docs)]
 
 use futures::{select, FutureExt as _};
-use polkadot_node_jaeger as jaeger;
+// use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
-	self as net_protocol,
-	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
-	peer_set::{ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 as protocol_v1, v2 as protocol_v2, PeerId, UnifiedReputationChange as Rep, Versioned,
-	VersionedValidationProtocol, View,
+	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, Versioned,
 };
-use polkadot_node_primitives::approval::{
-	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
-};
-use polkadot_node_subsystem_util::{
-	reputation::REPUTATION_CHANGE_INTERVAL, worker_pool::WorkerPool,
-};
+use polkadot_node_subsystem_util::worker_pool::WorkerPool;
 use worker::{state::MessageSource, ApprovalContext, ApprovalWorkerConfig, ApprovalWorkerMessage};
 
 use polkadot_node_subsystem::{
-	messages::{
-		ApprovalCheckResult, ApprovalDistributionMessage, ApprovalVotingMessage,
-		AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
-	},
+	messages::{ApprovalDistributionMessage, NetworkBridgeEvent},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::{BlakeTwo256, HashT};
-use rand::{CryptoRng, Rng, SeedableRng};
-use std::time::Duration;
-use worker::state::{MessageKind, MessageSubject};
 
 use self::metrics::Metrics;
 
@@ -98,7 +82,7 @@ impl ApprovalDistribution {
 					match message {
 						FromOrchestra::Communication { msg } =>
 							self.handle_incoming(&mut approval_worker_pool, &mut sender, msg, &metrics).await,
-						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
@@ -235,8 +219,9 @@ impl ApprovalDistribution {
 			},
 			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
 				// let sigs = state.get_approval_signatures(indices);
-				// TODO: remove this placeholder and implement aggregation of responses across workers.
-				let sigs = HashMap::new();
+				// TODO: remove this placeholder and implement aggregation of responses across
+				// workers.
+				let sigs = Default::default();
 				if let Err(_) = tx.send(sigs) {
 					gum::debug!(
 						target: LOG_TARGET,
