@@ -596,7 +596,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 				maybe_paid_export_message,
 			);
 
-			let report_brigde_status = |is_congested: bool| {
+			let report_bridge_status = |is_congested: bool| {
 				// prepare bridge config
 				let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
