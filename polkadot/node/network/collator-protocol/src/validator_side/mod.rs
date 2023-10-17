@@ -224,7 +224,6 @@ impl PeerData {
 		&mut self,
 		on_relay_parent: Hash,
 		relay_parent_mode: ProspectiveParachainsMode,
-		use_non_prospective_chain_mode: bool,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
 		active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
@@ -255,14 +254,14 @@ impl PeerData {
 
 				match (relay_parent_mode, candidate_hash) {
 					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
-						insert_non_prospective_chains_mode(&mut state, candidate_hash)?;
+						insert_non_prospective_chains_mode(state, candidate_hash)?;
 					},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
 						Some(candidate_hash),
 					) =>
-						if use_non_prospective_chain_mode {
-							insert_non_prospective_chains_mode(&mut state, candidate_hash)?;
+						if self.version == CollationVersion::V1 {
+							insert_non_prospective_chains_mode(state, Some(candidate_hash))?;
 						} else {
 							if state
 								.advertisements
@@ -932,8 +931,6 @@ enum AdvertisementError {
 	UndeclaredCollator,
 	/// We're assigned to a different para at the given relay parent.
 	InvalidAssignment,
-	/// An advertisement format doesn't match the relay parent.
-	ProtocolMismatch,
 	/// Para reached a limit of seconded candidates for this relay parent.
 	SecondedLimitReached,
 	/// Advertisement is invalid.
@@ -946,7 +943,7 @@ impl AdvertisementError {
 		match self {
 			InvalidAssignment => Some(COST_WRONG_PARA),
 			RelayParentUnknown | UndeclaredCollator | Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | ProtocolMismatch | SecondedLimitReached => None,
+			UnknownPeer | SecondedLimitReached => None,
 		}
 	}
 }
@@ -1054,10 +1051,6 @@ where
 		.get(&relay_parent)
 		.map(|s| s.child("advertise-collation"));
 
-	// If the collator is speaking to us using `v1` networking protocol, it can not use prospective
-	// chains mode, even if it is enabled in the runtime.
-	let use_non_prospective_chains_mode = prospective_candidate.is_none();
-
 	let per_relay_parent = state
 		.per_relay_parent
 		.get(&relay_parent)
@@ -1081,7 +1074,6 @@ where
 		.insert_advertisement(
 			relay_parent,
 			relay_parent_mode,
-			use_non_prospective_chains_mode,
 			candidate_hash,
 			&state.implicit_view,
 			&state.active_leaves,
@@ -1093,15 +1085,14 @@ where
 	}
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		let is_seconding_allowed = !use_non_prospective_chains_mode ||
-			can_second(
-				sender,
-				collator_para_id,
-				relay_parent,
-				candidate_hash,
-				parent_head_data_hash,
-			)
-			.await;
+		let is_seconding_allowed = can_second(
+			sender,
+			collator_para_id,
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
+		)
+		.await;
 
 		if !is_seconding_allowed {
 			gum::debug!(
