@@ -233,22 +233,23 @@ impl ApprovalDistribution {
 				let work_item = ApprovalWorkerMessage::ProcessApproval(vote, MessageSource::Local);
 				worker_pool.queue_work(work_item, Some(ApprovalContext)).await;
 			},
-			// ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
-			// 	let sigs = state.get_approval_signatures(indices);
-			// 	if let Err(_) = tx.send(sigs) {
-			// 		gum::debug!(
-			// 			target: LOG_TARGET,
-			// 			"Sending back approval signatures failed, oneshot got closed"
-			// 		);
-			// 	}
-			// },
+			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+				// let sigs = state.get_approval_signatures(indices);
+				// TODO: remove this placeholder and implement aggregation of responses across workers.
+				let sigs = HashMap::new();
+				if let Err(_) = tx.send(sigs) {
+					gum::debug!(
+						target: LOG_TARGET,
+						"Sending back approval signatures failed, oneshot got closed"
+					);
+				}
+			},
 			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
 				gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
 				worker_pool
 					.queue_work(ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag), None)
 					.await;
 			},
-			_ => {},
 		}
 	}
 }

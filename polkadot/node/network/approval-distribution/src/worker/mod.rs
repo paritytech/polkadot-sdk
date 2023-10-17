@@ -140,8 +140,40 @@ async fn dispatch_work(
 	work_item: ApprovalWorkerMessage,
 ) {
 	match work_item {
-		ApprovalWorkerMessage::ProcessApproval(vote, source) => {},
-		ApprovalWorkerMessage::ProcessAssignment(assignment_cert, candidate_index, source) => {},
+		ApprovalWorkerMessage::ProcessApproval(vote, source) => {
+			if let Some(peer_id) = source.peer_id() {
+				// Assingment comes from the network, we have to do some spam filtering.
+				state.handle_gossiped_approval(sender, metrics, peer_id, vote, rng).await;
+			} else {
+				state.import_and_circulate_approval(sender, metrics, source, vote).await;
+			}
+		},
+		ApprovalWorkerMessage::ProcessAssignment(assignment_cert, candidate_index, source) => {
+			if let Some(peer_id) = source.peer_id() {
+				// Assignment comes from the network, we have to do some spam filtering.
+				state
+					.handle_gossiped_assignment(
+						sender,
+						metrics,
+						peer_id,
+						assignment_cert,
+						candidate_index,
+						rng,
+					)
+					.await;
+			} else {
+				state
+					.import_and_circulate_assignment(
+						sender,
+						metrics,
+						source,
+						assignment_cert,
+						candidate_index,
+						rng,
+					)
+					.await;
+			}
+		},
 		ApprovalWorkerMessage::PeerViewChange(peer_id, view) =>
 			state.handle_peer_view_change(sender, metrics, peer_id, view, rng).await,
 		ApprovalWorkerMessage::NewBlocks(metas) =>

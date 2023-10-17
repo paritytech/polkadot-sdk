@@ -64,6 +64,7 @@ pub trait WorkerConfig: Sized + 'static {
 
 	// Helper for creating a channel from the pool main loop to a worker based on current
 	// configuration.
+	// TODO: Priority channel is required to enable workers to be responsive for some messages.
 	fn new_worker_channel() -> (Sender<WorkerMessage<Self>>, Receiver<WorkerMessage<Self>>) {
 		let max_workers = std::cmp::min(MAX_WORKERS, Self::PoolCapacity::get() as usize);
 		let worker_channel_capacity =

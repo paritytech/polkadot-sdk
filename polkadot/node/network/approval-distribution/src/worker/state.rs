@@ -290,7 +290,7 @@ pub(crate) enum MessageSource {
 }
 
 impl MessageSource {
-	fn peer_id(&self) -> Option<PeerId> {
+	pub(crate) fn peer_id(&self) -> Option<PeerId> {
 		match self {
 			Self::Peer(id) => Some(*id),
 			Self::Local => None,
@@ -578,95 +578,90 @@ impl ApprovalWorkerState {
 		.await;
 	}
 
-	async fn process_incoming_peer_message<R>(
+	pub(crate) async fn handle_gossiped_assignment<R>(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		peer_id: PeerId,
-		msg: net_protocol::ApprovalDistributionMessage,
+		assignment: IndirectAssignmentCert,
+		candidate_index: CandidateIndex,
 		rng: &mut R,
 	) where
 		R: CryptoRng + Rng,
 	{
-		match msg {
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					num = assignments.len(),
-					"Processing assignments from a peer",
-				);
-				for (assignment, claimed_index) in assignments.into_iter() {
-					if let Some(pending) = self.pending_known.get_mut(&assignment.block_hash) {
-						let message_subject = MessageSubject(
-							assignment.block_hash,
-							claimed_index,
-							assignment.validator,
-						);
+		gum::trace!(
+			target: LOG_TARGET,
+			peer_id = %peer_id,
+			?assignment,
+			"Processing gossiped assignment",
+		);
+		if let Some(pending) = self.pending_known.get_mut(&assignment.block_hash) {
+			let message_subject =
+				MessageSubject(assignment.block_hash, candidate_index, assignment.validator);
 
-						gum::trace!(
-							target: LOG_TARGET,
-							%peer_id,
-							?message_subject,
-							"Pending assignment",
-						);
+			gum::trace!(
+				target: LOG_TARGET,
+				%peer_id,
+				?message_subject,
+				"Pending assignment",
+			);
 
-						pending
-							.push((peer_id, PendingMessage::Assignment(assignment, claimed_index)));
+			pending.push((peer_id, PendingMessage::Assignment(assignment, candidate_index)));
 
-						continue
-					}
-
-					self.import_and_circulate_assignment(
-						sender,
-						metrics,
-						MessageSource::Peer(peer_id),
-						assignment,
-						claimed_index,
-						rng,
-					)
-					.await;
-				}
-			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					num = approvals.len(),
-					"Processing approvals from a peer",
-				);
-				for approval_vote in approvals.into_iter() {
-					if let Some(pending) = self.pending_known.get_mut(&approval_vote.block_hash) {
-						let message_subject = MessageSubject(
-							approval_vote.block_hash,
-							approval_vote.candidate_index,
-							approval_vote.validator,
-						);
-
-						gum::trace!(
-							target: LOG_TARGET,
-							%peer_id,
-							?message_subject,
-							"Pending approval",
-						);
-
-						pending.push((peer_id, PendingMessage::Approval(approval_vote)));
-
-						continue
-					}
-
-					self.import_and_circulate_approval(
-						sender,
-						metrics,
-						MessageSource::Peer(peer_id),
-						approval_vote,
-					)
-					.await;
-				}
-			},
+			return
 		}
+
+		self.import_and_circulate_assignment(
+			sender,
+			metrics,
+			MessageSource::Peer(peer_id),
+			assignment,
+			candidate_index,
+			rng,
+		)
+		.await;
+	}
+
+	pub(crate) async fn handle_gossiped_approval<R>(
+		&mut self,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		metrics: &Metrics,
+		peer_id: PeerId,
+		vote: IndirectSignedApprovalVote,
+		rng: &mut R,
+	) where
+		R: CryptoRng + Rng,
+	{
+		gum::trace!(
+			target: LOG_TARGET,
+			peer_id = %peer_id,
+			?vote,
+			"Processing gossiped approval",
+		);
+
+		if let Some(pending) = self.pending_known.get_mut(&vote.block_hash) {
+			let message_subject =
+				MessageSubject(vote.block_hash, vote.candidate_index, vote.validator);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				%peer_id,
+				?message_subject,
+				"Pending approval",
+			);
+
+			pending.push((peer_id, PendingMessage::Approval(vote)));
+
+			return
+		}
+
+		self.import_and_circulate_approval(
+			sender,
+			metrics,
+			MessageSource::Peer(peer_id),
+			vote,
+		)
+		.await;
 	}
 
 	// handle a peer view change: requires that the peer is already connected
@@ -754,7 +749,7 @@ impl ApprovalWorkerState {
 		self.enable_aggression(sender, Resend::No, metrics).await;
 	}
 
-	async fn import_and_circulate_assignment<R>(
+	pub(crate) async fn import_and_circulate_assignment<R>(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
@@ -1090,7 +1085,7 @@ impl ApprovalWorkerState {
 		}
 	}
 
-	async fn import_and_circulate_approval(
+	pub(crate) async fn import_and_circulate_approval(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
