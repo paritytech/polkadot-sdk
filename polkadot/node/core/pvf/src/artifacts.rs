@@ -103,7 +103,7 @@ macro_rules! concat_const {
 const RUNTIME_PREFIX: &str = "wasmtime_";
 const NODE_PREFIX: &str = "polkadot_v";
 const ARTIFACT_PREFIX: &str =
-	concat_const!(concat_const!(RUNTIME_PREFIX, NODE_PREFIX), NODE_VERSION);
+	concat_const!(RUNTIME_PREFIX, concat_const!(NODE_PREFIX, NODE_VERSION));
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -123,22 +123,6 @@ impl ArtifactId {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
 	}
 
-	/// Tries to recover the artifact id from the given file name.
-	#[cfg(test)]
-	pub fn from_file_name(file_name: &str) -> Option<Self> {
-		let file_name = file_name.strip_prefix(RUNTIME_PREFIX)?.strip_prefix(NODE_PREFIX)?;
-
-		// [ node version | code hash | param hash ]
-		let parts: Vec<&str> = file_name.split('_').collect();
-		let (_node_ver, code_hash_str, executor_params_hash_str) = (parts[0], parts[1], parts[2]);
-
-		let code_hash = Hash::from_str(code_hash_str).ok()?.into();
-		let executor_params_hash =
-			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
-
-		Some(Self { code_hash, executor_params_hash })
-	}
-
 	/// Returns the expected path to this artifact given the root of the cache.
 	pub fn path(&self, cache_path: &Path) -> PathBuf {
 		let file_name = format!(
@@ -146,6 +130,26 @@ impl ArtifactId {
 			RUNTIME_PREFIX, NODE_PREFIX, NODE_VERSION, self.code_hash, self.executor_params_hash
 		);
 		cache_path.join(file_name)
+	}
+
+	/// Tries to recover the artifact id from the given file name.
+	pub(crate) fn from_file_name(file_name: &str) -> Option<Self> {
+		let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
+
+		// [ code hash | param hash ]
+		let hashes: Vec<&str> = file_name.split('_').collect();
+
+		if hashes.len() != 2 {
+			return None
+		}
+
+		let (code_hash_str, executor_params_hash_str) = (hashes[0], hashes[1]);
+
+		let code_hash = Hash::from_str(code_hash_str).ok()?.into();
+		let executor_params_hash =
+			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
+
+		Some(Self { code_hash, executor_params_hash })
 	}
 }
 
@@ -232,26 +236,7 @@ impl Artifacts {
 			!file_name.starts_with(ARTIFACT_PREFIX)
 		}
 
-		fn id_from_file_name(file_name: &str) -> Option<ArtifactId> {
-			let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
-
-			// [ code hash | param hash ]
-			let hashes: Vec<&str> = file_name.split('_').collect();
-
-			if hashes.len() != 2 {
-				return None
-			}
-
-			let (code_hash_str, executor_params_hash_str) = (hashes[0], hashes[1]);
-
-			let code_hash = Hash::from_str(code_hash_str).ok()?.into();
-			let executor_params_hash =
-				ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
-
-			Some(ArtifactId { code_hash, executor_params_hash })
-		}
-
-		fn insert_cache_as_prepared(artifacts: &mut Artifacts, id: ArtifactId) {
+		fn insert_cache(artifacts: &mut Artifacts, id: ArtifactId) {
 			let last_time_needed = SystemTime::now();
 			let prepare_stats = Default::default();
 			always!(artifacts
@@ -278,8 +263,8 @@ impl Artifacts {
 
 						if is_stale(file_name) {
 							prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
-						} else if let Some(id) = id_from_file_name(file_name) {
-							insert_cache_as_prepared(artifacts, id);
+						} else if let Some(id) = ArtifactId::from_file_name(file_name) {
+							insert_cache(artifacts, id);
 						}
 					},
 					Err(err) => gum::error!(
