@@ -79,7 +79,9 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 		Attribute::<T, I>::get((collection, Some(item), namespace, key)).map(|a| a.0.into())
 	}
 
-	/// Returns the system attribute value of `item` of `collection` corresponding to `key`.
+	/// Returns the system attribute value of `item` of `collection` corresponding to `key` if
+	/// `item` is `Some`. Otherwise, returns the system attribute value of `collection`
+	/// corresponding to `key`.
 	///
 	/// By default this is `None`; no attributes are defined.
 	fn system_attribute(

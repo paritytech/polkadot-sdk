@@ -60,7 +60,9 @@ pub trait Inspect<AccountId> {
 		None
 	}
 
-	/// Returns the system attribute value of `item` corresponding to `key`.
+	/// Returns the system attribute value of `item` of `collection` corresponding to `key` if
+	/// `item` is `Some`. Otherwise, returns the system attribute value of `collection`
+	/// corresponding to `key`.
 	///
 	/// By default this is `None`; no attributes are defined.
 	fn system_attribute(_item: Option<&Self::ItemId>, _key: &[u8]) -> Option<Vec<u8>> {
@@ -87,7 +89,9 @@ pub trait Inspect<AccountId> {
 			.and_then(|v| V::decode(&mut &v[..]).ok())
 	}
 
-	/// Returns the strongly-typed system attribute value of `item` corresponding to `key`.
+	/// Returns the strongly-typed system attribute value of `item` corresponding to `key` if
+	/// `item` is `Some`. Otherwise, returns the strongly-typed system attribute value of
+	/// `collection` corresponding to `key`.
 	///
 	/// By default this just attempts to use `system_attribute`.
 	fn typed_system_attribute<K: Encode, V: Decode>(
