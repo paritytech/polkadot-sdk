@@ -19,6 +19,7 @@
 
 use std::{
 	collections::{HashMap, HashSet},
+	fmt::Write,
 	fs,
 	path::PathBuf,
 };
@@ -142,9 +143,6 @@ pub(crate) fn map_results(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
-	max_extrinsic_weight: Weight,
-	db_weight: RuntimeDbWeight,
-	sanity_check: bool,
 ) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
@@ -172,25 +170,26 @@ pub(crate) fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		// Sanity check for benchmarks. Checks whether an extrinsic's maximum weight (based on max
-		// component) exceeds the max extrinsic weight.
-		benchmark_sanity_check(&benchmark_data, max_extrinsic_weight, db_weight, sanity_check)?;
 		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
 }
 
-// Calculates the total maximum weight of an extrinsic, based on the max component, and compares it
-// with the max extrinsic weight.
+// Calculates the total maximum weight of an extrinsic (if present, based on the max component) and compares it
+// with the max extrinsic weight allowed in a single block.
 //
-// `max_extrinsic_weight` & `db_weight` are obtained from the runtime.
-fn benchmark_sanity_check(
-	result: &BenchmarkData,
+// `max_extrinsic_weight` & `db_weight` are obtained from the runtime configuration.
+pub(crate) fn sanity_weight_check(
+	all_results: HashMap<(String, String), Vec<BenchmarkData>>,
 	max_extrinsic_weight: Weight,
 	db_weight: RuntimeDbWeight,
-	sanity_check: bool,
+	sanity_weight_check_warning: bool,
 ) -> Result<(), std::io::Error> {
+	let mut err_message = String::new();
+	let mut sanity_weight_check_failed = false;
+
+	// Helper function to return max component value.
 	fn max_component(parameter: &ComponentSlope, component_ranges: &Vec<ComponentRange>) -> u64 {
 		for component in component_ranges {
 			if parameter.name == component.name {
@@ -200,56 +199,65 @@ fn benchmark_sanity_check(
 		0
 	}
 
-	let mut total_weight = Weight::from_parts(
-		result.base_weight.try_into().unwrap(),
-		result.base_calculated_proof_size.try_into().unwrap(),
-	);
-	for component in &result.component_weight {
-		total_weight = total_weight.saturating_add(
-			Weight::from_parts(component.slope.try_into().unwrap(), 0)
-				.saturating_mul(max_component(&component, &result.component_ranges)),
-		);
-	}
-	total_weight =
-		total_weight.saturating_add(db_weight.reads(result.base_reads.try_into().unwrap()));
-	for component in &result.component_reads {
-		total_weight = total_weight.saturating_add(
-			db_weight
-				.reads(component.slope.try_into().unwrap())
-				.saturating_mul(max_component(&component, &result.component_ranges)),
-		);
-	}
-	total_weight =
-		total_weight.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
-	for component in &result.component_writes {
-		total_weight = total_weight.saturating_add(
-			db_weight
-				.writes(component.slope.try_into().unwrap())
-				.saturating_mul(max_component(&component, &result.component_ranges)),
-		);
-	}
-	for component in &result.component_calculated_proof_size {
-		total_weight = total_weight.saturating_add(
-			Weight::from_parts(0, component.slope.try_into().unwrap())
-				.saturating_mul(max_component(&component, &result.component_ranges)),
-		);
-	}
-	if total_weight.ref_time() > max_extrinsic_weight.ref_time() ||
-		total_weight.proof_size() > max_extrinsic_weight.proof_size()
-	{
-		let err_message = format!("Extrinsic {} exceeds the max extrinsic weight", result.name);
-		println!("\u{1b}[31mWARNING!!!\u{1b}[39m {:?}", err_message);
-		println!("Extrinsic {}: {:?}\nPercentage of max extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)", 
-			result.name,
-			total_weight,
-			(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
-			(total_weight.proof_size() as f64 / max_extrinsic_weight.proof_size() as f64) * 100.0,
-		);
-		if sanity_check {
-			return Err(io_error(&err_message))
+	// Loop through all benchmark results. 
+	for ((_, _), results) in all_results.iter() {
+		// Per pallet where there can be multiple instances of a pallet.
+		for result in results {
+			let mut total_weight = Weight::from_parts(
+				result.base_weight.try_into().unwrap(),
+				result.base_calculated_proof_size.try_into().unwrap(),
+			);
+			for component in &result.component_weight {
+				total_weight = total_weight.saturating_add(
+					Weight::from_parts(component.slope.try_into().unwrap(), 0)
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			total_weight =
+				total_weight.saturating_add(db_weight.reads(result.base_reads.try_into().unwrap()));
+			for component in &result.component_reads {
+				total_weight = total_weight.saturating_add(
+					db_weight
+						.reads(component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			total_weight =
+				total_weight.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
+			for component in &result.component_writes {
+				total_weight = total_weight.saturating_add(
+					db_weight
+						.writes(component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			for component in &result.component_calculated_proof_size {
+				total_weight = total_weight.saturating_add(
+					Weight::from_parts(0, component.slope.try_into().unwrap())
+						.saturating_mul(max_component(&component, &result.component_ranges)),
+				);
+			}
+			if total_weight.ref_time() > max_extrinsic_weight.ref_time() ||
+				total_weight.proof_size() > max_extrinsic_weight.proof_size()
+			{
+				sanity_weight_check_failed = true;
+				let error = format!("\nExtrinsic {} exceeds the max extrinsic weight", result.name);
+				println!("\u{1b}[31mWARNING!!!\u{1b}[39m {:?}", error);
+				println!("Extrinsic {}: {:?}\nPercentage of max extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)", 
+					result.name,
+					total_weight,
+					(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
+					(total_weight.proof_size() as f64 / max_extrinsic_weight.proof_size() as f64) * 100.0,
+				);
+				write!(&mut err_message, "{}", error);
+			}
 		}
 	}
-	Ok(())
+	if sanity_weight_check_failed && !sanity_weight_check_warning {
+		Err(io_error(&err_message))
+	} else {
+		Ok(())
+	}
 }
 
 // Get an iterator of errors.
@@ -459,7 +467,7 @@ pub(crate) fn write_results(
 	path: &PathBuf,
 	cmd: &PalletCmd,
 	analysis_choice: AnalysisChoice,
-	all_results: HashMap<(String, String), Vec<BenchmarkData>>,
+	all_results: &HashMap<(String, String), Vec<BenchmarkData>>,
 ) -> Result<(), sc_cli::Error> {
 	// Use custom template if provided.
 	let template: String = match &cmd.template {

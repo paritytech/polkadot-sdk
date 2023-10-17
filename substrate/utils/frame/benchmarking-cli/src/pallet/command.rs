@@ -548,15 +548,16 @@ impl PalletCmd {
 			&pov_analysis_choice,
 			self.worst_case_map_values,
 			self.additional_trie_layers,
-			max_extrinsic_weight,
-			db_weight,
-			self.sanity_check,
 		)?;
 
 		// Create the weights.rs file.
 		if let Some(output_path) = &self.output {
-			writer::write_results(output_path, self, analysis_choice, all_results)?;
+			writer::write_results(output_path, self, analysis_choice, &all_results)?;
 		}
+
+		// Sanity check for benchmarks. Checks whether an extrinsic's maximum weight (based on max
+		// component) exceeds the max extrinsic weight.
+		writer::sanity_weight_check(all_results, max_extrinsic_weight, db_weight, self.sanity_weight_check_warning)?;
 
 		Ok(())
 	}
