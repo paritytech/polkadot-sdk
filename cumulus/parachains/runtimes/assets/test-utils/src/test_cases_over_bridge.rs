@@ -615,7 +615,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 
-			report_brigde_status(true);
-			report_brigde_status(false);
+			report_bridge_status(true);
+			report_bridge_status(false);
 		})
 }
