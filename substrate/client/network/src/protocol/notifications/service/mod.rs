@@ -70,7 +70,7 @@ impl MessageSink for NotificationSink {
 		sink.0.send_sync_notification(notification);
 	}
 
-	/// Send an asynchronous `notification` to to the peer associated with this [`MessageSink`],
+	/// Send an asynchronous `notification` to the peer associated with this [`MessageSink`],
 	/// allowing sender to exercise backpressure.
 	///
 	/// Returns an error if the peer does not exist.
