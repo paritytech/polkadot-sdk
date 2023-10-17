@@ -70,11 +70,11 @@ use sp_std::prelude::*;
 /// 	>;
 /// }
 /// ```
-/// ### Partial Iteration
+/// ### Partial Iteration & Removal
 /// When `Hasher1` and `Hasher2` implement the 
-/// [`ReversibleStorageHasher`](frame_support::ReversibleStorageHasher) trait, we can iterate
-/// over keys and values of the double map partially.
-#[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_iteration)]
+/// [`ReversibleStorageHasher`](frame_support::ReversibleStorageHasher) trait, the first key `k1`
+/// can be used to partially iterate over keys and values of the double map, and to delete items.
+#[doc = docify::embed!("src/storage/types/double_map.rs", example_double_map_partial_operations)]
 pub struct StorageDoubleMap<
 	Prefix,
 	Hasher1,
@@ -998,7 +998,7 @@ mod test {
 
 	#[docify::export]
 	#[test]
-	fn example_double_map_partial_iteration() {
+	fn example_double_map_partial_operations() {
 		use sp_std::collections::btree_set::BTreeSet;
 		type FooDoubleMap = StorageDoubleMap<Prefix, Blake2_128Concat, u32, Blake2_128Concat, u32, u32, ValueQuery>;
 		TestExternalities::default().execute_with(|| {
@@ -1008,9 +1008,13 @@ mod test {
 			let collected_k2_keys: BTreeSet<_> = FooDoubleMap::iter_key_prefix(0,).collect();
 			// `collected_k2_keys` should be equal to {0,1} (ordering is random)
 			assert_eq!(collected_k2_keys, [0, 1].iter().copied().collect::<BTreeSet<_>>());
-			let collected_k2_valus: BTreeSet<_> = FooDoubleMap::iter_prefix_values(0,).collect();
+			let collected_k2_values: BTreeSet<_> = FooDoubleMap::iter_prefix_values(0,).collect();
 			// `collected_k2_values` should be equal to {42,43} (ordering is random)
-			assert_eq!(collected_k2_valus, [42,43].iter().copied().collect::<BTreeSet<_>>());
+			assert_eq!(collected_k2_values, [42,43].iter().copied().collect::<BTreeSet<_>>());
+			// Remove items from the map using k1 = 0
+			let _ = FooDoubleMap::clear_prefix(0, u32::max_value(), None);
+			// Values associated with (0, _) should have been removed
+			assert_eq!(FooDoubleMap::iter_prefix(0,).collect::<Vec<_>>(), vec![]);
 		});
 	}
 }
