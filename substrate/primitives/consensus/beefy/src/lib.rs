@@ -349,9 +349,9 @@ where
 /// finalized by GRANDPA. This is fine too, since the slashing risk of committing to
 /// an incorrect block implies validators will only sign blocks they *know* will be
 /// finalized by GRANDPA.
-pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash, Hasher>(
+pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
 	proof: &ForkEquivocationProof<
-		Number,
+		Header::Number,
 		Id,
 		<Id as RuntimeAppPublic>::Signature,
 		Header,
@@ -360,25 +360,50 @@ pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header, NodeHash, Hash
 	expected_root: Hasher::Item,
 	mmr_size: u64,
 	expected_header_hash: &Header::Hash,
+	first_mmr_block_num: Header::Number,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
-	Number: Clone + Encode + PartialEq,
 	MsgHash: Hash,
 	Header: sp_api::HeaderT,
-	NodeHash: Clone + Debug + PartialEq + Encode,
+	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
 	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
-
-	if Ok(false) ==
-		sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-			expected_root,
-			mmr_size,
-			ancestry_proof.clone(),
-		) {
-		return false
+	// verify that the prev_root is at the correct block number
+	// this can be inferred from the leaf_count / mmr_size of the prev_root:
+	// convert the commitment.block_number to an mmr size and compare with the value in the ancestry
+	// proof
+	{
+		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
+			commitment.block_number,
+			first_mmr_block_num,
+		)
+		.and_then(|leaf_index| {
+			leaf_index.checked_add(1).ok_or_else(|| {
+				sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
+			})
+		});
+		// if the block number either under- or overflowed, the commitment.block_number was not
+		// valid and the commitment should not have been signed, hence we can skip the ancestry
+		// proof and slash the signatories
+		if let Ok(expected_leaf_count) = expected_leaf_count {
+			let expected_mmr_size =
+				sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
+			if expected_mmr_size != ancestry_proof.prev_size {
+				return false
+			}
+			if Ok(true) !=
+				sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+					expected_root,
+					mmr_size,
+					ancestry_proof.clone(),
+				) {
+				return false
+			}
+		}
 	}
+
 
 	if correct_header.hash() != *expected_header_hash {
 		return false
@@ -388,13 +413,26 @@ where
 	let expected_payload = expected_mmr_root_digest
 		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
 
+	let ancestry_prev_root =
+		mmr_lib::bagging_peaks_hashes::<NodeHash, Hasher>(ancestry_proof.prev_peaks.clone());
+
+	// if the commitment payload does not commit to an MMR root, then this commitment may have
+	// another purpose and should not be slashed
+	// TODO: what if we can nonetheless show that there's another payload at the same block number?
+	// if we're keeping both header & mmr root slashing, then we may proceed in this case
+	// nonetheless
+	let commitment_prev_root =
+		commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
 	// cheap failfasts:
 	// 1. check that `payload` on the `vote` is different that the `expected_payload`
 	// 2. if the signatories signed a payload when there should be none (for
 	// instance for a block prior to BEEFY activation), then expected_payload =
-	// None, and they will likewise be slashed
-	if Some(&commitment.payload) != expected_payload.as_ref() {
-		// check check each signatory's signature on the commitment.
+	// None, and they will likewise be slashed (note we can only check this if a valid header has
+	// been provided - we cannot slash for this with an ancestry proof - by necessity)
+	if Some(&commitment.payload) != expected_payload.as_ref() ||
+		(ancestry_prev_root.is_ok() && commitment_prev_root != ancestry_prev_root.ok())
+	{
+		// check each signatory's signature on the commitment.
 		// if any are invalid, equivocation report is invalid
 		// TODO: refactor check_commitment_signature to take a slice of signatories
 		return signatories.iter().all(|(authority_id, signature)| {

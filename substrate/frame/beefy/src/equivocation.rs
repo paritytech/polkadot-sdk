@@ -289,8 +289,21 @@ where
 			EquivocationEvidenceFor::ForkEquivocationProof(equivocation_proof, _) => {
 				let block_number = equivocation_proof.commitment.block_number;
 				let expected_block_hash = <frame_system::Pallet<T>>::block_hash(block_number);
-				let mmr_size = <pallet_mmr::Pallet<T>>::mmr_size();
+				let mmr_size =
+					sp_mmr_primitives::utils::NodesUtils::new(<pallet_mmr::Pallet<T>>::mmr_size())
+						.size();
 				let expected_mmr_root = <pallet_mmr::Pallet<T>>::mmr_root();
+				// if first_mmr_block_num is invalid, then presumably beefy is not active.
+				// TODO: should we slash in this case?
+				let first_mmr_block_num = {
+					let best_block_num = <frame_system::Pallet<T>>::block_number();
+					let mmr_leaf_count = <pallet_mmr::Pallet<T>>::mmr_size();
+					sp_mmr_primitives::utils::first_mmr_block_num::<HeaderFor<T>>(
+						best_block_num,
+						mmr_leaf_count,
+					)
+					.map_err(|_| Error::<T>::InvalidForkEquivocationProof)?
+				};
 
 				// Validate equivocation proof (check commitment is to unexpected payload and
 				// signatures are valid).
@@ -304,11 +317,15 @@ where
 					_,
 					_,
 					_,
-					_,
 					<<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output,
 					sp_mmr_primitives::utils::AncestryHasher<<T as pallet_mmr::Config>::Hashing>,
-				>(equivocation_proof, expected_mmr_root, mmr_size, &expected_block_hash)
-				{
+				>(
+					equivocation_proof,
+					expected_mmr_root,
+					mmr_size,
+					&expected_block_hash,
+					first_mmr_block_num,
+				) {
 					return Err(Error::<T>::InvalidForkEquivocationProof.into())
 				}
 			},

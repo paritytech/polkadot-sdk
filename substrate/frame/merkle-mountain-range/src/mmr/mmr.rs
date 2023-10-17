@@ -20,7 +20,7 @@ use crate::{
 		storage::{OffchainStorage, RuntimeStorage, Storage},
 		Hasher, Node, NodeOf,
 	},
-	primitives::{self, Error, NodeIndex},
+	primitives::{self, Error, LeafIndex, NodeIndex},
 	Config, HashOf, HashingOf,
 };
 use sp_mmr_primitives::{mmr_lib, utils::NodesUtils};
@@ -229,9 +229,10 @@ where
 
 	pub fn generate_ancestry_proof(
 		&self,
-		prev_mmr_size: NodeIndex,
+		prev_leaf_count: LeafIndex,
 	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
 		let leaf_count = self.leaves;
+		let prev_mmr_size = NodesUtils::new(prev_leaf_count).size();
 		self.mmr
 			.gen_prefix_proof(prev_mmr_size)
 			.map_err(|e| Error::GenerateProof.log_error(e))

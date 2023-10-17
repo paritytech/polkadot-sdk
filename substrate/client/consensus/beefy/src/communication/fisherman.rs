@@ -130,16 +130,22 @@ where
 			.mmr_leaf_count(best_hash)
 			.map_err(Error::RuntimeApi)?;
 
+		let first_mmr_block_num = unimplemented!();
+
 		if proof.commitment.validator_set_id != set_id ||
 			!check_fork_equivocation_proof::<
-				NumberFor<B>,
 				AuthorityId,
 				BeefySignatureHasher,
 				B::Header,
 				MmrRootHash,
 				sp_mmr_primitives::utils::AncestryHasher<MmrHashing>,
-			>(&proof, expected_mmr_root.unwrap(), mmr_size.unwrap(), &expected_header_hash)
-		{
+			>(
+				&proof,
+				expected_mmr_root.unwrap(),
+				mmr_size.unwrap(),
+				&expected_header_hash,
+				first_mmr_block_num,
+			) {
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad invalid fork proof {:?}", proof);
 			return Ok(())
 		}
