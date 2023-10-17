@@ -1699,7 +1699,7 @@ fn can_destroy_pool_after_asset_has_been_destroyed() {
 		));
 
 		assert_noop!(
-			AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2),
+			AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2),
 			Error::<Test>::PoolNotDestroyable
 		);
 
@@ -1712,7 +1712,7 @@ fn can_destroy_pool_after_asset_has_been_destroyed() {
 			Error::<Test>::PoolExists
 		);
 
-		assert_ok!(AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2));
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
 		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
 
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
@@ -1753,7 +1753,7 @@ fn can_destroy_pool_after_asset_has_been_recreated() {
 		));
 
 		assert_noop!(
-			AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2),
+			AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2),
 			Error::<Test>::PoolNotDestroyable
 		);
 
@@ -1769,7 +1769,7 @@ fn can_destroy_pool_after_asset_has_been_recreated() {
 			Error::<Test>::PoolExists
 		);
 
-		assert_ok!(AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2));
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
 		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
 
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
@@ -1864,7 +1864,7 @@ fn can_destroy_empty_pool() {
 			Error::<Test>::PoolExists
 		);
 
-		assert_ok!(AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2));
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
 		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
 
@@ -1897,7 +1897,7 @@ fn instantly_recreate_destroyed_pool() {
 			Error::<Test>::PoolExists
 		);
 
-		assert_ok!(AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2));
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
 		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
 
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));

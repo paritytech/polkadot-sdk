@@ -73,7 +73,7 @@ use frame_support::{
 	traits::tokens::{AssetId, Balance},
 };
 use frame_system::{
-	ensure_root, ensure_signed,
+	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
 pub use pallet::*;
@@ -714,9 +714,6 @@ pub mod pallet {
 		/// This can only be called if one of the underlying assets
 		/// in the pool has been destroyed OR if the pool has been
 		/// created but no liquidity has ever been put in it.
-		///
-		/// To allow lp owners time to withdraw remaining liquidity,
-		/// this call is root origin only.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::start_destroy_pool())]
 		pub fn start_destroy_pool(
@@ -724,7 +721,7 @@ pub mod pallet {
 			asset1: T::MultiAssetId,
 			asset2: T::MultiAssetId,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			let _sender = ensure_signed(origin)?;
 
 			let pool_id = Self::get_pool_id(asset1, asset2);
 			let maybe_pool = Pools::<T>::get(&pool_id);
@@ -755,7 +752,7 @@ pub mod pallet {
 			pool_id: PoolIdOf<T>,
 			max_items: u32,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let _sender = ensure_signed(origin)?;
 			let maybe_pool = Pools::<T>::get(&pool_id);
 			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
 			T::PoolAssets::destroy_accounts(pool.lp_token.clone(), max_items)?;
@@ -772,7 +769,7 @@ pub mod pallet {
 			pool_id: PoolIdOf<T>,
 			max_items: u32,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let _sender = ensure_signed(origin)?;
 			let maybe_pool = Pools::<T>::get(&pool_id);
 			let pool = maybe_pool.as_ref().ok_or(Error::<T>::PoolNotFound)?;
 			T::PoolAssets::destroy_approvals(pool.lp_token.clone(), max_items)?;
@@ -788,7 +785,7 @@ pub mod pallet {
 			asset1: T::MultiAssetId,
 			asset2: T::MultiAssetId,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let _sender = ensure_signed(origin)?;
 
 			let pool_id = Self::get_pool_id(asset1, asset2);
 			let maybe_pool = Pools::<T>::get(&pool_id);
