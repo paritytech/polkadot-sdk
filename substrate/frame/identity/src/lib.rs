@@ -378,7 +378,7 @@ pub mod pallet {
 					&HoldReason::ReasonHere.into(),
 					&sender,
 					id.deposit - old_deposit,
-				);
+				)?;
 			}
 			if old_deposit > id.deposit {
 				let err_amount = T::Fungible::unreserve(&sender, old_deposit - id.deposit);
@@ -430,7 +430,11 @@ pub mod pallet {
 			ensure!(not_other_sub, Error::<T>::AlreadyClaimed);
 
 			if old_deposit < new_deposit {
-				T::Fungible::reserve(&sender, new_deposit - old_deposit)?;
+				T::Fungible::hold(
+					&HoldReason::ReasonHere.into(),
+					&sender,
+					new_deposit - old_deposit,
+				)?;
 			} else if old_deposit > new_deposit {
 				let err_amount = T::Fungible::unreserve(&sender, old_deposit - new_deposit);
 				debug_assert!(err_amount.is_zero());
@@ -484,7 +488,6 @@ pub mod pallet {
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
-
 			let err_amount = T::Fungible::unreserve(&sender, deposit);
 			debug_assert!(err_amount.is_zero());
 
@@ -546,7 +549,7 @@ pub mod pallet {
 					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
 			}
 
-			T::Fungible::reserve(&sender, registrar.fee)?;
+			T::Fungible::hold(&HoldReason::ReasonHere.into(), &sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
 			#[allow(deprecated)]
@@ -855,7 +858,7 @@ pub mod pallet {
 					Error::<T>::TooManySubAccounts
 				);
 				let deposit = T::SubAccountDeposit::get();
-				T::Fungible::reserve(&sender, deposit)?;
+				T::Fungible::hold(&HoldReason::ReasonHere.into(), &sender, deposit)?;
 
 				SuperOf::<T>::insert(&sub, (sender.clone(), data));
 				sub_ids.try_push(sub.clone()).expect("sub ids length checked above; qed");
