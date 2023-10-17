@@ -1752,10 +1752,17 @@ async fn kick_off_validation_work<Context>(
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
 ) -> Result<(), Error> {
-	// Do nothing if the local validator is disabled
-	if rp_state.table_context.local_validator_is_disabled() == Some(true) {
-		gum::debug!(target: LOG_TARGET, "We are disabled - don't kick off validation");
-		return Ok(())
+	// Do nothing if the local validator is disabled or not a validator at all
+	match rp_state.table_context.local_validator_is_disabled() {
+		Some(true) => {
+			gum::debug!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+			return Ok(())
+		},
+		Some(false) => {}, // we are not disabled - move on
+		None => {
+			gum::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
+			return Ok(())
+		},
 	}
 
 	let candidate_hash = attesting.candidate.hash();
