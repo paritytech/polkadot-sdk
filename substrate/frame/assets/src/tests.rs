@@ -1337,7 +1337,7 @@ fn freezer_should_work() {
 
 #[test]
 fn imbalances_should_work() {
-	use frame_support::traits::tokens::fungibles::Balanced;
+	use frame_support::traits::fungibles::Balanced;
 
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
@@ -1600,7 +1600,7 @@ fn assets_from_genesis_should_exist() {
 #[test]
 fn querying_name_symbol_and_decimals_should_work() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::tokens::fungibles::metadata::Inspect;
+		use frame_support::traits::fungibles::metadata::Inspect;
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::force_set_metadata(
 			RuntimeOrigin::root(),
@@ -1619,7 +1619,7 @@ fn querying_name_symbol_and_decimals_should_work() {
 #[test]
 fn querying_allowance_should_work() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::tokens::fungibles::approvals::{Inspect, Mutate};
+		use frame_support::traits::fungibles::approvals::{Inspect, Mutate};
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 		Balances::set_balance(&1, 2);
@@ -1644,7 +1644,7 @@ fn transfer_large_asset() {
 #[test]
 fn querying_roles_should_work() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::tokens::fungibles::roles::Inspect;
+		use frame_support::traits::fungibles::roles::Inspect;
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::set_team(
 			RuntimeOrigin::signed(1),
