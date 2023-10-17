@@ -139,7 +139,7 @@ impl TryFrom<&[u8]> for Public {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != Self::LEN {
-			return Err(());
+			return Err(())
 		}
 		let mut r = [0u8; Self::LEN];
 		r.copy_from_slice(data);

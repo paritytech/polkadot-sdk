@@ -1192,8 +1192,7 @@ pub trait Crypto {
 		Ok(pubkey.serialize())
 	}
 
-
-    	/// Generate an `bls12-377` key for the given key type using an optional `seed` and
+	/// Generate an `bls12-377` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
@@ -1208,14 +1207,19 @@ pub trait Crypto {
 			.expect("`bls377_generate` failed")
 	}
 
-    // Generate an pair of  `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	// Generate an pair of  `(ecdsa,bls12-377)` key for the given key type using an optional `seed`
+	// and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls377::Public {
+	fn ecdsa_bls377_generate(
+		&mut self,
+		id: KeyTypeId,
+		seed: Option<Vec<u8>>,
+	) -> ecdsa_bls377::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")

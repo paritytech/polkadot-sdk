@@ -206,7 +206,7 @@ impl<T> TryFrom<&[u8]> for Public<T> {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != PUBLIC_KEY_SERIALIZED_SIZE {
-			return Err(());
+			return Err(())
 		}
 		let mut r = [0u8; PUBLIC_KEY_SERIALIZED_SIZE];
 		r.copy_from_slice(data);
@@ -332,7 +332,7 @@ impl<T> TryFrom<&[u8]> for Signature<T> {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(());
+			return Err(())
 		}
 		let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
 		inner.copy_from_slice(data);
@@ -442,7 +442,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECRET_KEY_SERIALIZED_SIZE {
-			return Err(SecretStringError::InvalidSeedLength);
+			return Err(SecretStringError::InvalidSeedLength)
 		}
 		let secret = w3f_bls::SecretKey::from_seed(seed_slice);
 		let public = secret.into_public();
