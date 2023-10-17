@@ -1394,7 +1394,7 @@ impl NetworkBehaviour for Notifications {
 				}
 
 				if let Some(peer_id) = peer_id {
-					trace!(target: "sub-libp2p", "Libp2p => Dial failure for {:?}", peer_id);
+					trace!(target: "sub-libp2p", "Libp2p => Dial failure for {:?} {error:?}", peer_id);
 
 					for set_id in (0..self.notif_protocols.len()).map(SetId::from) {
 						if let Entry::Occupied(mut entry) = self.peers.entry((peer_id, set_id)) {
