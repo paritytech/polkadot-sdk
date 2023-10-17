@@ -32,26 +32,25 @@ use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	executor_intf::Executor,
-	framed_recv, framed_send,
+	executor_intf::create_runtime_from_artifact_bytes,
+	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
-		bytes_to_path, cpu_time_monitor_loop,
-		security::LandlockStatus,
-		stringify_panic_payload,
+		cpu_time_monitor_loop, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		worker_event_loop,
+		worker_event_loop, WorkerKind,
 	},
-	ProcessTime,
+	worker_dir, ProcessTime, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream};
+use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
 pub struct CompiledArtifact(Vec<u8>);
@@ -69,36 +68,36 @@ impl AsRef<[u8]> for CompiledArtifact {
 	}
 }
 
-async fn recv_request(stream: &mut UnixStream) -> io::Result<(PvfPrepData, PathBuf)> {
-	let pvf = framed_recv(stream).await?;
+fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
+	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			format!("prepare pvf recv_request: failed to decode PvfPrepData: {}", e),
 		)
 	})?;
-	let tmp_file = framed_recv(stream).await?;
-	let tmp_file = bytes_to_path(&tmp_file).ok_or_else(|| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"prepare pvf recv_request: non utf-8 artifact path".to_string(),
-		)
-	})?;
-	Ok((pvf, tmp_file))
+	Ok(pvf)
 }
 
-async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
-	framed_send(stream, &result.encode()).await
+fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+	framed_send_blocking(stream, &result.encode())
 }
 
 /// The entrypoint that the spawned prepare worker should start with.
 ///
 /// # Parameters
 ///
-/// The `socket_path` specifies the path to the socket used to communicate with the host. The
-/// `node_version`, if `Some`, is checked against the worker version. A mismatch results in
-/// immediate worker termination. `None` is used for tests and in other situations when version
-/// check is not necessary.
+/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+///
+/// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
+///
+/// - `node_version`: if `Some`, is checked against the `worker_version`. A mismatch results in
+///   immediate worker termination. `None` is used for tests and in other situations when version
+///   check is not necessary.
+///
+/// - `worker_version`: see above
+///
+/// - `security_status`: contains the detected status of security features.
 ///
 /// # Flow
 ///
@@ -119,20 +118,25 @@ async fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Re
 /// 7. Send the result of preparation back to the host. If any error occurred in the above steps, we
 ///    send that in the `PrepareResult`.
 pub fn worker_entrypoint(
-	socket_path: &str,
+	socket_path: PathBuf,
+	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	security_status: SecurityStatus,
 ) {
 	worker_event_loop(
-		"prepare",
+		WorkerKind::Prepare,
 		socket_path,
+		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream| async move {
+		&security_status,
+		|mut stream, worker_dir_path| async move {
 			let worker_pid = std::process::id();
+			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
 			loop {
-				let (pvf, temp_artifact_dest) = recv_request(&mut stream).await?;
+				let pvf = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -141,7 +145,7 @@ pub fn worker_entrypoint(
 
 				let preparation_timeout = pvf.prep_timeout();
 				let prepare_job_kind = pvf.prep_kind();
-				let executor_params = (*pvf.executor_params()).clone();
+				let executor_params = pvf.executor_params();
 
 				// Conditional variable to notify us when a thread is done.
 				let condvar = thread::get_condvar();
@@ -172,14 +176,6 @@ pub fn worker_entrypoint(
 				let prepare_thread = thread::spawn_worker_thread(
 					"prepare thread",
 					move || {
-						// Try to enable landlock.
-						#[cfg(target_os = "linux")]
-					let landlock_status = polkadot_node_core_pvf_common::worker::security::landlock::try_restrict_thread()
-						.map(LandlockStatus::from_ruleset_status)
-						.map_err(|e| e.to_string());
-						#[cfg(not(target_os = "linux"))]
-						let landlock_status: Result<LandlockStatus, String> = Ok(LandlockStatus::NotEnforced);
-
 						#[allow(unused_mut)]
 						let mut result = prepare_artifact(pvf, cpu_time_start);
 
@@ -195,12 +191,15 @@ pub fn worker_entrypoint(
 						// anyway.
 						if let PrepareJobKind::Prechecking = prepare_job_kind {
 							result = result.and_then(|output| {
-								runtime_construction_check(output.0.as_ref(), executor_params)?;
+								runtime_construction_check(
+									output.0.as_ref(),
+									executor_params.as_ref(),
+								)?;
 								Ok(output)
 							});
 						}
 
-						(result, landlock_status)
+						result
 					},
 					Arc::clone(&condvar),
 					WaitOutcome::Finished,
@@ -213,20 +212,20 @@ pub fn worker_entrypoint(
 						let _ = cpu_time_monitor_tx.send(());
 
 						match prepare_thread.join().unwrap_or_else(|err| {
-							(
-								Err(PrepareError::Panic(stringify_panic_payload(err))),
-								Ok(LandlockStatus::Unavailable),
-							)
+							Err(PrepareError::Panic(stringify_panic_payload(err)))
 						}) {
-							(Err(err), _) => {
+							Err(err) => {
 								// Serialized error will be written into the socket.
 								Err(err)
 							},
-							(Ok(ok), landlock_status) => {
-								#[cfg(not(target_os = "linux"))]
-								let (artifact, cpu_time_elapsed) = ok;
-								#[cfg(target_os = "linux")]
-								let (artifact, cpu_time_elapsed, max_rss) = ok;
+							Ok(ok) => {
+								cfg_if::cfg_if! {
+									if #[cfg(target_os = "linux")] {
+										let (artifact, cpu_time_elapsed, max_rss) = ok;
+									} else {
+										let (artifact, cpu_time_elapsed) = ok;
+									}
+								}
 
 								// Stop the memory stats worker and get its observed memory stats.
 								#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -241,16 +240,6 @@ pub fn worker_entrypoint(
 									#[cfg(target_os = "linux")]
 									max_rss: extract_max_rss_stat(max_rss, worker_pid),
 								};
-
-								// Log if landlock threw an error.
-								if let Err(err) = landlock_status {
-									gum::warn!(
-										target: LOG_TARGET,
-										%worker_pid,
-										"error enabling landlock: {}",
-										err
-									);
-								}
 
 								// Write the serialized artifact into a temp file.
 								//
@@ -300,7 +289,13 @@ pub fn worker_entrypoint(
 					),
 				};
 
-				send_response(&mut stream, result).await?;
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending response to host: {:?}",
+					result
+				);
+				send_response(&mut stream, result)?;
 			}
 		},
 	);
@@ -325,13 +320,10 @@ fn prepare_artifact(
 /// Try constructing the runtime to catch any instantiation errors during pre-checking.
 fn runtime_construction_check(
 	artifact_bytes: &[u8],
-	executor_params: ExecutorParams,
+	executor_params: &ExecutorParams,
 ) -> Result<(), PrepareError> {
-	let executor = Executor::new(executor_params)
-		.map_err(|e| PrepareError::RuntimeConstruction(format!("cannot create executor: {}", e)))?;
-
 	// SAFETY: We just compiled this artifact.
-	let result = unsafe { executor.create_runtime_from_bytes(&artifact_bytes) };
+	let result = unsafe { create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))

@@ -19,17 +19,17 @@
 use crate::{
 	metrics::Metrics,
 	worker_intf::{
-		path_to_bytes, spawn_with_program_path, tmpfile_in, IdleWorker, SpawnErr, WorkerHandle,
-		JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
+		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 	},
 	LOG_TARGET,
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	framed_recv, framed_send,
 	prepare::PrepareStats,
 	pvf::PvfPrepData,
+	worker_dir, SecurityStatus,
 };
 
 use sp_core::hexdisplay::HexDisplay;
@@ -41,19 +41,33 @@ use tokio::{io, net::UnixStream};
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
 ///
-/// The program should be able to handle `<program-path> prepare-worker <socket-path>` invocation.
+/// Sends a handshake message to the worker as soon as it is spawned.
 pub async fn spawn(
 	program_path: &Path,
+	cache_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
+	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let mut extra_args = vec!["prepare-worker"];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
-	spawn_with_program_path("prepare", program_path, &extra_args, spawn_timeout).await
+
+	spawn_with_program_path(
+		"prepare",
+		program_path,
+		cache_path,
+		&extra_args,
+		spawn_timeout,
+		security_status,
+	)
+	.await
 }
 
+/// Outcome of PVF preparation.
+///
+/// If the idle worker token is not returned, it means the worker must be terminated.
 pub enum Outcome {
 	/// The worker has finished the work assigned to it.
 	Concluded { worker: IdleWorker, result: PrepareResult },
@@ -62,9 +76,19 @@ pub enum Outcome {
 	Unreachable,
 	/// The temporary file for the artifact could not be created at the given cache path.
 	CreateTmpFileErr { worker: IdleWorker, err: String },
-	/// The response from the worker is received, but the file cannot be renamed (moved) to the
+	/// The response from the worker is received, but the tmp file cannot be renamed (moved) to the
 	/// final destination location.
-	RenameTmpFileErr { worker: IdleWorker, result: PrepareResult, err: String },
+	RenameTmpFileErr {
+		worker: IdleWorker,
+		result: PrepareResult,
+		err: String,
+		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
+		// conversion to `Option<String>`.
+		src: Option<String>,
+		dest: Option<String>,
+	},
+	/// The worker cache could not be cleared for the given reason.
+	ClearWorkerDir { err: String },
 	/// The worker failed to finish the job until the given deadline.
 	///
 	/// The worker is no longer usable and should be killed.
@@ -84,83 +108,88 @@ pub async fn start_work(
 	metrics: &Metrics,
 	worker: IdleWorker,
 	pvf: PvfPrepData,
-	cache_path: &Path,
 	artifact_path: PathBuf,
 ) -> Outcome {
-	let IdleWorker { stream, pid } = worker;
+	let IdleWorker { stream, pid, worker_dir } = worker;
 
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
+		?worker_dir,
 		"starting prepare for {}",
 		artifact_path.display(),
 	);
 
-	with_tmp_file(stream, pid, cache_path, |tmp_file, mut stream| async move {
-		let preparation_timeout = pvf.prep_timeout();
-		if let Err(err) = send_request(&mut stream, pvf, &tmp_file).await {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				"failed to send a prepare request: {:?}",
-				err,
-			);
-			return Outcome::Unreachable
-		}
-
-		// Wait for the result from the worker, keeping in mind that there may be a timeout, the
-		// worker may get killed, or something along these lines. In that case we should propagate
-		// the error to the pool.
-		//
-		// We use a generous timeout here. This is in addition to the one in the child process, in
-		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
-		// in the child. We want to use CPU time because it varies less than wall clock time under
-		// load, but the CPU resources of the child can only be measured from the parent after the
-		// child process terminates.
-		let timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-		let result = tokio::time::timeout(timeout, recv_response(&mut stream, pid)).await;
-
-		match result {
-			// Received bytes from worker within the time limit.
-			Ok(Ok(prepare_result)) =>
-				handle_response(
-					metrics,
-					IdleWorker { stream, pid },
-					prepare_result,
-					pid,
-					tmp_file,
-					artifact_path,
-					preparation_timeout,
-				)
-				.await,
-			Ok(Err(err)) => {
-				// Communication error within the time limit.
+	with_worker_dir_setup(
+		worker_dir,
+		stream,
+		pid,
+		|tmp_artifact_file, mut stream, worker_dir| async move {
+			let preparation_timeout = pvf.prep_timeout();
+			if let Err(err) = send_request(&mut stream, pvf).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
-					"failed to recv a prepare response: {:?}",
+					"failed to send a prepare request: {:?}",
 					err,
 				);
-				Outcome::IoErr(err.to_string())
-			},
-			Err(_) => {
-				// Timed out here on the host.
-				gum::warn!(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					"did not recv a prepare response within the time limit",
-				);
-				Outcome::TimedOut
-			},
-		}
-	})
+				return Outcome::Unreachable
+			}
+
+			// Wait for the result from the worker, keeping in mind that there may be a timeout, the
+			// worker may get killed, or something along these lines. In that case we should
+			// propagate the error to the pool.
+			//
+			// We use a generous timeout here. This is in addition to the one in the child process,
+			// in case the child stalls. We have a wall clock timeout here in the host, but a CPU
+			// timeout in the child. We want to use CPU time because it varies less than wall clock
+			// time under load, but the CPU resources of the child can only be measured from the
+			// parent after the child process terminates.
+			let timeout = preparation_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
+			let result = tokio::time::timeout(timeout, recv_response(&mut stream, pid)).await;
+
+			match result {
+				// Received bytes from worker within the time limit.
+				Ok(Ok(prepare_result)) =>
+					handle_response(
+						metrics,
+						IdleWorker { stream, pid, worker_dir },
+						prepare_result,
+						pid,
+						tmp_artifact_file,
+						artifact_path,
+						preparation_timeout,
+					)
+					.await,
+				Ok(Err(err)) => {
+					// Communication error within the time limit.
+					gum::warn!(
+						target: LOG_TARGET,
+						worker_pid = %pid,
+						"failed to recv a prepare response: {:?}",
+						err,
+					);
+					Outcome::IoErr(err.to_string())
+				},
+				Err(_) => {
+					// Timed out here on the host.
+					gum::warn!(
+						target: LOG_TARGET,
+						worker_pid = %pid,
+						"did not recv a prepare response within the time limit",
+					);
+					Outcome::TimedOut
+				},
+			}
+		},
+	)
 	.await
 }
 
 /// Handles the case where we successfully received response bytes on the host from the child.
 ///
-/// NOTE: Here we know the artifact exists, but is still located in a temporary file which will be
-/// cleared by `with_tmp_file`.
+/// Here we know the artifact exists, but is still located in a temporary file which will be cleared
+/// by [`with_worker_dir_setup`].
 async fn handle_response(
 	metrics: &Metrics,
 	worker: IdleWorker,
@@ -209,7 +238,13 @@ async fn handle_response(
 				artifact_path.display(),
 				err,
 			);
-			Outcome::RenameTmpFileErr { worker, result, err: format!("{:?}", err) }
+			Outcome::RenameTmpFileErr {
+				worker,
+				result,
+				err: format!("{:?}", err),
+				src: tmp_file.to_str().map(String::from),
+				dest: artifact_path.to_str().map(String::from),
+			}
 		},
 	};
 
@@ -220,61 +255,58 @@ async fn handle_response(
 	outcome
 }
 
-/// Create a temporary file for an artifact at the given cache path and execute the given
-/// future/closure passing the file path in.
+/// Create a temporary file for an artifact in the worker cache, execute the given future/closure
+/// passing the file path in, and clean up the worker cache.
 ///
-/// The function will try best effort to not leave behind the temporary file.
-async fn with_tmp_file<F, Fut>(stream: UnixStream, pid: u32, cache_path: &Path, f: F) -> Outcome
+/// Failure to clean up the worker cache results in an error - leaving any files here could be a
+/// security issue, and we should shut down the worker. This should be very rare.
+async fn with_worker_dir_setup<F, Fut>(
+	worker_dir: WorkerDir,
+	stream: UnixStream,
+	pid: u32,
+	f: F,
+) -> Outcome
 where
 	Fut: futures::Future<Output = Outcome>,
-	F: FnOnce(PathBuf, UnixStream) -> Fut,
+	F: FnOnce(PathBuf, UnixStream, WorkerDir) -> Fut,
 {
-	let tmp_file = match tmpfile_in("prepare-artifact-", cache_path).await {
-		Ok(f) => f,
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				"failed to create a temp file for the artifact: {:?}",
-				err,
-			);
-			return Outcome::CreateTmpFileErr {
-				worker: IdleWorker { stream, pid },
-				err: format!("{:?}", err),
-			}
-		},
+	// Create the tmp file here so that the child doesn't need any file creation rights. This will
+	// be cleared at the end of this function.
+	let tmp_file = worker_dir::prepare_tmp_artifact(&worker_dir.path);
+	if let Err(err) = tokio::fs::File::create(&tmp_file).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir,
+			"failed to create a temp file for the artifact: {:?}",
+			err,
+		);
+		return Outcome::CreateTmpFileErr {
+			worker: IdleWorker { stream, pid, worker_dir },
+			err: format!("{:?}", err),
+		}
 	};
 
-	let outcome = f(tmp_file.clone(), stream).await;
+	let worker_dir_path = worker_dir.path.clone();
+	let outcome = f(tmp_file, stream, worker_dir).await;
 
-	// The function called above is expected to move `tmp_file` to a new location upon success.
-	// However, the function may as well fail and in that case we should remove the tmp file here.
-	//
-	// In any case, we try to remove the file here so that there are no leftovers. We only report
-	// errors that are different from the `NotFound`.
-	match tokio::fs::remove_file(tmp_file).await {
-		Ok(()) => (),
-		Err(err) if err.kind() == std::io::ErrorKind::NotFound => (),
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				"failed to remove the tmp file: {:?}",
-				err,
-			);
-		},
+	// Try to clear the worker dir.
+	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			?worker_dir_path,
+			"failed to clear worker cache after the job: {:?}",
+			err,
+		);
+		return Outcome::ClearWorkerDir { err: format!("{:?}", err) }
 	}
 
 	outcome
 }
 
-async fn send_request(
-	stream: &mut UnixStream,
-	pvf: PvfPrepData,
-	tmp_file: &Path,
-) -> io::Result<()> {
+async fn send_request(stream: &mut UnixStream, pvf: PvfPrepData) -> io::Result<()> {
 	framed_send(stream, &pvf.encode()).await?;
-	framed_send(stream, path_to_bytes(tmp_file)).await?;
 	Ok(())
 }
 

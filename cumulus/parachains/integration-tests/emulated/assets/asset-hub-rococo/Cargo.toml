@@ -1,0 +1,24 @@
+[package]
+name = "asset-hub-rococo-integration-tests"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+description = "Asset Hub Rococo runtime integration tests with xcm-emulator"
+publish = false
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+
+# Substrate
+frame-support = { path = "../../../../../../substrate/frame/support", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
+
+# Local
+xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
+integration-tests-common = { path = "../../common", default-features = false}
+
+[features]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"integration-tests-common/runtime-benchmarks",
+]
