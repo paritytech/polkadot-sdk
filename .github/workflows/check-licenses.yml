@@ -20,7 +20,7 @@ jobs:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
           scope: "@paritytech"
-        
+
       - name: Check the licenses in Polkadot
         run: |
           shopt -s globstar
