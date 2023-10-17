@@ -40,7 +40,7 @@ sp-storage = { path = "../../../primitives/storage", default-features = false}
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false}
 sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
 serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }
-sp-genesis-builder = { version = "0.1.0-dev", default-features = false, path = "../../../primitives/genesis-builder" }
+sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false}
