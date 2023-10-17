@@ -435,10 +435,7 @@ fn push_back_assignment_works() {
 		// Queue should still contain order b
 		{
 			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(
-				queue,
-				vec![order_b.clone()]
-			);
+			assert_eq!(queue, vec![order_b.clone()]);
 		}
 
 		// Push back order a
@@ -450,10 +447,7 @@ fn push_back_assignment_works() {
 		// Queue should contain orders a, b. A in front of b.
 		{
 			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(
-				queue,
-				vec![order_a.clone(), order_b.clone()]
-			);
+			assert_eq!(queue, vec![order_a.clone(), order_b.clone()]);
 		}
 	});
 }

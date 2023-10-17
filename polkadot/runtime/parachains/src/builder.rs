@@ -15,7 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration, inclusion, initializer, paras,
+	configuration, inclusion, initializer,
+	mock::MockAssigner,
+	paras,
 	paras::ParaKind,
 	paras_inherent,
 	scheduler::{
@@ -24,7 +26,6 @@ use crate::{
 		CoreOccupied, ParasEntry,
 	},
 	session_info, shared,
-	mock::MockAssigner,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;

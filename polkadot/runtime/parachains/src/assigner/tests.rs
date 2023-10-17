@@ -17,12 +17,10 @@
 use super::*;
 
 use crate::{
-	assigner::{UnifiedAssignmentType, mock_helpers::GenesisConfigBuilder,},
-    assigner_parachains::ParachainsAssignment,
+	assigner::{mock_helpers::GenesisConfigBuilder, UnifiedAssignmentType},
+	assigner_parachains::ParachainsAssignment,
 	initializer::SessionChangeNotification,
-	mock::{
-		new_test_ext, Assigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test, 
-	},
+	mock::{new_test_ext, Assigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
@@ -77,15 +75,16 @@ fn run_to_block(
 	}
 }
 
-// This and the scheduler test schedule_schedules_including_just_freed together 
-// ensure that next_up_on_available and next_up_on_time_out will always be 
+// This and the scheduler test schedule_schedules_including_just_freed together
+// ensure that next_up_on_available and next_up_on_time_out will always be
 // filled with scheduler cliams for lease holding parachains. (Removes the need
 // for two other scheduler tests)
 #[test]
 fn parachains_assigner_pop_assignment_is_always_some() {
-    let core_index = CoreIndex(0);
-    let para_id = ParaId::from(10);
-    let expected_assignment = UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(para_id));
+	let core_index = CoreIndex(0);
+	let para_id = ParaId::from(10);
+	let expected_assignment =
+		UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(para_id));
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register the para_id as a lease holding parachain
@@ -95,14 +94,18 @@ fn parachains_assigner_pop_assignment_is_always_some() {
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 		assert!(Paras::is_parachain(para_id));
 
-        for _ in 0..20 {
-            assert!(Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone()));
-        }
+		for _ in 0..20 {
+			assert!(
+				Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+			);
+		}
 
-        run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
 
-        for _ in 0..20 {
-            assert!(Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone()));
-        }
+		for _ in 0..20 {
+			assert!(
+				Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+			);
+		}
 	});
 }

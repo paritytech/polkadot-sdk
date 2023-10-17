@@ -17,10 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_on_demand,
-	assigner_parachains,
-	assigner,
-	configuration, disputes, dmp, hrmp,
+	assigner, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -396,9 +393,9 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type IdentificationOf = FoolIdentificationOf;
 }
 
-/// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock 
+/// A mock assigner which acts as the scheduler's `AssignmentProvider` for tests. The mock
 /// assigner provides bare minimum functionality to test scheduler internals. Since they
-/// have no direct effect on scheduler state, AssignmentProvider functions such as 
+/// have no direct effect on scheduler state, AssignmentProvider functions such as
 /// `push_back_assignment` can be left empty.
 pub mod mock_assigner {
 	use super::*;
@@ -424,24 +421,23 @@ pub mod mock_assigner {
 			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
 
 		#[pallet::storage]
-		pub(super) type MockCoreCount<T: Config> = 
-			StorageValue<_, u32, OptionQuery>;
+		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the scheduler
-		/// when filling the claim queue for tests.
+		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
+		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: V0Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
 		}
 
-		// This configuration needs to be customized to service `get_provider_config` in 
+		// This configuration needs to be customized to service `get_provider_config` in
 		// scheduler tests.
 		pub fn set_assignment_provider_config(config: AssignmentProviderConfig<BlockNumber>) {
 			MockProviderConfig::<T>::set(Some(config));
 		}
 
-		// Allows for customized core count in scheduler tests, rather than a core count 
+		// Allows for customized core count in scheduler tests, rather than a core count
 		// derived from on-demand config + parachain count.
 		pub fn set_core_count(count: u32) {
 			MockCoreCount::<T>::set(Some(count));
@@ -466,11 +462,11 @@ pub mod mock_assigner {
 		fn session_core_count() -> u32 {
 			match MockCoreCount::<T>::get() {
 				Some(count) => count,
-				None => 5 
+				None => 5,
 			}
 		}
 
-		// With regards to popping_assignments, the scheduler just needs to be tested under 
+		// With regards to popping_assignments, the scheduler just needs to be tested under
 		// the following two conditions:
 		// 1. An assignment is provided
 		// 2. No assignment is provided
@@ -486,7 +482,7 @@ pub mod mock_assigner {
 		// We don't care about core affinity in the test assigner
 		fn report_processed(_assignment: Self::AssignmentType) {}
 
-		// The results of this are tested in assigner_on_demand tests. No need to represent it 
+		// The results of this are tested in assigner_on_demand tests. No need to represent it
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Self::AssignmentType) {}
 
@@ -498,7 +494,7 @@ pub mod mock_assigner {
 				None => AssignmentProviderConfig {
 					max_availability_timeouts: 1,
 					ttl: BlockNumber::from(5u32),
-				}
+				},
 			}
 		}
 	}

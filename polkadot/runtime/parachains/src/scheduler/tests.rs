@@ -165,7 +165,7 @@ fn claimqueue_ttl_drop_fn_works() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
-		assert!( assignment_provider_ttl == 5);
+		assert!(assignment_provider_ttl == 5);
 		// Register and run to a blockheight where the para is in a valid state.
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
@@ -236,7 +236,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		// The first 2 claims in the queue should have a ttl of 17,
 		// being the ones set up prior in this test as claims 1 and 3.
 		// The third claim is popped from the assignment provider and
-		// has a new ttl set by the scheduler of now + 
+		// has a new ttl set by the scheduler of now +
 		// assignment_provider_ttl. ttls = [17, 17, 22]
 		assert!(cqc.iter().enumerate().all(|(index, entry)| {
 			match index {
@@ -383,7 +383,8 @@ fn fill_claimqueue_fills() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
-		let AssignmentProviderConfig { ttl: config_ttl, .. } = MockAssigner::get_provider_config(CoreIndex(0));
+		let AssignmentProviderConfig { ttl: config_ttl, .. } =
+			MockAssigner::get_provider_config(CoreIndex(0));
 
 		// and 3 parathreads (on-demand parachains)
 		schedule_blank_para(thread_a, ParaKind::Parathread);
@@ -681,13 +682,9 @@ fn schedule_clears_availability_cores() {
 			assert_eq!(claimqueue_0.len(), 1);
 			assert_eq!(claimqueue_2.len(), 1);
 			let queue_0_expectation: VecDeque<ParasEntryType<Test>> =
-				vec![ParasEntry::new(assignment_a, entry_ttl as u32)]
-					.into_iter()
-					.collect();
+				vec![ParasEntry::new(assignment_a, entry_ttl as u32)].into_iter().collect();
 			let queue_2_expectation: VecDeque<ParasEntryType<Test>> =
-				vec![ParasEntry::new(assignment_c, entry_ttl as u32)]
-					.into_iter()
-					.collect();
+				vec![ParasEntry::new(assignment_c, entry_ttl as u32)].into_iter().collect();
 			assert_eq!(claimqueue_0, queue_0_expectation,);
 			assert_eq!(claimqueue_2, queue_2_expectation,);
 
@@ -798,12 +795,10 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
 		// Need more timeouts for this test
-		MockAssigner::set_assignment_provider_config(
-			AssignmentProviderConfig {
-				max_availability_timeouts: max_retries,
-				ttl: BlockNumber::from(5u32),
-			}
-		);
+		MockAssigner::set_assignment_provider_config(AssignmentProviderConfig {
+			max_availability_timeouts: max_retries,
+			ttl: BlockNumber::from(5u32),
+		});
 		schedule_blank_para(thread_a, ParaKind::Parathread);
 
 		// #1
