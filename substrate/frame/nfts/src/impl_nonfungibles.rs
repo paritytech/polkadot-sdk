@@ -84,12 +84,12 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 	/// By default this is `None`; no attributes are defined.
 	fn system_attribute(
 		collection: &Self::CollectionId,
-		item: &Self::ItemId,
+		item: Option<&Self::ItemId>,
 		key: &[u8],
 	) -> Option<Vec<u8>> {
 		let namespace = AttributeNamespace::Pallet;
 		let key = BoundedSlice::<_, _>::try_from(key).ok()?;
-		Attribute::<T, I>::get((collection, Some(item), namespace, key)).map(|a| a.0.into())
+		Attribute::<T, I>::get((collection, item, namespace, key)).map(|a| a.0.into())
 	}
 
 	/// Returns the attribute value of `item` of `collection` corresponding to `key`.
@@ -106,7 +106,7 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 			Attribute::<T, I>::get((
 				collection,
 				Option::<T::ItemId>::None,
-				AttributeNamespace::Pallet,
+				AttributeNamespace::CollectionOwner,
 				key,
 			))
 			.map(|a| a.0.into())

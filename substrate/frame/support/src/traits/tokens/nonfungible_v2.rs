@@ -63,7 +63,7 @@ pub trait Inspect<AccountId> {
 	/// Returns the system attribute value of `item` corresponding to `key`.
 	///
 	/// By default this is `None`; no attributes are defined.
-	fn system_attribute(_item: &Self::ItemId, _key: &[u8]) -> Option<Vec<u8>> {
+	fn system_attribute(_item: Option<&Self::ItemId>, _key: &[u8]) -> Option<Vec<u8>> {
 		None
 	}
 
@@ -90,7 +90,10 @@ pub trait Inspect<AccountId> {
 	/// Returns the strongly-typed system attribute value of `item` corresponding to `key`.
 	///
 	/// By default this just attempts to use `system_attribute`.
-	fn typed_system_attribute<K: Encode, V: Decode>(item: &Self::ItemId, key: &K) -> Option<V> {
+	fn typed_system_attribute<K: Encode, V: Decode>(
+		item: Option<&Self::ItemId>,
+		key: &K,
+	) -> Option<V> {
 		key.using_encoded(|d| Self::system_attribute(item, d))
 			.and_then(|v| V::decode(&mut &v[..]).ok())
 	}
@@ -211,7 +214,7 @@ impl<
 	fn custom_attribute(account: &AccountId, item: &Self::ItemId, key: &[u8]) -> Option<Vec<u8>> {
 		<F as nonfungibles::Inspect<AccountId>>::custom_attribute(account, &A::get(), item, key)
 	}
-	fn system_attribute(item: &Self::ItemId, key: &[u8]) -> Option<Vec<u8>> {
+	fn system_attribute(item: Option<&Self::ItemId>, key: &[u8]) -> Option<Vec<u8>> {
 		<F as nonfungibles::Inspect<AccountId>>::system_attribute(&A::get(), item, key)
 	}
 	fn typed_attribute<K: Encode, V: Decode>(item: &Self::ItemId, key: &K) -> Option<V> {
@@ -229,7 +232,10 @@ impl<
 			key,
 		)
 	}
-	fn typed_system_attribute<K: Encode, V: Decode>(item: &Self::ItemId, key: &K) -> Option<V> {
+	fn typed_system_attribute<K: Encode, V: Decode>(
+		item: Option<&Self::ItemId>,
+		key: &K,
+	) -> Option<V> {
 		<F as nonfungibles::Inspect<AccountId>>::typed_system_attribute(&A::get(), item, key)
 	}
 	fn can_transfer(item: &Self::ItemId) -> bool {
