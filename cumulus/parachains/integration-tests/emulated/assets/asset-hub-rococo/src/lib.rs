@@ -25,10 +25,12 @@ pub use integration_tests_common::{
 		asset_hub_rococo::ED as ASSET_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
+	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	AssetHubRococo, AssetHubRococoPallet, AssetHubRococoReceiver, AssetHubRococoSender,
-	PenpalRococoA, PenpalRococoAPallet, PenpalRococoAReceiver, PenpalRococoASender, PenpalRococoB,
-	PenpalRococoBPallet, Rococo, RococoPallet, RococoReceiver, RococoSender,
+	BridgeHubRococo, BridgeHubRococoReceiver, PenpalRococoA, PenpalRococoAPallet,
+	PenpalRococoAReceiver, PenpalRococoASender, PenpalRococoB, PenpalRococoBPallet, Rococo,
+	RococoPallet, RococoReceiver, RococoSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -86,5 +88,4 @@ pub fn system_para_test_args(
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;

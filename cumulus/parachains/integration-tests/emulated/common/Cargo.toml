@@ -19,6 +19,7 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
@@ -72,6 +73,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",

@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(dead_code)] // <https://github.com/paritytech/cumulus/issues/3027>
-
 use crate::*;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
@@ -356,4 +354,16 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
+}
+
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_ROCOCO_ED * 100;
+	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		AssetHubRococo,        // Origin
+		vec![BridgeHubRococo], // Destinations
+		(native_asset, amount)
+	);
 }

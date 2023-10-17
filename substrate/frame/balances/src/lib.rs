@@ -238,10 +238,10 @@ pub mod pallet {
 
 			type DustRemoval = ();
 
-			type MaxLocks = ();
-			type MaxReserves = ();
-			type MaxFreezes = ();
-			type MaxHolds = ();
+			type MaxLocks = ConstU32<100>;
+			type MaxReserves = ConstU32<100>;
+			type MaxFreezes = ConstU32<100>;
+			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -256,7 +256,7 @@ pub mod pallet {
 
 		/// The overarching hold reason.
 		#[pallet::no_default_bounds]
-		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -300,7 +300,7 @@ pub mod pallet {
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
