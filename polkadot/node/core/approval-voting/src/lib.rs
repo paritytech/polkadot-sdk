@@ -892,7 +892,7 @@ impl State {
 						target: LOG_TARGET,
 						"Could not request approval voting params from runtime using defaults"
 					);
-					ApprovalVotingParams { max_approval_coalesce_count: 6 }
+					ApprovalVotingParams { max_approval_coalesce_count: 1 }
 				},
 			}
 		}
