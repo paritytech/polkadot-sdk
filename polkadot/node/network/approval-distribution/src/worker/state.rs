@@ -15,14 +15,15 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Approval worker state data structures and helper methods.
+use net_protocol::{peer_set::ProtocolVersion, ObservedRole};
 use parity_scale_codec::Encode;
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::{ValidationVersion, MAX_NOTIFICATION_SIZE},
-	v1 as protocol_v1, v2 as protocol_v2, PeerId, UnifiedReputationChange as Rep, Versioned,
-	VersionedValidationProtocol, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, VersionedValidationProtocol, View,
 };
 use polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -347,6 +348,70 @@ pub struct ApprovalWorkerState {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
+	pub(crate) async fn handle_peer_connect(
+		&mut self,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		metrics: &Metrics,
+		peer_id: PeerId,
+		role: ObservedRole,
+		version: ProtocolVersion,
+		rng: &mut (impl CryptoRng + Rng),
+	) {
+		// insert a blank view if none already present
+		gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
+		let version = match ValidationVersion::try_from(version).ok() {
+			Some(v) => v,
+			None => {
+				// sanity: network bridge is supposed to detect this already.
+				gum::error!(
+					target: LOG_TARGET,
+					?peer_id,
+					?version,
+					"Unsupported protocol version"
+				);
+				return
+			},
+		};
+
+		self.peer_data
+			.entry(peer_id)
+			.or_insert_with(|| PeerData { version, view: Default::default() });
+	}
+
+	pub(crate) async fn handle_peer_disconnect(
+		&mut self,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		metrics: &Metrics,
+		peer_id: PeerId,
+	) {
+		gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+		self.peer_data.remove(&peer_id);
+		self.blocks.iter_mut().for_each(|(_hash, entry)| {
+			entry.known_by.remove(&peer_id);
+		})
+	}
+
+	pub(crate) async fn handle_our_view_change(&mut self, view: OurView) {
+		gum::trace!(target: LOG_TARGET, ?view, "Own view change");
+		for head in view.iter() {
+			if !self.blocks.contains_key(head) {
+				self.pending_known.entry(*head).or_default();
+			}
+		}
+
+		self.pending_known.retain(|h, _| {
+			let live = view.contains(h);
+			if !live {
+				gum::trace!(
+					target: LOG_TARGET,
+					block_hash = ?h,
+					"Cleaning up stale pending messages",
+				);
+			}
+			live
+		});
+	}
+
 	async fn handle_network_msg(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
@@ -354,73 +419,10 @@ impl ApprovalWorkerState {
 		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
 		rng: &mut (impl CryptoRng + Rng),
 	) {
-		match event {
-			NetworkBridgeEvent::PeerConnected(peer_id, role, version, _) => {
-				// insert a blank view if none already present
-				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
-				let version = match ValidationVersion::try_from(version).ok() {
-					Some(v) => v,
-					None => {
-						// sanity: network bridge is supposed to detect this already.
-						gum::error!(
-							target: LOG_TARGET,
-							?peer_id,
-							?version,
-							"Unsupported protocol version"
-						);
-						return
-					},
-				};
-
-				self.peer_data
-					.entry(peer_id)
-					.or_insert_with(|| PeerData { version, view: Default::default() });
-			},
-			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
-				self.peer_data.remove(&peer_id);
-				self.blocks.iter_mut().for_each(|(_hash, entry)| {
-					entry.known_by.remove(&peer_id);
-				})
-			},
-			NetworkBridgeEvent::NewGossipTopology(topology) => {
-				self.handle_new_session_topology(
-					sender,
-					topology.session,
-					topology.topology,
-					topology.local_index,
-				)
-				.await;
-			},
-			NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
-				self.handle_peer_view_change(sender, metrics, peer_id, view, rng).await;
-			},
-			NetworkBridgeEvent::OurViewChange(view) => {
-				gum::trace!(target: LOG_TARGET, ?view, "Own view change");
-				for head in view.iter() {
-					if !self.blocks.contains_key(head) {
-						self.pending_known.entry(*head).or_default();
-					}
-				}
-
-				self.pending_known.retain(|h, _| {
-					let live = view.contains(h);
-					if !live {
-						gum::trace!(
-							target: LOG_TARGET,
-							block_hash = ?h,
-							"Cleaning up stale pending messages",
-						);
-					}
-					live
-				});
-			},
 			NetworkBridgeEvent::PeerMessage(peer_id, msg) => {
 				self.process_incoming_peer_message(sender, metrics, peer_id, msg, rng).await;
 			},
-			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
-				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
-			},
+			
 		}
 	}
 
@@ -469,6 +471,7 @@ impl ApprovalWorkerState {
 			}
 		}
 
+		// TODO: Move to top level, avoid logging on every worker.
 		gum::debug!(
 			target: LOG_TARGET,
 			"Got new blocks {:?}",
@@ -553,7 +556,7 @@ impl ApprovalWorkerState {
 		self.enable_aggression(sender, Resend::Yes, metrics).await;
 	}
 
-	async fn handle_new_session_topology(
+	pub(crate) async fn handle_new_session_topology(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		session: SessionIndex,
@@ -678,7 +681,7 @@ impl ApprovalWorkerState {
 
 	// handle a peer view change: requires that the peer is already connected
 	// and has an entry in the `PeerData` struct.
-	async fn handle_peer_view_change<R>(
+	pub(crate) async fn handle_peer_view_change<R>(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
@@ -688,6 +691,7 @@ impl ApprovalWorkerState {
 	) where
 		R: CryptoRng + Rng,
 	{
+		// TODO: move log in subsystem loop.
 		gum::trace!(target: LOG_TARGET, ?view, "Peer view change");
 		let finalized_number = view.finalized_number;
 		let (peer_protocol_version, old_finalized_number) = match self
@@ -1707,6 +1711,10 @@ impl ApprovalWorkerState {
 			},
 		)
 		.await;
+	}
+
+	pub fn update_approval_checking_lag(&mut self, new_value: BlockNumber) {
+		self.approval_checking_lag = new_value;
 	}
 }
 

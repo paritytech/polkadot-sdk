@@ -35,7 +35,7 @@ use polkadot_node_primitives::approval::{
 use polkadot_node_subsystem_util::{
 	reputation::REPUTATION_CHANGE_INTERVAL, worker_pool::WorkerPool,
 };
-use worker::state::MessageSource;
+use worker::{state::MessageSource, ApprovalContext, ApprovalWorkerConfig, ApprovalWorkerMessage};
 
 use polkadot_node_subsystem::{
 	messages::{
@@ -82,8 +82,7 @@ impl ApprovalDistribution {
 		let sender = ctx.sender().clone();
 		let metrics = self.metrics;
 		let mut approval_worker_config = worker::ApprovalWorkerConfig { sender, metrics };
-
-		let approval_worker_pool = WorkerPool::with_config(&mut approval_worker_config);
+		let (mut approval_worker_pool, _) = WorkerPool::with_config(&mut approval_worker_config);
 
 		loop {
 			// select! {
@@ -122,64 +121,137 @@ impl ApprovalDistribution {
 		}
 	}
 
-	async fn handle_incoming<Context>(
-		ctx: &mut Context,
+	async fn handle_network_msg<F>(
+		&self,
+		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
+	) where
+		F: overseer::ApprovalDistributionSenderTrait,
+	{
+		match event {
+			NetworkBridgeEvent::PeerConnected(peer_id, role, version, _) => {
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::PeerConnected(peer_id, role, version), None)
+					.await;
+			},
+			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::PeerDisconnected(peer_id), None)
+					.await;
+			},
+			NetworkBridgeEvent::NewGossipTopology(topology) => {
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::NewGossipTopology(topology), None)
+					.await;
+			},
+			NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::PeerViewChange(peer_id, view), None)
+					.await;
+			},
+			NetworkBridgeEvent::OurViewChange(view) => {
+				worker_pool.queue_work(ApprovalWorkerMessage::OurViewChange(view), None).await;
+			},
+			NetworkBridgeEvent::PeerMessage(peer_id, msg) => {
+				match msg {
+					Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(
+						assignments,
+					)) |
+					Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(
+						assignments,
+					)) =>
+						for assignment in assignments {
+							worker_pool.queue_work(
+								ApprovalWorkerMessage::ProcessAssignment(
+									assignment.0,
+									assignment.1,
+									MessageSource::Peer(peer_id),
+								),
+								Some(ApprovalContext),
+							).await;
+						},
+					Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(
+						approvals,
+					)) |
+					Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(
+						approvals,
+					)) =>
+						for approval in approvals.into_iter() {
+							worker_pool.queue_work(
+								ApprovalWorkerMessage::ProcessApproval(
+									approval,
+									MessageSource::Peer(peer_id),
+								),
+								Some(ApprovalContext),
+							).await;
+						},
+				}
+			},
+			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
+				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
+			},
+		}
+	}
+
+	async fn handle_incoming<F>(
+		&mut self,
+		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		msg: ApprovalDistributionMessage,
 		metrics: &Metrics,
 		rng: &mut (impl CryptoRng + Rng),
-	) {
-		// match msg {
-		// 	ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
-		// 		state.handle_network_msg(ctx, metrics, event, rng).await;
-		// 	},
-		// 	ApprovalDistributionMessage::NewBlocks(metas) => {
-		// 		state.handle_new_blocks(ctx, metrics, metas, rng).await;
-		// 	},
-		// 	ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
-		// 		gum::debug!(
-		// 			target: LOG_TARGET,
-		// 			"Distributing our assignment on candidate (block={}, index={})",
-		// 			cert.block_hash,
-		// 			candidate_index,
-		// 		);
-
-		// 		state
-		// 			.import_and_circulate_assignment(
-		// 				ctx,
-		// 				&metrics,
-		// 				MessageSource::Local,
-		// 				cert,
-		// 				candidate_index,
-		// 				rng,
-		// 			)
-		// 			.await;
-		// 	},
-		// 	ApprovalDistributionMessage::DistributeApproval(vote) => {
-		// 		gum::debug!(
-		// 			target: LOG_TARGET,
-		// 			"Distributing our approval vote on candidate (block={}, index={})",
-		// 			vote.block_hash,
-		// 			vote.candidate_index,
-		// 		);
-
-		// 		state
-		// 			.import_and_circulate_approval(ctx, metrics, MessageSource::Local, vote)
-		// 			.await;
-		// 	},
-		// 	ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
-		// 		let sigs = state.get_approval_signatures(indices);
-		// 		if let Err(_) = tx.send(sigs) {
-		// 			gum::debug!(
-		// 				target: LOG_TARGET,
-		// 				"Sending back approval signatures failed, oneshot got closed"
-		// 			);
-		// 		}
-		// 	},
-		// 	ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
-		// 		gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
-		// 		state.approval_checking_lag = lag;
-		// 	},
-		// }
+	) where
+		F: overseer::ApprovalDistributionSenderTrait,
+	{
+		match msg {
+			ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
+				self.handle_network_msg(worker_pool, sender, event).await;
+			},
+			ApprovalDistributionMessage::NewBlocks(metas) => {
+				worker_pool.queue_work(ApprovalWorkerMessage::NewBlocks(metas), None).await;
+			},
+			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					"Distributing our assignment on candidate (block={}, index={})",
+					cert.block_hash,
+					candidate_index,
+				);
+				let work_item = ApprovalWorkerMessage::ProcessAssignment(
+					cert,
+					candidate_index,
+					MessageSource::Local,
+				);
+				worker_pool.queue_work(work_item, Some(ApprovalContext)).await;
+			},
+			ApprovalDistributionMessage::DistributeApproval(vote) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					"Distributing our approval vote on candidate (block={}, index={})",
+					vote.block_hash,
+					vote.candidate_index,
+				);
+				let work_item = ApprovalWorkerMessage::ProcessApproval(vote, MessageSource::Local);
+				worker_pool.queue_work(work_item, Some(ApprovalContext)).await;
+			},
+			// ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+			// 	let sigs = state.get_approval_signatures(indices);
+			// 	if let Err(_) = tx.send(sigs) {
+			// 		gum::debug!(
+			// 			target: LOG_TARGET,
+			// 			"Sending back approval signatures failed, oneshot got closed"
+			// 		);
+			// 	}
+			// },
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
+				gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag), None)
+					.await;
+			},
+			_ => {},
+		}
 	}
 }
 

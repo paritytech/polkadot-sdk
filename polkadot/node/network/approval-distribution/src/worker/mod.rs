@@ -76,6 +76,8 @@ pub(crate) enum ApprovalWorkerMessage {
 	OurViewChange(OurView),
 	/// New blocks imported by approval voting (broadcast)
 	NewBlocks(Vec<BlockApprovalMeta>),
+	/// Lag update from finality chainn selection.
+	ApprovalCheckingLagUpdate(BlockNumber),
 }
 
 // Use `MessageSubject` as `ContextCookie`.
@@ -98,6 +100,7 @@ impl WorkContext for ApprovalWorkerMessage {
 	}
 }
 
+/// The approval worker configuration.
 pub(crate) struct ApprovalWorkerConfig<F>
 where
 	F: overseer::ApprovalDistributionSenderTrait,
@@ -106,6 +109,7 @@ where
 	pub metrics: Metrics,
 }
 
+/// Approval worker handle implementation.
 #[derive(Clone)]
 pub(crate) struct ApprovalWorkerHandle<F>(mpsc::Sender<WorkerMessage<ApprovalWorkerConfig<F>>>)
 where
@@ -131,9 +135,31 @@ async fn dispatch_work(
 	work_item: ApprovalWorkerMessage,
 ) {
 	match work_item {
+		ApprovalWorkerMessage::ProcessApproval(vote, source) => {},
+		ApprovalWorkerMessage::ProcessAssignment(assignment_cert, candidate_index, source) => {},
+		ApprovalWorkerMessage::PeerViewChange(peer_id, view) =>
+			state.handle_peer_view_change(sender, metrics, peer_id, view, rng).await,
 		ApprovalWorkerMessage::NewBlocks(metas) =>
-			state.handle_new_blocks(sender, &metrics, metas, rng).await,
-		_ => {},
+			state.handle_new_blocks(sender, metrics, metas, rng).await,
+		ApprovalWorkerMessage::PeerConnected(peer_id, role, protocol_version) =>
+			state
+				.handle_peer_connect(sender, metrics, peer_id, role, protocol_version, rng)
+				.await,
+		ApprovalWorkerMessage::PeerDisconnected(peer_id) =>
+			state.handle_peer_disconnect(sender, metrics, peer_id).await,
+		ApprovalWorkerMessage::NewGossipTopology(topology) =>
+			state
+				.handle_new_session_topology(
+					sender,
+					topology.session,
+					topology.topology,
+					topology.local_index,net_protocol::ApprovalDistributionMessage
+				)
+				.await,
+		ApprovalWorkerMessage::OurViewChange(view) => state.handle_our_view_change(view).await,
+		ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag) => {
+			state.update_approval_checking_lag(lag);
+		},
 	}
 }
 
@@ -146,13 +172,20 @@ async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorke
 	let mut worker_state = state::ApprovalWorkerState::default();
 
 	loop {
+        // TODO: Add reputation aggregation timer.
 		if let Some(worker_message) = from_pool.recv().await {
 			match worker_message {
 				WorkerMessage::Queue(work_item) => {
 					dispatch_work(&mut sender, &mut worker_state, &metrics, &mut rng, work_item)
 						.await;
 				},
-				WorkerMessage::PruneWork(_) => {},
+				WorkerMessage::PruneWork(_) => {
+					// This message might not be needed as `ApprovalWorkerMessage` can send the
+					// block finalized event. In that case, workers need to notify worker pool that
+					// a context has been removed, but this creates a cycle which is likely to cause
+					// issues. To avoid the pool loop can periodically ask workers about pruned
+					// tasks and delete them accordingly from the hashmap. More thinking required.
+				},
 				WorkerMessage::SetupContext(context) => {},
 				WorkerMessage::Batch(_, _) => {},
 			}
@@ -186,4 +219,4 @@ where
 // It contains per candidate state for book keeping (spam protection) and distributing
 // assignments and approvals.
 #[derive(Debug, Clone)]
-pub struct ApprovalContext {}
+pub struct ApprovalContext;
