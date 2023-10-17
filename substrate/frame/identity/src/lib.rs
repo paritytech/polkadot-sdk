@@ -84,7 +84,7 @@ use frame_support::traits::{
 		hold::Balanced as FnBalanced, Inspect as FnInspect, Mutate as FnMutate,
 		MutateHold as FnMutateHold,
 	},
-	tokens::fungible::Credit,
+	tokens::{fungible::Credit, Precision},
 	BalanceStatus, OnUnbalanced,
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -381,8 +381,13 @@ pub mod pallet {
 				)?;
 			}
 			if old_deposit > id.deposit {
-				let err_amount = T::Fungible::unreserve(&sender, old_deposit - id.deposit);
-				debug_assert!(err_amount.is_zero());
+				let released_amount = T::Fungible::release(
+					&HoldReason::ReasonHere.into(),
+					&sender,
+					old_deposit - id.deposit,
+					Precision::Exact,
+				)?;
+				debug_assert_eq!(released_amount, old_deposit - id.deposit);
 			}
 
 			let judgements = id.judgements.len();
@@ -436,8 +441,13 @@ pub mod pallet {
 					new_deposit - old_deposit,
 				)?;
 			} else if old_deposit > new_deposit {
-				let err_amount = T::Fungible::unreserve(&sender, old_deposit - new_deposit);
-				debug_assert!(err_amount.is_zero());
+				let released_amount = T::Fungible::release(
+					&HoldReason::ReasonHere.into(),
+					&sender,
+					old_deposit - new_deposit,
+					Precision::Exact,
+				)?;
+				debug_assert_eq!(released_amount, old_deposit - new_deposit);
 			}
 			// do nothing if they're equal.
 
@@ -488,8 +498,13 @@ pub mod pallet {
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
-			let err_amount = T::Fungible::unreserve(&sender, deposit);
-			debug_assert!(err_amount.is_zero());
+			let released_amount = T::Fungible::release(
+				&HoldReason::ReasonHere.into(),
+				&sender,
+				deposit,
+				Precision::Exact,
+			)?;
+			debug_assert_eq!(released_amount, deposit);
 
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
 
@@ -597,8 +612,13 @@ pub mod pallet {
 				return Err(Error::<T>::JudgementGiven.into())
 			};
 
-			let err_amount = T::Fungible::unreserve(&sender, fee);
-			debug_assert!(err_amount.is_zero());
+			let released_amount = T::Fungible::release(
+				&HoldReason::ReasonHere.into(),
+				&sender,
+				fee,
+				Precision::Exact,
+			)?;
+			debug_assert_eq!(released_amount, fee);
 			let judgements = id.judgements.len();
 			#[allow(deprecated)]
 			let extra_fields = id.info.additional();
@@ -904,14 +924,26 @@ pub mod pallet {
 			let (sup, _) = SuperOf::<T>::get(&sub).ok_or(Error::<T>::NotSub)?;
 			ensure!(sup == sender, Error::<T>::NotOwned);
 			SuperOf::<T>::remove(&sub);
-			SubsOf::<T>::mutate(&sup, |(ref mut subs_deposit, ref mut sub_ids)| {
-				sub_ids.retain(|x| x != &sub);
-				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
-				*subs_deposit -= deposit;
-				let err_amount = T::Fungible::unreserve(&sender, deposit);
-				debug_assert!(err_amount.is_zero());
-				Self::deposit_event(Event::SubIdentityRemoved { sub, main: sender, deposit });
-			});
+			SubsOf::<T>::mutate(
+				&sup,
+				|(ref mut subs_deposit, ref mut sub_ids)| -> DispatchResult {
+					sub_ids.retain(|x| x != &sub);
+					let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
+					*subs_deposit -= deposit;
+					let released_amount = T::Fungible::release(
+						&HoldReason::ReasonHere.into(),
+						&sender,
+						deposit,
+						Precision::Exact,
+					)?;
+					debug_assert_eq!(released_amount, deposit);
+					Ok(Self::deposit_event(Event::SubIdentityRemoved {
+						sub,
+						main: sender,
+						deposit,
+					}))
+				},
+			)?;
 			Ok(())
 		}
 
