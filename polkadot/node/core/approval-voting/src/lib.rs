@@ -3541,7 +3541,7 @@ fn compute_delayed_approval_sending_tick(
 		.approval_entry(&block_entry.block_hash())
 		.and_then(|approval_entry| approval_entry.our_assignment())
 		.map(|our_assignment| our_assignment.tranche())
-		.unwrap();
+		.unwrap_or_default();
 
 	let assignment_triggered_tick = current_block_tick + assignment_tranche as Tick;
 
