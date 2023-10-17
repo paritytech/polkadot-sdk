@@ -61,7 +61,7 @@ services:
   genesis_state:
     build:
       context: .
-      dockerfile: ./docker/dockerfiles/test-parachain-collator.dockerfile
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
     image: "ctpc:latest"
     volumes:
       - "genesis-state:/data"
@@ -73,7 +73,7 @@ services:
   collator:
     build:
       context: .
-      dockerfile: ./docker/dockerfiles/test-parachain-collator.dockerfile
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
       target: collator
     image: "ctpc:collator"
     volumes:
@@ -90,7 +90,7 @@ services:
   runtime:
     build:
       context: .
-      dockerfile: ./docker/dockerfiles/test-parachain-collator.dockerfile
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
       target: runtime
     image: "ctpc:runtime"
     volumes:
@@ -100,7 +100,7 @@ services:
   registrar:
     build:
       context: .
-      dockerfile: ./docker/dockerfiles/parachain-registrar.dockerfile
+      dockerfile: ./docker/dockerfiles/parachain-registrar.Dockerfile
     image: para-reg:latest
     volumes:
       - "genesis-state:/genesis"

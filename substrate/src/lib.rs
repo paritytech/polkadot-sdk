@@ -21,7 +21,7 @@
 //! Substrate is a Rust framework for building blockchains in a modular and extensible way. While in
 //! itself un-opinionated, it is the main engine behind the Polkadot ecosystem.
 //!
-//! [![github]](https://github.com/paritytech/substrate/) - [![polkadot]](https://polkadot.network)
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/) - [![polkadot]](https://polkadot.network)
 //!
 //! This crate in itself does not contain any code and is just meant ot be a documentation hub for
 //! substrate-based crates.
@@ -157,7 +157,7 @@
 //! through which Polkadot can be utilized is by building "parachains", blockchains that are
 //! connected to Polkadot's shared security.
 //!
-//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/cumulus/), the
+//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the
 //! library on top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
