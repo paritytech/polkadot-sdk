@@ -84,7 +84,6 @@ mod v0 {
 pub mod v1 {
 	use super::*;
 	use crate::scheduler;
-	use frame_support::traits::StorageVersion;
 
 	#[allow(deprecated)]
 	pub type MigrateToV1<T> = VersionedMigration<
