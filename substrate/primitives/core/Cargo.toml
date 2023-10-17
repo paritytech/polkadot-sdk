@@ -76,7 +76,6 @@ bench = false
 default = [ "std" ]
 std = [
 	"array-bytes",
-	"bandersnatch_vrfs/getrandom",
 	"bandersnatch_vrfs/std",
 	"blake2/std",
 	"bounded-collections/std",

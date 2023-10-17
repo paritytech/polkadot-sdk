@@ -158,7 +158,7 @@ fn make_ticket_with_prover(
 	let mut raw: [u8; 32] = [0; 32];
 	raw.copy_from_slice(&pair.public().as_slice()[0..32]);
 	let erased_public = EphemeralPublic::unchecked_from(raw);
-	let revealed_public = erased_public.clone();
+	let revealed_public = erased_public;
 
 	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt, epoch);
 
@@ -224,7 +224,7 @@ pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, Ti
 	raw[..16].copy_from_slice(&pair.public().as_slice()[0..16]);
 	raw[16..].copy_from_slice(&id.to_le_bytes());
 	let erased_public = EphemeralPublic::unchecked_from(raw);
-	let revealed_public = erased_public.clone();
+	let revealed_public = erased_public;
 
 	let body = TicketBody { attempt_idx, erased_public, revealed_public };
 

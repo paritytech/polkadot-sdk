@@ -315,7 +315,7 @@ fn produce_epoch_change_digest_with_config() {
 		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
 
 		let config = EpochConfiguration { redundancy_factor: 1, attempts_number: 123 };
-		Sassafras::plan_config_change(RuntimeOrigin::root(), config.clone()).unwrap();
+		Sassafras::plan_config_change(RuntimeOrigin::root(), config).unwrap();
 
 		// We want to trigger an epoch change in this test.
 		let epoch_duration: u64 = <Test as Config>::EpochDuration::get();
