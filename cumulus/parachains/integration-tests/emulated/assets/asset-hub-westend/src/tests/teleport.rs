@@ -357,3 +357,17 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
+
+// TODO: uncomment when CollectivesWestend and BridgeHubWestend are implemented
+// https://github.com/paritytech/polkadot-sdk/pull/1737 (CollectivesWestend)
+// #[test]
+// fn teleport_to_other_system_parachains_works() {
+// 	let amount = ASSET_HUB_WESTEND_ED * 100;
+// 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+
+// 	test_parachain_is_trusted_teleporter!(
+// 		AssetHubWestend,                            // Origin
+// 		vec![CollectivesWestend, BridgeHubWestend], // Destinations
+// 		(native_asset, amount)
+// 	);
+// }

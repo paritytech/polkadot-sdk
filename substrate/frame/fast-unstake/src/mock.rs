@@ -41,7 +41,6 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
-	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -51,7 +50,6 @@ impl frame_system::Config for Runtime {
 	// we use U128 account id in order to get a better iteration order out of a map.
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_timestamp::Config for Runtime {

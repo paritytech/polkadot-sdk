@@ -97,7 +97,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame_support::{derive_impl, ConsensusEngineId, parameter_types,};
+	use frame_support::{derive_impl, ConsensusEngineId,};
 	use sp_core::H256;
 	use sp_runtime::{
 		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
@@ -113,14 +113,9 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet::Config for Test {

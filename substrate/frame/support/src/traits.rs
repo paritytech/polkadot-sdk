@@ -34,7 +34,7 @@ mod members;
 #[allow(deprecated)]
 pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
-	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Everything,
+	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
 	RankedMembers, SortedMembers, TheseExcept,
 };

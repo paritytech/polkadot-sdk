@@ -26,7 +26,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-		tokens::fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
+		fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
 		StorageMapShim, StoredMap, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},

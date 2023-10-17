@@ -63,15 +63,10 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
