@@ -224,6 +224,7 @@ impl PeerData {
 		&mut self,
 		on_relay_parent: Hash,
 		relay_parent_mode: ProspectiveParachainsMode,
+		use_non_prospective_chain_mode: bool,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
 		active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
@@ -241,33 +242,44 @@ impl PeerData {
 					return Err(InsertAdvertisementError::OutOfOurView)
 				}
 
-				match (relay_parent_mode, candidate_hash) {
-					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
+				let insert_non_prospective_chains_mode =
+					|state: &mut CollatingPeerState, candidate_hash: Option<CandidateHash>| {
 						if state.advertisements.contains_key(&on_relay_parent) {
 							return Err(InsertAdvertisementError::Duplicate)
 						}
 						state
 							.advertisements
 							.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+						Ok(())
+					};
+
+				match (relay_parent_mode, candidate_hash) {
+					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
+						insert_non_prospective_chains_mode(&mut state, candidate_hash)?;
 					},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
 						Some(candidate_hash),
-					) => {
-						if state
-							.advertisements
-							.get(&on_relay_parent)
-							.map_or(false, |candidates| candidates.contains(&candidate_hash))
-						{
-							return Err(InsertAdvertisementError::Duplicate)
-						}
-						let candidates = state.advertisements.entry(on_relay_parent).or_default();
+					) =>
+						if use_non_prospective_chain_mode {
+							insert_non_prospective_chains_mode(&mut state, candidate_hash)?;
+						} else {
+							if state
+								.advertisements
+								.get(&on_relay_parent)
+								.map_or(false, |candidates| candidates.contains(&candidate_hash))
+							{
+								return Err(InsertAdvertisementError::Duplicate)
+							}
 
-						if candidates.len() > max_candidate_depth {
-							return Err(InsertAdvertisementError::PeerLimitReached)
-						}
-						candidates.insert(candidate_hash);
-					},
+							let candidates =
+								state.advertisements.entry(on_relay_parent).or_default();
+
+							if candidates.len() > max_candidate_depth {
+								return Err(InsertAdvertisementError::PeerLimitReached)
+							}
+							candidates.insert(candidate_hash);
+						},
 					_ => return Err(InsertAdvertisementError::ProtocolMismatch),
 				}
 
@@ -1042,6 +1054,10 @@ where
 		.get(&relay_parent)
 		.map(|s| s.child("advertise-collation"));
 
+	// If the collator is speaking to us using `v1` networking protocol, it can not use prospective
+	// chains mode, even if it is enabled in the runtime.
+	let use_non_prospective_chains_mode = prospective_candidate.is_none();
+
 	let per_relay_parent = state
 		.per_relay_parent
 		.get(&relay_parent)
@@ -1054,16 +1070,9 @@ where
 	let collator_para_id =
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
-	match assignment.current {
-		Some(id) if id == collator_para_id => {
-			// Our assignment.
-		},
-		_ => return Err(AdvertisementError::InvalidAssignment),
-	};
-
-	if relay_parent_mode.is_enabled() && prospective_candidate.is_none() {
-		// Expected v2 advertisement.
-		return Err(AdvertisementError::ProtocolMismatch)
+	// Check if this is assigned to us.
+	if assignment.current.map_or(true, |id| id != collator_para_id) {
+		return Err(AdvertisementError::InvalidAssignment)
 	}
 
 	// Always insert advertisements that pass all the checks for spam protection.
@@ -1072,17 +1081,19 @@ where
 		.insert_advertisement(
 			relay_parent,
 			relay_parent_mode,
+			use_non_prospective_chains_mode,
 			candidate_hash,
 			&state.implicit_view,
 			&state.active_leaves,
 		)
 		.map_err(AdvertisementError::Invalid)?;
+
 	if !per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		let is_seconding_allowed = !relay_parent_mode.is_enabled() ||
+		let is_seconding_allowed = !use_non_prospective_chains_mode ||
 			can_second(
 				sender,
 				collator_para_id,
@@ -1125,6 +1136,7 @@ where
 		prospective_candidate,
 	)
 	.await;
+
 	if let Err(fetch_error) = result {
 		gum::debug!(
 			target: LOG_TARGET,
