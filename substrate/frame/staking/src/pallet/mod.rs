@@ -25,7 +25,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-		EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, Randomness, TryCollect, UnixTime,
+		EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, Randomness, TryCollect,
+		UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
