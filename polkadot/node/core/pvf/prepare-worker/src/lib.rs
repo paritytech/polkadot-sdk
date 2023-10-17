@@ -34,7 +34,7 @@ use nix::sys::resource::{Resource, Usage, UsageWho};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
-	executor_intf::Executor,
+	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
@@ -151,7 +151,7 @@ pub fn worker_entrypoint(
 
 				let preparation_timeout = pvf.prep_timeout();
 				let prepare_job_kind = pvf.prep_kind();
-				let executor_params = (*pvf.executor_params()).clone();
+				let executor_params = pvf.executor_params();
 
 				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
@@ -207,13 +207,10 @@ fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> 
 /// Try constructing the runtime to catch any instantiation errors during pre-checking.
 fn runtime_construction_check(
 	artifact_bytes: &[u8],
-	executor_params: ExecutorParams,
+	executor_params: &ExecutorParams,
 ) -> Result<(), PrepareError> {
-	let executor = Executor::new(executor_params)
-		.map_err(|e| PrepareError::RuntimeConstruction(format!("cannot create executor: {}", e)))?;
-
 	// SAFETY: We just compiled this artifact.
-	let result = unsafe { executor.create_runtime_from_bytes(&artifact_bytes) };
+	let result = unsafe { create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))
@@ -230,7 +227,7 @@ async fn handle_child_process(
 	mut pipe_write: os_pipe::PipeWriter,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
-	executor_params: ExecutorParams,
+	executor_params: Arc<ExecutorParams>,
 ) -> ! {
 	nix::sys::resource::setrlimit(
 		Resource::RLIMIT_CPU,
@@ -265,7 +262,7 @@ async fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.0.as_ref(), executor_params)?;
+					runtime_construction_check(&output.0, &executor_params)?;
 					Ok(output)
 				});
 			}
