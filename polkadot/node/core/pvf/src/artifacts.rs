@@ -57,6 +57,7 @@
 
 use crate::{host::PrepareResultSender, LOG_TARGET};
 use always_assert::always;
+use polkadot_core_primitives::Hash;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
@@ -64,6 +65,7 @@ use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
+	str::FromStr as _,
 	time::{Duration, SystemTime},
 };
 
@@ -124,9 +126,6 @@ impl ArtifactId {
 	/// Tries to recover the artifact id from the given file name.
 	#[cfg(test)]
 	pub fn from_file_name(file_name: &str) -> Option<Self> {
-		use polkadot_core_primitives::Hash;
-		use std::str::FromStr as _;
-
 		let file_name = file_name.strip_prefix(RUNTIME_PREFIX)?.strip_prefix(NODE_PREFIX)?;
 
 		// [ node version | code hash | param hash ]
@@ -204,36 +203,66 @@ pub enum ArtifactState {
 
 /// A container of all known artifact ids and their states.
 pub struct Artifacts {
-	artifacts: HashMap<ArtifactId, ArtifactState>,
+	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
 impl Artifacts {
 	#[cfg(test)]
 	pub(crate) fn new() -> Self {
-		Self { artifacts: HashMap::new() }
+		Self { inner: HashMap::new() }
+	}
+
+	#[cfg(test)]
+	pub(crate) fn len(&self) -> usize {
+		self.inner.len()
 	}
 
 	/// Create a table with valid artifacts and prune the invalid ones.
 	pub async fn new_and_prune(cache_path: &Path) -> Self {
-		// Make sure that the cache path directory and all its parents are created.
-		let _ = tokio::fs::create_dir_all(cache_path).await;
-
-		Self::prune_stale(cache_path).await;
-
-		Self { artifacts: HashMap::new() }
+		let mut artifacts = Self { inner: HashMap::new() };
+		Self::prune_and_insert(cache_path, &mut artifacts).await;
+		artifacts
 	}
 
-	// Prune stale and unknown artifacts, judging by the name.
-	async fn prune_stale(cache_path: impl AsRef<Path>) {
-		fn should_prune(file_name: impl AsRef<Path>) -> bool {
-			if let Some(file_name) = file_name.as_ref().to_str() {
-				!file_name.starts_with(ARTIFACT_PREFIX)
-			} else {
-				true
-			}
+	// FIXME eagr: extremely janky, please comment on the appropriate way of setting
+	// * `last_time_needed` set as roughly around startup time
+	// * `prepare_stats` set as Nones, since the metadata was lost
+	async fn prune_and_insert(cache_path: impl AsRef<Path>, artifacts: &mut Artifacts) {
+		fn is_stale(file_name: &str) -> bool {
+			!file_name.starts_with(ARTIFACT_PREFIX)
 		}
 
+		fn id_from_file_name(file_name: &str) -> Option<ArtifactId> {
+			let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
+
+			// [ code hash | param hash ]
+			let hashes: Vec<&str> = file_name.split('_').collect();
+
+			if hashes.len() != 2 {
+				return None
+			}
+
+			let (code_hash_str, executor_params_hash_str) = (hashes[0], hashes[1]);
+
+			let code_hash = Hash::from_str(code_hash_str).ok()?.into();
+			let executor_params_hash =
+				ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
+
+			Some(ArtifactId { code_hash, executor_params_hash })
+		}
+
+		fn insert_cache_as_prepared(artifacts: &mut Artifacts, id: ArtifactId) {
+			let last_time_needed = SystemTime::now();
+			let prepare_stats = Default::default();
+			always!(artifacts
+				.inner
+				.insert(id, ArtifactState::Prepared { last_time_needed, prepare_stats })
+				.is_none());
+		}
+
+		// Make sure that the cache path directory and all its parents are created.
 		let cache_path = cache_path.as_ref();
+		let _ = tokio::fs::create_dir_all(cache_path).await;
 
 		if let Ok(mut dir) = tokio::fs::read_dir(cache_path).await {
 			let mut prunes = vec![];
@@ -243,8 +272,14 @@ impl Artifacts {
 					Ok(None) => break,
 					Ok(Some(entry)) => {
 						let file_name = entry.file_name();
-						if should_prune(&file_name) {
+						let file_name = file_name
+							.to_str()
+							.expect("existing file path should always be valid unicode");
+
+						if is_stale(file_name) {
 							prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
+						} else if let Some(id) = id_from_file_name(file_name) {
+							insert_cache_as_prepared(artifacts, id);
 						}
 					},
 					Err(err) => gum::error!(
@@ -261,7 +296,7 @@ impl Artifacts {
 
 	/// Returns the state of the given artifact by its ID.
 	pub fn artifact_state_mut(&mut self, artifact_id: &ArtifactId) -> Option<&mut ArtifactState> {
-		self.artifacts.get_mut(artifact_id)
+		self.inner.get_mut(artifact_id)
 	}
 
 	/// Inform the table about the artifact with the given ID. The state will be set to "preparing".
@@ -275,7 +310,7 @@ impl Artifacts {
 	) {
 		// See the precondition.
 		always!(self
-			.artifacts
+			.inner
 			.insert(artifact_id, ArtifactState::Preparing { waiting_for_response, num_failures: 0 })
 			.is_none());
 	}
@@ -293,7 +328,7 @@ impl Artifacts {
 	) {
 		// See the precondition.
 		always!(self
-			.artifacts
+			.inner
 			.insert(artifact_id, ArtifactState::Prepared { last_time_needed, prepare_stats })
 			.is_none());
 	}
@@ -304,7 +339,7 @@ impl Artifacts {
 		let now = SystemTime::now();
 
 		let mut to_remove = vec![];
-		for (k, v) in self.artifacts.iter() {
+		for (k, v) in self.inner.iter() {
 			if let ArtifactState::Prepared { last_time_needed, .. } = *v {
 				if now
 					.duration_since(last_time_needed)
@@ -317,7 +352,7 @@ impl Artifacts {
 		}
 
 		for artifact in &to_remove {
-			self.artifacts.remove(artifact);
+			self.inner.remove(artifact);
 		}
 
 		to_remove
@@ -356,10 +391,7 @@ mod tests {
 
 	#[test]
 	fn artifact_prefix() {
-		assert_eq!(
-			ARTIFACT_PREFIX,
-			format!("wasmtime_polkadot_v{}", NODE_VERSION),
-		)
+		assert_eq!(ARTIFACT_PREFIX, format!("wasmtime_polkadot_v{}", NODE_VERSION),)
 	}
 
 	#[test]
@@ -418,9 +450,10 @@ mod tests {
 
 		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 4);
 
-		Artifacts::new_and_prune(&cache_dir).await;
+		let artifacts = Artifacts::new_and_prune(&cache_dir).await;
 
 		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 1);
+		assert_eq!(artifacts.len(), 1);
 
 		fs::remove_dir_all(cache_dir).unwrap();
 	}
