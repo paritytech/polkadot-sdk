@@ -2390,11 +2390,11 @@ pub mod pallet_macros {
 	///     # pub trait Config: frame_system::Config {}
 	///     # #[pallet::pallet]
 	///     # pub struct Pallet<T>(_);
-	/// 	/// Unnamed syntax, without bounding `T`.
+	/// 	/// Positional syntax, without bounding `T`.
 	///     #[pallet::storage]
 	///     pub type Foo<T> = StorageValue<_, u32>;
 	///
-	/// 	/// Unnamed syntax, with bounding `T`.
+	/// 	/// Positional syntax, with bounding `T`.
 	///     #[pallet::storage]
 	///     pub type Bar<T: Config> = StorageValue<_, u32>;
 	///
