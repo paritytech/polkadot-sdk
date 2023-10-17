@@ -310,8 +310,8 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Set the metadata `data` of an `item` of `collection`.
 	///
 	/// By default, this is not a supported operation.
-	fn set_metadata(
-		_who: &AccountId,
+	fn set_item_metadata(
+		_who: Option<&AccountId>,
 		_collection: &Self::CollectionId,
 		_item: &Self::ItemId,
 		_data: &[u8],
@@ -323,7 +323,7 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	///
 	/// By default, this is not a supported operation.
 	fn set_collection_metadata(
-		_who: &AccountId,
+		_who: Option<&AccountId>,
 		_collection: &Self::CollectionId,
 		_data: &[u8],
 	) -> DispatchResult {
@@ -372,8 +372,8 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Clear the metadata of an `item` of `collection`.
 	///
 	/// By default, this is not a supported operation.
-	fn clear_metadata(
-		_who: &AccountId,
+	fn clear_item_metadata(
+		_who: Option<&AccountId>,
 		_collection: &Self::CollectionId,
 		_item: &Self::ItemId,
 	) -> DispatchResult {
@@ -384,7 +384,7 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	///
 	/// By default, this is not a supported operation.
 	fn clear_collection_metadata(
-		_who: &AccountId,
+		_who: Option<&AccountId>,
 		_collection: &Self::CollectionId,
 	) -> DispatchResult {
 		Err(TokenError::Unsupported.into())
