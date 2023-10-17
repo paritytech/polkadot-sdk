@@ -107,6 +107,9 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -192,6 +195,9 @@
 	FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents, WeightInfoBounds,
 };
 
+<span class="kw">mod </span>matches_location;
+<span class="kw">pub use </span>matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+
 <span class="kw">mod </span>matches_token;
 <span class="kw">pub use </span>matches_token::{IsAbstract, IsConcrete};
 
@@ -199,7 +205,7 @@
 <span class="kw">pub use </span>matcher::{CreateMatcher, MatchXcm, Matcher};
 
 <span class="kw">mod </span>filter_asset_location;
-<span class="kw">pub use </span>filter_asset_location::{Case, NativeAsset};
+<span class="kw">pub use </span>filter_asset_location::{AllAssets, Case, LocationWithAssetFilters, NativeAsset};
 
 <span class="kw">mod </span>routing;
 <span class="kw">pub use </span>routing::{WithTopicSource, WithUniqueTopic};
@@ -208,7 +214,7 @@
 <span class="kw">pub use </span>universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
 	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
 };
 
 <span class="kw">mod </span>origin_aliases;

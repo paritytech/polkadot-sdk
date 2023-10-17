@@ -415,7 +415,7 @@ var srcIndex = JSON.parse('{\
 "sp_wasm_interface":["",[],["lib.rs"]],\
 "sp_weights":["",[],["lib.rs","weight_meter.rs","weight_v2.rs"]],\
 "staging_xcm":["",[["v2",[],["junction.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]],["v3",[],["junction.rs","junctions.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]]],["double_encoded.rs","lib.rs"]],\
-"staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
+"staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
 "staging_xcm_executor":["",[["traits",[],["asset_exchange.rs","asset_lock.rs","conversion.rs","drop_assets.rs","export.rs","fee_manager.rs","filter_asset_location.rs","mod.rs","on_response.rs","should_execute.rs","token_matching.rs","transact_asset.rs","weight.rs"]]],["assets.rs","config.rs","lib.rs"]],\
 "subkey":["",[],["lib.rs"]],\
 "substrate":["",[],["lib.rs"]],\

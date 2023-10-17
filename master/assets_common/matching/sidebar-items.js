@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Equals","FromSiblingParachain","IsForeignConcreteAsset","LocalMultiLocationPattern","ParentLocation","StartsWith","StartsWithExplicitGlobalConsensus"]};
+window.SIDEBAR_ITEMS = {"struct":["FromSiblingParachain","IsForeignConcreteAsset","LocalMultiLocationPattern","ParentLocation"]};

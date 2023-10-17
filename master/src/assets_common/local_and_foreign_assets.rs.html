@@ -467,6 +467,7 @@
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -876,13 +877,14 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use crate</span>::{
-		local_and_foreign_assets::MultiLocationConverter, matching::StartsWith,
-		AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
+		local_and_foreign_assets::MultiLocationConverter, AssetIdForPoolAssetsConvert,
+		AssetIdForTrustBackedAssetsConvert,
 	};
 	<span class="kw">use </span>frame_support::traits::EverythingBut;
 	<span class="kw">use </span>pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 	<span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
 	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>xcm_builder::StartsWith;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_multi_location_converter_works() {

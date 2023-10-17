@@ -346,11 +346,11 @@
 <span class="kw">pub mod </span>matching;
 <span class="kw">pub mod </span>runtime_api;
 
-<span class="kw">use </span><span class="kw">crate</span>::matching::{Equals, LocalMultiLocationPattern, ParentLocation, StartsWith};
-<span class="kw">use </span>frame_support::traits::EverythingBut;
+<span class="kw">use </span><span class="kw">crate</span>::matching::{LocalMultiLocationPattern, ParentLocation};
+<span class="kw">use </span>frame_support::traits::{Equals, EverythingBut};
 <span class="kw">use </span>parachains_common::AssetIdForTrustBackedAssets;
 <span class="kw">use </span>xcm::prelude::MultiLocation;
-<span class="kw">use </span>xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId};
+<span class="kw">use </span>xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 <span class="kw">use </span>xcm_executor::traits::{Identity, JustTry};
 
 <span class="doccomment">/// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
@@ -421,9 +421,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::matching::StartsWithExplicitGlobalConsensus;
 	<span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
 	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>xcm_builder::StartsWithExplicitGlobalConsensus;
 	<span class="kw">use </span>xcm_executor::traits::{Error <span class="kw">as </span>MatchError, MatchesFungibles};
 
 	<span class="attr">#[test]
