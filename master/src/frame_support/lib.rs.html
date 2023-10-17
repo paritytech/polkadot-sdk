@@ -2287,10 +2287,6 @@
 <a href="#2287" id="2287">2287</a>
 <a href="#2288" id="2288">2288</a>
 <a href="#2289" id="2289">2289</a>
-<a href="#2290" id="2290">2290</a>
-<a href="#2291" id="2291">2291</a>
-<a href="#2292" id="2292">2292</a>
-<a href="#2293" id="2293">2293</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2323,6 +2319,7 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="doccomment">/// Export ourself as `frame_support` to make tests happy.
+</span><span class="attr">#[doc(hidden)]
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>frame_support;
 
 <span class="doccomment">/// Private exports that are being used by macros.
@@ -2338,6 +2335,7 @@
 	<span class="kw">pub use </span>serde;
 	<span class="kw">pub use </span>sp_core::{OpaqueMetadata, Void};
 	<span class="kw">pub use </span>sp_core_hashing_proc_macro;
+	<span class="kw">pub use </span>sp_inherents;
 	<span class="kw">pub use </span>sp_io::{<span class="self">self</span>, storage::root <span class="kw">as </span>storage_root};
 	<span class="kw">pub use </span>sp_metadata_ir <span class="kw">as </span>metadata_ir;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -3078,12 +3076,6 @@
 <span class="attr">#[doc(hidden)]
 #[cfg(not(no_std))]
 </span><span class="kw">pub use </span>macro_magic;
-
-<span class="doccomment">/// Private module re-exporting items used by frame support macros.
-</span><span class="attr">#[doc(hidden)]
-</span><span class="kw">pub mod </span>_private {
-	<span class="kw">pub use </span>sp_inherents;
-}
 
 <span class="doccomment">/// Prelude to be used for pallet testing, for ease of use.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]

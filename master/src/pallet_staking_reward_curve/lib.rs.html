@@ -442,6 +442,7 @@
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -525,11 +526,12 @@
 
 	<span class="kw">let </span>imports = <span class="kw">match </span>crate_name(<span class="string">&quot;sp-runtime&quot;</span>) {
 		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; <span class="macro">quote!</span>(
-			<span class="kw">extern crate </span>sp_runtime <span class="kw">as </span>_sp_runtime;
+			<span class="attr">#[doc(hidden)]
+			</span><span class="kw">pub use </span>sp_runtime <span class="kw">as </span>_sp_runtime;
 		),
 		<span class="prelude-val">Ok</span>(FoundCrate::Name(sp_runtime)) =&gt; {
 			<span class="kw">let </span>ident = syn::Ident::new(<span class="kw-2">&amp;</span>sp_runtime, Span::call_site());
-			<span class="macro">quote!</span>( <span class="kw">extern crate </span>#ident <span class="kw">as </span>_sp_runtime; )
+			<span class="macro">quote!</span>( <span class="attr">#[doc(hidden)] </span><span class="kw">pub use </span>#ident <span class="kw">as </span>_sp_runtime; )
 		},
 		<span class="prelude-val">Err</span>(e) =&gt; syn::Error::new(Span::call_site(), e).to_compile_error(),
 	};
