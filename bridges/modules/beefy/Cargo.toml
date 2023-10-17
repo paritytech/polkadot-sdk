@@ -1,6 +1,7 @@
 [package]
 name = "pallet-bridge-beefy"
 version = "0.1.0"
+description = "Module implementing BEEFY on-chain light client used for bridging consensus of substrate-based chains."
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
