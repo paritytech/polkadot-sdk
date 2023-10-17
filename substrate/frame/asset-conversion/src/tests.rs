@@ -2021,7 +2021,7 @@ fn can_use_pool_with_two_recreated_assets() {
 		}));
 
 		// Can we still destroy the pool?
-		assert_ok!(AssetConversion::start_destroy_pool(RuntimeOrigin::root(), token_1, token_2));
+		assert_ok!(AssetConversion::start_destroy_pool(user_sig.clone(), token_1, token_2));
 		assert_ok!(AssetConversion::destroy_lp_token_accounts(user_sig.clone(), pool_id, 10));
 		assert_ok!(AssetConversion::finish_destroy_pool(user_sig.clone(), token_1, token_2));
 
