@@ -79,7 +79,14 @@ mod tests;
 mod types;
 pub mod weights;
 
-use frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
+use frame_support::traits::{
+	fungible::{
+		hold::Balanced as FnBalanced, Inspect as FnInspect, Mutate as FnMutate,
+		MutateHold as FnMutateHold,
+	},
+	tokens::fungible::Credit,
+	BalanceStatus, OnUnbalanced,
+};
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
@@ -91,10 +98,8 @@ pub use types::{
 };
 
 type BalanceOf<T> =
-	<<T as Config>::Fungible as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Fungible as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Fungible as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -108,8 +113,13 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The currency trait.
-		type Fungible: ReservableCurrency<Self::AccountId>;
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The fungible type for this pallet.
+		type Fungible: FnMutate<Self::AccountId>
+			+ FnBalanced<Self::AccountId>
+			+ FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]
@@ -143,7 +153,7 @@ pub mod pallet {
 		type MaxRegistrars: Get<u32>;
 
 		/// What to do with slashed funds.
-		type Slashed: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type Slashed: OnUnbalanced<CreditOf<Self>>;
 
 		/// The origin which may forcibly set or remove a name. Root can always do this.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -153,6 +163,11 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		ReasonHere,
 	}
 
 	#[pallet::pallet]
@@ -359,7 +374,11 @@ pub mod pallet {
 			let old_deposit = id.deposit;
 			id.deposit = T::BasicDeposit::get() + fd;
 			if id.deposit > old_deposit {
-				T::Fungible::reserve(&sender, id.deposit - old_deposit)?;
+				T::Fungible::hold(
+					&HoldReason::ReasonHere.into(),
+					&sender,
+					id.deposit - old_deposit,
+				);
 			}
 			if old_deposit > id.deposit {
 				let err_amount = T::Fungible::unreserve(&sender, old_deposit - id.deposit);
