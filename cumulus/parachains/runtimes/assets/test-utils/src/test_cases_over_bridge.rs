@@ -252,7 +252,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			}
 			// 2. check ExportMessage
 			.match_next_inst(|instr| match instr {
-				// second instruction is ExportMessage
+				// next instruction is ExportMessage
 				ExportMessage { network, destination, xcm: inner_xcm } => {
 					assert_eq!(network, &bridged_network);
 					let (_, target_location_junctions_without_global_consensus) =
