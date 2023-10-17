@@ -38,6 +38,7 @@ pub struct ContextCookie(pub H256);
 /// The unique identifier is required to route all messages to the same worker. If it is not
 /// specified the work item is broadcasted to all workers.
 pub trait WorkContext {
+	/// Returns the associated context identifier, if any.
 	fn id(&self) -> Option<ContextCookie> {
 		None
 	}
@@ -48,22 +49,22 @@ impl<T> WorkContext for Option<T> where T: WorkContext {}
 
 /// An abstract worker configuration and spawning interface.
 pub trait WorkerConfig: Sized + 'static {
-	// The type used to describe the work to be done.
+	/// The type used to describe the work to be done.
 	type WorkItem: WorkContext + Send + Sync + Clone + Debug;
-	// // The type that defines a context in which WorkItems are processed
+	/// The type that defines a context in which WorkItems are processed
 	type Context: Clone + Debug + Send;
-	// A type implementing the Worker handler.
+	/// A type implementing the Worker handler.
 	type Worker: WorkerHandle + Sync;
-	// A type for channel capacity.
+	/// A type for channel capacity.
 	type ChannelCapacity: Get<u32>;
-	// A type for number of workers.
+	/// A type for number of workers.
 	type PoolCapacity: Get<u32>;
 
-	// Spawn a worker and return a `WorkerHandle` to it.
+	/// Spawn a worker and return a `WorkerHandle` to it.
 	fn new_worker(&mut self) -> Self::Worker;
 
-	// Helper for creating a channel from the pool main loop to a worker based on current
-	// configuration.
+	/// Helper for creating a channel from the pool main loop to a worker based on current
+	/// configuration.
 	// TODO: Priority channel is required to enable workers to be responsive for some messages.
 	fn new_worker_channel() -> (Sender<WorkerMessage<Self>>, Receiver<WorkerMessage<Self>>) {
 		let max_workers = std::cmp::min(MAX_WORKERS, Self::PoolCapacity::get() as usize);
@@ -73,8 +74,8 @@ pub trait WorkerConfig: Sized + 'static {
 		mpsc::channel::<WorkerMessage<Self>>(worker_channel_capacity)
 	}
 
-	// Helper for creating a channel from worker pool handlers to pool main loop based on current
-	// configuration.
+	/// Helper for creating a channel from worker pool handlers to pool main loop based on current
+	/// configuration.
 	fn new_pool_channel() -> (Sender<WorkerPoolMessage<Self>>, Receiver<WorkerPoolMessage<Self>>) {
 		let pool_channel_capacity = std::cmp::min(
 			MAX_WORKER_POOL_MESSAGES,
@@ -90,22 +91,22 @@ pub trait WorkerConfig: Sized + 'static {
 pub trait WorkerHandle: Send + Clone {
 	type Config: WorkerConfig;
 
-	// Push a context update to the worker. Usually this is a new context.
+	/// Push a context update to the worker. Usually this is a new context.
 	async fn setup_context(&self, context: <Self::Config as WorkerConfig>::Context) {
 		self.send(WorkerMessage::SetupContext(context)).await;
 	}
 
-	// Push some work to the worker.
+	/// Push some work to the worker.
 	async fn queue_work(&self, item: <Self::Config as WorkerConfig>::WorkItem) {
 		self.send(WorkerMessage::Queue(item)).await;
 	}
 
-	// Prune all work belonging to the specified `contexts`.
+	/// Prune all work belonging to the specified `contexts`.
 	async fn prune_work(&self, contexts: &[ContextCookie]) {
 		self.send(WorkerMessage::PruneWork(contexts.into())).await;
 	}
 
-	// Only this is required to be implemented
+	/// Only this is required to be implemented
 	async fn send(&self, message: WorkerMessage<Self::Config>);
 }
 
@@ -222,6 +223,7 @@ pub struct WorkerPoolHandler<Config: WorkerConfig> {
 }
 
 impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
+	/// Dispatch a `WorkItem` to the appropriate worker.
 	pub async fn queue_work(
 		&mut self,
 		work_item: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem,
