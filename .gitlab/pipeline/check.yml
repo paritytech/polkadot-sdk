@@ -116,14 +116,13 @@ test-rust-feature-propagation:
 
       echo "---------- Downloading `try-runtime` CLI ----------"
       curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime.3-x86_64-unknown-linux-gnu -o try-runtime
-      chmod +x try-runtime
-      sudo mv try-runtime /usr/local/bin/
+      chmod +x ./try-runtime
 
       echo "---------- Building ${PACKAGE} runtime ----------"
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
       echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
-      time try-runtime \
+      time ./try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}
 
