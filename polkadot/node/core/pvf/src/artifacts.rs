@@ -180,22 +180,22 @@ pub struct Artifacts {
 }
 
 impl Artifacts {
+	#[cfg(test)]
+	pub(crate) fn new() -> Self {
+		Self { artifacts: HashMap::new() }
+	}
+
 	/// Initialize a blank cache at the given path. This will clear everything present at the
 	/// given path, to be populated over time.
 	///
 	/// The recognized artifacts will be filled in the table and unrecognized will be removed.
-	pub async fn new(cache_path: &Path) -> Self {
+	pub async fn new_and_prune(cache_path: &Path) -> Self {
 		// First delete the entire cache. This includes artifacts and any leftover worker dirs (see
 		// [`WorkerDir`]). Nodes are long-running so this should populate shortly.
 		let _ = tokio::fs::remove_dir_all(cache_path).await;
 		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
-		Self { artifacts: HashMap::new() }
-	}
-
-	#[cfg(test)]
-	pub(crate) fn empty() -> Self {
 		Self { artifacts: HashMap::new() }
 	}
 
@@ -334,7 +334,7 @@ mod tests {
 		// this should remove it and re-create.
 
 		let p = &fake_cache_path;
-		Artifacts::new(p).await;
+		Artifacts::new_and_prune(p).await;
 
 		assert_eq!(std::fs::read_dir(&fake_cache_path).unwrap().count(), 0);
 

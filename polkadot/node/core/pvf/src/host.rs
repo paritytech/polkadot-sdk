@@ -247,7 +247,7 @@ pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<O
 	let run_sweeper = sweeper_task(to_sweeper_rx);
 
 	let run_host = async move {
-		let artifacts = Artifacts::new(&config.cache_path).await;
+		let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
 
 		run(Inner {
 			cache_path: config.cache_path,
@@ -1028,7 +1028,7 @@ pub(crate) mod tests {
 				cleanup_pulse_interval: Duration::from_secs(3600),
 				artifact_ttl: Duration::from_secs(3600),
 
-				artifacts: Artifacts::empty(),
+				artifacts: Artifacts::new(),
 			}
 		}
 
