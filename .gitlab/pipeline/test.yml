@@ -183,7 +183,6 @@ test-rustdoc:
     SKIP_WASM_BUILD: 1
   script:
     - time cargo doc --workspace --all-features --no-deps
-  allow_failure: true
 
 cargo-check-all-benches:
   stage: test
