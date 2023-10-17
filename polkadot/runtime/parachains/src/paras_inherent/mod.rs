@@ -125,7 +125,6 @@ pub mod pallet {
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		type DisabledValidators: DisabledValidators;
 	}
 
 	#[pallet::error]

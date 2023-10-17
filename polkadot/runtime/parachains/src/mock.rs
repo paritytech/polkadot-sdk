@@ -182,7 +182,9 @@ impl crate::configuration::Config for Test {
 	type WeightInfo = crate::configuration::TestWeightInfo;
 }
 
-impl crate::shared::Config for Test {}
+impl crate::shared::Config for Test {
+	type DisabledValidators = ();
+}
 
 impl origin::Config for Test {}
 
@@ -368,7 +370,6 @@ impl crate::inclusion::Config for Test {
 
 impl crate::paras_inherent::Config for Test {
 	type WeightInfo = crate::paras_inherent::TestWeightInfo;
-	type DisabledValidators = ();
 }
 
 pub struct MockValidatorSet;

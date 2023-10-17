@@ -742,7 +742,9 @@ mod tests {
 		type OnNewHead = ();
 	}
 
-	impl parachains_shared::Config for Test {}
+	impl parachains_shared::Config for Test {
+		type DisabledValidators = ();
+	}
 
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 3;
