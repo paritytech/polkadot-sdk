@@ -23,7 +23,6 @@ use frame_support::{
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
 };
 use frame_system::EnsureRoot;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -86,8 +85,10 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 }
 
+pub type Balance = u64;
+
 impl pallet_balances::Config for Test {
-	type Balance = u64;
+	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
@@ -197,6 +198,22 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 	}
 }
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(RelayChain::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: Balance = 300_000_000;
+	/// The fee per byte
+	pub const ByteFee: Balance = 1_000_000;
+}
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	ByteFee,
+	XcmpQueue,
+>;
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
@@ -206,7 +223,7 @@ impl Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

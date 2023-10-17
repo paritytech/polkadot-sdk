@@ -29,7 +29,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelStatus, CollationInfo, DmpMessageHandler,
+	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, DmpMessageHandler,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
@@ -258,6 +258,7 @@ pub mod pallet {
 		/// Handles actually sending upward messages by moving them from `PendingUpwardMessages` to
 		/// `UpwardMessages`. Decreases the delivery fee factor if after sending messages, the queue
 		/// total size is less than the threshold (see [`ump_constants::THRESHOLD_FACTOR`]).
+		/// Also does the sending for HRMP messages it takes from `OutboundXcmpMessageSource`.
 		fn on_finalize(_: BlockNumberFor<T>) {
 			<DidSetValidationCode<T>>::kill();
 			<UpgradeRestrictionSignal<T>>::kill();
@@ -1084,10 +1085,17 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		ChannelStatus::Ready(max_size_now as usize, max_size_ever as usize)
 	}
 
-	fn get_channel_max(id: ParaId) -> Option<usize> {
+	fn get_channel_info(id: ParaId) -> Option<ChannelInfo> {
 		let channels = Self::relevant_messaging_state()?.egress_channels;
 		let index = channels.binary_search_by_key(&id, |item| item.0).ok()?;
-		Some(channels[index].1.max_message_size as usize)
+		let info = ChannelInfo {
+			max_capacity: channels[index].1.max_capacity,
+			max_total_size: channels[index].1.max_total_size,
+			max_message_size: channels[index].1.max_message_size,
+			msg_count: channels[index].1.msg_count,
+			total_size: channels[index].1.total_size,
+		};
+		Some(info)
 	}
 }
 
@@ -1492,6 +1500,26 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Open HRMP channel for using it in benchmarks or tests.
+	///
+	/// The caller assumes that the pallet will accept regular outbound message to the sibling
+	/// `target_parachain` after this call. No other assumptions are made.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+		target_parachain: ParaId,
+		channel: cumulus_primitives_core::AbridgedHrmpChannel
+	) {
+		RelevantMessagingState::<T>::put(MessagingStateSnapshot {
+			dmq_mqc_head: Default::default(),
+			relay_dispatch_queue_remaining_capacity: Default::default(),
+			ingress_channels: Default::default(),
+			egress_channels: vec![(
+				target_parachain,
+				channel,
+			)],
+		})
+	}
+
 	/// Prepare/insert relevant data for `schedule_code_upgrade` for benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn initialize_for_set_code_benchmark(max_code_size: u32) {
@@ -1560,6 +1588,7 @@ impl<T: Config> Pallet<T> {
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
 			// We check the threshold against total size and not number of messages since messages
 			// could be big or small.
+			<PendingUpwardMessages<T>>::append(message.clone());
 			let pending_messages = PendingUpwardMessages::<T>::get();
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
@@ -1578,9 +1607,8 @@ impl<T: Config> Pallet<T> {
 			// returned back to the sender.
 			//
 			// Thus fall through here.
+			<PendingUpwardMessages<T>>::append(message.clone());
 		};
-
-		<PendingUpwardMessages<T>>::append(message.clone());
 
 		// The relay ump does not use using_encoded
 		// We apply the same this to use the same hash

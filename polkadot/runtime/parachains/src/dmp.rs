@@ -17,12 +17,12 @@
 //! To prevent Out of Memory errors on the `DownwardMessageQueue`, an
 //! exponential fee factor (`DeliveryFeeFactor`) is set. The fee factor
 //! increments exponentially after the number of messages in the
-//! `DownwardMessageQueue` pass a threshold. This threshold is set as:
+//! `DownwardMessageQueue` passes a threshold. This threshold is set as:
 //!
 //! ```ignore
 //! // Maximum max sized messages that can be send to
 //! // the DownwardMessageQueue before it runs out of memory
-//! max_messsages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
+//! max_messages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
 //! threshold = max_messages / THRESHOLD_FACTOR
 //! ```
 //! Based on the THRESHOLD_FACTOR, the threshold is set as a fraction of the
