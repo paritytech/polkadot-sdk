@@ -114,7 +114,7 @@ type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Two
 
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type BasicDeposit = BasicDeposit;
 	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;

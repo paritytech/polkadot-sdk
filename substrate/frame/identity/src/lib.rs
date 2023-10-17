@@ -91,8 +91,8 @@ pub use types::{
 };
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	<<T as Config>::Fungible as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Fungible as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -109,7 +109,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Fungible: ReservableCurrency<Self::AccountId>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]
@@ -359,10 +359,10 @@ pub mod pallet {
 			let old_deposit = id.deposit;
 			id.deposit = T::BasicDeposit::get() + fd;
 			if id.deposit > old_deposit {
-				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
+				T::Fungible::reserve(&sender, id.deposit - old_deposit)?;
 			}
 			if old_deposit > id.deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - id.deposit);
+				let err_amount = T::Fungible::unreserve(&sender, old_deposit - id.deposit);
 				debug_assert!(err_amount.is_zero());
 			}
 
@@ -411,9 +411,9 @@ pub mod pallet {
 			ensure!(not_other_sub, Error::<T>::AlreadyClaimed);
 
 			if old_deposit < new_deposit {
-				T::Currency::reserve(&sender, new_deposit - old_deposit)?;
+				T::Fungible::reserve(&sender, new_deposit - old_deposit)?;
 			} else if old_deposit > new_deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - new_deposit);
+				let err_amount = T::Fungible::unreserve(&sender, old_deposit - new_deposit);
 				debug_assert!(err_amount.is_zero());
 			}
 			// do nothing if they're equal.
@@ -466,7 +466,7 @@ pub mod pallet {
 				<SuperOf<T>>::remove(sub);
 			}
 
-			let err_amount = T::Currency::unreserve(&sender, deposit);
+			let err_amount = T::Fungible::unreserve(&sender, deposit);
 			debug_assert!(err_amount.is_zero());
 
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
@@ -527,7 +527,7 @@ pub mod pallet {
 					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
 			}
 
-			T::Currency::reserve(&sender, registrar.fee)?;
+			T::Fungible::reserve(&sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
 			#[allow(deprecated)]
@@ -575,7 +575,7 @@ pub mod pallet {
 				return Err(Error::<T>::JudgementGiven.into())
 			};
 
-			let err_amount = T::Currency::unreserve(&sender, fee);
+			let err_amount = T::Fungible::unreserve(&sender, fee);
 			debug_assert!(err_amount.is_zero());
 			let judgements = id.judgements.len();
 			#[allow(deprecated)]
@@ -735,7 +735,7 @@ pub mod pallet {
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
 				Ok(position) => {
 					if let Judgement::FeePaid(fee) = id.judgements[position].1 {
-						T::Currency::repatriate_reserved(
+						T::Fungible::repatriate_reserved(
 							&target,
 							&sender,
 							fee,
@@ -795,7 +795,7 @@ pub mod pallet {
 				<SuperOf<T>>::remove(sub);
 			}
 			// Slash their deposit from them.
-			T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target, deposit).0);
+			T::Slashed::on_unbalanced(T::Fungible::slash_reserved(&target, deposit).0);
 
 			Self::deposit_event(Event::IdentityKilled { who: target, deposit });
 
@@ -836,7 +836,7 @@ pub mod pallet {
 					Error::<T>::TooManySubAccounts
 				);
 				let deposit = T::SubAccountDeposit::get();
-				T::Currency::reserve(&sender, deposit)?;
+				T::Fungible::reserve(&sender, deposit)?;
 
 				SuperOf::<T>::insert(&sub, (sender.clone(), data));
 				sub_ids.try_push(sub.clone()).expect("sub ids length checked above; qed");
@@ -886,7 +886,7 @@ pub mod pallet {
 				sub_ids.retain(|x| x != &sub);
 				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
 				*subs_deposit -= deposit;
-				let err_amount = T::Currency::unreserve(&sender, deposit);
+				let err_amount = T::Fungible::unreserve(&sender, deposit);
 				debug_assert!(err_amount.is_zero());
 				Self::deposit_event(Event::SubIdentityRemoved { sub, main: sender, deposit });
 			});
@@ -913,7 +913,7 @@ pub mod pallet {
 				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
 				*subs_deposit -= deposit;
 				let _ =
-					T::Currency::repatriate_reserved(&sup, &sender, deposit, BalanceStatus::Free);
+					T::Fungible::repatriate_reserved(&sup, &sender, deposit, BalanceStatus::Free);
 				Self::deposit_event(Event::SubIdentityRevoked {
 					sub: sender,
 					main: sup.clone(),
