@@ -473,7 +473,7 @@ impl RefState {
 }
 
 /// note a new preimage without registering.
-pub fn note_preimage(who: u64) -> PreimageHash {
+pub fn note_preimage(who: u64) -> <Test as frame_system::Config>::Hash {
 	use std::sync::atomic::{AtomicU8, Ordering};
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
