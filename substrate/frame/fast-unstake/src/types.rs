@@ -19,9 +19,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	traits::Currency, BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame_support::{BoundedVec, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_staking::{EraIndex, StakingInterface};
 use sp_std::prelude::*;
@@ -40,7 +38,9 @@ impl<T: Config> frame_support::traits::Get<u32> for MaxChecking<T> {
 }
 
 pub(crate) type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as frame_support::traits::fungible::Inspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 /// An unstake request.
 ///
 /// This is stored in [`crate::Head`] storage item and points to the current unstake request that is
@@ -50,8 +50,8 @@ pub(crate) type BalanceOf<T> =
 )]
 #[scale_info(skip_type_params(T))]
 pub struct UnstakeRequest<T: Config> {
-	/// This list of stashes are being processed in this request, and their corresponding deposit.
-	pub stashes: BoundedVec<(T::AccountId, BalanceOf<T>), T::BatchSize>,
+	/// This list of stashes are being processed in this request.
+	pub stashes: BoundedVec<T::AccountId, T::BatchSize>,
 	/// The list of eras for which they have been checked.
 	pub checked: BoundedVec<EraIndex, MaxChecking<T>>,
 }

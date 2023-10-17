@@ -247,8 +247,7 @@ pub mod pallet {
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
-		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
+		type Currency: Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.

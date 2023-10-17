@@ -63,20 +63,14 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<128>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<128>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -167,6 +161,7 @@ parameter_types! {
 
 impl fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Deposit = Deposit;
 	type Currency = Balances;
 	type Staking = Staking;
