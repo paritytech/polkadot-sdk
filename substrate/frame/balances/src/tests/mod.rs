@@ -21,6 +21,7 @@
 
 use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::VariantCount;
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -68,6 +69,12 @@ pub enum TestId {
 	Foo,
 	Bar,
 	Baz,
+}
+
+impl VariantCount for TestId {
+	fn variant_count() -> u32 {
+		3
+	}
 }
 
 frame_support::construct_runtime!(
@@ -132,9 +139,10 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]
