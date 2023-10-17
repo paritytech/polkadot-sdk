@@ -18,7 +18,8 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
+	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
 mod v0 {
@@ -85,8 +86,19 @@ pub mod v1 {
 	use crate::scheduler;
 	use frame_support::traits::StorageVersion;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
+	#[allow(deprecated)]
+	pub type MigrateToV1<T> = VersionedMigration<
+		0,
+		1,
+		UncheckedMigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	#[deprecated(note = "Use MigrateToV1 instead")]
+	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	#[allow(deprecated)]
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			if StorageVersion::get::<Pallet<T>>() == 0 {
 				let weight_consumed = migrate_to_v1::<T>();
