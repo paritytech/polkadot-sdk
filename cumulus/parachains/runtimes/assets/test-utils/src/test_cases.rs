@@ -1235,7 +1235,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				.is_empty());
 
 			// check update metadata
-			use frame_support::traits::tokens::fungibles::roles::Inspect as InspectRoles;
+			use frame_support::traits::fungibles::roles::Inspect as InspectRoles;
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::owner(
 					asset_id.into()

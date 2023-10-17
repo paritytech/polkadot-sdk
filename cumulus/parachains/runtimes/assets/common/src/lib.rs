@@ -21,11 +21,11 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
-use crate::matching::{Equals, LocalMultiLocationPattern, ParentLocation, StartsWith};
-use frame_support::traits::EverythingBut;
+use crate::matching::{LocalMultiLocationPattern, ParentLocation};
+use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
 use xcm::prelude::MultiLocation;
-use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId};
+use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
 
 /// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
@@ -96,9 +96,9 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::matching::StartsWithExplicitGlobalConsensus;
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
+	use xcm_builder::StartsWithExplicitGlobalConsensus;
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
 	#[test]

@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
-use parachains_common::{xcm_config::RelayOrOtherSystemParachains, TREASURY_PALLET_ID};
+use parachains_common::{xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains}, TREASURY_PALLET_ID};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::SystemParachains;
@@ -149,6 +149,8 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
+pub type TrustedTeleporter = ConcreteAssetFromSystem<RelayLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -156,7 +158,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = CurrencyTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = NativeAsset;
-	type IsTeleporter = NativeAsset;
+	type IsTeleporter = TrustedTeleporter;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;

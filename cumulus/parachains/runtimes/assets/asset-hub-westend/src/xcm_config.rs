@@ -22,9 +22,7 @@ use super::{
 use crate::ForeignAssets;
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
-	matching::{
-		FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
-	},
+	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -34,7 +32,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, RelayOrOtherSystemParachains},
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -47,11 +45,12 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
-	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -520,6 +519,15 @@ impl Contains<MultiLocation> for RelayTreasury {
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+///
+/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+pub type TrustedTeleporters = (
+	ConcreteAssetFromSystem<WestendLocation>,
+	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -530,13 +538,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Asset Hub acting _as_ a reserve location for WND and assets created under `pallet-assets`.
 	// For WND, users must use teleport where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	// We allow:
-	// - teleportation of WND
-	// - teleportation of sibling parachain's assets (as ForeignCreators)
-	type IsTeleporter = (
-		NativeAsset,
-		IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
-	);
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
