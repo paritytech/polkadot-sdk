@@ -18,7 +18,8 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
+	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
 mod v0 {
@@ -83,22 +84,26 @@ mod v0 {
 pub mod v1 {
 	use super::*;
 	use crate::scheduler;
-	use frame_support::traits::StorageVersion;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
+	#[allow(deprecated)]
+	pub type MigrateToV1<T> = VersionedMigration<
+		0,
+		1,
+		UncheckedMigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	#[deprecated(note = "Use MigrateToV1 instead")]
+	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	#[allow(deprecated)]
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::get::<Pallet<T>>() == 0 {
-				let weight_consumed = migrate_to_v1::<T>();
+			let weight_consumed = migrate_to_v1::<T>();
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
-				StorageVersion::new(1).put::<Pallet<T>>();
+			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
 
-				weight_consumed
-			} else {
-				log::warn!(target: scheduler::LOG_TARGET, "Para scheduler v1 migration should be removed.");
-				T::DbWeight::get().reads(1)
-			}
+			weight_consumed
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -117,10 +122,7 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
-			ensure!(
-				StorageVersion::get::<Pallet<T>>() >= 1,
-				"Storage version should be at least `1` after the migration"
-			);
+
 			ensure!(
 				v0::Scheduled::<T>::get().len() == 0,
 				"Scheduled should be empty after the migration"
