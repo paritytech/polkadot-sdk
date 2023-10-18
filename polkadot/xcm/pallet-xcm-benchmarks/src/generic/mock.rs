@@ -19,8 +19,7 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	match_types, parameter_types,
-	derive_impl,
+	derive_impl, match_types, parameter_types,
 	traits::{Everything, OriginTrait},
 	weights::Weight,
 };

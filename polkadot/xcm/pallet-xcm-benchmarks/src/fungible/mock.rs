@@ -19,7 +19,7 @@
 use crate::{fungible as xcm_balances_benchmark, mock::*};
 use frame_benchmarking::BenchmarkError;
 use frame_support::{
-	parameter_types, derive_impl,
+	derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
