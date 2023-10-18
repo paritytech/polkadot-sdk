@@ -1833,9 +1833,11 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		// partial withdraw funds from the pool ledger.
 		let real_num_slashing_spans =
 			Self::slashing_spans(&delegatee).map_or(0, |s| s.iter().count());
+		// this should withdraw funds from the ledger without unlocking.
 		let _ = Self::do_withdraw_unbonded(&delegatee, real_num_slashing_spans as u32, Some(value));
-		// withdraw unlocked amount to delegator.
+		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
 		delegation::withdraw::<T>(delegator.clone(), delegatee.clone(), value)
+			.map(|_| !Ledger::<T>::contains_key(&delegatee))
 	}
 }
 

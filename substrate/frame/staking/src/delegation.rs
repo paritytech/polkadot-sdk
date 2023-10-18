@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use scale_info::TypeInfo;
-use sp_runtime::{DispatchError, RuntimeDebug, Saturating};
+use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
 
 /// Lock identifier for funds delegated to another account.
 ///
@@ -109,6 +109,39 @@ pub(crate) fn withdraw<T: Config>(
 	delegatee: T::AccountId,
 	delegator: T::AccountId,
 	value: BalanceOf<T>,
-) -> Result<bool, DispatchError> {
-	todo!()
+) -> DispatchResult {
+
+	// fixme(ank4n): Needs refactor..
+	
+	<Delegators<T>>::mutate_exists(&delegator, |maybe_delegate| match maybe_delegate {
+		Some((current_delegatee, delegate_balance)) => {
+			ensure!(current_delegatee == &delegatee, Error::<T>::InvalidDelegation);
+			ensure!(delegate_balance.clone() >= value, Error::<T>::InvalidDelegation);
+
+			delegate_balance.saturating_reduce(value);
+			if delegate_balance.clone() == BalanceOf::<T>::zero() {
+				*maybe_delegate = None;
+			}
+			Ok(())
+		},
+		None => {
+			// this should never happen
+			return Err(Error::<T>::InvalidDelegation)
+		},
+	})?;
+
+	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
+		Some(ledger) => {
+			ledger.balance.saturating_reduce(value);
+			Ok(())
+		},
+		None => {
+			// this should never happen
+			return Err(Error::<T>::InvalidDelegation)
+		},
+	})?;
+
+	T::Currency::remove_lock(DELEGATING_ID, &delegator);
+
+	Ok(())
 }
