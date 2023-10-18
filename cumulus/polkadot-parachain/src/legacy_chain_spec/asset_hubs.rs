@@ -842,6 +842,13 @@ fn asset_hub_rococo_like_config(
 				// initial collators.
 				vec![
 					// TODO: add invulnerables? from Rockmine?
+					// This is just a stub to avoid runtime failure:
+					// ERROR runtime: panicked at 'Empty validator set for session 0 in genesis
+					// block!'
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						get_collator_keys_from_seed::<AuraId>("Alice"),
+					),
 				],
 				Vec::new(),
 				para_id.into(),
