@@ -251,27 +251,30 @@ impl Artifacts {
 							if is_stale(file_name) {
 								prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
 
-                                gum::debug!(
-                                    target: LOG_TARGET,
-                                    "discarding invalid artifact {}",
-                                    file_name,
-                                );
+								gum::debug!(
+									target: LOG_TARGET,
+									"discarding invalid artifact {}",
+									file_name,
+								);
 							} else if let Some(id) = ArtifactId::from_file_name(file_name) {
 								self.insert_prepared(id, SystemTime::now(), Default::default());
 
-                                gum::debug!(
-                                    target: LOG_TARGET,
-                                    "reusing valid artifact found on disk for current node version v{}",
-                                    NODE_VERSION,
-                                );
+								gum::debug!(
+									target: LOG_TARGET,
+									"reusing valid artifact found on disk for current node version v{}",
+									NODE_VERSION,
+								);
 							}
 						}
 					},
-					Err(err) => gum::error!(
-						target: LOG_TARGET,
-						?err,
-						"collecting stale artifacts",
-					),
+					Err(err) => {
+						gum::error!(
+							target: LOG_TARGET,
+							?err,
+							"I/O error while collecting stale artifacts",
+						);
+						break
+					},
 				}
 			}
 
