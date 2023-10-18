@@ -110,9 +110,8 @@ pub(crate) fn withdraw<T: Config>(
 	delegator: T::AccountId,
 	value: BalanceOf<T>,
 ) -> DispatchResult {
-
 	// fixme(ank4n): Needs refactor..
-	
+
 	<Delegators<T>>::mutate_exists(&delegator, |maybe_delegate| match maybe_delegate {
 		Some((current_delegatee, delegate_balance)) => {
 			ensure!(current_delegatee == &delegatee, Error::<T>::InvalidDelegation);
