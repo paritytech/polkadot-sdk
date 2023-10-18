@@ -42,7 +42,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	DelegatedStakeInterface, EraIndex, SessionIndex, Stake,
+	delegation::DelegatedStakeInterface, EraIndex, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
