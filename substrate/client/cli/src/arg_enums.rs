@@ -70,6 +70,21 @@ impl std::fmt::Display for WasmExecutionMethod {
 	}
 }
 
+/// What to do when an extrinsic's weight exceeds the max extrinsic weight
+/// per block.
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+#[value(rename_all = "kebab-case")]
+pub enum SanityWeightCheck {
+	Error,
+	Warning,
+	Ignore,
+}
+
+/// The default [`SanityWeightCheck`].
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck =
+	SanityWeightCheck::Error;
+
 /// Converts the execution method and instantiation strategy command line arguments
 /// into an execution method which can be used internally.
 pub fn execution_method_from_cli(

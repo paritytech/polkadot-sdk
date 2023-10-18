@@ -557,7 +557,7 @@ impl PalletCmd {
 
 		// Sanity check for benchmarks. Checks whether an extrinsic's maximum weight (based on max
 		// component) exceeds the max extrinsic weight.
-		writer::sanity_weight_check(all_results, max_extrinsic_weight, db_weight, self.sanity_weight_check_warning)?;
+		writer::sanity_weight_check(all_results, max_extrinsic_weight, db_weight, self.shared_params.sanity_weight_check)?;
 
 		Ok(())
 	}
