@@ -27,19 +27,20 @@ use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Get, Nothing, PalletInfoAccess},
 };
-use rococo_runtime::Treasury as RococoTreasury;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use sp_runtime::traits::AccountIdConversion;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	xcm_config::{
+		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
+		RelayOrOtherSystemParachains,
+	},
 	TREASURY_PALLET_ID,
 };
-use parachains_common::xcm_config::RelayOrOtherSystemParachains;
-use rococo_runtime_constants::system_parachain::SystemParachains;
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::ConvertInto;
+use rococo_runtime::Treasury as RococoTreasury;
+use rococo_runtime_constants::system_parachain::SystemParachains;
+use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllAssets, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -539,7 +540,6 @@ impl Contains<MultiLocation> for RelayTreasury {
 		*location == relay_treasury_location
 	}
 }
-
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.

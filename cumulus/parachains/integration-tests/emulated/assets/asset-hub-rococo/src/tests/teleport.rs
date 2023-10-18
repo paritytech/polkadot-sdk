@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::*;
-use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
+use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
