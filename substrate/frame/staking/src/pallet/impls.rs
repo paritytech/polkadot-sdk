@@ -136,11 +136,6 @@ impl<T: Config> Pallet<T> {
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
 				Self::kill_stash(&ledger.stash, num_slashing_spans)?;
-				// Remove the lock.
-				// todo(ank4n): this lock removal needs to be abstracted. For delegated accounts,
-				// locks are removed by delegator..
-				T::Currency::remove_lock(crate::STAKING_ID, &stash);
-
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move on.
