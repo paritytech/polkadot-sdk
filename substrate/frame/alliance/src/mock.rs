@@ -68,8 +68,8 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<1>;
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
@@ -192,6 +192,7 @@ parameter_types! {
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Proposal = RuntimeCall;
 	type AdminOrigin = EnsureSignedBy<One, AccountId>;
 	type MembershipManager = EnsureSignedBy<Two, AccountId>;

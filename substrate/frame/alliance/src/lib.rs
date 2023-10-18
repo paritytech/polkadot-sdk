@@ -98,7 +98,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{Dispatchable, Saturating, StaticLookup, Zero},
+	traits::{Dispatchable, Saturating, StaticLookup},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
@@ -107,8 +107,18 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 	traits::{
-		ChangeMembers, Currency, Get, InitializeMembers, IsSubType, OnUnbalanced,
-		ReservableCurrency,
+		tokens::{
+			fungible::{
+				self,
+				hold::{
+					Balanced as BalancedHold, Mutate as FunHoldMutate,
+					Unbalanced as FunHoldUnbalanced,
+				},
+				Inspect as FunInspect,
+			},
+			Precision,
+		},
+		ChangeMembers, Get, InitializeMembers, IsSubType, OnUnbalanced,
 	},
 	weights::Weight,
 };
@@ -128,10 +138,10 @@ pub type ProposalIndex = u32;
 type UrlOf<T, I> = BoundedVec<u8, <T as pallet::Config<I>>::MaxWebsiteUrlLength>;
 
 type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config<I>>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+type CreditOf<T, I> =
+	fungible::Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Currency>;
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
@@ -228,6 +238,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// The runtime call dispatch type.
 		type Proposal: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -246,11 +259,14 @@ pub mod pallet {
 		/// Origin for making announcements and adding/removing unscrupulous items.
 		type AnnouncementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The currency used for deposits.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The fungible used for deposits.
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunInspect<Self::AccountId>
+			+ BalancedHold<Self::AccountId>
+			+ FunHoldUnbalanced<Self::AccountId>;
 
 		/// What to do with slashed funds.
-		type Slashed: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		type Slashed: OnUnbalanced<CreditOf<Self, I>>;
 
 		/// What to do with initial voting members of the Alliance.
 		type InitializeMembers: InitializeMembers<Self::AccountId>;
@@ -360,6 +376,14 @@ pub mod pallet {
 		RetirementPeriodNotPassed,
 		/// Fellows must be provided to initialize the Alliance.
 		FellowsMissing,
+	}
+
+	/// A reason for the Alliance pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// A slashable deposit held while an account is a member.
+		#[codec(index = 0)]
+		SlashableGoodBehaviourDeposit,
 	}
 
 	#[pallet::event]
@@ -616,8 +640,13 @@ pub mod pallet {
 			let mut unreserve_count: u32 = 0;
 			for member in voting_members.iter().chain(ally_members.iter()) {
 				if let Some(deposit) = DepositOf::<T, I>::take(&member) {
-					let err_amount = T::Currency::unreserve(&member, deposit);
-					debug_assert!(err_amount.is_zero());
+					let amount_released = T::Currency::release(
+						&HoldReason::SlashableGoodBehaviourDeposit.into(),
+						&member,
+						deposit,
+						Precision::BestEffort,
+					)?;
+					debug_assert_eq!(amount_released, deposit);
 					unreserve_count += 1;
 				}
 			}
@@ -704,7 +733,8 @@ pub mod pallet {
 			Self::has_identity(&who)?;
 
 			let deposit = T::AllyDeposit::get();
-			T::Currency::reserve(&who, deposit).map_err(|_| Error::<T, I>::InsufficientFunds)?;
+			T::Currency::hold(&HoldReason::SlashableGoodBehaviourDeposit.into(), &who, deposit)
+				.map_err(|_| Error::<T, I>::InsufficientFunds)?;
 			<DepositOf<T, I>>::insert(&who, deposit);
 
 			Self::add_member(&who, MemberRole::Ally)?;
@@ -795,8 +825,14 @@ pub mod pallet {
 			<RetiringMembers<T, I>>::remove(&who);
 			let deposit = DepositOf::<T, I>::take(&who);
 			if let Some(deposit) = deposit {
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
+				let amount_released = T::Currency::release(
+					&HoldReason::SlashableGoodBehaviourDeposit.into(),
+					&who,
+					deposit,
+					Precision::BestEffort,
+				)?;
+
+				debug_assert_eq!(amount_released, deposit);
 			}
 			Self::deposit_event(Event::MemberRetired { member: who, unreserved: deposit });
 			Ok(())
@@ -812,7 +848,13 @@ pub mod pallet {
 			Self::remove_member(&member, role)?;
 			let deposit = DepositOf::<T, I>::take(member.clone());
 			if let Some(deposit) = deposit {
-				T::Slashed::on_unbalanced(T::Currency::slash_reserved(&member, deposit).0);
+				let (burned, _new_balance) = T::Currency::slash(
+					&HoldReason::SlashableGoodBehaviourDeposit.into(),
+					&member,
+					deposit,
+				);
+
+				T::Slashed::on_unbalanced(burned);
 			}
 
 			Self::deposit_event(Event::MemberKicked { member, slashed: deposit });
