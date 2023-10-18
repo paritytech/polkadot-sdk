@@ -454,8 +454,8 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	expected_symbol: &str,
 	expected_decimals: u8,
 ) where
-	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
-		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
+	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
+		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
 	assert_eq!(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
 	assert_eq!(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
@@ -467,8 +467,8 @@ pub fn assert_total<Fungibles, AccountId>(
 	expected_total_issuance: impl Into<Fungibles::Balance>,
 	expected_active_issuance: impl Into<Fungibles::Balance>,
 ) where
-	Fungibles: frame_support::traits::tokens::fungibles::metadata::Inspect<AccountId>
-		+ frame_support::traits::tokens::fungibles::Inspect<AccountId>,
+	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
+		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
 	assert_eq!(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
