@@ -1,10 +1,10 @@
 [package]
 name = "pallet-xcm"
+version = "1.0.0"
+description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
-
 
 [dependencies]
 bounded-collections = { version = "0.1.8", default-features = false }
@@ -32,8 +32,6 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
 default = [ "std" ]
-# Enable `VersionedMigration` for the migrations using the experimental feature.
-experimental = [ "frame-support/experimental" ]
 std = [
 	"bounded-collections/std",
 	"codec/std",

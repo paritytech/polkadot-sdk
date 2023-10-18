@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! # Bridge Hub Rococo Runtime
+//!
+//! This runtime is also used for Bridge Hub Wococo. But we dont want to create another exact copy
+//! of Bridge Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor` and `pub storage
+//! Flavor: RuntimeFlavor`. (For example this is needed for successful asset transfer between Asset
+//! Hub Rococo and Asset Hub Wococo, where we need to have correct `xcm_config::UniversalLocation`
+//! with correct `GlobalConsensus`.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -27,6 +35,7 @@ pub mod bridge_hub_wococo_config;
 mod weights;
 pub mod xcm_config;
 
+use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -45,6 +54,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -91,6 +101,15 @@ use parachains_common::{
 };
 use xcm_executor::XcmExecutor;
 
+/// Enum for handling differences in the runtime configuration for BridgeHubRococo vs
+/// BridgeHubWococo.
+#[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
+pub enum RuntimeFlavor {
+	#[default]
+	Rococo,
+	Wococo,
+}
+
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 
@@ -122,7 +141,40 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
+pub type Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	InitStorageVersions,
+);
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		use sp_runtime::traits::Saturating;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if Balances::on_chain_storage_version() == StorageVersion::new(0) {
+			Balances::current_storage_version().put::<Balances>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -439,7 +491,7 @@ parameter_types! {
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
-/// Add parachain bridge pallet to track Wococo bridge hub parachain
+/// Add parachain bridge pallet to track Wococo BridgeHub parachain
 pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
 impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -452,7 +504,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime
 	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
 }
 
-/// Add parachain bridge pallet to track Rococo bridge hub parachain
+/// Add parachain bridge pallet to track Rococo BridgeHub parachain
 pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
 impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -494,9 +546,15 @@ impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Run
 	>;
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
-	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubRococoBlobDispatcher, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = ();
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubRococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
+			bridge_hub_rococo_config::AssetHubRococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_hub_rococo_config::OnMessagesDelivered;
 }
 
 /// Add XCM messages support for BridgeHubWococo to support Wococo->Rococo XCM messages
@@ -528,9 +586,15 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	>;
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
-	type MessageDispatch =
-		XcmBlobMessageDispatch<OnBridgeHubWococoBlobDispatcher, Self::WeightInfo, ()>;
-	type OnMessagesDelivered = ();
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubWococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
+			bridge_hub_wococo_config::AssetHubWococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = bridge_hub_wococo_config::OnMessagesDelivered;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -583,16 +647,16 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
-		// Rococo and Wococo Bridge Hubs are sharing the runtime, so this runtime has two sets of
+		// Rococo and Wococo BridgeHubs are sharing the runtime, so this runtime has two sets of
 		// bridge pallets. Both are deployed at both runtimes, but only one set is actually used
 		// at particular runtime.
 
-		// With-Wococo bridge modules that are active (used) at Rococo Bridge Hub runtime.
+		// With-Wococo bridge modules that are active (used) at Rococo BridgeHub runtime.
 		BridgeWococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
 		BridgeWococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
 		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
 
-		// With-Rococo bridge modules that are active (used) at Wococo Bridge Hub runtime.
+		// With-Rococo bridge modules that are active (used) at Wococo BridgeHub runtime.
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 43,
 		BridgeRococoParachain: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
@@ -948,19 +1012,19 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::RelayLocation;
+			use xcm_config::TokenLocation;
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RelayLocation::get())
+					Ok(TokenLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
 					// just concrete assets according to relay chain.
 					let assets: Vec<MultiAsset> = vec![
 						MultiAsset {
-							id: Concrete(RelayLocation::get()),
+							id: Concrete(TokenLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -970,8 +1034,8 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
-					RelayLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(RelayLocation::get()) },
+					TokenLocation::get(),
+					MultiAsset { fun: Fungible(UNITS), id: Concrete(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
@@ -986,7 +1050,7 @@ impl_runtime_apis! {
 
 				fn get_multi_asset() -> MultiAsset {
 					MultiAsset {
-						id: Concrete(RelayLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -1008,16 +1072,16 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
-					Ok((RelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((TokenLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
-					Ok(RelayLocation::get())
+					Ok(TokenLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-					let origin = RelayLocation::get();
-					let assets: MultiAssets = (Concrete(RelayLocation::get()), 1_000 * UNITS).into();
+					let origin = TokenLocation::get();
+					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
@@ -1028,7 +1092,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((RelayLocation::get(), NetworkId::Wococo, X1(Parachain(100))))
+					Ok((TokenLocation::get(), NetworkId::Wococo, X1(Parachain(100))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
@@ -1070,7 +1134,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_rococo_config::FromWococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaWococoInstance,
@@ -1113,7 +1177,7 @@ impl_runtime_apis! {
 				) -> (bridge_hub_wococo_config::FromRococoBridgeHubMessagesProof, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks(42.into());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						BridgeGrandpaRococoInstance,
@@ -1233,6 +1297,16 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1243,55 +1317,67 @@ cumulus_pallet_parachain_system::register_validate_block! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::TransactionEra;
-	use bridge_hub_test_utils::test_header;
 	use codec::Encode;
-
-	pub type TestBlockHeader =
-		sp_runtime::generic::Header<bp_polkadot_core::BlockNumber, bp_polkadot_core::Hasher>;
+	use sp_runtime::{
+		generic::Era,
+		traits::{SignedExtension, Zero},
+	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		let payload: SignedExtra = (
-			frame_system::CheckNonZeroSender::new(),
-			frame_system::CheckSpecVersion::new(),
-			frame_system::CheckTxVersion::new(),
-			frame_system::CheckGenesis::new(),
-			frame_system::CheckEra::from(sp_runtime::generic::Era::Immortal),
-			frame_system::CheckNonce::from(10),
-			frame_system::CheckWeight::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::from(10),
-			BridgeRejectObsoleteHeadersAndMessages {},
-			(
-				BridgeRefundBridgeHubRococoMessages::default(),
-				BridgeRefundBridgeHubWococoMessages::default(),
-			),
-		);
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
-		{
-			use bp_bridge_hub_rococo::BridgeHubSignedExtension;
-			let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: SignedExtra = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					BridgeRefundBridgeHubRococoMessages::default(),
+					BridgeRefundBridgeHubWococoMessages::default(),
+				),
 			);
-			assert_eq!(payload.encode(), bhr_indirect_payload.encode());
-		}
 
-		{
-			use bp_bridge_hub_wococo::BridgeHubSignedExtension;
-			let bhw_indirect_payload = bp_bridge_hub_wococo::SignedExtension::from_params(
-				10,
-				10,
-				TransactionEra::Immortal,
-				test_header::<TestBlockHeader>(1).hash(),
-				10,
-				10,
-			);
-			assert_eq!(payload.encode(), bhw_indirect_payload.encode());
-		}
+			{
+				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+
+			{
+				let bhw_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode(), bhw_indirect_payload.encode());
+				assert_eq!(
+					payload.additional_signed().unwrap().encode(),
+					bhw_indirect_payload.additional_signed().unwrap().encode()
+				)
+			}
+		});
 	}
 }

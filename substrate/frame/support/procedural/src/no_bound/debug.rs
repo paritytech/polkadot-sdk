@@ -112,8 +112,8 @@ pub fn derive_debug_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 
 	quote::quote!(
 		const _: () = {
-			impl #impl_generics core::fmt::Debug for #input_ident #ty_generics #where_clause {
-				fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+			impl #impl_generics ::core::fmt::Debug for #input_ident #ty_generics #where_clause {
+				fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 					#impl_
 				}
 			}

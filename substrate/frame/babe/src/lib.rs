@@ -590,7 +590,6 @@ impl<T: Config> Pallet<T> {
 
 		if authorities.is_empty() {
 			log::warn!(target: LOG_TARGET, "Ignoring empty epoch change.");
-
 			return
 		}
 
@@ -664,7 +663,7 @@ impl<T: Config> Pallet<T> {
 		let next_randomness = NextRandomness::<T>::get();
 
 		let next_epoch = NextEpochDescriptor {
-			authorities: next_authorities.to_vec(),
+			authorities: next_authorities.into_inner(),
 			randomness: next_randomness,
 		};
 		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
@@ -700,7 +699,7 @@ impl<T: Config> Pallet<T> {
 			epoch_index: EpochIndex::<T>::get(),
 			start_slot: Self::current_epoch_start(),
 			duration: T::EpochDuration::get(),
-			authorities: Self::authorities().to_vec(),
+			authorities: Self::authorities().into_inner(),
 			randomness: Self::randomness(),
 			config: EpochConfig::<T>::get()
 				.expect("EpochConfig is initialized in genesis; we never `take` or `kill` it; qed"),
@@ -725,7 +724,7 @@ impl<T: Config> Pallet<T> {
 			epoch_index: next_epoch_index,
 			start_slot,
 			duration: T::EpochDuration::get(),
-			authorities: NextAuthorities::<T>::get().to_vec(),
+			authorities: NextAuthorities::<T>::get().into_inner(),
 			randomness: NextRandomness::<T>::get(),
 			config: NextEpochConfig::<T>::get().unwrap_or_else(|| {
 				EpochConfig::<T>::get().expect(
@@ -778,7 +777,7 @@ impl<T: Config> Pallet<T> {
 		// we use the same values as genesis because we haven't collected any
 		// randomness yet.
 		let next = NextEpochDescriptor {
-			authorities: Self::authorities().to_vec(),
+			authorities: Self::authorities().into_inner(),
 			randomness: Self::randomness(),
 		};
 

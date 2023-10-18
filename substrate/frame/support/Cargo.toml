@@ -30,7 +30,7 @@ sp-weights = { path = "../../primitives/weights", default-features = false}
 sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false}
 sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false}
 tt-call = "1.0.8"
-macro_magic = "0.4.2"
+macro_magic = "0.5.0"
 frame-support-procedural = { path = "procedural", default-features = false}
 paste = "1.0"
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true}
@@ -42,8 +42,8 @@ sp-core-hashing-proc-macro = { path = "../../primitives/core/hashing/proc-macro"
 k256 = { version = "0.13.1", default-features = false, features = ["ecdsa"] }
 environmental = { version = "1.1.4", default-features = false }
 sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features=false}
-serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }
-docify = "0.2.1"
+serde_json = { version = "1.0.107", default-features = false, features = ["alloc"] }
+docify = "0.2.4"
 static_assertions = "1.1.0"
 
 aquamarine = { version = "0.3.2" }
