@@ -25,8 +25,8 @@ use std::{
 
 use inflector::Inflector;
 use itertools::Itertools;
-use serde::Serialize;
 use sc_cli::SanityWeightCheck;
+use serde::Serialize;
 
 use crate::{
 	pallet::command::{ComponentRange, PovEstimationMode, PovModesMap},
@@ -176,8 +176,8 @@ pub(crate) fn map_results(
 	Ok(all_benchmarks)
 }
 
-// Calculates the total maximum weight of an extrinsic (if present, based on the max component) and compares it
-// with the max extrinsic weight allowed in a single block.
+// Calculates the total maximum weight of an extrinsic (if present, based on the max component) and
+// compares it with the max extrinsic weight allowed in a single block.
 //
 // `max_extrinsic_weight` & `db_weight` are obtained from the runtime configuration.
 pub(crate) fn sanity_weight_check(
@@ -187,7 +187,7 @@ pub(crate) fn sanity_weight_check(
 	sanity_weight_check: SanityWeightCheck,
 ) -> Result<(), std::io::Error> {
 	if sanity_weight_check == SanityWeightCheck::Ignore {
-		return Ok(());
+		return Ok(())
 	}
 	// Helper function to return max. component value (i.e. max. complexity parameter).
 	fn max_component(parameter: &ComponentSlope, component_ranges: &Vec<ComponentRange>) -> u64 {
@@ -199,14 +199,15 @@ pub(crate) fn sanity_weight_check(
 		0
 	}
 
-	println!("\n\x1B[1mSanity Weight Check 🧐:\x1B[0m each extrinsic's weight function is executed \
+	println!(
+		"\n\x1B[1mSanity Weight Check 🧐:\x1B[0m each extrinsic's weight function is executed \
 		in the worst case scenario and compared with the maximum extrinsic weight (the maximum weight \
 		that can be put in a single block for an extrinsic with `DispatchClass::Normal`). In other words, \
 		each extrinsic is checked whether it will fit in an empty (meaning; empty of \
 		`DispatchClass::Normal` extrinsics) block.\n\n\x1B[4mResults:\x1B[0m\n"
 	);
 	let mut sanity_weight_check_passed = true;
-	// Loop through all benchmark results. 
+	// Loop through all benchmark results.
 	for ((_, _), results) in all_results.iter() {
 		// Per pallet, because there can be multiple instances of a pallet.
 		for result in results {
@@ -234,8 +235,8 @@ pub(crate) fn sanity_weight_check(
 				);
 			}
 			// Constant storage writes.
-			total_weight =
-				total_weight.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
+			total_weight = total_weight
+				.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
 			// Storage writes multiplied by complexity parameter.
 			for component in &result.component_writes {
 				total_weight = total_weight.saturating_add(
@@ -251,12 +252,16 @@ pub(crate) fn sanity_weight_check(
 						.saturating_mul(max_component(&component, &result.component_ranges)),
 				);
 			}
-			// Comparing (worst case scenario) the extrinsic weight against the maximum extrinsic weight.
+			// Comparing (worst case scenario) the extrinsic weight against the maximum extrinsic
+			// weight.
 			if total_weight.ref_time() > max_extrinsic_weight.ref_time() ||
-				total_weight.proof_size() > max_extrinsic_weight.proof_size() {
+				total_weight.proof_size() > max_extrinsic_weight.proof_size()
+			{
 				sanity_weight_check_passed = false;
 				println!("\x1B[31m\x1B[1mWARNING!!!\x1B[0m",);
-				println!("\x1B[31mThe following extrinsic exceeds the maximum extrinsic weight:\x1B[0m",);
+				println!(
+					"\x1B[31mThe following extrinsic exceeds the maximum extrinsic weight:\x1B[0m",
+				);
 			}
 			println!("- \x1B[1m'{}'\x1B[0m: {:?}\nPercentage of max extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
 				result.name,
@@ -268,10 +273,14 @@ pub(crate) fn sanity_weight_check(
 	}
 	match sanity_weight_check_passed {
 		false => {
-			println!("\x1B[31mYour extrinsics failed the Sanity Weight Check, please review \
-			the extrinsic's logic and/or the associated benchmark function.\x1B[0m\n",);
+			println!(
+				"\x1B[31mYour extrinsics failed the Sanity Weight Check, please review \
+			the extrinsic's logic and/or the associated benchmark function.\x1B[0m\n",
+			);
 			if sanity_weight_check == SanityWeightCheck::Error {
-				return Err(io_error(&String::from("One or more extrinsics exceed the maximum extrinsic weight")));
+				return Err(io_error(&String::from(
+					"One or more extrinsics exceed the maximum extrinsic weight",
+				)))
 			}
 		},
 		true => {
@@ -1345,7 +1354,7 @@ mod test {
 	#[test]
 	fn sanity_check_works() {
 		let mapped_results = map_results(
-			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3),],
+			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3)],
 			&test_storage_info(),
 			&Default::default(),
 			Default::default(),
@@ -1354,28 +1363,32 @@ mod test {
 			&AnalysisChoice::MedianSlopes,
 			1_000_000,
 			0,
-		).unwrap();
+		)
+		.unwrap();
 
 		assert!(sanity_weight_check(
 			mapped_results.clone(),
 			Weight::from_parts(20_000, 1_000_000),
 			RuntimeDbWeight { read: 1000, write: 1000 },
 			SanityWeightCheck::Error,
-		).is_err());
+		)
+		.is_err());
 
 		assert!(sanity_weight_check(
 			mapped_results.clone(),
 			Weight::from_parts(20_000, 1_000_000),
 			RuntimeDbWeight { read: 1000, write: 1000 },
 			SanityWeightCheck::Warning,
-		).is_ok());
+		)
+		.is_ok());
 
 		assert!(sanity_weight_check(
 			mapped_results,
 			Weight::from_parts(20_000, 1_000_000),
 			RuntimeDbWeight { read: 1000, write: 1000 },
 			SanityWeightCheck::Ignore,
-		).is_ok());
+		)
+		.is_ok());
 	}
 
 	#[test]

@@ -76,8 +76,7 @@ pub enum SanityWeightCheck {
 }
 
 /// The default [`SanityWeightCheck`].
-pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck =
-	SanityWeightCheck::Error;
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Error;
 
 /// Converts the execution method and instantiation strategy command line arguments
 /// into an execution method which can be used internally.
