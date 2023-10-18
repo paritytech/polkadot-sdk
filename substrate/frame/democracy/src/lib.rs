@@ -1346,7 +1346,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		// Extend the lock to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
-		T::Fungible::set_freeze(&FreezeReason::Vote.into(), who, vote.balance())?;
+		T::Fungible::extend_freeze(&FreezeReason::Vote.into(), who, vote.balance())?;
 		ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
 		Ok(())
 	}
