@@ -615,9 +615,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				});
 			}
 
-			if let Some(addresses) = self.aux_address_store.get(&peer_id) {
-				list.extend(addresses.iter().cloned())
-			}
+			// if let Some(addresses) = self.aux_address_store.get(&peer_id) {
+			// 	list.extend(addresses.iter().cloned())
+			// }
 
 			list.extend(list_to_filter);
 		}
