@@ -119,6 +119,12 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -194,7 +200,10 @@
 <span class="doccomment">/// Common constants of parachains.
 </span><span class="kw">mod </span>constants {
 	<span class="kw">use </span><span class="kw">super</span>::types::BlockNumber;
-	<span class="kw">use </span>frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+	<span class="kw">use </span>frame_support::{
+		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+		PalletId,
+	};
 	<span class="kw">use </span>sp_runtime::Perbill;
 	<span class="doccomment">/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
@@ -222,6 +231,9 @@
 		WEIGHT_REF_TIME_PER_SECOND.saturating_div(<span class="number">2</span>),
 		polkadot_primitives::MAX_POV_SIZE <span class="kw">as </span>u64,
 	);
+
+	<span class="doccomment">/// Treasury pallet id of the local chain, used to convert into AccountId
+	</span><span class="kw">pub const </span>TREASURY_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/trsry&quot;</span>);
 }
 
 <span class="doccomment">/// Opaque types. These are used by the CLI to instantiate machinery that don&#39;t need to know

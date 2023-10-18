@@ -82,11 +82,11 @@
 
 	<span class="doccomment">/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets);
+	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;);
 }
 
 <span class="doccomment">/// Context under which a fee is paid.
-</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq)]
+</span><span class="attr">#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 </span><span class="kw">pub enum </span>FeeReason {
 	<span class="doccomment">/// When a reporting instruction is called.
 	</span>Report,
@@ -112,8 +112,8 @@
 
 <span class="kw">impl </span>FeeManager <span class="kw">for </span>() {
 	<span class="kw">fn </span>is_waived(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
-		<span class="bool-val">true
+		<span class="bool-val">false
 	</span>}
-	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets) {}
+	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) {}
 }
 </code></pre></div></section></main></body></html>

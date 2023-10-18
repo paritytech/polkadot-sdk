@@ -940,6 +940,35 @@
 <a href="#940" id="940">940</a>
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -956,10 +985,11 @@
 // limitations under the License.
 
 </span><span class="kw">use super</span>::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ForeignAssets,
-	ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin, ToRococoXcmRouter, ToWococoXcmRouter,
-	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
+	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
+	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
+	ToRococoXcmRouter, ToWococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance,
+	WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -973,10 +1003,17 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	xcm_config::{
+		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
+		RelayOrOtherSystemParachains,
+	},
+	TREASURY_PALLET_ID,
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
-<span class="kw">use </span>sp_runtime::traits::ConvertInto;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<span class="kw">use </span>rococo_runtime::Treasury <span class="kw">as </span>RococoTreasury;
+<span class="kw">use </span>rococo_runtime_constants::system_parachain::SystemParachains;
+<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllAssets, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -988,6 +1025,7 @@
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -1009,6 +1047,7 @@
 		PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 	<span class="kw">pub const </span>GovernanceLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
 }
 
 <span class="doccomment">/// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -1463,6 +1502,23 @@
 		ForeignAssetsInstance,
 	&gt;;
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(&lt;RococoTreasury <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)).into();
+}
+
+<span class="kw">pub struct </span>RelayTreasury;
+<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>RelayTreasury {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+		<span class="kw">let </span>relay_treasury_location = RelayTreasuryLocation::get();
+		<span class="kw-2">*</span>location == relay_treasury_location
+	}
+}
+
+<span class="doccomment">/// Locations that will not be charged fees in the executor,
+/// either execution or delivery.
+/// We only waive fees for system functions, which these locations represent.
+</span><span class="kw">pub type </span>WaivedLocations = (RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;, RelayTreasury);
+
 <span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - ROC with the parent Relay Chain and sibling system parachains; and
@@ -1530,8 +1586,7 @@
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="comment">// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
-	</span><span class="kw">type </span>FeeManager = ();
+	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, WaivedLocations, AccountId, TreasuryAccount&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases =
 		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
@@ -1544,10 +1599,13 @@
 /// Forms the basis for local origins sending/executing XCMs.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
+<span class="kw">pub type </span>PriceForParentDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
+
 <span class="doccomment">/// For routing XCM messages which do not cross local consensus boundary.
 </span><span class="kw">type </span>LocalXcmRouter = (
 	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, ()&gt;,
+	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
 	<span class="comment">// ..and XCMP to communicate with the sibling chains.
 	</span>XcmpQueue,
 );

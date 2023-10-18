@@ -91,6 +91,11 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -130,6 +135,11 @@
 			+ GetDispatchInfo
 			+ From&lt;frame_system::Call&lt;<span class="self">Self</span>&gt;&gt;
 			+ Encode;
+
+		<span class="doccomment">/// The type of `fungible` that is being used under the hood.
+		///
+		/// This is useful for testing and checking.
+		</span><span class="kw">type </span>TransactAsset: frame_support::traits::fungible::Mutate&lt;<span class="self">Self</span>::AccountId&gt;;
 
 		<span class="doccomment">///	The response which causes the most runtime weight.
 		</span><span class="kw">fn </span>worst_case_response() -&gt; (u64, Response);

@@ -100,6 +100,14 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -117,7 +125,7 @@
 
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>test_parachain_is_trusted_teleporter {
-	( <span class="macro-nonterminal">$sender_para</span>:ty, <span class="macro">vec!</span>[$( <span class="macro-nonterminal">$receiver_para</span>:ty ),+], (<span class="macro-nonterminal">$assets</span>:expr, <span class="macro-nonterminal">$amount</span>:expr) ) =&gt; {
+	( <span class="macro-nonterminal">$sender_para</span>:ty, <span class="macro-nonterminal">$sender_xcm_config</span>:ty, <span class="macro">vec!</span>[$( <span class="macro-nonterminal">$receiver_para</span>:ty ),+], (<span class="macro-nonterminal">$assets</span>:expr, <span class="macro-nonterminal">$amount</span>:expr) ) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::paste::paste! </span>{
 			<span class="comment">// init Origin variables
 			</span><span class="kw">let </span><span class="macro-nonterminal">sender </span>= [&lt;<span class="macro-nonterminal">$sender_para </span>Sender&gt;]::get();
@@ -134,9 +142,12 @@
 					<span class="kw">let </span>para_receiver_balance_before =
 						&lt;<span class="macro-nonterminal">$receiver_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::account_data_of(receiver.clone()).free;
 					<span class="kw">let </span>para_destination =
-						&lt;<span class="macro-nonterminal">$sender_para</span>&gt;::sibling_location_of(&lt;<span class="macro-nonterminal">$receiver_para</span>&gt;::para_id()).into();
-					<span class="kw">let </span>beneficiary =
+						&lt;<span class="macro-nonterminal">$sender_para</span>&gt;::sibling_location_of(&lt;<span class="macro-nonterminal">$receiver_para</span>&gt;::para_id());
+					<span class="kw">let </span>beneficiary: MultiLocation =
 						<span class="macro-nonterminal">$crate::AccountId32 </span>{ network: <span class="prelude-val">None</span>, id: receiver.clone().into() }.into();
+
+					<span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>origin);
+					<span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>para_destination);
 
 					<span class="comment">// Send XCM message from Origin Parachain
 					// We are only testing the limited teleport version, which should be ok since success will
@@ -144,9 +155,9 @@
 					</span>&lt;<span class="macro-nonterminal">$sender_para</span>&gt;::execute_with(|| {
 						<span class="macro">assert_ok!</span>(&lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$sender_para </span>Pallet&gt;]&gt;::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
-							<span class="macro">bx!</span>(para_destination),
-							<span class="macro">bx!</span>(beneficiary),
-							<span class="macro">bx!</span>(<span class="macro-nonterminal">$assets</span>.clone()),
+							<span class="macro">bx!</span>(para_destination.into()),
+							<span class="macro">bx!</span>(beneficiary.into()),
+							<span class="macro">bx!</span>(<span class="macro-nonterminal">$assets</span>.clone().into()),
 							fee_asset_item,
 							weight_limit.clone(),
 						));
@@ -191,8 +202,13 @@
 						&lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::account_data_of(sender.clone()).free;
 					<span class="kw">let </span>para_receiver_balance_after =
 						&lt;<span class="macro-nonterminal">$receiver_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::account_data_of(receiver.clone()).free;
+					<span class="kw">let </span>delivery_fees = &lt;<span class="macro-nonterminal">$sender_para</span>&gt;::execute_with(|| {
+						asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::&lt;
+							&lt;<span class="macro-nonterminal">$sender_xcm_config </span><span class="kw">as </span>xcm_executor::Config&gt;::XcmSender,
+						&gt;(<span class="macro-nonterminal">$assets</span>.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
+					});
 
-					<span class="macro">assert_eq!</span>(para_sender_balance_before - <span class="macro-nonterminal">$amount</span>, para_sender_balance_after);
+					<span class="macro">assert_eq!</span>(para_sender_balance_before - <span class="macro-nonterminal">$amount </span>- delivery_fees, para_sender_balance_after);
 					<span class="macro">assert!</span>(para_receiver_balance_after &gt; para_receiver_balance_before);
 
 					<span class="comment">// Update sender balance

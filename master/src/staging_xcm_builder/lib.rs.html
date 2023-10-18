@@ -110,6 +110,9 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -178,6 +181,9 @@
 
 <span class="kw">mod </span>currency_adapter;
 <span class="kw">pub use </span>currency_adapter::CurrencyAdapter;
+
+<span class="kw">mod </span>fee_handling;
+<span class="kw">pub use </span>fee_handling::XcmFeesToAccount;
 
 <span class="kw">mod </span>fungibles_adapter;
 <span class="kw">pub use </span>fungibles_adapter::{

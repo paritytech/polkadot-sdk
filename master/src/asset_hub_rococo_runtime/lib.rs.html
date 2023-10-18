@@ -1564,6 +1564,33 @@
 <a href="#1564" id="1564">1564</a>
 <a href="#1565" id="1565">1565</a>
 <a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1659,7 +1686,7 @@
 <span class="comment">// Polkadot imports
 </span><span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::latest::BodyId;
+<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="kw">use </span><span class="kw">crate</span>::xcm_config::{
@@ -2202,6 +2229,20 @@
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
+<span class="macro">parameter_types! </span>{
+	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(xcm_config::TokenLocation::get());
+	<span class="doccomment">/// The base fee for the message delivery fees.
+	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
+}
+
+<span class="kw">pub type </span>PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice&lt;
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+&gt;;
+
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
@@ -2211,7 +2252,7 @@
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = xcm_config::XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>PriceForSiblingDelivery = ();
+	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {
@@ -2881,9 +2922,21 @@
 			<span class="kw">use </span>xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			<span class="kw">use </span>pallet_xcm_benchmarks::asset_instance_from;
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositMultiAsset: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; = <span class="prelude-val">Some</span>((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
+				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				&gt;;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(TokenLocation::get())
 				}
@@ -2939,6 +2992,7 @@
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>TransactAsset = Balances;
 				<span class="kw">type </span>RuntimeCall = RuntimeCall;
 
 				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {

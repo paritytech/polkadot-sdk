@@ -448,7 +448,7 @@
 
 <span class="kw">pub trait </span>GetChannelInfo {
 	<span class="kw">fn </span>get_channel_status(id: ParaId) -&gt; ChannelStatus;
-	<span class="kw">fn </span>get_channel_max(id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
+	<span class="kw">fn </span>get_channel_info(id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;ChannelInfo&gt;;
 }
 
 <span class="doccomment">/// Something that should be called when sending an upward message.

@@ -251,6 +251,35 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -268,8 +297,9 @@
 
 </span><span class="kw">use super</span>::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
+<span class="kw">use </span><span class="kw">crate</span>::common::rococo::currency::CENTS;
 <span class="kw">use </span>frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
@@ -277,8 +307,14 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
-<span class="kw">use </span>parachains_common::xcm_config::ConcreteAssetFromSystem;
+<span class="kw">use </span>parachains_common::{
+	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	TREASURY_PALLET_ID,
+};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<span class="kw">use </span>rococo_runtime_constants::system_parachain::SystemParachains;
+<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -287,7 +323,7 @@
 	NativeAsset, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic,
+	WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -297,7 +333,7 @@
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	<span class="kw">pub const </span>ExecutiveBody: BodyId = BodyId::Executive;
-	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
+	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
 }
 
 <span class="doccomment">/// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -420,7 +456,12 @@
 	<span class="kw">type </span>MaxAssetsIntoHolding = ConstU32&lt;<span class="number">8</span>&gt;;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="kw">type </span>FeeManager = ();
+	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;
+		<span class="self">Self</span>,
+		RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;,
+		AccountId,
+		TreasuryAccount,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
@@ -432,11 +473,14 @@
 /// Forms the basis for local origins sending/executing XCMs.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
+<span class="kw">pub type </span>PriceForParentDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
+
 <span class="doccomment">/// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 </span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
 	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, ()&gt;,
+	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
 	<span class="comment">// ..and XCMP to communicate with the sibling chains.
 	</span>XcmpQueue,
 )&gt;;
@@ -484,6 +528,20 @@
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(RelayLocation::get());
+	<span class="doccomment">/// The base fee for the message delivery fees.
+	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
+}
+
+<span class="kw">pub type </span>PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice&lt;
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+&gt;;
+
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
@@ -496,7 +554,7 @@
 	&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = cumulus_pallet_xcmp_queue::weights::SubstrateWeight&lt;Runtime&gt;;
-	<span class="kw">type </span>PriceForSiblingDelivery = ();
+	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {

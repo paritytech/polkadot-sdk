@@ -956,6 +956,22 @@
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1003,6 +1019,7 @@
 <span class="kw">pub use </span>ambassador::pallet_ambassador_origins;
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>fellowship::{
 	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
 	FellowshipCollectiveInstance,
@@ -1056,7 +1073,7 @@
 <span class="comment">// Polkadot imports
 </span><span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::latest::BodyId;
+<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -1359,6 +1376,20 @@
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
+<span class="macro">parameter_types! </span>{
+	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(xcm_config::DotLocation::get());
+	<span class="doccomment">/// The base fee for the message delivery fees.
+	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
+}
+
+<span class="kw">pub type </span>PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice&lt;
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+&gt;;
+
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
@@ -1368,7 +1399,8 @@
 	<span class="kw">type </span>ControllerOrigin = EitherOfDiverse&lt;EnsureRoot&lt;AccountId&gt;, Fellows&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>PriceForSiblingDelivery = ();
+	<span class="kw">type </span>PriceForSiblingDelivery =
+		polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery&lt;ParaId&gt;;
 }
 
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {

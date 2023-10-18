@@ -6,7 +6,7 @@ var srcIndex = JSON.parse('{\
 "asset_hub_rococo_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","pallet_xcm_bridge_hub_router_to_rococo.rs","pallet_xcm_bridge_hub_router_to_wococo.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "asset_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"asset_test_utils":["",[],["lib.rs","test_cases.rs","test_cases_over_bridge.rs"]],\
+"asset_test_utils":["",[],["lib.rs","test_cases.rs","test_cases_over_bridge.rs","xcm_helpers.rs"]],\
 "assets_common":["",[],["foreign_creators.rs","fungible_conversion.rs","lib.rs","local_and_foreign_assets.rs","matching.rs","runtime_api.rs"]],\
 "bags_list":["",[],["main.rs"]],\
 "biguint":["",[],["biguint.rs"]],\
@@ -418,7 +418,7 @@ var srcIndex = JSON.parse('{\
 "sp_wasm_interface":["",[],["lib.rs"]],\
 "sp_weights":["",[],["lib.rs","weight_meter.rs","weight_v2.rs"]],\
 "staging_xcm":["",[["v2",[],["junction.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]],["v3",[],["junction.rs","junctions.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]]],["double_encoded.rs","lib.rs"]],\
-"staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
+"staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","fee_handling.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
 "staging_xcm_executor":["",[["traits",[],["asset_exchange.rs","asset_lock.rs","conversion.rs","drop_assets.rs","export.rs","fee_manager.rs","filter_asset_location.rs","mod.rs","on_response.rs","should_execute.rs","token_matching.rs","transact_asset.rs","weight.rs"]]],["assets.rs","config.rs","lib.rs"]],\
 "subkey":["",[],["lib.rs"]],\
 "substrate":["",[],["lib.rs"]],\

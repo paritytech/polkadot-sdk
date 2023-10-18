@@ -1526,6 +1526,33 @@
 <a href="#1526" id="1526">1526</a>
 <a href="#1527" id="1527">1527</a>
 <a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1616,6 +1643,7 @@
 	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
 };
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="kw">use </span><span class="kw">crate</span>::xcm_config::ForeignCreatorsSovereignAccountOf;
@@ -2132,6 +2160,20 @@
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
+<span class="macro">parameter_types! </span>{
+	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(xcm_config::WestendLocation::get());
+	<span class="doccomment">/// The base fee for the message delivery fees.
+	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
+}
+
+<span class="kw">pub type </span>PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice&lt;
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+&gt;;
+
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
@@ -2141,7 +2183,7 @@
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>PriceForSiblingDelivery = ();
+	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {
@@ -2790,9 +2832,21 @@
 			<span class="kw">use </span>xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			<span class="kw">use </span>pallet_xcm_benchmarks::asset_instance_from;
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositMultiAsset: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; = <span class="prelude-val">Some</span>((
+					WestendLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
+				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				&gt;;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(WestendLocation::get())
 				}
@@ -2848,6 +2902,7 @@
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>TransactAsset = Balances;
 				<span class="kw">type </span>RuntimeCall = RuntimeCall;
 
 				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {
@@ -2949,7 +3004,6 @@
 	};
 	<span class="kw">use </span>parachains_common::impls::AccountIdOf;
 	<span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
-	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// Temporary migration because of bug with native asset, it can be removed once applied on
 	/// `AssetHubWestend`. Migrates pools with `MultiLocation { parents: 0, interior: Here }` to

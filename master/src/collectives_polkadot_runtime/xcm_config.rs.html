@@ -331,6 +331,11 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -347,8 +352,9 @@
 // limitations under the License.
 
 </span><span class="kw">use super</span>::{
-	AccountId, AllPalletsWithSystem, Balances, Fellows, ParachainInfo, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, Fellows, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>frame_support::{
 	match_types, parameter_types,
@@ -359,6 +365,7 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -612,11 +619,14 @@
 /// Forms the basis for local origins sending/executing XCMs.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
+<span class="kw">pub type </span>PriceForParentDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
+
 <span class="doccomment">/// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 </span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
 	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, ()&gt;,
+	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
 	<span class="comment">// ..and XCMP to communicate with the sibling chains.
 	</span>XcmpQueue,
 )&gt;;

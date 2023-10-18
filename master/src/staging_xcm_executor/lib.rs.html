@@ -1026,6 +1026,10 @@
 <a href="#1026" id="1026">1026</a>
 <a href="#1027" id="1027">1027</a>
 <a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1276,7 +1280,7 @@
 			<span class="kw">for </span>asset <span class="kw">in </span>fees.inner() {
 				Config::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 			}
-			Config::FeeManager::handle_fee(fees);
+			Config::FeeManager::handle_fee(fees, <span class="prelude-val">None</span>);
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1433,10 +1437,7 @@
 		reason: FeeReason,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
 		<span class="kw">let </span>(ticket, fee) = validate_send::&lt;Config::XcmSender&gt;(dest, msg)<span class="question-mark">?</span>;
-		<span class="kw">if </span>!Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason) {
-			<span class="kw">let </span>paid = <span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>;
-			Config::FeeManager::handle_fee(paid.into());
-		}
+		<span class="self">self</span>.take_fee(fee, reason)<span class="question-mark">?</span>;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
 
@@ -1646,14 +1647,18 @@
 			DepositAsset { assets, beneficiary } =&gt; {
 				<span class="kw">let </span>deposited = <span class="self">self</span>.holding.saturating_take(assets);
 				<span class="kw">for </span>asset <span class="kw">in </span>deposited.into_assets_iter() {
-					Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>beneficiary, <span class="kw-2">&amp;</span><span class="self">self</span>.context)<span class="question-mark">?</span>;
+					Config::AssetTransactor::deposit_asset(
+						<span class="kw-2">&amp;</span>asset,
+						<span class="kw-2">&amp;</span>beneficiary,
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context),
+					)<span class="question-mark">?</span>;
 				}
 				<span class="prelude-val">Ok</span>(())
 			},
 			DepositReserveAsset { assets, dest, xcm } =&gt; {
 				<span class="kw">let </span>deposited = <span class="self">self</span>.holding.saturating_take(assets);
 				<span class="kw">for </span>asset <span class="kw">in </span>deposited.assets_iter() {
-					Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span><span class="self">self</span>.context)<span class="question-mark">?</span>;
+					Config::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>dest, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
 				}
 				<span class="comment">// Note that we pass `None` as `maybe_failed_bin` and drop any assets which cannot
 				// be reanchored  because we have already called `deposit_asset` on all assets.
@@ -1972,6 +1977,14 @@
 		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">&quot;xcm::fees&quot;</span>,
+			<span class="string">&quot;taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}&quot;</span>,
+			fee,
+			<span class="self">self</span>.origin_ref(),
+			<span class="self">self</span>.fees_mode,
+			reason,
+		);
 		<span class="kw">let </span>paid = <span class="kw">if </span><span class="self">self</span>.fees_mode.jit_withdraw {
 			<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 			<span class="kw">for </span>asset <span class="kw">in </span>fee.inner() {
@@ -1981,7 +1994,7 @@
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>.into()
 		};
-		Config::FeeManager::handle_fee(paid);
+		Config::FeeManager::handle_fee(paid, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context));
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2013,12 +2026,7 @@
 		<span class="kw">let </span>QueryResponseInfo { destination, query_id, max_weight } = info;
 		<span class="kw">let </span>instruction = QueryResponse { query_id, response, max_weight, querier };
 		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[instruction]);
-		<span class="kw">let </span>(ticket, fee) = validate_send::&lt;Config::XcmSender&gt;(destination, message)<span class="question-mark">?</span>;
-		<span class="kw">if </span>!Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), fee_reason) {
-			<span class="kw">let </span>paid = <span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>;
-			Config::FeeManager::handle_fee(paid.into());
-		}
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		<span class="self">self</span>.send(destination, message, fee_reason)
 	}
 
 	<span class="kw">fn </span>try_reanchor(

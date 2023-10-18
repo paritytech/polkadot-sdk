@@ -1529,7 +1529,7 @@
 <span class="kw">pub use </span>junctions::Junctions;
 <span class="kw">pub use </span>multiasset::{
 	AssetId, AssetInstance, Fungibility, MultiAsset, MultiAssetFilter, MultiAssets,
-	WildFungibility, WildMultiAsset,
+	WildFungibility, WildMultiAsset, MAX_ITEMS_IN_MULTIASSETS,
 };
 <span class="kw">pub use </span>multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen,
@@ -1554,7 +1554,7 @@
 #[scale_info(bounds(), skip_type_params(Call))]
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
-<span class="kw">const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
+<span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
 
 <span class="macro">environmental::environmental!</span>(instructions_count: u8);
 
@@ -2416,7 +2416,7 @@
 	///   should be sent on arrival.
 	/// - `xcm`: The message to be exported.
 	///
-	/// As an example, to export a message for execution on Statemine (parachain #1000 in the
+	/// As an example, to export a message for execution on Asset Hub (parachain #1000 in the
 	/// Kusama network), you would call with `network: NetworkId::Kusama` and
 	/// `destination: X1(Parachain(1000))`. Alternatively, to export a message for execution on
 	/// Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.

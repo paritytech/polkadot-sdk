@@ -1326,7 +1326,7 @@
 					XcmConfig::AssetTransactor::deposit_asset(
 						<span class="kw-2">&amp;</span>ed,
 						<span class="kw-2">&amp;</span>sibling_parachain_location,
-						<span class="kw-2">&amp;</span>XcmContext::with_message_id([<span class="number">0</span>; <span class="number">32</span>]),
+						<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>XcmContext::with_message_id([<span class="number">0</span>; <span class="number">32</span>])),
 					)
 					.expect(<span class="string">&quot;deposited ed&quot;</span>);
 				}
@@ -1334,7 +1334,7 @@
 				</span>XcmConfig::AssetTransactor::deposit_asset(
 					<span class="kw-2">&amp;</span>fee,
 					<span class="kw-2">&amp;</span>sibling_parachain_location,
-					<span class="kw-2">&amp;</span>XcmContext::with_message_id([<span class="number">0</span>; <span class="number">32</span>]),
+					<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>XcmContext::with_message_id([<span class="number">0</span>; <span class="number">32</span>])),
 				)
 				.expect(<span class="string">&quot;deposited fee&quot;</span>);
 

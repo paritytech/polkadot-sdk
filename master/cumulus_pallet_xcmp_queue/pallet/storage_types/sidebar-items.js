@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["InboundXcmpMessages","InboundXcmpStatus","OutboundXcmpMessages","OutboundXcmpStatus","Overweight","OverweightCount","QueueConfig","QueueSuspended","SignalMessages"]};
+window.SIDEBAR_ITEMS = {"struct":["DeliveryFeeFactor","InboundXcmpMessages","InboundXcmpStatus","OutboundXcmpMessages","OutboundXcmpStatus","Overweight","OverweightCount","QueueConfig","QueueSuspended","SignalMessages"]};

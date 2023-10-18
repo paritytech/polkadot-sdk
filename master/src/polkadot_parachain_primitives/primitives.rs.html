@@ -752,7 +752,7 @@
 }
 
 <span class="doccomment">/// The aggregate XCMP message format.
-</span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+</span><span class="attr">#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
 </span><span class="kw">pub enum </span>XcmpMessageFormat {
 	<span class="doccomment">/// Encoded `VersionedXcm` messages, all concatenated.
 	</span>ConcatenatedVersionedXcm,

@@ -1342,6 +1342,51 @@
 <a href="#1342" id="1342">1342</a>
 <a href="#1343" id="1343">1343</a>
 <a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1359,10 +1404,13 @@
 
 </span><span class="doccomment">//! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span><span class="kw">super</span>::xcm_helpers;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{
+		fungible::Mutate, fungibles::InspectEnumerable, Get, OnFinalize, OnInitialize, OriginTrait,
+	},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
@@ -1519,6 +1567,21 @@
 						target_account_balance_before_teleport - existential_deposit
 				);
 
+				<span class="comment">// Mint funds into account to ensure it has enough balance to pay delivery fees
+				</span><span class="kw">let </span>delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
+						(native_asset_id, native_asset_to_teleport_away.into()).into(),
+						<span class="number">0</span>,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
+				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::mint_into(
+					<span class="kw-2">&amp;</span>target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
+
 				<span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::do_teleport_assets::&lt;HrmpChannelOpener&gt;(
 					RuntimeHelper::&lt;Runtime&gt;::origin_of(target_account.clone()),
 					dest,
@@ -1528,6 +1591,7 @@
 					included_head.clone(),
 					<span class="kw-2">&amp;</span>alice,
 				));
+
 				<span class="comment">// check balances
 				</span><span class="macro">assert_eq!</span>(
 					&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account),
@@ -1576,10 +1640,21 @@
 					<span class="kw-2">&amp;</span>alice,
 				));
 
+				<span class="kw">let </span>delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
+						(native_asset_id, native_asset_to_teleport_away.into()).into(),
+						<span class="number">0</span>,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
+
 				<span class="comment">// check balances
 				</span><span class="macro">assert_eq!</span>(
 					&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account),
-					target_account_balance_before_teleport - native_asset_to_teleport_away
+					target_account_balance_before_teleport -
+						native_asset_to_teleport_away -
+						delivery_fees.into()
 				);
 				<span class="macro">assert_eq!</span>(
 					&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>CheckingAccount::get()),
@@ -1714,7 +1789,7 @@
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
-	<span class="kw">let </span>teleported_foreign_asset_amount = <span class="number">10000000000000</span>;
+	<span class="kw">let </span>teleported_foreign_asset_amount = <span class="number">10_000_000_000_000</span>;
 	<span class="kw">let </span>runtime_para_id = <span class="number">1000</span>;
 	ExtBuilder::&lt;Runtime&gt;::default()
 		.with_collators(collator_session_keys.collators())
@@ -1744,12 +1819,12 @@
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account),
 				existential_deposit
 			);
-			<span class="macro">assert_eq!</span>(
+			<span class="comment">// check `CheckingAccount` before
+			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>CheckingAccount::get()),
 				existential_deposit
 			);
-			<span class="comment">// check `CheckingAccount` before
-			</span><span class="macro">assert_eq!</span>(
+			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
 					foreign_asset_id_multilocation.into(),
 					<span class="kw-2">&amp;</span>target_account
@@ -1883,6 +1958,21 @@
 							asset_minimum_asset_balance.into())
 						.into()
 				);
+
+				<span class="comment">// Make sure the target account has enough native asset to pay for delivery fees
+				</span><span class="kw">let </span>delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
+						(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
+						<span class="number">0</span>,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
+				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::mint_into(
+					<span class="kw-2">&amp;</span>target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
 
 				<span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::do_teleport_assets::&lt;HrmpChannelOpener&gt;(
 					RuntimeHelper::&lt;Runtime&gt;::origin_of(target_account.clone()),

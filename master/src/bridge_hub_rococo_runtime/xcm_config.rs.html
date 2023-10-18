@@ -361,6 +361,23 @@
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -378,10 +395,10 @@
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use super</span>::{
-	AccountId, AllPalletsWithSystem, Balances, BridgeGrandpaRococoInstance,
-	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, ParachainInfo, ParachainSystem,
-	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor,
-	RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, BridgeGrandpaRococoInstance,
+	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, FeeAssetId, ParachainInfo,
+	ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeFlavor, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
 <span class="kw">use crate</span>::{
 	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
@@ -393,9 +410,16 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
-<span class="kw">use </span>parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
+<span class="kw">use </span>parachains_common::{
+	impls::ToStakingPot,
+	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	TREASURY_PALLET_ID,
+};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<span class="kw">use </span>rococo_runtime_constants::system_parachain::SystemParachains;
 <span class="kw">use </span>sp_core::Get;
+<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -404,6 +428,7 @@
 	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{ExportXcm, WithOriginFilter},
@@ -418,6 +443,7 @@
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
+	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
 }
 
 <span class="doccomment">/// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -616,13 +642,21 @@
 	<span class="kw">type </span>SubscriptionService = PolkadotXcm;
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	<span class="kw">type </span>FeeManager = ();
+	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;
+		<span class="self">Self</span>,
+		RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;,
+		AccountId,
+		TreasuryAccount,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = BridgeHubRococoOrBridgeHubWococoSwitchExporter;
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = WithOriginFilter&lt;SafeCallFilter&gt;;
 	<span class="kw">type </span>SafeCallFilter = SafeCallFilter;
 	<span class="kw">type </span>Aliasers = Nothing;
 }
+
+<span class="kw">pub type </span>PriceForParentDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
 
 <span class="doccomment">/// Converts a local signed origin into an XCM multilocation.
 /// Forms the basis for local origins sending/executing XCMs.
@@ -632,7 +666,7 @@
 /// queues.
 </span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
 	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, ()&gt;,
+	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
 	<span class="comment">// ..and XCMP to communicate with the sibling chains.
 	</span>XcmpQueue,
 )&gt;;

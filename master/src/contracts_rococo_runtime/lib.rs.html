@@ -711,6 +711,10 @@
 <a href="#711" id="711">711</a>
 <a href="#712" id="712">712</a>
 <a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -937,13 +941,17 @@
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">0</span>&gt;;
 }
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>TransactionByteFee: Balance = MILLICENTS;
+}
+
 <span class="kw">impl </span>pallet_transaction_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnChargeTransaction =
 		pallet_transaction_payment::CurrencyAdapter&lt;Balances, DealWithFees&lt;Runtime&gt;&gt;;
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="doccomment">/// Relay Chain `TransactionByteFee` / 10
-	</span><span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, ConstU128&lt;MILLICENTS&gt;&gt;;
+	</span><span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>FeeMultiplierUpdate = SlowAdjustingFeeUpdate&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>OperationalFeeMultiplier = ConstU8&lt;<span class="number">5</span>&gt;;
 }

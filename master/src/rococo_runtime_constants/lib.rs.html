@@ -129,6 +129,26 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -228,6 +248,26 @@
 				coeff_integer: p / q,
 			}]
 		}
+	}
+}
+
+<span class="doccomment">/// System Parachains.
+</span><span class="kw">pub mod </span>system_parachain {
+	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+
+	<span class="doccomment">/// Network&#39;s Asset Hub parachain ID.
+	</span><span class="kw">pub const </span>ASSET_HUB_ID: u32 = <span class="number">1000</span>;
+	<span class="doccomment">/// Contracts parachain ID.
+	</span><span class="kw">pub const </span>CONTRACTS_ID: u32 = <span class="number">1002</span>;
+	<span class="doccomment">/// Encointer parachain ID.
+	</span><span class="kw">pub const </span>ENCOINTER_ID: u32 = <span class="number">1003</span>;
+	<span class="doccomment">/// BridgeHub parachain ID.
+	</span><span class="kw">pub const </span>BRIDGE_HUB_ID: u32 = <span class="number">1013</span>;
+
+	<span class="macro">frame_support::match_types! </span>{
+		<span class="kw">pub type </span>SystemParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+			MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)) }
+		};
 	}
 }
 

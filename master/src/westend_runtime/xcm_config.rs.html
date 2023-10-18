@@ -260,6 +260,12 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -281,7 +287,7 @@
 </span><span class="kw">use super</span>::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, WeightToFee, XcmPallet,
+	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 
 <span class="kw">use </span>frame_support::{
@@ -306,6 +312,7 @@
 	DescribeFamily, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -315,6 +322,7 @@
 	<span class="kw">pub const </span>UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
 	<span class="kw">pub </span>CheckAccount: AccountId = XcmPallet::check_account();
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(Treasury::account_id());
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
 	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(TokenLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
@@ -357,29 +365,38 @@
 	</span>XcmPassthrough&lt;RuntimeOrigin&gt;,
 );
 
+<span class="kw">pub type </span>PriceForChildParachainDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp&gt;;
+
 <span class="doccomment">/// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-</span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
+</span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;
 	<span class="comment">// Only one router so far - use DMP to communicate with child parachains.
-	</span>ChildParachainRouter&lt;
-		Runtime,
-		XcmPallet,
-		ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp&gt;,
-	&gt;,
-)&gt;;
+	</span>ChildParachainRouter&lt;Runtime, XcmPallet, PriceForChildParachainDelivery&gt;,
+&gt;;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
 	<span class="kw">pub const </span>AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
-	<span class="kw">pub const </span>WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	<span class="kw">pub const </span>Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
+	<span class="kw">pub const </span>BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	<span class="kw">pub const </span>Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
+	<span class="kw">pub const </span>WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	<span class="kw">pub const </span>WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
+	<span class="kw">pub const </span>WndForBridgeHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), BridgeHub::get());
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
 
-<span class="kw">pub type </span>TrustedTeleporters =
-	(xcm_builder::Case&lt;WndForAssetHub&gt;, xcm_builder::Case&lt;WndForCollectives&gt;);
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parachain(ASSET_HUB_ID).into());
+}
+
+<span class="kw">pub type </span>TrustedTeleporters = (
+	xcm_builder::Case&lt;WndForAssetHub&gt;,
+	xcm_builder::Case&lt;WndForCollectives&gt;,
+	xcm_builder::Case&lt;WndForBridgeHub&gt;,
+);
 
 <span class="macro">match_types! </span>{
 	<span class="kw">pub type </span>OnlyParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
@@ -436,7 +453,7 @@
 	<span class="kw">type </span>SubscriptionService = XcmPallet;
 	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	<span class="kw">type </span>FeeManager = ();
+	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, SystemParachains, AccountId, TreasuryAccount&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
@@ -451,11 +468,6 @@
 	</span><span class="kw">pub const </span>StakingAdminBodyId: BodyId = BodyId::Defense;
 	<span class="comment">// FellowshipAdmin pluralistic body.
 	</span><span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parachain(<span class="number">1000</span>).into());
 }
 
 <span class="doccomment">/// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.

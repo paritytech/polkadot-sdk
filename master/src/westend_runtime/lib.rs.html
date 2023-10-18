@@ -2379,6 +2379,22 @@
 <a href="#2379" id="2379">2379</a>
 <a href="#2380" id="2380">2380</a>
 <a href="#2381" id="2381">2381</a>
+<a href="#2382" id="2382">2382</a>
+<a href="#2383" id="2383">2383</a>
+<a href="#2384" id="2384">2384</a>
+<a href="#2385" id="2385">2385</a>
+<a href="#2386" id="2386">2386</a>
+<a href="#2387" id="2387">2387</a>
+<a href="#2388" id="2388">2388</a>
+<a href="#2389" id="2389">2389</a>
+<a href="#2390" id="2390">2390</a>
+<a href="#2391" id="2391">2391</a>
+<a href="#2392" id="2392">2392</a>
+<a href="#2393" id="2393">2393</a>
+<a href="#2394" id="2394">2394</a>
+<a href="#2395" id="2395">2395</a>
+<a href="#2396" id="2396">2396</a>
+<a href="#2397" id="2397">2397</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4563,9 +4579,24 @@
 			};
 			<span class="kw">use </span>xcm_config::{AssetHub, TokenLocation};
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositMultiAsset: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; = <span class="prelude-val">Some</span>((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				<span class="kw">pub </span>ToParachain: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+			}
+
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationConverter;
+				<span class="kw">type </span>DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+					xcm_config::XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForChildParachainDelivery,
+					ToParachain,
+					(),
+				&gt;;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(AssetHub::get())
 				}
@@ -4602,6 +4633,7 @@
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>TransactAsset = Balances;
 				<span class="kw">type </span>RuntimeCall = RuntimeCall;
 
 				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {

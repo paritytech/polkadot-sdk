@@ -796,6 +796,21 @@
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -824,6 +839,8 @@
 <span class="kw">pub mod </span>xcm_config;
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<span class="kw">use </span>cumulus_primitives_core::ParaId;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
@@ -873,7 +890,7 @@
 };
 
 <span class="comment">// XCM Imports
-</span><span class="kw">use </span>xcm::latest::prelude::BodyId;
+</span><span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="doccomment">/// The address format for describing accounts.
@@ -1112,7 +1129,7 @@
 	<span class="kw">type </span>ControllerOrigin = RootOrFellows;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
-	<span class="kw">type </span>PriceForSiblingDelivery = ();
+	<span class="kw">type </span>PriceForSiblingDelivery = NoPriceForMessageDelivery&lt;ParaId&gt;;
 }
 
 <span class="kw">impl </span>cumulus_pallet_dmp_queue::Config <span class="kw">for </span>Runtime {
@@ -1469,9 +1486,21 @@
 			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 			<span class="kw">use </span>xcm_config::KsmRelayLocation;
 
+			<span class="macro">parameter_types! </span>{
+				<span class="kw">pub </span>ExistentialDepositMultiAsset: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; = <span class="prelude-val">Some</span>((
+					xcm_config::KsmRelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
+				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				&gt;;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(KsmRelayLocation::get())
 				}
@@ -1512,6 +1541,7 @@
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
+				<span class="kw">type </span>TransactAsset = Balances;
 				<span class="kw">type </span>RuntimeCall = RuntimeCall;
 
 				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {

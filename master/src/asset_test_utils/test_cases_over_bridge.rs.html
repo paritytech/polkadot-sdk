@@ -619,6 +619,14 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -641,7 +649,9 @@
 <span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 <span class="kw">use </span>frame_support::{
 	assert_ok,
-	traits::{Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError},
+	traits::{
+		fungible::Mutate, Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
+	},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
@@ -784,6 +794,12 @@
 					id: sp_runtime::AccountId32::new([<span class="number">3</span>; <span class="number">32</span>]).into(),
 				}),
 			};
+
+			<span class="comment">// Make sure sender has enough funds for paying delivery fees
+			// TODO: Get this fee via weighing the corresponding message
+			</span><span class="kw">let </span>delivery_fees = <span class="number">1324039894</span>;
+			&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::mint_into(<span class="kw-2">&amp;</span>alice_account, delivery_fees.into())
+				.unwrap();
 
 			<span class="comment">// do pallet_xcm call reserve transfer
 			</span><span class="macro">assert_ok!</span>(&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::limited_reserve_transfer_assets(

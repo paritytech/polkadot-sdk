@@ -205,6 +205,9 @@
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -317,11 +320,14 @@
 		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
 			DescendOrigin(Interior::get()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
-			SetAppendix(Xcm(<span class="macro">vec!</span>[ReportError(QueryResponseInfo {
-				destination,
-				query_id,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(<span class="macro">vec!</span>[
+				SetFeesMode { jit_withdraw: <span class="bool-val">true </span>},
+				ReportError(QueryResponseInfo {
+					destination,
+					query_id,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				beneficiary,
 				assets: <span class="macro">vec!</span>[MultiAsset { id: asset_id, fun: Fungibility::Fungible(amount) }]
