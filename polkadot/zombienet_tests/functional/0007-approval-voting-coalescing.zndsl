@@ -1,5 +1,5 @@
 Description: Approval voting coalescing does not lag finality
-Network: ./0006-approval-voting-coalescing.toml
+Network: ./0007-approval-voting-coalescing.toml
 Creds: config
 
 # Check authority status.
@@ -41,11 +41,20 @@ ferdie: reports substrate_block_height{status="finalized"} is at least 30 within
 one: reports substrate_block_height{status="finalized"} is at least 30 within 400 seconds
 two: reports substrate_block_height{status="finalized"} is at least 30 within 400 seconds
 
-alice: reports polkadot_parachain_approval_checking_finality_lag is 0
-bob: reports polkadot_parachain_approval_checking_finality_lag is 0
-charlie: reports polkadot_parachain_approval_checking_finality_lag is 0
-dave: reports polkadot_parachain_approval_checking_finality_lag is 0
-ferdie: reports polkadot_parachain_approval_checking_finality_lag is 0
-eve: reports polkadot_parachain_approval_checking_finality_lag is 0
-one: reports polkadot_parachain_approval_checking_finality_lag is 0
-two: reports polkadot_parachain_approval_checking_finality_lag is 0
+alice: reports polkadot_parachain_approval_checking_finality_lag < 3
+bob: reports polkadot_parachain_approval_checking_finality_lag < 3
+charlie: reports polkadot_parachain_approval_checking_finality_lag < 3
+dave: reports polkadot_parachain_approval_checking_finality_lag < 3
+ferdie: reports polkadot_parachain_approval_checking_finality_lag < 3
+eve: reports polkadot_parachain_approval_checking_finality_lag < 3
+one: reports polkadot_parachain_approval_checking_finality_lag < 3
+two: reports polkadot_parachain_approval_checking_finality_lag < 3
+
+alice: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+bob: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+charlie: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+dave: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+ferdie: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+eve: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+one: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+two: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds

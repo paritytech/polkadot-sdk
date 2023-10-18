@@ -8,7 +8,7 @@ chain_spec_command = "polkadot build-spec --chain rococo-local --disable-default
 
 [relaychain.genesis.runtime.configuration.config]
   needed_approvals = 5
-  relay_vrf_modulo_samples = 3
+  relay_vrf_modulo_samples = 6
 
 [relaychain.genesis.runtime.configuration.config.approval_voting_params]
   max_approval_coalesce_count = 5
@@ -19,7 +19,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.nodes]]
   name = "alice"
-  args = [ "--alice", "-lparachain=debug,runtime=debug,peerset=trace" ]
+  args = [ "--alice", "-lparachain=trace,runtime=debug" ]
 
   [[relaychain.nodes]]
   name = "bob"
