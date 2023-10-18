@@ -21,26 +21,26 @@
 //! This crate includes structs and utilities for defining configuration files (known as chain
 //! specification) for both runtime and node.
 //!
-//! # Intro: chain specification.
+//! # Intro: Chain Specification
 //!
-//! The chain specification is a collection of information that describes the properties and an
-//! initial state of a chain. Typically user interacts with the JSON representation of the chain
-//! spec. Internally the chain spec is embodied by [`GenericChainSpec`] struct, specific
+//! The chain specification comprises parameters and settings that define the properties and an
+//! initial state of a chain. Users typically interact with the JSON representation of the chain
+//! spec. Internally, the chain spec is embodied by the [`GenericChainSpec`] struct, and specific
 //! properties can be accessed using the [`ChainSpec`] trait.
 //!
-//! In summary, though not restirced to, the primary role of the chain spec is to provide a list of
+//! In summary, although not restricted to, the primary role of the chain spec is to provide a list of
 //! well-known boot nodes for the blockchain network and the means for initializing the genesis
 //! storage. This initialization is necessary for creating a genesis block upon which subsequent
 //! blocks are built. When the node is launched for the first time, it reads the chain spec,
 //! initializes the genesis block, and establishes connections with the boot nodes.
 //!
-//! JSON chain spec is divided into three main logical sections:
+//! The JSON chain spec is divided into three main logical sections:
 //! - one section details general chain properties,
-//! - the other explicitly or indirectly defines the genesis storage, which, in turn,
-//! determines the genesis hash of the chain,
-//! - third deals with the runtime code.
+//! - another explicitly or indirectly defines the genesis storage, which, in turn,
+//!   determines the genesis hash of the chain,
+//! - the third deals with the runtime code.
 //!
-//! The chain specification consits of the following fields:
+//! The chain specification consists of the following fields:
 //!
 //! <table>
 //!   <thead>
@@ -111,7 +111,7 @@
 //!   </tbody>
 //! </table>
 //!
-//! # `genesis`: initial runtime state
+//! # `genesis`: Initial Runtime State
 //!
 //! All nodes in the network must build subsequent blocks upon exactly the same genesis block.
 //!
@@ -120,17 +120,17 @@
 //! includes the storage root hash.
 //!
 //! The `genesis` key of the chain specification definition describes the
-//! initial state of the runtime. For example it may contain:
-//! - initial list of funded accounts,
+//! initial state of the runtime. For example, it may contain:
+//! - an initial list of funded accounts,
 //! - the administrative account that controls the sudo key,
-//! - initial authorities set for consensus, etc.
+//! - an initial authorities set for consensus, etc.
 //!
 //! The compiled WASM blob of the runtime code is stored in the state (and therefore on the chain).
 //! As a result, the initial runtime must also be provided within the chain specification (under the
 //! `code` field).
 //!
 //! The genesis state can be represented in the formats described by [`GenesisFormat<G>`]
-//! enum. In essence, tha most important formats are:
+//! enum. In essence, the most important formats are:
 //! <table>
 //!   <thead>
 //!     <tr>
@@ -160,26 +160,26 @@
 //!       <td>
 //! 		<a href="enum.GenesisFormat.html#variant.Raw"><code>raw</code></a>
 //!       </td>
-//!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code> Each
+//!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code>. Each
 //! field is a map of <code>key => value</code> pairs representing entries in a genesis storage
 //! trie.</td>
 //!     </tr>
 //!   </tbody>
 //! </table>
 //!
-//! For production or long lasting chain specification `raw` format is recommended.
+//! For production or long-lasting blockchains, using the `raw` format in the chain specification is recommended.
 //!
 //! JSON examples in the [following section](#json-chain-specification-example) illustrate the `raw`
 //! and `runtimeGenesisConfigPatch` genesis fields.
 //!
-//! # From initial state to raw genesis.
+//! # From Initial State to Raw Genesis.
 //!
-//! To generate a raw genesis storage from the JSON representation of the runtime genesis config the
+//! To generate a raw genesis storage from the JSON representation of the runtime genesis config, the
 //! node needs to interact with the runtime.
 //!
 //! This interaction involves passing the runtime genesis config JSON blob to the runtime using the
-//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. During this operation runtime
-//! converts the JSON representation of genesis config into [`sp_io::storage`] items. It is a
+//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. During this operation, the runtime
+//! converts the JSON representation of the genesis config into [`sp_io::storage`] items. It is a
 //! crucial step for computing the storage root hash, which is a key component in determining the
 //! genesis hash.
 //!
@@ -201,27 +201,27 @@
 //! The plain and `raw` chain specification JSON blobs can be found in
 //! [JSON examples](#json-chain-specification-example) section.
 //!
-//! # Optional code mapping
+//! # Optional Code Mapping
 //! Optional map of `block_number` to `wasm_code`.
 //!
 //! The given `wasm_code` will be used to substitute the on-chain wasm code starting with the
 //! given block number until the `spec_version` on-chain changes. The given `wasm_code` should
 //! be as close as possible to the on-chain wasm code. A substitute should be used to fix a bug
-//! that can not be fixed with a runtime upgrade, if for example the runtime is constantly
-//! panicking. Introducing new runtime apis isn't supported, because the node
+//! that cannot be fixed with a runtime upgrade, if for example the runtime is constantly
+//! panicking. Introducing new runtime APIs isn't supported, because the node
 //! will read the runtime version from the on-chain wasm code. Use this functionality only when
-//! there is no other way around it and only patch the problematic bug, the rest should be done
-//! with a on-chain runtime upgrade.
+//! there is no other way around it, and only patch the problematic bug; the rest should be done
+//! with an on-chain runtime upgrade.
 //!
-//! # Building a chain specification.
-//! The [`ChainSpecBuilder`] shall be used to create an instance of chain specification. Its API
-//! allows to configure all fields of the chain spec. To generate a JSON representation of chain
+//! # Building a Chain Specification
+//! The [`ChainSpecBuilder`] should be used to create an instance of a chain specification. Its API
+//! allows configuration of all fields of the chain spec. To generate a JSON representation of the
 //! specification, use [`ChainSpec::as_json`].
 //!
 //! The sample code to generate a chain spec is as follows:
 #![doc = docify::embed!("src/chain_spec.rs", build_chain_spec_with_patch_works)]
 //! # JSON chain specification example
-//! The following are the plain and `raw` ersions of the chain specification JSON files, resulting
+//! The following are the plain and `raw` versions of the chain specification JSON files, resulting
 //! from executing of the above [example](#building-a-chain-specification):
 //! ```ignore
 #![doc = include_str!("../res/substrate_test_runtime_from_patch.json")]
@@ -229,14 +229,14 @@
 //! ```ignore
 #![doc = include_str!("../res/substrate_test_runtime_from_patch_raw.json")]
 //! ```
-//! The [`ChainSpec`] trait represents the API to access values defined in JSON chain specification.
+//! The [`ChainSpec`] trait represents the API to access values defined in the JSON chain specification.
 //!
-//! # Custom chain spec extensions
-//! Basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
-//! extended with additional options that contain configuration specific to your chain. Usually the
-//! extension is going to be an amalgamate of types exposed by Substrate core modules.
+//! # Custom Chain Spec Extensions
+//! The basic chain spec type containing all required parameters is [`GenericChainSpec`]. It can be
+//! extended with additional options containing configuration specific to your chain. Usually, the
+//! extension will be a combination of types exposed by Substrate core modules.
 //!
-//! To allow the core modules to retrieve their configuration from your extension you should use
+//! To allow the core modules to retrieve their configuration from your extension, you should use
 //! `ChainSpecExtension` macro exposed by this crate.
 //! ```rust
 //! use std::collections::HashMap;
@@ -250,9 +250,9 @@
 //! pub type MyChainSpec<G> = GenericChainSpec<G, MyExtension>;
 //! ```
 //! Some parameters may require different values depending on the current blockchain height (a.k.a.
-//! forks). You can use `ChainSpecGroup` macro and provided [`Forks`](./struct.Forks.html) structure
-//! to put such parameters to your chain spec. This will allow to override a single parameter
-//! starting at specific block number.
+//! forks). You can use the [`ChainSpecGroup`](macro@ChainSpecGroup) macro and the provided [`Forks`]
+//! structure to add such parameters to your chain spec. This will allow overriding a single
+//! parameter starting at a specific block number.
 //! ```rust
 //! use sc_chain_spec::{Forks, ChainSpecGroup, ChainSpecExtension, GenericChainSpec};
 //!
@@ -281,9 +281,9 @@
 //! /// A chain spec supporting forkable `Extension`.
 //! pub type MyChainSpec2<G> = GenericChainSpec<G, Forks<BlockNumber, Extension>>;
 //! ```
-//! It's also possible to have a set of parameters that is allowed to change with block numbers
-//! (i.e. is forkable), and another set that is not subject to changes. This is also possible by
-//! declaring an extension that contains `Forks` within it.
+//! It's also possible to have a set of parameters that are allowed to change with block numbers
+//! (i.e., they are forkable), and another set that is not subject to changes. This can also be
+//! achieved by declaring an extension that contains [`Forks`] within it.
 //! ```rust
 //! use serde::{Serialize, Deserialize};
 //! use sc_chain_spec::{Forks, GenericChainSpec, ChainSpecGroup, ChainSpecExtension};
