@@ -37,6 +37,7 @@ sp-api = { path = "../../../../../substrate/primitives/api", default-features = 
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false}
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
@@ -48,7 +49,6 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
 
 # Polkadot
-polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
@@ -111,13 +111,13 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
-	"polkadot-runtime-constants/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-offchain/std",

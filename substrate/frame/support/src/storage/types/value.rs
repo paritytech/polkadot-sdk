@@ -49,7 +49,7 @@ where
 	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
 {
 	type Query = QueryKind::Query;
-	fn module_prefix() -> &'static [u8] {
+	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	fn storage_prefix() -> &'static [u8] {
@@ -60,6 +60,9 @@ where
 	}
 	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
+	}
+	fn storage_value_final_key() -> [u8; 32] {
+		Prefix::prefix_hash()
 	}
 }
 
@@ -251,7 +254,7 @@ where
 {
 	fn storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::hashed_key().to_vec(),
 			max_values: Some(1),
@@ -271,7 +274,7 @@ where
 {
 	fn partial_storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::hashed_key().to_vec(),
 			max_values: Some(1),
