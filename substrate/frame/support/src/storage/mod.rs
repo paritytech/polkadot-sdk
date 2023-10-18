@@ -168,11 +168,25 @@ pub trait StorageValue<T: FullCodec> {
 		T::decode_len(&Self::hashed_key())
 	}
 
-	fn decode_raw_len() -> Option<usize>
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `T` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.
+	///
+	/// - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+
+	fn decode_dedup_len() -> Option<usize>
 	where
-		T: StorageDecodeRawLength,
+		T: StorageDecodeNonDedupLength,
 	{
-		T::decode_raw_len(&Self::hashed_key())
+		T::decode_len(&Self::hashed_key())
 	}
 }
 
@@ -1428,14 +1442,28 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-pub trait StorageDecodeRawLength: private::Sealed {
-	/// Decode the raw length of the storage value at `key`, including any duplicate values.
-	fn decode_raw_len(key: &[u8]) -> Option<usize> {
+/// Marker trait that will be implemented for types that support to decode their length in an
+/// efficient way. It is expected that the length is at the beginning of the encoded object
+/// and that the length is a `Compact<u32>`.
+///
+/// # Note
+/// The length returned by this trait is not deduplicated, i.e. it is the length of the
+/// underlying stored Vec.
+///
+/// This trait is sealed.
+pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
+	/// Decode the length of the storage value at `key`.
+	///
+	/// This function assumes that the length is at the beginning of the encoded object
+	/// and is a `Compact<u32>`.
+	///
+	/// Returns `None` if the storage value does not exist or the decoding failed.
+	fn decode_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
 		let mut data = [0u8; 5];
 		let len = sp_io::storage::read(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
-		Some(len)
+		<Self as codec::DecodeLength>::len(&data[..len]).ok()
 	}
 }
 
@@ -1490,6 +1518,7 @@ impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
 impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
+impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {}
 
 /// We abuse the fact that SCALE does not put any marker into the encoding, i.e. we only encode the
 /// internal vec and we can append to this vec. We have a test that ensures that if the `Digest`
@@ -2052,16 +2081,15 @@ mod test {
 	type Store = StorageValue<Prefix, BTreeSet<u32>>;
 
 	#[test]
-	fn btree_set_decode_raw_len_works() {
+	fn btree_set_decode_non_dedup_len() {
 		TestExternalities::default().execute_with(|| {
-			let btree = BTreeSet::from([1, 2, 3]);
-			Store::put(btree);
-
 			Store::append(4);
+			Store::append(4); // duplicate value
 			Store::append(5);
-			Store::append(6);
 
-			assert_eq!(Store::decode_len().unwrap(), Store::get().unwrap().len());
+			let length_with_dup_items = 3;
+
+			assert_eq!(Store::decode_dedup_len().unwrap(), length_with_dup_items);
 		});
 	}
 }

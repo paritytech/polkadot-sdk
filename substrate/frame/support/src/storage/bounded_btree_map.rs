@@ -17,9 +17,10 @@
 
 //! Traits, types and structs to support a bounded BTreeMap.
 
-use crate::storage::StorageDecodeLength;
+use crate::storage::{StorageDecodeLength, StorageDecodeNonDedupLength};
 pub use sp_runtime::BoundedBTreeMap;
 
+impl<K, V, S> StorageDecodeNonDedupLength for BoundedBTreeMap<K, V, S> {}
 impl<K, V, S> StorageDecodeLength for BoundedBTreeMap<K, V, S> {}
 
 #[cfg(test)]

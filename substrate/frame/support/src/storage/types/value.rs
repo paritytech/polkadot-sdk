@@ -21,7 +21,7 @@ use crate::{
 	storage::{
 		generator::StorageValue as StorageValueT,
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
-		StorageAppend, StorageDecodeLength, StorageTryAppend,
+		StorageAppend, StorageDecodeLength, StorageDecodeNonDedupLength, StorageTryAppend,
 	},
 	traits::{GetDefault, StorageInfo, StorageInstance},
 };
