@@ -52,6 +52,9 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true }
+
+pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
@@ -89,6 +92,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
+	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -105,6 +109,7 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -123,11 +128,13 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
