@@ -510,16 +510,13 @@ fn act_on_advertisement_v2() {
 		let pair = CollatorPair::generate().0;
 		gum::trace!("activating");
 
-		overseer_send(
+		prospective_parachains::update_view(
 			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
+			&test_state,
+			vec![(test_state.relay_parent, 0)],
+			1,
 		)
 		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -542,6 +539,18 @@ fn act_on_advertisement_v2() {
 			Some((candidate_hash, parent_head_data_hash)),
 		)
 		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
 
 		assert_fetch_collation_request(
 			&mut virtual_overseer,

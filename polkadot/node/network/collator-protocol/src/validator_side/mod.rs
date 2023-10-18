@@ -22,7 +22,6 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	convert::TryInto,
 	future::Future,
-	iter::FromIterator,
 	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -241,45 +240,50 @@ impl PeerData {
 					return Err(InsertAdvertisementError::OutOfOurView)
 				}
 
-				let insert_non_prospective_chains_mode =
-					|state: &mut CollatingPeerState, candidate_hash: Option<CandidateHash>| {
-						if state.advertisements.contains_key(&on_relay_parent) {
-							return Err(InsertAdvertisementError::Duplicate)
-						}
-						state
-							.advertisements
-							.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
-						Ok(())
-					};
-
 				match (relay_parent_mode, candidate_hash) {
-					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
-						insert_non_prospective_chains_mode(state, candidate_hash)?;
-					},
+					(ProspectiveParachainsMode::Enabled { .. }, None) |
+					(ProspectiveParachainsMode::Disabled, None) =>
+						if self.version == CollationVersion::V1 {
+							if state.advertisements.contains_key(&on_relay_parent) {
+								return Err(InsertAdvertisementError::Duplicate)
+							}
+							state.advertisements.insert(on_relay_parent, HashSet::new());
+						} else {
+							gum::error!(
+								target: LOG_TARGET,
+								"Inserting advertisment: V2 without a candidate hash",
+							);
+							return Err(InsertAdvertisementError::ProtocolMismatch)
+						},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
 						Some(candidate_hash),
-					) =>
-						if self.version == CollationVersion::V1 {
-							insert_non_prospective_chains_mode(state, Some(candidate_hash))?;
-						} else {
-							if state
-								.advertisements
-								.get(&on_relay_parent)
-								.map_or(false, |candidates| candidates.contains(&candidate_hash))
-							{
-								return Err(InsertAdvertisementError::Duplicate)
-							}
+					) => {
+						if state
+							.advertisements
+							.get(&on_relay_parent)
+							.map_or(false, |candidates| candidates.contains(&candidate_hash))
+						{
+							return Err(InsertAdvertisementError::Duplicate)
+						}
 
-							let candidates =
-								state.advertisements.entry(on_relay_parent).or_default();
+						let candidates = state.advertisements.entry(on_relay_parent).or_default();
 
-							if candidates.len() > max_candidate_depth {
-								return Err(InsertAdvertisementError::PeerLimitReached)
-							}
-							candidates.insert(candidate_hash);
-						},
-					_ => return Err(InsertAdvertisementError::ProtocolMismatch),
+						if candidates.len() > max_candidate_depth {
+							return Err(InsertAdvertisementError::PeerLimitReached)
+						}
+						candidates.insert(candidate_hash);
+					},
+					(mode, candidate_hash) => {
+						gum::error!(
+							target: LOG_TARGET,
+							?mode,
+							hash = ?candidate_hash,
+							"Inserting advertisment: protocol mismatch",
+						);
+
+						return Err(InsertAdvertisementError::ProtocolMismatch)
+					},
 				}
 
 				state.last_active = Instant::now();

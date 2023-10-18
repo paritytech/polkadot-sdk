@@ -74,7 +74,7 @@ async fn assert_assign_incoming(
 }
 
 /// Handle a view update.
-async fn update_view(
+pub(super) async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
@@ -240,7 +240,7 @@ async fn assert_collation_seconded(
 }
 
 #[test]
-fn v1_advertisement_rejected() {
+fn v1_advertisement_accepted() {
 	let test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
@@ -267,9 +267,13 @@ fn v1_advertisement_rejected() {
 
 		advertise_collation(&mut virtual_overseer, peer_a, head_b, None).await;
 
-		// Not reported.
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
 
 		virtual_overseer
 	});
