@@ -344,7 +344,7 @@ impl DiscoveryBehaviour {
 		if addrs_list.contains(&addr) {
 			return
 		}
-		log::debug!(target: LOG_TARGET, "add known address to kademlia for {peer_id}: {addr:?}");
+		log::debug!(target: "sub-libp2p", "add known address to kademlia for {peer_id}: {addr:?}");
 
 		if let Some(k) = self.kademlia.as_mut() {
 			k.add_address(&peer_id, addr.clone());
@@ -374,7 +374,7 @@ impl DiscoveryBehaviour {
 		supported_protocols: &[impl AsRef<str>],
 		addr: Multiaddr,
 	) {
-		log::debug!(target: LOG_TARGET, "add self-reported address {peer_id}: {addr:?}");
+		log::debug!(target: "sub-libp2p", "add self-reported address {peer_id}: {addr:?}");
 		if let Some(kademlia) = self.kademlia.as_mut() {
 			if !self.allow_non_globals_in_dht && !Self::can_add_to_dht(&addr) {
 				trace!(
@@ -691,7 +691,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
 				let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id));
 
-				log::info!(target: LOG_TARGET, "external address confirmed: {addr:?}");
+				log::info!(target: "sub-libp2p", "external address confirmed: {addr:?}");
 
 				if Self::can_add_to_dht(addr) {
 					// NOTE: we might re-discover the same address multiple times
