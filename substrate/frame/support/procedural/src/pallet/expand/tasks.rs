@@ -1,7 +1,6 @@
 use crate::pallet::{parse::tasks::*, Def};
 use derive_syn_parse::Parse;
 use proc_macro2::TokenStream as TokenStream2;
-use proc_utils::PrettyPrint;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, spanned::Spanned, Item, ItemEnum, ItemImpl};
 

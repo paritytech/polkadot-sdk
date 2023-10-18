@@ -20,7 +20,6 @@
 use frame_support::dispatch::DispatchResult;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
-use sp_runtime::DispatchError;
 
 pub mod mock;
 pub mod tests;
