@@ -325,6 +325,7 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 		for job in jobs {
 			self.job_per_worker.remove(&job);
 		}
+		gum::debug!(target: LOG_TARGET, num_total_jobs = self.job_per_worker.len(), num_deleted = ?jobs.len(), "worker-pool: complete_jobs");
 	}
 
 	/// Create or update a job with the given state.
