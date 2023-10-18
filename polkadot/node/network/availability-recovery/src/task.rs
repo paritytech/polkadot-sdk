@@ -39,7 +39,7 @@ use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, ChunkIndex, Hash,
 use rand::seq::SliceRandom;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, BTreeSet, VecDeque},
 	time::Duration,
 };
 
@@ -110,11 +110,16 @@ pub struct State {
 	/// that chunks are ordered by their index). If we ever switch this to some non-ordered
 	/// collection, we need to add a sort step to the systematic recovery.
 	received_chunks: BTreeMap<ChunkIndex, ErasureChunk>,
+
+	/// A record of the chunks that are not available.
+	/// Useful so that subsequent strategies don't waste time requesting chunks that are known to
+	/// be invalid or from validators that did not have the chunk.
+	chunks_not_available: BTreeSet<ChunkIndex>,
 }
 
 impl State {
 	fn new() -> Self {
-		Self { received_chunks: BTreeMap::new() }
+		Self { received_chunks: BTreeMap::new(), chunks_not_available: BTreeSet::new() }
 	}
 
 	fn insert_chunk(&mut self, chunk_index: ChunkIndex, chunk: ErasureChunk) {
@@ -294,6 +299,7 @@ impl State {
 					} else {
 						metrics.on_chunk_request_invalid(chunk_type);
 						error_count += 1;
+						self.chunks_not_available.insert(chunk_index);
 					},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk(chunk_type);
@@ -305,6 +311,7 @@ impl State {
 						"Validator did not have the requested chunk",
 					);
 					error_count += 1;
+					self.chunks_not_available.insert(chunk_index);
 				},
 				Err(err) => {
 					error_count += 1;
@@ -330,6 +337,8 @@ impl State {
 								?validator_index,
 								"Chunk fetching response was invalid",
 							);
+
+							self.chunks_not_available.insert(chunk_index);
 						},
 						RequestError::NetworkError(err) => {
 							// No debug logs on general network errors - that became very spammy
@@ -785,9 +794,12 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// them from the queue.
 		let mut systematic_chunk_count = self.validators.len();
 
-		// No need to query the validators that have the chunks we already received.
-		self.validators
-			.retain(|(c_index, _)| !state.received_chunks.contains_key(c_index));
+		// No need to query the validators that have the chunks we already received or that we know
+		// don't have the data from previous strategies.
+		self.validators.retain(|(c_index, _)| {
+			!state.received_chunks.contains_key(c_index) &&
+				!state.chunks_not_available.contains(c_index)
+		});
 
 		systematic_chunk_count -= self.validators.len();
 
@@ -1066,9 +1078,12 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			self.validators.retain(|(c_index, _)| !local_chunk_indices.contains(c_index));
 		}
 
-		// No need to query the validators that have the chunks we already received.
-		self.validators
-			.retain(|(c_index, _)| !state.received_chunks.contains_key(c_index));
+		// No need to query the validators that have the chunks we already received or that we know
+		// don't have the data from previous strategies.
+		self.validators.retain(|(c_index, _)| {
+			!state.received_chunks.contains_key(c_index) &&
+				!state.chunks_not_available.contains(c_index)
+		});
 
 		// Safe to `take` here, as we're consuming `self` anyway and we're not using the
 		// `validators` field in other methods.

@@ -230,6 +230,22 @@ impl TestState {
 		);
 	}
 
+	async fn test_runtime_api_empty_client_features(&self, virtual_overseer: &mut VirtualOverseer) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_relay_parent,
+				RuntimeApiRequest::ClientFeatures(
+					tx,
+				)
+			)) => {
+				tx.send(Ok(
+					ClientFeatures::empty()
+				)).unwrap();
+			}
+		);
+	}
+
 	async fn respond_to_block_number_query(
 		&self,
 		virtual_overseer: &mut VirtualOverseer,
@@ -462,6 +478,8 @@ impl Default for TestState {
 			Sr25519Keyring::Bob,
 			Sr25519Keyring::Charlie,
 			Sr25519Keyring::Dave,
+			Sr25519Keyring::One,
+			Sr25519Keyring::Two,
 		];
 
 		let validator_public = validator_pubkeys(&validators);
@@ -816,11 +834,9 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 		let candidate_hash = test_state.candidate.hash();
 
 		// Create some faulty chunks.
-		test_state.chunks[0].chunk = vec![0; 32];
-		test_state.chunks[1].chunk = vec![1; 32];
-		test_state.chunks[2].chunk = vec![2; 32];
-		test_state.chunks[3].chunk = vec![3; 32];
-		test_state.chunks[4].chunk = vec![4; 32];
+		for chunk in test_state.chunks.iter_mut() {
+			chunk.chunk = vec![0; 32];
+		}
 
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
@@ -900,16 +916,15 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 
 		let candidate_hash = test_state.candidate.hash();
 
-		// Simulate that we are holding a chunk with an invalid index in the av-store.
-		test_state.chunks[1] = test_state.chunks[0].clone();
-
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
-		// These chunks should fail the index check as they don't have the correct index.
-		test_state.chunks[2] = test_state.chunks[0].clone();
-		test_state.chunks[3] = test_state.chunks[0].clone();
-		test_state.chunks[4] = test_state.chunks[0].clone();
+		// Chunks should fail the index check as they don't have the correct index.
+		let first_chunk = test_state.chunks[0].clone();
+		test_state.chunks[0] = test_state.chunks[1].clone();
+		for c_index in 1..test_state.chunks.len() {
+			test_state.chunks[c_index] = first_chunk.clone();
+		}
 
 		if systematic_recovery {
 			test_state
@@ -929,7 +944,7 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 			.test_chunk_requests(
 				candidate_hash,
 				&mut virtual_overseer,
-				test_state.impossibility_threshold(),
+				test_state.chunks.len() - 1,
 				|_| Has::Yes,
 				false,
 			)
@@ -1692,6 +1707,9 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 	});
 }
 
+#[test]
+fn with_availability_store_skip() {}
+
 #[rstest]
 #[case(true)]
 #[case(false)]
@@ -1737,6 +1755,74 @@ fn returns_early_if_we_have_the_data(#[case] systematic_recovery: bool) {
 		test_state.respond_to_available_data_query(&mut virtual_overseer, true).await;
 
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+		virtual_overseer
+	});
+}
+
+#[test]
+fn returns_early_if_present_in_the_subsystem_cache() {
+	let test_state = TestState::default();
+	let subsystem =
+		AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy());
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				Some(GroupIndex(0)),
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+
+		let candidate_hash = test_state.candidate.hash();
+
+		let who_has = |i| match i {
+			3 => Has::Yes,
+			_ => Has::No,
+		};
+
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+
+		test_state
+			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
+			.await;
+
+		// Recovered data should match the original one.
+		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+
+		// A second recovery for the same candidate will return early as it'll be present in the
+		// cache.
+		let (tx, rx) = oneshot::channel();
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				Some(GroupIndex(0)),
+				tx,
+			),
+		)
+		.await;
+		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+
 		virtual_overseer
 	});
 }
@@ -1878,6 +1964,181 @@ fn invalid_local_chunk(#[case] systematic_recovery: bool) {
 			.await;
 
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+		virtual_overseer
+	});
+}
+
+#[test]
+fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
+	// Run this test multiple times, as the order in which requests are made is random and we want
+	// to make sure that we catch regressions.
+	for _ in 0..TestState::default().chunks.len() {
+		let test_state = TestState::default();
+		let subsystem = AvailabilityRecoverySubsystem::with_systematic_chunks(
+			request_receiver(),
+			Metrics::new_dummy(),
+		);
+
+		test_harness(subsystem, |mut virtual_overseer| async move {
+			overseer_signal(
+				&mut virtual_overseer,
+				OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+					test_state.current,
+					1,
+				))),
+			)
+			.await;
+
+			let (tx, rx) = oneshot::channel();
+
+			overseer_send(
+				&mut virtual_overseer,
+				AvailabilityRecoveryMessage::RecoverAvailableData(
+					test_state.candidate.clone(),
+					test_state.session_index,
+					None,
+					tx,
+				),
+			)
+			.await;
+
+			test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+			test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+			test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					test_state.systematic_threshold(),
+					|i| if i == 0 { Has::No } else { Has::Yes },
+					true,
+				)
+				.await;
+
+			// Falls back to regular recovery.
+			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					1,
+					|i: usize| {
+						if i < test_state.systematic_threshold() {
+							panic!("Already requested")
+						} else {
+							Has::Yes
+						}
+					},
+					false,
+				)
+				.await;
+
+			assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
+			virtual_overseer
+		});
+	}
+}
+
+#[rstest]
+#[case(true, true)]
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffling_enabled: bool) {
+	let test_state = TestState::default();
+	let subsystem = match systematic_recovery {
+		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
+			request_receiver(),
+			Metrics::new_dummy(),
+		),
+		false => AvailabilityRecoverySubsystem::with_chunks_only(
+			request_receiver(),
+			Metrics::new_dummy(),
+		),
+	};
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, _rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				None,
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+
+		if shuffling_enabled {
+			test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		} else {
+			test_state.test_runtime_api_empty_client_features(&mut virtual_overseer).await;
+		}
+
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+		let mut chunk_indices: Vec<(usize, usize)> = vec![];
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::SendRequests(
+					requests,
+					_if_disconnected,
+				)
+			) => {
+				for req in requests {
+					assert_matches!(
+						req,
+						Requests::ChunkFetchingV1(req) => {
+							assert_eq!(req.payload.candidate_hash, test_state.candidate.hash());
+
+							let chunk_index = req.payload.index.0 as usize;
+							let validator_index = test_state.validator_authority_id.iter().enumerate().find(|(_, id)| {
+								if let Recipient::Authority(auth_id) = &req.peer {
+									if *id == auth_id {
+										return true
+									}
+								}
+								false
+							}).expect("validator not found").0;
+
+							if systematic_recovery {
+								assert!(chunk_index <= test_state.systematic_threshold(), "requsted non-systematic chunk");
+							}
+
+							chunk_indices.push((chunk_index, validator_index));
+						}
+					)
+				}
+			}
+		);
+
+		if shuffling_enabled {
+			assert!(!chunk_indices.iter().any(|(c_index, v_index)| c_index == v_index));
+		} else {
+			assert!(chunk_indices.iter().all(|(c_index, v_index)| c_index == v_index));
+		}
+
 		virtual_overseer
 	});
 }
