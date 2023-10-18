@@ -20,10 +20,11 @@ use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
 	match_types, parameter_types,
+	derive_impl,
 	traits::{Everything, OriginTrait},
 	weights::Weight,
 };
-use sp_core::{ConstU32, H256};
+use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{
@@ -142,20 +143,10 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl crate::Config for Test {

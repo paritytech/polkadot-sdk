@@ -19,7 +19,7 @@
 use crate::{fungible as xcm_balances_benchmark, mock::*};
 use frame_benchmarking::BenchmarkError;
 use frame_support::{
-	parameter_types,
+	parameter_types, derive_impl,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
@@ -75,20 +75,10 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 7;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
