@@ -40,9 +40,9 @@ fn deposit_for_proposals_should_be_taken() {
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
-		assert_eq!(reducible_balance_of(1), 5);
-		assert_eq!(reducible_balance_of(2), 15);
-		assert_eq!(reducible_balance_of(5), 35);
+		assert_eq!(reducible_balance_of(1), 4);
+		assert_eq!(reducible_balance_of(2), 14);
+		assert_eq!(reducible_balance_of(5), 34);
 	});
 }
 
@@ -55,9 +55,9 @@ fn deposit_for_proposals_should_be_returned() {
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
 		assert_ok!(Democracy::second(RuntimeOrigin::signed(5), 0));
 		fast_forward_to(3);
-		assert_eq!(reducible_balance_of(1), 10);
-		assert_eq!(reducible_balance_of(2), 20);
-		assert_eq!(reducible_balance_of(5), 50);
+		assert_eq!(reducible_balance_of(1), 9);
+		assert_eq!(reducible_balance_of(2), 19);
+		assert_eq!(reducible_balance_of(5), 49);
 	});
 }
 

@@ -60,11 +60,11 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-		Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason},
+		Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>, HoldReason, FreezeReason },
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -138,8 +138,8 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<10>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ConstU32<10>;
 }
@@ -167,6 +167,7 @@ impl SortedMembers<u64> for OneToFive {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Fungible = Balances;
 	type EnactmentPeriod = ConstU64<2>;
 	type LaunchPeriod = ConstU64<2>;
@@ -200,7 +201,8 @@ impl Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 11), (2, 21), (3, 31), (4, 41), (5, 51), (6, 61)],
+		// balances: vec![(1, 11), (2, 21), (3, 31), (4, 41), (5, 51), (6, 61)],
+		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -217,7 +219,7 @@ fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Democracy::referendum_count(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 216);
+		assert_eq!(Balances::total_issuance(), 210);
 	});
 }
 
@@ -262,30 +264,28 @@ fn reducible_balance_of(who: u64) -> u64 {
 	Balances::reducible_balance(&who, Protect, Force)
 }
 
-fn hold_balance_of(who: u64) -> u64 {
-	Balances::balance_on_hold(&HoldReason::Democracy.into(), &who)
+fn balance_freezable_of(who: u64) -> u64 {
+	Balances::balance_freezable(&who)
+}
+
+fn balance_frozen_of(who: u64) -> u64 {
+	Balances::balance_frozen(&FreezeReason::Vote.into(), &who)
 }
 
 fn aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: AYE, balance: reducible_balance_of(who) + hold_balance_of(who) }
+	AccountVote::Standard { vote: AYE, balance: balance_freezable_of(who) }
 }
 
 fn nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: NAY, balance: reducible_balance_of(who) + hold_balance_of(who) }
+	AccountVote::Standard { vote: NAY, balance: balance_freezable_of(who) }
 }
 
 fn big_aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard {
-		vote: BIG_AYE,
-		balance: reducible_balance_of(who) + hold_balance_of(who),
-	}
+	AccountVote::Standard { vote: BIG_AYE, balance: balance_freezable_of(who) }
 }
 
 fn big_nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard {
-		vote: BIG_NAY,
-		balance: reducible_balance_of(who) + hold_balance_of(who),
-	}
+	AccountVote::Standard { vote: BIG_NAY, balance: balance_freezable_of(who) }
 }
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {

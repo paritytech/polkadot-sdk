@@ -158,7 +158,7 @@ use frame_support::{
 	error::BadOrigin,
 	traits::{
 		defensive_prelude::*,
-		fungible::{Credit, Inspect, MutateHold},
+		fungible::{Credit, Inspect, InspectFreeze, MutateFreeze, MutateHold},
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
 		tokens::{imbalance::OnUnbalanced, Precision},
 		Bounded, EnsureOrigin, Get, LockIdentifier, QueryPreimage, StorePreimage,
@@ -170,6 +170,7 @@ use sp_runtime::{
 	traits::{Bounded as ArithBounded, One, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, DispatchResult,
 };
+
 use sp_std::prelude::*;
 
 mod conviction;
@@ -178,7 +179,6 @@ mod vote;
 mod vote_threshold;
 pub mod weights;
 pub use conviction::Conviction;
-use frame_support::traits::fungible::InspectHold;
 pub use pallet::*;
 pub use types::{
 	Delegations, MetadataOwner, PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus,
@@ -243,9 +243,14 @@ pub mod pallet {
 		/// The overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
 		/// The fungible trait.
 		type Fungible: fungible::Inspect<Self::AccountId>
 			+ fungible::Mutate<Self::AccountId>
+			+ fungible::freeze::Inspect<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ fungible::hold::Balanced<Self::AccountId>;
 
@@ -524,9 +529,16 @@ pub mod pallet {
 		},
 	}
 
+	/// A reason for holding funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		Democracy,
+		Proposal,
+	}
+
+	/// A reason for freezing funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		Vote,
 	}
 
 	#[pallet::error]
@@ -624,7 +636,7 @@ pub mod pallet {
 				);
 			}
 
-			T::Fungible::hold(&HoldReason::Democracy.into(), &who, value)?;
+			T::Fungible::hold(&HoldReason::Proposal.into(), &who, value)?;
 
 			let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(vec![who.clone()]);
 			DepositOf::<T>::insert(index, (depositors, value));
@@ -655,7 +667,7 @@ pub mod pallet {
 			let seconds = Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
 			let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
-			T::Fungible::hold(&HoldReason::Democracy.into(), &who, deposit.1)?;
+			T::Fungible::hold(&HoldReason::Proposal.into(), &who, deposit.1)?;
 			let ok = deposit.0.try_push(who.clone()).is_ok();
 			debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
 			<DepositOf<T>>::insert(proposal, deposit);
@@ -1077,7 +1089,7 @@ pub mod pallet {
 					if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 						for who in whos.into_iter() {
 							T::Slash::on_unbalanced(
-								T::Fungible::slash(&HoldReason::Democracy.into(), &who, amount).0,
+								T::Fungible::slash(&HoldReason::Proposal.into(), &who, amount).0,
 							);
 						}
 					}
@@ -1123,7 +1135,7 @@ pub mod pallet {
 			if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 				for who in whos.into_iter() {
 					T::Slash::on_unbalanced(
-						T::Fungible::slash(&HoldReason::Democracy.into(), &who, amount).0,
+						T::Fungible::slash(&HoldReason::Proposal.into(), &who, amount).0,
 					);
 				}
 			}
@@ -1300,12 +1312,13 @@ impl<T: Config> Pallet<T> {
 		vote: AccountVote<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut status = Self::referendum_status(ref_index)?;
-		let current_amount = T::Fungible::balance_on_hold(&HoldReason::Democracy.into(), &who);
-		T::Fungible::ensure_can_hold(
-			&HoldReason::Democracy.into(),
-			who,
-			vote.balance().saturating_sub(current_amount),
-		)?;
+		// dbg!(vote.balance());
+		// dbg!(T::Fungible::balance_freezable(&who));
+		//
+		ensure!(
+			vote.balance() <= T::Fungible::balance_freezable(&who),
+			Error::<T>::InsufficientFunds
+		);
 		VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
 			if let Voting::Direct { ref mut votes, delegations, .. } = voting {
 				match votes.binary_search_by_key(&ref_index, |i| i.0) {
@@ -1336,7 +1349,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 		// Extend the lock to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
-		T::Fungible::set_on_hold(&HoldReason::Democracy.into(), who, vote.balance())?;
+		T::Fungible::set_freeze(&FreezeReason::Vote.into(), who, vote.balance())?;
 		ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
 		Ok(())
 	}
@@ -1450,12 +1463,8 @@ impl<T: Config> Pallet<T> {
 		balance: BalanceOf<T>,
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T>::Nonsense);
-		let current_amount = T::Fungible::balance_on_hold(&HoldReason::Democracy.into(), &who);
-		T::Fungible::ensure_can_hold(
-			&HoldReason::Democracy.into(),
-			&who,
-			balance.saturating_sub(current_amount),
-		)?;
+		ensure!(balance <= T::Fungible::balance_freezable(&who), Error::<T>::InsufficientFunds);
+
 		let votes = VotingOf::<T>::try_mutate(&who, |voting| -> Result<u32, DispatchError> {
 			let mut old = Voting::Delegating {
 				balance,
@@ -1487,7 +1496,7 @@ impl<T: Config> Pallet<T> {
 			let votes = Self::increase_upstream_delegation(&target, conviction.votes(balance));
 			// Extend the lock to `balance` (rather than setting it) since we don't know what other
 			// votes are in place.
-			T::Fungible::set_on_hold(&HoldReason::Democracy.into(), &who, balance)?;
+			T::Fungible::extend_freeze(&FreezeReason::Vote.into(), &who, balance)?;
 			Ok(votes)
 		})?;
 		Self::deposit_event(Event::<T>::Delegated { who, target });
@@ -1530,11 +1539,10 @@ impl<T: Config> Pallet<T> {
 			voting.locked_balance()
 		});
 		if lock_needed.is_zero() {
-			T::Fungible::release_all(&HoldReason::Democracy.into(), who, Precision::BestEffort)?;
+			T::Fungible::thaw(&FreezeReason::Vote.into(), who)
 		} else {
-			T::Fungible::set_on_hold(&HoldReason::Democracy.into(), who, lock_needed)?;
+			T::Fungible::set_freeze(&FreezeReason::Vote.into(), who, lock_needed)
 		}
-		Ok(())
 	}
 
 	/// Start a referendum
@@ -1596,7 +1604,7 @@ impl<T: Config> Pallet<T> {
 				// refund depositors
 				for d in depositors.iter() {
 					T::Fungible::release(
-						&HoldReason::Democracy.into(),
+						&HoldReason::Proposal.into(),
 						d,
 						deposit,
 						Precision::BestEffort,
