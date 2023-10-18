@@ -46,6 +46,7 @@ sp-io = { path = "../../substrate/primitives/io" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
 sc-consensus = { path = "../../substrate/client/consensus/common" }
+sp-tracing = { path = "../../substrate/primitives/tracing" }
 sc-cli = { path = "../../substrate/client/cli" }
 sc-client-api = { path = "../../substrate/client/api" }
 sc-executor = { path = "../../substrate/client/executor" }

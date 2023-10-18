@@ -22,6 +22,7 @@ macro_rules! test {
 	($test_name:ident, $tested_fn:expr) => {
 		#[test]
 		fn $test_name() {
+			sp_tracing::try_init_simple();
 			let j1 = {
 				use crate::chain_spec::*;
 				$tested_fn.as_json(true).unwrap()
@@ -86,3 +87,10 @@ test!(
 	test25,
 	bridge_hubs::polkadot::local_config("bridge-hub-polkadot-local", "Test", "test", 667.into())
 );
+
+test!(test26, asset_hubs::asset_hub_rococo_development_config());
+test!(test27, asset_hubs::asset_hub_wococo_development_config());
+test!(test28, asset_hubs::asset_hub_rococo_local_config());
+test!(test29, asset_hubs::asset_hub_wococo_local_config());
+test!(test30, asset_hubs::asset_hub_rococo_config());
+test!(test31, asset_hubs::asset_hub_wococo_config());
