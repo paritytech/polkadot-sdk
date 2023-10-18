@@ -2513,11 +2513,11 @@ pub mod pallet_macros {
 	/// used in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule
 	/// applies:
 	///
-	/// > The storage prefix begins with `twox128(pallet_prefix) ++ twox128(storage_prefix)`,
+	/// > The storage prefix begins with `twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)`,
 	/// > where
 	/// > `pallet_prefix` is the name assigned to the pallet instance in
 	/// > [`frame_support::construct_runtime`](frame_support::construct_runtime), and
-	/// > `storage_prefix` is the name of the `type` aliased to a particular storage type, such
+	/// > `STORAGE_PREFIX` is the name of the `type` aliased to a particular storage type, such
 	/// > as
 	/// > `Foo` in `type Foo<T> = StorageValue<..>`.
 	///
@@ -2553,6 +2553,21 @@ pub mod pallet_macros {
 				"test"
 			}
 			const STORAGE_PREFIX: &'static str = "foo";
+		}
+
+		struct Prefix1;
+		impl StorageInstance for Prefix1 {
+			fn pallet_prefix() -> &'static str {
+				"test"
+			}
+			const STORAGE_PREFIX: &'static str = "MyVal";
+		}
+		struct Prefix2;
+		impl StorageInstance for Prefix2 {
+			fn pallet_prefix() -> &'static str {
+				"test"
+			}
+			const STORAGE_PREFIX: &'static str = "MyMap";
 		}
 
 		#[docify::export]
@@ -2597,18 +2612,19 @@ pub mod pallet_macros {
 		#[docify::export]
 		#[test]
 		pub fn example_storage_value_map_prefixes() {
-			type MyVal = StorageValue<Prefix, u32, ValueQuery>;
-			type MyMap = StorageMap<Prefix, Blake2_128Concat, u16, u32, ValueQuery>;
+			type MyVal = StorageValue<Prefix1, u32, ValueQuery>;
+			type MyMap = StorageMap<Prefix2, Blake2_128Concat, u16, u32, ValueQuery>;
 			TestExternalities::default().execute_with(|| {
+				// This example assumes `pallet_prefix` to be "test"
 				// Get storage key for `MyVal` StorageValue
 				assert_eq!(
 					MyVal::hashed_key().to_vec(),
-					[twox_128(b"test"), twox_128(b"foo")].concat()
+					[twox_128(b"test"), twox_128(b"MyVal")].concat()
 				);
 				// Get storage key for `MyMap` StorageMap and `key` = 1
 				let mut k: Vec<u8> = vec![];
 				k.extend(&twox_128(b"test"));
-				k.extend(&twox_128(b"foo"));
+				k.extend(&twox_128(b"MyMap"));
 				k.extend(&1u16.blake2_128_concat());
 				assert_eq!(MyMap::hashed_key_for(1).to_vec(), k);
 			});
