@@ -22,7 +22,6 @@ use crate as pallet_democracy;
 use frame_support::{
 	assert_noop, assert_ok, ord_parameter_types, parameter_types,
 	traits::{
-		tokens::{Fortitude::Force, Preservation::Protect},
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, SortedMembers,
 		StorePreimage,
 	},
@@ -258,10 +257,6 @@ fn begin_referendum() -> ReferendumIndex {
 	assert_ok!(propose_set_balance(1, 2, 1));
 	fast_forward_to(2);
 	0
-}
-
-fn reducible_balance_of(who: u64) -> u64 {
-	Balances::reducible_balance(&who, Protect, Force)
 }
 
 fn balance_freezable_of(who: u64) -> u64 {
