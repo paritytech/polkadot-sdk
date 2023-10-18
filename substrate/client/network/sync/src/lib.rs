@@ -30,9 +30,6 @@
 
 use crate::{
 	blocks::BlockCollection,
-	chain_sync::{
-		ChainSync as ChainSyncT, ImportBlocksAction, OnBlockData, OnBlockJustification, OnStateData,
-	},
 	schema::v1::StateResponse,
 	state::StateSync,
 	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, PeerInfo, SyncMode},
@@ -74,7 +71,6 @@ pub use service::chain_sync::SyncingService;
 pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusProvider};
 
 mod block_announce_validator;
-mod chain_sync;
 mod extra_requests;
 mod futures_stream;
 mod pending_responses;
@@ -217,12 +213,53 @@ enum BlockRequestAction<B: BlockT> {
 	RemoveStale { peer_id: PeerId },
 }
 
+/// Action that [`engine::SyncingEngine`] should perform if we want to import blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportBlocksAction<B: BlockT> {
+	pub origin: BlockOrigin,
+	pub blocks: Vec<IncomingBlock<B>>,
+}
+
 /// Action that [`engine::SyncingEngine`] should perform if we want to import justifications.
 struct ImportJustificationsAction<B: BlockT> {
 	peer_id: PeerId,
 	hash: B::Hash,
 	number: NumberFor<B>,
 	justifications: Justifications,
+}
+
+/// Result of [`ChainSync::on_block_data`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnBlockData<Block: BlockT> {
+	/// The block should be imported.
+	Import(ImportBlocksAction<Block>),
+	/// A new block request needs to be made to the given peer.
+	Request(PeerId, BlockRequest<Block>),
+	/// Continue processing events.
+	Continue,
+}
+
+/// Result of [`ChainSync::on_block_justification`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnBlockJustification<Block: BlockT> {
+	/// The justification needs no further handling.
+	Nothing,
+	/// The justification should be imported.
+	Import {
+		peer_id: PeerId,
+		hash: Block::Hash,
+		number: NumberFor<Block>,
+		justifications: Justifications,
+	},
+}
+
+/// Result of [`ChainSync::on_state_data`].
+#[derive(Debug)]
+pub enum OnStateData<Block: BlockT> {
+	/// The block and state that should be imported.
+	Import(BlockOrigin, IncomingBlock<Block>),
+	/// A new state request needs to be made to the given peer.
+	Continue,
 }
 
 /// Action that [`engine::SyncingEngine`] should perform on behalf of [`ChainSync`]
@@ -362,7 +399,7 @@ impl<B: BlockT> PeerSyncState<B> {
 	}
 }
 
-impl<B, Client> ChainSyncT<B> for ChainSync<B, Client>
+impl<B, Client> ChainSync<B, Client>
 where
 	B: BlockT,
 	Client: HeaderBackend<B>
@@ -373,6 +410,44 @@ where
 		+ Sync
 		+ 'static,
 {
+	/// Create a new instance.
+	pub fn new(
+		mode: SyncMode,
+		client: Arc<Client>,
+		block_announce_protocol_name: ProtocolName,
+		max_parallel_downloads: u32,
+		max_blocks_per_request: u32,
+		warp_sync_config: Option<WarpSyncConfig<B>>,
+		network_service: service::network::NetworkServiceHandle,
+	) -> Result<Self, ClientError> {
+		let mut sync = Self {
+			client,
+			peers: HashMap::new(),
+			blocks: BlockCollection::new(),
+			best_queued_hash: Default::default(),
+			best_queued_number: Zero::zero(),
+			extra_justifications: ExtraRequests::new("justification"),
+			mode,
+			queue_blocks: Default::default(),
+			fork_targets: Default::default(),
+			allowed_requests: Default::default(),
+			max_parallel_downloads,
+			max_blocks_per_request,
+			downloaded_blocks: 0,
+			state_sync: None,
+			warp_sync: None,
+			import_existing: false,
+			gap_sync: None,
+			network_service,
+			warp_sync_config,
+			warp_sync_target_block_header: None,
+			block_announce_protocol_name,
+		};
+
+		sync.reset_sync_start_point()?;
+		Ok(sync)
+	}
+
 	fn peer_info(&self, who: &PeerId) -> Option<PeerInfo<B>> {
 		self.peers
 			.get(who)
@@ -1116,57 +1191,6 @@ where
 			fork_targets: self.fork_targets.len().try_into().unwrap_or(std::u32::MAX),
 			justifications: self.extra_justifications.metrics(),
 		}
-	}
-}
-
-impl<B, Client> ChainSync<B, Client>
-where
-	Self: ChainSyncT<B>,
-	B: BlockT,
-	Client: HeaderBackend<B>
-		+ BlockBackend<B>
-		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ ProofProvider<B>
-		+ Send
-		+ Sync
-		+ 'static,
-{
-	/// Create a new instance.
-	pub fn new(
-		mode: SyncMode,
-		client: Arc<Client>,
-		block_announce_protocol_name: ProtocolName,
-		max_parallel_downloads: u32,
-		max_blocks_per_request: u32,
-		warp_sync_config: Option<WarpSyncConfig<B>>,
-		network_service: service::network::NetworkServiceHandle,
-	) -> Result<Self, ClientError> {
-		let mut sync = Self {
-			client,
-			peers: HashMap::new(),
-			blocks: BlockCollection::new(),
-			best_queued_hash: Default::default(),
-			best_queued_number: Zero::zero(),
-			extra_justifications: ExtraRequests::new("justification"),
-			mode,
-			queue_blocks: Default::default(),
-			fork_targets: Default::default(),
-			allowed_requests: Default::default(),
-			max_parallel_downloads,
-			max_blocks_per_request,
-			downloaded_blocks: 0,
-			state_sync: None,
-			warp_sync: None,
-			import_existing: false,
-			gap_sync: None,
-			network_service,
-			warp_sync_config,
-			warp_sync_target_block_header: None,
-			block_announce_protocol_name,
-		};
-
-		sync.reset_sync_start_point()?;
-		Ok(sync)
 	}
 
 	/// Returns the median seen block number.
