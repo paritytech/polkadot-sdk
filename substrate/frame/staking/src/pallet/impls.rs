@@ -61,6 +61,7 @@ use super::pallet::*;
 use frame_support::ensure;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
+use sp_staking::delegation::StakeType;
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
@@ -118,19 +119,20 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		let free = T::Currency::free_balance(who);
-		// todo(ank4n) Need to track how much out of delegation is staked.
-		// total, staked
-		delegation::delegated_free::<T>(who).saturating_add(free)
+	fn stakeable_balance(who: &T::AccountId, stake_type: StakeType) -> BalanceOf<T> {
+		match stake_type {
+			StakeType::Direct => T::Currency::free_balance(who),
+			StakeType::Delegated => delegation::delegated_free::<T>(who)
+		}
 	}
 
 	pub fn do_bond(
 		stash: T::AccountId,
 		value: BalanceOf<T>,
 		payee: RewardDestination<T::AccountId>,
+		stake_type: StakeType,
 	) -> DispatchResult {
-		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
+		if StakingLedger::<T>::is_bonded(Stash(stash.clone())) {
 			return Err(Error::<T>::AlreadyBonded.into())
 		}
 
@@ -145,7 +147,7 @@ impl<T: Config> Pallet<T> {
 		let history_depth = T::HistoryDepth::get();
 		let last_reward_era = current_era.saturating_sub(history_depth);
 
-		let stash_balance = Self::stakeable_balance(&stash);
+		let stash_balance = Self::stakeable_balance(&stash, stake_type);
 		let value = value.min(stash_balance);
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 		let ledger = StakingLedger::<T>::new(
