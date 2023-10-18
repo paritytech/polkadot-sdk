@@ -66,6 +66,7 @@ pub mod hash;
 #[cfg(feature = "std")]
 mod hasher;
 pub mod offchain;
+pub mod paired_crypto;
 pub mod sr25519;
 pub mod testing;
 #[cfg(feature = "std")]
