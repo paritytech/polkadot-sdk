@@ -49,16 +49,25 @@ const DELEGATING_ID: LockIdentifier = *b"delegate";
 pub struct DelegationAggregate<T: Config> {
 	/// Sum of all delegated funds to this delegatee.
 	#[codec(compact)]
-	pub balance: BalanceOf<T>,
+	pub total: BalanceOf<T>,
+	/// Part of total that is staked.
+	#[codec(compact)]
+	pub staked: BalanceOf<T>,
 	/// Slashes that are not yet applied.
 	#[codec(compact)]
 	pub pending_slash: BalanceOf<T>,
 }
 
-/// Total balance delegated to the given delegatee.
-pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
-	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.balance)
+/// Total balance that is delegated to this account but not yet staked.
+pub(crate) fn delegated_free<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
+	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.total.saturating_sub(aggregate.staked))
 }
+
+/// Part of delegated balance that is staked.
+pub(crate) fn delegated_staked<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
+	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.staked)
+}
+
 /// Delegate some amount from delegator to delegatee.
 pub(crate) fn delegate<T: Config>(
 	delegator: T::AccountId,
@@ -93,10 +102,11 @@ pub(crate) fn delegate<T: Config>(
 
 	<Delegators<T>>::insert(&delegator, (&delegatee, new_delegation_amount));
 	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
-		Some(ledger) => ledger.balance.saturating_accrue(value),
+		Some(aggregate) => aggregate.total.saturating_accrue(value),
 		None =>
 			*maybe_aggregate = Some(DelegationAggregate {
-				balance: new_delegation_amount,
+				total: new_delegation_amount,
+				staked: BalanceOf::<T>::zero(),
 				pending_slash: Default::default(),
 			}),
 	});
@@ -131,7 +141,7 @@ pub(crate) fn withdraw<T: Config>(
 
 	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
 		Some(ledger) => {
-			ledger.balance.saturating_reduce(value);
+			ledger.total.saturating_reduce(value);
 			Ok(())
 		},
 		None => {

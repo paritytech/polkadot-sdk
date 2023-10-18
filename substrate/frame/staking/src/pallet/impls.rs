@@ -118,6 +118,13 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		let free = T::Currency::free_balance(who);
+		// todo(ank4n) Need to track how much out of delegation is staked.
+		// total, staked
+		delegation::delegated_free::<T>(who).saturating_add(free)
+	}
+
 	pub fn do_bond(
 		stash: T::AccountId,
 		value: BalanceOf<T>,
@@ -138,7 +145,7 @@ impl<T: Config> Pallet<T> {
 		let history_depth = T::HistoryDepth::get();
 		let last_reward_era = current_era.saturating_sub(history_depth);
 
-		let stash_balance = T::Currency::free_balance(&stash);
+		let stash_balance = Self::stakeable_balance(&stash);
 		let value = value.min(stash_balance);
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 		let ledger = StakingLedger::<T>::new(
@@ -1870,7 +1877,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 
 		// we want to transfer the bonded value only from active bond that is not part of delegation
 		// bond. We ignore the funds that are in unlocking period.
-		let active_direct = ledger.active - delegation::delegated_balance::<T>(&delegatee);
+		let active_direct = ledger.active.saturating_sub(delegation::delegated_staked::<T>(&delegatee));
 		ensure!(ledger.active > value + T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 		// Unbond `value` from delegatee and transfer it to delegator.
