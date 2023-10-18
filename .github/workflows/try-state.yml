@@ -1,0 +1,58 @@
+# Runs `try-state` on all live runtimes in `polkadot-sdk`
+# TODO: Post to a Matrix channel if any fails.
+
+name: Check try-state
+on:
+  push:
+    branches:
+      - liam-try-state-scheduled-checks
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  check_try_state:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        version: "3.6.1"
+
+    - name: Add wasm32-unknown-unknown target
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Download and set up try-runtime binary
+      run: |
+        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+        chmod +x try-runtime
+
+    # TODO: Build all runtimes
+
+    - name: Build Runtimes
+      run: |
+        cargo build -r -p westend-runtime --features try-runtime
+
+    - name: Check Westend
+      run: | 
+        ./try-runtime \
+        --runtime ./target/release/wbuild/westend-runtime/westend_runtime.compact.wasm \
+        execute-block \
+        live --uri wss://westend-rpc.polkadot.io
+      continue-on-error: true
+      id: westend_run
+
+    # TODO: Check all runtimes
+
+    # TODO: Post to Matrix if any fails
+    # - name: Notify Matrix on Failure
+      # if: steps.westend_run.outcome == 'failure'
