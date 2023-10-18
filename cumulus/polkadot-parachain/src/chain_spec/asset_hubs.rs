@@ -24,15 +24,23 @@ use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type AssetHubPolkadotChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-pub type AssetHubKusamaChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-pub type AssetHubWestendChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+pub type AssetHubPolkadotChainSpec =
+	sc_service::GenericChainSpec<asset_hub_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubKusamaChainSpec =
+	sc_service::GenericChainSpec<asset_hub_kusama_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubWestendChainSpec =
+	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubRococoChainSpec =
+	sc_service::GenericChainSpec<asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubWococoChainSpec = AssetHubRococoChainSpec;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_KUSAMA_ED: AssetHubBalance =
 	parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_WESTEND_ED: AssetHubBalance =
+	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+const ASSET_HUB_ROCOCO_ED: AssetHubBalance =
 	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
@@ -49,6 +57,13 @@ pub fn asset_hub_polkadot_session_keys(
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn asset_hub_kusama_session_keys(keys: AuraId) -> asset_hub_kusama_runtime::SessionKeys {
 	asset_hub_kusama_runtime::SessionKeys { aura: keys }
+}
+
+/// Generate the session keys from individual elements.
+///
+/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
+pub fn asset_hub_rococo_session_keys(keys: AuraId) -> asset_hub_rococo_runtime::SessionKeys {
+	asset_hub_rococo_runtime::SessionKeys { aura: keys }
 }
 
 /// Generate the session keys from individual elements.
@@ -86,7 +101,6 @@ pub fn asset_hub_polkadot_development_config() -> AssetHubPolkadotChainSpec {
 		],
 		1000.into(),
 	))
-	.with_boot_nodes(Vec::new())
 	.with_properties(properties)
 	.build()
 }
@@ -549,5 +563,221 @@ fn asset_hub_westend_genesis(
 		"polkadotXcm": {
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
+	})
+}
+
+pub fn asset_hub_rococo_development_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_development_config(
+		properties,
+		"Rococo Asset Hub Development",
+		"asset-hub-rococo-dev",
+		1000,
+	)
+}
+
+pub fn asset_hub_wococo_development_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_development_config(
+		properties,
+		"Wococo Asset Hub Development",
+		"asset-hub-wococo-dev",
+		1000,
+	)
+}
+
+fn asset_hub_rococo_like_development_config(
+	properties: sc_chain_spec::Properties,
+	name: &str,
+	chain_id: &str,
+	para_id: u32,
+) -> AssetHubRococoChainSpec {
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "rococo-dev".into(), para_id },
+	)
+	.with_name(name)
+	.with_id(chain_id)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![(
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_collator_keys_from_seed::<AuraId>("Alice"),
+		)],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
+}
+
+pub fn asset_hub_rococo_local_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_local_config(
+		properties,
+		"Rococo Asset Hub Local",
+		"asset-hub-rococo-local",
+		1000,
+	)
+}
+
+pub fn asset_hub_wococo_local_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_local_config(
+		properties,
+		"Wococo Asset Hub Local",
+		"asset-hub-wococo-local",
+		1000,
+	)
+}
+
+fn asset_hub_rococo_like_local_config(
+	properties: sc_chain_spec::Properties,
+	name: &str,
+	chain_id: &str,
+	para_id: u32,
+) -> AssetHubRococoChainSpec {
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "rococo-local".into(), para_id },
+	)
+	.with_name(name)
+	.with_id(chain_id)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed::<AuraId>("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
+}
+
+pub fn asset_hub_rococo_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_local_config(properties, "Rococo Asset Hub", "asset-hub-rococo", 1000)
+}
+
+pub fn asset_hub_wococo_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_config(properties, "Wococo Asset Hub", "asset-hub-wococo", 1000)
+}
+
+fn asset_hub_rococo_like_config(
+	properties: sc_chain_spec::Properties,
+	name: &str,
+	chain_id: &str,
+	para_id: u32,
+) -> AssetHubRococoChainSpec {
+	AssetHubRococoChainSpec::builder(
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		Extensions { relay_chain: "rococo".into(), para_id },
+	)
+	.with_name(name)
+	.with_id(chain_id)
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(asset_hub_rococo_genesis(
+		// initial collators.
+		vec![
+			// TODO: add invulnerables? from Rockmine?
+			// This is just a stub to avoid runtime failure:
+			// ERROR runtime: panicked at 'Empty validator set for session 0 in genesis block!'
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed::<AuraId>("Alice"),
+			),
+		],
+		Vec::new(),
+		para_id.into(),
+	))
+	.with_properties(properties)
+	.build()
+}
+
+fn asset_hub_rococo_genesis(
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": asset_hub_rococo_runtime::BalancesConfig {
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, ASSET_HUB_ROCOCO_ED * 524_288))
+				.collect(),
+		},
+		"parachainInfo": asset_hub_rococo_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
+		"collatorSelection": asset_hub_rococo_runtime::CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
+			..Default::default()
+		},
+		"session": asset_hub_rococo_runtime::SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),                         // account id
+						acc,                                 // validator id
+						asset_hub_rococo_session_keys(aura), // session keys
+					)
+				})
+				.collect(),
+		},
+		"polkadotXcm": asset_hub_rococo_runtime::PolkadotXcmConfig {
+			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
+		}
 	})
 }
