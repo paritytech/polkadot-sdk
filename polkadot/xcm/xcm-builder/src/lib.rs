@@ -83,6 +83,9 @@ pub use weight::{
 	FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents, WeightInfoBounds,
 };
 
+mod matches_location;
+pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+
 mod matches_token;
 pub use matches_token::{IsAbstract, IsConcrete};
 
@@ -90,7 +93,7 @@ mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};
 
 mod filter_asset_location;
-pub use filter_asset_location::{Case, NativeAsset};
+pub use filter_asset_location::{AllAssets, Case, LocationWithAssetFilters, NativeAsset};
 
 mod routing;
 pub use routing::{WithTopicSource, WithUniqueTopic};
@@ -99,7 +102,7 @@ mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
 	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
 };
 
 mod origin_aliases;
