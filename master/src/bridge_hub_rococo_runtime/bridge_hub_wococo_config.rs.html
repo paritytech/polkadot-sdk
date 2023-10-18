@@ -217,6 +217,59 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -252,6 +305,7 @@
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{parameter_types, traits::PalletInfoAccess};
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
@@ -270,18 +324,44 @@
 	<span class="kw">pub </span>BridgeRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8));
 	<span class="kw">pub </span>RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>ActiveOutboundLanesToBridgeHubRococo: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[bp_messages::LaneId] = <span class="kw-2">&amp;</span>[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO];
-	<span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">921_900_294</span>;
+	<span class="comment">// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
+	</span><span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">182_044_444_444_444</span>;
+
+	<span class="kw">pub </span>AssetHubWococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID.into();
 
 	<span class="kw">pub </span>FromAssetHubWococoToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(<span class="number">1000</span>))).into(),
+		ParentThen(X1(Parachain(AssetHubWococoParaId::get().into()))).into(),
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,
 	);
+
+	<span class="kw">pub </span>CongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">true</span>).into();
+
+	<span class="kw">pub </span>UncongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">false</span>).into();
+}
+
+<span class="kw">fn </span>build_congestion_message&lt;Call&gt;(is_congested: bool) -&gt; sp_std::vec::Vec&lt;Instruction&lt;Call&gt;&gt; {
+	<span class="macro">sp_std::vec!</span>[
+		UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			require_weight_at_most:
+				bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+			call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
+				bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested,
+				}
+			)
+			.encode()
+			.into(),
+		}
+	]
 }
 
 <span class="doccomment">/// Proof of messages, coming from Rococo.
 </span><span class="kw">pub type </span>FromRococoBridgeHubMessagesProof =
 	FromBridgedChainMessagesProof&lt;bp_bridge_hub_rococo::Hash&gt;;
-<span class="doccomment">/// Messages delivery proof for Rococo Bridge Hub -&gt; Wococo Bridge Hub messages.
+<span class="doccomment">/// Messages delivery proof for RococoBridge Hub -&gt; Wococo BridgeHub messages.
 </span><span class="kw">pub type </span>ToRococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof&lt;bp_bridge_hub_rococo::Hash&gt;;
 
@@ -292,7 +372,7 @@
 	BridgeRococoMessagesPalletInstance,
 &gt;;
 
-<span class="doccomment">/// Export XCM messages to be relayed to the otherside
+<span class="doccomment">/// Export XCM messages to be relayed to the other side
 </span><span class="kw">pub type </span>ToBridgeHubRococoHaulBlobExporter = HaulBlobExporter&lt;
 	XcmBlobHaulerAdapter&lt;ToBridgeHubRococoXcmBlobHauler&gt;,
 	RococoGlobalConsensusNetwork,
@@ -305,10 +385,13 @@
 	<span class="kw">type </span>SenderAndLane = FromAssetHubWococoToAssetHubRococoRoute;
 
 	<span class="kw">type </span>ToSourceChainSender = <span class="kw">crate</span>::XcmRouter;
-	<span class="kw">type </span>CongestedMessage = ();
-	<span class="kw">type </span>UncongestedMessage = ();
+	<span class="kw">type </span>CongestedMessage = CongestedMessage;
+	<span class="kw">type </span>UncongestedMessage = UncongestedMessage;
 }
 <span class="kw">pub const </span>DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]);
+
+<span class="doccomment">/// On messages delivered callback.
+</span><span class="kw">pub type </span>OnMessagesDelivered = XcmBlobHaulerAdapter&lt;ToBridgeHubRococoXcmBlobHauler&gt;;
 
 <span class="doccomment">/// Messaging Bridge configuration for BridgeHubWococo -&gt; BridgeHubRococo
 </span><span class="kw">pub struct </span>WithBridgeHubRococoMessageBridge;
@@ -383,6 +466,18 @@
 			AssertCompleteBridgeConstants,
 		},
 	};
+	<span class="kw">use </span>parachains_common::{wococo, Balance};
+
+	<span class="doccomment">/// Every additional message in the message delivery transaction boosts its priority.
+	/// So the priority of transaction with `N+1` messages is larger than priority of
+	/// transaction with `N` messages by the `PriorityBoostPerMessage`.
+	///
+	/// Economically, it is an equivalent of adding tip to the transaction with `N` messages.
+	/// The `FEE_BOOST_PER_MESSAGE` constant is the value of this tip.
+	///
+	/// We want this tip to be large enough (delivery transactions with more messages = less
+	/// operational costs and a faster bridge), so this value should be significant.
+	</span><span class="kw">const </span>FEE_BOOST_PER_MESSAGE: Balance = <span class="number">2 </span>* wococo::currency::UNITS;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ensure_bridge_hub_wococo_message_lane_weights_are_correct() {
@@ -434,6 +529,17 @@
 					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
+
+		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::&lt;
+			Runtime,
+			WithBridgeHubRococoMessagesInstance,
+			PriorityBoostPerMessage,
+		&gt;(FEE_BOOST_PER_MESSAGE);
+
+		<span class="macro">assert_eq!</span>(
+			BridgeRococoMessagesPalletInstance::get(),
+			X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX))
+		);
 	}
 }
 </code></pre></div></section></main></body></html>

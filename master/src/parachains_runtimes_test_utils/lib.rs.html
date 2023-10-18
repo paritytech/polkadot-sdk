@@ -534,6 +534,45 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -560,11 +599,12 @@
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResult, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
+	pallet_prelude::Get,
 	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
-<span class="kw">use </span>parachains_common::{AccountId, SLOT_DURATION};
+<span class="kw">use </span>parachains_common::SLOT_DURATION;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
@@ -585,12 +625,38 @@
 <span class="kw">pub type </span>ValidatorIdOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>pallet_session::Config&gt;::ValidatorId;
 <span class="kw">pub type </span>SessionKeysOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>pallet_session::Config&gt;::Keys;
 
-<span class="kw">pub struct </span>CollatorSessionKeys&lt;
+<span class="kw">pub struct </span>CollatorSessionKey&lt;
 	Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config,
 &gt; {
 	collator: AccountIdOf&lt;Runtime&gt;,
 	validator: ValidatorIdOf&lt;Runtime&gt;,
 	key: SessionKeysOf&lt;Runtime&gt;,
+}
+
+<span class="kw">pub struct </span>CollatorSessionKeys&lt;
+	Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config,
+&gt; {
+	items: Vec&lt;CollatorSessionKey&lt;Runtime&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config&gt;
+	CollatorSessionKey&lt;Runtime&gt;
+{
+	<span class="kw">pub fn </span>new(
+		collator: AccountIdOf&lt;Runtime&gt;,
+		validator: ValidatorIdOf&lt;Runtime&gt;,
+		key: SessionKeysOf&lt;Runtime&gt;,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ collator, validator, key }
+	}
+}
+
+<span class="kw">impl</span>&lt;Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config&gt; Default
+	<span class="kw">for </span>CollatorSessionKeys&lt;Runtime&gt;
+{
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ items: <span class="macro">vec!</span>[] }
+	}
 }
 
 <span class="kw">impl</span>&lt;Runtime: frame_system::Config + pallet_balances::Config + pallet_session::Config&gt;
@@ -601,16 +667,25 @@
 		validator: ValidatorIdOf&lt;Runtime&gt;,
 		key: SessionKeysOf&lt;Runtime&gt;,
 	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ collator, validator, key }
+		<span class="self">Self </span>{ items: <span class="macro">vec!</span>[CollatorSessionKey::new(collator, validator, key)] }
 	}
+
+	<span class="kw">pub fn </span>add(<span class="kw-2">mut </span><span class="self">self</span>, item: CollatorSessionKey&lt;Runtime&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.items.push(item);
+		<span class="self">self
+	</span>}
+
 	<span class="kw">pub fn </span>collators(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;AccountIdOf&lt;Runtime&gt;&gt; {
-		<span class="macro">vec!</span>[<span class="self">self</span>.collator.clone()]
+		<span class="self">self</span>.items.iter().map(|item| item.collator.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
 	<span class="kw">pub fn </span>session_keys(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 	) -&gt; Vec&lt;(AccountIdOf&lt;Runtime&gt;, ValidatorIdOf&lt;Runtime&gt;, SessionKeysOf&lt;Runtime&gt;)&gt; {
-		<span class="macro">vec!</span>[(<span class="self">self</span>.collator.clone(), <span class="self">self</span>.validator.clone(), <span class="self">self</span>.key.clone())]
+		<span class="self">self</span>.items
+			.iter()
+			.map(|item| (item.collator.clone(), item.validator.clone(), item.key.clone()))
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 }
 
@@ -761,7 +836,7 @@
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 {
-	<span class="kw">pub fn </span>run_to_block(n: u32, author: AccountId) -&gt; HeaderFor&lt;Runtime&gt; {
+	<span class="kw">pub fn </span>run_to_block(n: u32, author: AccountIdOf&lt;Runtime&gt;) -&gt; HeaderFor&lt;Runtime&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>last_header = <span class="prelude-val">None</span>;
 		<span class="kw">loop </span>{
 			<span class="kw">let </span>block_number = frame_system::Pallet::&lt;Runtime&gt;::block_number();
@@ -896,7 +971,6 @@
 	RuntimeHelper&lt;ParachainSystem, AllPalletsWithoutSystem&gt;
 {
 	<span class="kw">pub fn </span>xcm_max_weight(from: XcmReceivedFrom) -&gt; Weight {
-		<span class="kw">use </span>frame_support::traits::Get;
 		<span class="kw">match </span>from {
 			XcmReceivedFrom::Parent =&gt; ParachainSystem::ReservedDmpWeight::get(),
 			XcmReceivedFrom::Sibling =&gt; ParachainSystem::ReservedXcmpWeight::get(),
@@ -911,16 +985,20 @@
 		unwrap_pallet_xcm_event: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
 		assert_outcome: <span class="kw">fn</span>(Outcome),
 	) {
-		<span class="kw">let </span>outcome = &lt;frame_system::Pallet&lt;Runtime&gt;&gt;::events()
+		assert_outcome(<span class="self">Self</span>::get_pallet_xcm_event_outcome(unwrap_pallet_xcm_event));
+	}
+
+	<span class="kw">pub fn </span>get_pallet_xcm_event_outcome(
+		unwrap_pallet_xcm_event: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
+	) -&gt; Outcome {
+		&lt;frame_system::Pallet&lt;Runtime&gt;&gt;::events()
 			.into_iter()
 			.filter_map(|e| unwrap_pallet_xcm_event(e.event.encode()))
 			.find_map(|e| <span class="kw">match </span>e {
 				pallet_xcm::Event::Attempted { outcome } =&gt; <span class="prelude-val">Some</span>(outcome),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 			})
-			.expect(<span class="string">&quot;No `pallet_xcm::Event::Attempted(outcome)` event found!&quot;</span>);
-
-		assert_outcome(outcome);
+			.expect(<span class="string">&quot;No `pallet_xcm::Event::Attempted(outcome)` event found!&quot;</span>)
 	}
 }
 

@@ -3,15 +3,18 @@ var srcIndex = JSON.parse('{\
 "asset_hub_kusama_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_hub_polkadot_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_hub_rococo_integration_tests":["",[],["lib.rs"]],\
+"asset_hub_rococo_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","pallet_xcm_bridge_hub_router_to_rococo.rs","pallet_xcm_bridge_hub_router_to_wococo.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "asset_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "asset_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_asset_conversion.rs","pallet_assets_foreign.rs","pallet_assets_local.rs","pallet_assets_pool.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_multisig.rs","pallet_nft_fractionalization.rs","pallet_nfts.rs","pallet_proxy.rs","pallet_session.rs","pallet_timestamp.rs","pallet_uniques.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"asset_test_utils":["",[],["lib.rs","test_cases.rs"]],\
+"asset_test_utils":["",[],["lib.rs","test_cases.rs","test_cases_over_bridge.rs"]],\
 "assets_common":["",[],["foreign_creators.rs","fungible_conversion.rs","lib.rs","local_and_foreign_assets.rs","matching.rs","runtime_api.rs"]],\
 "bags_list":["",[],["main.rs"]],\
 "biguint":["",[],["biguint.rs"]],\
 "binary_merkle_tree":["",[],["lib.rs"]],\
 "bp_asset_hub_kusama":["",[],["lib.rs"]],\
 "bp_asset_hub_polkadot":["",[],["lib.rs"]],\
+"bp_asset_hub_rococo":["",[],["lib.rs"]],\
+"bp_asset_hub_wococo":["",[],["lib.rs"]],\
 "bp_bridge_hub_cumulus":["",[],["lib.rs"]],\
 "bp_bridge_hub_kusama":["",[],["lib.rs"]],\
 "bp_bridge_hub_polkadot":["",[],["lib.rs"]],\
@@ -57,7 +60,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_pallet_session_benchmarking":["",[],["lib.rs"]],\
 "cumulus_pallet_solo_to_para":["",[],["lib.rs"]],\
 "cumulus_pallet_xcm":["",[],["lib.rs"]],\
-"cumulus_pallet_xcmp_queue":["",[],["lib.rs","migration.rs","weights.rs"]],\
+"cumulus_pallet_xcmp_queue":["",[],["bridging.rs","lib.rs","migration.rs","weights.rs"]],\
 "cumulus_ping":["",[],["lib.rs"]],\
 "cumulus_primitives_aura":["",[],["lib.rs"]],\
 "cumulus_primitives_core":["",[],["lib.rs"]],\
@@ -226,7 +229,7 @@ var srcIndex = JSON.parse('{\
 "parachain_info":["",[],["lib.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"parachains_common":["",[],["impls.rs","kusama.rs","lib.rs","polkadot.rs","rococo.rs","westend.rs","xcm_config.rs"]],\
+"parachains_common":["",[],["impls.rs","kusama.rs","lib.rs","polkadot.rs","rococo.rs","westend.rs","wococo.rs","xcm_config.rs"]],\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "per_thing_from_rational":["",[],["per_thing_from_rational.rs"]],\

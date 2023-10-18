@@ -1339,6 +1339,9 @@
 <a href="#1339" id="1339">1339</a>
 <a href="#1340" id="1340">1340</a>
 <a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1419,6 +1422,7 @@
 		Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;,
 	&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source:
 		From&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
+	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;AccountId&gt;,
 	XcmConfig: xcm_executor::Config,
 	CheckingAccount: Get&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
@@ -1437,7 +1441,7 @@
 
 			<span class="kw">let </span>included_head = RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::run_to_block(
 				<span class="number">2</span>,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			<span class="comment">// check Balances before
 			</span><span class="macro">assert_eq!</span>(&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>target_account), <span class="number">0</span>.into());
@@ -1687,6 +1691,7 @@
 		Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;,
 	&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source:
 		From&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
+	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;AccountId&gt;,
 	ForeignAssetsPalletInstance: <span class="lifetime">&#39;static</span>,
 {
 	<span class="comment">// foreign parachain with the same consenus currency as asset
@@ -1732,7 +1737,7 @@
 
 			<span class="kw">let </span>included_head = RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::run_to_block(
 				<span class="number">2</span>,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			<span class="comment">// checks target_account before
 			</span><span class="macro">assert_eq!</span>(
@@ -2346,7 +2351,8 @@
 	}
 );
 
-<span class="kw">pub fn </span>create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works&lt;
+<span class="doccomment">/// Test-case makes sure that `Runtime` can create and manage `ForeignAssets`
+</span><span class="kw">pub fn </span>create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works&lt;
 	Runtime,
 	XcmConfig,
 	WeightToFee,

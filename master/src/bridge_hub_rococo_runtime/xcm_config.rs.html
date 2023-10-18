@@ -361,8 +361,6 @@
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -382,8 +380,8 @@
 </span><span class="kw">use super</span>::{
 	AccountId, AllPalletsWithSystem, Balances, BridgeGrandpaRococoInstance,
 	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, ParachainInfo, ParachainSystem,
-	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	WeightToFee, XcmpQueue,
+	PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor,
+	RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 <span class="kw">use crate</span>::{
 	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
@@ -401,12 +399,11 @@
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{ExportXcm, WithOriginFilter},
@@ -414,7 +411,8 @@
 };
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>RelayLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub </span>storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
+	<span class="kw">pub const </span>TokenLocation: MultiLocation = MultiLocation::parent();
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
@@ -422,7 +420,8 @@
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
 
-<span class="kw">pub struct </span>RelayNetwork;
+<span class="doccomment">/// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
+</span><span class="kw">pub struct </span>RelayNetwork;
 <span class="kw">impl </span>Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt; <span class="kw">for </span>RelayNetwork {
 	<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;NetworkId&gt; {
 		<span class="prelude-val">Some</span>(<span class="self">Self</span>::get())
@@ -430,10 +429,9 @@
 }
 <span class="kw">impl </span>Get&lt;NetworkId&gt; <span class="kw">for </span>RelayNetwork {
 	<span class="kw">fn </span>get() -&gt; NetworkId {
-		<span class="kw">match </span>u32::from(ParachainInfo::parachain_id()) {
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID =&gt; NetworkId::Rococo,
-			bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID =&gt; NetworkId::Wococo,
-			para_id =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Not supported for para_id: {}&quot;</span>, para_id),
+		<span class="kw">match </span>Flavor::get() {
+			RuntimeFlavor::Rococo =&gt; NetworkId::Rococo,
+			RuntimeFlavor::Wococo =&gt; NetworkId::Wococo,
 		}
 	}
 }
@@ -455,7 +453,7 @@
 	<span class="comment">// Use this currency:
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
-	</span>IsConcrete&lt;RelayLocation&gt;,
+	</span>IsConcrete&lt;TokenLocation&gt;,
 	<span class="comment">// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
@@ -519,9 +517,10 @@
 		<span class="comment">// Allow to change dedicated storage items (called by governance-like)
 		</span><span class="kw">match </span>call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
-				<span class="kw">if </span>items.iter().any(|(k, <span class="kw">_</span>)| {
+				<span class="kw">if </span>items.iter().all(|(k, <span class="kw">_</span>)| {
 					k.eq(<span class="kw-2">&amp;</span>DeliveryRewardInBalance::key()) |
-						k.eq(<span class="kw-2">&amp;</span>RequiredStakeForStakeAndSlash::key())
+						k.eq(<span class="kw-2">&amp;</span>RequiredStakeForStakeAndSlash::key()) |
+						k.eq(<span class="kw-2">&amp;</span>Flavor::key())
 				}) =&gt;
 				<span class="kw">return </span><span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; (),
@@ -571,7 +570,7 @@
 			</span>AllowKnownQueryResponses&lt;PolkadotXcm&gt;,
 			WithComputedOrigin&lt;
 				(
-					<span class="comment">// If the message is one that immediately attemps to pay for execution, then
+					<span class="comment">// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
 					<span class="comment">// Parent and its pluralities (i.e. governance bodies) get free execution.
@@ -582,16 +581,13 @@
 				UniversalLocation,
 				ConstU32&lt;<span class="number">8</span>&gt;,
 			&gt;,
-			<span class="comment">// TODO:check-parameter - (https://github.com/paritytech/parity-bridges-common/issues/2084)
-			// remove this and extend `AllowExplicitUnpaidExecutionFrom` with &quot;or SystemParachains&quot; once merged https://github.com/paritytech/polkadot/pull/7005
-			</span>AllowUnpaidExecutionFrom&lt;Everything&gt;,
 		),
 	&gt;,
 &gt;;
 
 <span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
-</span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;RelayLocation&gt;;
+</span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;TokenLocation&gt;;
 
 <span class="kw">pub struct </span>XcmConfig;
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
@@ -611,7 +607,7 @@
 		MaxInstructions,
 	&gt;;
 	<span class="kw">type </span>Trader =
-		UsingComponents&lt;WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;;
+		UsingComponents&lt;WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;;
 	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
 	<span class="kw">type </span>AssetTrap = PolkadotXcm;
 	<span class="kw">type </span>AssetLocker = ();

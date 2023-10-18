@@ -1178,6 +1178,26 @@
 <a href="#1178" id="1178">1178</a>
 <a href="#1179" id="1179">1179</a>
 <a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1215,6 +1235,8 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benchmarking;
+<span class="attr">#[cfg(feature = <span class="string">&quot;bridging&quot;</span>)]
+</span><span class="kw">pub mod </span>bridging;
 <span class="kw">pub mod </span>weights;
 <span class="kw">pub use </span>weights::WeightInfo;
 
@@ -2126,6 +2148,24 @@
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;WARNING: Attempt to resume channel that was not suspended.&quot;</span>);
 			}
 		});
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bridging&quot;</span>)]
+	</span><span class="kw">fn </span>is_inbound_channel_suspended(sender: ParaId) -&gt; bool {
+		&lt;InboundXcmpStatus&lt;T&gt;&gt;::get()
+			.iter()
+			.find(|c| c.sender == sender)
+			.map(|c| c.state == InboundState::Suspended)
+			.unwrap_or(<span class="bool-val">false</span>)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bridging&quot;</span>)]
+	</span><span class="doccomment">/// Returns tuple of `OutboundState` and number of queued pages.
+	</span><span class="kw">fn </span>outbound_channel_state(target: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;(OutboundState, u16)&gt; {
+		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::get().iter().find(|c| c.recipient == target).map(|c| {
+			<span class="kw">let </span>queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
 	}
 }
 

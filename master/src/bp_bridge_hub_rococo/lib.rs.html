@@ -76,6 +76,9 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -151,6 +154,9 @@
 <span class="doccomment">/// Name of the With-BridgeHubRococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 </span><span class="kw">pub const </span>WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;BridgeRelayers&quot;</span>;
+
+<span class="doccomment">/// Pallet index of `BridgeWococoMessages: pallet_bridge_messages::&lt;Instance1&gt;`.
+</span><span class="kw">pub const </span>WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX: u8 = <span class="number">46</span>;
 
 <span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_rococo);
 <span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_rococo);
