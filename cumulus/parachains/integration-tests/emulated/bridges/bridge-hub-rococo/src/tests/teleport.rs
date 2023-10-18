@@ -23,8 +23,8 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: MultiAssets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		BridgeHubRococo, // Origin
-		XcmConfig, // XCM configuration
+		BridgeHubRococo,      // Origin
+		XcmConfig,            // XCM configuration
 		vec![AssetHubRococo], // Destinations
 		(native_asset, amount)
 	);

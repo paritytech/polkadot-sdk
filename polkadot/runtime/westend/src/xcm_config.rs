@@ -19,7 +19,7 @@
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, WeightToFee, XcmPallet, Treasury,
+	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 
 use frame_support::{
@@ -185,8 +185,7 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager =
-		XcmFeesToAccount<Self, SystemParachains, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeesToAccount<Self, SystemParachains, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;

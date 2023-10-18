@@ -363,9 +363,9 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		AssetHubRococo, // Origin
+		AssetHubRococo,          // Origin
 		AssetHubRococoXcmConfig, // XCM Configuration
-		vec![BridgeHubRococo], // Destinations
+		vec![BridgeHubRococo],   // Destinations
 		(native_asset, amount)
 	);
 }
