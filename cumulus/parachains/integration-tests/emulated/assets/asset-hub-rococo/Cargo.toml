@@ -51,6 +51,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"rococo-runtime/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]

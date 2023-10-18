@@ -1031,7 +1031,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
-					xcm_config::RelayLocation::get(),
+					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
 			}
