@@ -4,7 +4,7 @@
 title: Introduce XcmFeesToAccount fee manager
 
 doc:
-  - audience: Builder
+  - audience: Runtime User
     description: |
       Now all XCM sending, unless done by the system for the system, will be charged delivery fees.
       All runtimes are now configured to send these delivery fees to a treasury account.

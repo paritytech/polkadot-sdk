@@ -1,0 +1,228 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema#",
+    "$id": "https://raw.githubusercontent.com/paritytech/prdoc/master/prdoc_schema_user.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0,
+      "timestamp": 20230817152351
+    },
+    "title": "Parity PR Documentation Schema",
+    "description": "JSON Schema definition for the Polkadot SDK PR documentation",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Title for the PR. This is what will show up in the documentation"
+      },
+
+      "authors": {
+        "description": "Optional: You may provide your name, github handle, or email. That can help finding your 'your' prdoc files later on",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+
+      "tags": {
+        "description": "Optional: You may provide some tags here. This is currently not used downstream but can help you find some prdoc files later on",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+
+      "doc": {
+        "type": "array",
+        "description": "Description of the PR. Provide a description for each relevant audience.\nSee the `audience` property for more documentation about audiences",
+        "items": {
+          "$ref": "#/$defs/doc"
+        },
+        "minItems": 1
+      },
+      "crates": {
+        "description": "You have the option to provide input about the semver level of your changes for each crate\n. This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.\nYou can also set it to `no change` if you know there was no significant semver change",
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/crate"
+        }
+      },
+      "migrations": {
+        "description": "It is important for users to be aware of migrations.\nMake sure to mention any migrations in the appropriate sub-properties",
+        "type": "object",
+        "properties": {
+          "db": {
+            "type": "array",
+            "nullable": false,
+            "description": "List of the Database Migrations or []",
+            "items": {
+              "$ref": "#/$defs/migration_db"
+            },
+            "minItems": 0,
+            "required": [
+              "name",
+              "description"
+            ]
+          },
+          "runtime": {
+            "type": "array",
+            "nullable": false,
+            "description": "List of the Runtime Migrations or []",
+            "minItems": 0,
+            "items": {
+              "$ref": "#/$defs/migration_runtime"
+            },
+            "required": [
+              "db",
+              "runtime"
+            ]
+          }
+
+        }
+      },
+      "host_functions": {
+        "description": "Lits of the host functions involved in this PR.\nThis is used to generate the host functions documentation.",
+        "type": "array",
+        "minItems": 0,
+        "items": {
+          "$ref": "#/$defs/host_function"
+        }
+      }
+    },
+    "required": [
+      "title",
+      "doc",
+      "crates",
+      "migrations",
+      "host_functions"
+    ],
+    "$defs": {
+      "audience": {
+        "oneOf": [
+          {"const": "Node Dev", "title": "Someone working on the node"},
+          {"const": "Runtime Dev", "title": "Someone working on runtimes, frames, pallets"},
+
+          {"const": "Node Operator", "title": "Someone running a node in general, not specific to validators"},
+          {"const": "Validator", "title": "Someone running a Validator node"},
+
+          {"const": "Parachain Builder", "title": "Someone building a parachain"},
+
+          {"const": "App Builder", "title": "Someone building Apps and dApps on the shoulder of the Polkadot network and its parachains"},
+
+          {"const": "Runtime User", "title": "Someone involved or interested in the governance process or noticeable changes to the runtime and/or its dependencies"}
+
+        ]
+      },
+      "crate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "semver": {
+            "$ref": "#/$defs/semver"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "semver": {
+        "type": "string",
+        "enum": [
+          "major",
+          "minor",
+          "patch",
+          "no change"
+        ]
+      },
+      "migration_db": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "migration_runtime": {
+        "type": "object",
+        "properties": {
+          "pallet": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "pallet",
+          "description"
+        ]
+      },
+      "doc": {
+        "type": "object",
+        "description": "You have the the option to provide different description of your PR for different audiences.",
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "description": "The selected audience",
+            "$ref": "#/$defs/audience"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional title override for the PR and for the current audience"
+          },
+          "description": {
+            "description": "Description of the change",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Optional relevant note",
+            "$ref": "#/$defs/array_of_strings"
+          }
+        }
+      },
+      "array_of_strings": {
+        "description": "An array of strings that can be empty",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "host_function": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "List of host functions and their properties",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "description"
+        ]
+      }
+    }
+  }

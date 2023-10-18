@@ -2,7 +2,7 @@
 title: PRdoc check
 
 doc:
-  - audience: Core Dev
+  - audience: Infra
     description: |
       This PRdoc is an **example**.
 
