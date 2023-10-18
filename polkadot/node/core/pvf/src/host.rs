@@ -1028,7 +1028,7 @@ pub(crate) mod tests {
 				cleanup_pulse_interval: Duration::from_secs(3600),
 				artifact_ttl: Duration::from_secs(3600),
 
-				artifacts: Artifacts::new(),
+				artifacts: Artifacts::empty(),
 			}
 		}
 

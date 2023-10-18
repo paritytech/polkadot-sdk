@@ -96,8 +96,10 @@ macro_rules! concat_const {
             cat
         };
 
-        // SAFETY: safe because x and y are guaranteed to be valid
-        unsafe { std::str::from_utf8_unchecked(&CAT) }
+        match std::str::from_utf8(&CAT) {
+            Ok(s) => s,
+            Err(_) => panic!("Error converting bytes to str"),
+        }
     }}
 }
 
@@ -125,15 +127,13 @@ impl ArtifactId {
 
 	/// Returns the expected path to this artifact given the root of the cache.
 	pub fn path(&self, cache_path: &Path) -> PathBuf {
-		let file_name = format!(
-			"{}{}{}_{:#x}_{:#x}",
-			RUNTIME_PREFIX, NODE_PREFIX, NODE_VERSION, self.code_hash, self.executor_params_hash
-		);
+		let file_name =
+			format!("{}_{:#x}_{:#x}", ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash);
 		cache_path.join(file_name)
 	}
 
 	/// Tries to recover the artifact id from the given file name.
-	pub(crate) fn from_file_name(file_name: &str) -> Option<Self> {
+	fn from_file_name(file_name: &str) -> Option<Self> {
 		let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
 
 		// [ code hash | param hash ]
@@ -212,7 +212,7 @@ pub struct Artifacts {
 
 impl Artifacts {
 	#[cfg(test)]
-	pub(crate) fn new() -> Self {
+	pub(crate) fn empty() -> Self {
 		Self { inner: HashMap::new() }
 	}
 
@@ -221,28 +221,18 @@ impl Artifacts {
 		self.inner.len()
 	}
 
-	/// Create a table with valid artifacts and prune the invalid ones.
+	/// Create an empty table and populate it with valid artifacts as [`ArtifactState::Prepared`],
+	/// if any. The existing caches will be checked by their file name to determine whether they are
+	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
 	pub async fn new_and_prune(cache_path: &Path) -> Self {
 		let mut artifacts = Self { inner: HashMap::new() };
-		Self::prune_and_insert(cache_path, &mut artifacts).await;
+		artifacts.insert_and_prune(cache_path).await;
 		artifacts
 	}
 
-	// FIXME eagr: extremely janky, please comment on the appropriate way of setting
-	// * `last_time_needed` set as roughly around startup time
-	// * `prepare_stats` set as Nones, since the metadata was lost
-	async fn prune_and_insert(cache_path: impl AsRef<Path>, artifacts: &mut Artifacts) {
+	async fn insert_and_prune(&mut self, cache_path: impl AsRef<Path>) {
 		fn is_stale(file_name: &str) -> bool {
 			!file_name.starts_with(ARTIFACT_PREFIX)
-		}
-
-		fn insert_cache(artifacts: &mut Artifacts, id: ArtifactId) {
-			let last_time_needed = SystemTime::now();
-			let prepare_stats = Default::default();
-			always!(artifacts
-				.inner
-				.insert(id, ArtifactState::Prepared { last_time_needed, prepare_stats })
-				.is_none());
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
@@ -260,8 +250,20 @@ impl Artifacts {
 						if let Some(file_name) = file_name.to_str() {
 							if is_stale(file_name) {
 								prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
+
+                                gum::debug!(
+                                    target: LOG_TARGET,
+                                    "discarding invalid artifact {}",
+                                    file_name,
+                                );
 							} else if let Some(id) = ArtifactId::from_file_name(file_name) {
-								insert_cache(artifacts, id);
+								self.insert_prepared(id, SystemTime::now(), Default::default());
+
+                                gum::debug!(
+                                    target: LOG_TARGET,
+                                    "reusing valid artifact found on disk for current node version v{}",
+                                    NODE_VERSION,
+                                );
 							}
 						}
 					},
@@ -302,8 +304,7 @@ impl Artifacts {
 	///
 	/// This function must be used only for brand-new artifacts and should never be used for
 	/// replacing existing ones.
-	#[cfg(test)]
-	pub fn insert_prepared(
+	pub(crate) fn insert_prepared(
 		&mut self,
 		artifact_id: ArtifactId,
 		last_time_needed: SystemTime,
