@@ -509,7 +509,6 @@
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -707,9 +706,8 @@
 		.map_err(Error::from)<span class="question-mark">?</span>;
 	<span class="kw">let </span>chain_spec = <span class="kw-2">&amp;</span>runner.config().chain_spec;
 
-	<span class="comment">// By default, enable BEEFY on all networks except Polkadot (for now), unless
-	// explicitly disabled through CLI.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>enable_beefy = !chain_spec.is_polkadot() &amp;&amp; !cli.run.no_beefy;
+	<span class="comment">// By default, enable BEEFY on all networks, unless explicitly disabled through CLI.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>enable_beefy = !cli.run.no_beefy;
 	<span class="comment">// BEEFY doesn&#39;t (yet) support warp sync:
 	// Until we implement https://github.com/paritytech/substrate/issues/14756
 	// - disallow warp sync for validators,

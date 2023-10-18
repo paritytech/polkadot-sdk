@@ -1430,11 +1430,6 @@
 <a href="#1430" id="1430">1430</a>
 <a href="#1431" id="1431">1431</a>
 <a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2185,11 +2180,6 @@
 
 		<span class="prelude-val">Some</span>(backoff)
 	};
-
-	<span class="comment">// Warn the user that BEEFY is still experimental for Polkadot.
-	</span><span class="kw">if </span>enable_beefy &amp;&amp; config.chain_spec.is_polkadot() {
-		<span class="macro">gum::warn!</span>(<span class="string">&quot;BEEFY is still experimental, usage on Polkadot network is discouraged.&quot;</span>);
-	}
 
 	<span class="kw">let </span>disable_grandpa = config.disable_grandpa;
 	<span class="kw">let </span>name = config.network.node_name.clone();
