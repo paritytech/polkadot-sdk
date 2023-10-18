@@ -183,21 +183,35 @@ mod double128 {
 }
 
 /// Returns `a * b / c` (wrapping to 128 bits) or `None` in the case of
-/// overflow.
+/// overflow or div by zero.
 pub const fn multiply_by_rational_with_rounding(
 	a: u128,
 	b: u128,
 	c: u128,
 	r: Rounding,
 ) -> Option<u128> {
+	match checked_multiply_by_rational_with_rounding(a, b, c, r) {
+		Ok(value) => Some(value),
+		Err(_) => None,
+	}
+}
+
+/// Returns `a * b / c` (wrapping to 128 bits) or `Err` if tries to div by zero or
+/// overflow
+pub const fn checked_multiply_by_rational_with_rounding(
+	a: u128,
+	b: u128,
+	c: u128,
+	r: Rounding,
+) -> Result<u128, &'static str> {
 	use double128::Double128;
 	if c == 0 {
-		return None
+		return Err("Division by zero")
 	}
 	let (result, remainder) = Double128::product_of(a, b).div(c);
 	let mut result: u128 = match result.try_into_u128() {
 		Ok(v) => v,
-		Err(_) => return None,
+		Err(_) => return Err("Overflow"),
 	};
 	if match r {
 		Rounding::Up => remainder > 0,
@@ -208,10 +222,10 @@ pub const fn multiply_by_rational_with_rounding(
 	} {
 		result = match result.checked_add(1) {
 			Some(v) => v,
-			None => return None,
+			None => return Err("None"),
 		};
 	}
-	Some(result)
+	Ok(result)
 }
 
 pub const fn sqrt(mut n: u128) -> u128 {
@@ -244,6 +258,7 @@ pub const fn sqrt(mut n: u128) -> u128 {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use checked_multiply_by_rational_with_rounding as checked_mulrat;
 	use codec::{Decode, Encode};
 	use multiply_by_rational_with_rounding as mulrat;
 	use Rounding::*;
@@ -276,6 +291,36 @@ mod tests {
 		assert_eq!(mulrat(1, MAX / 2 + 1, MAX, NearestPrefDown), Some(1));
 		assert_eq!(mulrat(1, MAX / 2, MAX, NearestPrefUp), Some(0));
 		assert_eq!(mulrat(1, MAX / 2 + 1, MAX, NearestPrefUp), Some(1));
+	}
+
+	#[test]
+	fn rational_checked_multiply_basic_rounding_works() {
+		assert_eq!(checked_mulrat(1, 1, 1, Up), Ok(1));
+		assert_eq!(checked_mulrat(3, 1, 3, Up), Ok(1));
+		assert_eq!(checked_mulrat(1, 1, 3, Up), Ok(1));
+		assert_eq!(checked_mulrat(1, 2, 3, Down), Ok(0));
+		assert_eq!(checked_mulrat(1, 1, 3, NearestPrefDown), Ok(0));
+		assert_eq!(checked_mulrat(1, 1, 2, NearestPrefDown), Ok(0));
+		assert_eq!(checked_mulrat(1, 2, 3, NearestPrefDown), Ok(1));
+		assert_eq!(checked_mulrat(1, 1, 3, NearestPrefUp), Ok(0));
+		assert_eq!(checked_mulrat(1, 1, 2, NearestPrefUp), Ok(1));
+		assert_eq!(checked_mulrat(1, 2, 3, NearestPrefUp), Ok(1));
+		assert_eq!(checked_mulrat(3, 1, 0, Up), Err("Division by zero"));
+	}
+
+	#[test]
+	fn rational_checked_multiply_big_number_works() {
+		assert_eq!(checked_mulrat(MAX, MAX - 1, MAX, Down), Ok(MAX - 1));
+		assert_eq!(checked_mulrat(MAX, 1, MAX, Down), Ok(1));
+		assert_eq!(checked_mulrat(MAX, MAX - 1, MAX, Up), Ok(MAX - 1));
+		assert_eq!(checked_mulrat(MAX, 1, MAX, Up), Ok(1));
+		assert_eq!(checked_mulrat(1, MAX - 1, MAX, Down), Ok(0));
+		assert_eq!(checked_mulrat(1, 1, MAX, Up), Ok(1));
+		assert_eq!(checked_mulrat(1, MAX / 2, MAX, NearestPrefDown), Ok(0));
+		assert_eq!(checked_mulrat(1, MAX / 2 + 1, MAX, NearestPrefDown), Ok(1));
+		assert_eq!(checked_mulrat(1, MAX / 2, MAX, NearestPrefUp), Ok(0));
+		assert_eq!(checked_mulrat(1, MAX / 2 + 1, MAX, NearestPrefUp), Ok(1));
+		assert_eq!(checked_mulrat(1, MAX / 2 + 1, 0, NearestPrefUp), Err("Division by zero"));
 	}
 
 	#[test]
