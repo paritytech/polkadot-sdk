@@ -40,7 +40,7 @@ jobs:
 
     - name: Build Runtimes
       run: |
-        cargo build --features try-runtime \
+        cargo build --release --features try-runtime \
           -p westend-runtime \
           -p rococo-runtime \
           -p asset-hub-westend-runtime \
@@ -50,7 +50,7 @@ jobs:
     - name: Check Westend
       run: | 
         ./try-runtime \
-          --runtime ./target/debug/wbuild/westend-runtime/westend_runtime.wasm \
+          --runtime ./target/release/wbuild/westend-runtime/westend_runtime.compact.wasm \
           execute-block \
           live --uri wss://westend-try-runtime-node.parity-chains.parity.io:443
       continue-on-error: true
@@ -59,7 +59,7 @@ jobs:
     - name: Check Rococo
       run: | 
         ./try-runtime \
-          --runtime ./target/debug/wbuild/rococo-runtime/rococo_runtime.wasm \
+          --runtime ./target/release/wbuild/rococo-runtime/rococo_runtime.compact.wasm \
           execute-block \
           live --uri wss://rococo-try-runtime-node.parity-chains.parity.io:443
       continue-on-error: true
@@ -68,7 +68,7 @@ jobs:
     - name: Check Asset Hub Westend
       run: | 
         ./try-runtime \
-          --runtime ./target/debug/wbuild/asset-hub-westend/asset_hub_westend_runtime.wasm \
+          --runtime ./target/release/wbuild/asset-hub-westend/asset_hub_westend_runtime.compact.wasm \
           execute-block \
           live --uri wss://westend-asset-hub-rpc.polkadot.io:443
       continue-on-error: true
@@ -77,7 +77,7 @@ jobs:
     - name: Check Bridge Hub Rococo
       run: | 
         ./try-runtime \
-          --runtime ./target/debug/wbuild/bridge-hub-rococo/bridge_hub_rococo_runtime.wasm \
+          --runtime ./target/release/wbuild/bridge-hub-rococo/bridge_hub_rococo_runtime.compact.wasm \
           execute-block \
           live --uri wss://rococo-bridge-hub-rpc.polkadot.io:443
       continue-on-error: true
@@ -86,7 +86,7 @@ jobs:
     - name: Check Contracts Rococo
       run: | 
         ./try-runtime \
-          --runtime ./target/debug/wbuild/contracts-rococo/contracts_rococo_runtime.wasm \
+          --runtime ./target/release/wbuild/contracts-rococo/contracts_rococo_runtime.compact.wasm \
           execute-block \
           live --uri wss://rococo-contracts-rpc.polkadot.io:443
       continue-on-error: true
