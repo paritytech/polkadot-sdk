@@ -208,8 +208,8 @@ pub(crate) fn sanity_weight_check(
 	);
 	let mut sanity_weight_check_passed = true;
 	// Loop through all benchmark results.
-	for ((_, _), results) in all_results.iter() {
-		// Per pallet, because there can be multiple instances of a pallet.
+	for ((pallet, instance), results) in all_results.iter() {
+		println!("Pallet: {}\nInstance: {}\n", pallet, instance);
 		for result in results {
 			// Constant `ref_time` & `pov_size`.
 			let mut total_weight = Weight::from_parts(
