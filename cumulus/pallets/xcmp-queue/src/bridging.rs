@@ -55,9 +55,7 @@ impl<SiblingBridgeHubParaId: Get<ParaId>, Runtime: crate::Config>
 		let sibling_bridge_hub_id: ParaId = SiblingBridgeHubParaId::get();
 
 		// let's find the channel's state with the sibling parachain,
-		let Some((outbound_state, queued_pages)) =
-			pallet::Pallet::<Runtime>::outbound_channel_state(sibling_bridge_hub_id)
-		else {
+		let Some((outbound_state, queued_pages)) = pallet::Pallet::<Runtime>::outbound_channel_state(sibling_bridge_hub_id) else {
 			return false
 		};
 		// suspended channel => it is congested
