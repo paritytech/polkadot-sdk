@@ -179,7 +179,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.
 	///
-	/// - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// - `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 
 	fn decode_dedup_len() -> Option<usize>
