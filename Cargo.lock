@@ -17847,6 +17847,7 @@ dependencies = [
  "aquamarine",
  "chain-spec-builder",
  "frame-support",
+ "sc-chain-spec",
  "sc-cli",
  "sc-consensus-aura",
  "sc-consensus-babe",
