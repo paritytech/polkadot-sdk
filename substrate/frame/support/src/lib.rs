@@ -30,6 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Export ourself as `frame_support` to make tests happy.
+#[doc(hidden)]
 extern crate self as frame_support;
 
 /// Private exports that are being used by macros.
@@ -45,6 +46,7 @@ pub mod __private {
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
+	pub use sp_inherents;
 	pub use sp_io::{self, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
@@ -785,12 +787,6 @@ pub use serde::{Deserialize, Serialize};
 #[doc(hidden)]
 #[cfg(not(no_std))]
 pub use macro_magic;
-
-/// Private module re-exporting items used by frame support macros.
-#[doc(hidden)]
-pub mod _private {
-	pub use sp_inherents;
-}
 
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
