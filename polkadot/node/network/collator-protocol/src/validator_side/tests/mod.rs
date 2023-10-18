@@ -269,15 +269,15 @@ async fn assert_candidate_backing_second(
 	expected_relay_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
-	mode: ProspectiveParachainsMode,
+	version: CollationVersion,
 ) -> CandidateReceipt {
 	let pvd = dummy_pvd();
 
 	// Depending on relay parent mode pvd will be either requested
 	// from the Runtime API or Prospective Parachains.
 	let msg = overseer_recv(virtual_overseer).await;
-	match mode {
-		ProspectiveParachainsMode::Disabled => assert_matches!(
+	match version {
+		CollationVersion::V1 => assert_matches!(
 			msg,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				hash,
@@ -289,7 +289,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		ProspectiveParachainsMode::Enabled { .. } => assert_matches!(
+		CollationVersion::V2 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -757,7 +757,7 @@ fn fetch_one_collation_at_a_time() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 
@@ -889,7 +889,7 @@ fn fetches_next_collation() {
 			second,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 
@@ -1019,7 +1019,7 @@ fn fetch_next_collation_on_invalid_collation() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 

@@ -212,6 +212,7 @@ async fn assert_collation_seconded(
 	virtual_overseer: &mut VirtualOverseer,
 	relay_parent: Hash,
 	peer_id: PeerId,
+	version: CollationVersion,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -222,29 +223,51 @@ async fn assert_collation_seconded(
 			assert_eq!(rep.value, BENEFIT_NOTIFY_GOOD.cost_or_benefit());
 		}
 	);
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
-			peers,
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-				protocol_v2::CollatorProtocolMessage::CollationSeconded(
-					_relay_parent,
-					..,
-				),
-			)),
-		)) => {
-			assert_eq!(peers, vec![peer_id]);
-			assert_eq!(relay_parent, _relay_parent);
-		}
-	);
+
+	match version {
+		CollationVersion::V1 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+						protocol_v1::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+							..,
+						),
+					)),
+				)) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				}
+			);
+		},
+		CollationVersion::V2 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+						protocol_v2::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+							..,
+						),
+					)),
+				)) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				}
+			);
+		},
+	}
 }
 
 #[test]
-fn v1_advertisement_accepted() {
+fn v1_advertisement_accepted_and_seconded() {
 	let test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
@@ -267,13 +290,52 @@ fn v1_advertisement_accepted() {
 
 		advertise_collation(&mut virtual_overseer, peer_a, head_b, None).await;
 
-		assert_fetch_collation_request(
+		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
 			head_b,
 			test_state.chain_ids[0],
 			None,
 		)
 		.await;
+
+		let mut candidate = dummy_candidate_receipt_bad_sig(head_b, Some(Default::default()));
+		candidate.descriptor.para_id = test_state.chain_ids[0];
+		candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+		let commitments = CandidateCommitments {
+			head_data: HeadData(vec![1 as u8]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate.commitments_hash = commitments.hash();
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok(request_v2::CollationFetchingResponse::Collation(
+				candidate.clone(),
+				pov.clone(),
+			)
+			.encode()))
+			.expect("Sending response should succeed");
+
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V1,
+		)
+		.await;
+
+		let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &candidate).await;
+
+		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)
+			.await;
 
 		virtual_overseer
 	});
@@ -473,10 +535,7 @@ fn second_multiple_candidates_per_relay_parent() {
 				head_c,
 				test_state.chain_ids[0],
 				&pov,
-				ProspectiveParachainsMode::Enabled {
-					max_candidate_depth: ASYNC_BACKING_PARAMETERS.max_candidate_depth as _,
-					allowed_ancestry_len: ASYNC_BACKING_PARAMETERS.allowed_ancestry_len as _,
-				},
+				CollationVersion::V2,
 			)
 			.await;
 
@@ -485,7 +544,8 @@ fn second_multiple_candidates_per_relay_parent() {
 
 			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &candidate).await;
 
-			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a).await;
+			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a, CollationVersion::V2)
+				.await;
 		}
 
 		// No more advertisements can be made for this relay parent.

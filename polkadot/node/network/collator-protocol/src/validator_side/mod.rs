@@ -720,6 +720,7 @@ async fn request_collation(
 	let collation_request = CollationFetchRequest {
 		pending_collation,
 		collator_id: collator_id.clone(),
+		collator_protocol_version: peer_protocol_version,
 		from_collator: response_recv.boxed(),
 		cancellation_token: cancellation_token.clone(),
 		span: state
@@ -1484,7 +1485,7 @@ async fn process_msg<Context>(
 				},
 			};
 			let fetched_collation = FetchedCollation::from(&receipt.to_plain());
-			if let Some(CollationEvent { collator_id, pending_collation }) =
+			if let Some(CollationEvent { collator_id, pending_collation, .. }) =
 				state.fetched_candidates.remove(&fetched_collation)
 			{
 				let PendingCollation { relay_parent, peer_id, prospective_candidate, .. } =
@@ -1642,7 +1643,7 @@ async fn run_inner<Context>(
 					Ok(res) => res
 				};
 
-				let CollationEvent {collator_id, pending_collation} = res.collation_event.clone();
+				let CollationEvent {collator_id, pending_collation, .. } = res.collation_event.clone();
 				if let Err(err) = kick_off_seconding(&mut ctx, &mut state, res).await {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -1790,39 +1791,37 @@ async fn kick_off_seconding<Context>(
 		},
 	};
 	let collations = &mut per_relay_parent.collations;
-	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 
 	let fetched_collation = FetchedCollation::from(&candidate_receipt);
 	if let Entry::Vacant(entry) = state.fetched_candidates.entry(fetched_collation) {
 		collation_event.pending_collation.commitments_hash =
 			Some(candidate_receipt.commitments_hash);
 
-		let pvd =
-			match (relay_parent_mode, collation_event.pending_collation.prospective_candidate) {
-				(
-					ProspectiveParachainsMode::Enabled { .. },
-					Some(ProspectiveCandidate { parent_head_data_hash, .. }),
-				) =>
-					request_prospective_validation_data(
-						ctx.sender(),
-						relay_parent,
-						parent_head_data_hash,
-						pending_collation.para_id,
-					)
-					.await?,
-				(ProspectiveParachainsMode::Disabled, _) =>
-					request_persisted_validation_data(
-						ctx.sender(),
-						candidate_receipt.descriptor().relay_parent,
-						candidate_receipt.descriptor().para_id,
-					)
-					.await?,
-				_ => {
-					// `handle_advertisement` checks for protocol mismatch.
-					return Ok(())
-				},
-			}
-			.ok_or(SecondingError::PersistedValidationDataNotFound)?;
+		let pvd = match (
+			collation_event.collator_protocol_version,
+			collation_event.pending_collation.prospective_candidate,
+		) {
+			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) =>
+				request_prospective_validation_data(
+					ctx.sender(),
+					relay_parent,
+					parent_head_data_hash,
+					pending_collation.para_id,
+				)
+				.await?,
+			(CollationVersion::V1, _) =>
+				request_persisted_validation_data(
+					ctx.sender(),
+					candidate_receipt.descriptor().relay_parent,
+					candidate_receipt.descriptor().para_id,
+				)
+				.await?,
+			_ => {
+				// `handle_advertisement` checks for protocol mismatch.
+				return Ok(())
+			},
+		}
+		.ok_or(SecondingError::PersistedValidationDataNotFound)?;
 
 		fetched_collation_sanity_check(
 			&collation_event.pending_collation,
@@ -1871,7 +1870,8 @@ async fn handle_collation_fetch_response(
 	network_error_freq: &mut gum::Freq,
 	canceled_freq: &mut gum::Freq,
 ) -> std::result::Result<PendingCollationFetch, Option<(PeerId, Rep)>> {
-	let (CollationEvent { collator_id, pending_collation }, response) = response;
+	let (CollationEvent { collator_id, collator_protocol_version, pending_collation }, response) =
+		response;
 	// Remove the cancellation handle, as the future already completed.
 	state.collation_requests_cancel_handles.remove(&pending_collation);
 
@@ -1977,7 +1977,11 @@ async fn handle_collation_fetch_response(
 
 			metrics_result = Ok(());
 			Ok(PendingCollationFetch {
-				collation_event: CollationEvent { collator_id, pending_collation },
+				collation_event: CollationEvent {
+					collator_id,
+					pending_collation,
+					collator_protocol_version,
+				},
 				candidate_receipt,
 				pov,
 			})
