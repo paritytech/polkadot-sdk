@@ -1,10 +1,27 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+#![allow(unused)]
+
 use async_trait::async_trait;
 use bounded_collections::Get;
 use futures::{
 	future::{join_all, FutureExt},
 	stream::{Stream, StreamExt},
 };
-use gum::warn;
 use primitive_types::H256;
 use std::{
 	collections::HashMap,
@@ -16,6 +33,7 @@ use std::{
 };
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
+
 pub(crate) const LOG_TARGET: &str = "parachain::worker-pool";
 
 /// The maximum amount of unprocessed worker messages.
@@ -26,33 +44,33 @@ pub const MAX_WORKERS: usize = 16;
 /// The maximum amount of unprocessed `WorkerPoolHandler` messages.
 pub const MAX_WORKER_POOL_MESSAGES: usize = MAX_WORKER_MESSAGES;
 
-/// Unique identifier for a worker context.
+/// Unique identifier for a worker job.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct ContextCookie(pub H256);
+pub struct JobId(pub H256);
 
-/// A generic opaque worker context identifier.
+/// A trait to map a work item to a specific `Job``
 ///
 /// Should be implemented by work items, such that a work item always uniquely identifies a single
-/// context.
+/// Job.
 ///
 /// The unique identifier is required to route all messages to the same worker. If it is not
 /// specified the work item is broadcasted to all workers.
-pub trait WorkContext {
+pub trait Job {
 	/// Returns the associated context identifier, if any.
-	fn id(&self) -> Option<ContextCookie> {
+	fn id(&self) -> Option<JobId> {
 		None
 	}
 }
 
-// Blanket implementation of `WorkContext`.
-impl<T> WorkContext for Option<T> where T: WorkContext {}
+// Blanket implementation of `Job`.
+impl<T> Job for Option<T> where T: Job {}
 
 /// An abstract worker configuration and spawning interface.
 pub trait WorkerConfig: Sized + 'static {
 	/// The type used to describe the work to be done.
-	type WorkItem: WorkContext + Send + Sync + Clone + Debug;
-	/// The type that defines a context in which WorkItems are processed
-	type Context: Clone + Debug + Send;
+	type WorkItem: Job + Send + Sync + Clone + Debug;
+	/// The type that defines the job initial state
+	type JobState: Clone + Debug + Send;
 	/// A type implementing the Worker handler.
 	type Worker: WorkerHandle + Sync;
 	/// A type for channel capacity.
@@ -87,13 +105,14 @@ pub trait WorkerConfig: Sized + 'static {
 }
 
 #[async_trait]
-/// An interface to control an abstract contextual worker.
+/// An interface to control an abstract worker.
 pub trait WorkerHandle: Send + Clone {
+	/// The type describing the worker configuration
 	type Config: WorkerConfig;
 
-	/// Push a context update to the worker. Usually this is a new context.
-	async fn setup_context(&self, context: <Self::Config as WorkerConfig>::Context) {
-		self.send(WorkerMessage::SetupContext(context)).await;
+	/// Create a new job with the specified initial `state`.
+	async fn new_job(&self, job_id: JobId, state: <Self::Config as WorkerConfig>::JobState) {
+		self.send(WorkerMessage::NewJob(job_id, state)).await;
 	}
 
 	/// Push some work to the worker.
@@ -101,43 +120,45 @@ pub trait WorkerHandle: Send + Clone {
 		self.send(WorkerMessage::Queue(item)).await;
 	}
 
-	/// Prune all work belonging to the specified `contexts`.
-	async fn prune_work(&self, contexts: &[ContextCookie]) {
-		self.send(WorkerMessage::PruneWork(contexts.into())).await;
+	/// Delete jobs across all workers.
+	async fn delete_jobs(&self, jobs: &[JobId]) {
+		self.send(WorkerMessage::DeleteJobs(jobs.into())).await;
 	}
 
-	/// Only this is required to be implemented
+	/// Send a message to the worker.
 	async fn send(&self, message: WorkerMessage<Self::Config>);
+
+	/// Returns the worker index.
+	fn index(&self) -> u16;
 }
 
 /// Messages sent by the pool to individual workers.
 #[derive(Debug)]
 pub enum WorkerMessage<Config: WorkerConfig> {
-	/// Mandatory: A new `Context` for processing work.
-	SetupContext(Config::Context),
+	/// Start a new job on the worker initializing it with the given state
+	NewJob(JobId, Config::JobState),
 	/// Mandatory: New work item.
 	Queue(Config::WorkItem),
 	/// Mandatory: The above, combined in a batched variant.
-	Batch(Vec<Option<Config::Context>>, Vec<Config::WorkItem>),
-	/// Mandatory: Prune different `Context` instances on the worker.
-	/// The corresponding `WorkerPool::context_per_worker` entries are already removed
+	Batch(Vec<Option<Config::JobState>>, Vec<Config::WorkItem>),
+	/// Delete a batch of jobs.
+	/// The corresponding `WorkerPool::job_per_worker` entries are already removed
 	/// when the message is received.
-	PruneWork(Vec<ContextCookie>),
+	DeleteJobs(Vec<JobId>),
 }
 
 /// Messages sent by `WorkerPoolHandler` to the event loop of `WorkerPool`.
 #[derive(Clone)]
 pub enum WorkerPoolMessage<Config: WorkerConfig> {
-	/// Send new work to the pool.
-	/// TODO: pass a context closure here.
-	Queue(
-		<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem,
-		Option<
-			<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::Context,
-		>,
+	/// Create a new job.
+	NewJob(
+		JobId,
+		<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::JobState,
 	),
+	/// Send new work to the pool.
+	Queue(<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem),
 	/// Prune work items,
-	PruneWork(Vec<ContextCookie>),
+	DeleteJobs(Vec<JobId>),
 }
 
 /// A generic worker pool implementation.
@@ -174,13 +195,13 @@ pub enum WorkerPoolMessage<Config: WorkerConfig> {
 /// Even more enhancements:
 /// - support for batched sending in `WorkerPool`; we define a max buffer size in which we
 ///   accumulate
-/// `WorkItems` and `Contexts` (if needed) for each of them per individual worker. Once a threshold
-/// is hit, or a timeout expires, the buffer contents are sent as a batch. Contexts are a concern of
-/// the batching mechanism, and should always be available when the batch hits the worker, otherwise
-/// the worker won't be able to process it.
+/// `WorkItems` and `JobStates` (if needed) for each of them per individual worker. Once a threshold
+/// is hit, or a timeout expires, the buffer contents are sent as a batch. JobStates are a concern
+/// of the batching mechanism, and should always be available when the batch hits the worker,
+/// otherwise the worker won't be able to process it.
 pub struct WorkerPool<Config: WorkerConfig> {
 	// Per worker context mapping. Values are indices in `worker_handles`.
-	context_per_worker: HashMap<ContextCookie, usize>,
+	job_per_worker: HashMap<JobId, usize>,
 	// Per worker handles
 	worker_handles: Vec<Config::Worker>,
 	// Next worker index.
@@ -227,20 +248,27 @@ impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
 	pub async fn queue_work(
 		&mut self,
 		work_item: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem,
-		context: Option<
-			<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::Context,
-		>,
 	) {
-		if let Err(e) = self.to_pool.send(WorkerPoolMessage::Queue(work_item, context)).await {
+		if let Err(e) = self.to_pool.send(WorkerPoolMessage::Queue(work_item)).await {
+			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::Queue`")
+		}
+	}
+	/// Setup a new job
+	pub async fn new_job(
+		&mut self,
+		job_id: JobId,
+		state: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::JobState,
+	) {
+		if let Err(e) = self.to_pool.send(WorkerPoolMessage::NewJob(job_id, state)).await {
 			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::Queue`")
 		}
 	}
 
-	/// Notify workers that the specified `contexts` will not receive any more work and any
+	/// Notify workers that the specified `Jobs` will not receive any more work and any
 	/// state relevant should be pruned.
-	pub async fn prune_work(&self, contexts: &[ContextCookie]) {
-		if let Err(e) = self.to_pool.send(WorkerPoolMessage::PruneWork(Vec::from(contexts))).await {
-			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::PruneWork`")
+	pub async fn delete_job(&self, jobs: &[JobId]) {
+		if let Err(e) = self.to_pool.send(WorkerPoolMessage::DeleteJobs(Vec::from(jobs))).await {
+			gum::warn!(target: LOG_TARGET, err = ?e, "Unable to send `WorkerPoolMessage::DeleteJobs`")
 		}
 	}
 }
@@ -248,7 +276,7 @@ impl<Config: WorkerConfig> WorkerPoolHandler<Config> {
 impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 	/// Create with specified worker builder.
 	pub fn with_config(config: &mut Config) -> (Self, WorkerPoolHandler<Config>) {
-		let context_per_worker = HashMap::new();
+		let job_per_worker = HashMap::new();
 
 		let max_workers = std::cmp::min(MAX_WORKERS, Config::PoolCapacity::get() as usize);
 
@@ -257,9 +285,14 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 
 		let (to_pool, from_handlers) = <Config as WorkerConfig>::new_pool_channel();
 		(
-			WorkerPool { context_per_worker, worker_handles, next_worker: 0, from_handlers },
+			WorkerPool { job_per_worker, worker_handles, next_worker: 0, from_handlers },
 			WorkerPoolHandler { to_pool },
 		)
+	}
+
+	/// Returns true if a job already exists.
+	pub fn job_exists(&self, job_id: &JobId) -> bool {
+		self.job_per_worker.contains_key(job_id)
 	}
 
 	/// Returns an iterator over worker handles.
@@ -267,39 +300,62 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 		&self.worker_handles
 	}
 
-	/// Prune per context cache and notify workers to prune contexts.
-	pub async fn prune_work(&mut self, contexts: Vec<ContextCookie>) {
+	/// Prune specified jobs and notify workers.
+	pub async fn delete_job(&mut self, jobs: Vec<JobId>) {
 		// We need to split the contexts per worker.
-		let mut prunable_per_worker_contexts = vec![Vec::new(); self.worker_handles.len()];
-		for context in contexts {
-			if let Some(worker_index) = self.context_per_worker.get(&context) {
-				prunable_per_worker_contexts
+		let mut prunable_per_worker_jobs = vec![Vec::new(); self.worker_handles.len()];
+		for job in jobs {
+			if let Some(worker_index) = self.job_per_worker.get(&job) {
+				prunable_per_worker_jobs
 					.get_mut(*worker_index)
 					.expect("just created above; qed")
-					.push(context);
+					.push(job);
 			}
 		}
 
-		for (index, contexts) in prunable_per_worker_contexts.into_iter().enumerate() {
-			self.worker_handles[index].prune_work(&contexts).await;
+		for (index, jobs) in prunable_per_worker_jobs.into_iter().enumerate() {
+			self.worker_handles[index].delete_jobs(&jobs).await;
 		}
 	}
 
-	/// Queue new `WorkItem` to the pool.
+	/// Create or update a job with the given state.
+	pub async fn new_job(
+		&mut self,
+		job_id: JobId,
+		state: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::JobState,
+	) {
+		if let Some(worker_handle) = self.find_worker_for_job(&job_id) {
+			worker_handle.new_job(job_id, state).await;
+		} else {
+			// The work requires a new `Job`` and `self.next_worker` should be suitable.
+			//
+			// TODO: If needed we might want to define more methods to choose a worker if
+			// `Job` can provide additional information. TODO: Handle blocking due to queue
+			// being full. We want to avoid that, knowing the channel len would provide a better
+			// view of the current load of a worker.
+			let worker_handle = self.rr_any_worker();
+			gum::trace!(target: LOG_TARGET, ?job_id, worker_idx = ?worker_handle.index(), "Creating new job on worker");
+
+			// Dispatch work item to selected worker.
+			worker_handle.new_job(job_id.clone(), state).await;
+
+			// Map context to worker.
+			self.job_per_worker.insert(job_id, self.next_worker);
+			self.next_worker = (self.next_worker + 1) % self.worker_handles.len();
+		}
+	}
+	/// Queue new `WorkItem` to the pool
 	///
-	/// `context_fn` is a closure that can provide the `Context` for work not belonging to any
-	/// context yet.
+	/// `work_item` is sent to all workers if it doesn't belong to any job ( `work_item.id()` is
+	/// None).
 	pub async fn queue_work(
 		&mut self,
 		work_item: <<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::WorkItem,
-		context: Option<
-			<<<Config as WorkerConfig>::Worker as WorkerHandle>::Config as WorkerConfig>::Context,
-		>,
 	) {
-		let context_id = if let Some(context_id) = work_item.id() {
-			context_id
+		let job_id = if let Some(job_id) = work_item.id() {
+			job_id
 		} else {
-			// Work items without context are broadcasted to all workers.
+			// Work items not associated top a specific `Job`` are broadcasted to all workers.
 			let broadcast_futures = self
 				.worker_handles
 				.iter()
@@ -309,35 +365,17 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 			return
 		};
 
-		if let Some(worker_handle) = self.find_worker_for_context(&context_id) {
+		if let Some(worker_handle) = self.find_worker_for_job(&job_id) {
 			worker_handle.queue_work(work_item).await;
 		} else {
-			// The work requires a new context and `self.next_worker` should be suitable.
-			// TODO: If needed we might want to define more methods to choose a worker if
-			// `WorkContext` can provide additional information. TODO: Handle blocking due to queue
-			// being full. We want to avoid that, knowing the channel len would provide a better
-			// view of the current load of a worker.
-			let worker_handle = self.rr_any_worker();
-			if let Some(context) = context {
-				// Update the context.
-				worker_handle.setup_context(context).await;
-			} else {
-				warn!("No context provided for work item.");
-			}
-
-			// Dispatch work item to selected worker.
-			worker_handle.queue_work(work_item).await;
-
-			// Map context to worker.
-			self.context_per_worker.insert(context_id, self.next_worker);
-			self.next_worker = (self.next_worker + 1) % self.worker_handles.len();
+			gum::error!(target: LOG_TARGET, ?job_id, "`work_item` associated to job, but job doesn't exist. Ensure `new_job()` is called first.");
 		}
 	}
 
-	// Returns a worker that is mapped to the specified `context_cookie`.
-	fn find_worker_for_context(&self, context_cookie: &ContextCookie) -> Option<&Config::Worker> {
+	// Returns a worker that is mapped to the specified `job_id`.
+	fn find_worker_for_job(&self, job_id: &JobId) -> Option<&Config::Worker> {
 		let worker_handles = self.worker_handles.as_slice();
-		self.context_per_worker.get(&context_cookie).map(|worker_index| {
+		self.job_per_worker.get(&job_id).map(|worker_index| {
 			worker_handles.get(*worker_index).expect("worker_index is always valid in here")
 		})
 	}
@@ -353,12 +391,15 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 			loop {
 				if let Some(worker_message) = self.next().await {
 					match worker_message {
-						WorkerPoolMessage::Queue(work_item, context) => {
-							self.queue_work(work_item, context).await;
+						WorkerPoolMessage::NewJob(job_id, state) => {
+							self.new_job(job_id, state).await;
 						},
-						WorkerPoolMessage::PruneWork(contexts) => {
+						WorkerPoolMessage::Queue(work_item) => {
+							self.queue_work(work_item).await;
+						},
+						WorkerPoolMessage::DeleteJobs(contexts) => {
 							gum::debug!(target: LOG_TARGET, "WorkerPool received contexts to be pruned, {:?}", &contexts);
-							self.prune_work(contexts.into()).await;
+							self.delete_job(contexts.into()).await;
 						},
 					}
 				} else {

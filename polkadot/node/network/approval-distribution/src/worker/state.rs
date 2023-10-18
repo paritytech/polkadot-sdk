@@ -43,9 +43,9 @@ use rand::{CryptoRng, Rng};
 use std::collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::metrics::Metrics;
-use polkadot_node_subsystem_util::worker_pool::ContextCookie;
+use polkadot_node_subsystem_util::worker_pool::JobId;
 
-use futures::{channel::oneshot, FutureExt as _};
+use futures::channel::oneshot;
 use polkadot_primitives::{BlakeTwo256, HashT};
 
 use crate::LOG_TARGET;
@@ -167,8 +167,8 @@ pub(crate) struct MessageSubject(pub Hash, pub CandidateIndex, pub ValidatorInde
 
 impl MessageSubject {
 	// Return the associated worker context for a work item message identified by `self`.
-	pub fn worker_context(&self) -> ContextCookie {
-		ContextCookie(BlakeTwo256::hash_of(&self))
+	pub fn worker_context(&self) -> JobId {
+		JobId(BlakeTwo256::hash_of(&self))
 	}
 }
 
@@ -308,7 +308,7 @@ enum PendingMessage {
 /// which assignments and approvals we have seen, and our peers' views.
 #[derive(Default)]
 pub struct ApprovalWorkerState {
-	contexts: HashMap<ContextCookie, super::ApprovalContext>,
+	jobs: HashMap<JobId, super::ApprovalContext>,
 
 	/// These two fields are used in conjunction to construct a view over the unfinalized chain.
 	blocks_by_number: BTreeMap<BlockNumber, Vec<Hash>>,
@@ -347,6 +347,16 @@ pub struct ApprovalWorkerState {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
+	pub(crate) fn new_job(&mut self, job_id: JobId, state: super::ApprovalContext) {
+		self.jobs
+			.entry(job_id)
+			.and_modify(|old_state| *old_state = state.clone())
+			.or_insert(state);
+	}
+
+	pub(crate) fn delete_job(&mut self, job_id: JobId) {
+		self.jobs.remove(&job_id);
+	}
 	pub(crate) fn reputation(&mut self) -> &mut ReputationAggregator {
 		&mut self.reputation
 	}
@@ -613,16 +623,13 @@ impl ApprovalWorkerState {
 		.await;
 	}
 
-	pub(crate) async fn handle_gossiped_approval<R>(
+	pub(crate) async fn handle_gossiped_approval(
 		&mut self,
 		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		metrics: &Metrics,
 		peer_id: PeerId,
 		vote: IndirectSignedApprovalVote,
-		rng: &mut R,
-	) where
-		R: CryptoRng + Rng,
-	{
+	) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = %peer_id,

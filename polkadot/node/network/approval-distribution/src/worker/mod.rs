@@ -23,7 +23,7 @@ use futures::{select, FutureExt};
 use polkadot_node_subsystem::{messages::network_bridge_event::NewGossipTopology, overseer};
 use polkadot_node_subsystem_util::{
 	reputation::REPUTATION_CHANGE_INTERVAL,
-	worker_pool::{ContextCookie, WorkContext, WorkerConfig, WorkerHandle, WorkerMessage},
+	worker_pool::{Job, JobId, WorkerConfig, WorkerHandle, WorkerMessage},
 };
 use polkadot_primitives::{BlockNumber, CandidateIndex};
 use tokio::sync::mpsc;
@@ -33,10 +33,6 @@ use polkadot_node_primitives::approval::{
 };
 
 use rand::{CryptoRng, Rng, SeedableRng};
-use std::{
-	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
-	time::Duration,
-};
 
 use polkadot_node_network_protocol::{
 	peer_set::ProtocolVersion, ObservedRole, OurView, PeerId, View,
@@ -70,9 +66,9 @@ pub(crate) enum ApprovalWorkerMessage {
 	BlockFinalized(BlockNumber),
 }
 
-// Use `MessageSubject` as `ContextCookie`.
-impl WorkContext for ApprovalWorkerMessage {
-	fn id(&self) -> Option<ContextCookie> {
+// Use `MessageSubject` as `JobId`.
+impl Job for ApprovalWorkerMessage {
+	fn id(&self) -> Option<JobId> {
 		match &self {
 			ApprovalWorkerMessage::ProcessApproval(vote, _) => Some(
 				MessageSubject(vote.block_hash, vote.candidate_index, vote.validator)
@@ -95,15 +91,38 @@ pub(crate) struct ApprovalWorkerConfig<F>
 where
 	F: overseer::ApprovalDistributionSenderTrait,
 {
-	pub sender: F,
-	pub metrics: Metrics,
+	sender: F,
+	metrics: Metrics,
+	next_worker_id: u16,
+}
+
+impl<F> ApprovalWorkerConfig<F>
+where
+	F: overseer::ApprovalDistributionSenderTrait,
+{
+	/// Constructor
+	pub fn new(sender: F, metrics: Metrics) -> Self {
+		Self { sender, metrics, next_worker_id: 0 }
+	}
+
+	/// Pop the next worker id.
+	pub fn next_id(&mut self) -> u16 {
+		let id = self.next_worker_id;
+		self.next_worker_id += 1;
+		id
+	}
 }
 
 /// Approval worker handle implementation.
 #[derive(Clone)]
-pub(crate) struct ApprovalWorkerHandle<F>(mpsc::Sender<WorkerMessage<ApprovalWorkerConfig<F>>>)
+pub(crate) struct ApprovalWorkerHandle<F>
 where
-	F: overseer::ApprovalDistributionSenderTrait;
+	F: overseer::ApprovalDistributionSenderTrait,
+{
+	/// The worker sender
+	pub sender: mpsc::Sender<WorkerMessage<ApprovalWorkerConfig<F>>>,
+	pub id: u16,
+}
 
 #[async_trait]
 impl<F> WorkerHandle for ApprovalWorkerHandle<F>
@@ -112,8 +131,12 @@ where
 {
 	type Config = ApprovalWorkerConfig<F>;
 
+	fn index(&self) -> u16 {
+		self.id
+	}
+
 	async fn send(&self, message: WorkerMessage<Self::Config>) {
-		let _ = self.0.send(message).await;
+		let _ = self.sender.send(message).await;
 	}
 }
 
@@ -128,7 +151,7 @@ async fn dispatch_work(
 		ApprovalWorkerMessage::ProcessApproval(vote, source) => {
 			if let Some(peer_id) = source.peer_id() {
 				// Assingment comes from the network, we have to do some spam filtering.
-				state.handle_gossiped_approval(sender, metrics, peer_id, vote, rng).await;
+				state.handle_gossiped_approval(sender, metrics, peer_id, vote).await;
 			} else {
 				state.import_and_circulate_approval(sender, metrics, source, vote).await;
 			}
@@ -186,7 +209,9 @@ async fn dispatch_work(
 	}
 }
 
-async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorkerMessage>>(
+async fn worker_loop<
+	ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorkerMessage, JobState = ApprovalContext>,
+>(
 	mut from_pool: mpsc::Receiver<WorkerMessage<ApprovalWorkerConfig>>,
 	mut sender: impl overseer::ApprovalDistributionSenderTrait,
 	metrics: Metrics,
@@ -216,14 +241,19 @@ async fn worker_loop<ApprovalWorkerConfig: WorkerConfig<WorkItem = ApprovalWorke
 						dispatch_work(&mut sender, &mut worker_state, &metrics, &mut rng, work_item)
 							.await;
 					},
-					WorkerMessage::PruneWork(_) => {
+					WorkerMessage::DeleteJobs(jobs) => {
 						// This message might not be needed as `ApprovalWorkerMessage` can send the
 						// block finalized event. In that case, workers need to notify worker pool that
 						// a context has been removed, but this creates a cycle which is likely to cause
 						// issues. To avoid the pool loop can periodically ask workers about pruned
 						// tasks and delete them accordingly from the hashmap. More thinking required.
+						for job_id in jobs {
+							worker_state.delete_job(job_id);
+						}
 					},
-					WorkerMessage::SetupContext(_context) => {},
+					WorkerMessage::NewJob(job_id, state) => {
+						worker_state.new_job(job_id, state);
+					},
 					WorkerMessage::Batch(_, _) => {},
 				}
 			}
@@ -237,7 +267,7 @@ where
 {
 	type WorkItem = ApprovalWorkerMessage;
 	type Worker = ApprovalWorkerHandle<F>;
-	type Context = ApprovalContext;
+	type JobState = ApprovalContext;
 	type ChannelCapacity = ConstU32<4096>;
 	type PoolCapacity = ConstU32<8>;
 
@@ -246,7 +276,7 @@ where
 
 		tokio::spawn(worker_loop(from_pool, self.sender.clone(), self.metrics.clone()));
 
-		ApprovalWorkerHandle(to_worker)
+		ApprovalWorkerHandle { sender: to_worker, id: self.next_id() }
 	}
 }
 

@@ -25,7 +25,7 @@ use futures::{select, FutureExt as _};
 use polkadot_node_network_protocol::{
 	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, Versioned,
 };
-use polkadot_node_subsystem_util::worker_pool::WorkerPool;
+use polkadot_node_subsystem_util::worker_pool::{Job, WorkerPool};
 use worker::{state::MessageSource, ApprovalContext, ApprovalWorkerConfig, ApprovalWorkerMessage};
 
 use polkadot_node_subsystem::{
@@ -63,10 +63,9 @@ impl ApprovalDistribution {
 
 	/// Used for testing.
 	async fn run_inner<Context>(mut self, mut ctx: Context) {
-		let mut sender = ctx.sender().clone();
+		let sender = ctx.sender().clone();
 		let metrics = self.metrics.clone();
-		let mut approval_worker_config =
-			worker::ApprovalWorkerConfig { sender: sender.clone(), metrics: metrics.clone() };
+		let mut approval_worker_config = worker::ApprovalWorkerConfig::new(sender, metrics.clone());
 		let (mut approval_worker_pool, _) = WorkerPool::with_config(&mut approval_worker_config);
 
 		loop {
@@ -81,7 +80,7 @@ impl ApprovalDistribution {
 					};
 					match message {
 						FromOrchestra::Communication { msg } =>
-							self.handle_incoming(&mut approval_worker_pool, &mut sender, msg, &metrics).await,
+							self.handle_incoming(&mut approval_worker_pool, msg).await,
 						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
@@ -97,7 +96,7 @@ impl ApprovalDistribution {
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
 							gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
-							approval_worker_pool.queue_work(ApprovalWorkerMessage::BlockFinalized(number), None).await;
+							approval_worker_pool.queue_work(ApprovalWorkerMessage::BlockFinalized(number)).await;
 						},
 						FromOrchestra::Signal(OverseerSignal::Conclude) => return,
 					}
@@ -109,7 +108,6 @@ impl ApprovalDistribution {
 	async fn handle_network_msg<F>(
 		&self,
 		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
-		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
 	) where
 		F: overseer::ApprovalDistributionSenderTrait,
@@ -117,26 +115,22 @@ impl ApprovalDistribution {
 		match event {
 			NetworkBridgeEvent::PeerConnected(peer_id, role, version, _) => {
 				worker_pool
-					.queue_work(ApprovalWorkerMessage::PeerConnected(peer_id, role, version), None)
+					.queue_work(ApprovalWorkerMessage::PeerConnected(peer_id, role, version))
 					.await;
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				worker_pool
-					.queue_work(ApprovalWorkerMessage::PeerDisconnected(peer_id), None)
-					.await;
+				worker_pool.queue_work(ApprovalWorkerMessage::PeerDisconnected(peer_id)).await;
 			},
 			NetworkBridgeEvent::NewGossipTopology(topology) => {
-				worker_pool
-					.queue_work(ApprovalWorkerMessage::NewGossipTopology(topology), None)
-					.await;
+				worker_pool.queue_work(ApprovalWorkerMessage::NewGossipTopology(topology)).await;
 			},
 			NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
 				worker_pool
-					.queue_work(ApprovalWorkerMessage::PeerViewChange(peer_id, view), None)
+					.queue_work(ApprovalWorkerMessage::PeerViewChange(peer_id, view))
 					.await;
 			},
 			NetworkBridgeEvent::OurViewChange(view) => {
-				worker_pool.queue_work(ApprovalWorkerMessage::OurViewChange(view), None).await;
+				worker_pool.queue_work(ApprovalWorkerMessage::OurViewChange(view)).await;
 			},
 			NetworkBridgeEvent::PeerMessage(peer_id, msg) => match msg {
 				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(
@@ -146,29 +140,23 @@ impl ApprovalDistribution {
 					assignments,
 				)) =>
 					for assignment in assignments {
-						worker_pool
-							.queue_work(
-								ApprovalWorkerMessage::ProcessAssignment(
-									assignment.0,
-									assignment.1,
-									MessageSource::Peer(peer_id),
-								),
-								Some(ApprovalContext),
-							)
-							.await;
+						let work_item = ApprovalWorkerMessage::ProcessAssignment(
+							assignment.0,
+							assignment.1,
+							MessageSource::Peer(peer_id),
+						);
+						self.handle_new_job(&work_item, worker_pool).await;
+						worker_pool.queue_work(work_item).await;
 					},
 				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 				Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =>
 					for approval in approvals.into_iter() {
-						worker_pool
-							.queue_work(
-								ApprovalWorkerMessage::ProcessApproval(
-									approval,
-									MessageSource::Peer(peer_id),
-								),
-								Some(ApprovalContext),
-							)
-							.await;
+						let work_item = ApprovalWorkerMessage::ProcessApproval(
+							approval,
+							MessageSource::Peer(peer_id),
+						);
+						self.handle_new_job(&work_item, worker_pool).await;
+						worker_pool.queue_work(work_item).await;
 					},
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
@@ -177,21 +165,42 @@ impl ApprovalDistribution {
 		}
 	}
 
+	async fn handle_new_job<F>(
+		&self,
+		work_item: &ApprovalWorkerMessage,
+		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
+	) where
+		F: overseer::ApprovalDistributionSenderTrait,
+	{
+		let job_id = if let Some(job_id) = work_item.id() {
+			job_id
+		} else {
+			gum::warn!(
+				target: LOG_TARGET,
+				?work_item,
+				"Expected `JobId`",
+			);
+			return
+		};
+
+		if !worker_pool.job_exists(&job_id) {
+			worker_pool.new_job(job_id, ApprovalContext).await;
+		}
+	}
+
 	async fn handle_incoming<F>(
 		&mut self,
 		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
-		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 		msg: ApprovalDistributionMessage,
-		metrics: &Metrics,
 	) where
 		F: overseer::ApprovalDistributionSenderTrait,
 	{
 		match msg {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
-				self.handle_network_msg(worker_pool, sender, event).await;
+				self.handle_network_msg(worker_pool, event).await;
 			},
 			ApprovalDistributionMessage::NewBlocks(metas) => {
-				worker_pool.queue_work(ApprovalWorkerMessage::NewBlocks(metas), None).await;
+				worker_pool.queue_work(ApprovalWorkerMessage::NewBlocks(metas)).await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
 				gum::debug!(
@@ -205,7 +214,9 @@ impl ApprovalDistribution {
 					candidate_index,
 					MessageSource::Local,
 				);
-				worker_pool.queue_work(work_item, Some(ApprovalContext)).await;
+
+				self.handle_new_job(&work_item, worker_pool).await;
+				worker_pool.queue_work(work_item).await;
 			},
 			ApprovalDistributionMessage::DistributeApproval(vote) => {
 				gum::debug!(
@@ -215,9 +226,10 @@ impl ApprovalDistribution {
 					vote.candidate_index,
 				);
 				let work_item = ApprovalWorkerMessage::ProcessApproval(vote, MessageSource::Local);
-				worker_pool.queue_work(work_item, Some(ApprovalContext)).await;
+				self.handle_new_job(&work_item, worker_pool).await;
+				worker_pool.queue_work(work_item).await;
 			},
-			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+			ApprovalDistributionMessage::GetApprovalSignatures(_indices, tx) => {
 				// let sigs = state.get_approval_signatures(indices);
 				// TODO: remove this placeholder and implement aggregation of responses across
 				// workers.
@@ -232,7 +244,7 @@ impl ApprovalDistribution {
 			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
 				gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
 				worker_pool
-					.queue_work(ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag), None)
+					.queue_work(ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag))
 					.await;
 			},
 		}
