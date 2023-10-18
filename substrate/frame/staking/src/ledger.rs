@@ -33,22 +33,29 @@
 
 use frame_support::{
 	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
+	traits::{Defensive, LockableCurrency, WithdrawReasons},
 	BoundedVec,
 };
-use sp_staking::{EraIndex, StakingAccount};
+use sp_staking::{
+	EraIndex, OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface,
+};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger,
+	UntrackedStake, STAKING_ID,
 };
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
-use sp_runtime::traits::Zero;
+impl<T: Config> Into<Stake<BalanceOf<T>>> for StakingLedger<T> {
+	fn into(self) -> Stake<BalanceOf<T>> {
+		Stake { total: self.total, active: self.active }
+	}
+}
 
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
+		use sp_runtime::traits::Zero;
 		Self {
 			stash: stash.clone(),
 			total: Zero::zero(),
@@ -166,19 +173,29 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
-	pub(crate) fn update(self) -> Result<(), Error<T>> {
+	pub(crate) fn update<OnUpdate>(self) -> Result<(), Error<T>>
+	where
+		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
+	{
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash)
 		}
 
+		let controller = &self.controller().ok_or_else(|| {
+			defensive!("update called on a ledger that was not contructed via `StakingLedger` impl. unexpected.");
+			Error::<T>::NotController
+        })?;
+
+		// previous stake is the current stake in storage.
+		let prev_stake: Option<Stake<_>> = match Ledger::<T>::get(&controller) {
+			Some(current_ledger) => Some(current_ledger.into()),
+			None => None,
+		};
+
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
-		Ledger::<T>::insert(
-			&self.controller().ok_or_else(|| {
-				defensive!("update called on a ledger that is not bonded.");
-				Error::<T>::NotController
-			})?,
-			&self,
-		);
+		Ledger::<T>::insert(controller, &self);
+
+		OnUpdate::on_stake_update(&self.stash, prev_stake);
 
 		Ok(())
 	}
@@ -186,13 +203,19 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds a ledger.
 	///
 	/// It sets the reward preferences for the bonded stash.
-	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
+	pub(crate) fn bond<OnUpdate>(
+		self,
+		payee: RewardDestination<T::AccountId>,
+	) -> Result<(), Error<T>>
+	where
+		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
+	{
 		if <Bonded<T>>::contains_key(&self.stash) {
 			Err(Error::<T>::AlreadyBonded)
 		} else {
 			<Payee<T>>::insert(&self.stash, payee);
 			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			self.update::<OnUpdate>()
 		}
 	}
 
@@ -208,8 +231,21 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
+	pub(crate) fn kill<OnUpdate>(stash: &T::AccountId) -> Result<(), Error<T>>
+	where
+		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
+	{
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
+
+		// call on validator remove or on nominator remove.
+		match crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) {
+			StakerStatus::Validator => OnUpdate::on_validator_remove(stash),
+			StakerStatus::Nominator(_) => {
+				let nominations = crate::Pallet::<T>::nominations(stash).unwrap_or_default();
+				OnUpdate::on_nominator_remove(stash, nominations)
+			},
+			StakerStatus::Idle => (),
+		};
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
@@ -217,6 +253,7 @@ impl<T: Config> StakingLedger<T> {
 
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
+			<UntrackedStake<T>>::remove(&stash);
 
 			Ok(())
 		})?

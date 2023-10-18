@@ -36,7 +36,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, SessionIndex,
+	EraIndex, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
@@ -102,6 +102,7 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
+
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -246,7 +247,7 @@ pub mod pallet {
 		/// validators, they can chill at any point, and their approval stakes will still be
 		/// recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
 		/// VALIDATOR.
-		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
+		type TargetList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
 		/// have. Effectively determines how many unique eras a staker may be
@@ -322,6 +323,14 @@ pub mod pallet {
 	/// by [`StakingLedger`] to ensure data and lock consistency.
 	#[pallet::storage]
 	pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
+
+	/// Map with the latest tracked stake of accounts with untracked stake.
+	///
+	/// Untracked stake is the ledger stake that hasn't been propagated to the
+	/// `T::EventListeners`.
+	#[pallet::storage]
+	pub type UntrackedStake<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, Stake<BalanceOf<T>>>;
 
 	/// Where the reward payment should be made. Keyed by stash.
 	///
@@ -765,6 +774,8 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// No untracked stake found for a given stash.
+		NoUntrackedStake,
 	}
 
 	#[pallet::hooks]
@@ -874,7 +885,7 @@ pub mod pallet {
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
-			ledger.bond(payee)?;
+			ledger.bond::<T::EventListeners>(payee)?;
 
 			Ok(())
 		}
@@ -914,12 +925,7 @@ pub mod pallet {
 					Error::<T>::InsufficientBond
 				);
 
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
+				ledger.update::<T::EventListeners>()?;
 
 				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
 			}
@@ -1015,7 +1021,10 @@ pub mod pallet {
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
+				// But before, try to settle untracked stakes of the controller if they exist.
+				Self::maybe_settle_untracked_stake::<T::EventListeners>(&ledger.stash);
+
+				ledger.update::<T::EventListeners>()?;
 
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
@@ -1173,6 +1182,10 @@ pub mod pallet {
 				submitted_in: Self::current_era().unwrap_or(0),
 				suppressed: false,
 			};
+
+			// Try to settle untracked stakes of the stash if they exist, before updating the
+			// nominator's state.
+			Self::maybe_settle_untracked_stake::<T::EventListeners>(&stash);
 
 			Self::do_remove_validator(stash);
 			Self::do_add_nominator(stash, nominations);
@@ -1518,7 +1531,10 @@ pub mod pallet {
 			let final_unlocking = ledger.unlocking.len();
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-			ledger.update()?;
+			// But before, try to settle untracked stakes of the controller if they exist.
+			Self::maybe_settle_untracked_stake::<T::EventListeners>(&ledger.stash);
+
+			ledger.update::<T::EventListeners>()?;
 			if T::VoterList::contains(&stash) {
 				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
 			}
@@ -1778,6 +1794,22 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
 			Ok(())
+		}
+
+		/// Settles a untracked stake, if it exists.
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::settle_untracked_stake())]
+		pub fn settle_untracked_stake(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			if Self::maybe_settle_untracked_stake::<T::EventListeners>(&stash).is_none() {
+				Err(Error::<T>::NoUntrackedStake.into())
+			} else {
+				Ok(Pays::No.into())
+			}
 		}
 	}
 }

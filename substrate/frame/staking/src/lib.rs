@@ -326,6 +326,10 @@ pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
+// Marker type to pass as type [`sp_staking::OnStakingUpdate`] that does nothing, i.e. it does not
+// propagate the event to any event listener.
+pub(crate) type UntrackedEvent = ();
+
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {

@@ -198,7 +198,7 @@ fn basic_setup_works() {
 		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
 
 		assert_eq!(
-			Staking::eras_stakers(active_era(), 11),
+			Staking::eras_stakers(active_era(), 21),
 			Exposure {
 				total: 1125,
 				own: 1000,
@@ -206,7 +206,7 @@ fn basic_setup_works() {
 			},
 		);
 		assert_eq!(
-			Staking::eras_stakers(active_era(), 21),
+			Staking::eras_stakers(active_era(), 11),
 			Exposure {
 				total: 1375,
 				own: 1000,
@@ -230,6 +230,38 @@ fn basic_setup_works() {
 		// New era is not being forced
 		assert_eq!(Staking::force_era(), Forcing::NotForcing);
 	});
+}
+
+#[test]
+fn untracked_rewards_works() {
+	ExtBuilder::default().nominate(true).build_and_execute(|| {
+		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 0);
+
+		let stake = |active: BalanceOf<Test>, total: BalanceOf<Test>| sp_staking::Stake::<
+			BalanceOf<Test>,
+		> {
+			total,
+			active,
+		};
+
+		Pallet::<Test>::add_untracked_stake(&11, stake(10, 10));
+		Pallet::<Test>::add_untracked_stake(&11, stake(20, 20));
+		Pallet::<Test>::add_untracked_stake(&21, stake(10, 10));
+
+		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 2);
+		// keep inital `previous_stake` after multiple calls to `add_untracked_rewards.
+		assert_eq!(UntrackedStake::<Test>::get(&11), Some(stake(10, 10)));
+		assert_eq!(UntrackedStake::<Test>::get(&21), Some(stake(10, 10)));
+
+		// stash 101 doesn't have untracked rewards.
+		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&101), None);
+		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 2);
+
+		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&11), Some(stake(10, 10)));
+		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 1);
+		assert_eq!(Pallet::<Test>::maybe_settle_untracked_stake::<()>(&21), Some(stake(10, 10)));
+		assert_eq!(UntrackedStake::<Test>::iter_keys().count(), 0);
+	})
 }
 
 #[test]
@@ -1807,7 +1839,8 @@ fn reap_stash_works() {
 
 			// no easy way to cause an account to go below ED, we tweak their staking ledger
 			// instead.
-			Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 5, bounded_vec![]));
+			let ledger = StakingLedger::<Test>::new(11, 5, bounded_vec![]);
+			assert_ok!(ledger.update::<<Test as Config>::EventListeners>());
 
 			// reap-able
 			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -2069,8 +2102,8 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 			assert_eq!(
 				supports,
 				vec![
-					(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
-					(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] })
+					(21, Support { total: 2200, voters: vec![(21, 1000), (1, 600), (3, 600)] }),
+					(31, Support { total: 1800, voters: vec![(31, 1000), (1, 400), (3, 400)] }),
 				],
 			);
 		});
@@ -2413,7 +2446,6 @@ fn slash_in_old_span_does_not_deselect() {
 
 		// this staker is in a new slashing span now, having re-registered after
 		// their prior slash.
-
 		on_offence_in_era(
 			&[OffenceDetails {
 				offender: (11, Staking::eras_stakers(active_era(), 11)),
@@ -4467,6 +4499,180 @@ fn on_finalize_weight_is_nonzero() {
 	})
 }
 
+mod sorted_list_provider_integration {
+	use super::*;
+	use frame_election_provider_support::ScoreProvider;
+	use sp_staking::Stake;
+
+	// helper to fetch ledger's active stake lists and scores.
+	fn staker_state(who: AccountId) -> (Balance, Balance, Balance) {
+		(
+			StakingLedger::<Test>::get(StakingAccount::Stash(who)).unwrap().active,
+			VoterBagsList::score(&who).into(),
+			TargetBagsList::score(&who).into(),
+		)
+	}
+
+	#[test]
+	fn nominator_bond_unbond_chill_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			Balances::make_free_balance_be(&42, 100);
+
+			// initial stakers.
+			assert_eq!(VoterBagsList::iter().count(), 4);
+			assert_eq!(TargetBagsList::iter().count(), 3);
+
+			assert_eq!(TargetBagsList::score(&11), 1500);
+			assert_eq!(TargetBagsList::score(&21), 1500);
+
+			// bond and nominate (11, 21) with stash 42.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, Default::default()));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
+
+			// stash 42 is now a voter with a score.
+			assert_eq!(VoterBagsList::iter().count(), 5);
+			assert_eq!(VoterBagsList::score(&42), 25);
+			// but not a target.
+			assert_eq!(TargetBagsList::iter().count(), 3);
+
+			// targets stake approval updated accordingly.
+			assert_eq!(TargetBagsList::score(&11), 1525);
+			assert_eq!(TargetBagsList::score(&21), 1525);
+
+			// let's add more bond to stash and check if the scores have been updated.
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(42), 25));
+			assert_eq!(VoterBagsList::score(&42), 50);
+			assert_eq!(TargetBagsList::score(&11), 1550);
+			assert_eq!(TargetBagsList::score(&21), 1550);
+
+			// now, let's unbond partially and check if the scores have been upated.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 30));
+			assert_eq!(VoterBagsList::score(&42), 20);
+			assert_eq!(TargetBagsList::score(&11), 1520);
+			assert_eq!(TargetBagsList::score(&21), 1520);
+
+			// finally, stash 42 chills and unbond completely.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
+			assert_eq!(VoterBagsList::contains(&42), false);
+			assert_eq!(TargetBagsList::score(&11), 1500);
+			assert_eq!(TargetBagsList::score(&21), 1500);
+		})
+	}
+
+	#[test]
+	fn validator_validate_chill_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			Balances::make_free_balance_be(&42, 100);
+
+			// initial targets.
+			assert_eq!(TargetBagsList::iter().count(), 3);
+			assert_eq!(TargetBagsList::contains(&42), false);
+
+			// bond and set intention to validate. stash 42 is both target and voter.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, Default::default()));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(42), Default::default()));
+
+			assert_eq!(TargetBagsList::score(&42), 25);
+			assert_eq!(VoterBagsList::score(&42), 25);
+
+			// let's add more bond to stash and check if the scores have been updated.
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(42), 25));
+			assert_eq!(TargetBagsList::score(&42), 50);
+			assert_eq!(VoterBagsList::score(&42), 50);
+
+			// now, let's unbond partially and check if the scores have been upated.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 30));
+			assert_eq!(VoterBagsList::score(&42), 20);
+			assert_eq!(TargetBagsList::score(&42), 20);
+
+			// finally, stash 42 chills and unbond completely.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
+			assert_eq!(VoterBagsList::contains(&42), false);
+			assert_eq!(TargetBagsList::contains(&42), false);
+		})
+	}
+
+	#[test]
+	fn payouts_with_untracked_stake_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			Balances::make_free_balance_be(&42, 100);
+
+			// bond and nominate (11, 21) with stash 42.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 50, Default::default()));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
+
+			// nominator 42 compounds rewards.
+			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(42), RewardDestination::Staked));
+			assert_eq!(Balances::free_balance(42), 100);
+
+			let (active, voter_score, _) = staker_state(42);
+			assert_eq!(active, voter_score);
+
+			mock::start_active_era(1);
+			// reward validator 11 and its nominators.
+			Staking::reward_by_ids(vec![(11, 10)]);
+
+			mock::start_active_era(2);
+			assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(11), 11, 1));
+
+			// the rewards have not been propagated to the voter and target lists, although they
+			// should be reflected in the staking ledger.
+			let (active, voter_score, _) = staker_state(42);
+			assert!(active > voter_score);
+
+			assert!(<UntrackedStake<Test>>::get(42).is_some());
+
+			// from the targets PoV, the rewards earned by the nominator haven't yet been added to
+			// the score. we buffer the target score of both validators to compare after the
+			// untracked rewards have been settled.
+			let (_, _, target_score_11_deficit) = staker_state(11);
+
+			// changing the nominations will trigger the untracked stake to be settled.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11]));
+
+			assert!(<UntrackedStake<Test>>::get(42).is_none());
+
+			// thus the nominator's active and voter score is now the same.
+			let (active, voter_score, _) = staker_state(42);
+			assert_eq!(active, voter_score);
+
+			// target score of validators is larger, after the untracked staked is settled.
+			let (_, _, target_score_11_settled) = staker_state(11);
+			assert!(target_score_11_settled > target_score_11_deficit);
+		})
+	}
+
+	#[test]
+	fn untracked_stake_settle_extrinsic_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			Balances::make_free_balance_be(&42, 100);
+
+			// bond and nominate (11, 21) with stash 42.
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 10, Default::default()));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
+
+			assert!(<UntrackedStake<Test>>::get(42).is_none());
+
+			let (_, _, target_11) = staker_state(11);
+			let (_, _, target_21) = staker_state(21);
+
+			// add untracked stake to nominator 42 manually.
+			<UntrackedStake<Test>>::insert(&42, Stake { total: 5, active: 5 });
+
+			assert_ok!(Staking::settle_untracked_stake(RuntimeOrigin::signed(42), 42));
+			assert!(<UntrackedStake<Test>>::get(42).is_none());
+
+			let (_, _, target_11_settled) = staker_state(11);
+			let (_, _, target_21_settled) = staker_state(21);
+
+			// the settled target score of the validatorsis larger by the amount of untracked stake
+			// of their nominator 42.
+			assert!(target_11_settled == target_11 + 5);
+			assert!(target_21_settled == target_21 + 5);
+		})
+	}
+}
+
 mod election_data_provider {
 	use super::*;
 	use frame_election_provider_support::ElectionDataProvider;
@@ -4785,11 +4991,11 @@ mod election_data_provider {
 
 			// nominating with targets below the nomination quota works.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11]));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21]));
 
 			// nominating with targets above the nomination quota returns error.
 			assert_noop!(
-				Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12, 13]),
+				Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31]),
 				Error::<Test>::TooManyTargets
 			);
 		});
@@ -5450,7 +5656,6 @@ mod sorted_list_provider {
 				<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
 				vec![11, 21, 31, 101]
 			);
-
 			// when account 101 renominates
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![41]));
 
@@ -6208,17 +6413,17 @@ mod ledger {
 			let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
 			let reward_dest = RewardDestination::Account(10);
 
-			assert_ok!(ledger.clone().bond(reward_dest));
+			assert_ok!(ledger.clone().bond::<()>(reward_dest));
 			assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 			assert!(<Bonded<Test>>::get(&42).is_some());
 			assert_eq!(<Payee<Test>>::get(&42), reward_dest);
 
 			// cannot bond again.
-			assert!(ledger.clone().bond(reward_dest).is_err());
+			assert!(ledger.clone().bond::<()>(reward_dest).is_err());
 
 			// once bonded, update works as expected.
 			ledger.claimed_rewards = bounded_vec![1];
-			assert_ok!(ledger.update());
+			assert_ok!(ledger.update::<StakeTracker>());
 		})
 	}
 

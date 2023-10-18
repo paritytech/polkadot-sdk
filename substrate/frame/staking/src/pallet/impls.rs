@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -51,7 +51,7 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
 	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, ValidatorPrefs,
+	SessionInterface, StakerStatus, StakingLedger, UntrackedEvent, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -117,6 +117,52 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Registers untracked stake for a given account.
+	///
+	/// Untracked stake is stake that hasn't been propagated to `T::EventListeners`
+	/// and that may be eventually propagated by calling [`Self::maybe_settled_untracked_stake`].
+	///
+	/// The stake buffered under [`UntrackedStake`] corresponds to the *latest* up to date stake of
+	/// a ledger that has untracked stake.
+	pub(crate) fn add_untracked_stake(who: &T::AccountId, stake: Stake<BalanceOf<T>>) {
+		UntrackedStake::<T>::mutate(who, |maybe_prev_stake| {
+			// if the stash already has untracked stake, do not update it. Wa want to keep the
+			// *latest* up to date stake in storage.
+			if maybe_prev_stake.is_none() {
+				*maybe_prev_stake = Some(stake);
+			}
+		});
+	}
+
+	/// Tries to settle untracked rewards buffered in [`UntrackedStake`] by caling into
+	/// [`sp_staking::OnStakingUpdate::on_stake_update`] to propagate the untracked stake.
+	///
+	/// Returns the untracked rewards that have been setted, if any.
+	pub(crate) fn maybe_settle_untracked_stake<OnUpdate>(
+		who: &T::AccountId,
+	) -> Option<Stake<BalanceOf<T>>>
+	where
+		OnUpdate: OnStakingUpdate<T::AccountId, BalanceOf<T>>,
+	{
+		UntrackedStake::<T>::mutate_exists(who, |maybe_prev_stake| {
+			if let Some(prev_stake) = maybe_prev_stake {
+				let ledger = Self::ledger(Stash(who.clone())).expect("if the stash has untracked stake, it exists; qed.");
+
+				// we kept track of the latest up to date stake of the ledger. Now we can use it to
+				// settle the difference.
+				let prev_stake = prev_stake.clone();
+				OnUpdate::on_stake_update(&ledger.stash, Some(prev_stake));
+
+				// deletes key.
+				*maybe_prev_stake = None;
+
+				Some(prev_stake)
+			} else {
+				None
+			}
+		})
+	}
+
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
@@ -137,8 +183,11 @@ impl<T: Config> Pallet<T> {
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
-				ledger.update()?;
+				// This was the consequence of a partial unbond. just update the ledger and move
+				// on. But before, try to settle untracked stakes of the controller if they exist.
+				Self::maybe_settle_untracked_stake::<T::EventListeners>(&ledger.stash);
+
+				ledger.update::<T::EventListeners>()?;
 
 				// This is only an update, so we use less overall weight.
 				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
@@ -209,7 +258,7 @@ impl<T: Config> Pallet<T> {
 
 		// Input data seems good, no errors allowed after this point
 
-		ledger.update()?;
+		ledger.update::<T::EventListeners>()?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -313,13 +362,26 @@ impl<T: Config> Pallet<T> {
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
+					let prev_stake = ledger.clone().into();
+
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
 
-					let _ = ledger
-						.update()
-						.defensive_proof("ledger fetched from storage, so it exists; qed.");
+					// if it's a nominator, the ledger update event should not be propagated due to
+					// the complexity of updating the stake of all (potentially) exposed validators
+					// to this nominator and the cascading effects that may occur.
+					let _ = match <Self as StakingInterface>::status(stash)
+						.expect("stash is a staker; qed.")
+					{
+						StakerStatus::Nominator(_) => {
+							ledger.update::<UntrackedEvent>()?;
+							Self::add_untracked_stake(&stash, prev_stake);
+							Ok(())
+						},
+						StakerStatus::Validator => ledger.update::<T::EventListeners>(),
+						StakerStatus::Idle => Ok(()),
+					};
 
 					Ok(r)
 				})
@@ -599,6 +661,7 @@ impl<T: Config> Pallet<T> {
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			total_stake = total_stake.saturating_add(exposure.total);
+
 			<ErasStakers<T>>::insert(new_planned_era, &stash, &exposure);
 
 			let mut exposure_clipped = exposure;
@@ -678,12 +741,15 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
 		slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans)?;
 
-		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
-		// setting of the stash in `Payee`.
-		StakingLedger::<T>::kill(&stash)?;
-
+		// note: these must be called *before* cleaning up the staking ledger storage with fn kill.
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
+
+		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
+		// well as reward setting of the stash in `Payee`. We use the untracked event type since
+		// both [`Self::do_remove_validator`] and [`Self::do_remove_nominator`] already propagate
+		// the events.
+		StakingLedger::<T>::kill::<UntrackedEvent>(&stash)?;
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 
@@ -945,11 +1011,21 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		if !Nominators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
+			// new nominator.
+			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_add(
+				who,
+			);
+			Nominators::<T>::insert(who, nominations);
+		} else {
+			// update nominations.
+			let prev_nominations = Self::nominations(who).unwrap_or_default();
+
+			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_update(
+				who,
+				prev_nominations,
+			);
+			Nominators::<T>::insert(who, nominations.clone());
 		}
-		Nominators::<T>::insert(who, nominations);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
@@ -967,12 +1043,20 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let outcome = if Nominators::<T>::contains_key(who) {
+			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_remove(
+				who,
+				Self::nominations(who).unwrap_or_default(),
+			);
 			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
 			true
 		} else {
 			false
 		};
+
+		debug_assert_eq!(
+			Nominators::<T>::count() + Validators::<T>::count(),
+			T::VoterList::count()
+		);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
@@ -991,9 +1075,9 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
+			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_add(
+				who,
+			);
 		}
 		Validators::<T>::insert(who, prefs);
 
@@ -1013,7 +1097,9 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
 		let outcome = if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
+			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_remove(
+				who,
+			);
 			true
 		} else {
 			false
@@ -1717,7 +1803,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		let is_validator = Validators::<T>::contains_key(&who);
 		let is_nominator = Nominators::<T>::get(&who);
 
-		use sp_staking::StakerStatus;
 		match (is_validator, is_nominator.is_some()) {
 			(false, false) => Ok(StakerStatus::Idle),
 			(true, false) => Ok(StakerStatus::Validator),
@@ -1774,11 +1859,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::VoterList::count() ==
 				Nominators::<T>::count() + Validators::<T>::count(),
-			"wrong external count"
+			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
-			"wrong external count"
+			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(
 			ValidatorCount::<T>::get() <=

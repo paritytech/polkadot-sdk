@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
 };
 use frame_support::{
 	assert_ok, ord_parameter_types, parameter_types,
@@ -101,7 +101,9 @@ frame_support::construct_runtime!(
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
+		StakeTracker: pallet_stake_tracker,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		TargetBagsList: pallet_bags_list::<Instance2>,
 	}
 );
 
@@ -252,6 +254,16 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type Score = VoteWeight;
 }
 
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	// Staking is the source of truth for target bags list.
+	type ScoreProvider = Staking;
+	type BagThresholds = BagThresholds;
+	type Score = VoteWeight;
+}
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
@@ -275,8 +287,8 @@ parameter_types! {
 		(Zero::zero(), BTreeMap::new());
 }
 
-pub struct EventListenerMock;
-impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
+pub struct SlashListenerMock;
+impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
@@ -285,6 +297,13 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
+}
+
+impl pallet_stake_tracker::Config for Test {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterBagsList;
+	type TargetList = TargetBagsList;
 }
 
 impl crate::pallet::pallet::Config for Test {
@@ -309,11 +328,11 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
-	type TargetList = UseValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = EventListenerMock;
+	type EventListeners = (StakeTracker, SlashListenerMock);
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -481,6 +500,8 @@ impl ExtBuilder {
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
 				(81, self.balance_factor * 2000),
+				(90, self.balance_factor),
+				(91, self.balance_factor * 2000),
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
@@ -577,7 +598,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			Staking::do_try_state(System::block_number())
+				.map_err(|err| println!(" 🕵️‍♂️  try_state failue: {:?}", err))
+				.unwrap();
 		});
 	}
 }
@@ -840,4 +863,16 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+#[allow(dead_code)]
+pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, VoteWeight)>) {
+	(
+		VoterBagsList::iter()
+			.map(|v| (v, VoterBagsList::get_score(&v).unwrap()))
+			.collect::<Vec<_>>(),
+		TargetBagsList::iter()
+			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
+			.collect::<Vec<_>>(),
+	)
 }
