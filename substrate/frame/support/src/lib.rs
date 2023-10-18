@@ -2355,7 +2355,7 @@ pub mod pallet_macros {
 	/// the syntax, for example: `type Foo = StorageValue<..>`. For specific information about
 	/// each storage type, refer to the documentation of the respective type.
 	///
-	/// ### Example
+	/// #### Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2461,10 +2461,14 @@ pub mod pallet_macros {
 	/// ValueQuery>`. With `MyVal` storing a large list of bytes, `::append()` lets you
 	/// directly add bytes to the end in storage without processing the full list. Depending on
 	/// the storage type, additional key specifications may be needed.
+	///
+	/// #### Example
 	#[doc = docify::embed!("src/lib.rs", example_storage_value_append)]
 	/// Similarly, there also exists a `::try_append()` method, which can be used when handling
 	/// types where an append operation might fail, such as a
 	/// [`BoundedVec`](frame_support::BoundedVec).
+	///
+	/// #### Example
 	#[doc = docify::embed!("src/lib.rs", example_storage_value_try_append)]
 	/// ### Optimized Length Decoding
 	///
@@ -2473,6 +2477,7 @@ pub mod pallet_macros {
 	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
 	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
 	/// a collection's length without the necessity of decoding the entire dataset.
+	/// #### Example
 	#[doc = docify::embed!("src/lib.rs", example_storage_value_decode_len)]
 	/// ### Hashers
 	///
@@ -2520,6 +2525,8 @@ pub mod pallet_macros {
 	/// required. For map types, the prefix is extended with one or more keys defined by the
 	/// map.
 	///
+	/// #### Example
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_map_prefixes)]
 	/// ## Related Macros
 	///
 	/// The following macros can be used in conjunction with the storage macro:
@@ -2533,13 +2540,12 @@ pub mod pallet_macros {
 	mod test {
 		// use super::*;
 		use crate::{
-			storage::types::{StorageValue, ValueQuery},
+			hash::*,
+			storage::types::{StorageMap, StorageValue, ValueQuery},
 			traits::{ConstU32, StorageInstance},
 			BoundedVec,
 		};
-		use sp_io::TestExternalities;
-		// use sp_runtime::traits::Bounded;
-		// use sp_runtime::bounded_vec;
+		use sp_io::{hashing::twox_128, TestExternalities};
 
 		struct Prefix;
 		impl StorageInstance for Prefix {
@@ -2585,6 +2591,26 @@ pub mod pallet_macros {
 			TestExternalities::default().execute_with(|| {
 				MyVal::set(BoundedVec::try_from(vec![42, 43]).unwrap());
 				assert_eq!(MyVal::decode_len().unwrap(), 2);
+			});
+		}
+
+		#[docify::export]
+		#[test]
+		pub fn example_storage_value_map_prefixes() {
+			type MyVal = StorageValue<Prefix, u32, ValueQuery>;
+			type MyMap = StorageMap<Prefix, Blake2_128Concat, u16, u32, ValueQuery>;
+			TestExternalities::default().execute_with(|| {
+				// Get storage key for `MyVal` StorageValue
+				assert_eq!(
+					MyVal::hashed_key().to_vec(),
+					[twox_128(b"test"), twox_128(b"foo")].concat()
+				);
+				// Get storage key for `MyMap` StorageMap and `key` = 1
+				let mut k: Vec<u8> = vec![];
+				k.extend(&twox_128(b"test"));
+				k.extend(&twox_128(b"foo"));
+				k.extend(&1u16.blake2_128_concat());
+				assert_eq!(MyMap::hashed_key_for(1).to_vec(), k);
 			});
 		}
 	}
