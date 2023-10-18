@@ -25,8 +25,11 @@ polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain",
 polkadot-runtime-parachains = { path = "../../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false}
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+rococo-runtime = { path = "../../../../../../polkadot/runtime/rococo", default-features = false }
 
 # Cumulus
+asset-test-utils = { path = "../../../../runtimes/assets/test-utils", default-features = false }
 parachains-common = { path = "../../../../common" }
 asset-hub-rococo-runtime = { path = "../../../../runtimes/assets/asset-hub-rococo" }
 
@@ -48,4 +51,5 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
 ]

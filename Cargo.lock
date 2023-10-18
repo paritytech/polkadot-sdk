@@ -798,6 +798,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
+ "asset-test-utils",
  "frame-support",
  "frame-system",
  "integration-tests-common",
@@ -810,8 +811,10 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "rococo-runtime",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -871,6 +874,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "primitive-types",
+ "rococo-runtime",
  "rococo-runtime-constants",
  "scale-info",
  "smallvec",

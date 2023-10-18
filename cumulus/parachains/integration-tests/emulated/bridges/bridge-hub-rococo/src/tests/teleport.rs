@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::*;
-use asset_test_utils::xcm_helpers;
 use bridge_hub_rococo_runtime::xcm_config::XcmConfig;
 
 #[test]

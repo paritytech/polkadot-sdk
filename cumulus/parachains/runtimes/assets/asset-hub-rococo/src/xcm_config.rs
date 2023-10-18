@@ -27,12 +27,17 @@ use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Get, Nothing, PalletInfoAccess},
 };
+use rococo_runtime::Treasury as RococoTreasury;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
+use sp_runtime::traits::AccountIdConversion;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	TREASURY_PALLET_ID,
 };
+use parachains_common::xcm_config::RelayOrOtherSystemParachains;
+use rococo_runtime_constants::system_parachain::SystemParachains;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
@@ -46,6 +51,7 @@ use xcm_builder::{
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeesToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -67,6 +73,7 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -521,6 +528,24 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
+parameter_types! {
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(<RococoTreasury as PalletInfoAccess>::index() as u8)).into();
+}
+
+pub struct RelayTreasury;
+impl Contains<MultiLocation> for RelayTreasury {
+	fn contains(location: &MultiLocation) -> bool {
+		let relay_treasury_location = RelayTreasuryLocation::get();
+		*location == relay_treasury_location
+	}
+}
+
+
+/// Locations that will not be charged fees in the executor,
+/// either execution or delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
+
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - ROC with the parent Relay Chain and sibling system parachains; and
@@ -588,8 +613,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
-	type FeeManager = ();
+	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases =
 		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);

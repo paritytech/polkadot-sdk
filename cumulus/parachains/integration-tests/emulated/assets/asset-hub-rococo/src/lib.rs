@@ -20,6 +20,7 @@ pub use frame_support::{
 	sp_runtime::{AccountId32, DispatchError, DispatchResult},
 	traits::fungibles::Inspect,
 };
+pub use asset_test_utils::xcm_helpers;
 pub use integration_tests_common::{
 	constants::{
 		asset_hub_rococo::ED as ASSET_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
