@@ -59,6 +59,7 @@ pub use self::{
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 
 pub use sc_chain_spec::{
