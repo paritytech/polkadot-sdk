@@ -1312,9 +1312,6 @@ impl<T: Config> Pallet<T> {
 		vote: AccountVote<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut status = Self::referendum_status(ref_index)?;
-		// dbg!(vote.balance());
-		// dbg!(T::Fungible::balance_freezable(&who));
-		//
 		ensure!(
 			vote.balance() <= T::Fungible::balance_freezable(&who),
 			Error::<T>::InsufficientFunds
