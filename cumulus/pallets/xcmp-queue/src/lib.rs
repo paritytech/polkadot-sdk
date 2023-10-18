@@ -35,6 +35,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "bridging")]
+pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -947,6 +949,24 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 	}
+
+	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpStatus<T>>::get()
+			.iter()
+			.find(|c| c.sender == sender)
+			.map(|c| c.state == InboundState::Suspended)
+			.unwrap_or(false)
+	}
+
+	#[cfg(feature = "bridging")]
+	/// Returns tuple of `OutboundState` and number of queued pages.
+	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
+		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
+			let queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
+	}
 }
 
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
@@ -1129,7 +1149,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 		let pruned = old_statuses_len - statuses.len();
 		// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-		statuses.rotate_left(result.len() - pruned);
+		statuses.rotate_left(result.len().saturating_sub(pruned));
 
 		<OutboundXcmpStatus<T>>::put(statuses);
 

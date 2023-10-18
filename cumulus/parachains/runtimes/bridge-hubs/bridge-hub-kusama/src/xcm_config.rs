@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
+use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
 use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::latest::prelude::*;
 use xcm_builder::{AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic};
@@ -157,7 +157,7 @@ pub type Barrier = TrailingSetTopicAsId<
 			AllowKnownQueryResponses<PolkadotXcm>,
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then
+					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
@@ -172,6 +172,10 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - KSM with the parent Relay Chain and sibling parachains.
+pub type TrustedTeleporters = ConcreteAssetFromSystem<KsmRelayLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -181,8 +185,7 @@ impl xcm_executor::Config for XcmConfig {
 	// BridgeHub does not recognize a reserve location for any asset. Users must teleport KSM
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of KSM.
-	type IsTeleporter = ConcreteNativeAssetFrom<KsmRelayLocation>;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
