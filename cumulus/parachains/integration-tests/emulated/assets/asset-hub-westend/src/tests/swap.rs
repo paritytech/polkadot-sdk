@@ -319,10 +319,10 @@ fn cannot_create_pool_from_pool_assets() {
 	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocation::get());
 	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation::get();
 	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
+	let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
+	AssetHubWestend::fund_accounts(vec![(pool_owner_account_id.clone(), 1_000_000_000)]);
 
 	AssetHubWestend::execute_with(|| {
-		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
-
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PoolAssets::create(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(pool_owner_account_id.clone()),
 			ASSET_ID.into(),
