@@ -513,12 +513,12 @@ where
 			.count()
 	}
 
-	/// Get total number of downloaded blocks.
+	/// Get the total number of downloaded blocks.
 	pub fn num_downloaded_blocks(&self) -> usize {
 		self.downloaded_blocks
 	}
 
-	/// Get number of peers known to the syncing state machine.
+	/// Get the number of peers known to the syncing state machine.
 	pub fn num_peers(&self) -> usize {
 		self.peers.len()
 	}
@@ -649,7 +649,7 @@ where
 		}
 	}
 
-	/// Inform sync about new best imported block.
+	/// Inform sync about a new best imported block.
 	pub fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
 		self.on_block_queued(best_hash, best_number);
 	}
@@ -728,7 +728,7 @@ where
 			.extend(peers);
 	}
 
-	/// Submit block response for processing.
+	/// Submit a block response for processing.
 	#[must_use]
 	pub fn on_block_data(
 		&mut self,
@@ -994,7 +994,7 @@ where
 		Ok(OnBlockData::Import(self.validate_and_queue_blocks(new_blocks, gap)))
 	}
 
-	/// Submit justification response for processing.
+	/// Submit a justification response for processing.
 	#[must_use]
 	pub fn on_block_justification(
 		&mut self,
@@ -1052,7 +1052,7 @@ where
 		Ok(OnBlockJustification::Nothing)
 	}
 
-	/// Report justification import (successful or not).
+	/// Report a justification import (successful or not).
 	pub fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
 		let finalization_result = if success { Ok((hash, number)) } else { Err(()) };
 		self.extra_justifications
@@ -1100,7 +1100,7 @@ where
 		}
 	}
 
-	/// Submit validated block announcement.
+	/// Submit a validated block announcement.
 	pub fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
@@ -1498,7 +1498,7 @@ where
 			.collect()
 	}
 
-	/// Set warp sync target block externally in case we skip warp proof downloading.
+	/// Set the warp sync target block externally in case we skip warp proofs downloading.
 	pub fn set_warp_sync_target_block(&mut self, header: B::Header) {
 		if let Some(ref mut warp_sync) = self.warp_sync {
 			warp_sync.set_target_block(header);
@@ -1599,7 +1599,7 @@ where
 		}
 	}
 
-	/// Submit state received in a response.
+	/// Submit a state received in a response.
 	#[must_use]
 	pub fn on_state_response(
 		&mut self,
@@ -1619,7 +1619,7 @@ where
 		}
 	}
 
-	/// Submit warp proof response received.
+	/// Submit a warp proof response received.
 	pub fn on_warp_sync_response(&mut self, peer_id: PeerId, response: EncodedProof) {
 		if let Err(BadPeer(id, repu)) = self.on_warp_sync_data(&peer_id, response) {
 			self.network_service
@@ -1782,7 +1782,7 @@ where
 			.collect()
 	}
 
-	/// Get state request scheduled by sync to be sent out (if any).
+	/// Get a state request scheduled by sync to be sent out (if any).
 	pub fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		if self.allowed_requests.is_empty() {
 			return None
@@ -1828,7 +1828,7 @@ where
 		None
 	}
 
-	/// Get warp proof request scheduled by sync to be sent out (if any).
+	/// Get a warp proof request scheduled by sync to be sent out (if any).
 	pub fn warp_sync_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		if let Some(sync) = &self.warp_sync {
 			if self.allowed_requests.is_empty() ||
