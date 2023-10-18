@@ -36,13 +36,16 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{CheckedSub, Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{
+		Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+	},
 	Perbill,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
+	delegation::DelegatedStakeInterface,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	delegation::DelegatedStakeInterface, EraIndex, SessionIndex, Stake,
+	EraIndex, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -122,7 +125,7 @@ impl<T: Config> Pallet<T> {
 	fn stakeable_balance(who: &T::AccountId, stake_type: StakeType) -> BalanceOf<T> {
 		match stake_type {
 			StakeType::Direct => T::Currency::free_balance(who),
-			StakeType::Delegated => delegation::delegated_free::<T>(who)
+			StakeType::Delegated => delegation::delegated_balance::<T>(who),
 		}
 	}
 
@@ -168,10 +171,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn do_bond_extra(
-		stash: T::AccountId,
-		max_additional: BalanceOf<T>,
-	) -> DispatchResult {
+	pub fn do_bond_extra(stash: T::AccountId, max_additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
 		let stash_balance = T::Currency::free_balance(&stash);
@@ -180,10 +180,7 @@ impl<T: Config> Pallet<T> {
 			ledger.total += extra;
 			ledger.active += extra;
 			// Last check: the new active amount of ledger must be more than ED.
-			ensure!(
-					ledger.active >= T::Currency::minimum_balance(),
-					Error::<T>::InsufficientBond
-				);
+			ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
@@ -1879,22 +1876,30 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 
 		// we want to transfer the bonded value only from active bond that is not part of delegation
 		// bond. We ignore the funds that are in unlocking period.
-		let active_direct = ledger.active.saturating_sub(delegation::delegated_staked::<T>(&delegatee));
-		ensure!(ledger.active > value + T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+		// fixme(ank4n): possible way it could work
+		// 1) Pools creates new account that will act as delegatee.
+		// 2) Old pool account delegates to new account.
+		// 3) Slowly move funds from old account to user account, lock and delegate to new account
+		//    in one go. This is what the new migration function should do.
 
-		// Unbond `value` from delegatee and transfer it to delegator.
-		T::Currency::set_lock(
-			crate::STAKING_ID,
-			&delegatee,
-			active_direct - value,
-			WithdrawReasons::all(),
-		);
-		T::Currency::transfer(&delegatee, &delegator, value, KeepAlive)?;
+		// let active_direct =
+		// 	ledger.active.saturating_sub(delegation::delegated_balance::<T>(&delegatee));
+		// ensure!(ledger.active > value + T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+		//
+		// // Unbond `value` from delegatee and transfer it to delegator.
+		// T::Currency::set_lock(
+		// 	crate::STAKING_ID,
+		// 	&delegatee,
+		// 	active_direct - value,
+		// 	WithdrawReasons::all(),
+		// );
+		// T::Currency::transfer(&delegatee, &delegator, value, KeepAlive)?;
+		//
+		// // Delegate the unbonded fund.
+		// delegation::delegate::<T>(delegator, delegatee, value)?;
 
-		// Delegate the unbonded fund.
-		delegation::delegate::<T>(delegator, delegatee, value)?;
-
-		Ok(())
+		// Ok(())
+		todo!("Revisit migrate strategy again");
 	}
 
 	fn unbond(delegatee: Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {

@@ -49,23 +49,15 @@ const DELEGATING_ID: LockIdentifier = *b"delegate";
 pub struct DelegationAggregate<T: Config> {
 	/// Sum of all delegated funds to this delegatee.
 	#[codec(compact)]
-	pub total: BalanceOf<T>,
-	/// Part of total that is staked.
-	#[codec(compact)]
-	pub staked: BalanceOf<T>,
+	pub balance: BalanceOf<T>,
 	/// Slashes that are not yet applied.
 	#[codec(compact)]
 	pub pending_slash: BalanceOf<T>,
 }
 
 /// Total balance that is delegated to this account but not yet staked.
-pub(crate) fn delegated_free<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
-	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.total.saturating_sub(aggregate.staked))
-}
-
-/// Part of delegated balance that is staked.
-pub(crate) fn delegated_staked<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
-	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.staked)
+pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
+	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.balance)
 }
 
 /// Delegate some amount from delegator to delegatee.
@@ -102,11 +94,10 @@ pub(crate) fn delegate<T: Config>(
 
 	<Delegators<T>>::insert(&delegator, (&delegatee, new_delegation_amount));
 	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
-		Some(aggregate) => aggregate.total.saturating_accrue(value),
+		Some(aggregate) => aggregate.balance.saturating_accrue(value),
 		None =>
 			*maybe_aggregate = Some(DelegationAggregate {
-				total: new_delegation_amount,
-				staked: BalanceOf::<T>::zero(),
+				balance: new_delegation_amount,
 				pending_slash: Default::default(),
 			}),
 	});
@@ -141,7 +132,7 @@ pub(crate) fn withdraw<T: Config>(
 
 	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
 		Some(ledger) => {
-			ledger.total.saturating_reduce(value);
+			ledger.balance.saturating_reduce(value);
 			Ok(())
 		},
 		None => {
