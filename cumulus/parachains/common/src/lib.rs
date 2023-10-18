@@ -20,6 +20,7 @@ pub mod kusama;
 pub mod polkadot;
 pub mod rococo;
 pub mod westend;
+pub mod wococo;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;
