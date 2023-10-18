@@ -200,7 +200,6 @@ impl Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		// balances: vec![(1, 11), (2, 21), (3, 31), (4, 41), (5, 51), (6, 61)],
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
 	}
 	.assimilate_storage(&mut t)
