@@ -374,7 +374,10 @@ impl DiscoveryBehaviour {
 		supported_protocols: &[impl AsRef<str>],
 		addr: Multiaddr,
 	) {
-		log::debug!(target: "sub-libp2p", "add self-reported address {peer_id}: {addr:?}");
+		log::debug!(target: "sub-libp2p", "add self-reported address {peer_id}: {addr:?} {} {}",
+			self.allow_non_globals_in_dht,
+			Self::can_add_to_dht(&addr)
+		);
 		if let Some(kademlia) = self.kademlia.as_mut() {
 			if !self.allow_non_globals_in_dht && !Self::can_add_to_dht(&addr) {
 				trace!(
@@ -612,9 +615,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				});
 			}
 
-			if let Some(addresses) = self.aux_address_store.get(&peer_id) {
-				list.extend(addresses.iter().cloned())
-			}
+			// if let Some(addresses) = self.aux_address_store.get(&peer_id) {
+			// 	list.extend(addresses.iter().cloned())
+			// }
 
 			list.extend(list_to_filter);
 		}
