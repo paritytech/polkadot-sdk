@@ -64,7 +64,7 @@ pub struct ResolveTo<A, F>(PhantomData<(A, F)>);
 impl<A: TypedGet, F: fungible::Balanced<A::Type>> OnUnbalanced<fungible::Credit<A::Type, F>>
 	for ResolveTo<A, F>
 {
-	fn on_unbalanced(credit: fungible::Credit<A::Type, F>) {
+	fn on_nonzero_unbalanced(credit: fungible::Credit<A::Type, F>) {
 		let _ = F::resolve(&A::get(), credit).map_err(|c| drop(c));
 	}
 }
@@ -77,7 +77,7 @@ pub struct ResolveAssetTo<A, F>(PhantomData<(A, F)>);
 impl<A: TypedGet, F: fungibles::Balanced<A::Type>> OnUnbalanced<fungibles::Credit<A::Type, F>>
 	for ResolveAssetTo<A, F>
 {
-	fn on_unbalanced(credit: fungibles::Credit<A::Type, F>) {
+	fn on_nonzero_unbalanced(credit: fungibles::Credit<A::Type, F>) {
 		let _ = F::resolve(&A::get(), credit).map_err(|c| drop(c));
 	}
 }
