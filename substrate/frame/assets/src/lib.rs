@@ -237,7 +237,7 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		type RuntimeHoldReason: From<HoldReason<I>>;
 
 		/// The units in which we record balances.
 		type Balance: Member
@@ -586,7 +586,7 @@ pub mod pallet {
 
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
-	pub enum HoldReason {
+	pub enum HoldReason<I: 'static = ()> {
 		// Holds involved in asset construction:
 		AssetCreation,
 		AssetMetadata,

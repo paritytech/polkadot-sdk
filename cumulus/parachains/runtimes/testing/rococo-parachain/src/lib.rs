@@ -247,7 +247,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<4>; // assets
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -543,10 +543,11 @@ pub type AdminOrigin =
 
 impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = u64;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AdminOrigin;
 	type AssetDeposit = AssetDeposit;
@@ -587,7 +588,7 @@ construct_runtime! {
 		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 21,
 
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, HoldReason} = 31,
 
 		Aura: pallet_aura::{Pallet, Config<T>},
 		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config<T>},

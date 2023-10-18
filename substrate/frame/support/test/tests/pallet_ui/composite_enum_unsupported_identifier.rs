@@ -24,7 +24,7 @@ mod pallet {
 	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
 	#[pallet::composite_enum]
-	pub enum HoldReasons {}
+	pub enum HoldReason {}
 }
 
 fn main() {}

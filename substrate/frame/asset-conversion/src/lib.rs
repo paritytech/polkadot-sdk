@@ -1121,7 +1121,7 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				return Err(Error::<T>::ZeroLiquidity.into())
+				return Err(Error::<T>::ZeroLiquidity)
 			}
 
 			let amount_in_with_fee = amount_in
