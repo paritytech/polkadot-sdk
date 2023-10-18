@@ -28,16 +28,16 @@
 //! spec. Internally, the chain spec is embodied by the [`GenericChainSpec`] struct, and specific
 //! properties can be accessed using the [`ChainSpec`] trait.
 //!
-//! In summary, although not restricted to, the primary role of the chain spec is to provide a list of
-//! well-known boot nodes for the blockchain network and the means for initializing the genesis
+//! In summary, although not restricted to, the primary role of the chain spec is to provide a list
+//! of well-known boot nodes for the blockchain network and the means for initializing the genesis
 //! storage. This initialization is necessary for creating a genesis block upon which subsequent
 //! blocks are built. When the node is launched for the first time, it reads the chain spec,
 //! initializes the genesis block, and establishes connections with the boot nodes.
 //!
 //! The JSON chain spec is divided into three main logical sections:
 //! - one section details general chain properties,
-//! - another explicitly or indirectly defines the genesis storage, which, in turn,
-//!   determines the genesis hash of the chain,
+//! - another explicitly or indirectly defines the genesis storage, which, in turn, determines the
+//!   genesis hash of the chain,
 //! - the third deals with the runtime code.
 //!
 //! The chain specification consists of the following fields:
@@ -160,28 +160,29 @@
 //!       <td>
 //! 		<a href="enum.GenesisFormat.html#variant.Raw"><code>raw</code></a>
 //!       </td>
-//!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code>. Each
-//! field is a map of <code>key => value</code> pairs representing entries in a genesis storage
+//!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code>.
+//! Each field is a map of <code>key => value</code> pairs representing entries in a genesis storage
 //! trie.</td>
 //!     </tr>
 //!   </tbody>
 //! </table>
 //!
-//! For production or long-lasting blockchains, using the `raw` format in the chain specification is recommended.
+//! For production or long-lasting blockchains, using the `raw` format in the chain specification is
+//! recommended.
 //!
 //! JSON examples in the [following section](#json-chain-specification-example) illustrate the `raw`
 //! and `runtimeGenesisConfigPatch` genesis fields.
 //!
 //! # From Initial State to Raw Genesis.
 //!
-//! To generate a raw genesis storage from the JSON representation of the runtime genesis config, the
-//! node needs to interact with the runtime.
+//! To generate a raw genesis storage from the JSON representation of the runtime genesis config,
+//! the node needs to interact with the runtime.
 //!
 //! This interaction involves passing the runtime genesis config JSON blob to the runtime using the
-//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. During this operation, the runtime
-//! converts the JSON representation of the genesis config into [`sp_io::storage`] items. It is a
-//! crucial step for computing the storage root hash, which is a key component in determining the
-//! genesis hash.
+//! [`sp_genesis_builder::GenesisBuilder::build_config`] function. During this operation, the
+//! runtime converts the JSON representation of the genesis config into [`sp_io::storage`] items. It
+//! is a crucial step for computing the storage root hash, which is a key component in determining
+//! the genesis hash.
 //!
 //! Consequently, the runtime must support the [`sp_genesis_builder::GenesisBuilder`] API to
 //! utilize either [`RuntimeGenesisConfigPatch`][patch] or [`RuntimeGenesisConfig`][full] formats.
