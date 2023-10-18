@@ -76,6 +76,7 @@ macro_rules! concat_const {
 
         const LEN: usize = 0 $(+ $arg.len())*;
 
+        // concatenate strings as byte slices
         const CAT: [u8; LEN] = {
             let mut cat = [0u8; LEN];
             // for turning off unused warning
@@ -96,6 +97,9 @@ macro_rules! concat_const {
             cat
         };
 
+        // FIXME eagr: consider opting for `from_utf8_unchecked()`
+        // SAFETY: The concatenation of two string slices is guaranteed to be valid UTF8,
+        // so are the byte slices as they have the same memory layout.
         match std::str::from_utf8(&CAT) {
             Ok(s) => s,
             Err(_) => panic!("Error converting bytes to str"),
@@ -231,55 +235,77 @@ impl Artifacts {
 	}
 
 	async fn insert_and_prune(&mut self, cache_path: impl AsRef<Path>) {
-		fn is_fresh(file_name: &str) -> bool {
-			file_name.starts_with(ARTIFACT_PREFIX)
+		fn is_stale(file_name: &str) -> bool {
+			!file_name.starts_with(ARTIFACT_PREFIX)
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
 		let cache_path = cache_path.as_ref();
 		let _ = tokio::fs::create_dir_all(cache_path).await;
 
-		if let Ok(mut dir) = tokio::fs::read_dir(cache_path).await {
-			let mut prunes = vec![];
+		match tokio::fs::read_dir(cache_path).await {
+			Ok(mut dir) => {
+				let mut prunes = vec![];
 
-			loop {
-				match dir.next_entry().await {
-					Ok(None) => break,
-					Ok(Some(entry)) => {
-						let file_name = entry.file_name();
-						if let Some(file_name) = file_name.to_str() {
-							if is_fresh(file_name) {
-								if let Some(id) = ArtifactId::from_file_name(file_name) {
-									self.insert_prepared(id, SystemTime::now(), Default::default());
+				loop {
+					match dir.next_entry().await {
+						Ok(None) => break,
+						Ok(Some(entry)) => {
+							let file_name = entry.file_name();
+							if let Some(file_name) = file_name.to_str() {
+								let id = ArtifactId::from_file_name(file_name);
+								let file_path = cache_path.join(file_name);
+
+								if is_stale(file_name) || id.is_none() {
+									prunes.push(tokio::fs::remove_file(file_path.clone()));
 									gum::debug!(
 										target: LOG_TARGET,
-										"reusing valid artifact found on disk for current node version v{}",
-										NODE_VERSION,
+										"discarding invalid artifact {:?}",
+										&file_path,
 									);
 									continue
 								}
+
+								if let Some(id) = id {
+									self.insert_prepared(id, SystemTime::now(), Default::default());
+									gum::debug!(
+										target: LOG_TARGET,
+										"reusing {:?} for node version v{}",
+										&file_path,
+										NODE_VERSION,
+									);
+								}
+							} else {
+								gum::warn!(
+									target: LOG_TARGET,
+									"non-Unicode file name found in {:?}",
+									cache_path,
+								);
 							}
-
-							prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
-							gum::debug!(
+						},
+						Err(err) => {
+							gum::warn!(
 								target: LOG_TARGET,
-								"discarding invalid artifact {}",
-								file_name,
+								?err,
+								"while collecting stale artifacts from {:?}",
+								cache_path,
 							);
-						}
-					},
-					Err(err) => {
-						gum::error!(
-							target: LOG_TARGET,
-							?err,
-							"I/O error while collecting stale artifacts",
-						);
-						break
-					},
+							break
+						},
+					}
 				}
-			}
 
-			futures::future::join_all(prunes).await;
+				futures::future::join_all(prunes).await;
+			},
+
+			Err(err) => {
+				gum::error!(
+					target: LOG_TARGET,
+					?err,
+					"failed to read dir {:?}",
+					cache_path,
+				)
+			},
 		}
 	}
 
