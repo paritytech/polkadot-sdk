@@ -176,8 +176,8 @@ pub(crate) fn map_results(
 	Ok(all_benchmarks)
 }
 
-// Calculates the total maximum weight of an extrinsic (if present, based on the max component) and
-// compares it with the max extrinsic weight allowed in a single block.
+// Calculates the total maximum weight of an extrinsic (if present, based on the max. component
+// value) and compares it with the max. extrinsic weight allowed in a single block.
 //
 // `max_extrinsic_weight` & `db_weight` are obtained from the runtime configuration.
 pub(crate) fn sanity_weight_check(
@@ -263,7 +263,7 @@ pub(crate) fn sanity_weight_check(
 					"\x1B[31mThe following extrinsic exceeds the maximum extrinsic weight:\x1B[0m",
 				);
 			}
-			println!("- \x1B[1m'{}'\x1B[0m: {:?}\nPercentage of max extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
+			println!("- \x1B[1m'{}'\x1B[0m: {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
 				result.name,
 				total_weight,
 				(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,

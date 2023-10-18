@@ -64,7 +64,7 @@ impl std::fmt::Display for WasmExecutionMethod {
 	}
 }
 
-/// What to do when an extrinsic's weight exceeds the max extrinsic weight
+/// What to do when a (`DispatchClass::Normal`) extrinsic's weight exceeds the max. extrinsic weight
 /// per block.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
