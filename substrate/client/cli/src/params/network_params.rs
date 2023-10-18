@@ -204,6 +204,10 @@ impl NetworkParams {
 			self.discover_local ||
 				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development);
 
+		log::warn!(target: "sub-libp2p", "allow non-globals in dht: {allow_non_globals_in_dht}, discover local {} is_dev {}, chain type {:?}",
+			self.discover_local, is_dev, chain_type,
+		);
+
 		let allow_private_ip = match (self.allow_private_ip, self.no_private_ip) {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
 			(true, false) => true,
