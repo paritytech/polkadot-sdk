@@ -2004,7 +2004,9 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "asset-test-utils",
  "bp-messages",
+ "bridge-hub-rococo-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
@@ -2017,6 +2019,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 

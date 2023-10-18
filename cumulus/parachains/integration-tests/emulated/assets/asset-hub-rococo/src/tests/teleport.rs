@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -362,7 +363,8 @@ fn teleport_to_other_system_parachains_works() {
 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		AssetHubRococo,        // Origin
+		AssetHubRococo, // Origin
+		AssetHubRococoXcmConfig, // XCM Configuration
 		vec![BridgeHubRococo], // Destinations
 		(native_asset, amount)
 	);
