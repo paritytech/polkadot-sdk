@@ -231,8 +231,8 @@ impl Artifacts {
 	}
 
 	async fn insert_and_prune(&mut self, cache_path: impl AsRef<Path>) {
-		fn is_stale(file_name: &str) -> bool {
-			!file_name.starts_with(ARTIFACT_PREFIX)
+		fn is_fresh(file_name: &str) -> bool {
+			file_name.starts_with(ARTIFACT_PREFIX)
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
@@ -248,23 +248,24 @@ impl Artifacts {
 					Ok(Some(entry)) => {
 						let file_name = entry.file_name();
 						if let Some(file_name) = file_name.to_str() {
-							if is_stale(file_name) {
-								prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
-
-								gum::debug!(
-									target: LOG_TARGET,
-									"discarding invalid artifact {}",
-									file_name,
-								);
-							} else if let Some(id) = ArtifactId::from_file_name(file_name) {
-								self.insert_prepared(id, SystemTime::now(), Default::default());
-
-								gum::debug!(
-									target: LOG_TARGET,
-									"reusing valid artifact found on disk for current node version v{}",
-									NODE_VERSION,
-								);
+							if is_fresh(file_name) {
+								if let Some(id) = ArtifactId::from_file_name(file_name) {
+									self.insert_prepared(id, SystemTime::now(), Default::default());
+									gum::debug!(
+										target: LOG_TARGET,
+										"reusing valid artifact found on disk for current node version v{}",
+										NODE_VERSION,
+									);
+									continue
+								}
 							}
+
+							prunes.push(tokio::fs::remove_file(cache_path.join(file_name)));
+							gum::debug!(
+								target: LOG_TARGET,
+								"discarding invalid artifact {}",
+								file_name,
+							);
 						}
 					},
 					Err(err) => {
@@ -350,6 +351,7 @@ impl Artifacts {
 mod tests {
 	use super::{ArtifactId, Artifacts, ARTIFACT_PREFIX, NODE_VERSION};
 	use polkadot_primitives::ExecutorParamsHash;
+	use rand::Rng;
 	use sp_core::H256;
 	use std::{
 		fs,
@@ -357,23 +359,40 @@ mod tests {
 		str::FromStr,
 	};
 
+	fn rand_hash() -> String {
+		let mut rng = rand::thread_rng();
+		let hex: Vec<_> = "0123456789abcdef".chars().collect();
+		(0..64).map(|_| hex[rng.gen_range(0..hex.len())]).collect()
+	}
+
 	fn file_name(code_hash: &str, param_hash: &str) -> String {
 		format!("wasmtime_polkadot_v{}_0x{}_0x{}", NODE_VERSION, code_hash, param_hash)
 	}
 
-	fn fake_artifact_path<D: AsRef<Path>>(dir: D, prefix: &str) -> PathBuf {
-		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
-		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
-		let file_name = format!("{}_0x{}_0x{}", prefix, code_hash, params_hash);
-
+	fn fake_artifact_path(
+		dir: impl AsRef<Path>,
+		prefix: &str,
+		code_hash: impl AsRef<str>,
+		params_hash: impl AsRef<str>,
+	) -> PathBuf {
 		let mut path = dir.as_ref().to_path_buf();
+		let file_name = format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref());
 		path.push(file_name);
 		path
 	}
 
-	fn create_fake_artifact<D: AsRef<Path>>(dir: D, prefix: &str) {
-		let path = fake_artifact_path(dir, prefix);
+	fn create_artifact(
+		dir: impl AsRef<Path>,
+		prefix: &str,
+		code_hash: impl AsRef<str>,
+		params_hash: impl AsRef<str>,
+	) {
+		let path = fake_artifact_path(dir, prefix, code_hash, params_hash);
 		fs::File::create(path).unwrap();
+	}
+
+	fn create_rand_artifact(dir: impl AsRef<Path>, prefix: &str) {
+		create_artifact(dir, prefix, rand_hash(), rand_hash());
 	}
 
 	#[test]
@@ -429,13 +448,15 @@ mod tests {
 
 		fs::create_dir_all(&cache_dir).unwrap();
 
-		// 3 invalid, 1 valid
-		create_fake_artifact(&cache_dir, "");
-		create_fake_artifact(&cache_dir, "wasmtime_polkadot_v");
-		create_fake_artifact(&cache_dir, "wasmtime_polkadot_v1.0.0");
-		create_fake_artifact(&cache_dir, ARTIFACT_PREFIX);
+		// 5 invalid, 1 valid
+		create_rand_artifact(&cache_dir, "");
+		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
+		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v1.0.0");
+		create_rand_artifact(&cache_dir, ARTIFACT_PREFIX);
+		create_artifact(&cache_dir, ARTIFACT_PREFIX, "", "");
+		create_artifact(&cache_dir, ARTIFACT_PREFIX, "000", "000000");
 
-		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 4);
+		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 6);
 
 		let artifacts = Artifacts::new_and_prune(&cache_dir).await;
 
