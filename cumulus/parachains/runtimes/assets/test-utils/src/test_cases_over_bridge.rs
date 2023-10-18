@@ -20,7 +20,9 @@ use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,
-	traits::{Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError},
+	traits::{
+		fungible::Mutate, Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
+	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
@@ -163,6 +165,12 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 					id: sp_runtime::AccountId32::new([3; 32]).into(),
 				}),
 			};
+
+			// Make sure sender has enough funds for paying delivery fees
+			// TODO: Get this fee via weighing the corresponding message
+			let delivery_fees = 1324039894;
+			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
+				.unwrap();
 
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
