@@ -45,6 +45,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "bridging")]
+pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -1016,6 +1018,24 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(false, "WARNING: Attempt to resume channel that was not suspended.");
 			}
 		});
+	}
+
+	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpStatus<T>>::get()
+			.iter()
+			.find(|c| c.sender == sender)
+			.map(|c| c.state == InboundState::Suspended)
+			.unwrap_or(false)
+	}
+
+	#[cfg(feature = "bridging")]
+	/// Returns tuple of `OutboundState` and number of queued pages.
+	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
+		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
+			let queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
 	}
 }
 

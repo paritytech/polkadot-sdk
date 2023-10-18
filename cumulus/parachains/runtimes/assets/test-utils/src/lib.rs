@@ -18,4 +18,5 @@
 
 pub mod test_cases;
 pub mod xcm_helpers;
+pub mod test_cases_over_bridge;
 pub use parachains_runtimes_test_utils::*;
