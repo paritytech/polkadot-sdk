@@ -342,6 +342,48 @@ fn v1_advertisement_accepted_and_seconded() {
 }
 
 #[test]
+fn v1_advertisement_rejected_on_non_active_leave() {
+	let test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 5;
+
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+
+		let peer_a = PeerId::random();
+
+		// Accept both collators from the implicit view.
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_a, get_parent_hash(head_b), None).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)),
+			) => {
+				assert_eq!(peer, peer_a);
+				assert_eq!(rep.value, COST_PROTOCOL_MISUSE.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+#[test]
 fn accept_advertisements_from_implicit_view() {
 	let test_state = TestState::default();
 

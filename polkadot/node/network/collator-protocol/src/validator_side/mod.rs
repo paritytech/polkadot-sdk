@@ -84,6 +84,8 @@ const COST_NETWORK_ERROR: Rep = Rep::CostMinor("Some network error");
 const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Invalid network message signature");
 const COST_REPORT_BAD: Rep = Rep::Malicious("A collator was reported by another subsystem");
 const COST_WRONG_PARA: Rep = Rep::Malicious("A collator provided a collation for the wrong para");
+const COST_PROTOCOL_MISUSE: Rep =
+	Rep::Malicious("A collator advertising a collation for an async backing relay parent using V1");
 const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
 const BENEFIT_NOTIFY_GOOD: Rep =
 	Rep::BenefitMinor("A collator was noted good by another subsystem");
@@ -938,6 +940,9 @@ enum AdvertisementError {
 	InvalidAssignment,
 	/// Para reached a limit of seconded candidates for this relay parent.
 	SecondedLimitReached,
+	/// Collator trying to advertise a collation using V1 protocol for an async backing relay
+	/// parent.
+	ProtocolMisuse,
 	/// Advertisement is invalid.
 	Invalid(InsertAdvertisementError),
 }
@@ -947,6 +952,7 @@ impl AdvertisementError {
 		use AdvertisementError::*;
 		match self {
 			InvalidAssignment => Some(COST_WRONG_PARA),
+			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
 			RelayParentUnknown | UndeclaredCollator | Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
 			UnknownPeer | SecondedLimitReached => None,
 		}
@@ -1056,6 +1062,13 @@ where
 		.get(&relay_parent)
 		.map(|s| s.child("advertise-collation"));
 
+	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
+
+	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains_key(&relay_parent)
+	{
+		return Err(AdvertisementError::ProtocolMisuse)
+	}
+
 	let per_relay_parent = state
 		.per_relay_parent
 		.get(&relay_parent)
@@ -1064,7 +1077,6 @@ where
 	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 	let assignment = &per_relay_parent.assignment;
 
-	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 	let collator_para_id =
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
