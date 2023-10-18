@@ -122,15 +122,15 @@
 //! The `genesis` key of the chain specification definition describes the
 //! initial state of the runtime. For example it may contain:
 //! - initial list of funded accounts,
-//! - the administrative account that controls the sudo key
+//! - the administrative account that controls the sudo key,
 //! - initial authorities set for consensus, etc.
 //!
 //! The compiled WASM blob of the runtime code is stored in the state (and therefore on the chain).
 //! As a result, the initial runtime must also be provided within the chain specification (under the
 //! `code` field).
 //!
-//! The genesis state can be represented in the formats described by [`chain_spec::Genesis<G>`]
-//! enum. It includes:
+//! The genesis state can be represented in the formats described by [`GenesisFormat<G>`]
+//! enum. In essence, tha most important formats are:
 //! <table>
 //!   <thead>
 //!     <tr>
@@ -140,31 +140,29 @@
 //!   </thead>
 //!   <tbody>
 //!     <tr>
-//!       <td><code>runtime</code></td>
+//!       <td>
+//! 		<a href="enum.GenesisFormat.html#variant.RuntimeGenesisConfig"><code>runtime</code></a>
+//!       </td>
 //!       <td>A JSON object that provides an explicit and comprehensive representation of the
-//! <code>RuntimeGenesisConfig</code> struct. This struct is declared by the runtime and is opaque
-//! to the node.</td>
+//! <code>RuntimeGenesisConfig</code> struct. Must contain all the keys of the genesis config, no
+//! defaults will be used.</td>
 //!     </tr>
 //!     <tr>
-//!       <td><code>runtimeGenesisConfig</code></td>
-//!       <td>An alias for the <code>runtime</code> format.</td>
-//!     </tr>
-//!     <tr>
-//!       <td><code>runtimeGenesisConfigPatch</code></td>
+//!       <td>
+//! 		<a href="enum.GenesisFormat.html#variant.RuntimeGenesisConfigPatch"><code>patch</code></a>
+//!       </td>
 //!       <td>A JSON object that offers a partial representation of the
-//!       <code>RuntimeGenesisConfig</code>
-//! provided by the runtime. It contains a patch, which is essentially a list of keys to customize
-//! in the default runtime's <code>RuntimeGenesisConfig</code>. It is opaque to the node.</td>
+//!       <code>RuntimeGenesisConfig</code> provided by the runtime. It contains a patch, which is
+//! essentially a list of keys to customize in the default runtime's
+//! <code>RuntimeGenesisConfig</code>.</td>
 //!     </tr>
 //!     <tr>
-//!       <td><code>raw</code></td>
+//!       <td>
+//! 		<a href="enum.GenesisFormat.html#variant.Raw"><code>raw</code></a>
+//!       </td>
 //!       <td>A JSON object with two fields: <code>top</code> and <code>children_default</code> Each
 //! field is a map of <code>key => value</code> pairs representing entries in a genesis storage
-//! trie.</td>     </tr>
-//!     <tr>
-//!       <td><code>stateRootHash</code></td>
-//!       <td>A single hex-encoded hash representing the genesis hash. The hash type
-//!   depends on the hash used by the chain.</td>
+//! trie.</td>
 //!     </tr>
 //!   </tbody>
 //! </table>
@@ -320,7 +318,9 @@ mod genesis_config_builder;
 mod json_patch;
 
 pub use self::{
-	chain_spec::{ChainSpec as GenericChainSpec, ChainSpecBuilder, NoExtension},
+	chain_spec::{
+		ChainSpec as GenericChainSpec, ChainSpecBuilder, Genesis as GenesisFormat, NoExtension,
+	},
 	extension::{get_extension, get_extension_mut, Extension, Fork, Forks, GetExtension, Group},
 	genesis_block::{
 		construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,
