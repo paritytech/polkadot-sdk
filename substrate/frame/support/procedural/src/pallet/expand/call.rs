@@ -241,6 +241,16 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
+	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let feeless_check_result =
+		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			if let Some(feeless_check) = feeless_check {
+				quote::quote!(#feeless_check(account_id, #( #arg_name, )*))
+			} else {
+				quote::quote!(false)
+			}
+		});
+
 	quote::quote_spanned!(span =>
 		mod warnings {
 			#(
@@ -347,6 +357,23 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
+		impl<#type_impl_gen> #frame_support::dispatch::CheckIfFeeless for #call_ident<#type_use_gen>
+			#where_clause
+		{
+			type AccountId = #frame_system::pallet_prelude::AccountIdFor<T>;
+			#[allow(unused_variables)]
+			fn is_feeless(&self, account_id: &Self::AccountId) -> bool {
+				match *self {
+					#(
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#feeless_check_result
+						},
+					)*
+					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
+				}
+			}
+		}
+
 		impl<#type_impl_gen> #frame_support::traits::GetCallName for #call_ident<#type_use_gen>
 			#where_clause
 		{
@@ -419,45 +446,5 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
 			}
 		}
-
-		// /// RuntimeSignedExtension
-		// #[derive(
-		// 	#frame_support::RuntimeDebugNoBound,
-		// 	#frame_support::CloneNoBound,
-		// 	#frame_support::EqNoBound,
-		// 	#frame_support::PartialEqNoBound,
-		// 	#frame_support::__private::codec::Encode,
-		// 	#frame_support::__private::codec::Decode,
-		// 	#frame_support::__private::scale_info::TypeInfo,
-		// )]
-		// #[codec(encode_bound())]
-		// #[codec(decode_bound())]
-		// #[scale_info(skip_type_params(T))]
-		// pub struct RuntimeSignedExtension<T: Config + Send + Sync>(#frame_support::__private::sp_std::marker::PhantomData<T>);
-
-		// impl<T: Config + Send + Sync> #frame_support::sp_runtime::traits::SignedExtension for RuntimeSignedExtension<T> 
-		// // where
-		// // 	T::RuntimeCall: #frame_support::sp_runtime::traits::Dispatchable<Info = #frame_support::dispatch::DispatchInfo> 
-		// {
-		// 	type AccountId = T::AccountId;
-		// 	type Call = RuntimeCall;
-		// 	type AdditionalSigned = ();
-		// 	type Pre = ();
-		// 	const IDENTIFIER: &'static str = "RuntimeSignedExtension";
-
-		// 	fn additional_signed(&self) -> #frame_support::__private::sp_std::result::Result<(), TransactionValidityError> {
-		// 		Ok(())
-		// 	}
-
-		// 	fn pre_dispatch(
-		// 		self,
-		// 		_who: &Self::AccountId,
-		// 		_call: &Self::Call,
-		// 		_info: &#frame_support::sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		// 		_len: usize,
-		// 	) -> Result<(), TransactionValidityError> {
-		// 		Ok(())
-		// 	}
-		// }
 	)
 }

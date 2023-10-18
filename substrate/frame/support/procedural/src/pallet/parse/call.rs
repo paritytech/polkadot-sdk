@@ -19,7 +19,7 @@ use super::{helper, InheritedCallWeightAttr};
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, ExprClosure};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -83,14 +83,17 @@ pub struct CallVariantDef {
 	pub docs: Vec<syn::Expr>,
 	/// Attributes annotated at the top of the dispatchable function.
 	pub attrs: Vec<syn::Attribute>,
+	/// The optional `feeless_if` attribute on the `pallet::call`.
+	pub feeless_check: Option<syn::ExprClosure>,
 }
 
 /// Attributes for functions in call impl block.
-/// Parse for `#[pallet::weight(expr)]` or `#[pallet::call_index(expr)]
+/// Parse for `#[pallet::weight(expr)]` or `#[pallet::call_index(expr)] or
+/// `#[pallet::feeless_if(expr)]`
 pub enum FunctionAttr {
 	CallIndex(u8),
 	Weight(syn::Expr),
-	FeelessIf(syn::ExprClosure)
+	FeelessIf(syn::ExprClosure),
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -117,7 +120,7 @@ impl syn::parse::Parse for FunctionAttr {
 				return Err(syn::Error::new(index.span(), msg))
 			}
 			Ok(FunctionAttr::CallIndex(index.base10_parse()?))
-		} else if lookahead.peek(keyword::feeless_if) { 
+		} else if lookahead.peek(keyword::feeless_if) {
 			content.parse::<keyword::feeless_if>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
@@ -236,18 +239,18 @@ impl CallDef {
 
 				let mut call_idx_attrs = vec![];
 				let mut weight_attrs = vec![];
-				let mut feeless_if_attrs = vec![];
+				let mut feeless_attrs = vec![];
 				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
 					match attr {
 						FunctionAttr::CallIndex(_) => {
 							call_idx_attrs.push(attr);
-						}
+						},
 						FunctionAttr::Weight(_) => {
 							weight_attrs.push(attr);
-						}
+						},
 						FunctionAttr::FeelessIf(_) => {
-							feeless_if_attrs.push(attr);
-						}
+							feeless_attrs.push(attr);
+						},
 					}
 				}
 
@@ -336,6 +339,16 @@ impl CallDef {
 
 				let docs = get_doc_literals(&method.attrs);
 
+				if feeless_attrs.len() > 1 {
+					let msg = "Invalid pallet::call, too many feeless_if attributes given";
+					return Err(syn::Error::new(method.sig.span(), msg))
+				}
+				let feeless_check: Option<ExprClosure> =
+					feeless_attrs.pop().map(|attr| match attr {
+						FunctionAttr::FeelessIf(closure) => closure,
+						_ => unreachable!("checked during creation of the let binding"),
+					});
+
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),
 					weight,
@@ -344,6 +357,7 @@ impl CallDef {
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					feeless_check,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

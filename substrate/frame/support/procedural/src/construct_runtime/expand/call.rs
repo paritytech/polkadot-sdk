@@ -124,6 +124,18 @@ pub fn expand_outer_dispatch(
 			}
 		}
 
+		impl #scrate::dispatch::CheckIfFeeless for RuntimeCall {
+			type AccountId = #system_path::pallet_prelude::AccountIdFor<#runtime>;
+			fn is_feeless(&self, account_id: &Self::AccountId) -> bool {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns => call.is_feeless(account_id),
+					)*
+				}
+			}
+		}
+
 		impl #scrate::traits::GetCallMetadata for RuntimeCall {
 			fn get_call_metadata(&self) -> #scrate::traits::CallMetadata {
 				use #scrate::traits::GetCallName;
@@ -208,7 +220,7 @@ pub fn expand_outer_dispatch(
 			}
 		)*
 
-		/// RuntimeSignedExtension
+		/// SkipCheckIfFeeless
 		#[derive(
 			#scrate::RuntimeDebugNoBound,
 			#scrate::CloneNoBound,
@@ -218,19 +230,17 @@ pub fn expand_outer_dispatch(
 			#scrate::__private::codec::Decode,
 			#scrate::__private::scale_info::TypeInfo,
 		)]
-		#[codec(encode_bound())]
-		#[codec(decode_bound())]
-		pub struct RuntimeSignedExtension;
+		pub struct SkipCheckIfFeeless<T: #scrate::sp_runtime::traits::SignedExtension>(T);
 
-		impl #scrate::sp_runtime::traits::SignedExtension for RuntimeSignedExtension
-		// where
-		// 	T::RuntimeCall: #scrate::sp_runtime::traits::Dispatchable<Info = #scrate::dispatch::DispatchInfo> 
+		impl<T: #scrate::sp_runtime::traits::SignedExtension> #scrate::sp_runtime::traits::SignedExtension for SkipCheckIfFeeless<T>
+		where
+			T::Call: #scrate::dispatch::CheckIfFeeless<AccountId = T::AccountId>
 		{
-			type AccountId = <#runtime as #system_path::Config>::AccountId;
-			type Call = RuntimeCall;
+			type AccountId = T::AccountId;
+			type Call = T::Call;
 			type AdditionalSigned = ();
-			type Pre = ();
-			const IDENTIFIER: &'static str = "RuntimeSignedExtension";
+			type Pre = Option<T::Pre>;
+			const IDENTIFIER: &'static str = "SkipCheckIfFeeless";
 
 			fn additional_signed(&self) -> #scrate::__private::sp_std::result::Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
 				Ok(())
@@ -238,21 +248,30 @@ pub fn expand_outer_dispatch(
 
 			fn pre_dispatch(
 				self,
-				_who: &Self::AccountId,
-				_call: &Self::Call,
-				_info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				_len: usize,
-			) -> Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
-				Ok(())
+				who: &Self::AccountId,
+				call: &Self::Call,
+				info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				len: usize,
+			) -> Result<Self::Pre, #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
+				use #scrate::dispatch::CheckIfFeeless;
+				match call.is_feeless(who) {
+					true => Ok(None),
+					false => Ok(Some(self.0.pre_dispatch(who, call, info, len)?)),
+				}
 			}
 
 			fn post_dispatch(
-				_pre: Option<Self::Pre>,
-				_info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				_post_info: &#scrate::sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
-				_len: usize,
-				_result: &#scrate::dispatch::DispatchResult,
+				pre: Option<Self::Pre>,
+				info: &#scrate::sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				post_info: &#scrate::sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+				len: usize,
+				result: &#scrate::dispatch::DispatchResult,
 			) -> Result<(), #scrate::sp_runtime::transaction_validity::TransactionValidityError> {
+				if let Some(pre) = pre {
+					if let Some(pre) = pre {
+						T::post_dispatch(Some(pre), info, post_info, len, result)?;
+					}
+				}
 				Ok(())
 			}
 		}

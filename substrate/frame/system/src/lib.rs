@@ -1811,6 +1811,8 @@ pub mod pallet_prelude {
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;
 
+	pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
+
 	/// Type alias for the `Header`.
 	pub type HeaderFor<T> =
 		<<T as crate::Config>::Block as sp_runtime::traits::HeaderProvider>::HeaderT;

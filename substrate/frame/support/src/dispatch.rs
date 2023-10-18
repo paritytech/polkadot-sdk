@@ -54,6 +54,12 @@ pub trait Callable<T> {
 // https://github.com/rust-lang/rust/issues/51331
 pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
 
+pub trait CheckIfFeeless {
+	type AccountId;
+
+	fn is_feeless(&self, account_d: &Self::AccountId) -> bool;
+}
+
 /// Origin for the System pallet.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum RawOrigin<AccountId> {
