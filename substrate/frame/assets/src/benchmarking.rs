@@ -177,7 +177,7 @@ benchmarks_instance_pallet! {
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &asset_id.into()).unwrap();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		T::NativeToken::set_balance(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::NativeToken::set_balance(&caller, large_amount::<T, I>());
 	}: _<T::RuntimeOrigin>(origin, asset_id, caller_lookup, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::Created { asset_id: asset_id.into(), creator: caller.clone(), owner: caller }.into());
@@ -378,7 +378,7 @@ benchmarks_instance_pallet! {
 		let decimals = 12;
 
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		T::NativeToken::set_balance(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::NativeToken::set_balance(&caller, large_amount::<T, I>());
 	}: _(SystemOrigin::Signed(caller), asset_id, name.clone(), symbol.clone(), decimals)
 	verify {
 		assert_last_event::<T, I>(Event::MetadataSet { asset_id: asset_id.into(), name, symbol, decimals, is_frozen: false }.into());
@@ -456,7 +456,7 @@ benchmarks_instance_pallet! {
 
 	approve_transfer {
 		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		T::NativeToken::set_balance(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::NativeToken::set_balance(&caller, large_amount::<T, I>());
 
 		let delegate: T::AccountId = account("delegate", 0, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
@@ -523,7 +523,7 @@ benchmarks_instance_pallet! {
 	touch {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
-		T::NativeToken::set_balance(&new_account, DepositBalanceOf::<T, I>::max_value());
+		T::NativeToken::set_balance(&new_account, large_amount::<T, I>());
 		assert_ne!(asset_owner, new_account);
 		assert!(!Account::<T, I>::contains_key(asset_id.into(), &new_account));
 	}: _(SystemOrigin::Signed(new_account.clone()), asset_id)
@@ -535,7 +535,7 @@ benchmarks_instance_pallet! {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
 		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
-		T::NativeToken::set_balance(&asset_owner, DepositBalanceOf::<T, I>::max_value());
+		T::NativeToken::set_balance(&asset_owner, large_amount::<T, I>());
 		assert_ne!(asset_owner, new_account);
 		assert!(!Account::<T, I>::contains_key(asset_id.into(), &new_account));
 	}: _(SystemOrigin::Signed(asset_owner.clone()), asset_id, new_account_lookup)
