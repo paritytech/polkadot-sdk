@@ -2378,6 +2378,22 @@ pub mod pallet_macros {
 	/// ## Storage Type Usage
 	///
 	/// The following details are relevant to all of the aforementioned storage types.
+	/// Depending on the exact storage type, it may require the following generic parameters:
+	/// * [`Prefix`](#prefixes) - Used to give the storage item a unique key in the underlying
+	///   storage,
+	/// * `Value` - Type of the value being stored,
+	/// * `Key` - Type of the keys used to store the values,
+	/// * [`Hasher`](#hashers) - Used to ensure the keys of a map are uniformly distributed,
+	/// * [`QueryKind`](#querykind) - Used to configure how to handle queries to the underlying
+	///   storage,
+	/// * `OnEmpty` - Used to handle missing values when querying the underlying storage,
+	/// * `MaxValues` - _not used_.
+	///
+	/// Each `Key` type requires its own designated `Hasher` declaration, so that
+	/// [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) needs two of
+	/// each, and [`StorageNMap`](frame_support::storage::types::StorageNMap) needs `N` such
+	/// pairs. Since [`StorageValue`](frame_support::storage::types::StorageValue) only stores
+	/// a single element, no configuration of hashers is needed.
 	///
 	/// ### Syntax
 	///
@@ -2386,8 +2402,10 @@ pub mod pallet_macros {
 	/// 1. Named type parameters, e.g., `type Foo<T> = StorageValue<Value = u32>`.
 	/// 2. Positional type parameters, e.g., `type Foo<T> = StorageValue<_, u32>`.
 	///
-	/// In both instances, declaring `<T>` is mandatory. While it can optionally be written as
-	/// `<T: Config>`, in the generated code, it is always `<T: Config>`.
+	/// In both instances, declaring the generic parameter `<T>` is mandatory. Optionally,
+	/// it can also be explicitly declared as `<T: Config>`. In the compiled code, `T` will
+	/// automatically include the trait bound `Config`. Note that in positional syntax, the
+	/// first generic type parameter must be `_`.
 	///
 	/// #### Example
 	///
@@ -2413,7 +2431,7 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// ### Query Type
+	/// ### QueryKind
 	///
 	/// Every storage type mentioned above has a generic type called
 	/// [`QueryKind`](frame_support::storage::types::QueryKindTrait) that determines its
@@ -2443,11 +2461,11 @@ pub mod pallet_macros {
 	/// ValueQuery>`. With `MyVal` storing a large list of bytes, `::append()` lets you
 	/// directly add bytes to the end in storage without processing the full list. Depending on
 	/// the storage type, additional key specifications may be needed.
-	#[doc = docify::embed!("src/lib.rs", test_storage_value_append)]
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_append)]
 	/// Similarly, there also exists a `::try_append()` method, which can be used when handling
 	/// types where an append operation might fail, such as a
 	/// [`BoundedVec`](frame_support::BoundedVec).
-	#[doc = docify::embed!("src/lib.rs", test_storage_value_try_append)]
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_try_append)]
 	/// ### Optimized Length Decoding
 	///
 	/// All storage items — such as
@@ -2455,7 +2473,7 @@ pub mod pallet_macros {
 	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
 	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
 	/// a collection's length without the necessity of decoding the entire dataset.
-	#[doc = docify::embed!("src/lib.rs", test_storage_value_decode_len)]
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_decode_len)]
 	/// ### Hashers
 	///
 	/// For all storage types, except
@@ -2533,7 +2551,7 @@ pub mod pallet_macros {
 
 		#[docify::export]
 		#[test]
-		pub fn test_storage_value_try_append() {
+		pub fn example_storage_value_try_append() {
 			type MyVal = StorageValue<Prefix, BoundedVec<u8, ConstU32<10>>, ValueQuery>;
 
 			TestExternalities::default().execute_with(|| {
@@ -2547,7 +2565,7 @@ pub mod pallet_macros {
 
 		#[docify::export]
 		#[test]
-		pub fn test_storage_value_append() {
+		pub fn example_storage_value_append() {
 			type MyVal = StorageValue<Prefix, Vec<u8>, ValueQuery>;
 
 			TestExternalities::default().execute_with(|| {
@@ -2561,7 +2579,7 @@ pub mod pallet_macros {
 
 		#[docify::export]
 		#[test]
-		pub fn test_storage_value_decode_len() {
+		pub fn example_storage_value_decode_len() {
 			type MyVal = StorageValue<Prefix, BoundedVec<u8, ConstU32<10>>, ValueQuery>;
 
 			TestExternalities::default().execute_with(|| {
