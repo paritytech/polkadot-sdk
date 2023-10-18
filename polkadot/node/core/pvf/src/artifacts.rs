@@ -70,40 +70,40 @@ use std::{
 };
 
 macro_rules! concat_const {
-	($x:expr, $y:expr) => {{
-		// ensure inputs to be strings
-		const _: &str = $x;
-		const _: &str = $y;
+    ($($arg:tt),*) => {{
+        // ensure inputs to be strings
+        $(const _: &str = $arg;)*
 
-		const X: &[u8] = $x.as_bytes();
-		const Y: &[u8] = $y.as_bytes();
-		const XL: usize = X.len();
-		const YL: usize = Y.len();
-		const L: usize = XL + YL;
+        const LEN: usize = 0 $(+ $arg.len())*;
 
-		const fn concat() -> [u8; L] {
-			let mut cat = [0u8; L];
-			let mut i = 0;
-			while i < XL {
-				cat[i] = X[i];
-				i += 1;
-			}
-			while i < L {
-				cat[i] = Y[i - XL];
-				i += 1;
-			}
-			cat
-		}
+        const CAT: [u8; LEN] = {
+            let mut cat = [0u8; LEN];
+            // for turning off unused warning
+            let mut _offset = 0;
 
-		// SAFETY: safe because x and y are ensured to be valid
-		unsafe { std::str::from_utf8_unchecked(&concat()) }
-	}};
+            $({
+                const BYTES: &[u8] = $arg.as_bytes();
+
+                let mut i = 0;
+                let len = BYTES.len();
+                while i < len {
+                    cat[_offset + i] = BYTES[i];
+                    i += 1;
+                }
+                _offset += len;
+            })*
+
+            cat
+        };
+
+        // SAFETY: safe because x and y are guaranteed to be valid
+        unsafe { std::str::from_utf8_unchecked(&CAT) }
+    }}
 }
 
 const RUNTIME_PREFIX: &str = "wasmtime_";
 const NODE_PREFIX: &str = "polkadot_v";
-const ARTIFACT_PREFIX: &str =
-	concat_const!(RUNTIME_PREFIX, concat_const!(NODE_PREFIX, NODE_VERSION));
+const ARTIFACT_PREFIX: &str = concat_const!(RUNTIME_PREFIX, NODE_PREFIX, NODE_VERSION);
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
