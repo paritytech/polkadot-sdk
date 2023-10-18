@@ -38,7 +38,7 @@ pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been trigge
 
 /// Trait to get the number of variants in any enum.
 ///
-/// NOTE: can be removed once https://doc.rust-lang.org/std/mem/fn.variant_count.html is stable.
+/// NOTE: can be removed once <https://doc.rust-lang.org/std/mem/fn.variant_count.html> is stable.
 pub trait VariantCount {
 	/// Get the number of variants.
 	fn variant_count() -> u32;
