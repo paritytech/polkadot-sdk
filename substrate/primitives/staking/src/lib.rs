@@ -291,6 +291,24 @@ pub trait StakingInterface {
 	fn set_current_era(era: EraIndex);
 }
 
+// TODO(ank4n)
+pub struct StakeableBalance<B: Copy> {
+	pub free: B,
+	// balance that is delegated to this account but not staked.
+	pub delegated_unstaked: B,
+}
+
+impl<B: Saturating + Copy> StakeableBalance<B> {
+	pub fn stakeable_balance(&self) -> B {
+		self.free.saturating_add(self.delegated_unstaked)
+	}
+}
+
+pub struct StakeResult<B: Copy> {
+	pub free: B,
+	// balance that is delegated to this account but not staked.
+	pub delegated_unstaked: B,
+}
 /// A generic representation of a delegation based staking apis that other runtime pallets can use.
 ///
 /// Compared to StakingInterface that allows an account to be a direct nominator,

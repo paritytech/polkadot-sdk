@@ -36,7 +36,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{CheckedSub, Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
 	Perbill,
 };
 use sp_staking::{
@@ -118,6 +118,75 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	pub fn do_bond(
+		stash: T::AccountId,
+		value: BalanceOf<T>,
+		payee: RewardDestination<T::AccountId>,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		// Reject a bond which is considered to be _dust_.
+		if value < T::Currency::minimum_balance() {
+			return Err(Error::<T>::InsufficientBond.into())
+		}
+
+		frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
+		let history_depth = T::HistoryDepth::get();
+		let last_reward_era = current_era.saturating_sub(history_depth);
+
+		let stash_balance = T::Currency::free_balance(&stash);
+		let value = value.min(stash_balance);
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
+		let ledger = StakingLedger::<T>::new(
+			stash.clone(),
+			value,
+			(last_reward_era..current_era)
+				.try_collect()
+				// Since last_reward_era is calculated as `current_era -
+				// HistoryDepth`, following bound is always expected to be
+				// satisfied.
+				.defensive_map_err(|_| Error::<T>::BoundNotMet)?,
+		);
+
+		// You're auto-bonded forever, here. We might improve this by only bonding when
+		// you actually validate/nominate and remove once you unbond __everything__.
+		ledger.bond(payee)?;
+
+		Ok(())
+	}
+
+	pub fn do_bond_extra(
+		stash: T::AccountId,
+		max_additional: BalanceOf<T>,
+	) -> DispatchResult {
+		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+		let stash_balance = T::Currency::free_balance(&stash);
+		if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
+			let extra = extra.min(max_additional);
+			ledger.total += extra;
+			ledger.active += extra;
+			// Last check: the new active amount of ledger must be more than ED.
+			ensure!(
+					ledger.active >= T::Currency::minimum_balance(),
+					Error::<T>::InsufficientBond
+				);
+
+			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			ledger.update()?;
+			// update this staker in the sorted list, if they exist in it.
+			if T::VoterList::contains(&stash) {
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+			}
+
+			Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
+		}
+		Ok(())
+	}
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
