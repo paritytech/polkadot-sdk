@@ -122,12 +122,12 @@ impl<T: Config> Pallet<T> {
 	/// Untracked stake is stake that hasn't been propagated to `T::EventListeners`
 	/// and that may be eventually propagated by calling [`Self::maybe_settled_untracked_stake`].
 	///
-	/// The stake buffered under [`UntrackedStake`] corresponds to the *latest* up to date stake of
-	/// a ledger that has untracked stake.
+	/// The stake buffered under [`UntrackedStake`] corresponds to the *latest* stake to have been
+	/// propagated to `T::EventListeners` of a ledger with untracked stake.
 	pub(crate) fn add_untracked_stake(who: &T::AccountId, stake: Stake<BalanceOf<T>>) {
 		UntrackedStake::<T>::mutate(who, |maybe_prev_stake| {
 			// if the stash already has untracked stake, do not update it. Wa want to keep the
-			// *latest* up to date stake in storage.
+			// *oldest* up to date stake in storage.
 			if maybe_prev_stake.is_none() {
 				*maybe_prev_stake = Some(stake);
 			}
@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
 	/// Tries to settle untracked rewards buffered in [`UntrackedStake`] by caling into
 	/// [`sp_staking::OnStakingUpdate::on_stake_update`] to propagate the untracked stake.
 	///
-	/// Returns the untracked rewards that have been setted, if any.
+	/// Returns the untracked rewards that have been settled, if any.
 	pub(crate) fn maybe_settle_untracked_stake<OnUpdate>(
 		who: &T::AccountId,
 	) -> Option<Stake<BalanceOf<T>>>
@@ -146,7 +146,8 @@ impl<T: Config> Pallet<T> {
 	{
 		UntrackedStake::<T>::mutate_exists(who, |maybe_prev_stake| {
 			if let Some(prev_stake) = maybe_prev_stake {
-				let ledger = Self::ledger(Stash(who.clone())).expect("if the stash has untracked stake, it exists; qed.");
+				let ledger = Self::ledger(Stash(who.clone()))
+					.expect("if the stash has untracked stake, it exists; qed.");
 
 				// we kept track of the latest up to date stake of the ledger. Now we can use it to
 				// settle the difference.
@@ -661,7 +662,6 @@ impl<T: Config> Pallet<T> {
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			total_stake = total_stake.saturating_add(exposure.total);
-
 			<ErasStakers<T>>::insert(new_planned_era, &stash, &exposure);
 
 			let mut exposure_clipped = exposure;
@@ -748,7 +748,7 @@ impl<T: Config> Pallet<T> {
 		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
 		// well as reward setting of the stash in `Payee`. We use the untracked event type since
 		// both [`Self::do_remove_validator`] and [`Self::do_remove_nominator`] already propagate
-		// the events.
+		// the relevant events.
 		StakingLedger::<T>::kill::<UntrackedEvent>(&stash)?;
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);

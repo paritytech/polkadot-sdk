@@ -324,10 +324,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
 
-	/// Map with the latest tracked stake of accounts with untracked stake.
+	/// Map from all the stashes with untracked stakes and the latest sync stake between the ledger
+	/// and the event listeners.
 	///
-	/// Untracked stake is the ledger stake that hasn't been propagated to the
-	/// `T::EventListeners`.
+	/// Untracked stake is the ledger stake that hasn't been propagated to `T::EventListeners`.
 	#[pallet::storage]
 	pub type UntrackedStake<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Stake<BalanceOf<T>>>;

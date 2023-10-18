@@ -23,7 +23,7 @@
 use crate::currency_to_vote::CurrencyToVote;
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
+use sp_core::{Decode, Encode, RuntimeDebug};
 use sp_runtime::{DispatchError, DispatchResult, Saturating};
 use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec::Vec};
 
@@ -69,16 +69,7 @@ pub enum StakerStatus<AccountId> {
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
 #[derive(
-	RuntimeDebug,
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Default,
-	TypeInfo,
-	sp_core::Encode,
-	sp_core::Decode,
-	MaxEncodedLen,
+	RuntimeDebug, Clone, Copy, Eq, PartialEq, Default, TypeInfo, Encode, Decode, MaxEncodedLen,
 )]
 pub struct Stake<Balance> {
 	/// The total stake that `stash` has in the staking system. This includes the

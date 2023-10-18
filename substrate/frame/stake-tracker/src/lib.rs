@@ -139,7 +139,8 @@ pub mod pallet {
 		where
 			L: SortedListProvider<AccountIdOf<T>, Score = VoteWeight>,
 		{
-			// node does not exist, move on.
+			// there may be nominators who nominate a non-existant validator. if that's the case,
+			// move on.
 			if !L::contains(who) {
 				return
 			}
@@ -154,10 +155,10 @@ pub mod pallet {
 					let current_score = L::get_score(who)
 						.expect("staker exists in the list as per the check above; qed.");
 
-					// TODO(gpestana): can we do better? correct assumption?
 					// if decreasing the imbalance makes the score lower than 0, the node will be
 					// removed from the list when calling `L::on_decrease`, which is not expected.
-					// Instead, we call `L::on_update` to set the score as 0.
+					// Instead, we call `L::on_update` to set the score as 0. The node will be
+					// removed when `on_*_removed` is called.
 					if current_score.saturating_sub(imbalance) == 0 {
 						let _ = L::on_update(who, 0).defensive_proof(
 							"staker exists in the list, otherwise returned earlier.",
@@ -180,7 +181,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	// Note: it is assumed that who's staking state is updated *before* this method is called.
 	fn on_stake_update(who: &T::AccountId, prev_stake: Option<sp_staking::Stake<BalanceOf<T>>>) {
 		if let Ok(stake) = T::Staking::stake(who) {
-			let voter_weight = Self::to_vote(stake.active); // TODO(gpestana): or use `active_vote_of`?
+			let voter_weight = Self::to_vote(stake.active);
 
 			match T::Staking::status(who).defensive_unwrap_or(StakerStatus::Idle) {
 				StakerStatus::Nominator(nominations) => {
