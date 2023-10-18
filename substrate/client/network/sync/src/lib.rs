@@ -505,7 +505,7 @@ where
 		}
 	}
 
-	/// Get an estimate of parallel sync requests.
+	/// Get an estimate of the number of parallel sync requests.
 	pub fn num_sync_requests(&self) -> usize {
 		self.fork_targets
 			.values()
