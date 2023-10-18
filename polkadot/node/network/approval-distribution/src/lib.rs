@@ -25,6 +25,8 @@ use futures::{select, FutureExt as _};
 use polkadot_node_network_protocol::{
 	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, Versioned,
 };
+use tokio::sync::mpsc;
+
 use polkadot_node_subsystem_util::worker_pool::{Job, WorkerPool};
 use worker::{state::MessageSource, ApprovalContext, ApprovalWorkerConfig, ApprovalWorkerMessage};
 
@@ -32,6 +34,8 @@ use polkadot_node_subsystem::{
 	messages::{ApprovalDistributionMessage, NetworkBridgeEvent},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
+
+use polkadot_primitives::Hash;
 
 use self::metrics::Metrics;
 
@@ -64,12 +68,24 @@ impl ApprovalDistribution {
 	/// Used for testing.
 	async fn run_inner<Context>(mut self, mut ctx: Context) {
 		let sender = ctx.sender().clone();
-		let metrics = self.metrics.clone();
-		let mut approval_worker_config = worker::ApprovalWorkerConfig::new(sender, metrics.clone());
+		let metrics: Metrics = self.metrics.clone();
+		let (completion_tx, mut completion_rx) = mpsc::channel(1024);
+		let mut approval_worker_config =
+			worker::ApprovalWorkerConfig::new(sender, metrics.clone(), completion_tx);
 		let (mut approval_worker_pool, _) = WorkerPool::with_config(&mut approval_worker_config);
 
 		loop {
 			select! {
+				maybe_completed_jobs = completion_rx.recv().fuse() => {
+					let completed_jobs = match maybe_completed_jobs {
+						Some(completed_jobs) => completed_jobs,
+						None => {
+							gum::debug!(target: LOG_TARGET, "Worker Job completion channel dropped, exiting");
+							return
+						},
+					};
+					approval_worker_pool.complete_jobs(&completed_jobs).await;
+				},
 				message = ctx.recv().fuse() => {
 					let message = match message {
 						Ok(message) => message,
@@ -140,22 +156,28 @@ impl ApprovalDistribution {
 					assignments,
 				)) =>
 					for assignment in assignments {
+						let block_hash = assignment.0.block_hash;
 						let work_item = ApprovalWorkerMessage::ProcessAssignment(
 							assignment.0,
 							assignment.1,
 							MessageSource::Peer(peer_id),
 						);
-						self.handle_new_job(&work_item, worker_pool).await;
+						self.handle_new_job(&work_item, worker_pool, block_hash).await;
 						worker_pool.queue_work(work_item).await;
 					},
 				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 				Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =>
 					for approval in approvals.into_iter() {
+						// TODO: don't queue work for a block that was already finalized.
+						// Reduce reputation of peers that send out of view messages.
+
+						let block_hash = approval.block_hash;
 						let work_item = ApprovalWorkerMessage::ProcessApproval(
 							approval,
 							MessageSource::Peer(peer_id),
 						);
-						self.handle_new_job(&work_item, worker_pool).await;
+
+						self.handle_new_job(&work_item, worker_pool, block_hash).await;
 						worker_pool.queue_work(work_item).await;
 					},
 			},
@@ -165,13 +187,16 @@ impl ApprovalDistribution {
 		}
 	}
 
+	// Setup a new job if required for this `work_item`.
 	async fn handle_new_job<F>(
 		&self,
 		work_item: &ApprovalWorkerMessage,
 		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
+		block_hash: Hash,
 	) where
 		F: overseer::ApprovalDistributionSenderTrait,
 	{
+		// Determine if the `work_item` has an associated job.
 		let job_id = if let Some(job_id) = work_item.id() {
 			job_id
 		} else {
@@ -183,8 +208,9 @@ impl ApprovalDistribution {
 			return
 		};
 
+		// Check if associated job already exists.
 		if !worker_pool.job_exists(&job_id) {
-			worker_pool.new_job(job_id, ApprovalContext).await;
+			worker_pool.new_job(job_id, ApprovalContext { block_hash }).await;
 		}
 	}
 
@@ -209,13 +235,14 @@ impl ApprovalDistribution {
 					cert.block_hash,
 					candidate_index,
 				);
+				let block_hash = cert.block_hash;
 				let work_item = ApprovalWorkerMessage::ProcessAssignment(
 					cert,
 					candidate_index,
 					MessageSource::Local,
 				);
 
-				self.handle_new_job(&work_item, worker_pool).await;
+				self.handle_new_job(&work_item, worker_pool, block_hash).await;
 				worker_pool.queue_work(work_item).await;
 			},
 			ApprovalDistributionMessage::DistributeApproval(vote) => {
@@ -225,8 +252,9 @@ impl ApprovalDistribution {
 					vote.block_hash,
 					vote.candidate_index,
 				);
+				let block_hash = vote.block_hash;
 				let work_item = ApprovalWorkerMessage::ProcessApproval(vote, MessageSource::Local);
-				self.handle_new_job(&work_item, worker_pool).await;
+				self.handle_new_job(&work_item, worker_pool, block_hash).await;
 				worker_pool.queue_work(work_item).await;
 			},
 			ApprovalDistributionMessage::GetApprovalSignatures(_indices, tx) => {

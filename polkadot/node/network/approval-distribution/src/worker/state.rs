@@ -16,7 +16,6 @@
 
 //! Approval worker state data structures and helper methods.
 use net_protocol::{peer_set::ProtocolVersion, ObservedRole};
-use parity_scale_codec::Encode;
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -28,6 +27,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::approval::{
 	AssignmentCert, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
 };
+use tokio::sync::mpsc;
 
 use polkadot_node_subsystem::{
 	messages::{
@@ -45,8 +45,8 @@ use std::collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque};
 use crate::metrics::Metrics;
 use polkadot_node_subsystem_util::worker_pool::JobId;
 
+use super::ApprovalJob;
 use futures::channel::oneshot;
-use polkadot_primitives::{BlakeTwo256, HashT};
 
 use crate::LOG_TARGET;
 
@@ -65,22 +65,38 @@ const BENEFIT_VALID_MESSAGE_FIRST: Rep =
 /// or those pruned due to finalization.
 #[derive(Default)]
 struct RecentlyOutdated {
-	buf: VecDeque<Hash>,
+	buf: VecDeque<OutdatedBlock>,
+}
+
+/// Block hash and candidates the worker has worked on.
+/// This is used to track completed Jobs
+struct OutdatedBlock {
+	hash: Hash,
+	jobs: HashSet<JobId>,
 }
 
 impl RecentlyOutdated {
-	fn note_outdated(&mut self, hash: Hash) {
+	// Returns oldest `OutdatedBlock` if buffer full.
+	fn note_outdated(&mut self, block_entry: BlockEntry, hash: Hash) -> Option<OutdatedBlock> {
 		const MAX_BUF_LEN: usize = 20;
 
-		self.buf.push_back(hash);
+		self.buf.push_back(OutdatedBlock { hash, jobs: block_entry.jobs });
 
-		while self.buf.len() > MAX_BUF_LEN {
-			let _ = self.buf.pop_front();
+		if self.buf.len() > MAX_BUF_LEN {
+			self.buf.pop_front()
+		} else {
+			None
 		}
 	}
 
 	fn is_recent_outdated(&self, hash: &Hash) -> bool {
-		self.buf.contains(hash)
+		for outdated in self.buf.iter().rev() {
+			if &outdated.hash == hash {
+				return true
+			}
+		}
+
+		return false
 	}
 }
 
@@ -162,15 +178,8 @@ pub(crate) enum MessageKind {
 	Approval,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Encode)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) struct MessageSubject(pub Hash, pub CandidateIndex, pub ValidatorIndex);
-
-impl MessageSubject {
-	// Return the associated worker context for a work item message identified by `self`.
-	pub fn worker_context(&self) -> JobId {
-		JobId(BlakeTwo256::hash_of(&self))
-	}
-}
 
 #[derive(Debug, Clone, Default)]
 struct Knowledge {
@@ -239,6 +248,8 @@ struct BlockEntry {
 	candidates: Vec<CandidateEntry>,
 	/// The session index of this block.
 	session: SessionIndex,
+	/// Jobs that are currently processed by the worker for this block
+	jobs: HashSet<JobId>,
 }
 
 #[derive(Debug)]
@@ -306,8 +317,8 @@ enum PendingMessage {
 ///
 /// It tracks metadata about our view of the unfinalized chain,
 /// which assignments and approvals we have seen, and our peers' views.
-#[derive(Default)]
 pub struct ApprovalWorkerState {
+	job_completion_sender: mpsc::Sender<Vec<JobId>>,
 	jobs: HashMap<JobId, super::ApprovalContext>,
 
 	/// These two fields are used in conjunction to construct a view over the unfinalized chain.
@@ -347,7 +358,28 @@ pub struct ApprovalWorkerState {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
+	pub(crate) fn new(job_completion_sender: mpsc::Sender<Vec<JobId>>) -> Self {
+		ApprovalWorkerState {
+			job_completion_sender,
+			jobs: Default::default(),
+			blocks_by_number: Default::default(),
+			blocks: Default::default(),
+			pending_known: Default::default(),
+			peer_data: Default::default(),
+			topologies: Default::default(),
+			recent_outdated_blocks: Default::default(),
+			aggression_config: Default::default(),
+			spans: Default::default(),
+			approval_checking_lag: Default::default(),
+			reputation: Default::default(),
+		}
+	}
+
 	pub(crate) fn new_job(&mut self, job_id: JobId, state: super::ApprovalContext) {
+		self.blocks.entry(state.block_hash).and_modify(|block_entry| {
+			block_entry.jobs.insert(job_id.clone());
+		});
+
 		self.jobs
 			.entry(job_id)
 			.and_modify(|old_state| *old_state = state.clone())
@@ -448,6 +480,7 @@ impl ApprovalWorkerState {
 						knowledge: Knowledge::default(),
 						candidates,
 						session: meta.session,
+						jobs: HashSet::new(),
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -728,14 +761,38 @@ impl ApprovalWorkerState {
 		// after split_off old_blocks actually contains new blocks, we need to swap
 		std::mem::swap(&mut self.blocks_by_number, &mut old_blocks);
 
+		let mut blocks_to_clean = Vec::new();
+
 		// now that we pruned `self.blocks_by_number`, let's clean up `self.blocks` too
 		old_blocks.values().flatten().for_each(|relay_block| {
-			self.recent_outdated_blocks.note_outdated(*relay_block);
 			if let Some(block_entry) = self.blocks.remove(relay_block) {
 				self.topologies.dec_session_refs(block_entry.session);
+
+				if let Some(block) =
+					self.recent_outdated_blocks.note_outdated(block_entry, *relay_block)
+				{
+					blocks_to_clean.push(block);
+				}
 			}
 			self.spans.remove(&relay_block);
 		});
+
+		// Send completed job notifications to worker pool.
+		// We consider a job completed only after the corresponding relay chain blocks
+		// are removed from the outdated buffer.
+		//
+		// However, the jobs we completed here might be re-created if we receives very old messages
+		// but in that case `handle_gossiped_assignment` and `handle_gossiped_approval` should send
+		// another notification to the pool to complete it once again.
+		let completed_jobs = blocks_to_clean
+			.into_iter()
+			.map(|block| block.jobs.into_iter().collect::<Vec<_>>())
+			.flatten()
+			.collect::<Vec<_>>();
+
+		if let Err(err) = self.job_completion_sender.send(completed_jobs).await {
+			gum::warn!(target: LOG_TARGET, ?err, "Failed to send job completion for outdated blocks")
+		};
 
 		// If a block was finalized, this means we may need to move our aggression
 		// forward to the now oldest block(s).
@@ -790,6 +847,17 @@ impl ApprovalWorkerState {
 							COST_UNEXPECTED_MESSAGE,
 						)
 						.await;
+
+						// We need to also complete the job once again.
+						if let Err(err) = self
+							.job_completion_sender
+							.send(vec![
+								ApprovalJob(block_hash, claimed_candidate_index).into_job_id()
+							])
+							.await
+						{
+							gum::warn!(target: LOG_TARGET, ?block_hash, claimed_candidate_index, ?err, "Failed to send job completion.")
+						}
 					}
 				}
 				return
@@ -1116,6 +1184,16 @@ impl ApprovalWorkerState {
 							COST_UNEXPECTED_MESSAGE,
 						)
 						.await;
+
+						// We need to also complete the job once again.
+						if let Err(err) =
+							self.job_completion_sender
+								.send(vec![ApprovalJob(vote.block_hash, vote.candidate_index)
+									.into_job_id()])
+								.await
+						{
+							gum::warn!(target: LOG_TARGET, ?block_hash, candidate_index = vote.candidate_index, ?err, "Failed to send job completion.")
+						}
 					}
 				}
 				return

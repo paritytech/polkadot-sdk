@@ -20,13 +20,15 @@ use crate::metrics::Metrics;
 use async_trait::async_trait;
 use bounded_collections::ConstU32;
 use futures::{select, FutureExt};
+use parity_scale_codec::Encode;
 use polkadot_node_subsystem::{messages::network_bridge_event::NewGossipTopology, overseer};
 use polkadot_node_subsystem_util::{
 	reputation::REPUTATION_CHANGE_INTERVAL,
 	worker_pool::{Job, JobId, WorkerConfig, WorkerHandle, WorkerMessage},
 };
-use polkadot_primitives::{BlockNumber, CandidateIndex};
 use tokio::sync::mpsc;
+
+use polkadot_primitives::{BlockNumber, CandidateIndex, Hash};
 
 use polkadot_node_primitives::approval::{
 	BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -34,14 +36,15 @@ use polkadot_node_primitives::approval::{
 
 use rand::{CryptoRng, Rng, SeedableRng};
 
+use crate::LOG_TARGET;
 use polkadot_node_network_protocol::{
 	peer_set::ProtocolVersion, ObservedRole, OurView, PeerId, View,
 };
+use polkadot_primitives::{BlakeTwo256, HashT};
 
-use state::MessageSubject;
 pub mod state;
 
-/// Approval work item definition.
+/// Approval work item types.
 #[derive(Clone, Debug)]
 pub(crate) enum ApprovalWorkerMessage {
 	/// Process an assignment.
@@ -60,29 +63,34 @@ pub(crate) enum ApprovalWorkerMessage {
 	OurViewChange(OurView),
 	/// New blocks imported by approval voting (broadcast)
 	NewBlocks(Vec<BlockApprovalMeta>),
-	/// Lag update from finality chainn selection.
+	/// Lag update from finality chainn selection. (broadcast)
 	ApprovalCheckingLagUpdate(BlockNumber),
-	/// Block was finalized
+	/// Block was finalized (broadcast)
 	BlockFinalized(BlockNumber),
 }
 
-// Use `MessageSubject` as `JobId`.
 impl Job for ApprovalWorkerMessage {
 	fn id(&self) -> Option<JobId> {
 		match &self {
-			ApprovalWorkerMessage::ProcessApproval(vote, _) => Some(
-				MessageSubject(vote.block_hash, vote.candidate_index, vote.validator)
-					.worker_context(),
-			),
-			ApprovalWorkerMessage::ProcessAssignment(indirect_cert, candidate_index, _) => Some(
-				MessageSubject(indirect_cert.block_hash, *candidate_index, indirect_cert.validator)
-					.worker_context(),
-			),
+			ApprovalWorkerMessage::ProcessApproval(vote, _) =>
+				Some(ApprovalJob(vote.block_hash, vote.candidate_index).into_job_id()),
+			ApprovalWorkerMessage::ProcessAssignment(indirect_cert, candidate_index, _) =>
+				Some(ApprovalJob(indirect_cert.block_hash, *candidate_index).into_job_id()),
 			_ => {
-				// We don't need a context for messages that are broadcasted to all workers.
+				// Messages broadcasted to all workers have no `JobId`.
 				None
 			},
 		}
+	}
+}
+
+/// Approval worker job definition.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Encode)]
+pub(crate) struct ApprovalJob(pub Hash, pub CandidateIndex);
+
+impl ApprovalJob {
+	pub fn into_job_id(self) -> JobId {
+		JobId(BlakeTwo256::hash_of(&self))
 	}
 }
 
@@ -91,9 +99,14 @@ pub(crate) struct ApprovalWorkerConfig<F>
 where
 	F: overseer::ApprovalDistributionSenderTrait,
 {
+	/// The subsystem sender.
 	sender: F,
+	/// Shared metrics object.
 	metrics: Metrics,
+	/// Next worker index to use when creating new workers.
 	next_worker_id: u16,
+	/// Worker synchronization channel for completion of jobs.
+	job_completion_sender: mpsc::Sender<Vec<JobId>>,
 }
 
 impl<F> ApprovalWorkerConfig<F>
@@ -101,8 +114,12 @@ where
 	F: overseer::ApprovalDistributionSenderTrait,
 {
 	/// Constructor
-	pub fn new(sender: F, metrics: Metrics) -> Self {
-		Self { sender, metrics, next_worker_id: 0 }
+	pub fn new(
+		sender: F,
+		metrics: Metrics,
+		job_completion_sender: mpsc::Sender<Vec<JobId>>,
+	) -> Self {
+		Self { sender, metrics, next_worker_id: 0, job_completion_sender }
 	}
 
 	/// Pop the next worker id.
@@ -215,9 +232,10 @@ async fn worker_loop<
 	mut from_pool: mpsc::Receiver<WorkerMessage<ApprovalWorkerConfig>>,
 	mut sender: impl overseer::ApprovalDistributionSenderTrait,
 	metrics: Metrics,
+	job_completion_sender: mpsc::Sender<Vec<JobId>>,
 ) {
 	let mut rng = rand::rngs::StdRng::from_entropy();
-	let mut worker_state = state::ApprovalWorkerState::default();
+	let mut worker_state = state::ApprovalWorkerState::new(job_completion_sender);
 
 	let new_reputation_delay = || futures_timer::Delay::new(REPUTATION_CHANGE_INTERVAL).fuse();
 	let mut reputation_delay = new_reputation_delay();
@@ -242,11 +260,6 @@ async fn worker_loop<
 							.await;
 					},
 					WorkerMessage::DeleteJobs(jobs) => {
-						// This message might not be needed as `ApprovalWorkerMessage` can send the
-						// block finalized event. In that case, workers need to notify worker pool that
-						// a context has been removed, but this creates a cycle which is likely to cause
-						// issues. To avoid the pool loop can periodically ask workers about pruned
-						// tasks and delete them accordingly from the hashmap. More thinking required.
 						for job_id in jobs {
 							worker_state.delete_job(job_id);
 						}
@@ -273,15 +286,24 @@ where
 
 	fn new_worker(&mut self) -> ApprovalWorkerHandle<F> {
 		let (to_worker, from_pool) = Self::new_worker_channel();
+		tokio::spawn(worker_loop(
+			from_pool,
+			self.sender.clone(),
+			self.metrics.clone(),
+			self.job_completion_sender.clone(),
+		));
+		let handle = ApprovalWorkerHandle { sender: to_worker, id: self.next_id() };
 
-		tokio::spawn(worker_loop(from_pool, self.sender.clone(), self.metrics.clone()));
-
-		ApprovalWorkerHandle { sender: to_worker, id: self.next_id() }
+		gum::debug!(target: LOG_TARGET, worker_idx = ?handle.index(), "Spawned worker");
+		handle
 	}
 }
 
-// A worker context definition.
+// Job definition.
 // It contains per candidate state for book keeping (spam protection) and distributing
 // assignments and approvals.
 #[derive(Debug, Clone)]
-pub struct ApprovalContext;
+pub struct ApprovalContext {
+	// Inclusion relay chain block hash of the candidate
+	pub block_hash: Hash,
+}

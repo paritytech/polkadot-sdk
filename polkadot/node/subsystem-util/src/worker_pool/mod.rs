@@ -33,7 +33,6 @@ use std::{
 };
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
-
 pub(crate) const LOG_TARGET: &str = "parachain::worker-pool";
 
 /// The maximum amount of unprocessed worker messages.
@@ -301,9 +300,10 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 	}
 
 	/// Prune specified jobs and notify workers.
-	pub async fn delete_job(&mut self, jobs: Vec<JobId>) {
+	pub async fn delete_jobs(&mut self, jobs: Vec<JobId>) {
 		// We need to split the contexts per worker.
 		let mut prunable_per_worker_jobs = vec![Vec::new(); self.worker_handles.len()];
+		let num_deleted = jobs.len();
 		for job in jobs {
 			if let Some(worker_index) = self.job_per_worker.get(&job) {
 				prunable_per_worker_jobs
@@ -315,6 +315,15 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 
 		for (index, jobs) in prunable_per_worker_jobs.into_iter().enumerate() {
 			self.worker_handles[index].delete_jobs(&jobs).await;
+		}
+
+		gum::debug!(target: LOG_TARGET, num_total_jobs = self.job_per_worker.len(), num_deleted, "worker-pool: delete_jobs");
+	}
+
+	/// Removes completed jobs
+	pub async fn complete_jobs(&mut self, jobs: &[JobId]) {
+		for job in jobs {
+			self.job_per_worker.remove(&job);
 		}
 	}
 
@@ -397,9 +406,8 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 						WorkerPoolMessage::Queue(work_item) => {
 							self.queue_work(work_item).await;
 						},
-						WorkerPoolMessage::DeleteJobs(contexts) => {
-							gum::debug!(target: LOG_TARGET, "WorkerPool received contexts to be pruned, {:?}", &contexts);
-							self.delete_job(contexts.into()).await;
+						WorkerPoolMessage::DeleteJobs(jobs) => {
+							self.delete_jobs(jobs.into()).await;
 						},
 					}
 				} else {
