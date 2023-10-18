@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
+use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -182,10 +184,16 @@ fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	test.set_dispatchable::<Rococo>(relay_limited_reserve_transfer_assets);
 	test.assert();
 
+	let delivery_fees = Rococo::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
@@ -244,7 +252,13 @@ fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let sender_balance_after = test.sender.balance;
 	let receiver_balance_after = test.receiver.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = Rococo::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
@@ -306,7 +320,13 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubRococo::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }
@@ -338,7 +358,13 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubRococo::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }
