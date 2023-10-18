@@ -324,13 +324,14 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	let dest = (Parent, X1(Parachain(5555)));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
-	assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
-
-	// check wrapper were consumed
-	assert_eq!(None, dest_wrapper.take());
-	assert_eq!(None, msg_wrapper.take());
 
 	new_test_ext().execute_with(|| {
+		assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
+
+		// check wrapper were consumed
+		assert_eq!(None, dest_wrapper.take());
+		assert_eq!(None, msg_wrapper.take());
+
 		// another try with router chain with asserting sender
 		assert_eq!(
 			Err(SendError::Transport("NoChannel")),
