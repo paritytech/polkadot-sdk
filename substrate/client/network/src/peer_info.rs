@@ -402,7 +402,9 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				// self.external_addresses.add(e.addr.clone());
 			},
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
-				if addr.iter().any(|protocol| std::matches!(protocol, multiaddr::Protocol::P2p(_)))
+				if addr
+					.iter()
+					.any(|protocol| std::matches!(protocol, crate::multiaddr::Protocol::P2p(_)))
 				{
 					log::debug!(target: "sub-libp2p", "peerinfo external address confirmed: {addr:?}");
 
