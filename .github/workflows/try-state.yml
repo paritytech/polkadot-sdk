@@ -40,19 +40,61 @@ jobs:
 
     - name: Build Runtimes
       run: |
-        cargo build -r -p westend-runtime --features try-runtime
+        cargo build --features try-runtime \
+          -p westend-runtime \
+          -p rococo-runtime \
+          -p asset-hub-westend-runtime \
+          -p bridge-hub-rococo-runtime \
+          -p contracts-rococo-runtime
 
     - name: Check Westend
       run: | 
         ./try-runtime \
-        --runtime ./target/release/wbuild/westend-runtime/westend_runtime.compact.wasm \
-        execute-block \
-        live --uri wss://westend-rpc.polkadot.io
+          --runtime ./target/debug/wbuild/westend-runtime/westend_runtime.wasm \
+          execute-block \
+          live --uri wss://westend-try-runtime-node.parity-chains.parity.io:443
       continue-on-error: true
       id: westend_run
+
+    - name: Check Rococo
+      run: | 
+        ./try-runtime \
+          --runtime ./target/debug/wbuild/rococo-runtime/rococo_runtime.wasm \
+          execute-block \
+          live --uri wss://rococo-try-runtime-node.parity-chains.parity.io:443
+      continue-on-error: true
+      id: rococo_run
+
+    - name: Check Asset Hub Westend
+      run: | 
+        ./try-runtime \
+          --runtime ./target/debug/wbuild/asset-hub-westend/asset_hub_westend_runtime.wasm \
+          execute-block \
+          live --uri wss://westend-asset-hub-rpc.polkadot.io:443
+      continue-on-error: true
+      id: asset_hub_westend_run
+
+    - name: Check Bridge Hub Rococo
+      run: | 
+        ./try-runtime \
+          --runtime ./target/debug/wbuild/bridge-hub-rococo/bridge_hub_rococo_runtime.wasm \
+          execute-block \
+          live --uri wss://rococo-bridge-hub-rpc.polkadot.io:443
+      continue-on-error: true
+      id: brdige_hub_rococo_run
+
+    - name: Check Contracts Rococo
+      run: | 
+        ./try-runtime \
+          --runtime ./target/debug/wbuild/contracts-rococo/contracts_rococo_runtime.wasm \
+          execute-block \
+          live --uri wss://rococo-contracts-rpc.polkadot.io:443
+      continue-on-error: true
+      id: contracts_rococo_run
 
     # TODO: Check all runtimes
 
     # TODO: Post to Matrix if any fails
     # - name: Notify Matrix on Failure
       # if: steps.westend_run.outcome == 'failure'
+      # ...
