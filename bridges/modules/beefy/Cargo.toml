@@ -35,7 +35,7 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" 
 bp-test-utils = { path = "../../primitives/test-utils" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-beefy/std",
 	"bp-runtime/std",
@@ -49,7 +49,4 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-]
+try-runtime = [ "frame-support/try-runtime", "frame-system/try-runtime" ]
