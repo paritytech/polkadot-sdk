@@ -76,6 +76,8 @@ pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 
+/// Default reward that is paid to relayer for delivering a single message.
+pub const DEFAULT_REWARD_PER_MESSAGE: ThisChainBalance = 100_000;
 /// Maximal reward that may be paid to relayer for delivering a single message.
 pub const MAX_REWARD_PER_MESSAGE: ThisChainBalance = 100_000;
 
@@ -256,6 +258,7 @@ pub type TestDeliveryConfirmationPaymentsAdapter =
 	pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
+		ConstU64<DEFAULT_REWARD_PER_MESSAGE>,
 		ConstU64<MAX_REWARD_PER_MESSAGE>,
 	>;
 

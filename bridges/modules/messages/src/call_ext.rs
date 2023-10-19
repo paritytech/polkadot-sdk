@@ -263,7 +263,7 @@ mod tests {
 				messages: DeliveredMessages {
 					begin: n + 1,
 					end: n + 1,
-					relayer_reward_per_message: 0,
+					relayer_reward_per_message: None,
 				},
 			});
 		}
@@ -277,7 +277,7 @@ mod tests {
 			messages: DeliveredMessages {
 				begin: 1,
 				end: BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				relayer_reward_per_message: 0,
+				relayer_reward_per_message: None,
 			},
 		});
 		InboundLanes::<TestRuntime>::insert(test_lane_id(), inbound_lane_state);

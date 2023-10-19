@@ -135,7 +135,14 @@ pub trait DeliveryPayments<AccountId> {
 	///
 	/// Keep in mind that it is not necessary a real reward that will be paid. See
 	/// [`crate::RelayerRewardAtSource`] for more details.
-	fn relayer_reward_per_message(lane: LaneId, relayer: &AccountId) -> RelayerRewardAtSource;
+	///
+	/// If method returns `None`, it means that the relayer has not specified its expected reward
+	/// at the target chain and it is up to the source chain `DeliveryConfirmationPayments` to
+	/// compute the reward amount.
+	fn relayer_reward_per_message(
+		lane: LaneId,
+		relayer: &AccountId,
+	) -> Option<RelayerRewardAtSource>;
 
 	/// Pay rewards for delivering messages to the given relayer.
 	///
@@ -173,8 +180,11 @@ impl<DispatchPayload: Decode> From<MessagePayload> for DispatchMessageData<Dispa
 impl<AccountId> DeliveryPayments<AccountId> for () {
 	type Error = &'static str;
 
-	fn relayer_reward_per_message(_lane: LaneId, _relayer: &AccountId) -> RelayerRewardAtSource {
-		0
+	fn relayer_reward_per_message(
+		_lane: LaneId,
+		_relayer: &AccountId,
+	) -> Option<RelayerRewardAtSource> {
+		None
 	}
 
 	fn pay_reward(

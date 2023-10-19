@@ -507,13 +507,20 @@ pub struct DeliveredMessages {
 	/// Reward that needs to be paid at the source chain (during confirmation transaction)
 	/// for **every delivered message** in the `begin..=end` range. If reward has been paid
 	/// at the target chain or if no rewards assumed, it may be zero.
-	pub relayer_reward_per_message: RelayerRewardAtSource,
+	///
+	/// If it is `None`, then the relayer has not specified expected reward at the target chain.
+	/// The reward will be determined by the `DeliveryConfirmationPayments` algorithm at
+	/// the source chain.
+	pub relayer_reward_per_message: Option<RelayerRewardAtSource>,
 }
 
 impl DeliveredMessages {
 	/// Create new `DeliveredMessages` struct that confirms delivery of single nonce with given
 	/// dispatch result.
-	pub fn new(nonce: MessageNonce, relayer_reward_per_message: RelayerRewardAtSource) -> Self {
+	pub fn new(
+		nonce: MessageNonce,
+		relayer_reward_per_message: Option<RelayerRewardAtSource>,
+	) -> Self {
 		DeliveredMessages { begin: nonce, end: nonce, relayer_reward_per_message }
 	}
 
@@ -625,7 +632,7 @@ impl OutboundLaneData {
 pub fn calc_relayers_rewards_at_source<AccountId, Reward>(
 	messages_relayers: VecDeque<UnrewardedRelayer<AccountId>>,
 	received_range: &RangeInclusive<MessageNonce>,
-	compute_reward: impl Fn(MessageNonce, RelayerRewardAtSource) -> Reward,
+	compute_reward: impl Fn(MessageNonce, Option<RelayerRewardAtSource>) -> Reward,
 ) -> RelayersRewards<AccountId, Reward>
 where
 	AccountId: sp_std::cmp::Ord,
@@ -635,11 +642,6 @@ where
 	// this loop is bounded by `T::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` on the bridged chain
 	let mut relayers_rewards: RelayersRewards<_, Reward> = RelayersRewards::new();
 	for entry in messages_relayers {
-		// if relayer does not expect any reward, do nothing
-		if entry.messages.relayer_reward_per_message == 0 {
-			continue
-		}
-
 		// if we have already paid reward for delivering those messages, do nothing
 		let nonce_begin = sp_std::cmp::max(entry.messages.begin, *received_range.start());
 		let nonce_end = sp_std::cmp::min(entry.messages.end, *received_range.end());
@@ -652,6 +654,12 @@ where
 		// compute and update reward in the rewards map
 		let new_reward =
 			compute_reward(new_confirmations_count, entry.messages.relayer_reward_per_message);
+
+		// if relayer does not expect any reward, do nothing
+		if new_reward.is_zero() {
+			continue
+		}
+
 		let total_relayer_reward = relayers_rewards.entry(entry.relayer).or_insert_with(Zero::zero);
 		*total_relayer_reward = total_relayer_reward.saturating_add(new_reward);
 	}
@@ -698,10 +706,10 @@ mod tests {
 		let lane_data = InboundLaneData {
 			state: LaneState::Opened,
 			relayers: vec![
-				UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0, 0) },
+				UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(0, None) },
 				UnrewardedRelayer {
 					relayer: 2,
-					messages: DeliveredMessages::new(MessageNonce::MAX, 0),
+					messages: DeliveredMessages::new(MessageNonce::MAX, None),
 				},
 			]
 			.into_iter()
@@ -728,7 +736,7 @@ mod tests {
 				relayers: (1u8..=relayer_entries)
 					.map(|i| UnrewardedRelayer {
 						relayer: i,
-						messages: DeliveredMessages::new(i as _, 0u64),
+						messages: DeliveredMessages::new(i as _, Some(42)),
 					})
 					.collect(),
 				last_confirmed_nonce: messages_count as _,
@@ -746,7 +754,7 @@ mod tests {
 	#[test]
 	fn contains_result_works() {
 		let delivered_messages =
-			DeliveredMessages { begin: 100, end: 150, relayer_reward_per_message: 0 };
+			DeliveredMessages { begin: 100, end: 150, relayer_reward_per_message: None };
 
 		assert!(!delivered_messages.contains_message(99));
 		assert!(delivered_messages.contains_message(100));
@@ -808,20 +816,21 @@ mod tests {
 			calc_relayers_rewards_at_source::<u64, u64>(
 				vec![
 					// relayer that wants zero reward => no payments expected
-					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(1, 0) },
+					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(1, Some(0)) },
+					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(1, None) },
 					// relayer wants reward => payment is expected
-					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(2, 77) },
+					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(2, Some(77)) },
 					// relayer that we met before and he wants reward => payment is expected
-					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(3, 42) },
+					UnrewardedRelayer { relayer: 1, messages: DeliveredMessages::new(3, Some(42)) },
 					// relayer that we met before and he wants reward => payment is expected
-					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(4, 33) },
+					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(4, Some(33)) },
 					// relayers that deliver messages out of range
-					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(0, 33) },
-					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(5, 33) },
+					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(0, Some(33)) },
+					UnrewardedRelayer { relayer: 2, messages: DeliveredMessages::new(5, Some(33)) },
 				]
 				.into(),
 				&(1..=4),
-				|_, relayer_reward_per_message| relayer_reward_per_message,
+				|_, relayer_reward_per_message| relayer_reward_per_message.unwrap_or(0),
 			),
 			vec![(1, 42), (2, 110)].into_iter().collect(),
 		);

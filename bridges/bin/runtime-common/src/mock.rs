@@ -200,6 +200,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 		TestRuntime,
 		(),
 		ConstU64<100_000>,
+		ConstU64<100_000>,
 	>;
 	type OnMessagesDelivered = ();
 

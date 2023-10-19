@@ -296,8 +296,11 @@ impl TestDeliveryPayments {
 impl DeliveryPayments<AccountId> for TestDeliveryPayments {
 	type Error = &'static str;
 
-	fn relayer_reward_per_message(_lane_id: LaneId, _relayer: &AccountId) -> RelayerRewardAtSource {
-		RELAYER_REWARD_PER_MESSAGE
+	fn relayer_reward_per_message(
+		_lane_id: LaneId,
+		_relayer: &AccountId,
+	) -> Option<RelayerRewardAtSource> {
+		Some(RELAYER_REWARD_PER_MESSAGE)
 	}
 
 	fn pay_reward(
@@ -337,7 +340,9 @@ impl DeliveryConfirmationPayments<AccountId> for TestDeliveryConfirmationPayment
 		let relayers_rewards = calc_relayers_rewards_at_source::<AccountId, Balance>(
 			messages_relayers,
 			received_range,
-			|messages, relayer_reward_per_message| messages * relayer_reward_per_message,
+			|messages, relayer_reward_per_message| {
+				messages * relayer_reward_per_message.unwrap_or(0)
+			},
 		);
 		let rewarded_relayers = relayers_rewards.len();
 		for (relayer, reward) in &relayers_rewards {
@@ -463,7 +468,7 @@ pub fn unrewarded_relayer(
 		messages: DeliveredMessages {
 			begin,
 			end,
-			relayer_reward_per_message: RELAYER_REWARD_PER_MESSAGE,
+			relayer_reward_per_message: Some(RELAYER_REWARD_PER_MESSAGE),
 		},
 	}
 }
