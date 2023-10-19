@@ -60,7 +60,8 @@ const PREOUT_SERIALIZED_LEN: usize = 33;
 //
 // This size is dependent on the ring domain size and the actual value
 // is equal to the SCALE encoded size of the `KZG` backend.
-const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
+const RING_CONTEXT_SERIALIZED_LEN: usize = 295412;
+// const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
 
 /// Bandersnatch public key.
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
@@ -355,8 +356,9 @@ pub mod vrf {
 	impl Decode for VrfOutput {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 			let buf = <[u8; PREOUT_SERIALIZED_LEN]>::decode(i)?;
-			let preout = bandersnatch_vrfs::VrfPreOut::deserialize_compressed(buf.as_slice())
-				.map_err(|_| "vrf-preout decode error: bad preout")?;
+			let preout =
+				bandersnatch_vrfs::VrfPreOut::deserialize_compressed_unchecked(buf.as_slice())
+					.map_err(|_| "vrf-preout decode error: bad preout")?;
 			Ok(VrfOutput(preout))
 		}
 	}
@@ -567,7 +569,7 @@ pub mod vrf {
 			data: &VrfSignData,
 			signature: &VrfSignature,
 		) -> bool {
-			let Ok(public) = PublicKey::deserialize_compressed(self.as_slice()) else {
+			let Ok(public) = PublicKey::deserialize_compressed_unchecked(self.as_slice()) else {
 				return false
 			};
 
@@ -577,10 +579,10 @@ pub mod vrf {
 			// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
 			// the number of ios.
-			let Ok(proof) =
-				ThinVrfSignature::<0>::deserialize_compressed(signature.signature.as_ref())
-					.map(|s| s.proof)
-			else {
+			let Ok(proof) = ThinVrfSignature::<0>::deserialize_compressed_unchecked(
+				signature.signature.as_ref(),
+			)
+			.map(|s| s.proof) else {
 				return false
 			};
 			let signature = ThinVrfSignature { proof, preouts };
@@ -642,9 +644,9 @@ pub mod ring_vrf {
 			const ERR_STR: &str = "serialization length is constant and checked by test; qed";
 			let buf = Vec::<u8>::decode(i).unwrap();
 			let domain_size =
-				<u32 as CanonicalDeserialize>::deserialize_compressed(&mut &buf[0..4])
+				<u32 as CanonicalDeserialize>::deserialize_compressed_unchecked(&mut &buf[0..4])
 					.expect(ERR_STR);
-			let verifier_key = <bandersnatch_vrfs::ring::VerifierKey as CanonicalDeserialize>::deserialize_compressed(&mut &buf[4..]).expect(ERR_STR);
+			let verifier_key = <bandersnatch_vrfs::ring::VerifierKey as CanonicalDeserialize>::deserialize_compressed_unchecked(&mut &buf[4..]).expect(ERR_STR);
 
 			Ok(RingVerifierData { domain_size, verifier_key })
 		}
@@ -672,7 +674,7 @@ pub mod ring_vrf {
 		pub fn verifier_data(&self, public_keys: &[Public]) -> Option<RingVerifierData> {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
-				let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
+				let pk = PublicKey::deserialize_compressed_unchecked(public_key.as_slice()).ok()?;
 				pks.push(pk.0.into());
 			}
 			Some(RingVerifierData {
@@ -701,7 +703,7 @@ pub mod ring_vrf {
 		pub fn prover(&self, public_keys: &[Public], public_idx: usize) -> Option<RingProver> {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
-				let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
+				let pk = PublicKey::deserialize_compressed_unchecked(public_key.as_slice()).ok()?;
 				pks.push(pk.0.into());
 			}
 
@@ -714,7 +716,7 @@ pub mod ring_vrf {
 		pub fn verifier(&self, public_keys: &[Public]) -> Option<RingVerifier> {
 			let mut pks = Vec::with_capacity(public_keys.len());
 			for public_key in public_keys {
-				let pk = PublicKey::deserialize_compressed(public_key.as_slice()).ok()?;
+				let pk = PublicKey::deserialize_compressed_unchecked(public_key.as_slice()).ok()?;
 				pks.push(pk.0.into());
 			}
 
@@ -728,7 +730,7 @@ pub mod ring_vrf {
 		fn encode(&self) -> Vec<u8> {
 			let mut buf = Box::new([0; RING_CONTEXT_SERIALIZED_LEN]);
 			self.0
-				.serialize_compressed(buf.as_mut_slice())
+				.serialize_uncompressed(buf.as_mut_slice())
 				.expect("serialization length is constant and checked by test; qed");
 			buf.encode()
 		}
@@ -737,8 +739,8 @@ pub mod ring_vrf {
 	impl Decode for RingContext {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 			let buf = <Box<[u8; RING_CONTEXT_SERIALIZED_LEN]>>::decode(i)?;
-			let kzg =
-				KZG::deserialize_compressed(buf.as_slice()).map_err(|_| "KZG decode error")?;
+			let kzg = KZG::deserialize_uncompressed_unchecked(buf.as_slice())
+				.map_err(|_| "KZG decode error")?;
 			Ok(RingContext(kzg))
 		}
 	}
@@ -840,7 +842,7 @@ pub mod ring_vrf {
 			verifier: &RingVerifier,
 		) -> bool {
 			let Ok(vrf_signature) =
-				bandersnatch_vrfs::RingVrfSignature::<0>::deserialize_compressed(
+				bandersnatch_vrfs::RingVrfSignature::<0>::deserialize_compressed_unchecked(
 					self.signature.as_slice(),
 				)
 			else {
@@ -1136,6 +1138,7 @@ mod tests {
 	#[test]
 	fn encode_decode_ring_vrf_context() {
 		let ctx1 = RingContext::new_testing();
+		println!("encode-len: {}", ctx1.0.serialized_size(bandersnatch_vrfs::Compress::No));
 		let enc1 = ctx1.encode();
 
 		assert_eq!(enc1.len(), RingContext::max_encoded_len());

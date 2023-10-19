@@ -76,7 +76,19 @@ mod benchmarks {
 
 	// Construction of ring verifier benchmark
 	#[benchmark]
-	fn recompute_ring_verifier(x: Linear<1, 20>) {
+	fn load_ring_context() {
+		let ring_ctx = vrf::RingContext::new_testing();
+		RingContext::<T>::set(Some(ring_ctx));
+
+		#[block]
+		{
+			let _ring_ctx = RingContext::<T>::get().unwrap();
+		}
+	}
+
+	// Construction of ring verifier benchmark
+	#[benchmark]
+	fn update_ring_verifier(x: Linear<1, 20>) {
 		let authorities_count = x as usize;
 
 		let ring_ctx = vrf::RingContext::new_testing();
@@ -89,10 +101,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let ring_ctx = RingContext::<T>::get().unwrap();
-
-			let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
-			let _verifier = ring_ctx.verifier(&pks[..]);
+			Pallet::<T>::update_ring_verifier(&authorities);
 		}
 	}
 

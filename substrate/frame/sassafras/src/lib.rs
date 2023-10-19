@@ -588,7 +588,7 @@ impl<T: Config> Pallet<T> {
 		TicketsMeta::<T>::set(Default::default());
 	}
 
-	fn update_ring_verifier(authorities: &[AuthorityId]) {
+	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
 			debug!(target: LOG_TARGET, "Ring context not initialized");
@@ -597,7 +597,7 @@ impl<T: Config> Pallet<T> {
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
-		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {}", pks.len());
+		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {})", pks.len());
 		let verifier_data = ring_ctx
 			.verifier_data(&pks)
 			.expect("Failed to build ring verifier. This is a bug");
@@ -619,9 +619,7 @@ impl<T: Config> Pallet<T> {
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		// TODO: @davxy. This is expensive.
-		// Indeed it makes miss the slot deadline on first attempt.
-		// Retry when HF are integrated
+		// TODO: @davxy. Remove comments.
 		// if next_authorities != authoritues {
 		Self::update_ring_verifier(&next_authorities);
 		// }

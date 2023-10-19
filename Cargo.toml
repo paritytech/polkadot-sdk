@@ -530,10 +530,14 @@ zeroize = { opt-level = 3 }
 
 # [patch."https://github.com/w3f/ring-vrf"]
 # bandersnatch_vrfs = { path = "/mnt/ssd/develop/w3f/ring-vrf/bandersnatch_vrfs" }
+# bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "davxy-nitpicks" }
 
 # [patch."https://github.com/w3f/ring-proof"]
 # ring = { path = "/mnt/ssd/develop/w3f/ring-proof/ring" }
 # common = { path = "/mnt/ssd/develop/w3f/ring-proof/common" }
+# ring = { git = "https://github.com/davxy/ring-proof", branch = "davxy-nitpicks" }
+# common = { git = "https://github.com/davxy/ring-proof", branch = "davxy-nitpicks" }
 
-# [patch."https://github.com/w3f/fflonk"]
+[patch."https://github.com/w3f/fflonk"]
+fflonk = { git = "https://github.com/davxy/fflonk", branch = "davxy-patch" }
 # fflonk = { path = "/mnt/ssd/develop/w3f/fflonk" }

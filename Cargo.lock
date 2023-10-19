@@ -365,6 +365,7 @@ dependencies = [
  "hashbrown 0.13.2",
  "itertools 0.10.5",
  "num-traits",
+ "rayon",
  "zeroize",
 ]
 
@@ -508,6 +509,7 @@ checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+ "rayon",
 ]
 
 [[package]]
@@ -4909,7 +4911,7 @@ dependencies = [
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk#26a5045b24e169cffc1f9328ca83d71061145c40"
+source = "git+https://github.com/davxy/fflonk?branch=davxy-patch#3fc27ad5f680aa009ec06a1cb0fbd59f2825945f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -16698,7 +16700,7 @@ dependencies = [
 [[package]]
 name = "sp-ark-bls12-381"
 version = "0.4.1-beta"
-source = "git+https://github.com/paritytech/ark-substrate#6c92687ad94221dbdbf7754902a12016bb68e540"
+source = "git+https://github.com/paritytech/ark-substrate#d81d8fd5b6e5d8f3470c88dbd842a570b0d84660"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -16711,7 +16713,7 @@ dependencies = [
 [[package]]
 name = "sp-ark-ed-on-bls12-381-bandersnatch"
 version = "0.4.1-beta"
-source = "git+https://github.com/paritytech/ark-substrate#6c92687ad94221dbdbf7754902a12016bb68e540"
+source = "git+https://github.com/paritytech/ark-substrate#d81d8fd5b6e5d8f3470c88dbd842a570b0d84660"
 dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-381-bandersnatch",
@@ -16724,7 +16726,7 @@ dependencies = [
 [[package]]
 name = "sp-ark-models"
 version = "0.4.1-beta"
-source = "git+https://github.com/paritytech/ark-substrate#6c92687ad94221dbdbf7754902a12016bb68e540"
+source = "git+https://github.com/paritytech/ark-substrate#d81d8fd5b6e5d8f3470c88dbd842a570b0d84660"
 dependencies = [
  "ark-ec",
  "ark-ff",

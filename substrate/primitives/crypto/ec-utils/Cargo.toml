@@ -28,7 +28,7 @@ std = [
 	"ark-bls12-377/std",
 	"ark-bls12-381/std",
 	"ark-bw6-761/std",
-	"ark-ec/std",
+	"ark-ec/parallel",
 	"ark-ed-on-bls12-377/std",
 	"ark-ed-on-bls12-381-bandersnatch/std",
 	"ark-scale/std",
