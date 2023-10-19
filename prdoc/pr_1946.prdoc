@@ -3,6 +3,8 @@
 
 title: New PRDoc Schema
 
+ERROR: 42
+
 authors: [ chevdor ]
 tags: [ prdoc, release ]
 
