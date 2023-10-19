@@ -22,21 +22,20 @@ use super::*;
 use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
+	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable, fungible::Mutate},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Bounded, BoundedVec};
-
 use crate::Pallet as Democracy;
 
 const REFERENDUM_COUNT_HINT: u32 = 10;
 const SEED: u32 = 0;
 
-fn funded_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
+fn funded_account<T: Config + pallet_balances::Config>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
 	// Give the account half of the maximum value of the `Balance` type.
 	// Otherwise some transfers will fail with an overflow error.
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+	T::Fungible::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	caller
 }
 
@@ -45,7 +44,7 @@ fn make_proposal<T: Config>(n: u32) -> BoundedCallOf<T> {
 	<T as Config>::Preimages::bound(call).unwrap()
 }
 
-fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
+fn add_proposal<T: Config + pallet_balances::Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
@@ -94,7 +93,37 @@ fn note_preimage<T: Config>() -> T::Hash {
 	hash
 }
 
+use frame_support::pallet_prelude::IsType;
 benchmarks! {
+	where_clause { where
+		T: Config + pallet_balances::Config,
+	    <pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
+	}
+	v2_migration_get_deposits {
+		let c in 0 .. T::MaxDeposits::get();
+		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
+		migrations::v2::store_deposit::<T>(depositors);
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits(&mut Weight::zero());
+	}
+
+	v2_migration_translate_reserve_to_hold {
+		let depositor = funded_account::<T>("backer", 0);
+		let deposit = T::MinimumDeposit::get().into();
+		migrations::v2::store_deposit::<T>(vec![depositor.clone()]);
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_reserve_to_hold(&depositor, deposit);
+	}
+
+	v2_migration_translate_lock_to_freeze {
+		let c in 0 .. T::MaxVotes::get();
+		let voter = funded_account::<T>("voter", 0);
+		let balance = 1_000u32.into();
+		migrations::v2::store_vote::<T>(voter.clone(), c);
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_lock_to_freeze(voter, balance);
+	}
+
 	propose {
 		let p = T::MaxProposals::get();
 

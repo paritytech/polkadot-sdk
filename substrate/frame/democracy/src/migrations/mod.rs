@@ -18,5 +18,6 @@
 /// Migration to unlock and unreserve all pallet funds.
 pub mod unlock_and_unreserve_all_funds;
 
-/// V1 storage migrations for the preimage pallet.
+/// storage migrations for the democracy pallet.
 pub mod v1;
+pub mod v2;
