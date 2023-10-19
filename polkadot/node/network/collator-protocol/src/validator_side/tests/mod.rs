@@ -399,12 +399,6 @@ async fn connect_and_declare_collator(
 			para_id,
 			collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 		)),
-		CollationVersion::VStaging =>
-			Versioned::VStaging(protocol_vstaging::CollatorProtocolMessage::Declare(
-				collator.public(),
-				para_id,
-				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
 	};
 
 	overseer_send(
