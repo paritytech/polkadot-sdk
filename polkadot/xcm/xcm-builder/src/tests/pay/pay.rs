@@ -71,11 +71,14 @@ fn pay_over_xcm_works() {
 		let expected_message = Xcm(vec![
 			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(42)).into(),
-				query_id: 1,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination: (Parent, Parachain(42)).into(),
+					query_id: 1,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				assets: (Here, amount).into(),
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
@@ -130,11 +133,14 @@ fn pay_over_xcm_governance_body() {
 		let expected_message = Xcm(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(42)).into(),
-				query_id: 1,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination: (Parent, Parachain(42)).into(),
+					query_id: 1,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				assets: (Parent, amount).into(),
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
