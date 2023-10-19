@@ -1091,26 +1091,38 @@ fn fast_path_backing_group_recovers() {
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn recovers_from_only_chunks_if_pov_large(#[case] systematic_recovery: bool) {
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn recovers_from_only_chunks_if_pov_large(
+	#[case] systematic_recovery: bool,
+	#[case] skip_availability_store: bool,
+) {
 	let test_state = TestState::default();
 
-	let (subsystem, threshold) = match systematic_recovery {
-		true => (
+	let (subsystem, threshold) = match (systematic_recovery, skip_availability_store) {
+		(true, false) => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
 				request_receiver(),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
-		false => (
+		(false, false) => (
 			AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
 				request_receiver(),
 				Metrics::new_dummy(),
 			),
 			test_state.threshold(),
 		),
+		(false, true) => (
+			AvailabilityRecoverySubsystem::with_availability_store_skip(
+				request_receiver(),
+				Metrics::new_dummy(),
+			),
+			test_state.threshold(),
+		),
+		(_, _) => unreachable!(),
 	};
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
@@ -1151,8 +1163,10 @@ fn recovers_from_only_chunks_if_pov_large(#[case] systematic_recovery: bool) {
 			}
 		);
 
-		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
-		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+		if !skip_availability_store {
+			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+		}
 
 		test_state
 			.test_chunk_requests(
@@ -1197,8 +1211,10 @@ fn recovers_from_only_chunks_if_pov_large(#[case] systematic_recovery: bool) {
 			}
 		);
 
-		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
-		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+		if !skip_availability_store {
+			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+		}
 
 		if systematic_recovery {
 			test_state
@@ -1210,7 +1226,9 @@ fn recovers_from_only_chunks_if_pov_large(#[case] systematic_recovery: bool) {
 					systematic_recovery,
 				)
 				.await;
-			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+			if !skip_availability_store {
+				test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+			}
 		}
 		test_state
 			.test_chunk_requests(
@@ -1229,20 +1247,30 @@ fn recovers_from_only_chunks_if_pov_large(#[case] systematic_recovery: bool) {
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn fast_path_backing_group_recovers_if_pov_small(#[case] systematic_recovery: bool) {
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn fast_path_backing_group_recovers_if_pov_small(
+	#[case] systematic_recovery: bool,
+	#[case] skip_availability_store: bool,
+) {
 	let test_state = TestState::default();
 
-	let subsystem = match systematic_recovery {
-		true => AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
+	let subsystem = match (systematic_recovery, skip_availability_store) {
+		(true, false) => AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
 			request_receiver(),
 			Metrics::new_dummy(),
 		),
-		false => AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+
+		(false, false) => AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
 			request_receiver(),
 			Metrics::new_dummy(),
 		),
+		(false, true) => AvailabilityRecoverySubsystem::with_availability_store_skip(
+			request_receiver(),
+			Metrics::new_dummy(),
+		),
+		(_, _) => unreachable!(),
 	};
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
@@ -1288,7 +1316,9 @@ fn fast_path_backing_group_recovers_if_pov_small(#[case] systematic_recovery: bo
 			}
 		);
 
-		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		if !skip_availability_store {
+			test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		}
 
 		test_state
 			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has)
@@ -1706,9 +1736,6 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 		virtual_overseer
 	});
 }
-
-#[test]
-fn with_availability_store_skip() {}
 
 #[rstest]
 #[case(true)]
