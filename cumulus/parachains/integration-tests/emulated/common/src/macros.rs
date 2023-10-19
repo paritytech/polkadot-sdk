@@ -15,7 +15,7 @@
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
-	( $sender_para:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr) ) => {
+	( $sender_para:ty, $sender_xcm_config:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr) ) => {
 		$crate::paste::paste! {
 			// init Origin variables
 			let sender = [<$sender_para Sender>]::get();
@@ -32,9 +32,12 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					let para_receiver_balance_before =
 						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
 					let para_destination =
-						<$sender_para>::sibling_location_of(<$receiver_para>::para_id()).into();
-					let beneficiary =
+						<$sender_para>::sibling_location_of(<$receiver_para>::para_id());
+					let beneficiary: MultiLocation =
 						$crate::AccountId32 { network: None, id: receiver.clone().into() }.into();
+
+					dbg!(&origin);
+					dbg!(&para_destination);
 
 					// Send XCM message from Origin Parachain
 					// We are only testing the limited teleport version, which should be ok since success will
@@ -42,9 +45,9 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					<$sender_para>::execute_with(|| {
 						assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
-							bx!(para_destination),
-							bx!(beneficiary),
-							bx!($assets.clone()),
+							bx!(para_destination.into()),
+							bx!(beneficiary.into()),
+							bx!($assets.clone().into()),
 							fee_asset_item,
 							weight_limit.clone(),
 						));
@@ -89,8 +92,13 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						<$sender_para as $crate::Chain>::account_data_of(sender.clone()).free;
 					let para_receiver_balance_after =
 						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
+					let delivery_fees = <$sender_para>::execute_with(|| {
+						asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
+							<$sender_xcm_config as xcm_executor::Config>::XcmSender,
+						>($assets.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
+					});
 
-					assert_eq!(para_sender_balance_before - $amount, para_sender_balance_after);
+					assert_eq!(para_sender_balance_before - $amount - delivery_fees, para_sender_balance_after);
 					assert!(para_receiver_balance_after > para_receiver_balance_before);
 
 					// Update sender balance
