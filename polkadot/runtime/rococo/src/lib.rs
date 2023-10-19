@@ -1430,15 +1430,6 @@ pub mod migrations {
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
 	// implementing their configs on [`Runtime`].
 	pub struct UnlockConfig;
-	impl pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockConfig for UnlockConfig {
-		type Currency = Balances;
-		type MaxVotes = ConstU32<100>;
-		type MaxDeposits = ConstU32<100>;
-		type AccountId = AccountId;
-		type BlockNumber = BlockNumberFor<Runtime>;
-		type DbWeight = <Runtime as frame_system::Config>::DbWeight;
-		type PalletName = DemocracyPalletName;
-	}
 	impl pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockConfig
 		for UnlockConfig
 	{
@@ -1476,7 +1467,6 @@ pub mod migrations {
 		// Unlock & unreserve Gov1 funds
 
 		pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
 		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
 
 		// Delete all Gov v1 pallet storage key/values.
