@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! This module defines worker/worker pool abstractions and also provides a
+//! worker pool implementation.
 #![allow(unused)]
 
 use async_trait::async_trait;
@@ -136,9 +138,9 @@ pub trait WorkerHandle: Send + Clone {
 pub enum WorkerMessage<Config: WorkerConfig> {
 	/// Start a new job on the worker initializing it with the given state
 	NewJob(JobId, Config::JobState),
-	/// Mandatory: New work item.
+	/// New work item.
 	Queue(Config::WorkItem),
-	/// Mandatory: The above, combined in a batched variant.
+	/// The above, combined in a batched variant.
 	Batch(Vec<Option<Config::JobState>>, Vec<Config::WorkItem>),
 	/// Delete a batch of jobs.
 	/// The corresponding `WorkerPool::job_per_worker` entries are already removed
@@ -160,44 +162,6 @@ pub enum WorkerPoolMessage<Config: WorkerConfig> {
 	DeleteJobs(Vec<JobId>),
 }
 
-/// A generic worker pool implementation.
-/// TODO: multilevel pool. We need second level for the database worker usecase.
-/// TODO: Alternatively, support connectors between pools, such that workers can forward or
-/// send arbitrary messages to a receiver outside of the pool. This would basically allow
-/// chaining of different types of worker pools.
-///
-/// One easy way to implement might be providing a `WorkerPoolHandle` that can be passed around
-/// to different threads that can send work to the pool. The handle would expose much of the
-/// `WorkerPool` object, but would actually work over a channel.
-///
-/// To support this, the `WorkerPool` will need to run it's own event loop to wait for and
-/// process messages.
-/// Implementing `Future` for the `WorkerPool` to provide this functionality should do it.
-///
-/// Additionally, a simple interface to expose `capacity` and `blocking` workers is needed to
-/// fully support a new way of wrapping core subsystem logic without any side effects.
-/// There could be different types of workers, even PVF execution can be wrapped in this framework
-/// such that we could build a DAG where each node is a worker pool capable of an arbitray number of
-/// threads that process information in paralel. Each pool forward messages to another pool, where
-/// the last element in the chain is the final output.
-///
-/// For `approval-distribution` this means two workerpools (ApprovalPool, DBPool), ApprovalPool for
-/// processing messages and DBPool made of just a single `db` worker that commits the output of
-/// ApprovalPool to DBPool.
-///
-/// High level, it should be something like this:
-///
-/// [network event] -> `approval-main-loop` + DbRead -> ApprovalPool/WorkerN ->
-/// DbPool/Worker0/DbWrite
-///
-///
-/// Even more enhancements:
-/// - support for batched sending in `WorkerPool`; we define a max buffer size in which we
-///   accumulate
-/// `WorkItems` and `JobStates` (if needed) for each of them per individual worker. Once a threshold
-/// is hit, or a timeout expires, the buffer contents are sent as a batch. JobStates are a concern
-/// of the batching mechanism, and should always be available when the batch hits the worker,
-/// otherwise the worker won't be able to process it.
 pub struct WorkerPool<Config: WorkerConfig> {
 	// Per worker context mapping. Values are indices in `worker_handles`.
 	job_per_worker: HashMap<JobId, usize>,

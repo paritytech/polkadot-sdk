@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Approval worker state data structures and helper methods.
-use net_protocol::{peer_set::ProtocolVersion, ObservedRole};
+use net_protocol::peer_set::ProtocolVersion;
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -70,6 +70,7 @@ struct RecentlyOutdated {
 
 /// Block hash and candidates the worker has worked on.
 /// This is used to track completed Jobs
+#[derive(Debug)]
 struct OutdatedBlock {
 	hash: Hash,
 	jobs: HashSet<JobId>,
@@ -79,7 +80,7 @@ impl RecentlyOutdated {
 	// Returns oldest `OutdatedBlock` if buffer full.
 	fn note_outdated(&mut self, block_entry: BlockEntry, hash: Hash) -> Option<OutdatedBlock> {
 		const MAX_BUF_LEN: usize = 20;
-
+		gum::debug!(target: LOG_TARGET, jobs = ?block_entry.jobs, "new outdated block");
 		self.buf.push_back(OutdatedBlock { hash, jobs: block_entry.jobs });
 
 		if self.buf.len() > MAX_BUF_LEN {
@@ -354,11 +355,14 @@ pub struct ApprovalWorkerState {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// Our worker index.
+	worker_idx: u16,
 }
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalWorkerState {
-	pub(crate) fn new(job_completion_sender: mpsc::Sender<Vec<JobId>>) -> Self {
+	pub(crate) fn new(job_completion_sender: mpsc::Sender<Vec<JobId>>, worker_idx: u16) -> Self {
 		ApprovalWorkerState {
 			job_completion_sender,
 			jobs: Default::default(),
@@ -372,13 +376,18 @@ impl ApprovalWorkerState {
 			spans: Default::default(),
 			approval_checking_lag: Default::default(),
 			reputation: Default::default(),
+			worker_idx,
 		}
 	}
 
+	pub(crate) fn worker_idx(&self) -> u16 {
+		self.worker_idx
+	}
+
 	pub(crate) fn new_job(&mut self, job_id: JobId, state: super::ApprovalContext) {
-		self.blocks.entry(state.block_hash).and_modify(|block_entry| {
+		if let Some(block_entry) = self.blocks.get_mut(&state.block_hash) {
 			block_entry.jobs.insert(job_id.clone());
-		});
+		}
 
 		self.jobs
 			.entry(job_id)
@@ -393,14 +402,8 @@ impl ApprovalWorkerState {
 		&mut self.reputation
 	}
 
-	pub(crate) async fn handle_peer_connect(
-		&mut self,
-		peer_id: PeerId,
-		role: ObservedRole,
-		version: ProtocolVersion,
-	) {
+	pub(crate) async fn handle_peer_connect(&mut self, peer_id: PeerId, version: ProtocolVersion) {
 		// insert a blank view if none already present
-		gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
 		let version = match ValidationVersion::try_from(version).ok() {
 			Some(v) => v,
 			None => {
@@ -421,7 +424,6 @@ impl ApprovalWorkerState {
 	}
 
 	pub(crate) async fn handle_peer_disconnect(&mut self, peer_id: PeerId) {
-		gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
 		self.peer_data.remove(&peer_id);
 		self.blocks.iter_mut().for_each(|(_hash, entry)| {
 			entry.known_by.remove(&peer_id);
@@ -429,7 +431,6 @@ impl ApprovalWorkerState {
 	}
 
 	pub(crate) async fn handle_our_view_change(&mut self, view: OurView) {
-		gum::trace!(target: LOG_TARGET, ?view, "Own view change");
 		for head in view.iter() {
 			if !self.blocks.contains_key(head) {
 				self.pending_known.entry(*head).or_default();
@@ -495,13 +496,6 @@ impl ApprovalWorkerState {
 			}
 		}
 
-		// TODO: Move to top level, avoid logging on every worker.
-		gum::debug!(
-			target: LOG_TARGET,
-			"Got new blocks {:?}",
-			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
-		);
-
 		{
 			for (peer_id, data) in self.peer_data.iter() {
 				let intersection = data.view.iter().filter(|h| new_hashes.contains(h));
@@ -553,6 +547,12 @@ impl ApprovalWorkerState {
 				for (peer_id, message) in to_import {
 					match message {
 						PendingMessage::Assignment(assignment, claimed_index) => {
+							if let Some(block_entry) = self.blocks.get_mut(&assignment.block_hash) {
+								block_entry.jobs.insert(
+									ApprovalJob(assignment.block_hash, claimed_index).into_job_id(),
+								);
+							}
+
 							self.import_and_circulate_assignment(
 								sender,
 								metrics,
@@ -564,6 +564,17 @@ impl ApprovalWorkerState {
 							.await;
 						},
 						PendingMessage::Approval(approval_vote) => {
+							if let Some(block_entry) =
+								self.blocks.get_mut(&approval_vote.block_hash)
+							{
+								block_entry.jobs.insert(
+									ApprovalJob(
+										approval_vote.block_hash,
+										approval_vote.candidate_index,
+									)
+									.into_job_id(),
+								);
+							}
 							self.import_and_circulate_approval(
 								sender,
 								metrics,
@@ -702,8 +713,6 @@ impl ApprovalWorkerState {
 	) where
 		R: CryptoRng + Rng,
 	{
-		// TODO: move log in subsystem loop.
-		gum::trace!(target: LOG_TARGET, ?view, "Peer view change");
 		let finalized_number = view.finalized_number;
 		let (peer_protocol_version, old_finalized_number) = match self
 			.peer_data
@@ -761,7 +770,7 @@ impl ApprovalWorkerState {
 		// after split_off old_blocks actually contains new blocks, we need to swap
 		std::mem::swap(&mut self.blocks_by_number, &mut old_blocks);
 
-		let mut blocks_to_clean = Vec::new();
+		let mut completed_jobs_blocks = Vec::new();
 
 		// now that we pruned `self.blocks_by_number`, let's clean up `self.blocks` too
 		old_blocks.values().flatten().for_each(|relay_block| {
@@ -771,11 +780,13 @@ impl ApprovalWorkerState {
 				if let Some(block) =
 					self.recent_outdated_blocks.note_outdated(block_entry, *relay_block)
 				{
-					blocks_to_clean.push(block);
+					completed_jobs_blocks.push(block);
 				}
 			}
 			self.spans.remove(&relay_block);
 		});
+
+		gum::trace!(target: LOG_TARGET, ?completed_jobs_blocks, "Determining completed jobs for blocks");
 
 		// Send completed job notifications to worker pool.
 		// We consider a job completed only after the corresponding relay chain blocks
@@ -784,11 +795,13 @@ impl ApprovalWorkerState {
 		// However, the jobs we completed here might be re-created if we receives very old messages
 		// but in that case `handle_gossiped_assignment` and `handle_gossiped_approval` should send
 		// another notification to the pool to complete it once again.
-		let completed_jobs = blocks_to_clean
+		let completed_jobs = completed_jobs_blocks
 			.into_iter()
 			.map(|block| block.jobs.into_iter().collect::<Vec<_>>())
 			.flatten()
 			.collect::<Vec<_>>();
+
+		gum::debug!(target: LOG_TARGET, ?completed_jobs, "Sending completed jobs");
 
 		if let Err(err) = self.job_completion_sender.send(completed_jobs).await {
 			gum::warn!(target: LOG_TARGET, ?err, "Failed to send job completion for outdated blocks")
@@ -1482,7 +1495,7 @@ impl ApprovalWorkerState {
 	}
 
 	/// Retrieve approval signatures from state for the given relay block/indices:
-	fn get_approval_signatures(
+	pub(crate) fn get_approval_signatures(
 		&mut self,
 		indices: HashSet<(Hash, CandidateIndex)>,
 	) -> HashMap<ValidatorIndex, ValidatorSignature> {

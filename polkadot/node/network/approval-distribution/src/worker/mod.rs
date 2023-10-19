@@ -26,9 +26,10 @@ use polkadot_node_subsystem_util::{
 	reputation::REPUTATION_CHANGE_INTERVAL,
 	worker_pool::{Job, JobId, WorkerConfig, WorkerHandle, WorkerMessage},
 };
+use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 
-use polkadot_primitives::{BlockNumber, CandidateIndex, Hash};
+use polkadot_primitives::{BlockNumber, CandidateIndex, Hash, ValidatorIndex, ValidatorSignature};
 
 use polkadot_node_primitives::approval::{
 	BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
@@ -67,6 +68,11 @@ pub(crate) enum ApprovalWorkerMessage {
 	ApprovalCheckingLagUpdate(BlockNumber),
 	/// Block was finalized (broadcast)
 	BlockFinalized(BlockNumber),
+	/// Retrieve the approval signatures for specified candidates. (broadcast)
+	GetApprovalSignatures(
+		HashSet<(Hash, CandidateIndex)>,
+		mpsc::Sender<HashMap<ValidatorIndex, ValidatorSignature>>,
+	),
 }
 
 impl Job for ApprovalWorkerMessage {
@@ -199,14 +205,21 @@ async fn dispatch_work(
 					.await;
 			}
 		},
-		ApprovalWorkerMessage::PeerViewChange(peer_id, view) =>
-			state.handle_peer_view_change(sender, metrics, peer_id, view, rng).await,
-		ApprovalWorkerMessage::NewBlocks(metas) =>
-			state.handle_new_blocks(sender, metrics, metas, rng).await,
-		ApprovalWorkerMessage::PeerConnected(peer_id, role, protocol_version) =>
-			state.handle_peer_connect(peer_id, role, protocol_version).await,
-		ApprovalWorkerMessage::PeerDisconnected(peer_id) =>
-			state.handle_peer_disconnect(peer_id).await,
+		ApprovalWorkerMessage::PeerViewChange(peer_id, view) => {
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?view, "Peer view change");
+			state.handle_peer_view_change(sender, metrics, peer_id, view, rng).await;
+		},
+		ApprovalWorkerMessage::NewBlocks(metas) => {
+			state.handle_new_blocks(sender, metrics, metas, rng).await;
+		},
+		ApprovalWorkerMessage::PeerConnected(peer_id, role, protocol_version) => {
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
+			state.handle_peer_connect(peer_id, protocol_version).await;
+		},
+		ApprovalWorkerMessage::PeerDisconnected(peer_id) => {
+			gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+			state.handle_peer_disconnect(peer_id).await;
+		},
 		ApprovalWorkerMessage::NewGossipTopology(topology) =>
 			state
 				.handle_new_session_topology(
@@ -216,12 +229,21 @@ async fn dispatch_work(
 					topology.local_index,
 				)
 				.await,
-		ApprovalWorkerMessage::OurViewChange(view) => state.handle_our_view_change(view).await,
+		ApprovalWorkerMessage::OurViewChange(view) => {
+			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
+			state.handle_our_view_change(view).await;
+		},
 		ApprovalWorkerMessage::ApprovalCheckingLagUpdate(lag) => {
 			state.update_approval_checking_lag(lag);
 		},
 		ApprovalWorkerMessage::BlockFinalized(block_number) => {
 			state.handle_block_finalized(sender, metrics, block_number).await;
+		},
+		ApprovalWorkerMessage::GetApprovalSignatures(indices, tx) => {
+			let signatures = state.get_approval_signatures(indices);
+			if let Err(err) = tx.send(signatures).await {
+				gum::warn!(target: LOG_TARGET, ?err, worker_idx = state.worker_idx(), "Worker failed to send approval signatures")
+			}
 		},
 	}
 }
@@ -233,9 +255,10 @@ async fn worker_loop<
 	mut sender: impl overseer::ApprovalDistributionSenderTrait,
 	metrics: Metrics,
 	job_completion_sender: mpsc::Sender<Vec<JobId>>,
+	worker_idx: u16,
 ) {
 	let mut rng = rand::rngs::StdRng::from_entropy();
-	let mut worker_state = state::ApprovalWorkerState::new(job_completion_sender);
+	let mut worker_state = state::ApprovalWorkerState::new(job_completion_sender, worker_idx);
 
 	let new_reputation_delay = || futures_timer::Delay::new(REPUTATION_CHANGE_INTERVAL).fuse();
 	let mut reputation_delay = new_reputation_delay();
@@ -250,7 +273,7 @@ async fn worker_loop<
 				let worker_message = if let Some(worker_message) = worker_message {
 					worker_message
 				} else {
-					// Worker pool exiting.
+					gum::debug!(target: LOG_TARGET, ?worker_idx, "Pool channel closed, exiting.");
 					return
 				};
 
@@ -282,17 +305,19 @@ where
 	type Worker = ApprovalWorkerHandle<F>;
 	type JobState = ApprovalContext;
 	type ChannelCapacity = ConstU32<4096>;
-	type PoolCapacity = ConstU32<8>;
+	type PoolCapacity = ConstU32<2>;
 
 	fn new_worker(&mut self) -> ApprovalWorkerHandle<F> {
 		let (to_worker, from_pool) = Self::new_worker_channel();
+		let handle = ApprovalWorkerHandle { sender: to_worker, id: self.next_id() };
+
 		tokio::spawn(worker_loop(
 			from_pool,
 			self.sender.clone(),
 			self.metrics.clone(),
 			self.job_completion_sender.clone(),
+			handle.index(),
 		));
-		let handle = ApprovalWorkerHandle { sender: to_worker, id: self.next_id() };
 
 		gum::debug!(target: LOG_TARGET, worker_idx = ?handle.index(), "Spawned worker");
 		handle

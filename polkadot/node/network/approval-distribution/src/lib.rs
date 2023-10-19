@@ -35,9 +35,9 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 
-use polkadot_primitives::Hash;
-
 use self::metrics::Metrics;
+use polkadot_primitives::{Hash, ValidatorIndex, ValidatorSignature};
+use std::collections::HashMap;
 
 pub(crate) mod metrics;
 mod worker;
@@ -90,13 +90,13 @@ impl ApprovalDistribution {
 					let message = match message {
 						Ok(message) => message,
 						Err(e) => {
-							gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer,
-			exiting"); 				return
+							gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer, exiting");
+							return
 						},
 					};
 					match message {
 						FromOrchestra::Communication { msg } =>
-							self.handle_incoming(&mut approval_worker_pool, msg).await,
+							self.handle_incoming(&mut ctx, &mut approval_worker_pool, msg).await,
 						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
@@ -168,9 +168,6 @@ impl ApprovalDistribution {
 				Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 				Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =>
 					for approval in approvals.into_iter() {
-						// TODO: don't queue work for a block that was already finalized.
-						// Reduce reputation of peers that send out of view messages.
-
 						let block_hash = approval.block_hash;
 						let work_item = ApprovalWorkerMessage::ProcessApproval(
 							approval,
@@ -214,8 +211,10 @@ impl ApprovalDistribution {
 		}
 	}
 
-	async fn handle_incoming<F>(
+	#[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
+	async fn handle_incoming<F, Context>(
 		&mut self,
+		ctx: &mut Context,
 		worker_pool: &mut WorkerPool<ApprovalWorkerConfig<F>>,
 		msg: ApprovalDistributionMessage,
 	) where
@@ -226,6 +225,11 @@ impl ApprovalDistribution {
 				self.handle_network_msg(worker_pool, event).await;
 			},
 			ApprovalDistributionMessage::NewBlocks(metas) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					"Got new blocks {:?}",
+					metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
+				);
 				worker_pool.queue_work(ApprovalWorkerMessage::NewBlocks(metas)).await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_index) => {
@@ -257,16 +261,52 @@ impl ApprovalDistribution {
 				self.handle_new_job(&work_item, worker_pool, block_hash).await;
 				worker_pool.queue_work(work_item).await;
 			},
-			ApprovalDistributionMessage::GetApprovalSignatures(_indices, tx) => {
+			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
 				// let sigs = state.get_approval_signatures(indices);
-				// TODO: remove this placeholder and implement aggregation of responses across
-				// workers.
-				let sigs = Default::default();
-				if let Err(_) = tx.send(sigs) {
+				// We will broadcast a message to all workers and pass in a sender for the votes.
+				// The receiver will be polled in a task we spawn here, and after all senders are
+				// dropped, we will send back the aggregated signatures via `tx` to caller.
+
+				let mut all_sigs = HashMap::new();
+				let (sigs_tx, mut sigs_rx) = mpsc::channel::<
+					HashMap<ValidatorIndex, ValidatorSignature>,
+				>(worker_pool.worker_handles().len());
+
+				// Send the request to workers.
+				worker_pool
+					.queue_work(ApprovalWorkerMessage::GetApprovalSignatures(indices, sigs_tx))
+					.await;
+
+				// Spawn a task to aggregate the responses from workers.
+				if let Err(err) = ctx.spawn(
+					"get-approval-signatures",
+					async move {
+						// This loop breaks as soon as all senders are dropped by workers (after
+						// completing job).
+						// TODO: Add timeout to prevent lockups.
+						while let Some(sigs) = sigs_rx.recv().await {
+							gum::debug!(
+								target: LOG_TARGET,
+								signatures = ?sigs,
+								"Received signatures from worker"
+							);
+							all_sigs.extend(sigs.into_iter());
+						}
+						if let Err(_) = tx.send(all_sigs) {
+							gum::debug!(
+								target: LOG_TARGET,
+								"Sending back approval signatures failed, oneshot got closed"
+							);
+						}
+					}
+					.boxed(),
+				) {
 					gum::debug!(
 						target: LOG_TARGET,
-						"Sending back approval signatures failed, oneshot got closed"
+						?err,
+						"Failed to spawn signature aggregator task"
 					);
+					return
 				}
 			},
 			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
