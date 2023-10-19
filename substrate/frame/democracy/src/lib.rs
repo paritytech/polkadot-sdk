@@ -249,7 +249,6 @@ pub mod pallet {
 		/// The fungible trait.
 		type Fungible: fungible::Inspect<Self::AccountId>
 			+ fungible::Mutate<Self::AccountId>
-			+ fungible::freeze::Inspect<Self::AccountId>
 			+ fungible::MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ fungible::hold::Balanced<Self::AccountId>;

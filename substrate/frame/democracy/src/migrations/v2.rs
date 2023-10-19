@@ -26,6 +26,7 @@ use sp_core::hexdisplay::HexDisplay;
 const LOG_TARGET: &'static str = "runtime::democracy::migration::v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+pub type FungibleOf<T> = <T as pallet::Config>::Fungible;
 
 /// The original data layout of the democracy pallet without a specific version number.
 mod old {
@@ -75,7 +76,6 @@ where
 			.fold(
 				BTreeMap::new(),
 				|mut acc: BTreeMap<AccountIdOf<T>, OldCurrency::Balance>, (account, balance)| {
-					// TODO: mutate weight
 					acc.entry(account.clone())
 						.or_insert(Zero::zero())
 						.saturating_accrue(balance.into());
@@ -84,9 +84,8 @@ where
 			)
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn bench_store_deposit(depositors: Vec<AccountIdOf<T>>)
-	{
+	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
+	pub fn bench_store_deposit(depositors: Vec<AccountIdOf<T>>) {
 		let amount = T::MinimumDeposit::get();
 		for depositor in &depositors {
 			OldCurrency::reserve(&depositor, amount.into()).expect("Failed to reserve deposit");
@@ -94,25 +93,6 @@ where
 
 		let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(depositors);
 		old::DepositOf::<T>::insert(0u32, (depositors, amount));
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn bench_store_vote(voter: AccountIdOf<T>, len: u32) {
-		use frame_support::traits::WithdrawReasons;
-		let balance = 1_000_000u32;
-		OldCurrency::set_lock(DEMOCRACY_ID, &voter, balance.into(), WithdrawReasons::except(WithdrawReasons::RESERVE));
-		let votes = (0..len).map(|i| {
-			(
-				i,
-				AccountVote::Standard {
-					vote: Vote { aye: true, conviction: Conviction::Locked1x },
-					balance: balance.into(),
-				},
-				)
-		});
-		let votes = BoundedVec::<_, T::MaxVotes>::truncate_from(votes.collect());
-		let vote = Voting::Direct { votes, delegations: Default::default(), prior: Default::default() };
-		VotingOf::<T>::insert(voter, vote);
 	}
 
 	pub fn translate_reserve_to_hold(
@@ -155,12 +135,32 @@ where
 		T::WeightInfo::v2_migration_translate_reserve_to_hold()
 	}
 
-	pub fn translate_lock_to_freeze(
-		account_id: AccountIdOf<T>,
-		amount: OldCurrency::Balance,
-	) -> Weight {
+	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
+	pub fn bench_store_vote(voter: AccountIdOf<T>) {
+		use frame_support::traits::WithdrawReasons;
+		let balance = 1_000_000u32;
+		OldCurrency::set_lock(
+			DEMOCRACY_ID,
+			&voter,
+			balance.into(),
+			WithdrawReasons::except(WithdrawReasons::RESERVE),
+		);
+		let votes = vec![(
+			0u32,
+			AccountVote::Standard {
+				vote: Vote { aye: true, conviction: Conviction::Locked1x },
+				balance: balance.into(),
+			},
+		)];
+		let votes = BoundedVec::<_, T::MaxVotes>::truncate_from(votes);
+		let vote =
+			Voting::Direct { votes, delegations: Default::default(), prior: Default::default() };
+		VotingOf::<T>::insert(voter, vote);
+	}
+
+	pub fn translate_lock_to_freeze(account_id: AccountIdOf<T>, amount: OldCurrency::Balance) {
 		OldCurrency::remove_lock(DEMOCRACY_ID, &account_id);
-		T::Fungible::extend_freeze(&FreezeReason::Vote.into(), &account_id, amount.into())
+		T::Fungible::set_freeze(&FreezeReason::Vote.into(), &account_id, amount.into())
 			.unwrap_or_else(|err| {
 				log::error!(
 					target: LOG_TARGET,
@@ -170,8 +170,6 @@ where
 					err
 				);
 			});
-
-		T::WeightInfo::v2_migration_translate_lock_to_freeze()
 	}
 }
 
@@ -183,15 +181,17 @@ where
 		+ LockableCurrency<AccountIdOf<T>, Moment = BlockNumberFor<T>>,
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		// TODO get reserve and lock funds
-		todo!()
-	}
-
-	#[allow(deprecated)]
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight: Weight = Weight::zero();
+		let mut weight = T::WeightInfo::v2_migration_base();
+
+		if StorageVersion::get::<Pallet<T>>() != 1 {
+			log::warn!(
+				target: LOG_TARGET,
+				"skipping on_runtime_upgrade: executed on wrong storage version.\
+			Expected version 1"
+			);
+			return weight
+		}
 
 		// convert reserved deposit to held deposit
 		Self::get_deposits(&mut weight).into_iter().for_each(|(depositor, amount)| {
@@ -202,23 +202,75 @@ where
 		old::VotingOf::<T>::iter()
 			.map(|(account_id, voting)| (account_id, voting.locked_balance()))
 			.for_each(|(account_id, amount)| {
-				weight.saturating_accrue(Self::translate_lock_to_freeze(account_id, amount.into()));
+				Self::translate_lock_to_freeze(account_id, amount.into());
+				weight.saturating_accrue(T::WeightInfo::v2_migration_translate_lock_to_freeze());
 			});
 
+		StorageVersion::new(2).put::<Pallet<T>>();
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		todo!()
+		use frame_support::traits::fungible::InspectHold;
+
+		ensure!(StorageVersion::get::<Pallet<T>>() == 2, "must upgrade");
+		let deposits = Self::get_deposits(&mut Weight::zero());
+
+		for (depositor, amount) in deposits {
+			assert_eq!(
+				FungibleOf::<T>::balance_on_hold(&HoldReason::Proposal.into(), &depositor),
+				amount.into()
+			);
+		}
+
+		for (voter, voting) in old::VotingOf::<T>::iter() {
+			assert_eq!(
+				FungibleOf::<T>::balance_frozen(&FreezeReason::Vote.into(), &voter),
+				voting.locked_balance()
+			);
+		}
+
+		Ok(())
 	}
 }
 
 #[cfg(test)]
 #[cfg(feature = "try-runtime")]
 mod test {
+	use super::*;
+	use crate::tests::{Test as T, *};
+	use frame_support::traits::fungible::InspectHold;
+
+	type MigrationOf<T> = Migration<T, pallet_balances::Pallet<T>>;
+
 	#[test]
 	fn migration_works() {
-		todo!()
+		new_test_ext().execute_with(|| {
+			assert_eq!(StorageVersion::get::<Pallet<T>>(), 0);
+			StorageVersion::new(1).put::<Pallet<T>>();
+			let alice = 1;
+
+			// Store some proposal deposit and votes for alice.
+			MigrationOf::<T>::bench_store_deposit(vec![alice]);
+			MigrationOf::<T>::bench_store_vote(alice.into());
+
+			// Check that alice's deposit is reserved and vote amount is locked.
+			assert_eq!(pallet_balances::Pallet::<T>::reserved_balance(&alice), 1);
+			assert_eq!(pallet_balances::Pallet::<T>::locks(&alice)[0].amount, 1_000_000);
+
+			// Run migration.
+			let state = MigrationOf::<T>::pre_upgrade().unwrap();
+			MigrationOf::<T>::on_runtime_upgrade();
+			MigrationOf::<T>::post_upgrade(state).unwrap();
+
+			// Check alice's deposit is now held instead of reserved.
+			assert_eq!(FungibleOf::<T>::balance_on_hold(&HoldReason::Proposal.into(), &alice), 1);
+			assert_eq!(
+				FungibleOf::<T>::balance_frozen(&FreezeReason::Vote.into(), &alice),
+				1_000_000
+			);
+			assert_eq!(pallet_balances::Pallet::<T>::locks(&alice).len(), 0);
+		})
 	}
 }

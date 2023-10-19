@@ -16,7 +16,7 @@
 //! All migrations of this pallet.
 
 /// Migration to unlock and unreserve all pallet funds.
-pub mod unlock_and_unreserve_all_funds;
+// pub mod unlock_and_unreserve_all_funds;
 
 /// storage migrations for the democracy pallet.
 pub mod v1;

@@ -19,19 +19,22 @@
 
 use super::*;
 
+use crate::Pallet as Democracy;
 use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable, fungible::Mutate},
+	traits::{fungible::Mutate, Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Bounded, BoundedVec};
-use crate::Pallet as Democracy;
 
 const REFERENDUM_COUNT_HINT: u32 = 10;
 const SEED: u32 = 0;
 
-fn funded_account<T: Config + pallet_balances::Config>(name: &'static str, index: u32) -> T::AccountId {
+fn funded_account<T: Config + pallet_balances::Config>(
+	name: &'static str,
+	index: u32,
+) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
@@ -97,8 +100,18 @@ use frame_support::pallet_prelude::IsType;
 benchmarks! {
 	where_clause { where
 		T: Config + pallet_balances::Config,
-	    <pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
+		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
 	}
+	v2_migration_base {
+		use frame_support::pallet_prelude::StorageVersion;
+		use frame_support::traits::OnRuntimeUpgrade;
+		StorageVersion::new(1).put::<Pallet<T>>();
+	}:{
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::on_runtime_upgrade();
+	} verify {
+		assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
+	}
+
 	v2_migration_get_deposits {
 		let c in 0 .. T::MaxDeposits::get();
 		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
@@ -116,10 +129,9 @@ benchmarks! {
 	}
 
 	v2_migration_translate_lock_to_freeze {
-		let c in 0 .. T::MaxVotes::get();
 		let voter = funded_account::<T>("voter", 0);
 		let balance = 1_000u32.into();
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone(), c);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
 	}: {
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_lock_to_freeze(voter, balance);
 	}
