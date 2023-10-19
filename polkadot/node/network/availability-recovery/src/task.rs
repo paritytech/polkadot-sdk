@@ -1362,7 +1362,7 @@ mod tests {
 		// Failed to reach the av store
 		{
 			let params = params.clone();
-			let candidate_hash = params.candidate_hash.clone();
+			let candidate_hash = params.candidate_hash;
 			let mut state = State::new();
 
 			test_harness(
@@ -1387,7 +1387,7 @@ mod tests {
 		// Found invalid chunk
 		{
 			let mut params = params.clone();
-			let candidate_hash = params.candidate_hash.clone();
+			let candidate_hash = params.candidate_hash;
 			let mut state = State::new();
 			let chunks = params.create_chunks();
 
@@ -1415,7 +1415,7 @@ mod tests {
 		// Found valid chunk
 		{
 			let mut params = params.clone();
-			let candidate_hash = params.candidate_hash.clone();
+			let candidate_hash = params.candidate_hash;
 			let mut state = State::new();
 			let chunks = params.create_chunks();
 
