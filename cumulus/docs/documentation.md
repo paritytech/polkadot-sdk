@@ -1,1 +1,0 @@
-Was moved [here](https://github.com/paritytech/labels/blob/main/docs/doc_cumulus.md)

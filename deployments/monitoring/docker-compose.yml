@@ -1,0 +1,36 @@
+version: '3.5'
+services:
+  prometheus-metrics:
+    image: prom/prometheus:v2.38.0
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana-dashboard:
+    image: grafana/grafana:8.2.6
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASS:-admin}
+      GF_SERVER_ROOT_URL: ${GRAFANA_SERVER_ROOT_URL}
+      GF_SERVER_DOMAIN: ${GRAFANA_SERVER_DOMAIN}
+    volumes:
+       - ./monitoring/grafana/provisioning/:/etc/grafana/provisioning/:ro
+       - ./monitoring/grafana/dashboards/:/etc/grafana/dashboards/common:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus-metrics
+    # SIGTERM won't work because of our custom entrypoint. Should be ok to use SIGKILL.
+    stop_signal: SIGKILL
+    entrypoint: sh -c "${NO_GRAFANA_STARTUP_DELAY:-echo 'sleeping for 10m' && sleep 600} && /run.sh"
+
+  grafana-matrix-notifier:
+    build:
+      context: .
+      dockerfile: ./monitoring/GrafanaMatrix.Dockerfile
+    volumes:
+      - ./monitoring/grafana-matrix:/config
+    ports:
+      - "4567:4567"
+    depends_on:
+      - grafana-dashboard

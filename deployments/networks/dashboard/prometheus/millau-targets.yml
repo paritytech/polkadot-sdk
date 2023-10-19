@@ -1,0 +1,6 @@
+- targets:
+  - millau-node-alice:9615
+  - millau-node-bob:9615
+  - millau-node-charlie:9615
+  - millau-node-dave:9615
+  - millau-node-eve:9615
