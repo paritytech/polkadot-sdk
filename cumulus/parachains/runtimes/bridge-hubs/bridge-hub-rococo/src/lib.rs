@@ -42,7 +42,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -471,9 +471,28 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = MessageQueueHeapSize;
 	type MaxStale = MessageQueueMaxStale;
 	type ServiceWeight = MessageQueueServiceWeight;
-	type MessageProcessor = ();
+	type MessageProcessor = EthereumOutboundQueue;
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub const MaxMessagePayloadSize: u32 = 2048;
+	pub const MaxMessagesPerBlock: u32 = 32;
+}
+
+impl snowbridge_outbound_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Hashing = Keccak256;
+	type MessageQueue = MessageQueue;
+	type MaxMessagePayloadSize = MaxMessagePayloadSize;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type Balance = Balance;
+	type DeliveryFeePerGas = DeliveryFeePerGas;
+	type DeliveryRefundPerGas = DeliveryRefundPerGas;
+	type DeliveryReward = DeliveryReward;
 	type WeightInfo = ();
 }
 
@@ -525,6 +544,8 @@ construct_runtime!(
 		BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
+
+		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 49,
 
 		// Message Queue. Registered after EthereumOutboundQueue so that their `on_initialize` handlers
 		// run in the desired order.

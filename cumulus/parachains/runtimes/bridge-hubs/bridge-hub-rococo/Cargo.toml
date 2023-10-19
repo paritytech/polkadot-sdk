@@ -92,6 +92,9 @@ pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains",
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
+# Ethereum Bridge (Snowbridge)
+snowbridge-outbound-queue = { path = "../../../../../../parachain/pallets/outbound-queue", default-features = false }
+
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../test-utils" }
@@ -174,6 +177,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"snowbridge-outbound-queue/std",
 ]
 
 runtime-benchmarks = [
