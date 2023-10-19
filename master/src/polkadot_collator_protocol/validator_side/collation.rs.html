@@ -364,6 +364,13 @@
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -397,6 +404,7 @@
 
 <span class="kw">use </span>futures::{future::BoxFuture, FutureExt};
 <span class="kw">use </span>polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v1 <span class="kw">as </span>request_v1, OutgoingResult},
 	PeerId,
 };
@@ -526,6 +534,8 @@
 </span><span class="kw">pub struct </span>CollationEvent {
 	<span class="doccomment">/// Collator id.
 	</span><span class="kw">pub </span>collator_id: CollatorId,
+	<span class="doccomment">/// The network protocol version the collator is using.
+	</span><span class="kw">pub </span>collator_protocol_version: CollationVersion,
 	<span class="doccomment">/// The requested collation data.
 	</span><span class="kw">pub </span>pending_collation: PendingCollation,
 }
@@ -673,6 +683,8 @@
 	</span><span class="kw">pub </span>pending_collation: PendingCollation,
 	<span class="doccomment">/// Collator id.
 	</span><span class="kw">pub </span>collator_id: CollatorId,
+	<span class="doccomment">/// The network protocol version the collator is using.
+	</span><span class="kw">pub </span>collator_protocol_version: CollationVersion,
 	<span class="doccomment">/// Responses from collator.
 	</span><span class="kw">pub </span>from_collator: BoxFuture&lt;<span class="lifetime">&#39;static</span>, OutgoingResult&lt;request_v1::CollationFetchingResponse&gt;&gt;,
 	<span class="doccomment">/// Handle used for checking if this request was cancelled.
@@ -700,6 +712,7 @@
 			<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">&quot;success&quot;</span>, <span class="string">&quot;false&quot;</span>));
 			<span class="kw">return </span>Poll::Ready((
 				CollationEvent {
+					collator_protocol_version: <span class="self">self</span>.collator_protocol_version,
 					collator_id: <span class="self">self</span>.collator_id.clone(),
 					pending_collation: <span class="self">self</span>.pending_collation,
 				},
@@ -710,6 +723,7 @@
 		<span class="kw">let </span>res = <span class="self">self</span>.from_collator.poll_unpin(cx).map(|res| {
 			(
 				CollationEvent {
+					collator_protocol_version: <span class="self">self</span>.collator_protocol_version,
 					collator_id: <span class="self">self</span>.collator_id.clone(),
 					pending_collation: <span class="self">self</span>.pending_collation,
 				},

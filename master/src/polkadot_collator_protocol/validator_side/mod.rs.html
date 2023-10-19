@@ -1979,6 +1979,35 @@
 <a href="#1979" id="1979">1979</a>
 <a href="#1980" id="1980">1980</a>
 <a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2066,6 +2095,8 @@
 <span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">&quot;Invalid network message signature&quot;</span>);
 <span class="kw">const </span>COST_REPORT_BAD: Rep = Rep::Malicious(<span class="string">&quot;A collator was reported by another subsystem&quot;</span>);
 <span class="kw">const </span>COST_WRONG_PARA: Rep = Rep::Malicious(<span class="string">&quot;A collator provided a collation for the wrong para&quot;</span>);
+<span class="kw">const </span>COST_PROTOCOL_MISUSE: Rep =
+	Rep::Malicious(<span class="string">&quot;A collator advertising a collation for an async backing relay parent using V1&quot;</span>);
 <span class="kw">const </span>COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor(<span class="string">&quot;An unneeded collator connected&quot;</span>);
 <span class="kw">const </span>BENEFIT_NOTIFY_GOOD: Rep =
 	Rep::BenefitMinor(<span class="string">&quot;A collator was noted good by another subsystem&quot;</span>);
@@ -2125,9 +2156,6 @@
 	</span>UndeclaredCollator,
 	<span class="doccomment">/// A limit for announcements per peer is reached.
 	</span>PeerLimitReached,
-	<span class="doccomment">/// Mismatch of relay parent mode and advertisement arguments.
-	/// An internal error that should not happen.
-	</span>ProtocolMismatch,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -2233,23 +2261,41 @@
 					},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
-						<span class="prelude-val">Some</span>(candidate_hash),
+						candidate_hash,
 					) =&gt; {
-						<span class="kw">if </span>state
-							.advertisements
-							.get(<span class="kw-2">&amp;</span>on_relay_parent)
-							.map_or(<span class="bool-val">false</span>, |candidates| candidates.contains(<span class="kw-2">&amp;</span>candidate_hash))
-						{
-							<span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::Duplicate)
-						}
-						<span class="kw">let </span>candidates = state.advertisements.entry(on_relay_parent).or_default();
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(candidate_hash) = candidate_hash {
+							<span class="kw">if </span>state
+								.advertisements
+								.get(<span class="kw-2">&amp;</span>on_relay_parent)
+								.map_or(<span class="bool-val">false</span>, |candidates| candidates.contains(<span class="kw-2">&amp;</span>candidate_hash))
+							{
+								<span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::Duplicate)
+							}
 
-						<span class="kw">if </span>candidates.len() &gt; max_candidate_depth {
-							<span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::PeerLimitReached)
-						}
-						candidates.insert(candidate_hash);
+							<span class="kw">let </span>candidates =
+								state.advertisements.entry(on_relay_parent).or_default();
+
+							<span class="kw">if </span>candidates.len() &gt; max_candidate_depth {
+								<span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::PeerLimitReached)
+							}
+							candidates.insert(candidate_hash);
+						} <span class="kw">else </span>{
+							<span class="kw">if </span><span class="self">self</span>.version != CollationVersion::V1 {
+								<span class="macro">gum::error!</span>(
+									target: LOG_TARGET,
+									<span class="string">&quot;Programming error, `candidate_hash` can not be `None` \
+									 for non `V1` networking.&quot;</span>,
+								);
+							}
+
+							<span class="kw">if </span>state.advertisements.contains_key(<span class="kw-2">&amp;</span>on_relay_parent) {
+								<span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::Duplicate)
+							}
+							state
+								.advertisements
+								.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+						};
 					},
-					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(InsertAdvertisementError::ProtocolMismatch),
 				}
 
 				state.last_active = Instant::now();
@@ -2686,6 +2732,7 @@
 	<span class="kw">let </span>collation_request = CollationFetchRequest {
 		pending_collation,
 		collator_id: collator_id.clone(),
+		collator_protocol_version: peer_protocol_version,
 		from_collator: response_recv.boxed(),
 		cancellation_token: cancellation_token.clone(),
 		span: state
@@ -2901,10 +2948,11 @@
 	</span>UndeclaredCollator,
 	<span class="doccomment">/// We&#39;re assigned to a different para at the given relay parent.
 	</span>InvalidAssignment,
-	<span class="doccomment">/// An advertisement format doesn&#39;t match the relay parent.
-	</span>ProtocolMismatch,
 	<span class="doccomment">/// Para reached a limit of seconded candidates for this relay parent.
 	</span>SecondedLimitReached,
+	<span class="doccomment">/// Collator trying to advertise a collation using V1 protocol for an async backing relay
+	/// parent.
+	</span>ProtocolMisuse,
 	<span class="doccomment">/// Advertisement is invalid.
 	</span>Invalid(InsertAdvertisementError),
 }
@@ -2914,8 +2962,9 @@
 		<span class="kw">use </span>AdvertisementError::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
 			InvalidAssignment =&gt; <span class="prelude-val">Some</span>(COST_WRONG_PARA),
+			ProtocolMisuse =&gt; <span class="prelude-val">Some</span>(COST_PROTOCOL_MISUSE),
 			RelayParentUnknown | UndeclaredCollator | Invalid(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | ProtocolMismatch | SecondedLimitReached =&gt; <span class="prelude-val">None</span>,
+			UnknownPeer | SecondedLimitReached =&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
@@ -3023,6 +3072,13 @@
 		.get(<span class="kw-2">&amp;</span>relay_parent)
 		.map(|s| s.child(<span class="string">&quot;advertise-collation&quot;</span>));
 
+	<span class="kw">let </span>peer_data = state.peer_data.get_mut(<span class="kw-2">&amp;</span>peer_id).ok_or(AdvertisementError::UnknownPeer)<span class="question-mark">?</span>;
+
+	<span class="kw">if </span>peer_data.version == CollationVersion::V1 &amp;&amp; !state.active_leaves.contains_key(<span class="kw-2">&amp;</span>relay_parent)
+	{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::ProtocolMisuse)
+	}
+
 	<span class="kw">let </span>per_relay_parent = state
 		.per_relay_parent
 		.get(<span class="kw-2">&amp;</span>relay_parent)
@@ -3031,20 +3087,12 @@
 	<span class="kw">let </span>relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 	<span class="kw">let </span>assignment = <span class="kw-2">&amp;</span>per_relay_parent.assignment;
 
-	<span class="kw">let </span>peer_data = state.peer_data.get_mut(<span class="kw-2">&amp;</span>peer_id).ok_or(AdvertisementError::UnknownPeer)<span class="question-mark">?</span>;
 	<span class="kw">let </span>collator_para_id =
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)<span class="question-mark">?</span>;
 
-	<span class="kw">match </span>assignment.current {
-		<span class="prelude-val">Some</span>(id) <span class="kw">if </span>id == collator_para_id =&gt; {
-			<span class="comment">// Our assignment.
-		</span>},
-		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::InvalidAssignment),
-	};
-
-	<span class="kw">if </span>relay_parent_mode.is_enabled() &amp;&amp; prospective_candidate.is_none() {
-		<span class="comment">// Expected v2 advertisement.
-		</span><span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::ProtocolMismatch)
+	<span class="comment">// Check if this is assigned to us.
+	</span><span class="kw">if </span>assignment.current.map_or(<span class="bool-val">true</span>, |id| id != collator_para_id) {
+		<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::InvalidAssignment)
 	}
 
 	<span class="comment">// Always insert advertisements that pass all the checks for spam protection.
@@ -3058,13 +3106,17 @@
 			<span class="kw-2">&amp;</span>state.active_leaves,
 		)
 		.map_err(AdvertisementError::Invalid)<span class="question-mark">?</span>;
+
 	<span class="kw">if </span>!per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::SecondedLimitReached)
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		<span class="kw">let </span>is_seconding_allowed = !relay_parent_mode.is_enabled() ||
-			can_second(
+		<span class="comment">// We need to queue the advertisement if we are not allowed to second it.
+		//
+		// This is also only important when async backing is enabled.
+		</span><span class="kw">let </span>queue_advertisement = relay_parent_mode.is_enabled() &amp;&amp;
+			!can_second(
 				sender,
 				collator_para_id,
 				relay_parent,
@@ -3073,7 +3125,7 @@
 			)
 			.<span class="kw">await</span>;
 
-		<span class="kw">if </span>!is_seconding_allowed {
+		<span class="kw">if </span>queue_advertisement {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>relay_parent,
@@ -3106,6 +3158,7 @@
 		prospective_candidate,
 	)
 	.<span class="kw">await</span>;
+
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(fetch_error) = result {
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
@@ -3458,7 +3511,7 @@
 				</span>},
 			};
 			<span class="kw">let </span>fetched_collation = FetchedCollation::from(<span class="kw-2">&amp;</span>receipt.to_plain());
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(CollationEvent { collator_id, pending_collation }) =
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(CollationEvent { collator_id, pending_collation, .. }) =
 				state.fetched_candidates.remove(<span class="kw-2">&amp;</span>fetched_collation)
 			{
 				<span class="kw">let </span>PendingCollation { relay_parent, peer_id, prospective_candidate, .. } =
@@ -3616,7 +3669,7 @@
 					<span class="prelude-val">Ok</span>(res) =&gt; res
 				};
 
-				<span class="kw">let </span>CollationEvent {collator_id, pending_collation} = res.collation_event.clone();
+				<span class="kw">let </span>CollationEvent {collator_id, pending_collation, .. } = res.collation_event.clone();
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = kick_off_seconding(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, res).<span class="kw">await </span>{
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
@@ -3764,39 +3817,39 @@
 		},
 	};
 	<span class="kw">let </span>collations = <span class="kw-2">&amp;mut </span>per_relay_parent.collations;
-	<span class="kw">let </span>relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 
 	<span class="kw">let </span>fetched_collation = FetchedCollation::from(<span class="kw-2">&amp;</span>candidate_receipt);
 	<span class="kw">if let </span>Entry::Vacant(entry) = state.fetched_candidates.entry(fetched_collation) {
 		collation_event.pending_collation.commitments_hash =
 			<span class="prelude-val">Some</span>(candidate_receipt.commitments_hash);
 
-		<span class="kw">let </span>pvd =
-			<span class="kw">match </span>(relay_parent_mode, collation_event.pending_collation.prospective_candidate) {
-				(
-					ProspectiveParachainsMode::Enabled { .. },
-					<span class="prelude-val">Some</span>(ProspectiveCandidate { parent_head_data_hash, .. }),
-				) =&gt;
-					request_prospective_validation_data(
-						ctx.sender(),
-						relay_parent,
-						parent_head_data_hash,
-						pending_collation.para_id,
-					)
-					.<span class="kw">await</span><span class="question-mark">?</span>,
-				(ProspectiveParachainsMode::Disabled, <span class="kw">_</span>) =&gt;
-					request_persisted_validation_data(
-						ctx.sender(),
-						candidate_receipt.descriptor().relay_parent,
-						candidate_receipt.descriptor().para_id,
-					)
-					.<span class="kw">await</span><span class="question-mark">?</span>,
-				<span class="kw">_ </span>=&gt; {
-					<span class="comment">// `handle_advertisement` checks for protocol mismatch.
-					</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
-				},
-			}
-			.ok_or(SecondingError::PersistedValidationDataNotFound)<span class="question-mark">?</span>;
+		<span class="kw">let </span>pvd = <span class="kw">match </span>(
+			collation_event.collator_protocol_version,
+			collation_event.pending_collation.prospective_candidate,
+		) {
+			(CollationVersion::V2, <span class="prelude-val">Some</span>(ProspectiveCandidate { parent_head_data_hash, .. }))
+				<span class="kw">if </span>per_relay_parent.prospective_parachains_mode.is_enabled() =&gt;
+				request_prospective_validation_data(
+					ctx.sender(),
+					relay_parent,
+					parent_head_data_hash,
+					pending_collation.para_id,
+				)
+				.<span class="kw">await</span><span class="question-mark">?</span>,
+			<span class="comment">// Support V2 collators without async backing enabled.
+			</span>(CollationVersion::V2, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) | (CollationVersion::V1, <span class="kw">_</span>) =&gt;
+				request_persisted_validation_data(
+					ctx.sender(),
+					candidate_receipt.descriptor().relay_parent,
+					candidate_receipt.descriptor().para_id,
+				)
+				.<span class="kw">await</span><span class="question-mark">?</span>,
+			<span class="kw">_ </span>=&gt; {
+				<span class="comment">// `handle_advertisement` checks for protocol mismatch.
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			},
+		}
+		.ok_or(SecondingError::PersistedValidationDataNotFound)<span class="question-mark">?</span>;
 
 		fetched_collation_sanity_check(
 			<span class="kw-2">&amp;</span>collation_event.pending_collation,
@@ -3845,7 +3898,8 @@
 	network_error_freq: <span class="kw-2">&amp;mut </span>gum::Freq,
 	canceled_freq: <span class="kw-2">&amp;mut </span>gum::Freq,
 ) -&gt; std::result::Result&lt;PendingCollationFetch, <span class="prelude-ty">Option</span>&lt;(PeerId, Rep)&gt;&gt; {
-	<span class="kw">let </span>(CollationEvent { collator_id, pending_collation }, response) = response;
+	<span class="kw">let </span>(CollationEvent { collator_id, collator_protocol_version, pending_collation }, response) =
+		response;
 	<span class="comment">// Remove the cancellation handle, as the future already completed.
 	</span>state.collation_requests_cancel_handles.remove(<span class="kw-2">&amp;</span>pending_collation);
 
@@ -3951,7 +4005,11 @@
 
 			metrics_result = <span class="prelude-val">Ok</span>(());
 			<span class="prelude-val">Ok</span>(PendingCollationFetch {
-				collation_event: CollationEvent { collator_id, pending_collation },
+				collation_event: CollationEvent {
+					collator_id,
+					pending_collation,
+					collator_protocol_version,
+				},
 				candidate_receipt,
 				pov,
 			})
