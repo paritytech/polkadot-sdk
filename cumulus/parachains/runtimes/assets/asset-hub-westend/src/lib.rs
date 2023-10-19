@@ -1217,6 +1217,7 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use sp_core::Get;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1236,7 +1237,7 @@ impl_runtime_apis! {
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
-			let max_extrinsic_weight = BlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+			let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
 			let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
 			(list, storage_info, max_extrinsic_weight, db_weight)
 		}

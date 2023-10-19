@@ -555,8 +555,8 @@ impl PalletCmd {
 			writer::write_results(output_path, self, analysis_choice, &all_results)?;
 		}
 
-		// Sanity check for benchmarks. Checks whether an (`DispatchClass::Normal`) extrinsic's
-		// weight exceeds the max. extrinsic weight.
+		// Sanity weight check for benchmark results. Checks whether an (`DispatchClass::Normal`)
+		// extrinsic's weight exceeds the max. extrinsic weight.
 		writer::sanity_weight_check(
 			all_results,
 			max_extrinsic_weight,

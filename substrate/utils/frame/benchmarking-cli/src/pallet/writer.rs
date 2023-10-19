@@ -1352,7 +1352,8 @@ mod test {
 	}
 
 	#[test]
-	fn sanity_check_works() {
+	fn sanity_weight_check_works() {
+		// Create benchmark results that will fail the sanity weight check.
 		let mapped_results = map_results(
 			&[test_data(b"first", b"first", BenchmarkParameter::a, 10, 3)],
 			&test_storage_info(),
@@ -1366,6 +1367,7 @@ mod test {
 		)
 		.unwrap();
 
+		// Flag set to `error`.
 		assert!(sanity_weight_check(
 			mapped_results.clone(),
 			Weight::from_parts(20_000, 1_000_000),
@@ -1374,6 +1376,7 @@ mod test {
 		)
 		.is_err());
 
+		// Flag set to `warning`.
 		assert!(sanity_weight_check(
 			mapped_results.clone(),
 			Weight::from_parts(20_000, 1_000_000),
@@ -1382,6 +1385,7 @@ mod test {
 		)
 		.is_ok());
 
+		// Flag set to `ignore`.
 		assert!(sanity_weight_check(
 			mapped_results,
 			Weight::from_parts(20_000, 1_000_000),
