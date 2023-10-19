@@ -74,10 +74,11 @@ pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa};
 	use sp_core::crypto::Wraps;
-	app_crypto!(ecdsa, BEEFY_KEY_TYPE);
+
+	app_crypto!(ecdsa, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using ECDSA as its crypto.
 	pub type AuthorityId = Public;
@@ -115,10 +116,11 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, bls377};
 	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
-	app_crypto!(bls377, BEEFY_KEY_TYPE);
+
+	app_crypto!(bls377, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
 	pub type AuthorityId = Public;
@@ -144,24 +146,25 @@ pub mod bls_crypto {
 /// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
 ///
 /// This module basically introduces four crypto types:
-/// - `bls_crypto::Pair`
-/// - `bls_crypto::Public`
-/// - `bls_crypto::Signature`
-/// - `bls_crypto::AuthorityId`
+/// - `ecdsa_bls_crypto::Pair`
+/// - `ecdsa_bls_crypto::Public`
+/// - `ecdsa_bls_crypto::Signature`
+/// - `ecdsa_bls_crypto::AuthorityId`
 ///
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
 	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair, Pair as _};
-	app_crypto!(ecdsa_bls377, BEEFY_KEY_TYPE);
 
-	/// Identity of a BEEFY authority using BLS as its crypto.
+	app_crypto!(ecdsa_bls377, KEY_TYPE);
+
+	/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthorityId = Public;
 
-	/// Signature for a BEEFY authority using BLS as its crypto.
+	/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthoritySignature = Signature;
 
 	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId

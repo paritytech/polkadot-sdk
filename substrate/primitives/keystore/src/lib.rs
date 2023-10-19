@@ -339,7 +339,7 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<bls377::Signature>, Error>;
 
-	/// Generate a (ecdsa, bls377) signature pair for a given message.
+	/// Generate a (ecdsa,bls377) signature pair for a given message.
 	///
 	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
