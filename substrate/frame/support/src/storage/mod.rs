@@ -178,9 +178,32 @@ pub trait StorageValue<T: FullCodec> {
 	/// # Warning
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.
+	/// This means that any duplicate items are included.
 	///
 	/// - `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
+	/// # Example
+	///
+	/// ```rust
+	///#[crate::storage_alias]
+	/// type Store = StorageValue<Prefix, BTreeSet<u32>>;
+	///
+	/// TestExternalities::default().execute_with(|| {
+	/// 	Store::append(4);
+	/// 	Store::append(4); // duplicate value
+	/// 	Store::append(5);
+	///
+	///		let length_with_dup_items = 3;
+	///		let length_without_dup_items = 2;
+	///
+	/// 	assert_eq!(Store::decode_non_dedup_len().unwrap(), length_with_dup_items);
+	///  	assert_eq!(Store::get().unwrap().len(), length_without_dup_items);
+	/// });
+	/// ```
+	///
+	/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values
+	/// in the storage (in this case, the number `4` is counted twice).
+	///
 	fn decode_non_dedup_len() -> Option<usize>
 	where
 		T: StorageDecodeNonDedupLength,
