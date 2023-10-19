@@ -402,19 +402,18 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				// self.external_addresses.add(e.addr.clone());
 			},
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
-				if addr
-					.iter()
-					.any(|protocol| std::matches!(protocol, crate::multiaddr::Protocol::P2p(_)))
-				{
-					log::debug!(target: "sub-libp2p", "peerinfo external address confirmed: {addr:?}");
+				// if addr
+				// 	.iter()
+				// 	.any(|protocol| std::matches!(protocol, crate::multiaddr::Protocol::P2p(_)))
+				// {
+				log::debug!(target: "sub-libp2p", "peerinfo external address confirmed: {addr:?}");
 
-					self.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
-					self.identify.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
-					self.external_addresses.add(addr.clone());
-				} else {
-					log::debug!(target: "sub-libp2p", "peerinfo ignore potentially invalid address:
-				{addr:?}");
-				}
+				self.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
+				self.identify.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
+				self.external_addresses.add(addr.clone());
+				// } else {
+				// 	log::debug!(target: "sub-libp2p", "peerinfo ignore potentially invalid address:
+				// {addr:?}"); }
 			},
 			FromSwarm::AddressChange(e @ AddressChange { peer_id, old, new, .. }) => {
 				self.ping.on_swarm_event(FromSwarm::AddressChange(e));
