@@ -765,7 +765,7 @@ impl<T: Config> Pallet<T> {
 	/// Any message using more than this will be marked as permanently overweight and not
 	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
 	/// `Some(0)` means that only messages with no weight may be served.
-	fn overweight_limit(limit: Weight) -> Option<Weight> {
+	fn max_message_weight(limit: Weight) -> Option<Weight> {
 		limit.checked_sub(&Self::single_msg_overhead())
 	}
 
@@ -789,7 +789,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
 
 		if let Some(service) = T::ServiceWeight::get() {
-			if Self::overweight_limit(service).is_none() {
+			if Self::max_message_weight(service).is_none() {
 				return Err(format!(
 					"ServiceWeight too low: {}. Must be at least {}",
 					service,
@@ -1405,7 +1405,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		// Get the maximum weight that processing a single message may take:
-		let overweight_limit = Self::overweight_limit(weight_limit).unwrap_or_else(|| {
+		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
 			defensive!("Not enough weight to service a single message.");
 			Weight::zero()
 		});
@@ -1420,7 +1420,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		let mut last_no_progress = None;
 
 		loop {
-			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, overweight_limit);
+			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
 			next = match n {
 				Some(n) =>
 					if !progressed {
