@@ -47,7 +47,7 @@ polkadot-node-core-pvf-execute-worker = { git = "https://github.com/paritytech/p
 polkadot-node-core-pvf-prepare-worker = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, features = [ "full-node", "polkadot-native" ] }
+polkadot-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false, features = [ "full-node" ] }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
