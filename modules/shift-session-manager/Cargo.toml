@@ -25,7 +25,7 @@ sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", branch 
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"frame-support/std",
@@ -35,7 +35,4 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-]
+try-runtime = [ "frame-support/try-runtime", "frame-system/try-runtime" ]

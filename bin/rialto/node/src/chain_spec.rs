@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_primitives::v5::{AssignmentId, ValidatorId};
+use polkadot_primitives::v6::{AssignmentId, ValidatorId};
 use rialto_runtime::{
 	AccountId, BabeConfig, BalancesConfig, BeefyConfig, BridgeMillauMessagesConfig,
 	ConfigurationConfig, GrandpaConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys,
@@ -245,8 +245,8 @@ fn testnet_genesis(
 				validation_upgrade_cooldown: 2u32,
 				validation_upgrade_delay: 2,
 				code_retention_period: 1200,
-				max_code_size: polkadot_primitives::v5::MAX_CODE_SIZE,
-				max_pov_size: polkadot_primitives::v5::MAX_POV_SIZE,
+				max_code_size: polkadot_primitives::v6::MAX_CODE_SIZE,
+				max_pov_size: polkadot_primitives::v6::MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
 				group_rotation_frequency: 20,
 				max_upward_queue_count: 8,

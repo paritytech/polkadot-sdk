@@ -58,6 +58,4 @@ frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", b
 
 [features]
 default = []
-runtime-benchmarks = [
-	"millau-runtime/runtime-benchmarks",
-]
+runtime-benchmarks = [ "millau-runtime/runtime-benchmarks" ]

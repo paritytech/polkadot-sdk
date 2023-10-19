@@ -28,7 +28,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::EnsureRoot;
-use polkadot_primitives::v5::{ValidatorId, ValidatorIndex};
+use polkadot_primitives::v6::{ValidatorId, ValidatorIndex};
 use polkadot_runtime_common::{paras_registrar, paras_sudo_wrapper, slots};
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration, disputes as parachains_disputes,
@@ -118,8 +118,9 @@ impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ParasWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
-	type QueueFootprinter = crate::Inclusion;
+	type QueueFootprinter = crate::ParaInclusion;
 	type NextSessionRotation = Babe;
+	type OnNewHead = Registrar;
 }
 
 /// Test weight for the `Paras` pallet.
@@ -234,7 +235,7 @@ impl pallet_message_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
-	type QueueChangeHandler = crate::Inclusion;
+	type QueueChangeHandler = crate::ParaInclusion;
 	type WeightInfo = ();
 	type QueuePausedQuery = ();
 }
