@@ -250,6 +250,10 @@
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -284,10 +288,10 @@
 
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
 <span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, Event, NetworkEventStream, NetworkService};
-<span class="kw">use </span>sc_service::{Configuration, TaskManager};
+<span class="kw">use </span>sc_service::{config::PrometheusConfig, Configuration, TaskManager};
 <span class="kw">use </span>sp_runtime::{app_crypto::Pair, traits::Block <span class="kw">as </span>BlockT};
 
-<span class="kw">use </span>futures::StreamExt;
+<span class="kw">use </span>futures::{FutureExt, StreamExt};
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">mod </span>blockchain_rpc_client;
@@ -321,7 +325,7 @@
 			..Default::default()
 		},
 		client,
-		network.clone(),
+		network,
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
@@ -412,12 +416,16 @@
 	<span class="kw">let </span>role = config.role.clone();
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
 
-	<span class="kw">let </span>task_manager = {
-		<span class="kw">let </span>registry = config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry);
-		TaskManager::new(config.tokio_handle.clone(), registry)<span class="question-mark">?
-	</span>};
+	<span class="kw">let </span>prometheus_registry = config.prometheus_registry();
+	<span class="kw">let </span>task_manager = TaskManager::new(config.tokio_handle.clone(), prometheus_registry)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>prometheus_registry = config.prometheus_registry().cloned();
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(PrometheusConfig { port, registry }) = config.prometheus_config.clone() {
+		task_manager.spawn_handle().spawn(
+			<span class="string">&quot;prometheus-endpoint&quot;</span>,
+			<span class="prelude-val">None</span>,
+			substrate_prometheus_endpoint::init_prometheus(port, registry).map(drop),
+		);
+	}
 
 	<span class="kw">let </span>genesis_hash = relay_chain_rpc_client
 		.block_get_hash(<span class="prelude-val">Some</span>(<span class="number">0</span>))
@@ -455,18 +463,18 @@
 		relay_chain_rpc_client.clone(),
 		<span class="kw-2">&amp;</span>config,
 		network.clone(),
-		prometheus_registry.clone(),
+		prometheus_registry.cloned(),
 	);
 
 	<span class="kw">let </span>overseer_args = CollatorOverseerGenArgs {
 		runtime_client: relay_chain_rpc_client.clone(),
-		network_service: network.clone(),
+		network_service: network,
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
 		collation_req_receiver_v2,
 		available_data_req_receiver,
-		registry: prometheus_registry.as_ref(),
+		registry: prometheus_registry,
 		spawner: task_manager.spawn_handle(),
 		collator_pair,
 		req_protocol_names: request_protocol_names,
@@ -478,7 +486,7 @@
 
 	network_starter.start_network();
 
-	<span class="prelude-val">Ok</span>(NewMinimalNode { task_manager, overseer_handle, network })
+	<span class="prelude-val">Ok</span>(NewMinimalNode { task_manager, overseer_handle })
 }
 
 <span class="kw">fn </span>build_request_response_protocol_receivers(
