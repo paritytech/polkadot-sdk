@@ -38,20 +38,6 @@ pub struct StakeResult<B: Copy> {
 	pub delegated_unstaked: B,
 }
 
-#[derive(Clone, Debug)]
-pub enum Role {
-	// Staker is a direct nominator.
-	Nominator,
-	// Staker is a validator.
-	Validator,
-	// Staker receives delegation from other accounts.
-	Delegatee,
-	// Staker delegates to another account.
-	Delegator,
-	// Not a staker.
-	Unknown,
-}
-
 /// A generic representation of a delegation based staking apis that other runtime pallets can use.
 ///
 /// Compared to StakingInterface that allows an account to be a direct nominator,
