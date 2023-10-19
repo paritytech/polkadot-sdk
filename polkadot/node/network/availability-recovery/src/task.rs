@@ -39,7 +39,7 @@ use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, ChunkIndex, Hash,
 use rand::seq::SliceRandom;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
 use std::{
-	collections::{BTreeMap, BTreeSet, VecDeque},
+	collections::{BTreeMap, HashMap, VecDeque},
 	time::Duration,
 };
 
@@ -59,6 +59,15 @@ const N_PARALLEL: usize = 50;
 const TIMEOUT_START_NEW_REQUESTS: Duration = CHUNK_REQUEST_TIMEOUT;
 #[cfg(test)]
 const TIMEOUT_START_NEW_REQUESTS: Duration = Duration::from_millis(100);
+
+/// The maximum number of times systematic chunk recovery will retry making a request for a given
+/// (validator,chunk) pair, if the error was not fatal. Added so that we don't get stuck in an
+/// infinite retry loop.
+pub const SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 0;
+/// The maximum number of times regular chunk recovery will retry making a request for a given
+/// (validator,chunk) pair, if the error was not fatal. Added so that we don't get stuck in an
+/// infinite retry loop.
+pub const REGULAR_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 5;
 
 #[async_trait::async_trait]
 /// Common trait for runnable recovery strategies.
@@ -102,6 +111,12 @@ pub struct RecoveryParams {
 	pub bypass_availability_store: bool,
 }
 
+/// Utility type used for recording the result of requesting a chunk from a validator.
+pub enum ErrorRecord {
+	NonFatal(u32),
+	Fatal,
+}
+
 /// Intermediate/common data that must be passed between `RecoveryStrategy`s belonging to the
 /// same `RecoveryTask`.
 pub struct State {
@@ -111,15 +126,13 @@ pub struct State {
 	/// collection, we need to add a sort step to the systematic recovery.
 	received_chunks: BTreeMap<ChunkIndex, ErasureChunk>,
 
-	/// A record of the chunks that are not available.
-	/// Useful so that subsequent strategies don't waste time requesting chunks that are known to
-	/// be invalid or from validators that did not have the chunk.
-	chunks_not_available: BTreeSet<ChunkIndex>,
+	/// A record of errors returned when requesting a chunk from a validator.
+	historical_errors: HashMap<(ChunkIndex, ValidatorIndex), ErrorRecord>,
 }
 
 impl State {
 	fn new() -> Self {
-		Self { received_chunks: BTreeMap::new(), chunks_not_available: BTreeSet::new() }
+		Self { received_chunks: BTreeMap::new(), historical_errors: HashMap::new() }
 	}
 
 	fn insert_chunk(&mut self, chunk_index: ChunkIndex, chunk: ErasureChunk) {
@@ -128,6 +141,38 @@ impl State {
 
 	fn chunk_count(&self) -> usize {
 		self.received_chunks.len()
+	}
+
+	fn record_error_fatal(&mut self, chunk_index: ChunkIndex, validator_index: ValidatorIndex) {
+		self.historical_errors
+			.insert((chunk_index, validator_index), ErrorRecord::Fatal);
+	}
+
+	fn record_error_non_fatal(&mut self, chunk_index: ChunkIndex, validator_index: ValidatorIndex) {
+		self.historical_errors
+			.entry((chunk_index, validator_index))
+			.and_modify(|record| {
+				if let ErrorRecord::NonFatal(ref mut count) = record {
+					*count = count.saturating_add(1);
+				}
+			})
+			.or_insert(ErrorRecord::NonFatal(1));
+	}
+
+	fn can_retry_request(
+		&self,
+		chunk_index: ChunkIndex,
+		validator_index: ValidatorIndex,
+		retry_threshold: u32,
+	) -> bool {
+		match self.historical_errors.get(&(chunk_index, validator_index)) {
+			None => true,
+			Some(entry) => match entry {
+				ErrorRecord::Fatal => false,
+				ErrorRecord::NonFatal(count) if *count < retry_threshold => true,
+				ErrorRecord::NonFatal(_) => false,
+			},
+		}
 	}
 
 	/// Retrieve the local chunks held in the av-store (either 0 or 1).
@@ -262,6 +307,7 @@ impl State {
 		&mut self,
 		chunk_type: &str,
 		params: &RecoveryParams,
+		retry_threshold: u32,
 		validators: &mut VecDeque<(ChunkIndex, ValidatorIndex)>,
 		requesting_chunks: &mut FuturesUndead<(
 			ChunkIndex,
@@ -280,6 +326,7 @@ impl State {
 		// return in that case for `launch_parallel_requests` to fill up slots again.
 		while let Some(res) = requesting_chunks.next_with_timeout(TIMEOUT_START_NEW_REQUESTS).await
 		{
+			println!("Validator count: {}", validators.len());
 			total_received_responses += 1;
 
 			let (chunk_index, validator_index, request_result) = res;
@@ -299,7 +346,9 @@ impl State {
 					} else {
 						metrics.on_chunk_request_invalid(chunk_type);
 						error_count += 1;
-						self.chunks_not_available.insert(chunk_index);
+						// Record that we got an invalid chunk so that subsequent strategies don't
+						// try requesting this again.
+						self.record_error_fatal(chunk_index, validator_index);
 					},
 				Ok(None) => {
 					metrics.on_chunk_request_no_such_chunk(chunk_type);
@@ -311,7 +360,9 @@ impl State {
 						"Validator did not have the requested chunk",
 					);
 					error_count += 1;
-					self.chunks_not_available.insert(chunk_index);
+					// Record that the validator did not have this chunk so that subsequent
+					// strategies don't try requesting this again.
+					self.record_error_fatal(chunk_index, validator_index);
 				},
 				Err(err) => {
 					error_count += 1;
@@ -338,7 +389,9 @@ impl State {
 								"Chunk fetching response was invalid",
 							);
 
-							self.chunks_not_available.insert(chunk_index);
+							// Record that we got an invalid chunk so that subsequent strategies
+							// don't try requesting this again.
+							self.record_error_fatal(chunk_index, validator_index);
 						},
 						RequestError::NetworkError(err) => {
 							// No debug logs on general network errors - that became very spammy
@@ -349,12 +402,22 @@ impl State {
 								metrics.on_chunk_request_error(chunk_type);
 							}
 
-							validators.push_front((chunk_index, validator_index));
+							self.record_error_non_fatal(chunk_index, validator_index);
+							// Record that we got a non-fatal error so that this or subsequent
+							// strategies will retry requesting this only a limited number of times.
+							if self.can_retry_request(chunk_index, validator_index, retry_threshold)
+							{
+								validators.push_front((chunk_index, validator_index));
+							}
 						},
 						RequestError::Canceled(_) => {
 							metrics.on_chunk_request_error(chunk_type);
 
-							validators.push_front((chunk_index, validator_index));
+							self.record_error_non_fatal(chunk_index, validator_index);
+							if self.can_retry_request(chunk_index, validator_index, retry_threshold)
+							{
+								validators.push_front((chunk_index, validator_index));
+							}
 						},
 					}
 				},
@@ -796,9 +859,13 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 		// No need to query the validators that have the chunks we already received or that we know
 		// don't have the data from previous strategies.
-		self.validators.retain(|(c_index, _)| {
+		self.validators.retain(|(c_index, v_index)| {
 			!state.received_chunks.contains_key(c_index) &&
-				!state.chunks_not_available.contains(c_index)
+				state.can_retry_request(
+					*c_index,
+					*v_index,
+					SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD,
+				)
 		});
 
 		systematic_chunk_count -= self.validators.len();
@@ -863,6 +930,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				.wait_for_chunks(
 					SYSTEMATIC_CHUNK_LABEL,
 					common_params,
+					SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
 					|unrequested_validators,
@@ -879,7 +947,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							self.threshold,
 						);
 
-						error_count > 0 || chunk_count >= self.threshold || is_unavailable
+						error_count > (SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD as usize) ||
+							chunk_count >= self.threshold ||
+							is_unavailable
 					},
 				)
 				.await;
@@ -1080,9 +1150,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 		// No need to query the validators that have the chunks we already received or that we know
 		// don't have the data from previous strategies.
-		self.validators.retain(|(c_index, _)| {
+		self.validators.retain(|(c_index, v_index)| {
 			!state.received_chunks.contains_key(c_index) &&
-				!state.chunks_not_available.contains(c_index)
+				state.can_retry_request(*c_index, *v_index, REGULAR_CHUNKS_REQ_RETRY_THRESHOLD)
 		});
 
 		// Safe to `take` here, as we're consuming `self` anyway and we're not using the
@@ -1148,6 +1218,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				.wait_for_chunks(
 					REGULAR_CHUNK_LABEL,
 					common_params,
+					REGULAR_CHUNKS_REQ_RETRY_THRESHOLD,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
 					|unrequested_validators,

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::task::REGULAR_CHUNKS_REQ_RETRY_THRESHOLD;
+
 use super::*;
 use std::{sync::Arc, time::Duration};
 
@@ -2164,6 +2166,104 @@ fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffli
 			assert!(!chunk_indices.iter().any(|(c_index, v_index)| c_index == v_index));
 		} else {
 			assert!(chunk_indices.iter().all(|(c_index, v_index)| c_index == v_index));
+		}
+
+		virtual_overseer
+	});
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
+	let mut test_state = TestState::default();
+	// We need the number of validators to be evenly divisible by the threshold for this test to be
+	// easier to write.
+	let n_validators = 6;
+	test_state.validators.truncate(n_validators);
+	test_state.validator_authority_id.truncate(n_validators);
+	let mut temp = test_state.validator_public.to_vec();
+	temp.truncate(n_validators);
+	test_state.validator_public = temp.into();
+
+	let (chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
+		n_validators,
+		&test_state.available_data,
+		|_, _| {},
+	);
+	test_state.chunks = chunks;
+	test_state.candidate.descriptor.erasure_root = erasure_root;
+
+	let subsystem =
+		AvailabilityRecoverySubsystem::with_chunks_only(request_receiver(), Metrics::new_dummy());
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				None,
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+		test_state.respond_to_block_number_query(&mut virtual_overseer, 1).await;
+		test_state.test_runtime_api_client_features(&mut virtual_overseer).await;
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+		// Network errors are considered non-fatal for regular chunk recovery but should be retried
+		// `REGULAR_CHUNKS_REQ_RETRY_THRESHOLD` times.
+		for _ in 1..REGULAR_CHUNKS_REQ_RETRY_THRESHOLD {
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					test_state.chunks.len(),
+					|_| Has::timeout(),
+					false,
+				)
+				.await;
+		}
+
+		if should_fail {
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					test_state.chunks.len(),
+					|_| Has::timeout(),
+					false,
+				)
+				.await;
+
+			assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
+		} else {
+			test_state
+				.test_chunk_requests(
+					test_state.candidate.hash(),
+					&mut virtual_overseer,
+					test_state.threshold(),
+					|_| Has::Yes,
+					false,
+				)
+				.await;
+
+			assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 		}
 
 		virtual_overseer
