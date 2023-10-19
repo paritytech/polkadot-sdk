@@ -118,7 +118,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
-use util::has_required_runtime;
+use util::{has_required_runtime, request_disabled_validators};
 
 mod error;
 
@@ -1037,12 +1037,10 @@ async fn construct_per_relay_parent_state<Context>(
 	)
 	.await
 	{
-		let disabled_validators = request_from_runtime(parent, ctx.sender(), |tx| {
-			RuntimeApiRequest::DisabledValidators(tx)
-		})
-		.await
-		.await
-		.map_err(Error::JoinMultiple)?;
+		let disabled_validators = request_disabled_validators(parent, ctx.sender())
+			.await
+			.await
+			.map_err(Error::JoinMultiple)?;
 
 		let disabled_validators = try_runtime_api!(disabled_validators);
 		disabled_validators
