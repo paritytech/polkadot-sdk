@@ -14,7 +14,7 @@ name = 'rialto-parachain-collator'
 
 [features]
 default = []
-runtime-benchmarks = ['rialto-parachain-runtime/runtime-benchmarks']
+runtime-benchmarks = [ 'rialto-parachain-runtime/runtime-benchmarks' ]
 
 [dependencies]
 clap = { version = "4.4.6", features = ["derive"] }

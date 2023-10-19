@@ -181,7 +181,7 @@ pub fn new_partial(
 
 /// Builds a new service for a full client.
 pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
-	use sc_network_common::sync::warp::WarpSyncParams;
+	use sc_service::WarpSyncParams;
 
 	let sc_service::PartialComponents {
 		client,
@@ -242,6 +242,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: None,
 		})?;
 
 	if config.offchain_worker.enabled {

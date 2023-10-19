@@ -80,9 +80,8 @@ static_assertions = "1.1"
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
-	"sp-consensus-beefy/std",
 	"bp-messages/std",
 	"bp-millau/std",
 	"bp-relayers/std",
@@ -99,8 +98,8 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
-	"pallet-beefy/std",
 	"pallet-beefy-mmr/std",
+	"pallet-beefy/std",
 	"pallet-bridge-beefy/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
@@ -109,13 +108,13 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-mmr/std",
 	"pallet-offences/std",
-	"pallet-xcm/std",
 	"pallet-session/std",
 	"pallet-shift-session-manager/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-xcm/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -124,6 +123,7 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -133,18 +133,21 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"bridge-runtime-common/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]

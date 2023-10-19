@@ -283,6 +283,7 @@ where
 				Box::new(block_announce_validator)
 			})),
 			warp_sync_params: None,
+			block_relay: None,
 		})?;
 
 	let rpc_client = client.clone();
