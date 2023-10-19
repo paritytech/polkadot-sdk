@@ -121,9 +121,9 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
-version = "0.10.3"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
+checksum = "209b47e8954a928e1d72e86eca7000ebb6655fe1436d33eefc2201cad027e237"
 dependencies = [
  "aead 0.5.2",
  "aes 0.8.3",
@@ -793,11 +793,117 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-rococo-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "asset-hub-rococo-runtime",
+ "asset-test-utils",
+ "frame-support",
+ "frame-system",
+ "integration-tests-common",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-parachains",
+ "rococo-runtime",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "xcm-emulator",
+]
+
+[[package]]
+name = "asset-hub-rococo-runtime"
+version = "0.9.420"
+dependencies = [
+ "asset-test-utils",
+ "assets-common",
+ "bp-asset-hub-rococo",
+ "bp-asset-hub-wococo",
+ "bp-bridge-hub-rococo",
+ "bp-bridge-hub-wococo",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-dmp-queue",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-asset-conversion",
+ "pallet-asset-conversion-tx-payment",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-multisig",
+ "pallet-nft-fractionalization",
+ "pallet-nfts",
+ "pallet-nfts-runtime-api",
+ "pallet-proxy",
+ "pallet-session",
+ "pallet-state-trie-migration",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
+ "pallet-utility",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub-router",
+ "parachain-info",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "primitive-types",
+ "rococo-runtime",
+ "rococo-runtime-constants",
+ "scale-info",
+ "smallvec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-storage",
+ "sp-transaction-pool",
+ "sp-version",
+ "sp-weights",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
+ "asset-test-utils",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -819,6 +925,8 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "westend-runtime",
+ "westend-runtime-constants",
  "xcm-emulator",
 ]
 
@@ -892,6 +1000,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime",
  "westend-runtime-constants",
 ]
 
@@ -914,6 +1023,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-session",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub-router",
  "parachain-info",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -925,6 +1035,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "staging-xcm",
+ "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
 ]
@@ -1056,7 +1167,7 @@ checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
 dependencies = [
  "async-stream-impl",
  "futures-core",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
 ]
 
 [[package]]
@@ -1097,7 +1208,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "memchr",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
 ]
 
 [[package]]
@@ -1477,6 +1588,26 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
+]
+
+[[package]]
+name = "bp-asset-hub-rococo"
+version = "0.1.0"
+dependencies = [
+ "bp-xcm-bridge-hub-router",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "bp-asset-hub-wococo"
+version = "0.1.0"
+dependencies = [
+ "bp-xcm-bridge-hub-router",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -1877,7 +2008,9 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "asset-test-utils",
  "bp-messages",
+ "bridge-hub-rococo-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "frame-support",
@@ -1890,6 +2023,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -1897,6 +2031,8 @@ dependencies = [
 name = "bridge-hub-rococo-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-rococo",
+ "bp-asset-hub-wococo",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-wococo",
  "bp-header-chain",
@@ -1978,7 +2114,6 @@ dependencies = [
 name = "bridge-hub-test-utils"
 version = "0.1.0"
 dependencies = [
- "assert_matches",
  "asset-test-utils",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-wococo",
@@ -2016,6 +2151,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-tracing",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -2769,6 +2905,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
+ "rococo-runtime-constants",
  "scale-info",
  "smallvec",
  "sp-api",
@@ -3492,6 +3629,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-parachains",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3566,6 +3704,7 @@ dependencies = [
 name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 dependencies = [
+ "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "frame-benchmarking",
@@ -3575,6 +3714,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "rand_chacha 0.3.1",
  "scale-info",
  "sp-core",
@@ -3671,8 +3811,10 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "log",
+ "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -5550,7 +5692,7 @@ dependencies = [
  "futures-io",
  "memchr",
  "parking",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "waker-fn",
 ]
 
@@ -5607,7 +5749,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "pin-utils",
  "slab",
 ]
@@ -6024,7 +6166,7 @@ checksum = "d5f38f16d184e36f2408a55281cd658ecbd3ca05cce6d6510a176eca393e26d1"
 dependencies = [
  "bytes",
  "http",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
 ]
 
 [[package]]
@@ -6067,7 +6209,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "socket2 0.4.9",
  "tokio",
  "tower-service",
@@ -6324,6 +6466,7 @@ version = "1.0.0"
 dependencies = [
  "asset-hub-kusama-runtime",
  "asset-hub-polkadot-runtime",
+ "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "bp-messages",
  "bridge-hub-kusama-runtime",
@@ -6337,6 +6480,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "pallet-assets",
+ "pallet-balances",
  "pallet-bridge-messages",
  "pallet-im-online",
  "pallet-message-queue",
@@ -10967,6 +11111,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "parachain-info",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",
@@ -10980,7 +11125,6 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
- "staging-xcm-executor",
  "substrate-wasm-builder",
  "westend-runtime-constants",
 ]
@@ -11372,9 +11516,9 @@ checksum = "257b64915a082f7811703966789728173279bdebb956b143dbcd23f6f970a777"
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.13"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8afb450f006bf6385ca15ef45d71d2288452bc3683ce2e2cacc0d18e4be60b58"
+checksum = "12cc1b0bf1727a77a54b6654e7b5f1af8604923edc8b81885f8ec92f9e3f0a05"
 
 [[package]]
 name = "pin-utils"
@@ -12402,6 +12546,7 @@ dependencies = [
  "assert_cmd",
  "asset-hub-kusama-runtime",
  "asset-hub-polkadot-runtime",
+ "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "async-trait",
  "bridge-hub-kusama-runtime",
@@ -12591,6 +12736,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-vesting",
+ "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
@@ -12614,6 +12760,7 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
+ "staging-xcm-executor",
  "static_assertions",
 ]
 
@@ -13052,7 +13199,7 @@ dependencies = [
  "concurrent-queue",
  "libc",
  "log",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "windows-sys 0.48.0",
 ]
 
@@ -13498,9 +13645,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.9.5"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c956be1b23f4261676aed05a0046e204e8a6836e50203902683a718af0797989"
+checksum = "f31999cfc7927c4e212e60fd50934ab40e8e8bfd2d493d6095d2d306bc0764d9"
 dependencies = [
  "bytes",
  "rand 0.8.5",
@@ -13833,7 +13980,7 @@ dependencies = [
  "mime",
  "once_cell",
  "percent-encoding",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "rustls 0.21.6",
  "rustls-pemfile",
  "serde",
@@ -13967,6 +14114,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
  "scale-info",
  "sp-api",
  "sp-block-builder",
@@ -14099,6 +14247,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -17310,7 +17459,7 @@ dependencies = [
 name = "sp-statement-store"
 version = "4.0.0-dev"
 dependencies = [
- "aes-gcm 0.10.3",
+ "aes-gcm 0.10.2",
  "curve25519-dalek 4.0.0",
  "ed25519-dalek",
  "hkdf",
@@ -18528,7 +18677,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "parking_lot 0.12.1",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "signal-hook-registry",
  "socket2 0.5.3",
  "tokio-macros",
@@ -18574,7 +18723,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
 dependencies = [
  "futures-core",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "tokio",
  "tokio-util",
 ]
@@ -18614,7 +18763,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "futures-sink",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "tokio",
  "tracing",
 ]
@@ -18686,7 +18835,7 @@ dependencies = [
  "http",
  "http-body",
  "http-range-header",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "tower-layer",
  "tower-service",
 ]
@@ -18711,7 +18860,7 @@ checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
  "cfg-if",
  "log",
- "pin-project-lite 0.2.13",
+ "pin-project-lite 0.2.12",
  "tracing-attributes",
  "tracing-core",
 ]
@@ -19826,7 +19975,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a00f4242f2db33307347bd5be53263c52a0331c96c14292118c9a6bb48d267"
 dependencies = [
  "aes 0.6.0",
- "aes-gcm 0.10.3",
+ "aes-gcm 0.10.2",
  "async-trait",
  "bincode",
  "block-modes",
@@ -20092,6 +20241,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+ "staging-xcm",
 ]
 
 [[package]]

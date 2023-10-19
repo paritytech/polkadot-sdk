@@ -32,7 +32,7 @@ sp-authority-discovery = { path = "../../../primitives/authority-discovery", def
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false}
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false}
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false}
-sp-genesis-builder = { version = "0.1.0-dev", default-features = false, path = "../../../primitives/genesis-builder" }
+sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents", default-features = false}
 node-primitives = { path = "../primitives", default-features = false}
 sp-mixnet = { path = "../../../primitives/mixnet", default-features = false }
