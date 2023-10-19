@@ -89,6 +89,7 @@ pub fn expand_outer_task(
 		impl #scrate::traits::Task for RuntimeTask {
 			type Enumeration = #prelude::IntoIter<RuntimeTask>;
 
+			#[allow(unreachable_code)]
 			fn is_valid(&self) -> bool {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.is_valid(),)*
@@ -96,6 +97,7 @@ pub fn expand_outer_task(
 				}
 			}
 
+			#[allow(unreachable_code)]
 			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.run(),)*
@@ -103,6 +105,7 @@ pub fn expand_outer_task(
 				}
 			}
 
+			#[allow(unreachable_code)]
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.weight(),)*
@@ -110,6 +113,7 @@ pub fn expand_outer_task(
 				}
 			}
 
+			#[allow(unreachable_code)]
 			fn task_index(&self) -> u32 {
 				// for debug builds, ensure at runtime there are no duplicate task indices
 				// within the pallet being accessed
