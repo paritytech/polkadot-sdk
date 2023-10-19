@@ -120,11 +120,9 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	fn stakeable_balance(
-		who: &T::AccountId,
-		staker_type: StakerStatus<T::AccountId>,
-	) -> BalanceOf<T> {
-		if staker_type == StakerStatus::Delegatee {
+	fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		// if the account is a delegatee, the balance is made up of its child delegators.
+		if delegation::is_delegatee::<T>(who) {
 			let staked_balance =
 				Self::ledger(Stash(who.clone())).map(|l| l.total).unwrap_or_default();
 			let delegated_balance = delegation::delegated_balance::<T>(who);
@@ -138,7 +136,6 @@ impl<T: Config> Pallet<T> {
 		stash: T::AccountId,
 		value: BalanceOf<T>,
 		payee: RewardDestination<T::AccountId>,
-		staker_type: StakerStatus<T::AccountId>,
 	) -> DispatchResult {
 		if StakingLedger::<T>::is_bonded(Stash(stash.clone())) {
 			return Err(Error::<T>::AlreadyBonded.into())
@@ -155,13 +152,7 @@ impl<T: Config> Pallet<T> {
 		let history_depth = T::HistoryDepth::get();
 		let last_reward_era = current_era.saturating_sub(history_depth);
 
-		let stash_balance = Self::stakeable_balance(&stash, staker_type.clone());
-
-		// For a delegatee, we always ensure before bonding that the value is exactly same as the
-		// stakeable balance. This is a defensive check but if it happens, abort delegating.
-		if staker_type == StakerStatus::Delegatee {
-			ensure!(value == stash_balance, Error::<T>::BadState);
-		}
+		let stash_balance = Self::stakeable_balance(&stash);
 
 		let value = value.min(stash_balance);
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });

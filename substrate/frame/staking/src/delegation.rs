@@ -60,6 +60,10 @@ pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceO
 	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.balance)
 }
 
+pub(crate) fn is_delegatee<T: Config>(delegatee: &T::AccountId) -> bool {
+	<Delegatees<T>>::contains_key(delegatee)
+}
+
 /// Delegate some amount from delegator to delegatee.
 pub(crate) fn delegate<T: Config>(
 	delegator: T::AccountId,
