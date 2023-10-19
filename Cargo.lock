@@ -2096,6 +2096,7 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
+ "snowbridge-core",
  "snowbridge-outbound-queue",
  "sp-api",
  "sp-block-builder",

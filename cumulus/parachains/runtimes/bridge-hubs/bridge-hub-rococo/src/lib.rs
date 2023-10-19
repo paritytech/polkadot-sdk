@@ -477,9 +477,14 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = ();
 }
 
+pub const GWEI: u128 = 1_000_000_000;
+
 parameter_types! {
 	pub const MaxMessagePayloadSize: u32 = 2048;
 	pub const MaxMessagesPerBlock: u32 = 32;
+	pub const DeliveryFeePerGas: u128 = 10;
+	pub const DeliveryRefundPerGas: u128 = 10 * GWEI;
+	pub const DeliveryReward: u128 = 1000 * GWEI;
 }
 
 impl snowbridge_outbound_queue::Config for Runtime {
