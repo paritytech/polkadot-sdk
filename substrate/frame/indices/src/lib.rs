@@ -24,9 +24,19 @@ mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
+pub mod migrations;
 
 use codec::Codec;
-use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
+use frame_support::traits::{
+	fungible::{InspectHold as FunInspectHold, MutateHold as FunMutateHold},
+	tokens::{
+		Fortitude,
+		Precision,
+	},
+	Consideration,
+	Footprint,
+	StorageVersion,
+};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
@@ -35,10 +45,19 @@ use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as frame_support::traits::fungible::Inspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
+type TicketOf<T> = <T as Config>::Consideration;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
+
+/// The logging target of this pallet.
+pub const LOG_TARGET: &'static str = "runtime::indices";
+
+/// The current storage version.
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -60,8 +79,17 @@ pub mod pallet {
 			+ Copy
 			+ MaxEncodedLen;
 
+		// TODO: How to inspect held balance only with Considerations?
+		// Possible to add Currency when #[cfg(any(feature = "try-runtime", test))]?
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunInspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// A means of providing some cost while data is stored on-chain.
+		type Consideration: Consideration<Self::AccountId>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -75,7 +103,16 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for claiming an index.
+		#[codec(index = 0)]
+		ClaimedIndex,
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -96,10 +133,18 @@ pub mod pallet {
 		pub fn claim(origin: OriginFor<T>, index: T::AccountIndex) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			Accounts::<T>::try_mutate(index, |maybe_value| {
+			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
 				ensure!(maybe_value.is_none(), Error::<T>::InUse);
-				*maybe_value = Some((who.clone(), T::Deposit::get(), false));
-				T::Currency::reserve(&who, T::Deposit::get())
+				let ticket =
+					T::Consideration::new(
+						&who,
+						Footprint::from_parts(
+							1,
+							sp_std::mem::size_of::<<T as frame_system::Config>::AccountId>() as usize
+						)
+					)?;
+				*maybe_value = Some((who.clone(), Some(ticket), false));
+				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who, index });
 			Ok(())
@@ -129,11 +174,21 @@ pub mod pallet {
 			ensure!(who != new, Error::<T>::NotTransfer);
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account_id, maybe_ticket, perm)
+					= maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
-				ensure!(account == who, Error::<T>::NotOwner);
-				let lost = T::Currency::repatriate_reserved(&who, &new, amount, Reserved)?;
-				*maybe_value = Some((new.clone(), amount.saturating_sub(lost), false));
+				ensure!(account_id == who, Error::<T>::NotOwner);
+
+				// Done in two steps as `transfer` does not exist for `HoldConsideration`
+				// Alternatively `transfer` could be implemented
+				let maybe_new_ticket = if let Some(ticket) = maybe_ticket {
+					let new_ticket = ticket.clone();
+					ticket.drop(&account_id)?;
+					Some(new_ticket)
+				} else { None };
+
+				*maybe_value = Some((new.clone(), maybe_new_ticket, false));
+
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
@@ -158,10 +213,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account_id, maybe_ticket, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
-				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::unreserve(&who, amount);
+				ensure!(account_id == who, Error::<T>::NotOwner);
+
+				if let Some(ticket) = maybe_ticket {
+					ticket.drop(&account_id)?;
+				};
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFreed { index });
@@ -192,12 +250,15 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let new = T::Lookup::lookup(new)?;
 
-			Accounts::<T>::mutate(index, |maybe_value| {
-				if let Some((account, amount, _)) = maybe_value.take() {
-					T::Currency::unreserve(&account, amount);
+			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
+				if let Some((account_id, maybe_ticket, _)) = maybe_value.take() {
+					if let Some(ticket) = maybe_ticket {
+						ticket.drop(&account_id)?;
+					}
 				}
-				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
-			});
+				*maybe_value = Some((new.clone(), None, freeze));
+				Ok(())
+			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
 			Ok(())
 		}
@@ -220,11 +281,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			Accounts::<T>::try_mutate(index, |maybe_value| -> DispatchResult {
-				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
+				let (account_id, maybe_ticket, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
-				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::slash_reserved(&who, amount);
-				*maybe_value = Some((account, Zero::zero(), true));
+				ensure!(account_id == who, Error::<T>::NotOwner);
+				if let Some(ticket) = maybe_ticket {
+					ticket.burn(&account_id);
+				}
+				*maybe_value = Some((account_id, None, true));
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFrozen { index, who });
@@ -260,7 +323,7 @@ pub mod pallet {
 	/// The lookup from index to account.
 	#[pallet::storage]
 	pub type Accounts<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)>;
+		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, Option<TicketOf<T>>, bool)>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -272,8 +335,17 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (a, b) in &self.indices {
-				<Accounts<T>>::insert(a, (b, <BalanceOf<T>>::zero(), false))
+				<Accounts<T>>::insert(a, (b, Option::<TicketOf<T>>::None, false))
 			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
 		}
 	}
 }
@@ -293,6 +365,29 @@ impl<T: Config> Pallet<T> {
 			MultiAddress::Index(i) => Self::lookup_index(i),
 			_ => None,
 		}
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// The following assertions must always apply.
+	///
+	/// Invariants:
+	/// - If the index has been frozen, the held amount for `ClaimedIndex` reason should be zero.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// Check held amount is zero when an index is frozen
+		// TODO: Can we really assume it is true? I think we can assume `burn_all_held()` will be able
+		// to burn the whole amount at least for the tests.
+		let zero_held = Accounts::<T>::iter()
+			.filter(|(_, (_, _, perm))| *perm == true )
+			.all(
+				|(_, (account_id, ticket, _))|
+					ticket.is_none()
+			);
+
+		frame_support::ensure!(zero_held, "Frozen indexes should hold zero balance");
+
+		Ok(())
 	}
 }
 
