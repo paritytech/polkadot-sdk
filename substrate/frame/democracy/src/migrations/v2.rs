@@ -18,9 +18,15 @@
 //! Storage migrations for the preimage pallet.
 
 use crate::*;
-use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, BoundedVec};
+use frame_support::{
+	pallet_prelude::*,
+	storage_alias,
+	traits::{LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
+	BoundedVec,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::hexdisplay::HexDisplay;
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The log target.
 const LOG_TARGET: &'static str = "runtime::democracy::migration::v2";
@@ -51,9 +57,6 @@ mod old {
 		ValueQuery,
 	>;
 }
-
-use frame_support::traits::{LockableCurrency, ReservableCurrency};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 pub struct Migration<T, OldCurrency>(sp_std::marker::PhantomData<(T, OldCurrency)>);
 impl<T, OldCurrency> Migration<T, OldCurrency>
@@ -255,11 +258,11 @@ mod test {
 			StorageVersion::new(1).put::<Pallet<T>>();
 			let alice = 1;
 
-			// Store some proposal deposit and votes for alice.
+			// Store a proposal deposit and vote for alice.
 			MigrationOf::<T>::bench_store_deposit(vec![alice]);
 			MigrationOf::<T>::bench_store_vote(alice.into());
 
-			// Check that alice's deposit is reserved and vote amount is locked.
+			// Check that alice's deposit is reserved and vote balance is locked.
 			assert_eq!(pallet_balances::Pallet::<T>::reserved_balance(&alice), 1);
 			assert_eq!(pallet_balances::Pallet::<T>::locks(&alice)[0].amount, 1_000_000);
 
@@ -268,7 +271,7 @@ mod test {
 			MigrationOf::<T>::on_runtime_upgrade();
 			MigrationOf::<T>::post_upgrade(state).unwrap();
 
-			// Check alice's deposit is now held instead of reserved.
+			// Check that alice's deposit is now held instead of reserved.
 			assert_eq!(FungibleOf::<T>::balance_on_hold(&HoldReason::Proposal.into(), &alice), 1);
 			assert_eq!(
 				FungibleOf::<T>::balance_frozen(&FreezeReason::Vote.into(), &alice),
