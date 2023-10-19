@@ -5,7 +5,7 @@ on:
     types: [labeled, opened, synchronize, unlabeled]
 
 env:
-  IMAGE: paritytech/prdoc:latest
+  IMAGE: docker.io/paritytech/prdoc:latest
   API_BASE: https://api.github.com/repos
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -16,11 +16,12 @@ jobs:
   check-prdoc:
     runs-on: ubuntu-latest
     steps:
+      # we cannot show the version in this step (ie before checking out the repo)
+      # due to https://github.com/paritytech/prdoc/issues/15
       - name: Pull image
         run: |
           echo "Pulling $IMAGE"
-          docker pull $IMAGE
-          docker run --rm -v $PWD:/repo $IMAGE --version
+          $ENGINE pull $IMAGE
 
       - name: Check if PRdoc is required
         id: get-labels
@@ -31,19 +32,28 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      # TODO: Here we should check if the prdoc is valid in case the user added one nonetheless
-      - name: Early exit if PR is silent
-        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
-        run: |
-          echo "PR detected as silent, no PRDoc is required, exiting..."
-          exit 0
-
       - name: Checkout repo
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+
+      - name: Check PRDoc version
+        run: |
+          $ENGINE run --rm -v $PWD:/repo $IMAGE --version
+
+      - name: Early exit if PR is silent
+        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          podman run --rm -it -v $PWD:/repo paritytech/prdoc scan | awk '{print $1}' | grep $GITHUB_PR
+          if [[ $? ]]; then
+            echo "PR detected as silent, but a PRDoc was found, checking it as information"
+            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
+          else
+            echo "PR detected as silent, no PRDoc found, exiting..."
+          fi
+          exit 0
 
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Checking for PR#${GITHUB_PR}"
-          $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || true
+          $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR}
