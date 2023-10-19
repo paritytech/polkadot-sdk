@@ -102,7 +102,7 @@ benchmarks! {
 	v2_migration_get_deposits {
 		let c in 0 .. T::MaxDeposits::get();
 		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
-		migrations::v2::store_deposit::<T>(depositors);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(depositors);
 	}: {
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits(&mut Weight::zero());
 	}
@@ -110,7 +110,7 @@ benchmarks! {
 	v2_migration_translate_reserve_to_hold {
 		let depositor = funded_account::<T>("backer", 0);
 		let deposit = T::MinimumDeposit::get().into();
-		migrations::v2::store_deposit::<T>(vec![depositor.clone()]);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(vec![depositor.clone()]);
 	}: {
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_reserve_to_hold(&depositor, deposit);
 	}
@@ -119,7 +119,7 @@ benchmarks! {
 		let c in 0 .. T::MaxVotes::get();
 		let voter = funded_account::<T>("voter", 0);
 		let balance = 1_000u32.into();
-		migrations::v2::store_vote::<T>(voter.clone(), c);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone(), c);
 	}: {
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_lock_to_freeze(voter, balance);
 	}

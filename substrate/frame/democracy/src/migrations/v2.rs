@@ -27,28 +27,6 @@ const LOG_TARGET: &'static str = "runtime::democracy::migration::v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-// #[cfg(feature = "runtime-benchmarks")]
-pub fn store_deposit<T: Config>(depositors: Vec<AccountIdOf<T>>) {
-	let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(depositors);
-	old::DepositOf::<T>::insert(0u32, (depositors, T::MinimumDeposit::get()));
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub fn store_vote<T: Config>(voter: AccountIdOf<T>, len: u32) {
-	let votes = (0..len).map(|i| {
-		(
-			i,
-			AccountVote::Standard {
-				vote: Vote { aye: true, conviction: Conviction::Locked1x },
-				balance: 1_000_000u32.into(),
-			},
-		)
-	});
-	let votes = BoundedVec::<_, T::MaxVotes>::truncate_from(votes.collect());
-	let vote = Voting::Direct { votes, delegations: Default::default(), prior: Default::default() };
-	VotingOf::<T>::insert(voter, vote);
-}
-
 /// The original data layout of the democracy pallet without a specific version number.
 mod old {
 	use super::*;
@@ -104,6 +82,37 @@ where
 					acc
 				},
 			)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_store_deposit(depositors: Vec<AccountIdOf<T>>)
+	{
+		let amount = T::MinimumDeposit::get();
+		for depositor in &depositors {
+			OldCurrency::reserve(&depositor, amount.into()).unwrap();
+		}
+
+		let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(depositors);
+		old::DepositOf::<T>::insert(0u32, (depositors, amount));
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_store_vote(voter: AccountIdOf<T>, len: u32) {
+		use frame_support::traits::WithdrawReasons;
+		let balance = 1_000_000u32;
+		OldCurrency::set_lock(DEMOCRACY_ID, &voter, balance.into(), WithdrawReasons::except(WithdrawReasons::RESERVE));
+		let votes = (0..len).map(|i| {
+			(
+				i,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: balance.into(),
+				},
+				)
+		});
+		let votes = BoundedVec::<_, T::MaxVotes>::truncate_from(votes.collect());
+		let vote = Voting::Direct { votes, delegations: Default::default(), prior: Default::default() };
+		VotingOf::<T>::insert(voter, vote);
 	}
 
 	pub fn translate_reserve_to_hold(
