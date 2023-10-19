@@ -1,0 +1,18 @@
+title: BEEFY on Polkadot
+
+doc:
+  - audience: Core Dev
+    description: |
+      The BEEFY gadget has been enabled on Polkadot by default.
+      If experiencing stability issues caused by BEEFY, it can be disabled using `--no-beefy` flag.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: polkadot-cli
+  - name: polkadot-service
+
+host_functions: []
