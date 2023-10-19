@@ -3899,6 +3899,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-babe",
  "sp-runtime",
+ "substrate-prometheus-endpoint",
  "tracing",
 ]
 
