@@ -441,11 +441,11 @@ fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, V
 	val_ids.iter().map(|v| v.public().into()).collect()
 }
 
-fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
+pub fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
 	val_ids.iter().map(|v| v.public().into()).collect()
 }
 
-fn derive_erasure_chunks_with_proofs_and_root(
+pub fn derive_erasure_chunks_with_proofs_and_root(
 	n_validators: usize,
 	available_data: &AvailableData,
 	alter_chunk: impl Fn(usize, &mut Vec<u8>),

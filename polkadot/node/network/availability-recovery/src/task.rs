@@ -88,6 +88,7 @@ pub trait RecoveryStrategy<Sender: overseer::AvailabilityRecoverySenderTrait>: S
 }
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
+#[derive(Clone)]
 pub struct RecoveryParams {
 	/// Discovery ids of `validators`.
 	pub validator_authority_keys: Vec<AuthorityDiscoveryId>,
@@ -326,7 +327,6 @@ impl State {
 		// return in that case for `launch_parallel_requests` to fill up slots again.
 		while let Some(res) = requesting_chunks.next_with_timeout(TIMEOUT_START_NEW_REQUESTS).await
 		{
-			println!("Validator count: {}", validators.len());
 			total_received_responses += 1;
 
 			let (chunk_index, validator_index, request_result) = res;
@@ -1245,8 +1245,482 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{super::tests::*, *};
+	use assert_matches::assert_matches;
+	use futures::{
+		channel::mpsc::UnboundedReceiver, executor, future, Future, FutureExt, StreamExt,
+	};
+	use parity_scale_codec::Error as DecodingError;
 	use polkadot_erasure_coding::recovery_threshold;
+	use polkadot_node_primitives::{BlockData, PoV};
+	use polkadot_node_subsystem::{AllMessages, TimeoutExt};
+	use polkadot_node_subsystem_test_helpers::{sender_receiver, TestSubsystemSender};
+	use polkadot_primitives::{HeadData, PersistedValidationData};
+	use polkadot_primitives_test_helpers::dummy_hash;
+	use sp_keyring::Sr25519Keyring;
+	use std::sync::Arc;
+
+	const TIMEOUT: Duration = Duration::from_secs(1);
+
+	impl Default for RecoveryParams {
+		fn default() -> Self {
+			let validators = vec![
+				Sr25519Keyring::Ferdie,
+				Sr25519Keyring::Alice,
+				Sr25519Keyring::Bob,
+				Sr25519Keyring::Charlie,
+				Sr25519Keyring::Dave,
+				Sr25519Keyring::One,
+				Sr25519Keyring::Two,
+			];
+
+			Self {
+				validator_authority_keys: validator_authority_id(&validators),
+				n_validators: validators.len(),
+				threshold: recovery_threshold(validators.len()).unwrap(),
+				candidate_hash: CandidateHash(dummy_hash()),
+				erasure_root: dummy_hash(),
+				metrics: Metrics::new_dummy(),
+				bypass_availability_store: false,
+			}
+		}
+	}
+
+	impl RecoveryParams {
+		fn create_chunks(&mut self) -> Vec<ErasureChunk> {
+			let validation_data = PersistedValidationData {
+				parent_head: HeadData(vec![7, 8, 9]),
+				relay_parent_number: Default::default(),
+				max_pov_size: 1024,
+				relay_parent_storage_root: Default::default(),
+			};
+
+			let (chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
+				self.n_validators,
+				&AvailableData {
+					validation_data,
+					pov: Arc::new(PoV { block_data: BlockData(vec![42; 64]) }),
+				},
+				|_, _| {},
+			);
+
+			self.erasure_root = erasure_root;
+
+			chunks
+		}
+	}
+
+	fn test_harness<RecvFut: Future<Output = ()>, TestFut: Future<Output = ()>>(
+		receiver_future: impl FnOnce(UnboundedReceiver<AllMessages>) -> RecvFut,
+		test: impl FnOnce(TestSubsystemSender) -> TestFut,
+	) {
+		let _ = env_logger::builder()
+			.is_test(true)
+			.filter(Some("polkadot_availability_recovery"), log::LevelFilter::Trace)
+			.try_init();
+
+		let (sender, receiver) = sender_receiver();
+
+		let test_fut = test(sender);
+		let receiver_future = receiver_future(receiver);
+
+		futures::pin_mut!(test_fut);
+		futures::pin_mut!(receiver_future);
+
+		executor::block_on(future::join(test_fut, receiver_future)).1
+	}
+
+	#[test]
+	fn test_historical_errors() {
+		let retry_threshold = 2;
+		let mut state = State::new();
+
+		assert!(state.can_retry_request(0.into(), 0.into(), retry_threshold));
+		assert!(state.can_retry_request(0.into(), 0.into(), 0));
+		state.record_error_non_fatal(0.into(), 0.into());
+		assert!(state.can_retry_request(0.into(), 0.into(), retry_threshold));
+		state.record_error_non_fatal(0.into(), 0.into());
+		assert!(!state.can_retry_request(0.into(), 0.into(), retry_threshold));
+		state.record_error_non_fatal(0.into(), 0.into());
+		assert!(!state.can_retry_request(0.into(), 0.into(), retry_threshold));
+
+		assert!(state.can_retry_request(0.into(), 0.into(), 5));
+
+		state.record_error_fatal(1.into(), 1.into());
+		assert!(!state.can_retry_request(1.into(), 1.into(), retry_threshold));
+		state.record_error_non_fatal(1.into(), 1.into());
+		assert!(!state.can_retry_request(1.into(), 1.into(), retry_threshold));
+
+		assert!(state.can_retry_request(4.into(), 4.into(), 0));
+		assert!(state.can_retry_request(4.into(), 4.into(), retry_threshold));
+	}
+
+	#[test]
+	fn test_populate_from_av_store() {
+		let params = RecoveryParams::default();
+
+		// Failed to reach the av store
+		{
+			let params = params.clone();
+			let candidate_hash = params.candidate_hash.clone();
+			let mut state = State::new();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+					receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+					AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(hash, tx)) => {
+						assert_eq!(hash, candidate_hash);
+						drop(tx);
+					});
+				},
+				|mut sender| async move {
+					let local_chunk_indices =
+						state.populate_from_av_store(&params, &mut sender).await;
+
+					assert_eq!(state.chunk_count(), 0);
+					assert_eq!(local_chunk_indices.len(), 0);
+				},
+			);
+		}
+
+		// Found invalid chunk
+		{
+			let mut params = params.clone();
+			let candidate_hash = params.candidate_hash.clone();
+			let mut state = State::new();
+			let chunks = params.create_chunks();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+					receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+					AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(hash, tx)) => {
+						assert_eq!(hash, candidate_hash);
+						let mut chunk = chunks[0].clone();
+						chunk.index = 3.into();
+						tx.send(vec![chunk]).unwrap();
+					});
+				},
+				|mut sender| async move {
+					let local_chunk_indices =
+						state.populate_from_av_store(&params, &mut sender).await;
+
+					assert_eq!(state.chunk_count(), 0);
+					assert_eq!(local_chunk_indices.len(), 1);
+				},
+			);
+		}
+
+		// Found valid chunk
+		{
+			let mut params = params.clone();
+			let candidate_hash = params.candidate_hash.clone();
+			let mut state = State::new();
+			let chunks = params.create_chunks();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+					receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+					AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAllChunks(hash, tx)) => {
+						assert_eq!(hash, candidate_hash);
+						tx.send(vec![chunks[1].clone()]).unwrap();
+					});
+				},
+				|mut sender| async move {
+					let local_chunk_indices =
+						state.populate_from_av_store(&params, &mut sender).await;
+
+					assert_eq!(state.chunk_count(), 1);
+					assert_eq!(local_chunk_indices.len(), 1);
+				},
+			);
+		}
+	}
+
+	#[test]
+	fn test_launch_parallel_chunk_requests() {
+		let params = RecoveryParams::default();
+
+		// No validators to request from.
+		{
+			let params = params.clone();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			let mut validators = VecDeque::new();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|mut sender| async move {
+					state
+						.launch_parallel_chunk_requests(
+							"regular",
+							&params,
+							&mut sender,
+							3,
+							&mut validators,
+							&mut ongoing_reqs,
+						)
+						.await;
+
+					assert_eq!(ongoing_reqs.total_len(), 0);
+				},
+			);
+		}
+
+		// Has validators but no need to request more.
+		{
+			let params = params.clone();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			let mut validators = VecDeque::new();
+			validators.push_back((ChunkIndex(1), ValidatorIndex(1)));
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|mut sender| async move {
+					state
+						.launch_parallel_chunk_requests(
+							"regular",
+							&params,
+							&mut sender,
+							0,
+							&mut validators,
+							&mut ongoing_reqs,
+						)
+						.await;
+
+					assert_eq!(ongoing_reqs.total_len(), 0);
+				},
+			);
+		}
+
+		// Has validators but no need to request more.
+		{
+			let params = params.clone();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			ongoing_reqs.push(async { todo!() }.boxed());
+			ongoing_reqs.soft_cancel();
+			let mut validators = VecDeque::new();
+			validators.push_back((ChunkIndex(1), ValidatorIndex(1)));
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|mut sender| async move {
+					state
+						.launch_parallel_chunk_requests(
+							"regular",
+							&params,
+							&mut sender,
+							0,
+							&mut validators,
+							&mut ongoing_reqs,
+						)
+						.await;
+
+					assert_eq!(ongoing_reqs.total_len(), 1);
+					assert_eq!(ongoing_reqs.len(), 0);
+				},
+			);
+		}
+
+		// Needs to request more.
+		{
+			let params = params.clone();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			ongoing_reqs.push(async { todo!() }.boxed());
+			ongoing_reqs.soft_cancel();
+			ongoing_reqs.push(async { todo!() }.boxed());
+			let mut validators = (0..3).map(|i| (ChunkIndex(i), ValidatorIndex(i))).collect();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+						receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+						AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(requests, _)) if requests.len() == 3
+					);
+				},
+				|mut sender| async move {
+					state
+						.launch_parallel_chunk_requests(
+							"regular",
+							&params,
+							&mut sender,
+							10,
+							&mut validators,
+							&mut ongoing_reqs,
+						)
+						.await;
+
+					assert_eq!(ongoing_reqs.total_len(), 5);
+					assert_eq!(ongoing_reqs.len(), 4);
+				},
+			);
+		}
+	}
+
+	#[test]
+	fn test_wait_for_chunks() {
+		let params = RecoveryParams::default();
+		let retry_threshold = 2;
+
+		// No ongoing requests.
+		{
+			let params = params.clone();
+			let mut state = State::new();
+			let mut ongoing_reqs: FuturesUndead<(
+				ChunkIndex,
+				ValidatorIndex,
+				Result<Option<ErasureChunk>, RequestError>,
+			)> = FuturesUndead::new();
+			let mut validators = VecDeque::new();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|_| async move {
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							|_, _, _, _, _| false,
+						)
+						.await;
+					assert_eq!(total_responses, 0);
+					assert_eq!(error_count, 0);
+					assert_eq!(state.chunk_count(), 0);
+				},
+			);
+		}
+
+		// Complex scenario.
+		{
+			let mut params = params.clone();
+			let chunks = params.create_chunks();
+			let mut state = State::new();
+			let mut ongoing_reqs = FuturesUndead::new();
+			ongoing_reqs
+				.push(future::ready((0.into(), 0.into(), Ok(Some(chunks[0].clone())))).boxed());
+			ongoing_reqs.soft_cancel();
+			ongoing_reqs
+				.push(future::ready((1.into(), 1.into(), Ok(Some(chunks[1].clone())))).boxed());
+			ongoing_reqs.push(future::ready((2.into(), 2.into(), Ok(None))).boxed());
+			ongoing_reqs.push(
+				future::ready((
+					3.into(),
+					3.into(),
+					Err(RequestError::from(DecodingError::from("err"))),
+				))
+				.boxed(),
+			);
+			ongoing_reqs.push(
+				future::ready((
+					4.into(),
+					4.into(),
+					Err(RequestError::NetworkError(RequestFailure::NotConnected)),
+				))
+				.boxed(),
+			);
+
+			let mut validators =
+				(5..=params.n_validators as u32).map(|i| (i.into(), i.into())).collect();
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|_| async move {
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							|_, _, _, _, _| false,
+						)
+						.await;
+					assert_eq!(total_responses, 5);
+					assert_eq!(error_count, 3);
+					assert_eq!(state.chunk_count(), 2);
+
+					let expected_validators: VecDeque<_> =
+						(4..=params.n_validators as u32).map(|i| (i.into(), i.into())).collect();
+
+					assert_eq!(validators, expected_validators);
+
+					// This time we'll go over the recoverable error threshold.
+					ongoing_reqs.push(
+						future::ready((
+							4.into(),
+							4.into(),
+							Err(RequestError::NetworkError(RequestFailure::NotConnected)),
+						))
+						.boxed(),
+					);
+
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							|_, _, _, _, _| false,
+						)
+						.await;
+					assert_eq!(total_responses, 1);
+					assert_eq!(error_count, 1);
+					assert_eq!(state.chunk_count(), 2);
+
+					validators.pop_front();
+					let expected_validators: VecDeque<_> =
+						(5..=params.n_validators as u32).map(|i| (i.into(), i.into())).collect();
+
+					assert_eq!(validators, expected_validators);
+
+					// Check that can_conclude returning true terminates the loop.
+					let (total_responses, error_count) = state
+						.wait_for_chunks(
+							"regular",
+							&params,
+							retry_threshold,
+							&mut validators,
+							&mut ongoing_reqs,
+							|_, _, _, _, _| true,
+						)
+						.await;
+					assert_eq!(total_responses, 0);
+					assert_eq!(error_count, 0);
+					assert_eq!(state.chunk_count(), 2);
+
+					assert_eq!(validators, expected_validators);
+				},
+			);
+		}
+	}
+
+	// TODO: Test RecoveryTask::run();
+	// TODO: test is_unavailable
+	// TODO: Test get_desired_request_count
 
 	#[test]
 	fn parallel_request_calculation_works_as_expected() {

@@ -136,6 +136,12 @@ impl From<ValidatorIndex> for ChunkIndex {
 	}
 }
 
+impl From<u32> for ChunkIndex {
+	fn from(n: u32) -> Self {
+		ChunkIndex(n)
+	}
+}
+
 // We should really get https://github.com/paritytech/polkadot/issues/2403 going ..
 impl From<u32> for ValidatorIndex {
 	fn from(n: u32) -> Self {
