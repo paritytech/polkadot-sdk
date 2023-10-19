@@ -65,6 +65,14 @@ pub enum StakerStatus<AccountId> {
 	Validator,
 	/// Declaring desire to nominate, delegate, or generally approve of the given set of others.
 	Nominator(Vec<AccountId>),
+	/// Staker receives delegation from other delegator accounts.
+	///
+	/// A delegatee is similar to nominator but with some restrictions. They can never use their
+	/// free balance to bond their ledger. Only a keyless account such as a pool account created by
+	/// another runtime pallet (and hence trusted) can be a delegatee.
+	Delegatee,
+	/// Staker delegates to another account.
+	Delegator(AccountId),
 }
 
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
