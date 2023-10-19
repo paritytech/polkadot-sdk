@@ -181,11 +181,11 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// - `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
-	fn decode_dedup_len() -> Option<usize>
+	fn decode_non_dedup_len() -> Option<usize>
 	where
 		T: StorageDecodeNonDedupLength,
 	{
-		T::decode_dedup_len(&Self::hashed_key())
+		T::decode_non_dedup_len(&Self::hashed_key())
 	}
 }
 
@@ -1455,7 +1455,7 @@ pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// and is a `Compact<u32>`.
 	///
 	/// Returns `None` if the storage value does not exist or the decoding failed.
-	fn decode_dedup_len(key: &[u8]) -> Option<usize> {
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
 		let mut data = [0u8; 5];
 		let len = sp_io::storage::read(key, &mut data, 0)?;
@@ -1519,8 +1519,8 @@ impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
 // Blanket implementation StorageDecodeNonDedupLength
 // for all types that are StorageDecodeLength.
 impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
-	fn decode_dedup_len(key: &[u8]) -> Option<usize> {
-		T::decode_dedup_len(key)
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
+		T::decode_non_dedup_len(key)
 	}
 }
 
