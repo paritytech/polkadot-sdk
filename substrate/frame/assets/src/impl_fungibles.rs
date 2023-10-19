@@ -308,3 +308,103 @@ impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pa
 		Asset::<T, I>::iter_keys()
 	}
 }
+
+impl<T: Config<I>, I: 'static> fungibles::MutateHold<T::AccountId> for Pallet<T, I> {}
+
+impl<T: Config<I>, I: 'static> fungibles::InspectHold<T::AccountId> for Pallet<T, I> {
+	type Reason = T::RuntimeHoldReason;
+
+	fn total_balance_on_hold(asset: T::AssetId, who: &T::AccountId) -> T::Balance {
+		Holds::<T, I>::get(who, asset)
+			.iter()
+			.map(|x| x.amount)
+			.fold(T::Balance::zero(), |acc, x| acc.saturating_add(x))
+	}
+
+	fn reducible_total_balance_on_hold(
+		asset: T::AssetId,
+		who: &T::AccountId,
+		_force: Fortitude,
+	) -> Self::Balance {
+		let total_hold = Self::total_balance_on_hold(asset.clone(), who);
+		let free = Account::<T, I>::get(asset.clone(), who)
+			.map(|account| account.balance)
+			.unwrap_or(Self::Balance::zero());
+		// take alternative of unwrap
+		let ed = Asset::<T, I>::get(asset).map(|x| x.min_balance).unwrap();
+
+		if free.saturating_sub(total_hold) < ed {
+			return total_hold.saturating_sub(ed);
+		}
+		total_hold
+	}
+	fn balance_on_hold(asset: T::AssetId, reason: &Self::Reason, who: &T::AccountId) -> T::Balance {
+		Holds::<T, I>::get(who, asset)
+			.iter()
+			.find(|x| &x.id == reason)
+			.map_or_else(Zero::zero, |x| x.amount)
+	}
+	fn hold_available(asset: T::AssetId, reason: &Self::Reason, who: &T::AccountId) -> bool {
+		let asset_details = match Asset::<T, I>::get(&asset) {
+			Some(details) => details,
+			None => return false,
+		};
+
+		let holds = Holds::<T, I>::get(who, &asset);
+
+		if !holds.is_full() && asset_details.is_sufficient {
+			return true;
+		}
+
+		// Return true only if there are providers for the given 'who'
+		// and either holds is not full or there's a hold with the given reason.
+		frame_system::Pallet::<T>::providers(who) > 0 &&
+			(!holds.is_full() || holds.iter().any(|x| &x.id == reason))
+	}
+}
+
+impl<T: Config<I>, I: 'static> fungibles::UnbalancedHold<T::AccountId> for Pallet<T, I> {
+	fn set_balance_on_hold(
+		asset: T::AssetId,
+		reason: &Self::Reason,
+		who: &T::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		let mut holds = Holds::<T, I>::get(who, asset.clone());
+
+		if let Some(item) = holds.iter_mut().find(|x| &x.id == reason) {
+			let delta = item.amount.max(amount) - item.amount.min(amount);
+			let increase = amount > item.amount;
+
+			if increase {
+				item.amount = item.amount.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
+			} else {
+				item.amount = item.amount.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
+			};
+
+			holds.retain(|x| !x.amount.is_zero());
+		} else {
+			if !amount.is_zero() {
+				holds
+					.try_push(IdAmount { id: *reason, amount })
+					.map_err(|_| Error::<T, I>::TooManyHolds)?;
+			}
+		}
+
+		let account: Option<AssetAccountOf<T, I>> = Account::<T, I>::get(&asset, &who);
+
+		if let None = account {
+			let mut details = Asset::<T, I>::get(&asset).ok_or(Error::<T, I>::Unknown)?;
+			let new_account = AssetAccountOf::<T, I> {
+				balance: Zero::zero(),
+				status: AccountStatus::Liquid,
+				reason: Self::new_account(who, &mut details, None)?,
+				extra: T::Extra::default(),
+			};
+			Account::<T, I>::insert(&asset, &who, new_account);
+		}
+
+		Holds::<T, I>::insert(who, asset, holds);
+		Ok(())
+	}
+}

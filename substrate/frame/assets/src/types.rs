@@ -87,6 +87,15 @@ pub struct Approval<Balance, DepositBalance> {
 	pub(super) deposit: DepositBalance,
 }
 
+/// An identifier and balance.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct IdAmount<Id, Balance> {
+	/// An identifier for this item.
+	pub id: Id,
+	/// Some amount for this item.
+	pub amount: Balance,
+}
+
 #[test]
 fn ensure_bool_decodes_to_consumer_or_sufficient() {
 	assert_eq!(false.encode(), ExistenceReason::<(), ()>::Consumer.encode());
@@ -120,7 +129,7 @@ where
 {
 	pub(crate) fn take_deposit(&mut self) -> Option<Balance> {
 		if !matches!(self, ExistenceReason::DepositHeld(_)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositHeld(deposit) =
 			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -133,7 +142,7 @@ where
 
 	pub(crate) fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
 		if !matches!(self, ExistenceReason::DepositFrom(..)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositFrom(depositor, deposit) =
 			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)

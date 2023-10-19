@@ -22,7 +22,16 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
+	traits::{
+		fungibles::{InspectEnumerable, InspectHold, MutateHold},
+		tokens::{
+			Fortitude::{Force, Polite},
+			Precision::{BestEffort, Exact},
+			Preservation::Protect,
+			Restriction::Free,
+		},
+		Currency,
+	},
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
@@ -1774,4 +1783,196 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
 	});
+}
+
+#[test]
+fn unbalanced_trait_set_balance_works() {
+	new_test_ext().execute_with(|| {
+		let asset = 0;
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, 1, false, 1));
+		let admin = 1;
+		let dest = 2; // account with own deposit
+		Balances::make_free_balance_be(&admin, 100);
+		Balances::make_free_balance_be(&dest, 100);
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &dest), 0);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, dest, 100));
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &dest), 100);
+
+		assert_ok!(<Assets as fungibles::MutateHold<_>>::hold(asset, &TestId::Foo, &dest, 60));
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &dest), 40);
+		assert_eq!(<Assets as fungibles::InspectHold<_>>::total_balance_on_hold(asset, &dest), 60);
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			60
+		);
+
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			60
+		);
+
+		assert_ok!(<Assets as fungibles::MutateHold<_>>::release(
+			asset,
+			&TestId::Foo,
+			&dest,
+			30,
+			Exact
+		));
+
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			30
+		);
+		assert_eq!(<Assets as fungibles::InspectHold<_>>::total_balance_on_hold(asset, &dest), 30);
+
+		assert_ok!(<Assets as fungibles::MutateHold<_>>::release(
+			asset,
+			&TestId::Foo,
+			&dest,
+			30,
+			Exact
+		));
+
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			0
+		);
+		assert_eq!(<Assets as fungibles::InspectHold<_>>::total_balance_on_hold(asset, &dest), 0);
+		let holds = Holds::<Test>::get(&dest, asset);
+		assert_eq!(holds.len(), 0);
+	});
+}
+
+#[test]
+fn transfer_and_hold_works() {
+	new_test_ext().execute_with(|| {
+		let asset = 0;
+		let admin = 1;
+		let source = 2; // account with own deposit
+		let dest = 3; // account with own deposit
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, admin, true, 1));
+
+		Balances::make_free_balance_be(&admin, 100);
+		Balances::make_free_balance_be(&source, 100);
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &source), 0);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, source, 100));
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &source), 100);
+
+		assert_ok!(<Assets as fungibles::MutateHold<_>>::transfer_and_hold(
+			asset,
+			&TestId::Foo,
+			&source,
+			&dest,
+			60,
+			Exact,
+			Protect,
+			Polite
+		));
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &source), 40);
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			60
+		);
+		assert_eq!(<Assets as fungibles::InspectHold<_>>::total_balance_on_hold(asset, &dest), 60);
+
+		assert_ok!(<Assets as fungibles::MutateHold<_>>::release(
+			asset,
+			&TestId::Foo,
+			&dest,
+			20,
+			Exact
+		));
+		assert_eq!(
+			<Assets as fungibles::InspectHold<_>>::balance_on_hold(asset, &TestId::Foo, &dest),
+			40
+		);
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &dest), 20);
+	});
+}
+
+#[test]
+fn transfer_and_hold_does_not_work_freeze() {
+	new_test_ext().execute_with(|| {
+		let asset = 0;
+		let admin = 1;
+		let source = 2; // account with own deposit
+		let dest = 3; // account with own deposit
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, admin, true, 1));
+
+		Balances::make_free_balance_be(&admin, 100);
+		Balances::make_free_balance_be(&source, 100);
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &source), 0);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset, source, 100));
+
+		assert_eq!(<Assets as fungibles::Inspect<_>>::balance(asset, &source), 100);
+
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), asset, source));
+
+		assert_noop!(
+			<Assets as fungibles::MutateHold<_>>::transfer_and_hold(
+				asset,
+				&TestId::Foo,
+				&source,
+				&dest,
+				60,
+				Exact,
+				Protect,
+				Polite
+			),
+			Error::<Test>::Frozen
+		);
+	});
+}
+
+#[test]
+fn freezing_and_holds_should_overlap() {
+	new_test_ext().execute_with(|| {
+		set_frozen_balance(999, 1, 99);
+		assert_ok!(Assets::hold(999, &TestId::Foo, &1, 90));
+		assert_eq!(Assets::balance(999, &1), 10);
+		assert_eq!(System::consumers(&1), 1);
+		assert_eq!(Assets::total_balance_on_hold(999, &1), 90);
+	})
+}
+
+#[test]
+fn frozen_hold_balance_cannot_be_moved_without_force() {
+	new_test_ext().execute_with(|| {
+		set_frozen_balance(999, 1, 99);
+		assert_ok!(Assets::hold(999, &TestId::Foo, &1, 90));
+		assert_eq!(Assets::reducible_total_balance_on_hold(999, &1, Force), 90);
+		assert_eq!(Assets::reducible_total_balance_on_hold(999, &1, Polite), 0);
+		assert_noop!(
+			Assets::transfer_on_hold(999, &TestId::Foo, &1, &2, 1, Exact, Free, Polite),
+			TokenError::Frozen
+		);
+		assert_ok!(Assets::transfer_on_hold(999, &TestId::Foo, &1, &2, 1, Exact, Free, Force));
+	})
+}
+
+#[test]
+fn frozen_hold_balance_best_effort_transfer_works() {
+	new_test_ext().execute_with(|| {
+		set_frozen_balance(999, 1, 50);
+		assert_ok!(Assets::hold(999, &TestId::Foo, &1, 90));
+		assert_eq!(Assets::reducible_total_balance_on_hold(999, &1, Force), 90);
+		assert_eq!(Assets::reducible_total_balance_on_hold(999, &1, Polite), 50);
+		assert_ok!(Assets::transfer_on_hold(
+			999,
+			&TestId::Foo,
+			&1,
+			&2,
+			1,
+			BestEffort,
+			Free,
+			Polite
+		));
+		assert_eq!(Assets::balance(999, &1), 50);
+		assert_eq!(Assets::balance(999, &2), 50);
+	})
 }
