@@ -18,11 +18,11 @@
 //! Stress tests pallet-message-queue. Defines its own runtime config to use larger constants for
 //! `HeapSize` and `MaxStale`.
 //!
-//! The tests in this file are not run per default, since they are quite slow in debug mode. You can
-//! run them manually while debug output van be enabled with `RUST_LOG=info`.
+//! The tests in this file are ignored per default, since they are quite slow. You can run them
+//! manually like this:
 //!
 //! ```sh
-//! cargo test -p pallet-message-queue --profile testnet -- --ignored
+//! RUST_LOG=info cargo test -p pallet-message-queue --profile testnet -- --ignored
 //! ```
 
 #![cfg(test)]
