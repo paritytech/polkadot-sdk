@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::*;
+use asset_hub_westend_runtime::xcm_config::XcmConfig;
+use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -131,7 +133,35 @@ fn do_reserve_transfer_native_asset_from_relay_to_system_para_fails(limited: boo
 /// work
 #[test]
 fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	do_reserve_transfer_native_asset_from_relay_to_system_para_fails(true);
+	// Init values for Relay Chain
+	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let test_args = TestContext {
+		sender: WestendSender::get(),
+		receiver: AssetHubWestendReceiver::get(),
+		args: relay_test_args(amount_to_send),
+	};
+
+	let mut test = RelayToSystemParaTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	test.set_assertion::<Westend>(relay_origin_assertions);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
+	test.set_dispatchable::<Westend>(relay_limited_reserve_transfer_assets);
+	test.assert();
+
+	let delivery_fees = Westend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
 /// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
@@ -185,8 +215,36 @@ fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: boo
 
 /// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	do_reserve_transfer_native_asset_from_system_para_to_relay_fails(true);
+fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
+	// Init values for Relay Chain
+	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let test_args = TestContext {
+		sender: WestendSender::get(),
+		receiver: AssetHubWestendReceiver::get(),
+		args: relay_test_args(amount_to_send),
+	};
+
+	let mut test = RelayToSystemParaTest::new(test_args);
+
+	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
+
+	test.set_assertion::<Westend>(relay_origin_assertions);
+	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
+	test.set_dispatchable::<Westend>(relay_reserve_transfer_assets);
+	test.assert();
+
+	let delivery_fees = Westend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<
+			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
+		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+	});
+
+	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	assert_eq!(receiver_balance_before, receiver_balance_after);
 }
 
 /// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
@@ -222,7 +280,17 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }
@@ -254,7 +322,17 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	let sender_balance_after = test.sender.balance;
 
-	assert_eq!(sender_balance_before - amount_to_send, sender_balance_after);
+	let delivery_fees = AssetHubWestend::execute_with(|| {
+		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
+	});
+
+	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
 	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
 	// transfers
 }

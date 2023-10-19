@@ -17,7 +17,8 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
 pub mod test_cases;
-
+pub mod test_cases_over_bridge;
+pub mod xcm_helpers;
 use frame_support::traits::ProcessMessageError;
 pub use parachains_runtimes_test_utils::*;
 

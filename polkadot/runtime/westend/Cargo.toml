@@ -2,6 +2,7 @@
 name = "westend-runtime"
 build = "build.rs"
 version = "1.0.0"
+description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

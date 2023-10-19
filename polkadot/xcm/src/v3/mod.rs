@@ -45,7 +45,7 @@ pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
 pub use multiasset::{
 	AssetId, AssetInstance, Fungibility, MultiAsset, MultiAssetFilter, MultiAssets,
-	WildFungibility, WildMultiAsset,
+	WildFungibility, WildMultiAsset, MAX_ITEMS_IN_MULTIASSETS,
 };
 pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, MultiLocation, Parent, ParentThen,
@@ -70,7 +70,7 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 environmental::environmental!(instructions_count: u8);
 
@@ -932,7 +932,7 @@ pub enum Instruction<Call> {
 	///   should be sent on arrival.
 	/// - `xcm`: The message to be exported.
 	///
-	/// As an example, to export a message for execution on Statemine (parachain #1000 in the
+	/// As an example, to export a message for execution on Asset Hub (parachain #1000 in the
 	/// Kusama network), you would call with `network: NetworkId::Kusama` and
 	/// `destination: X1(Parachain(1000))`. Alternatively, to export a message for execution on
 	/// Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.

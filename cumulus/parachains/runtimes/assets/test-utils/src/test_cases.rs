@@ -15,12 +15,16 @@
 
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
+use super::xcm_helpers;
 use crate::assert_matches_reserve_asset_deposited_instructions;
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{
+		fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
+		OriginTrait,
+	},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -77,6 +81,7 @@ pub fn teleports_for_native_asset_works<
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	XcmConfig: xcm_executor::Config,
 	CheckingAccount: Get<AccountIdOf<Runtime>>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
@@ -95,7 +100,7 @@ pub fn teleports_for_native_asset_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// check Balances before
 			assert_eq!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
@@ -174,6 +179,21 @@ pub fn teleports_for_native_asset_works<
 						target_account_balance_before_teleport - existential_deposit
 				);
 
+				// Mint funds into account to ensure it has enough balance to pay delivery fees
+				let delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+						(native_asset_id, native_asset_to_teleport_away.into()).into(),
+						0,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
+				<pallet_balances::Pallet<Runtime>>::mint_into(
+					&target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
+
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
@@ -183,6 +203,7 @@ pub fn teleports_for_native_asset_works<
 					included_head.clone(),
 					&alice,
 				));
+
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
@@ -239,6 +260,15 @@ pub fn teleports_for_native_asset_works<
 						message: Some("Filtered",),
 					},),)
 				);
+
+				let delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+						(native_asset_id, native_asset_to_teleport_away.into()).into(),
+						0,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
 
 				// check balances
 				assert_eq!(
@@ -343,6 +373,7 @@ pub fn teleports_for_foreign_assets_works<
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	ForeignAssetsPalletInstance: 'static,
 {
 	// foreign parachain with the same consensus currency as asset
@@ -365,7 +396,7 @@ pub fn teleports_for_foreign_assets_works<
 		fun: Fungible(buy_execution_fee_amount),
 	};
 
-	let teleported_foreign_asset_amount = 10000000000000;
+	let teleported_foreign_asset_amount = 10_000_000_000_000;
 	let runtime_para_id = 1000;
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
@@ -388,18 +419,18 @@ pub fn teleports_for_foreign_assets_works<
 
 			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
 				2,
-				AccountId::from(alice),
+				AccountId::from(alice).into(),
 			);
 			// checks target_account before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit
 			);
+			// check `CheckingAccount` before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
 				existential_deposit
 			);
-			// check `CheckingAccount` before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
 					foreign_asset_id_multilocation.into(),
@@ -535,6 +566,21 @@ pub fn teleports_for_foreign_assets_works<
 							asset_minimum_asset_balance.into())
 						.into()
 				);
+
+				// Make sure the target account has enough native asset to pay for delivery fees
+				let delivery_fees =
+					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+						(foreign_asset_id_multilocation, asset_to_teleport_away).into(),
+						0,
+						Unlimited,
+						dest_beneficiary,
+						dest,
+					);
+				<pallet_balances::Pallet<Runtime>>::mint_into(
+					&target_account,
+					delivery_fees.into(),
+				)
+				.unwrap();
 
 				assert_ok!(RuntimeHelper::<Runtime>::do_teleport_assets::<HrmpChannelOpener>(
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
@@ -1003,6 +1049,7 @@ macro_rules! include_asset_transactor_transfer_with_pallet_assets_instance_works
 	}
 );
 
+/// Test-case makes sure that `Runtime` can create and manage `ForeignAssets`
 pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works<
 	Runtime,
 	XcmConfig,
@@ -1188,7 +1235,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				.is_empty());
 
 			// check update metadata
-			use frame_support::traits::tokens::fungibles::roles::Inspect as InspectRoles;
+			use frame_support::traits::fungibles::roles::Inspect as InspectRoles;
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::owner(
 					asset_id.into()
