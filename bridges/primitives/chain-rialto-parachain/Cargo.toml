@@ -25,7 +25,7 @@ sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "mas
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
