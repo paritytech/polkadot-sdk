@@ -7,7 +7,7 @@
       "patch": 0,
       "timestamp": 20230817152351
     },
-    "title": "Parity PR Documentation Schema",
+    "title": "Polkadot SDK PRDoc Schema",
     "description": "JSON Schema definition for the Polkadot SDK PR documentation",
     "type": "object",
     "additionalProperties": false,

@@ -10,7 +10,6 @@ env:
   REPO: ${{ github.repository }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GITHUB_PR: ${{ github.event.pull_request.number }}
-  MOUNT: /prdoc
   ENGINE: docker
 
 jobs:
@@ -21,7 +20,7 @@ jobs:
         run: |
           echo "Pulling $IMAGE"
           docker pull $IMAGE
-          docker run --rm $IMAGE --version
+          docker run --rm -v $PWD:/repo $IMAGE --version
 
       - name: Check if PRdoc is required
         id: get-labels
@@ -32,10 +31,11 @@ jobs:
           echo "Labels: ${labels}"
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
-      - name: No PRdoc required
+      # TODO: Here we should check if the prdoc is valid in case the user added one nonetheless
+      - name: Early exit if PR is silent
         if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "PR detected as silent, no PRdoc is required, exiting..."
+          echo "PR detected as silent, no PRDoc is required, exiting..."
           exit 0
 
       - name: Checkout repo
@@ -45,5 +45,5 @@ jobs:
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          echo "Checking for PR#${GITHUB_PR} in $MOUNT"
-          $ENGINE run --rm -v $PWD/prdoc:/doc $IMAGE check -n ${GITHUB_PR} || true
+          echo "Checking for PR#${GITHUB_PR}"
+          $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || true

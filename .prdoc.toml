@@ -2,6 +2,6 @@
 
 version = 1
 schema = "prdoc/schema_user.json"
-output_dir = "/prdoc"
+output_dir = "prdoc"
 prdoc_folders = ["prdoc"]
-template = "template.prdoc"
+template = "prdoc/.template.prdoc"

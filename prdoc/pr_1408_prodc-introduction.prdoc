@@ -2,7 +2,7 @@
 title: PRdoc check
 
 doc:
-  - audience: Infra
+  - audience: Node Dev
     description: |
       This PRdoc is an **example**.
 
