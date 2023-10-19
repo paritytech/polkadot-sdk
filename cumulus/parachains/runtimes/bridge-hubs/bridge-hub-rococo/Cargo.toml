@@ -94,7 +94,13 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", de
 
 # Ethereum Bridge (Snowbridge)
 snowbridge-core = { path = "../../../../../../parachain/primitives/core", default-features = false }
+snowbridge-beacon-primitives = { path = "../../../../../../parachain/primitives/beacon", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
+snowbridge-ethereum-beacon-client = { path = "../../../../../../parachain/pallets/ethereum-beacon-client", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../../parachain/pallets/inbound-queue", default-features = false }
 snowbridge-outbound-queue = { path = "../../../../../../parachain/pallets/outbound-queue", default-features = false }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../../parachain/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-control = { path = "../../../../../../parachain/pallets/control", default-features = false }
 
 [dev-dependencies]
 static_assertions = "1.1"
@@ -179,7 +185,13 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 	"snowbridge-core/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-ethereum-beacon-client/std",
+	"snowbridge-inbound-queue/std",
 	"snowbridge-outbound-queue/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-control/std",
 ]
 
 runtime-benchmarks = [
@@ -209,6 +221,11 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-control/runtime-benchmarks",
+	"snowbridge-inbound-queue/runtime-benchmarks",
+	"snowbridge-outbound-queue/runtime-benchmarks",
+	"snowbridge-ethereum-beacon-client/runtime-benchmarks"
 ]
 
 try-runtime = [
@@ -239,5 +256,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
+beacon-spec-mainnet = [
+	"snowbridge-ethereum-beacon-client/beacon-spec-mainnet",
+]
 experimental = [ "pallet-aura/experimental" ]

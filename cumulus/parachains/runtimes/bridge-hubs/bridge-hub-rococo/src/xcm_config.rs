@@ -41,7 +41,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::SystemParachains;
-use sp_core::Get;
+use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -51,12 +51,13 @@ use xcm_builder::{
 	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmFeesToAccount, HashedDescription, DescribeFamily, DescribeAllTerminal
 };
 use xcm_executor::{
 	traits::{ExportXcm, WithOriginFilter},
 	XcmExecutor,
 };
+use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 
 parameter_types! {
 	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
@@ -67,6 +68,21 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+
+
+	// Network and location for the local Ethereum testnet.
+	pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
+	pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
+
+	pub const EthereumGatewayAddress: [u8; 20] = hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39");
+	// The Registry contract for the bridge which is also the origin for reserves and the prefix of all assets.
+	pub EthereumGatewayLocation: MultiLocation = EthereumLocation::get()
+		.pushed_with_interior(
+			AccountKey20 {
+				network: None,
+				key: EthereumGatewayAddress::get(),
+			}
+		).unwrap();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -204,7 +220,18 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::BridgeWococoGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWococoInstance,
-				>::initialize { .. })
+				>::initialize { .. }) |
+				RuntimeCall::EthereumBeaconClient(
+					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. }
+						| snowbridge_ethereum_beacon_client::Call::set_owner { .. }
+						| snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
+				) | RuntimeCall::EthereumInboundQueue(
+				snowbridge_inbound_queue::Call::set_owner { .. }
+					| snowbridge_inbound_queue::Call::set_operating_mode { .. },
+			) | RuntimeCall::EthereumOutboundQueue(
+				snowbridge_outbound_queue::Call::set_owner { .. } |
+					snowbridge_outbound_queue::Call::set_operating_mode { .. },
+			) | RuntimeCall::EthereumControl(..)
 		)
 	}
 }
@@ -307,6 +334,22 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 #[cfg(feature = "runtime-benchmarks")]
+pub(crate) mod benchmark_helper {
+	use crate::xcm_config::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+
+	pub struct DoNothingRouter;
+	impl SendXcm for DoNothingRouter {
+		type Ticket = ();
+		fn validate(_dest: &mut Option<MultiLocation>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+			Ok(((), MultiAssets::new()))
+		}
+		fn deliver(_: ()) -> Result<XcmHash, SendError> {
+			Ok([0; 32])
+		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
 }
@@ -350,6 +393,15 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
+pub type AgentIdOf = HashedDescription<H256, DescribeFamily<DescribeAllTerminal>>;
+
+pub type SnowbridgeExporter = EthereumBlobExporter<
+	UniversalLocation,
+	EthereumGatewayLocation,
+	snowbridge_outbound_queue::Pallet<Runtime>,
+	AgentIdOf,
+>;
+
 /// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub,
 /// so it means we have just one XcmConfig
 pub struct BridgeHubRococoOrBridgeHubWococoSwitchExporter;
@@ -380,6 +432,16 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 				message,
 			)
 			.map(|result| ((Wococo, result.0), result.1)),
+			location if location == EthereumNetwork::get() && network == Rococo => {
+				SnowbridgeExporter::validate(
+					network,
+					channel,
+					universal_source,
+					destination,
+					message,
+				)
+					.map(|result| ((Ethereum {chain_id: 15}, result.0), result.1)) // TODO get network ID
+			},
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}
 	}
@@ -389,7 +451,21 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 		match network {
 			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
 			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
+			location if location == EthereumNetwork::get() && network == Rococo => {
+				SnowbridgeExporter::deliver(ticket)
+			},
 			_ => unimplemented!("Unsupported network: {:?}", network),
+		}
+	}
+}
+
+pub struct AllowSiblingsOnly;
+impl Contains<MultiLocation> for AllowSiblingsOnly {
+	fn contains(location: &MultiLocation) -> bool {
+		if let MultiLocation { parents: 1, interior: X1(Parachain(_)) } = location {
+			true
+		} else {
+			false
 		}
 	}
 }

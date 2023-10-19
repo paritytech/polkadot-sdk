@@ -2096,8 +2096,14 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
+ "snowbridge-beacon-primitives",
+ "snowbridge-control",
  "snowbridge-core",
+ "snowbridge-ethereum-beacon-client",
+ "snowbridge-inbound-queue",
  "snowbridge-outbound-queue",
+ "snowbridge-outbound-queue-runtime-api",
+ "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -16749,6 +16755,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-control"
+version = "4.0.0-dev"
+dependencies = [
+ "ethabi-decode",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "snowbridge-core",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "snowbridge-core"
 version = "0.1.1"
 dependencies = [
@@ -16790,6 +16817,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-ethereum-beacon-client"
+version = "0.0.1"
+dependencies = [
+ "bp-runtime",
+ "byte-slice-cast",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rlp",
+ "scale-info",
+ "serde",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-ethereum",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "ssz_rs",
+ "ssz_rs_derive",
+ "static_assertions",
+]
+
+[[package]]
+name = "snowbridge-inbound-queue"
+version = "0.1.1"
+dependencies = [
+ "bp-runtime",
+ "ethabi-decode",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rlp",
+ "scale-info",
+ "serde",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-ethereum",
+ "snowbridge-router-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "staging-xcm",
+ "staging-xcm-builder",
+]
+
+[[package]]
 name = "snowbridge-outbound-queue"
 version = "0.1.1"
 dependencies = [
@@ -16798,7 +16880,9 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "parity-scale-codec",
+ "rlp",
  "scale-info",
  "serde",
  "snowbridge-core",
@@ -16819,6 +16903,41 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+]
+
+[[package]]
+name = "snowbridge-outbound-queue-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "snowbridge-core",
+ "snowbridge-outbound-queue-merkle-tree",
+ "sp-api",
+ "sp-core",
+ "sp-std",
+ "staging-xcm",
+]
+
+[[package]]
+name = "snowbridge-router-primitives"
+version = "0.1.1"
+dependencies = [
+ "ethabi-decode",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "snowbridge-core",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
