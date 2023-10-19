@@ -353,7 +353,7 @@ pub struct BlockEntry {
 	// block. The block can be considered approved if the bitfield has all bits set to `true`.
 	pub approved_bitfield: Bitfield,
 	pub children: Vec<Hash>,
-	// A list of assignments for which wea already distributed the assignment.
+	// A list of assignments for which we already distributed the assignment.
 	// We use this to ensure we don't distribute multiple core assignments twice as we track
 	// individual wakeups for each core.
 	distributed_assignments: Bitfield,

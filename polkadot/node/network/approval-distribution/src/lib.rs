@@ -188,7 +188,7 @@ impl ApprovalEntry {
 		self.routing_info.required_routing = required_routing;
 	}
 
-	// Records a new approval. Returns false if the claimed candidate is not found or we already
+	// Records a new approval. Returns error if the claimed candidate is not found or we already
 	// have received the approval.
 	pub fn note_approval(
 		&mut self,

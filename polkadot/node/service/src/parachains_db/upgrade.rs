@@ -63,7 +63,7 @@ pub(crate) fn try_upgrade_db(
 	db_kind: DatabaseKind,
 	target_version: Version,
 ) -> Result<(), Error> {
-	// Ensure we don't loop forever below befcause of a bug.
+	// Ensure we don't loop forever below because of a bug.
 	const MAX_MIGRATIONS: u32 = 30;
 
 	#[cfg(test)]
