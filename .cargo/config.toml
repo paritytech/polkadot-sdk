@@ -15,7 +15,7 @@ rustflags = [
   "-Aclippy::all",
   "-Dclippy::correctness",
   "-Aclippy::if-same-then-else",
-  "-Aclippy::clone-double-ref",
+  "-Asuspicious_double_ref_op",
   "-Dclippy::complexity",
   "-Aclippy::zero-prefixed-literal",     # 00_1000_000
   "-Aclippy::type_complexity",           # raison d'etre
@@ -37,3 +37,8 @@ rustflags = [
   "-Aclippy::extra-unused-type-parameters", # stylistic
   "-Aclippy::default_constructed_unit_structs", # stylistic
 ]
+
+[env]
+# Needed for musl builds so user doesn't have to install musl-tools.
+CC_x86_64_unknown_linux_musl = { value = ".cargo/musl-gcc", force = true, relative = true }
+CXX_x86_64_unknown_linux_musl = { value = ".cargo/musl-g++", force = true, relative = true }

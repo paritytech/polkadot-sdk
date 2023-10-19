@@ -74,7 +74,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// This is a normal Rust type, nothing specific to FRAME here.
-		type Currency: frame_support::traits::tokens::fungible::Inspect<Self::AccountId>;
+		type Currency: frame_support::traits::fungible::Inspect<Self::AccountId>;
 
 		/// Similarly, let the runtime decide this.
 		fn some_function() -> u32;

@@ -74,5 +74,8 @@ pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessa
 /// chains.
 pub const WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
+/// Pallet index of `BridgeWococoMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX: u8 = 46;
+
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_rococo);
