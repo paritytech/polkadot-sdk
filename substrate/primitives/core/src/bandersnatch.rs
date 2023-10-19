@@ -1138,7 +1138,6 @@ mod tests {
 	#[test]
 	fn encode_decode_ring_vrf_context() {
 		let ctx1 = RingContext::new_testing();
-		println!("encode-len: {}", ctx1.0.serialized_size(bandersnatch_vrfs::Compress::No));
 		let enc1 = ctx1.encode();
 
 		assert_eq!(enc1.len(), RingContext::max_encoded_len());
