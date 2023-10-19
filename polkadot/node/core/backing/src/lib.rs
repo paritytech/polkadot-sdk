@@ -1774,7 +1774,7 @@ async fn kick_off_validation_work<Context>(
 	// Do nothing if the local validator is disabled or not a validator at all
 	match rp_state.table_context.local_validator_is_disabled() {
 		Some(true) => {
-			gum::debug!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
 			return Ok(())
 		},
 		Some(false) => {}, // we are not disabled - move on
