@@ -18,7 +18,7 @@
 //! Stress tests pallet-message-queue. Defines its own runtime config to use larger constants for
 //! `HeapSize` and `MaxStale`.
 //!
-//! The tests in this file are ignored per default, since they are quite slow. You can run them
+//! The tests in this file are ignored by default, since they are quite slow. You can run them
 //! manually like this:
 //!
 //! ```sh
