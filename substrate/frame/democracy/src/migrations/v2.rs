@@ -89,7 +89,7 @@ where
 	{
 		let amount = T::MinimumDeposit::get();
 		for depositor in &depositors {
-			OldCurrency::reserve(&depositor, amount.into()).unwrap();
+			OldCurrency::reserve(&depositor, amount.into()).expect("Failed to reserve deposit");
 		}
 
 		let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(depositors);

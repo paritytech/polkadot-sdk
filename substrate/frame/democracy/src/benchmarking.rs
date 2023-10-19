@@ -33,9 +33,9 @@ const SEED: u32 = 0;
 
 fn funded_account<T: Config + pallet_balances::Config>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	// Give the account half of the maximum value of the `Balance` type.
-	// Otherwise some transfers will fail with an overflow error.
-	T::Fungible::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
+	// but not too big to make the total supply overflow.
+	T::Fungible::set_balance(&caller, BalanceOf::<T>::max_value() / 10_000u32.into());
 	caller
 }
 
