@@ -34,7 +34,7 @@ pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::request_response::Requests;
 use sc_network::ReputationChange;
 
-use crate::{network::send_collation_message_vstaging, validator_discovery};
+use crate::validator_discovery;
 
 /// Actual interfacing to the network based on the `Network` trait.
 ///
@@ -265,14 +265,7 @@ where
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 				),
-				Versioned::V2(msg) => send_collation_message_v2(
-					&mut network_service,
-					peers,
-					peerset_protocol_names,
-					WireMessage::ProtocolMessage(msg),
-					&metrics,
-				),
-				Versioned::VStaging(msg) => send_collation_message_vstaging(
+				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 					&mut network_service,
 					peers,
 					peerset_protocol_names,
@@ -297,14 +290,7 @@ where
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 					),
-					Versioned::V2(msg) => send_collation_message_v2(
-						&mut network_service,
-						peers,
-						peerset_protocol_names,
-						WireMessage::ProtocolMessage(msg),
-						&metrics,
-					),
-					Versioned::VStaging(msg) => send_collation_message_vstaging(
+					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
 						&mut network_service,
 						peers,
 						peerset_protocol_names,

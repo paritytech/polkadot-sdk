@@ -253,7 +253,7 @@ impl View {
 
 /// A protocol-versioned type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, V2, VStaging> {
+pub enum Versioned<V1, V2, VStaging = V2> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
@@ -296,8 +296,7 @@ impl From<vstaging::ValidationProtocol> for VersionedValidationProtocol {
 }
 
 /// All supported versions of the collation protocol message.
-pub type VersionedCollationProtocol =
-	Versioned<v1::CollationProtocol, v2::CollationProtocol, vstaging::CollationProtocol>;
+pub type VersionedCollationProtocol = Versioned<v1::CollationProtocol, v2::CollationProtocol>;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v1: v1::CollationProtocol) -> Self {
@@ -446,11 +445,8 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 }
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
-pub type CollatorProtocolMessage = Versioned<
-	v1::CollatorProtocolMessage,
-	v2::CollatorProtocolMessage,
-	vstaging::CollatorProtocolMessage,
->;
+pub type CollatorProtocolMessage =
+	Versioned<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
 impl_versioned_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,
@@ -461,7 +457,7 @@ impl_versioned_try_from!(
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x,
-	vstaging::CollationProtocol::CollatorProtocol(x) => x
+	v2::CollationProtocol::CollatorProtocol(x) => x
 );
 
 /// v1 notification protocol types.
@@ -890,8 +886,8 @@ pub mod vstaging {
 	/// no reason why they can't be change untill vstaging becomes v3 and is released.
 	pub use super::v2::{
 		declare_signature_payload, BackedCandidateAcknowledgement, BackedCandidateManifest,
-		BitfieldDistributionMessage, CollationProtocol, CollatorProtocolMessage,
-		GossipSupportNetworkMessage, StatementDistributionMessage, StatementFilter,
+		BitfieldDistributionMessage, GossipSupportNetworkMessage, StatementDistributionMessage,
+		StatementFilter,
 	};
 
 	/// Network messages used by the approval distribution subsystem.

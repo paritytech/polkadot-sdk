@@ -33,8 +33,8 @@ use polkadot_node_network_protocol::{
 		incoming::{self, OutgoingResponse},
 		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
@@ -577,13 +577,7 @@ async fn determine_our_validators<Context>(
 fn declare_message(
 	state: &mut State,
 	version: CollationVersion,
-) -> Option<
-	Versioned<
-		protocol_v1::CollationProtocol,
-		protocol_v2::CollationProtocol,
-		protocol_vstaging::CollationProtocol,
-	>,
-> {
+) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_v2::CollationProtocol>> {
 	let para_id = state.collating_on?;
 	Some(match version {
 		CollationVersion::V1 => {
@@ -605,16 +599,6 @@ fn declare_message(
 				state.collator_pair.sign(&declare_signature_payload),
 			);
 			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
-		},
-		CollationVersion::VStaging => {
-			let declare_signature_payload =
-				protocol_vstaging::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_vstaging::CollatorProtocolMessage::Declare(
-				state.collator_pair.public(),
-				para_id,
-				state.collator_pair.sign(&declare_signature_payload),
-			);
-			Versioned::VStaging(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -727,16 +711,6 @@ async fn advertise_collation<Context>(
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
-			},
-			CollationVersion::VStaging => {
-				let wire_message = protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
-					relay_parent,
-					candidate_hash: *candidate_hash,
-					parent_head_data_hash: collation.parent_head_data_hash,
-				};
-				Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-					wire_message,
-				))
 			},
 			CollationVersion::V1 => {
 				let wire_message =
@@ -890,20 +864,15 @@ async fn handle_incoming_peer_message<Context>(
 	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_v2::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
-	>,
+	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
-	use protocol_vstaging::CollatorProtocolMessage as VStaging;
 
 	match msg {
 		Versioned::V1(V1::Declare(..)) |
 		Versioned::V2(V2::Declare(..)) |
-		Versioned::VStaging(VStaging::Declare(..)) => {
+		Versioned::VStaging(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -916,7 +885,7 @@ async fn handle_incoming_peer_message<Context>(
 		},
 		Versioned::V1(V1::AdvertiseCollation(_)) |
 		Versioned::V2(V2::AdvertiseCollation { .. }) |
-		Versioned::VStaging(VStaging::AdvertiseCollation { .. }) => {
+		Versioned::VStaging(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -932,7 +901,7 @@ async fn handle_incoming_peer_message<Context>(
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
 		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
-		Versioned::VStaging(VStaging::CollationSeconded(relay_parent, statement)) => {
+		Versioned::VStaging(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
