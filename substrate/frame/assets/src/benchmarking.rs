@@ -27,6 +27,7 @@ use frame_support::traits::{
 	fungible::{Inspect, InspectHold, Mutate},
 	EnsureOrigin, Get, UnfilteredDispatchable,
 };
+use frame_support::assert_ok;
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
 use sp_std::prelude::*;
@@ -43,35 +44,6 @@ fn default_asset_id<T: Config<I>, I: 'static>() -> T::AssetIdParameter {
 	T::BenchmarkHelper::create_asset_id_parameter(0)
 }
 
-fn create_default_asset_with_deposits<T: Config<I>, I: 'static>(
-) -> (T::AssetIdParameter, T::AccountId, AccountIdLookupOf<T>) {
-	let asset_id = default_asset_id::<T, I>();
-	let caller: T::AccountId = whitelisted_caller();
-	let caller_lookup = T::Lookup::unlookup(caller.clone());
-
-	T::NativeToken::set_balance(&caller, large_amount::<T, I>());
-
-	assert!(Assets::<T, I>::create(
-		SystemOrigin::Signed(caller.clone()).into(),
-		asset_id,
-		caller_lookup.clone(),
-		1u32.into(),
-	)
-	.is_ok());
-
-	let dummy = vec![0u8; T::StringLimit::get() as usize];
-	assert!(Assets::<T, I>::set_metadata(
-		SystemOrigin::Signed(caller.clone()).into(),
-		asset_id,
-		dummy.clone(),
-		dummy,
-		12
-	)
-	.is_ok());
-
-	(asset_id, caller, caller_lookup)
-}
-
 fn create_default_asset<T: Config<I>, I: 'static>(
 	is_sufficient: bool,
 ) -> (T::AssetIdParameter, T::AccountId, AccountIdLookupOf<T>) {
@@ -79,14 +51,13 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
 	let root = SystemOrigin::Root.into();
-	assert!(Assets::<T, I>::force_create(
+	assert_ok!(Assets::<T, I>::force_create(
 		root,
 		asset_id,
 		caller_lookup.clone(),
 		is_sufficient,
 		1u32.into(),
-	)
-	.is_ok());
+	));
 	(asset_id, caller, caller_lookup)
 }
 
@@ -98,13 +69,12 @@ fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	if !is_sufficient {
 		T::NativeToken::set_balance(&caller, T::NativeToken::minimum_balance());
 	}
-	assert!(Assets::<T, I>::mint(
+	assert_ok!(Assets::<T, I>::mint(
 		SystemOrigin::Signed(caller.clone()).into(),
 		asset_id,
 		caller_lookup.clone(),
 		amount,
-	)
-	.is_ok());
+	));
 	(asset_id, caller, caller_lookup)
 }
 
@@ -125,13 +95,12 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	for i in 0..n {
 		let target = account("sufficient", i, SEED);
 		let target_lookup = T::Lookup::unlookup(target);
-		assert!(Assets::<T, I>::mint(
+		assert_ok!(Assets::<T, I>::mint(
 			origin.clone().into(),
 			asset_id,
 			target_lookup,
 			100u32.into()
-		)
-		.is_ok());
+		));
 	}
 	swap_is_sufficient::<T, I>(&mut s);
 }
@@ -342,7 +311,7 @@ benchmarks_instance_pallet! {
 	}
 
 	transfer_ownership {
-		let (asset_id, caller, _) = create_default_asset_with_deposits::<T, I>();
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
 		let target: T::AccountId = account("target", 0, SEED);
 
 		// Add ED to target account as transferring non-sufficient assets:
@@ -548,10 +517,10 @@ benchmarks_instance_pallet! {
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
 		T::NativeToken::set_balance(&new_account, large_amount::<T, I>());
 		assert_ne!(asset_owner, new_account);
-		assert!(Assets::<T, I>::touch(
+		assert_ok!(Assets::<T, I>::touch(
 			SystemOrigin::Signed(new_account.clone()).into(),
 			asset_id
-		).is_ok());
+		));
 		// `touch` should reserve balance of the caller according to the `AssetAccountDeposit` amount...
 		assert_eq!(T::NativeToken::total_balance_on_hold(&new_account), T::AssetAccountDeposit::get());
 		// ...and also create an `Account` entry.
@@ -568,11 +537,11 @@ benchmarks_instance_pallet! {
 		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
 		T::NativeToken::set_balance(&asset_owner, large_amount::<T, I>());
 		assert_ne!(asset_owner, new_account);
-		assert!(Assets::<T, I>::touch_other(
+		assert_ok!(Assets::<T, I>::touch_other(
 			SystemOrigin::Signed(asset_owner.clone()).into(),
 			asset_id,
 			new_account_lookup.clone()
-		).is_ok());
+		));
 		// `touch` should reserve balance of the caller according to the `AssetAccountDeposit` amount...
 		assert_eq!(T::NativeToken::total_balance_on_hold(&asset_owner), T::AssetAccountDeposit::get());
 		assert!(Account::<T, I>::contains_key(asset_id.into(), &new_account));
