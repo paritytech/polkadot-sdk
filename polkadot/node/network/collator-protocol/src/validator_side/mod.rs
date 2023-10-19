@@ -1817,7 +1817,8 @@ async fn kick_off_seconding<Context>(
 			collation_event.collator_protocol_version,
 			collation_event.pending_collation.prospective_candidate,
 		) {
-			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) =>
+			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. }))
+				if per_relay_parent.prospective_parachains_mode.is_enabled() =>
 				request_prospective_validation_data(
 					ctx.sender(),
 					relay_parent,
@@ -1825,7 +1826,8 @@ async fn kick_off_seconding<Context>(
 					pending_collation.para_id,
 				)
 				.await?,
-			(CollationVersion::V1, _) =>
+			// Support V2 collators without async backing enabled.
+			(CollationVersion::V2, Some(_)) | (CollationVersion::V1, _) =>
 				request_persisted_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent,
