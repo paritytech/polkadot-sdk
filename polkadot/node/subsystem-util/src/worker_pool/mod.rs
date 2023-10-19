@@ -63,9 +63,6 @@ pub trait Job {
 	}
 }
 
-// Blanket implementation of `Job`.
-impl<T> Job for Option<T> where T: Job {}
-
 /// An abstract worker configuration and spawning interface.
 pub trait WorkerConfig: Sized + 'static {
 	/// The type used to describe the work to be done.
