@@ -342,20 +342,17 @@ fn handle_job_finish(
 		},
 		Outcome::InvalidCandidate { err, idle_worker } => (
 			Some(idle_worker),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
+			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedError(err))),
 			None,
 		),
 		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
 		Outcome::HardTimeout =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
-		Outcome::IoErr => (
-			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
-			None,
-		),
+		Outcome::IoErr =>
+			(None, Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)), None),
 		Outcome::Panic { err } =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::Panic(err))), None),
 	};
 
 	queue.metrics.execute_finished();

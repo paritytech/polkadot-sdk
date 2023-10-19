@@ -627,26 +627,7 @@ async fn validate_candidate_exhaustive(
 	}
 
 	match result {
-		Err(ValidationError::Internal(e)) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?para_id,
-				?e,
-				"An internal error occurred during validation, will abstain from voting",
-			);
-			Err(ValidationFailed(e.to_string()))
-		},
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedError(e))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
-				"ambiguous worker death".to_string(),
-			))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
+		Err(ValidationError::Preparation(e)) => {
 			// In principle if preparation of the `WASM` fails, the current candidate can not be the
 			// reason for that. So we can't say whether it is invalid or not. In addition, with
 			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
@@ -658,8 +639,27 @@ async fn validate_candidate_exhaustive(
 				?e,
 				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
 			);
-			Err(ValidationFailed(e))
+			Err(ValidationFailed(e.to_string()))
 		},
+		Err(ValidationError::Internal(e)) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"An internal error occurred during validation, will abstain from voting",
+			);
+			Err(ValidationFailed(e.to_string()))
+		},
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
+		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedError(e))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
+		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
+				"ambiguous worker death".to_string(),
+			))),
+		Err(ValidationError::Invalid(WasmInvalidCandidate::Panic(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
@@ -747,10 +747,10 @@ trait ValidationBackend {
 			}
 
 			match validation_result {
-				Err(ValidationError::InvalidCandidate(
-					WasmInvalidCandidate::AmbiguousWorkerDeath,
-				)) if num_awd_retries_left > 0 => num_awd_retries_left -= 1,
-				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic(_)))
+				Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath))
+					if num_awd_retries_left > 0 =>
+					num_awd_retries_left -= 1,
+				Err(ValidationError::Invalid(WasmInvalidCandidate::Panic(_)))
 					if num_panic_retries_left > 0 =>
 					num_panic_retries_left -= 1,
 				Err(ValidationError::Internal(_)) if num_internal_retries_left > 0 =>

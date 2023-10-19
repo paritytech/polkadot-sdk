@@ -19,11 +19,13 @@ use polkadot_node_core_pvf_common::error::{InternalValidationError, PrepareError
 /// A error raised during validation of the candidate.
 #[derive(Debug, Clone)]
 pub enum ValidationError {
+	/// Deterministic preparation issue.
+	Preparation(PrepareError),
 	/// The error was raised because the candidate is invalid.
 	///
 	/// Whenever we are unsure if the error was due to the candidate or not, we must vote invalid.
-	InvalidCandidate(InvalidCandidate),
-	/// Non-deterministic prepare errors, typically cased by unexpected internal conditions.
+	Invalid(InvalidCandidate),
+	/// Preparation or execution issue caused by an internal condition.
 	Internal(InternalValidationError),
 }
 
@@ -31,8 +33,6 @@ pub enum ValidationError {
 /// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
 #[derive(Debug, Clone)]
 pub enum InvalidCandidate {
-	/// PVF preparation ended up with a deterministic error.
-	PrepareError(String),
 	/// The failure is reported by the execution worker. The string contains the error message.
 	WorkerReportedError(String),
 	/// The worker has died during validation of a candidate. That may fall in one of the following
@@ -76,7 +76,7 @@ impl From<PrepareError> for ValidationError {
 		// Here we need to classify the errors into two errors: deterministic and non-deterministic.
 		// See [`PrepareError::is_deterministic`].
 		if error.is_deterministic() {
-			Self::InvalidCandidate(InvalidCandidate::PrepareError(error.to_string()))
+			Self::Preparation(error)
 		} else {
 			Self::Internal(InternalValidationError::NonDeterministicPrepareError(error))
 		}

@@ -1311,27 +1311,27 @@ pub(crate) mod tests {
 		);
 
 		result_tx_pvf_1_1
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_1.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_1_2
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_2
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -1638,11 +1638,11 @@ pub(crate) mod tests {
 		// Send an error for the execution here, just so we can check the result receiver is still
 		// alive.
 		result_tx_3
-			.send(Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_3.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -1681,10 +1681,7 @@ pub(crate) mod tests {
 
 		// The result should contain the error.
 		let result = test.poll_and_recv_result(result_rx).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 
 		// Submit another execute request.
 		let (result_tx_2, result_rx_2) = oneshot::channel();
@@ -1703,10 +1700,7 @@ pub(crate) mod tests {
 
 		// The result should contain the original error.
 		let result = test.poll_and_recv_result(result_rx_2).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 
 		// Pause for enough time to reset the cooldown for this failed prepare request.
 		futures_timer::Delay::new(PREPARE_FAILURE_COOLDOWN).await;
@@ -1728,10 +1722,7 @@ pub(crate) mod tests {
 
 		// The result should still contain the original error.
 		let result = test.poll_and_recv_result(result_rx_3).await;
-		assert_matches!(
-			result,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::PrepareError(_)))
-		);
+		assert_matches!(result, Err(ValidationError::Preparation(_)));
 	}
 
 	// Test that multiple heads-up requests trigger preparation retries if the first one failed.

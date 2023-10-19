@@ -480,9 +480,9 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -546,7 +546,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			Ok(validation_result),
 		]),
 		validation_data.clone(),
@@ -599,8 +599,8 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 		]),
 		validation_data,
 		validation_code,
@@ -648,7 +648,7 @@ fn candidate_validation_retry_internal_errors() {
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		]),
@@ -695,11 +695,11 @@ fn candidate_validation_retry_panic_errors() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("foo".into()))),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::Panic("foo".into()))),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::Panic("bar".into()))),
+			Err(ValidationError::Invalid(WasmInvalidCandidate::Panic("bar".into()))),
 		]),
 		validation_data,
 		validation_code,
@@ -742,9 +742,9 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -836,9 +836,9 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,

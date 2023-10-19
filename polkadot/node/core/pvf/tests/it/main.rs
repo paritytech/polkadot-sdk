@@ -148,7 +148,7 @@ async fn terminates_on_timeout() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 
@@ -188,8 +188,8 @@ async fn ensure_parallel_execution() {
 	assert_matches!(
 		(res1, res2),
 		(
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout))
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)),
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
 		)
 	);
 
@@ -310,7 +310,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 
@@ -344,7 +344,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 }
