@@ -1,0 +1,24 @@
+# Schema: Parity PR Documentation Schema (prdoc) v1.0.0
+# See doc at https://github.com/paritytech/prdoc
+
+title: New PRDoc Schema
+
+authors: [ chevdor ]
+tags: [ prdoc, release ]
+
+doc:
+  - audience: Node Dev
+    description:  &desc |
+      The new version of prdoc and the new schema is activated in this PR.
+
+  - audience: Runtime Dev
+    description: *desc
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates: []
+
+host_functions: []
