@@ -1674,8 +1674,7 @@ impl State {
 				.approval_entries(index)
 				.into_iter()
 				.filter_map(|approval_entry| approval_entry.approval(index))
-				.map(|approval| (approval.validator, approval.signature))
-				.collect::<HashMap<ValidatorIndex, ValidatorSignature>>();
+				.map(|approval| (approval.validator, approval.signature));
 			all_sigs.extend(sigs);
 		}
 		all_sigs
@@ -2304,10 +2303,9 @@ pub const MAX_APPROVAL_BATCH_SIZE: usize = ensure_size_not_zero(
 async fn send_assignments_batched_inner(
 	sender: &mut impl overseer::ApprovalDistributionSenderTrait,
 	batch: impl IntoIterator<Item = (IndirectAssignmentCertV2, CandidateBitfield)>,
-	peers: &[PeerId],
+	peers: Vec<PeerId>,
 	peer_version: ValidationVersion,
 ) {
-	let peers = peers.into_iter().cloned().collect::<Vec<_>>();
 	if peer_version == ValidationVersion::VStaging {
 		sender
 			.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -2384,15 +2382,20 @@ pub(crate) async fn send_assignments_batched(
 				send_assignments_batched_inner(
 					sender,
 					batch.clone(),
-					&v1_peers,
+					v1_peers.clone(),
 					ValidationVersion::V1,
 				)
 				.await;
 			}
 
 			if !v2_peers.is_empty() {
-				send_assignments_batched_inner(sender, batch, &v2_peers, ValidationVersion::V2)
-					.await;
+				send_assignments_batched_inner(
+					sender,
+					batch,
+					v2_peers.clone(),
+					ValidationVersion::V2,
+				)
+				.await;
 			}
 		}
 	}
@@ -2405,7 +2408,7 @@ pub(crate) async fn send_assignments_batched(
 			send_assignments_batched_inner(
 				sender,
 				batch,
-				&vstaging_peers,
+				vstaging_peers.clone(),
 				ValidationVersion::VStaging,
 			)
 			.await;

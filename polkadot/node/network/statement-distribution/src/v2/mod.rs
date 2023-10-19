@@ -752,13 +752,21 @@ fn pending_statement_network_message(
 				protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
 			.map(|msg| (vec![peer.0], Versioned::V2(msg).into())),
-		_ => statement_store
+		ValidationVersion::VStaging => statement_store
 			.validator_statement(originator, compact)
 			.map(|s| s.as_unchecked().clone())
 			.map(|signed| {
 				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
 			.map(|msg| (vec![peer.0], Versioned::VStaging(msg).into())),
+		ValidationVersion::V1 => {
+			gum::error!(
+				target: LOG_TARGET,
+				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
+			);
+			None
+		},
 	}
 }
 
@@ -883,7 +891,7 @@ async fn send_pending_grid_messages<Context>(
 						)
 						.into(),
 					)),
-					_ => messages.push((
+					ValidationVersion::VStaging => messages.push((
 						vec![peer_id.0],
 						Versioned::VStaging(
 							protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
@@ -892,6 +900,13 @@ async fn send_pending_grid_messages<Context>(
 						)
 						.into(),
 					)),
+					ValidationVersion::V1 => {
+						gum::error!(
+							target: LOG_TARGET,
+							"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+							legacy should have handled this"
+						);
+					}
 				};
 			},
 			grid::ManifestKind::Acknowledgement => {
@@ -2183,13 +2198,20 @@ fn post_acknowledgement_statement_messages(
 				)
 				.into(),
 			)),
-			_ => messages.push(Versioned::VStaging(
+			ValidationVersion::VStaging => messages.push(Versioned::VStaging(
 				protocol_vstaging::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.as_unchecked().clone(),
 				)
 				.into(),
 			)),
+			ValidationVersion::V1 => {
+				gum::error!(
+					target: LOG_TARGET,
+					"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+					legacy should have handled this"
+				);
+			},
 		};
 	}
 
@@ -2324,13 +2346,21 @@ fn acknowledgement_and_statement_messages(
 
 	let mut messages = match peer.1 {
 		ValidationVersion::V2 => vec![(vec![peer.0], msg_v2.into())],
-		_ => vec![(
+		ValidationVersion::VStaging => vec![(
 			vec![peer.0],
 			Versioned::VStaging(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
 				acknowledgement,
 			))
 			.into(),
 		)],
+		ValidationVersion::V1 => {
+			gum::error!(
+				target: LOG_TARGET,
+				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
+			);
+			return Vec::new()
+		},
 	};
 
 	local_validator.grid_tracker.manifest_sent_to(

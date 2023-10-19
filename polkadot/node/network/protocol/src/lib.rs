@@ -258,7 +258,7 @@ pub enum Versioned<V1, V2, VStaging = V2> {
 	V1(V1),
 	/// V2 type.
 	V2(V2),
-	/// VStaging type.
+	/// VStaging type
 	VStaging(VStaging),
 }
 
