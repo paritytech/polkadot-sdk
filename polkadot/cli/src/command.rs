@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::{Cli, Subcommand};
+use crate::cli::{Cli, Subcommand, NODE_VERSION};
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use futures::future::TryFutureExt;
 use log::{info, warn};
@@ -50,7 +50,7 @@ impl SubstrateCli for Cli {
 
 	fn impl_version() -> String {
 		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
-		format!("{}-{commit_hash}", env!("POLKADOT_NODE_VERSION"))
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn description() -> String {
@@ -241,11 +241,8 @@ where
 		None
 	};
 
-	let node_version = if cli.run.disable_worker_version_check {
-		None
-	} else {
-		Some(env!("POLKADOT_NODE_VERSION").to_string())
-	};
+	let node_version =
+		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
 
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)

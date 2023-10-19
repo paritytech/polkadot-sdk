@@ -23,6 +23,7 @@ pub use crate::{
 
 use crate::get_worker_version;
 use is_executable::IsExecutable;
+use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
 	path::PathBuf,
@@ -75,16 +76,15 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 			panic!("ERROR: Workers do not exist or are not executable. Workers directory: {:?}", workers_path);
 		}
 
-		let node_version = env!("POLKADOT_NODE_VERSION");
 		let worker_version =
 			get_worker_version(&prepare_worker_path).expect("checked for worker existence");
-		if worker_version != node_version {
-			panic!("ERROR: Prepare worker version {worker_version} does not match node version {node_version}; worker path: {prepare_worker_path:?}");
+		if worker_version != NODE_VERSION {
+			panic!("ERROR: Prepare worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
 		}
 		let worker_version =
 			get_worker_version(&execute_worker_path).expect("checked for worker existence");
-		if worker_version != node_version {
-			panic!("ERROR: Execute worker version {worker_version} does not match node version {node_version}; worker path: {execute_worker_path:?}");
+		if worker_version != NODE_VERSION {
+			panic!("ERROR: Execute worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
 		}
 
 		// We don't want to check against the commit hash because we'd have to always rebuild
