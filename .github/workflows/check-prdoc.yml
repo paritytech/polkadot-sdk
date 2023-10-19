@@ -42,7 +42,7 @@ jobs:
       - name: Early exit if PR is silent
         if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          podman run --rm -it -v $PWD:/repo paritytech/prdoc scan | awk '{print $1}' | grep $GITHUB_PR
+          podman run --rm -v $PWD:/repo paritytech/prdoc scan | awk '{print $1}' | grep $GITHUB_PR
           if [[ $? ]]; then
             echo "PR detected as silent, but a PRDoc was found, checking it as information"
             $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
