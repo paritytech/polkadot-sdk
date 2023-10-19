@@ -33,7 +33,6 @@ use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash, IdentityLookup},
 	BuildStorage, Perbill,
 };
-
 mod cancellation;
 mod decoders;
 mod delegation;
