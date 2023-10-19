@@ -62,7 +62,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot/issues/new".into()
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -195,9 +195,8 @@ where
 		.map_err(Error::from)?;
 	let chain_spec = &runner.config().chain_spec;
 
-	// By default, enable BEEFY on all networks except Polkadot (for now), unless
-	// explicitly disabled through CLI.
-	let mut enable_beefy = !chain_spec.is_polkadot() && !cli.run.no_beefy;
+	// By default, enable BEEFY on all networks, unless explicitly disabled through CLI.
+	let mut enable_beefy = !cli.run.no_beefy;
 	// BEEFY doesn't (yet) support warp sync:
 	// Until we implement https://github.com/paritytech/substrate/issues/14756
 	// - disallow warp sync for validators,

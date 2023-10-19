@@ -579,7 +579,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 		block_import_params.body = Some(body);
 
-		// Now import the unkown block to make it "known"
+		// Now import the unknown block to make it "known"
 		client.import_block(block_import_params).await.unwrap();
 
 		loop {

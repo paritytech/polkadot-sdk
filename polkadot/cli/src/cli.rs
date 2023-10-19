@@ -16,6 +16,8 @@
 
 //! Polkadot CLI library.
 
+pub use polkadot_node_primitives::NODE_VERSION;
+
 use clap::Parser;
 use std::path::PathBuf;
 
