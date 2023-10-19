@@ -55,7 +55,6 @@ mod old {
 use frame_support::traits::{LockableCurrency, ReservableCurrency};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-/// Migration for translating bare `Hash`es into `Bounded<Call>`s.
 pub struct Migration<T, OldCurrency>(sp_std::marker::PhantomData<(T, OldCurrency)>);
 impl<T, OldCurrency> Migration<T, OldCurrency>
 where
@@ -65,6 +64,7 @@ where
 		+ LockableCurrency<AccountIdOf<T>, Moment = BlockNumberFor<T>>,
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
+	/// Get all proposal deposits from the old storage.
 	pub fn get_deposits(weight: &mut Weight) -> BTreeMap<AccountIdOf<T>, OldCurrency::Balance> {
 		old::DepositOf::<T>::iter()
 			.flat_map(|(_prop_index, (accounts, balance))| {
@@ -84,6 +84,7 @@ where
 			)
 	}
 
+	/// Store proposal deposits to exercise benchmarking.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub fn bench_store_deposit(depositors: Vec<AccountIdOf<T>>) {
 		let amount = T::MinimumDeposit::get();
@@ -95,6 +96,7 @@ where
 		old::DepositOf::<T>::insert(0u32, (depositors, amount));
 	}
 
+	/// Translate reserved deposit to held deposit.
 	pub fn translate_reserve_to_hold(
 		depositor: &AccountIdOf<T>,
 		amount: OldCurrency::Balance,
@@ -135,6 +137,7 @@ where
 		T::WeightInfo::v2_migration_translate_reserve_to_hold()
 	}
 
+	/// Store votes to exercise benchmarking.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub fn bench_store_vote(voter: AccountIdOf<T>) {
 		use frame_support::traits::WithdrawReasons;
@@ -158,6 +161,7 @@ where
 		VotingOf::<T>::insert(voter, vote);
 	}
 
+	/// Translate votes locked deposit to frozen deposit.
 	pub fn translate_lock_to_freeze(account_id: AccountIdOf<T>, amount: OldCurrency::Balance) {
 		OldCurrency::remove_lock(DEMOCRACY_ID, &account_id);
 		T::Fungible::set_freeze(&FreezeReason::Vote.into(), &account_id, amount.into())
