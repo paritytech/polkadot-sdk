@@ -22,6 +22,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	convert::TryInto,
 	future::Future,
+	iter::FromIterator,
 	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -145,9 +146,6 @@ enum InsertAdvertisementError {
 	UndeclaredCollator,
 	/// A limit for announcements per peer is reached.
 	PeerLimitReached,
-	/// Mismatch of relay parent mode and advertisement arguments.
-	/// An internal error that should not happen.
-	ProtocolMismatch,
 }
 
 #[derive(Debug)]
@@ -243,20 +241,15 @@ impl PeerData {
 				}
 
 				match (relay_parent_mode, candidate_hash) {
-					(ProspectiveParachainsMode::Enabled { .. }, None) |
-					(ProspectiveParachainsMode::Disabled, None) =>
-						if self.version == CollationVersion::V1 {
-							if state.advertisements.contains_key(&on_relay_parent) {
-								return Err(InsertAdvertisementError::Duplicate)
-							}
-							state.advertisements.insert(on_relay_parent, HashSet::new());
-						} else {
-							gum::error!(
-								target: LOG_TARGET,
-								"Inserting advertisment: V2 without a candidate hash",
-							);
-							return Err(InsertAdvertisementError::ProtocolMismatch)
-						},
+					(ProspectiveParachainsMode::Enabled { .. }, candidate_hash) |
+					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
+						if state.advertisements.contains_key(&on_relay_parent) {
+							return Err(InsertAdvertisementError::Duplicate)
+						}
+						state
+							.advertisements
+							.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+					},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
 						Some(candidate_hash),
@@ -275,16 +268,6 @@ impl PeerData {
 							return Err(InsertAdvertisementError::PeerLimitReached)
 						}
 						candidates.insert(candidate_hash);
-					},
-					(mode, candidate_hash) => {
-						gum::error!(
-							target: LOG_TARGET,
-							?mode,
-							hash = ?candidate_hash,
-							"Inserting advertisment: protocol mismatch",
-						);
-
-						return Err(InsertAdvertisementError::ProtocolMismatch)
 					},
 				}
 
@@ -1102,16 +1085,20 @@ where
 	}
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		let is_seconding_allowed = can_second(
-			sender,
-			collator_para_id,
-			relay_parent,
-			candidate_hash,
-			parent_head_data_hash,
-		)
-		.await;
+		// We need to queue the advertisement if we are not allowed to second it.
+		//
+		// This is also only important when async backing is enabled.
+		let queue_advertisement = relay_parent_mode.is_enabled() &&
+			!can_second(
+				sender,
+				collator_para_id,
+				relay_parent,
+				candidate_hash,
+				parent_head_data_hash,
+			)
+			.await;
 
-		if !is_seconding_allowed {
+		if queue_advertisement {
 			gum::debug!(
 				target: LOG_TARGET,
 				relay_parent = ?relay_parent,
