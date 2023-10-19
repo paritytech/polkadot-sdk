@@ -449,17 +449,29 @@ impl Validator {
 		// Note: request_validators and request_session_index_for_child do not and cannot
 		// run concurrently: they both have a mutable handle to the same sender.
 		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index, disabled_validators) = futures::try_join!(
+		let (validators, session_index) = futures::try_join!(
 			request_validators(parent, sender).await,
 			request_session_index_for_child(parent, sender).await,
-			request_disabled_validators(parent, sender).await,
 		)?;
 
 		let signing_context = SigningContext { session_index: session_index?, parent_hash: parent };
 
 		let validators = validators?;
 
-		let disabled_validators = disabled_validators?;
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+		// When `DisabledValidators` is released remove this `if`` and add a
+		// `request_disabled_validators` call in the `try_join!` call above
+		let disabled_validators = if has_required_runtime(
+			sender,
+			parent,
+			RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+		)
+		.await
+		{
+			request_disabled_validators(parent, sender).await.await??
+		} else {
+			vec![]
+		};
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
