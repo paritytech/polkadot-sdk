@@ -313,7 +313,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-			client_features: ClientFeatures::empty(),
+			client_features: ClientFeatures::AVAILABILITY_CHUNK_SHUFFLING,
 		}
 	}
 }
