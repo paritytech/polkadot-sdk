@@ -186,7 +186,7 @@ pub trait StorageValue<T: FullCodec> {
 	where
 		T: StorageDecodeNonDedupLength,
 	{
-		T::decode_len(&Self::hashed_key())
+		T::decode_dedup_len(&Self::hashed_key())
 	}
 }
 
@@ -1421,8 +1421,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 /// This trait is sealed.
 pub trait StorageAppend<Item: Encode>: private::Sealed {}
 
-/// Marker trait that will be implemented for types that support to decode their length in an
-/// efficient way. It is expected that the length is at the beginning of the encoded object
+/// It is expected that the length is at the beginning of the encoded object
 /// and that the length is a `Compact<u32>`.
 ///
 /// This trait is sealed.
@@ -1442,8 +1441,7 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// Marker trait that will be implemented for types that support to decode their length in an
-/// efficient way. It is expected that the length is at the beginning of the encoded object
+/// It is expected that the length is at the beginning of the encoded object
 /// and that the length is a `Compact<u32>`.
 ///
 /// # Note
@@ -1458,7 +1456,7 @@ pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// and is a `Compact<u32>`.
 	///
 	/// Returns `None` if the storage value does not exist or the decoding failed.
-	fn decode_len(key: &[u8]) -> Option<usize> {
+	fn decode_dedup_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
 		let mut data = [0u8; 5];
 		let len = sp_io::storage::read(key, &mut data, 0)?;
@@ -1518,7 +1516,14 @@ impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
 impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {}
+
+/// Blanket implementation StorageDecodeNonDedupLength
+/// for all types that are StorageDecodeLength.
+impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
+	fn decode_dedup_len(key: &[u8]) -> Option<usize> {
+		T::decode_dedup_len(key)
+	}
+}
 
 /// We abuse the fact that SCALE does not put any marker into the encoding, i.e. we only encode the
 /// internal vec and we can append to this vec. We have a test that ensures that if the `Digest`
