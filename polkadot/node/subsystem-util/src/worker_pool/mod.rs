@@ -49,7 +49,7 @@ pub const MAX_WORKER_POOL_MESSAGES: usize = MAX_WORKER_MESSAGES;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct JobId(pub H256);
 
-/// A trait to map a work item to a specific `Job``
+/// A trait to map a work item to a specific `Job`
 ///
 /// Should be implemented by work items, such that a work item always uniquely identifies a single
 /// Job.
@@ -57,7 +57,7 @@ pub struct JobId(pub H256);
 /// The unique identifier is required to route all messages to the same worker. If it is not
 /// specified the work item is broadcasted to all workers.
 pub trait Job {
-	/// Returns the associated context identifier, if any.
+	/// Returns the associated `JobId` job identifier, if any.
 	fn id(&self) -> Option<JobId> {
 		None
 	}
@@ -161,7 +161,7 @@ pub enum WorkerPoolMessage<Config: WorkerConfig> {
 
 /// A specialized worker pool implementation that has the following characteristics:
 /// - the pool accepts work items, which is the building block for jobs.
-/// - jobs can be `long lived` meaning they span multiple work items or `short lived`` meaning
+/// - jobs can be `long lived` meaning they span multiple work items or `short lived` meaning
 /// just a single work item.
 /// - `Job` trait is used to classify work items and assign them a `JobId`
 /// - short lived jobs are broadcasted to all workers in the pool
@@ -175,7 +175,7 @@ pub enum WorkerPoolMessage<Config: WorkerConfig> {
 /// all workers. The `long lived` jobs should tipically make up 99% of the worker load, while 1%
 /// should be `short lived` similar to control/data interfaces.
 pub struct WorkerPool<Config: WorkerConfig> {
-	// Per worker context mapping. Values are indices in `worker_handles`.
+	// Per worker job mapping. Values are indices in `worker_handles`.
 	job_per_worker: HashMap<JobId, usize>,
 	// Per worker handles
 	worker_handles: Vec<Config::Worker>,
@@ -325,7 +325,7 @@ impl<Config: WorkerConfig + Sized> WorkerPool<Config> {
 			// Dispatch work item to selected worker.
 			worker_handle.new_job(job_id.clone(), state).await;
 
-			// Map context to worker.
+			// Map job to worker.
 			self.job_per_worker.insert(job_id, self.next_worker);
 			self.next_worker = (self.next_worker + 1) % self.worker_handles.len();
 		}
