@@ -164,8 +164,6 @@ async fn new_minimal_relay_chain(
 	let task_manager = TaskManager::new(config.tokio_handle.clone(), prometheus_registry)?;
 
 	if let Some(PrometheusConfig { port, registry }) = config.prometheus_config.clone() {
-		//let _metrics = sc_service::MetricsService::with_prometheus(telemetry, &registry,
-		// &config)?;
 		task_manager.spawn_handle().spawn(
 			"prometheus-endpoint",
 			None,
