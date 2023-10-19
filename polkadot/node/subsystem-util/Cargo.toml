@@ -20,6 +20,9 @@ fatality = "0.0.6"
 gum = { package = "tracing-gum", path = "../gum" }
 derive_more = "0.99.17"
 schnellru = "0.2.1"
+bounded-collections = "0.1.9"
+tokio = { version="1.32.0", features = ["full"]}
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
 
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }

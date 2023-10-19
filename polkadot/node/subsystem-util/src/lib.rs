@@ -79,6 +79,9 @@ pub mod inclusion_emulator;
 /// Convenient and efficient runtime info access.
 pub mod runtime;
 
+/// Worker pool abstractions and helper functions.
+pub mod worker_pool;
+
 /// Nested message sending
 ///
 /// Useful for having mostly synchronous code, with submodules spawning short lived asynchronous
