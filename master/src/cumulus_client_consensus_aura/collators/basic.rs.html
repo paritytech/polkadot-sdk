@@ -215,6 +215,16 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -240,7 +250,9 @@
 //! For more information about AuRa, the Substrate crate should be checked.
 
 </span><span class="kw">use </span>codec::{Codec, Decode};
-<span class="kw">use </span>cumulus_client_collator::service::ServiceInterface <span class="kw">as </span>CollatorServiceInterface;
+<span class="kw">use </span>cumulus_client_collator::{
+	relay_chain_driven::CollationRequest, service::ServiceInterface <span class="kw">as </span>CollatorServiceInterface,
+};
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImportMarker;
 <span class="kw">use </span>cumulus_client_consensus_proposer::ProposerInterface;
 <span class="kw">use </span>cumulus_primitives_core::{relay_chain::BlockId <span class="kw">as </span>RBlockId, CollectCollationInfo};
@@ -250,7 +262,7 @@
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandle;
 <span class="kw">use </span>polkadot_primitives::{CollatorPair, Id <span class="kw">as </span>ParaId};
 
-<span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>futures::{channel::mpsc::Receiver, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 <span class="kw">use </span>sc_consensus::BlockImport;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
@@ -298,6 +310,10 @@
 	</span><span class="kw">pub </span>collator_service: CS,
 	<span class="doccomment">/// The amount of time to spend authoring each block.
 	</span><span class="kw">pub </span>authoring_duration: Duration,
+	<span class="doccomment">/// Receiver for collation requests. If `None`, Aura consensus will establish a new receiver.
+	/// Should be used when a chain migrates from a different consensus algorithm and was already
+	/// processing collation requests before initializing Aura.
+	</span><span class="kw">pub </span>collation_request_receiver: <span class="prelude-ty">Option</span>&lt;Receiver&lt;CollationRequest&gt;&gt;,
 }
 
 <span class="doccomment">/// Run bare Aura consensus as a relay-chain-driven collator.
@@ -327,12 +343,16 @@
 	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
 {
 	<span class="kw">async move </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>collation_requests = cumulus_client_collator::relay_chain_driven::init(
-			params.collator_key,
-			params.para_id,
-			params.overseer_handle,
-		)
-		.<span class="kw">await</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>collation_requests = <span class="kw">match </span>params.collation_request_receiver {
+			<span class="prelude-val">Some</span>(receiver) =&gt; receiver,
+			<span class="prelude-val">None </span>=&gt;
+				cumulus_client_collator::relay_chain_driven::init(
+					params.collator_key,
+					params.para_id,
+					params.overseer_handle,
+				)
+				.<span class="kw">await</span>,
+		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>collator = {
 			<span class="kw">let </span>params = collator_util::Params {

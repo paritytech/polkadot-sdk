@@ -432,6 +432,7 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -845,6 +846,7 @@
 		collator_service,
 		<span class="comment">// Very limited proposal time.
 		</span>authoring_duration: Duration::from_millis(<span class="number">500</span>),
+		collation_request_receiver: <span class="prelude-val">None</span>,
 	};
 
 	<span class="kw">let </span>fut =
