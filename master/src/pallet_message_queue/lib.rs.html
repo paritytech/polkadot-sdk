@@ -1467,6 +1467,52 @@
 <a href="#1467" id="1467">1467</a>
 <a href="#1468" id="1468">1468</a>
 <a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2053,8 +2099,9 @@
 		}
 
 		<span class="doccomment">/// Check all compile-time assumptions about [`crate::Config`].
+		</span><span class="attr">#[cfg(test)]
 		</span><span class="kw">fn </span>integrity_test() {
-			<span class="macro">assert!</span>(!MaxMessageLenOf::&lt;T&gt;::get().is_zero(), <span class="string">&quot;HeapSize too low&quot;</span>);
+			<span class="self">Self</span>::do_integrity_test().expect(<span class="string">&quot;Pallet config is valid; qed&quot;</span>)
 		}
 	}
 
@@ -2226,6 +2273,47 @@
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
 		</span>}
+	}
+
+	<span class="doccomment">/// The maximal weight that a single message can consume.
+	///
+	/// Any message using more than this will be marked as permanently overweight and not
+	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
+	/// `Some(0)` means that only messages with no weight may be served.
+	</span><span class="kw">fn </span>max_message_weight(limit: Weight) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
+		limit.checked_sub(<span class="kw-2">&amp;</span><span class="self">Self</span>::single_msg_overhead())
+	}
+
+	<span class="doccomment">/// The overhead of servicing a single message.
+	</span><span class="kw">fn </span>single_msg_overhead() -&gt; Weight {
+		T::WeightInfo::bump_service_head()
+			.saturating_add(T::WeightInfo::service_queue_base())
+			.saturating_add(
+				T::WeightInfo::service_page_base_completion()
+					.max(T::WeightInfo::service_page_base_no_completion()),
+			)
+			.saturating_add(T::WeightInfo::service_page_item())
+			.saturating_add(T::WeightInfo::ready_ring_unknit())
+	}
+
+	<span class="doccomment">/// Checks invariants of the pallet config.
+	///
+	/// The results of this can only be relied upon if the config values are set to constants.
+	</span><span class="attr">#[cfg(test)]
+	</span><span class="kw">fn </span>do_integrity_test() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+		<span class="macro">ensure!</span>(!MaxMessageLenOf::&lt;T&gt;::get().is_zero(), <span class="string">&quot;HeapSize too low&quot;</span>);
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(service) = T::ServiceWeight::get() {
+			<span class="kw">if </span><span class="self">Self</span>::max_message_weight(service).is_none() {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+					<span class="string">&quot;ServiceWeight too low: {}. Must be at least {}&quot;</span>,
+					service,
+					<span class="self">Self</span>::single_msg_overhead(),
+				))
+			}
+		}
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>do_enqueue_message(
@@ -2829,9 +2917,13 @@
 	<span class="kw">type </span>OverweightMessageAddress = (MessageOriginOf&lt;T&gt;, PageIndex, T::Size);
 
 	<span class="kw">fn </span>service_queues(weight_limit: Weight) -&gt; Weight {
-		<span class="comment">// The maximum weight that processing a single message may take.
-		</span><span class="kw">let </span>overweight_limit = weight_limit;
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = WeightMeter::with_limit(weight_limit);
+
+		<span class="comment">// Get the maximum weight that processing a single message may take:
+		</span><span class="kw">let </span>max_weight = <span class="self">Self</span>::max_message_weight(weight_limit).unwrap_or_else(|| {
+			<span class="macro">defensive!</span>(<span class="string">&quot;Not enough weight to service a single message.&quot;</span>);
+			Weight::zero()
+		});
 
 		<span class="kw">let </span><span class="kw-2">mut </span>next = <span class="kw">match </span><span class="self">Self</span>::bump_service_head(<span class="kw-2">&amp;mut </span>weight) {
 			<span class="prelude-val">Some</span>(h) =&gt; h,
@@ -2843,7 +2935,7 @@
 		</span><span class="kw">let </span><span class="kw-2">mut </span>last_no_progress = <span class="prelude-val">None</span>;
 
 		<span class="kw">loop </span>{
-			<span class="kw">let </span>(progressed, n) = <span class="self">Self</span>::service_queue(next.clone(), <span class="kw-2">&amp;mut </span>weight, overweight_limit);
+			<span class="kw">let </span>(progressed, n) = <span class="self">Self</span>::service_queue(next.clone(), <span class="kw-2">&amp;mut </span>weight, max_weight);
 			next = <span class="kw">match </span>n {
 				<span class="prelude-val">Some</span>(n) =&gt;
 					<span class="kw">if </span>!progressed {
