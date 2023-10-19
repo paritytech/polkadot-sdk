@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_bond_extra(stash: T::AccountId, max_additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-		let stash_balance = T::Currency::free_balance(&stash);
+		let stash_balance = Self::stakeable_balance(&stash);
 		if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 			let extra = extra.min(max_additional);
 			ledger.total += extra;
@@ -203,9 +203,12 @@ impl<T: Config> Pallet<T> {
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
+
 		if let Some(current_era) = Self::current_era() {
+			// consolidate all unlocked chunks upto the limit if set.
 			ledger = ledger.consolidate_unlocked(current_era, limit)
 		}
+
 		let new_total = ledger.total;
 
 		let used_weight =
