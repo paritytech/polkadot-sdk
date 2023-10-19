@@ -99,7 +99,7 @@ pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream
 				quote::quote!(
 					#[doc(hidden)]
 					mod #mod_name {
-						pub extern crate #name as hidden_include;
+						pub use #name as hidden_include;
 					}
 				)
 			},
