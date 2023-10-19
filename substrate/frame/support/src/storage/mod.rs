@@ -1514,7 +1514,6 @@ impl<T: Encode> StorageAppend<T> for Vec<T> {}
 impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
 
 // Blanket implementation StorageDecodeNonDedupLength
 // for all types that are StorageDecodeLength.
