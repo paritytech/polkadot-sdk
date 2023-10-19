@@ -1,10 +1,7 @@
-# Schema: Parity PR Documentation Schema (prdoc) v1.0.0
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://github.com/paritytech/prdoc
 
 title: New PRDoc Schema
-
-ERROR: 42
-
 authors: [ chevdor ]
 tags: [ prdoc, release ]
 
