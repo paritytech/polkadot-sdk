@@ -241,7 +241,6 @@ impl PeerData {
 				}
 
 				match (relay_parent_mode, candidate_hash) {
-					(ProspectiveParachainsMode::Enabled { .. }, candidate_hash) |
 					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
 						if state.advertisements.contains_key(&on_relay_parent) {
 							return Err(InsertAdvertisementError::Duplicate)
@@ -252,22 +251,40 @@ impl PeerData {
 					},
 					(
 						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
-						Some(candidate_hash),
+						candidate_hash,
 					) => {
-						if state
-							.advertisements
-							.get(&on_relay_parent)
-							.map_or(false, |candidates| candidates.contains(&candidate_hash))
-						{
-							return Err(InsertAdvertisementError::Duplicate)
-						}
+						if let Some(candidate_hash) = candidate_hash {
+							if state
+								.advertisements
+								.get(&on_relay_parent)
+								.map_or(false, |candidates| candidates.contains(&candidate_hash))
+							{
+								return Err(InsertAdvertisementError::Duplicate)
+							}
 
-						let candidates = state.advertisements.entry(on_relay_parent).or_default();
+							let candidates =
+								state.advertisements.entry(on_relay_parent).or_default();
 
-						if candidates.len() > max_candidate_depth {
-							return Err(InsertAdvertisementError::PeerLimitReached)
-						}
-						candidates.insert(candidate_hash);
+							if candidates.len() > max_candidate_depth {
+								return Err(InsertAdvertisementError::PeerLimitReached)
+							}
+							candidates.insert(candidate_hash);
+						} else {
+							if self.version != CollationVersion::V1 {
+								gum::error!(
+									target: LOG_TARGET,
+									"Programming error, `candidate_hash` can not be `None` \
+									 for non `V1` networking.",
+								);
+							}
+
+							if state.advertisements.contains_key(&on_relay_parent) {
+								return Err(InsertAdvertisementError::Duplicate)
+							}
+							state
+								.advertisements
+								.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+						};
 					},
 				}
 
