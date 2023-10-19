@@ -124,13 +124,14 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		staker_type: StakerStatus<T::AccountId>,
 	) -> BalanceOf<T> {
-		match staker_type {
-			StakerStatus::Validator |
-			StakerStatus::Nominator(_) |
-			StakerStatus::Delegator(_) |
-			StakerStatus::Idle => T::Currency::free_balance(who),
-			StakerStatus::Delegatee => delegation::delegated_balance::<T>(who),
+		if staker_type == StakerStatus::Delegatee {
+			let staked_balance =
+				Self::ledger(Stash(who.clone())).map(|l| l.total).unwrap_or_default();
+			let delegated_balance = delegation::delegated_balance::<T>(who);
+			return delegated_balance.saturating_sub(staked_balance)
 		}
+
+		T::Currency::free_balance(who)
 	}
 
 	pub(crate) fn do_bond(
@@ -154,7 +155,14 @@ impl<T: Config> Pallet<T> {
 		let history_depth = T::HistoryDepth::get();
 		let last_reward_era = current_era.saturating_sub(history_depth);
 
-		let stash_balance = Self::stakeable_balance(&stash, staker_type);
+		let stash_balance = Self::stakeable_balance(&stash, staker_type.clone());
+
+		// For a delegatee, we always ensure before bonding that the value is exactly same as the
+		// stakeable balance. This is a defensive check but if it happens, abort delegating.
+		if staker_type == StakerStatus::Delegatee {
+			ensure!(value == stash_balance, Error::<T>::BadState);
+		}
+
 		let value = value.min(stash_balance);
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 		let ledger = StakingLedger::<T>::new(
@@ -1787,9 +1795,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::nominate(RawOrigin::Signed(ctrl).into(), targets)
 	}
 
-	fn status(
-		who: &Self::AccountId,
-	) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
+	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
 		let maybe_delegator = Delegators::<T>::get(&who);
 		if maybe_delegator.is_some() {
 			return Ok(StakerStatus::Delegator(maybe_delegator.expect("is checked above; qed").0))
