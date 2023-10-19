@@ -99,6 +99,13 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -127,7 +134,7 @@
 };
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId;
 <span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as </span>HeaderT;
-<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
+<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 <span class="doccomment">/// Verification callbacks that reject all unknown, duplicate or redundant votes.
 </span><span class="kw">struct </span>StrictJustificationVerifier {
@@ -135,6 +142,13 @@
 }
 
 <span class="kw">impl</span>&lt;Header: HeaderT&gt; JustificationVerifier&lt;Header&gt; <span class="kw">for </span>StrictJustificationVerifier {
+	<span class="kw">fn </span>process_duplicate_votes_ancestries(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		_duplicate_votes_ancestries: Vec&lt;usize&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="prelude-val">Err</span>(Error::DuplicateVotesAncestries)
+	}
+
 	<span class="kw">fn </span>process_redundant_vote(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_precommit_idx: usize,

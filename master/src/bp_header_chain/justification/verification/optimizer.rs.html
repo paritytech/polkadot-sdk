@@ -125,6 +125,21 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -160,6 +175,7 @@
 	votes: BTreeSet&lt;AuthorityId&gt;,
 
 	extra_precommits: Vec&lt;usize&gt;,
+	duplicate_votes_ancestries_idxs: Vec&lt;usize&gt;,
 	redundant_votes_ancestries: BTreeSet&lt;Header::Hash&gt;,
 }
 
@@ -167,6 +183,11 @@
 	<span class="kw">fn </span>optimize(<span class="self">self</span>, justification: <span class="kw-2">&amp;mut </span>GrandpaJustification&lt;Header&gt;) {
 		<span class="kw">for </span>invalid_precommit_idx <span class="kw">in </span><span class="self">self</span>.extra_precommits.into_iter().rev() {
 			justification.commit.precommits.remove(invalid_precommit_idx);
+		}
+		<span class="kw">if </span>!<span class="self">self</span>.duplicate_votes_ancestries_idxs.is_empty() {
+			<span class="kw">for </span>idx <span class="kw">in </span><span class="self">self</span>.duplicate_votes_ancestries_idxs.iter().rev() {
+				justification.votes_ancestries.swap_remove(<span class="kw-2">*</span>idx);
+			}
 		}
 		<span class="kw">if </span>!<span class="self">self</span>.redundant_votes_ancestries.is_empty() {
 			justification
@@ -177,6 +198,14 @@
 }
 
 <span class="kw">impl</span>&lt;Header: HeaderT&gt; JustificationVerifier&lt;Header&gt; <span class="kw">for </span>JustificationOptimizer&lt;Header&gt; {
+	<span class="kw">fn </span>process_duplicate_votes_ancestries(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		duplicate_votes_ancestries: Vec&lt;usize&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="self">self</span>.duplicate_votes_ancestries_idxs = duplicate_votes_ancestries.to_vec();
+		<span class="prelude-val">Ok</span>(())
+	}
+
 	<span class="kw">fn </span>process_redundant_vote(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		precommit_idx: usize,
@@ -245,6 +274,7 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>optimizer = JustificationOptimizer {
 		votes: BTreeSet::new(),
 		extra_precommits: <span class="macro">vec!</span>[],
+		duplicate_votes_ancestries_idxs: <span class="macro">vec!</span>[],
 		redundant_votes_ancestries: Default::default(),
 	};
 	optimizer.verify_justification(finalized_target, context, justification)<span class="question-mark">?</span>;
