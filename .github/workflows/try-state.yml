@@ -68,7 +68,7 @@ jobs:
     - name: Check Asset Hub Westend
       run: | 
         ./try-runtime \
-          --runtime ./target/release/wbuild/asset-hub-westend/asset_hub_westend_runtime.compact.wasm \
+          --runtime ./target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.wasm \
           execute-block \
           live --uri wss://westend-asset-hub-rpc.polkadot.io:443
       continue-on-error: true
@@ -77,7 +77,7 @@ jobs:
     - name: Check Bridge Hub Rococo
       run: | 
         ./try-runtime \
-          --runtime ./target/release/wbuild/bridge-hub-rococo/bridge_hub_rococo_runtime.compact.wasm \
+          --runtime ./target/release/wbuild/bridge-hub-rococo-runtime/bridge_hub_rococo_runtime.compact.wasm \
           execute-block \
           live --uri wss://rococo-bridge-hub-rpc.polkadot.io:443
       continue-on-error: true
