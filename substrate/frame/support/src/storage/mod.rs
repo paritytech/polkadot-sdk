@@ -1517,8 +1517,8 @@ impl<T: Encode> StorageDecodeLength for Vec<T> {}
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
 impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
 
-/// Blanket implementation StorageDecodeNonDedupLength
-/// for all types that are StorageDecodeLength.
+// Blanket implementation StorageDecodeNonDedupLength
+// for all types that are StorageDecodeLength.
 impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
 	fn decode_dedup_len(key: &[u8]) -> Option<usize> {
 		T::decode_dedup_len(key)
