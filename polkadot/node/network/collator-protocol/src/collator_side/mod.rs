@@ -113,6 +113,7 @@ const RECONNECT_AFTER_LEAF_TIMEOUT: Duration = Duration::from_secs(4);
 /// connected.
 type ReconnectTimeout = Fuse<futures_timer::Delay>;
 
+#[derive(Debug)]
 enum ShouldAdvertiseTo {
 	Yes,
 	NotAuthority,
@@ -689,23 +690,14 @@ async fn advertise_collation<Context>(
 
 		match should_advertise {
 			ShouldAdvertiseTo::Yes => {},
-			ShouldAdvertiseTo::NotAuthority => {
+			ShouldAdvertiseTo::NotAuthority | ShouldAdvertiseTo::AlreadyAdvertised => {
 				gum::trace!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?candidate_hash,
 					peer_id = %peer,
-					"Not advertising collation: not relevant to peer"
-				);
-				continue
-			},
-			ShouldAdvertiseTo::AlreadyAdvertised => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?candidate_hash,
-					peer_id = %peer,
-					"Not advertising collation: already advertised"
+					reason = ?should_advertise,
+					"Not advertising collation"
 				);
 				continue
 			},
