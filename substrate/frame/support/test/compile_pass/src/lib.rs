@@ -41,6 +41,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: sp_version::create_apis_vec!([]),
 	transaction_version: 0,
 	state_version: 0,
+	extrinsic_state_version: 0,
 };
 
 pub type Signature = sr25519::Signature;

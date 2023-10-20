@@ -80,6 +80,7 @@ pub mod embed;
 /// 	apis: RUNTIME_API_VERSIONS,
 /// 	transaction_version: 2,
 /// 	state_version: 1,
+///     extrinsic_state_version: 0,
 /// };
 ///
 /// # const RUNTIME_API_VERSIONS: sp_version::ApisVec = sp_version::create_apis_vec!([]);
@@ -212,6 +213,10 @@ pub struct RuntimeVersion {
 	/// Version of the state implementation used by this runtime.
 	/// Use of an incorrect version is consensus breaking.
 	pub state_version: u8,
+
+	/// Version of the state implementation used by this runtime to derive extrinsic root.
+	/// Use of an incorrect version is consensus breaking.
+	pub extrinsic_state_version: u8,
 }
 
 impl RuntimeVersion {
@@ -221,7 +226,8 @@ impl RuntimeVersion {
 	/// runtime api:
 	/// - `Core` version < 3 is a runtime version without a transaction version and state version.
 	/// - `Core` version 3 is a runtime version without a state version.
-	/// - `Core` version 4 is the latest runtime version.
+	/// - `Core` version 4 is a runtime version without extrinsic state version.
+	/// - `Core` version 5 is the latest runtime version.
 	pub fn decode_with_version_hint<I: Input>(
 		input: &mut I,
 		core_version: Option<u32>,
@@ -238,6 +244,8 @@ impl RuntimeVersion {
 			if core_version.map(|v| v >= 3).unwrap_or(false) { Decode::decode(input)? } else { 1 };
 		let state_version =
 			if core_version.map(|v| v >= 4).unwrap_or(false) { Decode::decode(input)? } else { 0 };
+		let extrinsic_state_version =
+			if core_version.map(|v| v >= 5).unwrap_or(false) { Decode::decode(input)? } else { 0 };
 		Ok(RuntimeVersion {
 			spec_name,
 			impl_name,
@@ -247,6 +255,7 @@ impl RuntimeVersion {
 			apis,
 			transaction_version,
 			state_version,
+			extrinsic_state_version
 		})
 	}
 }
@@ -314,6 +323,15 @@ impl RuntimeVersion {
 	pub fn state_version(&self) -> StateVersion {
 		// If version > than 1, keep using latest version.
 		self.state_version.try_into().unwrap_or(StateVersion::V1)
+	}
+
+	/// Returns state version to use for extrinsic root derivation.
+	///
+	/// For runtime with core api version less than 5,
+	/// V0 trie version will be used
+	/// Otherwise, uses the version passed or defaults to V0 if not provided.
+	pub fn extrinsic_state_version(&self) -> StateVersion {
+		self.extrinsic_state_version.try_into().unwrap_or(StateVersion::V0)
 	}
 }
 

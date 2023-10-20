@@ -106,6 +106,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	state_version: 1,
+	extrinsic_state_version: 0,
 };
 
 #[cfg(feature = "increment-spec-version")]
@@ -120,6 +121,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	state_version: 1,
+	extrinsic_state_version: 0,
 };
 
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
