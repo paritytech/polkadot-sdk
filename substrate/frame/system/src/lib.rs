@@ -176,16 +176,22 @@ const LOG_TARGET: &str = "runtime::system";
 ///
 /// The merkle proof is using the same trie as runtime state with
 /// `state_version` 0.
-pub fn extrinsics_root<H: Hash, E: codec::Encode>(extrinsics: &[E]) -> H::Output {
-	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect())
+pub fn extrinsics_root<H: Hash, E: codec::Encode>(
+	extrinsics: &[E],
+	state_version: sp_core::storage::StateVersion,
+) -> H::Output {
+	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect(), state_version)
 }
 
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
 /// `state_version` 0.
-pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>) -> H::Output {
-	H::ordered_trie_root(xts, sp_core::storage::StateVersion::V0)
+pub fn extrinsics_data_root<H: Hash>(
+	xts: Vec<Vec<u8>>,
+	state_version: sp_core::storage::StateVersion,
+) -> H::Output {
+	H::ordered_trie_root(xts, state_version)
 }
 
 /// An object to track the currently used extrinsic weight in a block.
@@ -1753,7 +1759,9 @@ impl<T: Config> Pallet<T> {
 		let extrinsics = (0..ExtrinsicCount::<T>::take().unwrap_or_default())
 			.map(ExtrinsicData::<T>::take)
 			.collect();
-		let extrinsics_root = extrinsics_data_root::<T::Hashing>(extrinsics);
+		let extrinsic_state_version = T::Version::get().extrinsic_state_version();
+		let extrinsics_root =
+			extrinsics_data_root::<T::Hashing>(extrinsics, extrinsic_state_version);
 
 		// move block hash pruning window by one block
 		let block_hash_count = T::BlockHashCount::get();

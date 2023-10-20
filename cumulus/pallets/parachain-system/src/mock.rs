@@ -65,6 +65,7 @@ parameter_types! {
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
 		state_version: 1,
+		extrinsic_state_version: 0,
 	};
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();

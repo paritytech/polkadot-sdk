@@ -118,6 +118,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 14,
 	state_version: 1,
+	extrinsic_state_version: 0,
 };
 
 #[cfg(not(feature = "state-trie-version-1"))]
@@ -131,6 +132,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 14,
 	state_version: 0,
+	extrinsic_state_version: 0,
 };
 
 /// The version information used to identify this runtime when compiled natively.
