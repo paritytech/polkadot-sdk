@@ -1129,6 +1129,14 @@
 <a href="#1129" id="1129">1129</a>
 <a href="#1130" id="1130">1130</a>
 <a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1212,6 +1220,7 @@
 
 <span class="doccomment">/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
 </span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>OriginKind {
 	<span class="doccomment">/// Origin should just be the native dispatch origin representation for the sender in the
 	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
@@ -1236,6 +1245,7 @@
 <span class="doccomment">/// A global identifier of an account-bearing consensus system.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>NetworkId {
 	<span class="doccomment">/// Unidentified/any.
 	</span>Any,
@@ -1272,6 +1282,7 @@
 <span class="doccomment">/// An identifier of a pluralistic body.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>BodyId {
 	<span class="doccomment">/// The only body in its context.
 	</span>Unit,
@@ -1326,6 +1337,7 @@
 <span class="doccomment">/// A part of a pluralistic body.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>BodyPart {
 	<span class="doccomment">/// The body&#39;s declaration, under whatever means it decides.
 	</span>Voice,
@@ -1393,6 +1405,7 @@
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>Xcm&lt;RuntimeCall&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;RuntimeCall&gt;&gt;);
 
 <span class="kw">impl</span>&lt;RuntimeCall&gt; Xcm&lt;RuntimeCall&gt; {
@@ -1488,6 +1501,7 @@
 
 <span class="doccomment">/// Response data to a query.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Response {
 	<span class="doccomment">/// No response. Serves as a neutral default.
 	</span>Null,
@@ -1507,6 +1521,7 @@
 
 <span class="doccomment">/// An optional weight limit.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>WeightLimit {
 	<span class="doccomment">/// No weight limit imposed.
 	</span>Unlimited,
@@ -1559,6 +1574,7 @@
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Instruction&lt;RuntimeCall&gt; {
 	<span class="doccomment">/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.

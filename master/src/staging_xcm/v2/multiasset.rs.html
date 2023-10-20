@@ -616,6 +616,14 @@
 <a href="#616" id="616">616</a>
 <a href="#617" id="617">617</a>
 <a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -659,6 +667,7 @@
 <span class="doccomment">/// A general identifier for an instance of a non-fungible asset class.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>AssetInstance {
 	<span class="doccomment">/// Undefined - used if the non-fungible asset class has only one instance.
 	</span>Undefined,
@@ -737,6 +746,7 @@
 <span class="doccomment">/// Classification of an asset being concrete or abstract.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>AssetId {
 	Concrete(MultiLocation),
 	Abstract(Vec&lt;u8&gt;),
@@ -803,6 +813,7 @@
 /// instance.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Fungibility {
 	Fungible(<span class="attr">#[codec(compact)] </span>u128),
 	NonFungible(AssetInstance),
@@ -842,6 +853,7 @@
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>MultiAsset {
 	<span class="kw">pub </span>id: AssetId,
 	<span class="kw">pub </span>fun: Fungibility,
@@ -927,6 +939,7 @@
 /// they must be sorted.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>MultiAssets(Vec&lt;MultiAsset&gt;);
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>MultiAssets {
@@ -1097,6 +1110,7 @@
 <span class="doccomment">/// Classification of whether an asset is fungible or not.
 </span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>WildFungibility {
 	Fungible,
 	NonFungible,
@@ -1116,6 +1130,7 @@
 <span class="doccomment">/// A wildcard representing a set of assets.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>WildMultiAsset {
 	<span class="doccomment">/// All assets in the holding register, up to `usize` individual assets (different instances of
 	/// non-fungibles could be separate assets).
@@ -1161,6 +1176,7 @@
 /// in this implementation and will result in a decode error.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>MultiAssetFilter {
 	Definite(MultiAssets),
 	Wild(WildMultiAsset),

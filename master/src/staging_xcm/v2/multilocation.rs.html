@@ -1100,6 +1100,8 @@
 <a href="#1100" id="1100">1100</a>
 <a href="#1101" id="1101">1101</a>
 <a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1152,6 +1154,7 @@
 /// The `MultiLocation` value of `Null` simply refers to the interpreting consensus system.
 </span><span class="attr">#[derive(Clone, Decode, Encode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>MultiLocation {
 	<span class="doccomment">/// The number of parent junctions at the beginning of this `MultiLocation`.
 	</span><span class="kw">pub </span>parents: u8,
@@ -1567,6 +1570,7 @@
 /// instructions on constructing parent junctions.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Junctions {
 	<span class="doccomment">/// The interpreting consensus system.
 	</span>Here,

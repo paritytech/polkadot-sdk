@@ -357,6 +357,9 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -388,6 +391,7 @@
 }
 
 <span class="attr">#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Error {
 	<span class="comment">// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -524,6 +528,7 @@
 
 <span class="doccomment">/// Outcome of an XCM execution.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Outcome {
 	<span class="doccomment">/// Execution completed successfully; given weight was used.
 	</span>Complete(Weight),
@@ -605,6 +610,7 @@
 
 <span class="doccomment">/// Error result value when attempting to send an XCM message.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>SendError {
 	<span class="doccomment">/// The message and destination combination was not recognized as being reachable.
 	///

@@ -597,6 +597,9 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -628,6 +631,7 @@
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
 </span><span class="attr">#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Error {
 	<span class="comment">// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -861,6 +865,7 @@ impl From&lt;Error&gt; for Outcome {
 
 </span><span class="doccomment">/// Outcome of an XCM execution.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Outcome {
 	<span class="doccomment">/// Execution completed successfully; given weight was used.
 	</span>Complete(Weight),
@@ -1009,6 +1014,7 @@ impl From&lt;Error&gt; for Outcome {
 
 <span class="doccomment">/// Error result value when attempting to send an XCM message.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>SendError {
 	<span class="doccomment">/// The message and destination combination was not recognized as being reachable.
 	///

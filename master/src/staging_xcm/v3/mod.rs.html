@@ -1482,6 +1482,13 @@
 <a href="#1482" id="1482">1482</a>
 <a href="#1483" id="1483">1483</a>
 <a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1552,6 +1559,7 @@
 #[derivative(Clone(bound = <span class="string">&quot;&quot;</span>), Eq(bound = <span class="string">&quot;&quot;</span>), PartialEq(bound = <span class="string">&quot;&quot;</span>), Debug(bound = <span class="string">&quot;&quot;</span>))]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
 <span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
@@ -1720,6 +1728,7 @@
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>PalletInfo {
 	<span class="attr">#[codec(compact)]
 	</span>index: u32,
@@ -1750,6 +1759,7 @@
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>MaybeErrorCode {
 	Success,
 	Error(BoundedVec&lt;u8, MaxDispatchErrorLen&gt;),
@@ -1773,6 +1783,7 @@
 
 <span class="doccomment">/// Response data to a query.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Response {
 	<span class="doccomment">/// No response. Serves as a neutral default.
 	</span>Null,
@@ -1796,6 +1807,7 @@
 
 <span class="doccomment">/// Information regarding the composition of a query response.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub struct </span>QueryResponseInfo {
 	<span class="doccomment">/// The destination to which the query response message should be send.
 	</span><span class="kw">pub </span>destination: MultiLocation,
@@ -1808,6 +1820,7 @@
 
 <span class="doccomment">/// An optional weight limit.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>WeightLimit {
 	<span class="doccomment">/// No weight limit imposed.
 	</span>Unlimited,
@@ -1884,6 +1897,7 @@
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
+#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
 </span><span class="kw">pub enum </span>Instruction&lt;Call&gt; {
 	<span class="doccomment">/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
