@@ -179,10 +179,12 @@ pub mod pallet {
 		/// A lockable currency.
 		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
-		#[pallet::no_default]
 		/// The `MultiAsset` matcher for `Currency`.
+		#[pallet::no_default_bounds]
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
 
+		// TODO: Would love to add a default for this, but I need access to `RuntimeOrigin`
+		// from the derive_impl
 		#[pallet::no_default]
 		/// Required origin for sending XCM messages. If successful, it resolves to `MultiLocation`
 		/// which exists as an interior location within this chain's XCM context.
@@ -204,7 +206,7 @@ pub mod pallet {
 			Success = MultiLocation,
 		>;
 
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
@@ -212,11 +214,9 @@ pub mod pallet {
 		/// Something to execute an XCM message.
 		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
 
-		#[pallet::no_default]
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
 
-		#[pallet::no_default]
 		/// Our XCM filter which messages to be reserve-transferred using the dedicated extrinsic
 		/// must pass.
 		type XcmReserveTransferFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -241,7 +241,6 @@ pub mod pallet {
 		/// The origin that is allowed to call privileged operations on the XCM pallet
 		type AdminOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin>;
 
-		#[pallet::no_default]
 		/// The assets which we consider a given origin is trusted if they claim to have placed a
 		/// lock.
 		type TrustedLockers: ContainsPair<MultiLocation, MultiAsset>;
@@ -250,7 +249,6 @@ pub mod pallet {
 		/// How to get an `AccountId` value from a `MultiLocation`, useful for handling asset locks.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
-		#[pallet::no_default]
 		/// The maximum number of local XCM locks that a single account may have.
 		type MaxLockers: Get<u32>;
 
@@ -294,15 +292,53 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`]
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, register_default_impl};
+		use frame_support::{
+			derive_impl, register_default_impl,
+			traits::{Everything, ConstU32, Equals},
+		};
+		use xcm_builder::{
+			IsConcrete,
+			EnsureXcmOrigin,
+			LocationWithAssetFilters,
+		};
 
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
+		// TODO: These make sense for an actual runtime, not for a test one maybe
+		parameter_types! {
+			/// We hold a native token locally, in `Here`
+			pub TokenLocation: MultiLocation = Here.into_location();
+			/// We don't allow any assets to be teleported
+			pub AllowedAssetsToTeleport: Vec<MultiAssetFilter> = sp_std::vec![];
+			/// We only allow reserve asset depositing the native token
+			pub AllowedAssetsToReserveTransfer: Vec<MultiAssetFilter> = sp_std::vec![
+				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
+			];
+		}
+
 		#[register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
+			// This default config only handles the native token
+			type CurrencyMatcher = IsConcrete<TokenLocation>;
+
+			// We don't filter any specific message
+			type XcmExecuteFilter = Everything;
+
+			type XcmTeleportFilter = LocationWithAssetFilters<
+				Equals<TokenLocation>,
+				AllowedAssetsToTeleport,
+			>;
+			type XcmReserveTransferFilter = LocationWithAssetFilters<
+				Equals<TokenLocation>,
+				AllowedAssetsToReserveTransfer,
+			>;
+
+			type TrustedLockers = ();
+			type MaxLockers = ConstU32<0>;
+
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
 			#[inject_runtime_type]
