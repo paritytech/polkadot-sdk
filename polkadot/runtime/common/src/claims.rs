@@ -18,7 +18,10 @@
 
 use frame_support::{
 	ensure,
-	traits::{Currency, Get, IsSubType, VestingSchedule},
+	traits::{
+		tokens::{fungible, fungible::freeze::VestingSchedule, Balance},
+		Get, IsSubType,
+	},
 	weights::Weight,
 	DefaultNoBound,
 };
@@ -41,8 +44,9 @@ use sp_std::{fmt::Debug, prelude::*};
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,
->>::Currency;
-type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+>>::Fungible;
+type BalanceOf<T> =
+	<CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
 	fn claim() -> Weight;
@@ -161,6 +165,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::MaybeSerializeDeserialize;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -171,7 +176,14 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		type VestingSchedule: VestingSchedule<
+			Self::AccountId,
+			Moment = BlockNumberFor<Self>,
+			Fungible = Self::Fungible,
+		>;
+		type Fungible: fungible::Inspect<Self::AccountId, Balance = Self::Balance>
+			+ fungible::Mutate<Self::AccountId>;
+		type Balance: Balance + MaybeSerializeDeserialize;
 		#[pallet::constant]
 		type Prefix: Get<&'static [u8]>;
 		type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -551,6 +563,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn process_claim(signer: EthereumAddress, dest: T::AccountId) -> sp_runtime::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
 		let balance_due = <Claims<T>>::get(&signer).ok_or(Error::<T>::SignerHasNoClaim)?;
 
 		let new_total = Self::total().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
@@ -561,7 +575,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
-		CurrencyOf::<T>::deposit_creating(&dest, balance_due);
+		//TODO: we need to ensure that this creates the account if it does not already exist
+		// was: CurrencyOf::<T>::deposit_creating(&dest, balance_due);
+		CurrencyOf::<T>::mint_into(&dest, balance_due)?;
 
 		// Check if this claim should have a vesting schedule.
 		if let Some(vs) = vesting {
@@ -700,6 +716,7 @@ mod secp_utils {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::traits::tokens::Preservation;
 	use hex_literal::hex;
 	use secp_utils::*;
 
@@ -713,7 +730,7 @@ mod tests {
 		assert_err, assert_noop, assert_ok,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
-		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
+		traits::{ConstU32, WithdrawReasons},
 	};
 	use pallet_balances;
 	use sp_runtime::{
@@ -731,7 +748,7 @@ mod tests {
 		{
 			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>, FreezeReason},
 			Claims: claims::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
 		}
 	);
@@ -767,6 +784,7 @@ mod tests {
 
 	parameter_types! {
 		pub const ExistentialDeposit: u64 = 1;
+		pub const MaxFreezes: u32 = 1;
 	}
 
 	impl pallet_balances::Config for Test {
@@ -780,9 +798,9 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type FreezeIdentifier = ();
+		type FreezeIdentifier = RuntimeFreezeReason;
 		type MaxHolds = ConstU32<1>;
-		type MaxFreezes = ConstU32<1>;
+		type MaxFreezes = MaxFreezes;
 	}
 
 	parameter_types! {
@@ -793,12 +811,17 @@ mod tests {
 
 	impl pallet_vesting::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type Currency = Balances;
 		type BlockNumberToBalance = Identity;
 		type MinVestedTransfer = MinVestedTransfer;
+		type MaxFreezes = MaxFreezes;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = ();
 	}
 
 	parameter_types! {
@@ -811,6 +834,8 @@ mod tests {
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
 		type VestingSchedule = Vesting;
+		type Fungible = Balances;
+		type Balance = u64;
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
@@ -1197,11 +1222,11 @@ mod tests {
 
 			// Make sure we can not transfer the vested balance.
 			assert_err!(
-				<Balances as Currency<_>>::transfer(
+				<Balances as fungible::Mutate<_>>::transfer(
 					&69,
 					&80,
 					180,
-					ExistenceRequirement::AllowDeath
+					Preservation::Expendable
 				),
 				TokenError::Frozen,
 			);
@@ -1291,7 +1316,8 @@ mod tests {
 	#[test]
 	fn claiming_while_vested_doesnt_work() {
 		new_test_ext().execute_with(|| {
-			CurrencyOf::<Test>::make_free_balance_be(&69, total_claims());
+			use frame_support::traits::tokens::fungible::Mutate;
+			CurrencyOf::<Test>::set_balance(&69, total_claims());
 			assert_eq!(Balances::free_balance(69), total_claims());
 			// A user is already vested
 			assert_ok!(<Test as Config>::VestingSchedule::add_vesting_schedule(

@@ -18,7 +18,10 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
+	traits::{
+		tokens::{fungible, fungible::freeze::VestingSchedule, Preservation},
+		EnsureOrigin, Get,
+	},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -32,7 +35,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The kind of statement an account needs to make for a claim to be valid.
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -101,13 +104,15 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Balances Pallet
-		type Currency: Currency<Self::AccountId>;
+		type Currency: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId>;
 
 		/// Vesting Pallet
 		type VestingSchedule: VestingSchedule<
 			Self::AccountId,
 			Moment = BlockNumberFor<Self>,
-			Currency = Self::Currency,
+			Fungible = Self::Currency,
 		>;
 
 		/// The origin allowed to set account status.
@@ -317,6 +322,7 @@ pub mod pallet {
 			Accounts::<T>::try_mutate(
 				&who,
 				|status: &mut AccountStatus<BalanceOf<T>>| -> DispatchResult {
+					use frame_support::traits::fungible::Mutate;
 					// Account has a valid status (not Invalid, Pending, or Completed)...
 					ensure!(status.validity.is_valid(), Error::<T>::InvalidAccount);
 
@@ -329,7 +335,7 @@ pub mod pallet {
 						&payment_account,
 						&who,
 						total_balance,
-						ExistenceRequirement::AllowDeath,
+						Preservation::Expendable,
 					)?;
 
 					if !status.locked_balance.is_zero() {
@@ -501,7 +507,7 @@ mod tests {
 		{
 			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>, FreezeReason},
 			Purchase: purchase::{Pallet, Call, Storage, Event<T>},
 		}
 	);
@@ -539,6 +545,7 @@ mod tests {
 
 	parameter_types! {
 		pub const ExistentialDeposit: u64 = 1;
+		pub const MaxFreezes: u32 = 2; // Vesting + ?
 	}
 
 	impl pallet_balances::Config for Test {
@@ -552,9 +559,9 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
-		type FreezeIdentifier = ();
+		type FreezeIdentifier = RuntimeFreezeReason;
 		type MaxHolds = ConstU32<1>;
-		type MaxFreezes = ConstU32<1>;
+		type MaxFreezes = MaxFreezes;
 	}
 
 	parameter_types! {
@@ -565,12 +572,17 @@ mod tests {
 
 	impl pallet_vesting::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type Currency = Balances;
 		type BlockNumberToBalance = Identity;
 		type MinVestedTransfer = MinVestedTransfer;
+		type MaxFreezes = MaxFreezes;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = ();
 	}
 
 	parameter_types! {

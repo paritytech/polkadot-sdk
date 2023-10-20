@@ -61,10 +61,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	storage::bounded_vec::BoundedVec,
-	traits::{
-		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestingSchedule,
-		WithdrawReasons,
-	},
+	traits::{fungible, fungible::Inspect, tokens::Preservation, Get, WithdrawReasons},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -76,19 +73,16 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
+use sp_std::{marker::PhantomData, prelude::*};
 
 pub use pallet::*;
 pub use vesting_info::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type MaxLocksOf<T> =
-	<<T as Config>::Currency as LockableCurrency<<T as frame_system::Config>::AccountId>>::MaxLocks;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-const VESTING_ID: LockIdentifier = *b"vesting ";
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 // A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.
@@ -155,12 +149,25 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config
+	where
+		<Self::Currency as fungible::Inspect<Self::AccountId>>::Balance:
+			frame_support::traits::tokens::Balance + MaybeSerializeDeserialize,
+	{
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The currency trait.
-		type Currency: LockableCurrency<Self::AccountId>;
+		/// The overarching hold reason.
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
+		/// The fungible trait.
+		type Currency: fungible::InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ fungible::MutateFreeze<Self::AccountId>
+			+ fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>;
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;
@@ -178,6 +185,17 @@ pub mod pallet {
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
 		const MAX_VESTING_SCHEDULES: u32;
+
+		/// The maximum number of freezes that should exist on a given account
+		/// (across all pallets).
+		/// Typically this might be set to pallet_balance::MaxFreezes.
+		type MaxFreezes: Get<u32>;
+
+		/// The benchmarks need a way to create asset ids from u32s.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<
+			<Self::Currency as fungible::InspectFreeze<Self::AccountId>>::Id,
+		>;
 	}
 
 	#[pallet::extra_constants]
@@ -192,6 +210,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must ge greater than 0");
+			assert!(T::MaxFreezes::get() > 0, "`MaxFreezes` must ge greater than 0");
 		}
 	}
 
@@ -214,6 +233,13 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Initial vesting configuration is a vec of tuples:
+	/// `(who, begin, length, liquid)`
+	/// where:
+	/// * who - Account which we are generating vesting configuration for
+	/// * begin - Block when the account will start to vest
+	/// * length - Number of blocks from `begin` until fully vested
+	/// * liquid - Number of units which can be spent before vesting begins
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -223,18 +249,14 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			use frame_support::traits::fungible::{Inspect, MutateFreeze};
 			use sp_runtime::traits::Saturating;
 
 			// Genesis uses the latest storage version.
 			StorageVersion::<T>::put(Releases::V1);
 
-			// Generate initial vesting configuration
-			// * who - Account which we are generating vesting configuration for
-			// * begin - Block when the account will start to vest
-			// * length - Number of blocks from `begin` until fully vested
-			// * liquid - Number of units which can be spent before vesting begins
 			for &(ref who, begin, length, liquid) in self.vesting.iter() {
-				let balance = T::Currency::free_balance(who);
+				let balance = T::Currency::balance(who);
 				assert!(!balance.is_zero(), "Currencies must be init'd before vesting");
 				// Total genesis `balance` minus `liquid` equals funds locked for vesting
 				let locked = balance.saturating_sub(liquid);
@@ -248,10 +270,12 @@ pub mod pallet {
 				Vesting::<T>::try_append(who, vesting_info)
 					.expect("Too many vesting schedules at genesis.");
 
-				let reasons =
-					WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
+				// let reasons =
+				// 	WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
 
-				T::Currency::set_lock(VESTING_ID, who, locked, reasons);
+				//TODO: this was before recording the T::UnvestedFundsAllowedWithdrawReasons::get()
+				T::Currency::set_freeze(&FreezeReason::NotYetVested.into(), who, locked)
+					.expect("Can't freeze at genesis");
 			}
 		}
 	}
@@ -264,6 +288,14 @@ pub mod pallet {
 		VestingUpdated { account: T::AccountId, unvested: BalanceOf<T> },
 		/// An \[account\] has become fully vested.
 		VestingCompleted { account: T::AccountId },
+	}
+
+	/// A reason for freezing funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Funds are currently locked and are not yet liquid.
+		#[codec(index = 0)]
+		NotYetVested,
 	}
 
 	/// Error for the vesting pallet.
@@ -294,8 +326,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::vest_locked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::vest_unlocked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_locked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::vest_unlocked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn vest(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -314,8 +346,8 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::vest_other_locked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::vest_other_unlocked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+		#[pallet::weight(T::WeightInfo::vest_other_locked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::vest_other_unlocked(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn vest_other(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
@@ -337,9 +369,10 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(
-			T::WeightInfo::vested_transfer(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-		)]
+		#[pallet::weight(T::WeightInfo::vested_transfer(
+			T::MaxFreezes::get(),
+			T::MAX_VESTING_SCHEDULES
+		))]
 		pub fn vested_transfer(
 			origin: OriginFor<T>,
 			target: AccountIdLookupOf<T>,
@@ -365,9 +398,10 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(1)`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(
-			T::WeightInfo::force_vested_transfer(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-		)]
+		#[pallet::weight(T::WeightInfo::force_vested_transfer(
+			T::MaxFreezes::get(),
+			T::MAX_VESTING_SCHEDULES
+		))]
 		pub fn force_vested_transfer(
 			origin: OriginFor<T>,
 			source: AccountIdLookupOf<T>,
@@ -401,8 +435,8 @@ pub mod pallet {
 		/// - `schedule2_index`: index of the second schedule to merge.
 		#[pallet::call_index(4)]
 		#[pallet::weight(
-			T::WeightInfo::not_unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-			.max(T::WeightInfo::unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+			T::WeightInfo::not_unlocking_merge_schedules(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::unlocking_merge_schedules(T::MaxFreezes::get(), T::MAX_VESTING_SCHEDULES))
 		)]
 		pub fn merge_schedules(
 			origin: OriginFor<T>,
@@ -423,7 +457,8 @@ pub mod pallet {
 			let (schedules, locked_now) = Self::exec_action(schedules.to_vec(), merge_action)?;
 
 			Self::write_vesting(&who, schedules)?;
-			Self::write_lock(&who, locked_now);
+			//TODO: is this now a problem with the ordering now that it's fallable?
+			Self::write_lock(&who, locked_now)?;
 
 			Ok(())
 		}
@@ -486,6 +521,7 @@ impl<T: Config> Pallet<T> {
 		target: AccountIdLookupOf<T>,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
+		use frame_support::traits::fungible::{freeze::VestingSchedule, Mutate};
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
@@ -502,12 +538,7 @@ impl<T: Config> Pallet<T> {
 			schedule.starting_block(),
 		)?;
 
-		T::Currency::transfer(
-			&source,
-			&target,
-			schedule.locked(),
-			ExistenceRequirement::AllowDeath,
-		)?;
+		T::Currency::transfer(&source, &target, schedule.locked(), Preservation::Expendable)?;
 
 		// We can't let this fail because the currency transfer has already happened.
 		let res = Self::add_vesting_schedule(
@@ -554,18 +585,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Write an accounts updated vesting lock to storage.
-	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) {
+	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) -> Result<(), DispatchError> {
+		use frame_support::traits::fungible::MutateFreeze;
+
 		if total_locked_now.is_zero() {
-			T::Currency::remove_lock(VESTING_ID, who);
+			T::Currency::thaw(&FreezeReason::NotYetVested.into(), who)?;
 			Self::deposit_event(Event::<T>::VestingCompleted { account: who.clone() });
 		} else {
-			let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
-			T::Currency::set_lock(VESTING_ID, who, total_locked_now, reasons);
+			// let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
+			//TODO: should we have a hold here with a reason as well?
+			T::Currency::set_freeze(&FreezeReason::NotYetVested.into(), who, total_locked_now)?;
 			Self::deposit_event(Event::<T>::VestingUpdated {
 				account: who.clone(),
 				unvested: total_locked_now,
 			});
 		};
+
+		Ok(())
 	}
 
 	/// Write an accounts updated vesting schedules to storage.
@@ -595,7 +631,7 @@ impl<T: Config> Pallet<T> {
 			Self::exec_action(schedules.to_vec(), VestingAction::Passive)?;
 
 		Self::write_vesting(&who, schedules)?;
-		Self::write_lock(&who, locked_now);
+		Self::write_lock(&who, locked_now)?;
 
 		Ok(())
 	}
@@ -645,11 +681,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> VestingSchedule<T::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
-{
-	type Currency = T::Currency;
+impl<T: Config> fungible::freeze::VestingSchedule<T::AccountId> for Pallet<T> {
+	type Fungible = T::Currency;
 	type Moment = BlockNumberFor<T>;
 
 	/// Get the amount that is currently being vested and cannot be transferred out of this account.
@@ -659,7 +692,7 @@ where
 			let total_locked_now = v.iter().fold(Zero::zero(), |total, schedule| {
 				schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
 			});
-			Some(T::Currency::free_balance(who).min(total_locked_now))
+			Some(T::Currency::balance(who).min(total_locked_now))
 		} else {
 			None
 		}
@@ -703,7 +736,7 @@ where
 			Self::exec_action(schedules.to_vec(), VestingAction::Passive)?;
 
 		Self::write_vesting(who, schedules)?;
-		Self::write_lock(who, locked_now);
+		Self::write_lock(who, locked_now)?;
 
 		Ok(())
 	}
@@ -737,7 +770,27 @@ where
 		let (schedules, locked_now) = Self::exec_action(schedules.to_vec(), remove_action)?;
 
 		Self::write_vesting(who, schedules)?;
-		Self::write_lock(who, locked_now);
+		Self::write_lock(who, locked_now)?;
 		Ok(())
+	}
+}
+
+/// Benchmark Helper
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<FreezeId> {
+	/// Returns a frozen `Id` from a given integer.
+	fn freeze_id(id: u8) -> FreezeId;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T> BenchmarkHelper<T> for ()
+where
+	T: Decode,
+	T: From<FreezeReason>,
+{
+	/// Returns a frozen `Id` from a given integer.
+	fn freeze_id(id: u8) -> T {
+		let vec = vec![id];
+		T::decode(&mut vec.as_slice()).unwrap_or(FreezeReason::NotYetVested.into())
 	}
 }

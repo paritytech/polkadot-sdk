@@ -216,6 +216,7 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 1 * CENTS;
 	pub storage MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
+	pub const MaxFreezes: u32 = 1;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -229,9 +230,9 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
+	type MaxFreezes = MaxFreezes;
 }
 
 parameter_types! {
@@ -452,6 +453,8 @@ parameter_types! {
 
 impl claims::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type Fungible = Balances;
+	type Balance = Balance;
 	type VestingSchedule = Vesting;
 	type Prefix = Prefix;
 	type MoveClaimOrigin = frame_system::EnsureRoot<AccountId>;
@@ -466,12 +469,17 @@ parameter_types! {
 
 impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Currency = Balances;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
+	type MaxFreezes = MaxFreezes;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -687,7 +695,7 @@ construct_runtime! {
 		Claims: claims::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
 
 		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>, FreezeReason},
 
 		// Parachains runtime modules
 		Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},

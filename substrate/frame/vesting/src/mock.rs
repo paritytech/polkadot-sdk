@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>, FreezeReason},
 	}
 );
 
@@ -65,6 +65,8 @@ impl frame_system::Config for Test {
 	type Version = ();
 }
 
+type MaxFreezes = ConstU32<1>;
+
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type Balance = u64;
@@ -75,9 +77,9 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = MaxFreezes;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 }
 parameter_types! {
@@ -89,11 +91,16 @@ parameter_types! {
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
+	type MaxFreezes = MaxFreezes;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub struct ExtBuilder {
