@@ -34,7 +34,7 @@ pub(crate) fn weight_witness_warning(
 		return
 	}
 	let CallWeightDef::Immediate(w) = &method.weight else {
-		return;
+		return
 	};
 
 	let partial_warning = Warning::new_deprecated("UncheckedWeightWitness")
@@ -67,7 +67,7 @@ pub(crate) fn weight_constant_warning(
 		return
 	}
 	let syn::Expr::Lit(lit) = weight else {
-		return;
+		return
 	};
 
 	let warning = Warning::new_deprecated("ConstantWeight")

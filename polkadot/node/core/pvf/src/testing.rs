@@ -29,19 +29,20 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-	use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate, Executor};
+	use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+	use polkadot_node_core_pvf_execute_worker::execute_artifact;
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
 		.expect("Decompressing code failed");
 
 	let blob = prevalidate(&code)?;
-	let compiled_artifact_blob = prepare(blob, &ExecutorParams::default())?;
+	let executor_params = ExecutorParams::default();
+	let compiled_artifact_blob = prepare(blob, &executor_params)?;
 
-	let executor = Executor::new(ExecutorParams::default())?;
 	let result = unsafe {
 		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
 		//         and is written into a temporary directory in an unmodified state.
-		executor.execute(&compiled_artifact_blob, params)?
+		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
 	};
 
 	Ok(result)

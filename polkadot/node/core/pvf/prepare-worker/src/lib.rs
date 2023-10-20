@@ -31,7 +31,7 @@ use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult, OOM_PAYLOAD},
-	executor_intf::Executor,
+	executor_intf::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
@@ -195,7 +195,7 @@ pub fn worker_entrypoint(
 
 				let preparation_timeout = pvf.prep_timeout();
 				let prepare_job_kind = pvf.prep_kind();
-				let executor_params = (*pvf.executor_params()).clone();
+				let executor_params = pvf.executor_params();
 
 				// Conditional variable to notify us when a thread is done.
 				let condvar = thread::get_condvar();
@@ -257,7 +257,10 @@ pub fn worker_entrypoint(
 						// anyway.
 						if let PrepareJobKind::Prechecking = prepare_job_kind {
 							result = result.and_then(|output| {
-								runtime_construction_check(output.0.as_ref(), executor_params)?;
+								runtime_construction_check(
+									output.0.as_ref(),
+									executor_params.as_ref(),
+								)?;
 								Ok(output)
 							});
 						}
@@ -402,13 +405,10 @@ fn prepare_artifact(
 /// Try constructing the runtime to catch any instantiation errors during pre-checking.
 fn runtime_construction_check(
 	artifact_bytes: &[u8],
-	executor_params: ExecutorParams,
+	executor_params: &ExecutorParams,
 ) -> Result<(), PrepareError> {
-	let executor = Executor::new(executor_params)
-		.map_err(|e| PrepareError::RuntimeConstruction(format!("cannot create executor: {}", e)))?;
-
 	// SAFETY: We just compiled this artifact.
-	let result = unsafe { executor.create_runtime_from_bytes(&artifact_bytes) };
+	let result = unsafe { create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))

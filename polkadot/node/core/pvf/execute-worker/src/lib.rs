@@ -16,7 +16,9 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-use polkadot_node_core_pvf_common::{executor_intf::Executor, worker_dir, SecurityStatus};
+pub use polkadot_node_core_pvf_common::{
+	executor_intf::execute_artifact, worker_dir, SecurityStatus,
+};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -27,7 +29,6 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, Response},
-	executor_intf::NATIVE_STACK_MAX,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, stringify_panic_payload,
@@ -36,6 +37,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
 	os::unix::net::UnixStream,
 	path::PathBuf,
@@ -69,7 +71,7 @@ use tokio::io;
 //
 // Typically on Linux the main thread gets the stack size specified by the `ulimit` and
 // typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
-// NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
+// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
 //
 // Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
 // stack limit.
@@ -78,7 +80,7 @@ use tokio::io;
 //
 // The default Rust thread stack limit 2 MiB + 256 MiB wasm stack.
 /// The stack size for the execute thread.
-pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + NATIVE_STACK_MAX as usize;
+pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
 
 fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
@@ -141,9 +143,6 @@ pub fn worker_entrypoint(
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
 			let Handshake { executor_params } = recv_handshake(&mut stream)?;
-			let executor = Executor::new(executor_params).map_err(|e| {
-				io::Error::new(io::ErrorKind::Other, format!("cannot create executor: {}", e))
-			})?;
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -185,14 +184,15 @@ pub fn worker_entrypoint(
 					Arc::clone(&condvar),
 					WaitOutcome::TimedOut,
 				)?;
-				let executor_2 = executor.clone();
+
+				let executor_params_2 = executor_params.clone();
 				let execute_thread = thread::spawn_worker_thread_with_stack_size(
 					"execute thread",
 					move || {
 						validate_using_artifact(
 							&compiled_artifact_blob,
+							&executor_params_2,
 							&params,
-							executor_2,
 							cpu_time_start,
 						)
 					},
@@ -257,15 +257,15 @@ pub fn worker_entrypoint(
 
 fn validate_using_artifact(
 	compiled_artifact_blob: &[u8],
+	executor_params: &ExecutorParams,
 	params: &[u8],
-	executor: Executor,
 	cpu_time_start: ProcessTime,
 ) -> Response {
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
 		//         [`executor_intf::prepare`].
-		executor.execute(compiled_artifact_blob, params)
+		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		Err(err) => return Response::format_invalid("execute", &err),
 		Ok(d) => d,

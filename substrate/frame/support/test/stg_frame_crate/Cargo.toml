@@ -1,0 +1,21 @@
+[package]
+name = "frame-support-test-stg-frame-crate"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+homepage = "https://substrate.io"
+repository.workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+frame = { path = "frame", default-features = false}
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+
+[features]
+default = [ "std" ]
+std = [ "codec/std", "frame/std", "scale-info/std" ]
