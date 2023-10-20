@@ -43,7 +43,7 @@
 //! To anonymously publish the ticket to the chain a validator sends their tickets
 //! to a random validator who later puts it on-chain as a transaction.
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -80,20 +80,21 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
-// Re-export pallet symbols.
 pub use pallet::*;
 
 const LOG_TARGET: &str = "sassafras::runtime 🌳";
 
+// Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
 
 /// Tickets related metadata that is commonly used together.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
 pub struct TicketsMetadata {
-	/// Number of tickets available into the tickets buffers.
-	/// The array index is computed as epoch index modulo 2.
+	/// Number of tickets available into the tickets buffers for current and next epoch.
+	///
+	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
-	/// Number of outstanding tickets segments requiring to be sorted.
+	/// Number of outstanding next epoch tickets segments requiring to be sorted.
 	pub segments_count: u32,
 }
 
@@ -277,7 +278,6 @@ pub mod pallet {
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
 				// TODO @davxy : this is a temporary solution for node-sassafras development.
-				// Should be called before `initialize_genesis_authorities`
 				// (load a pre-constructed one from chain-spec?)
 				debug!(target: LOG_TARGET, "Constructing dummy ring context");
 				let ring_ctx = vrf::RingContext::new_testing();
@@ -362,7 +362,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit next epoch tickets.
+		/// Submit next epoch tickets candidates.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
@@ -373,7 +373,6 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
-			debug!(target: LOG_TARGET, "Loading ring verifier");
 			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
 				warn!(target: LOG_TARGET, "Ring verifier not initialized");
 				return Err("Ring context not initialized".into())
@@ -693,6 +692,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Call this function on epoch change to update the randomness.
+	///
 	/// Returns the next epoch randomness.
 	fn update_randomness(next_epoch_index: u64) -> Randomness {
 		let curr_randomness = NextRandomness::<T>::get();
