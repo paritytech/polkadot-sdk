@@ -24,6 +24,7 @@ use parity_scale_codec::{Decode, DecodeLimit, Encode};
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(T))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct DoubleEncoded<T> {
 	encoded: Vec<u8>,
 	#[codec(skip)]
