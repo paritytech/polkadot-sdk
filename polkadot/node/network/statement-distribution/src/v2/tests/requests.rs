@@ -1390,8 +1390,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-					protocol_vstaging::StatementDistributionMessage::Statement(
+				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+					protocol_v2::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -1413,7 +1413,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			let response = state
 				.send_request(
 					peer_a,
-					request_vstaging::AttestedCandidateRequest {
+					request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask: mask.clone(),
 					},
@@ -1424,8 +1424,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			let expected_statements = vec![signed.into_unchecked()];
 			assert_matches!(response, full_response => {
 				// Response is the same for vstaging.
-				let request_vstaging::AttestedCandidateResponse { candidate_receipt, persisted_validation_data, statements } =
-					request_vstaging::AttestedCandidateResponse::decode(
+				let request_v2::AttestedCandidateResponse { candidate_receipt, persisted_validation_data, statements } =
+					request_v2::AttestedCandidateResponse::decode(
 						&mut full_response.result.expect("We should have a proper answer").as_ref(),
 					).expect("Decoding should work");
 				assert_eq!(candidate_receipt, candidate);
@@ -1449,7 +1449,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1462,7 +1462,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			let response = state
 				.send_request(
 					peer_b,
-					request_vstaging::AttestedCandidateRequest {
+					request_v2::AttestedCandidateRequest {
 						candidate_hash: candidate.hash(),
 						mask: mask.clone(),
 					},
@@ -1489,8 +1489,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::VStaging(protocol_vstaging::ValidationProtocol::StatementDistribution(
-						protocol_vstaging::StatementDistributionMessage::Statement(
+					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+						protocol_v2::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
