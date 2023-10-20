@@ -27,6 +27,10 @@ serde = { version = "1.0.188" }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false}
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false}
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
+
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
 
 [features]
 default = [ "std" ]
@@ -45,6 +49,9 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
+	"pallet-xcm/std",
+	"xcm/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

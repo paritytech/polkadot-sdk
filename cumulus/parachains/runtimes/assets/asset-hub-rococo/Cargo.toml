@@ -78,6 +78,7 @@ pallet-collator-selection = { path = "../../../../pallets/collator-selection", d
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
@@ -219,6 +220,7 @@ std = [
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",
 	"scale-info/std",
+	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

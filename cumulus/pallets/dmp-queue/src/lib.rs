@@ -54,9 +54,10 @@ pub struct ConfigData {
 impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
+			// For beacon checkpoint to work require a bigger default
 			max_individual: Weight::from_parts(
-				10u64 * WEIGHT_REF_TIME_PER_MILLIS, // 10 ms of execution time maximum by default
-				DEFAULT_POV_SIZE,                   // 64 KB of proof size by default
+				20u64 * 10u64 * WEIGHT_REF_TIME_PER_MILLIS, // 200 ms of execution time maximum by default
+				10u64 * DEFAULT_POV_SIZE,                   // 640 KB of proof size by default
 			),
 		}
 	}
@@ -230,7 +231,7 @@ pub mod pallet {
 					if *messages_processed >= MAX_MESSAGES_PER_BLOCK {
 						// Exceeded block message limit - put the remaining messages back and bail
 						Pages::<T>::insert(page_index.begin_used, &page[i..]);
-						return used
+						return used;
 					}
 					*messages_processed += 1;
 					match Self::try_service_message(limit.saturating_sub(used), sent_at, &data[..])
@@ -239,7 +240,7 @@ pub mod pallet {
 						Err(..) => {
 							// Too much weight needed - put the remaining messages back and bail
 							Pages::<T>::insert(page_index.begin_used, &page[i..]);
-							return used
+							return used;
 						},
 					}
 				}
@@ -288,8 +289,9 @@ pub mod pallet {
 						Weight::zero(),
 					);
 					match outcome {
-						Outcome::Error(XcmError::WeightLimitReached(required_weight)) =>
-							Err(ServiceMessageError { message_hash, message_id, required_weight }),
+						Outcome::Error(XcmError::WeightLimitReached(required_weight)) => {
+							Err(ServiceMessageError { message_hash, message_id, required_weight })
+						},
 						outcome => {
 							let weight_used = outcome.weight_used();
 							Self::deposit_event(Event::ExecutedDownward {
@@ -370,7 +372,7 @@ pub mod pallet {
 									// Not needed for control flow, but only to ensure that the
 									// compiler understands that we won't attempt to re-use `data`
 									// later.
-									continue
+									continue;
 								} else {
 									// not overweight. stop executing inline and enqueue normally
 									// from here on.
@@ -517,8 +519,9 @@ mod tests {
 		) -> Outcome {
 			let message = prepared.0;
 			let o = match (message.0.len(), &message.0.first()) {
-				(1, Some(Transact { require_weight_at_most, .. })) =>
-					Outcome::Complete(*require_weight_at_most),
+				(1, Some(Transact { require_weight_at_most, .. })) => {
+					Outcome::Complete(*require_weight_at_most)
+				},
 				// use 1000 to decide that it's not supported.
 				_ => Outcome::Incomplete(Weight::from_parts(1, 1), XcmError::Unimplemented),
 			};

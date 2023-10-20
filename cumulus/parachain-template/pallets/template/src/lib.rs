@@ -18,10 +18,12 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+	use sp_std::boxed::Box;
+	use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_xcm::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -45,6 +47,8 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, T::AccountId),
+		/// XCM message sent. \[to, message\]
+		Sent { from: T::AccountId, to: MultiLocation, message: Xcm<()> },
 	}
 
 	// Errors inform users that something went wrong.
@@ -54,6 +58,15 @@ pub mod pallet {
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
+		/// The message and destination combination was not recognized as being
+		/// reachable.
+		Unreachable,
+		/// The message and destination was recognized as being reachable but
+		/// the operation could not be completed.
+		SendFailure,
+		/// The version of the `Versioned` value used is not able to be
+		/// interpreted.
+		BadVersion,
 	}
 
 	#[pallet::hooks]
@@ -101,6 +114,28 @@ pub mod pallet {
 					Ok(().into())
 				},
 			}
+		}
+
+		/// Send an XCM message as parachain sovereign.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::from_parts(100_000_000, 0))]
+		pub fn send_xcm(
+			origin: OriginFor<T>,
+			dest: Box<VersionedMultiLocation>,
+			message: Box<VersionedXcm<()>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+			pallet_xcm::Pallet::<T>::send_xcm(Here, dest, message.clone()).map_err(
+				|e| match e {
+					SendError::Unroutable => Error::<T>::Unreachable,
+					_ => Error::<T>::SendFailure,
+				},
+			)?;
+			Self::deposit_event(Event::Sent { from: who, to: dest, message });
+			Ok(())
 		}
 	}
 }

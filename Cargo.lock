@@ -886,6 +886,7 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "smallvec",
+ "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -2029,6 +2030,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "snowbridge-control",
  "staging-xcm",
  "staging-xcm-executor",
  "xcm-emulator",
@@ -10318,12 +10320,15 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+ "staging-xcm",
 ]
 
 [[package]]
