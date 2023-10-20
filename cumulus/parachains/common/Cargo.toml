@@ -36,7 +36,7 @@ rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants"
 westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false, version = "3.0.0" }
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false, version = "3.0.0" }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "3.0.0" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "3.0.1" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "3.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "3.0.0" }
 

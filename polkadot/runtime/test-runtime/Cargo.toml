@@ -65,7 +65,7 @@ polkadot-parachain-primitives = { path = "../../parachain", default-features = f
 polkadot-runtime-parachains = { path = "../parachains", default-features = false, version = "3.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "3.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "3.0.0" }
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "3.0.1" }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

@@ -20,7 +20,7 @@ sp-consensus = { version = "0.28.0", path = "../../../../substrate/primitives/co
 sp-keyring = { version = "27.0.0", path = "../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "27.0.0" }
 sp-state-machine = { version = "0.31.0", path = "../../../../substrate/primitives/state-machine" }
-xcm = { package = "staging-xcm", path = "../..", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../..", default-features = false, version = "3.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "..", version = "3.0.0" }
 sp-tracing = { version = "13.0.0", path = "../../../../substrate/primitives/tracing" }
 

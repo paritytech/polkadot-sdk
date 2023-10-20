@@ -21,7 +21,7 @@ sp-runtime = { version = "27.0.0", path = "../../../../substrate/primitives/runt
 sp-io = { version = "26.0.0", path = "../../../../substrate/primitives/io" }
 sp-tracing = { version = "13.0.0", path = "../../../../substrate/primitives/tracing" }
 
-xcm = { package = "staging-xcm", path = "../..", version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../..", version = "3.0.1" }
 xcm-simulator = { version = "3.0.0", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "3.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "3.0.1" }

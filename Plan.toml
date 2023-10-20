@@ -910,7 +910,7 @@ value = "sp-runtime/std"
 name = "staging-xcm"
 path = "polkadot/xcm"
 from = "2.0.0"
-to = "3.0.0"
+to = "3.0.1"
 bump = "unknown"
 reason = "changed"
 

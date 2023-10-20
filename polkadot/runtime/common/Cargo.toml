@@ -50,7 +50,7 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false, version = "3.0.0" }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false, version = "3.0.0" }
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "3.0.1" }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

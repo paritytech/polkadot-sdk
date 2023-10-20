@@ -23,7 +23,7 @@ polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives"
 polkadot-parachain-primitives = { path = "../../../../../../polkadot/parachain", default-features = false, version = "2.0.0" }
 polkadot-runtime-parachains = { version = "3.0.0", path = "../../../../../../polkadot/runtime/parachains" }
 polkadot-runtime = { version = "3.0.0", path = "../../../../../../polkadot/runtime/polkadot" }
-xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false, version = "3.0.1" }
 pallet-xcm = { path = "../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "3.0.0" }
 parachains-common = { version = "3.0.0", path = "../../../../common" }
 asset-hub-kusama-runtime = { version = "0.11.0", path = "../../../../runtimes/assets/asset-hub-kusama" }

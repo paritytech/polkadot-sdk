@@ -38,7 +38,7 @@ rococo-runtime = { version = "3.0.0", path = "../../../../../polkadot/runtime/ro
 rococo-runtime-constants = { version = "3.0.0", path = "../../../../../polkadot/runtime/rococo/constants" }
 westend-runtime = { version = "3.0.0", path = "../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { version = "3.0.0", path = "../../../../../polkadot/runtime/westend/constants" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "3.0.1" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "3.0.0" }
 parachains-common = { version = "3.0.0", path = "../../../common" }
 cumulus-primitives-core = { version = "0.3.0", path = "../../../../primitives/core" }

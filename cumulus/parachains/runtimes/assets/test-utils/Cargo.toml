@@ -35,7 +35,7 @@ parachain-info = { package = "staging-parachain-info", path = "../../../pallets/
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false, version = "3.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "3.0.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "3.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "3.0.0" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "3.0.0" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "2.0.0" }
