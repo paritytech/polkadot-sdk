@@ -84,6 +84,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"node-template-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-skip-feeless-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
 ]
