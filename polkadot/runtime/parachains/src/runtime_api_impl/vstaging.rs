@@ -15,3 +15,30 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Put implementations of functions from staging APIs here.
+
+use crate::shared;
+use primitives::ValidatorIndex;
+use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
+
+/// Implementation for `DisabledValidators`
+// CAVEAT: this should only be called on the node side
+// as it might produce incorrect results on session boundaries
+pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
+where
+	T: pallet_session::Config + shared::Config,
+{
+	let shuffled_indices = <shared::Pallet<T>>::active_validator_indices();
+	// mapping from raw validator index to `ValidatorIndex`
+	// this computation is the same within a session, but should be cheap
+	let reverse_index = shuffled_indices
+		.iter()
+		.enumerate()
+		.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
+		.collect::<BTreeMap<u32, ValidatorIndex>>();
+
+	// we might have disabled validators who are not parachain validators
+	<pallet_session::Pallet<T>>::disabled_validators()
+		.iter()
+		.filter_map(|v| reverse_index.get(v).cloned())
+		.collect()
+}
