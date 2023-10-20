@@ -195,6 +195,26 @@ async fn activate_leaf(
 				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 			}
 		);
+
+		// Check that subsystem job issues a request for the runtime version.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+			) if parent == hash => {
+				tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
+			}
+		);
+
+		// Check that the subsystem job issues a request for the disabled validators.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+			) if parent == hash => {
+				tx.send(Ok(Vec::new())).unwrap();
+			}
+		);
 	}
 }
 
