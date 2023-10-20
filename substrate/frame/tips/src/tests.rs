@@ -29,6 +29,7 @@ use sp_storage::Storage;
 use frame_support::{
 	assert_noop, assert_ok, parameter_types,
 	storage::StoragePrefixedMap,
+	traits::IntegrityTest,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, SortedMembers, StorageVersion,
@@ -186,13 +187,14 @@ impl pallet_treasury::Config<Instance1> for Test {
 
 parameter_types! {
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
+	pub static TipReportDepositBase: u64 = 1;
 }
 impl Config for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type Tippers = TenToFourteen;
 	type TipCountdown = ConstU64<1>;
 	type TipFindersFee = TipFindersFee;
-	type TipReportDepositBase = ConstU64<0>;
+	type TipReportDepositBase = TipReportDepositBase;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
@@ -204,7 +206,7 @@ impl Config<Instance1> for Test {
 	type Tippers = TenToFourteen;
 	type TipCountdown = ConstU64<1>;
 	type TipFindersFee = TipFindersFee;
-	type TipReportDepositBase = ConstU64<1>;
+	type TipReportDepositBase = TipReportDepositBase;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaxTipAmount = ConstU64<10_000_000>;
 	type RuntimeEvent = RuntimeEvent;
@@ -263,8 +265,8 @@ fn report_awesome_and_tip_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
-		assert_eq!(Balances::reserved_balance(0), 11);
-		assert_eq!(Balances::free_balance(0), 89);
+		assert_eq!(Balances::reserved_balance(0), 12);
+		assert_eq!(Balances::free_balance(0), 88);
 
 		// other reports don't count.
 		assert_noop!(
@@ -290,8 +292,8 @@ fn report_awesome_from_beneficiary_and_tip_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));
-		assert_eq!(Balances::reserved_balance(0), 11);
-		assert_eq!(Balances::free_balance(0), 89);
+		assert_eq!(Balances::reserved_balance(0), 12);
+		assert_eq!(Balances::free_balance(0), 88);
 		let h = BlakeTwo256::hash_of(&(BlakeTwo256::hash(b"awesome.dot"), 0u128));
 		assert_ok!(Tips::tip(RuntimeOrigin::signed(10), h, 10));
 		assert_ok!(Tips::tip(RuntimeOrigin::signed(11), h, 10));
@@ -353,8 +355,8 @@ fn slash_tip_works() {
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
 
-		assert_eq!(Balances::reserved_balance(0), 11);
-		assert_eq!(Balances::free_balance(0), 89);
+		assert_eq!(Balances::reserved_balance(0), 12);
+		assert_eq!(Balances::free_balance(0), 88);
 
 		let h = tip_hash();
 		assert_eq!(last_event(), TipEvent::NewTip { tip_hash: h });
@@ -364,11 +366,11 @@ fn slash_tip_works() {
 
 		// can remove from root.
 		assert_ok!(Tips::slash_tip(RuntimeOrigin::root(), h));
-		assert_eq!(last_event(), TipEvent::TipSlashed { tip_hash: h, finder: 0, deposit: 11 });
+		assert_eq!(last_event(), TipEvent::TipSlashed { tip_hash: h, finder: 0, deposit: 12 });
 
 		// tipper slashed
 		assert_eq!(Balances::reserved_balance(0), 0);
-		assert_eq!(Balances::free_balance(0), 89);
+		assert_eq!(Balances::free_balance(0), 88);
 	});
 }
 
@@ -656,13 +658,86 @@ fn report_awesome_and_tip_works_second_instance() {
 }
 
 #[test]
-fn try_state_invariant_works() {
+fn equal_entries_invariant() {
 	new_test_ext().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
+
+		let reason1 = BlakeTwo256::hash(b"reason1");
+		let hash1 = BlakeTwo256::hash_of(&(reason1, 10u64));
+
+		let tip = OpenTip::<u128, u64, u64, H256> {
+			reason: reason1,
+			who: 10,
+			finder: 20,
+			deposit: 30,
+			closes: Some(13),
+			tips: vec![(40, 50), (60, 70)],
+			finders_fee: true,
+		};
+
+		// Breaks invariant by adding an entry to only `Tips` Storage.
+		pallet_tips::Tips::<Test>::insert(hash1, tip);
+
+		// Invariant violated
+		assert_eq!(
+			Tips::do_try_state(),
+			Err(Other("Equal length of entries in 'Tips' and 'Reasons` Storage"))
+		);
+	})
+}
+
+#[test]
+fn finders_fee_invariant() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+
+		// Breaks invariant by having a zero deposit.
+		TipReportDepositBase::set(0);
+
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"".to_vec(), 3));
 
-		assert_eq!(Tips::do_try_state(), Err(Other("finder's fee not present")))
+		// Invariant violated
+		assert_eq!(
+			Tips::do_try_state(),
+			Err(Other("Tips with `finders_fee` should have non-zero `deposit`."))
+		);
 	})
+}
+
+#[test]
+fn reasons_invariant() {
+	new_test_ext().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));
+
+		let hash: Vec<_> = pallet_tips::Tips::<Test>::iter_keys().collect();
+
+		let mut open_tip = pallet_tips::Tips::<Test>::take(hash[0]).unwrap();
+
+		// Breaks invariant by changing value `open_tip.reason` in `Tips` Storage.
+		open_tip.reason = <Test as frame_system::Config>::Hashing::hash(&b"".to_vec());
+
+		pallet_tips::Tips::<Test>::insert(hash[0], open_tip);
+
+		// Invariant violated
+		assert_eq!(Tips::do_try_state(), Err(Other("no reason for this tip")));
+	})
+}
+
+#[test]
+#[should_panic = "`TipReportDepositBase` should not be zero"]
+fn zero_base_deposit_prohibited() {
+	new_test_ext().execute_with(|| {
+		TipReportDepositBase::set(0);
+		Tips::integrity_test();
+	});
 }

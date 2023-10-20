@@ -264,8 +264,8 @@ pub mod pallet {
 			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 			ensure!(!Tips::<T, I>::contains_key(&hash), Error::<T, I>::AlreadyKnown);
 
-			let deposit = T::TipReportDepositBase::get() +
-				T::DataDepositPerByte::get() * (reason.len() as u32).into();
+			let deposit = T::TipReportDepositBase::get()
+				+ T::DataDepositPerByte::get() * (reason.len() as u32).into();
 			T::Currency::reserve(&finder, deposit)?;
 
 			Reasons::<T, I>::insert(&reason_hash, &reason);
@@ -472,6 +472,13 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		fn integrity_test() {
+			assert!(
+				!T::TipReportDepositBase::get().is_zero(),
+				"`TipReportDepositBase` should not be zero",
+			);
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
@@ -525,9 +532,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Some(m) => {
 					member = members_iter.next();
 					if m < a {
-						continue
+						continue;
 					} else {
-						break true
+						break true;
 					}
 				},
 			}
@@ -626,21 +633,34 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Ensure the correctness of the state of this pallet.
 	///
-	/// This should be valid before or after each state transition of this pallet.
+	/// This should be valid before and after each state transition of this pallet.
 	///
 	/// ## Invariants:
-	///
-	/// If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater that zero.
+	/// 1. Reasons exists for each Tip[`OpenTip.reason`], this implies equal lenth of entries in storage.
+	/// 2. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater that zero.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
-		for tips in Tips::<T, I>::iter_keys() {
-			let open_tip = Tips::<T, I>::get(&tips).unwrap();
+		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
+		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
+
+		ensure!(reasons.len() == tips.len(), TryRuntimeError::Other("Equal length of entries in 'Tips' and 'Reasons` Storage"));
+
+		for tip in Tips::<T, I>::iter_keys() {
+			let open_tip = Tips::<T, I>::get(&tip).expect("All map keys are valid; qed");
+
 			if open_tip.finders_fee {
 				ensure!(
 					!open_tip.deposit.is_zero(),
-					TryRuntimeError::Other("finder's fee not present")
+					TryRuntimeError::Other(
+						"Tips with `finders_fee` should have non-zero `deposit`."
+					)
 				)
 			}
+
+			ensure!(
+				reasons.contains(&open_tip.reason),
+				TryRuntimeError::Other("no reason for this tip")
+			);
 		}
 		Ok(())
 	}
