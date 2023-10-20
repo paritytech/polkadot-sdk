@@ -20,7 +20,7 @@ sc-rpc-api = { version = "0.29.0", path = "../../../../client/rpc-api" }
 sp-storage = { version = "16.0.0", path = "../../../../primitives/storage" }
 
 [dev-dependencies]
-scale-info = "2.1.1"
+scale-info = "2.10.0"
 jsonrpsee = { version = "0.16.2", features = ["ws-client", "jsonrpsee-types"] }
 tokio = "1.22.0"
 sp-core = { path = "../../../../primitives/core" }

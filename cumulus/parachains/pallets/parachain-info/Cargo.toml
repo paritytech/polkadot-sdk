@@ -8,7 +8,7 @@ description = "parachain-info"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "24.0.0" }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false, version = "24.0.0" }
