@@ -27,11 +27,11 @@ use crate::{has_required_runtime, request_disabled_validators, Error};
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 /// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
 /// returns an empty vec.
 /// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
 /// replace all usages with `request_disabled_validators`
-/// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
 	sender: &mut Sender,
 	relay_parent: Hash,
