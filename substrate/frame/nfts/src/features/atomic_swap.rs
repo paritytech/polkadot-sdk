@@ -21,10 +21,7 @@
 //! to have the functionality defined in this module.
 
 use crate::*;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Currency, ExistenceRequirement::KeepAlive},
-};
+use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Creates a new swap offer for the specified item.
@@ -196,13 +193,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					&receive_item.owner,
 					&send_item.owner,
 					price.amount,
-					KeepAlive,
+					Preserve,
 				)?,
 				PriceDirection::Receive => T::Currency::transfer(
 					&send_item.owner,
 					&receive_item.owner,
 					price.amount,
-					KeepAlive,
+					Preserve,
 				)?,
 			};
 		}

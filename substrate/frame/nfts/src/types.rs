@@ -23,7 +23,7 @@ use codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	pallet_prelude::{BoundedVec, MaxEncodedLen},
-	traits::Get,
+	traits::{fungible::Inspect, Get},
 	BoundedBTreeMap, BoundedBTreeSet,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -31,7 +31,7 @@ use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 
 /// A type alias for handling balance deposits.
 pub(super) type DepositBalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as Inspect<<T as SystemConfig>::AccountId>>::Balance;
 /// A type alias representing the details of a collection.
 pub(super) type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
@@ -58,7 +58,7 @@ pub(super) type ItemDetailsFor<T, I> =
 	ItemDetails<<T as SystemConfig>::AccountId, ItemDepositOf<T, I>, ApprovalsOf<T, I>>;
 /// A type alias for an accounts balance.
 pub(super) type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as Inspect<<T as SystemConfig>::AccountId>>::Balance;
 /// A type alias to represent the price of an item.
 pub(super) type ItemPrice<T, I = ()> = BalanceOf<T, I>;
 /// A type alias for the tips held by a single item.

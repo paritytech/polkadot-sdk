@@ -84,13 +84,34 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let depositor = maybe_depositor.clone().unwrap_or(collection_details.owner.clone());
 			let old_depositor = old_deposit.account.unwrap_or(collection_details.owner.clone());
 
+			let release_reason = if old_depositor == collection_details.owner {
+				HoldReason::CollectionOwnerAggregatedDeposit
+			} else {
+				HoldReason::MetadataDeposit
+			};
+			let hold_reason = if depositor == collection_details.owner {
+				HoldReason::CollectionOwnerAggregatedDeposit
+			} else {
+				HoldReason::MetadataDeposit
+			};
+
 			if depositor != old_depositor {
-				T::Currency::unreserve(&old_depositor, old_deposit.amount);
-				T::Currency::reserve(&depositor, deposit)?;
+				T::Currency::release(
+					&release_reason.into(),
+					&old_depositor,
+					old_deposit.amount,
+					BestEffort,
+				)?;
+				T::Currency::hold(&hold_reason.into(), &depositor, deposit)?;
 			} else if deposit > old_deposit.amount {
-				T::Currency::reserve(&depositor, deposit - old_deposit.amount)?;
+				T::Currency::hold(&hold_reason.into(), &depositor, deposit - old_deposit.amount)?;
 			} else if deposit < old_deposit.amount {
-				T::Currency::unreserve(&depositor, old_deposit.amount - deposit);
+				T::Currency::release(
+					&release_reason.into(),
+					&depositor,
+					old_deposit.amount - deposit,
+					BestEffort,
+				)?;
 			}
 
 			if maybe_depositor.is_none() {
@@ -150,7 +171,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(is_root || !is_locked, Error::<T, I>::LockedItemMetadata);
 
 		collection_details.item_metadatas.saturating_dec();
-		T::Currency::unreserve(&depositor_account, metadata.deposit.amount);
+
+		let reason = if depositor_account == collection_details.owner {
+			HoldReason::CollectionOwnerAggregatedDeposit
+		} else {
+			HoldReason::MetadataDeposit
+		};
+		T::Currency::release(
+			&reason.into(),
+			&depositor_account,
+			metadata.deposit.amount,
+			BestEffort,
+		)?;
 
 		if depositor_account == collection_details.owner {
 			collection_details.owner_deposit.saturating_reduce(metadata.deposit.amount);
@@ -208,9 +240,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.saturating_add(T::MetadataDepositBase::get());
 			}
 			if deposit > old_deposit {
-				T::Currency::reserve(&details.owner, deposit - old_deposit)?;
+				T::Currency::hold(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&details.owner,
+					deposit - old_deposit,
+				)?;
 			} else if deposit < old_deposit {
-				T::Currency::unreserve(&details.owner, old_deposit - deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&details.owner,
+					old_deposit - deposit,
+					BestEffort,
+				)?;
 			}
 			details.owner_deposit.saturating_accrue(deposit);
 
@@ -259,7 +300,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		CollectionMetadataOf::<T, I>::try_mutate_exists(collection, |metadata| {
 			let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-			T::Currency::unreserve(&details.owner, deposit);
+			T::Currency::release(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+				&details.owner,
+				deposit,
+				BestEffort,
+			)?;
 			Self::deposit_event(Event::CollectionMetadataCleared { collection });
 			Ok(())
 		})

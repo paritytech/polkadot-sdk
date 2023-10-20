@@ -33,12 +33,18 @@ use sp_runtime::{
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
+
+pub fn account(id: u8) -> AccountIdOf<Test> {
+	[id; 32].into()
+}
+
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Nfts: pallet_nfts,
 	}
 );
 
@@ -84,8 +90,8 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<4>;
 }
 
 parameter_types! {
@@ -97,6 +103,7 @@ impl Config for Test {
 	type CollectionId = u32;
 	type ItemId = u32;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type Locker = ();
@@ -125,7 +132,22 @@ impl Config for Test {
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![
+			(account(1), 10000),
+			(account(2), 20000),
+			(account(3), 30000),
+			(account(4), 40000),
+			(account(5), 50000),
+			(account(6), 60000),
+			(account(7), 70000),
+			(account(8), 80000),
+		],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
