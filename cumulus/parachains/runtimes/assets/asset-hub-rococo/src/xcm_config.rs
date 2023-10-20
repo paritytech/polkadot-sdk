@@ -764,7 +764,15 @@ pub mod bridging {
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
 		/// Price per byte - can be adjusted via governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
+
+		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
+			sp_std::vec::Vec::new().into_iter()
+			.chain(to_wococo::BridgeTable::get())
+			.chain(to_rococo::BridgeTable::get())
+			.collect();
 	}
+
+	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 	pub mod to_wococo {
 		use super::*;
@@ -824,8 +832,6 @@ pub mod bridging {
 				UniversalAliases::get().contains(alias)
 			}
 		}
-
-		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 		/// Trusted reserve locations filter for `xcm_executor::Config::IsReserve`.
 		/// Locations from which the runtime accepts reserved assets.
@@ -915,8 +921,6 @@ pub mod bridging {
 				UniversalAliases::get().contains(alias)
 			}
 		}
-
-		pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
 		/// Locations from which the runtime accepts reserved assets.
