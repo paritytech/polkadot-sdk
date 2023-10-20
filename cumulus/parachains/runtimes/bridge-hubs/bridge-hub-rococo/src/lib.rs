@@ -30,6 +30,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod bridge_common_config;
 pub mod bridge_hub_rococo_config;
 pub mod bridge_hub_wococo_config;
 mod weights;
@@ -68,7 +69,6 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
-use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::HeaderId;
 
 #[cfg(any(feature = "std", test))]
@@ -468,68 +468,12 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-// Add bridge pallets (GPA)
-
-/// Add GRANDPA bridge pallet to track Wococo relay chain on Rococo BridgeHub
-pub type BridgeGrandpaWococoInstance = pallet_bridge_grandpa::Instance1;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaWococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_wococo::Wococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_bridge_wococo_grandpa::WeightInfo<Runtime>;
-}
-
-/// Add GRANDPA bridge pallet to track Rococo relay chain on Wococo BridgeHub
-pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance2;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_rococo::Rococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_bridge_rococo_grandpa::WeightInfo<Runtime>;
-}
-
 parameter_types! {
-	pub const RelayChainHeadersToKeep: u32 = 1024;
-	pub const ParachainHeadsToKeep: u32 = 64;
-	pub const RelayerStakeLease: u32 = 8;
-
-	pub const RococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const WococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
-	pub const MaxWococoParaHeadDataSize: u32 = bp_wococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
-
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 
+	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
-}
-
-/// Add parachain bridge pallet to track Wococo BridgeHub parachain
-pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
-impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaWococoInstance;
-	type ParasPalletName = WococoBridgeParachainPalletName;
-	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_wococo::BridgeHubWococo>;
-	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
-}
-
-/// Add parachain bridge pallet to track Rococo BridgeHub parachain
-pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
-impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_rococo_instance::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
-	type ParasPalletName = RococoBridgeParachainPalletName;
-	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
-	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
 }
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Wococo XCM messages

@@ -18,7 +18,7 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_hub_rococo_config, bridge_hub_wococo_config,
+	bridge_common_config, bridge_hub_rococo_config, bridge_hub_wococo_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, DeliveryRewardInBalance,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash,
@@ -95,13 +95,11 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 
 mod bridge_hub_rococo_tests {
 	use super::*;
+	use bridge_common_config::{BridgeGrandpaWococoInstance, BridgeParachainWococoInstance};
 	use bridge_hub_rococo_config::{
 		WithBridgeHubWococoMessageBridge, DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
 	};
-	use bridge_hub_rococo_runtime::{
-		BridgeGrandpaWococoInstance, BridgeParachainWococoInstance,
-		WithBridgeHubWococoMessagesInstance,
-	};
+	use bridge_hub_rococo_runtime::WithBridgeHubWococoMessagesInstance;
 
 	bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 		Runtime,
@@ -299,9 +297,9 @@ mod bridge_hub_rococo_tests {
 
 mod bridge_hub_wococo_tests {
 	use super::*;
+	use bridge_common_config::{BridgeGrandpaRococoInstance, BridgeParachainRococoInstance};
 	use bridge_hub_rococo_runtime::{
-		xcm_config, AllPalletsWithoutSystem, BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance, RuntimeFlavor, WithBridgeHubRococoMessagesInstance,
+		xcm_config, AllPalletsWithoutSystem, RuntimeFlavor, WithBridgeHubRococoMessagesInstance,
 	};
 	use bridge_hub_wococo_config::{
 		WithBridgeHubRococoMessageBridge, DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,

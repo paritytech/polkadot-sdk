@@ -17,8 +17,8 @@
 //! Bridge definitions that are used on Rococo to bridge with Wococo.
 
 use crate::{
-	BridgeParachainWococoInstance, BridgeWococoMessages, ParachainInfo, Runtime,
-	WithBridgeHubWococoMessagesInstance, XcmRouter,
+	bridge_common_config::BridgeParachainWococoInstance, BridgeWococoMessages, ParachainInfo,
+	Runtime, WithBridgeHubWococoMessagesInstance, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -185,7 +185,7 @@ parameter_types! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::BridgeGrandpaWococoInstance;
+	use crate::bridge_common_config::BridgeGrandpaWococoInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{

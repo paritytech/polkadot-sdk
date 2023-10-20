@@ -15,12 +15,13 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, BridgeGrandpaRococoInstance,
-	BridgeGrandpaWococoInstance, DeliveryRewardInBalance, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeFlavor, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, DeliveryRewardInBalance,
+	FeeAssetId, ParachainInfo, ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin, TransactionByteFee,
+	WeightToFee, XcmpQueue,
 };
 use crate::{
+	bridge_common_config::{BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance},
 	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
 	bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter,
 };
