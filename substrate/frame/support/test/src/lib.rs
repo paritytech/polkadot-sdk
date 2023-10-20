@@ -119,6 +119,9 @@ pub mod pallet_prelude {
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;
 
+	/// Type alias for the `AccountId` associated type of system config.
+	pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
+
 	/// Type alias for the `BlockNumber` associated type of system config.
 	pub type BlockNumberFor<T> = <T as super::Config>::BlockNumber;
 }
