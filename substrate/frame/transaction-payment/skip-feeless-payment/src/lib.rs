@@ -51,7 +51,7 @@ pub mod pallet {
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct SkipCheckIfFeeless<T: Config, S: SignedExtension>(S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T: Config, S: SignedExtension>(pub S, sp_std::marker::PhantomData<T>);
 
 impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
@@ -61,6 +61,13 @@ impl<T: Config, S: SignedExtension> sp_std::fmt::Debug for SkipCheckIfFeeless<T,
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		Ok(())
+	}
+}
+
+impl<T: Config + Send + Sync, S: SignedExtension> SkipCheckIfFeeless<T, S> {
+	/// utility constructor. Used only in client/factory code.
+	pub fn from(s: S) -> Self {
+		Self(s, sp_std::marker::PhantomData)
 	}
 }
 
