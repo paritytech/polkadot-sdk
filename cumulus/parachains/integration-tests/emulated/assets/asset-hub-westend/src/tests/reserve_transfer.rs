@@ -15,7 +15,6 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig;
-use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -79,17 +78,10 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 	)
 }
 
-fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::reserve_transfer_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
-fn do_reserve_transfer_native_asset_from_relay_to_system_para_fails(limited: bool) {
+/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
+/// work
+#[test]
+fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
 	let beneficiary: MultiLocation =
@@ -100,24 +92,14 @@ fn do_reserve_transfer_native_asset_from_relay_to_system_para_fails(limited: boo
 
 	// this should fail
 	Westend::execute_with(|| {
-		let result = if limited {
-			<Westend as WestendPallet>::XcmPallet::reserve_transfer_assets(
-				signed_origin,
-				bx!(destination.into()),
-				bx!(beneficiary.into()),
-				bx!(assets.into()),
-				fee_asset_item,
-			)
-		} else {
-			<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
-				signed_origin,
-				bx!(destination.into()),
-				bx!(beneficiary.into()),
-				bx!(assets.into()),
-				fee_asset_item,
-				WeightLimit::Unlimited,
-			)
-		};
+		let result = <Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
+			signed_origin,
+			bx!(destination.into()),
+			bx!(beneficiary.into()),
+			bx!(assets.into()),
+			fee_asset_item,
+			WeightLimit::Unlimited,
+		);
 		assert_err!(
 			result,
 			DispatchError::Module(sp_runtime::ModuleError {
@@ -129,48 +111,9 @@ fn do_reserve_transfer_native_asset_from_relay_to_system_para_fails(limited: boo
 	});
 }
 
-/// Limited Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't
-/// work
+/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
 #[test]
-fn limited_reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let test_args = TestContext {
-		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
-	};
-
-	let mut test = RelayToSystemParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
-	test.set_dispatchable::<Westend>(relay_limited_reserve_transfer_assets);
-	test.assert();
-
-	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
-}
-
-/// Reserve Transfers of native asset from Relay Chain to the System Parachain shouldn't work
-#[test]
-fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	do_reserve_transfer_native_asset_from_relay_to_system_para_fails(false);
-}
-
-fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: bool) {
+fn limited_reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 	// Init values for System Parachain
 	let signed_origin =
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
@@ -184,15 +127,7 @@ fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: boo
 
 	// this should fail
 	AssetHubWestend::execute_with(|| {
-		let result = if limited {
-			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::reserve_transfer_assets(
-				signed_origin,
-				bx!(destination.into()),
-				bx!(beneficiary.into()),
-				bx!(assets.into()),
-				fee_asset_item,
-			)
-		} else {
+		let result =
 			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 				signed_origin,
 				bx!(destination.into()),
@@ -200,8 +135,7 @@ fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: boo
 				bx!(assets.into()),
 				fee_asset_item,
 				WeightLimit::Unlimited,
-			)
-		};
+			);
 		assert_err!(
 			result,
 			DispatchError::Module(sp_runtime::ModuleError {
@@ -211,46 +145,6 @@ fn do_reserve_transfer_native_asset_from_system_para_to_relay_fails(limited: boo
 			})
 		);
 	});
-}
-
-/// Limited Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
-#[test]
-fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let test_args = TestContext {
-		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
-	};
-
-	let mut test = RelayToSystemParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<Westend>(relay_origin_assertions);
-	test.set_assertion::<AssetHubWestend>(system_para_dest_assertions);
-	test.set_dispatchable::<Westend>(relay_reserve_transfer_assets);
-	test.assert();
-
-	let delivery_fees = Westend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<WestendXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	assert_eq!(receiver_balance_before, receiver_balance_after);
-}
-
-/// Reserve Transfers of native asset from System Parachain to Relay Chain shouldn't work
-#[test]
-fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
-	do_reserve_transfer_native_asset_from_system_para_to_relay_fails(false);
 }
 
 /// Limited Reserve Transfers of native asset from System Parachain to Parachain should work
@@ -276,48 +170,6 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	// TODO: Add assertion for Penpal runtime. Right now message is failing with
 	// `UntrustedReserveLocation`
 	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-
-	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
-			test.args.assets.clone(),
-			0,
-			test.args.weight_limit,
-			test.args.beneficiary,
-			test.args.dest,
-		)
-	});
-
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
-	// transfers
-}
-
-/// Reserve Transfers of native asset from System Parachain to Parachain should work
-#[test]
-fn reserve_transfer_native_asset_from_system_para_to_para() {
-	// Init values for System Parachain
-	let destination = AssetHubWestend::sibling_location_of(PenpalWestendA::para_id());
-	let beneficiary_id = PenpalWestendAReceiver::get();
-	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubWestendSender::get(),
-		receiver: PenpalWestendAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut test = SystemParaToParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-
-	test.set_assertion::<AssetHubWestend>(system_para_to_para_assertions);
-	// TODO: Add assertion for Penpal runtime. Right now message is failing with
-	// `UntrustedReserveLocation`
-	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -370,41 +222,5 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	// TODO: Add assertions when Penpal is able to manage assets
 	system_para_test
 		.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
-	system_para_test.assert();
-}
-
-/// Reserve Transfers of a local asset from System Parachain to Parachain should work
-#[test]
-fn reserve_transfer_asset_from_system_para_to_para() {
-	// Force create asset from Relay Chain and mint assets for System Parachain's sender account
-	AssetHubWestend::force_create_and_mint_asset(
-		ASSET_ID,
-		ASSET_MIN_BALANCE,
-		true,
-		AssetHubWestendSender::get(),
-		Some(Weight::from_parts(1_019_445_000, 200_000)),
-		ASSET_MIN_BALANCE * 1000000,
-	);
-
-	// Init values for System Parachain
-	let destination = AssetHubWestend::sibling_location_of(PenpalWestendA::para_id());
-	let beneficiary_id = PenpalWestendAReceiver::get();
-	let amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
-			.into();
-
-	let system_para_test_args = TestContext {
-		sender: AssetHubWestendSender::get(),
-		receiver: PenpalWestendAReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
-	};
-
-	let mut system_para_test = SystemParaToParaTest::new(system_para_test_args);
-
-	system_para_test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_assertions);
-	// TODO: Add assertions when Penpal is able to manage assets
-	system_para_test
-		.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	system_para_test.assert();
 }
