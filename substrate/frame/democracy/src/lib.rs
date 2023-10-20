@@ -542,7 +542,7 @@ pub mod pallet {
 	pub enum FreezeReason {
 		/// Funds are frozen upon casting a vote. They are subsequently unfrozen either
 		/// when the vote is cancelled or after the specified lock period has elapsed (see
-		/// [`convictionn::Conviction`]).
+		/// [`conviction::Conviction`]).
 		Vote,
 	}
 
