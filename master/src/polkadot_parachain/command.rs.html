@@ -1265,6 +1265,7 @@
 <a href="#1265" id="1265">1265</a>
 <a href="#1266" id="1266">1266</a>
 <a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1443,9 +1444,9 @@
 		<span class="string">&quot;asset-hub-rococo-local&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_local_config()),
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
-		</span><span class="string">&quot;asset-hub-rococo-genesis&quot; </span>=&gt; Box::new(chain_spec::asset_hubs::asset_hub_rococo_config()),
-		<span class="comment">// the shell-based chain spec as used for syncing
-		</span><span class="string">&quot;asset-hub-rococo&quot; </span>=&gt;
+		</span><span class="string">&quot;asset-hub-rococo-genesis&quot; </span>=&gt;
+			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
+		<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::AssetHubRococoChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-rococo.json&quot;</span>)[..],
 			)<span class="question-mark">?</span>),
@@ -1456,7 +1457,8 @@
 		<span class="string">&quot;asset-hub-wococo-local&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_wococo_local_config()),
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
-		</span><span class="string">&quot;asset-hub-wococo-genesis&quot; </span>=&gt; Box::new(chain_spec::asset_hubs::asset_hub_wococo_config()),
+		</span><span class="string">&quot;asset-hub-wococo-genesis&quot; </span>=&gt;
+			Box::new(chain_spec::asset_hubs::asset_hub_wococo_genesis_config()),
 		<span class="string">&quot;asset-hub-wococo&quot; </span>=&gt;
 			Box::new(chain_spec::asset_hubs::AssetHubWococoChainSpec::from_json_bytes(
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-wococo.json&quot;</span>)[..],
