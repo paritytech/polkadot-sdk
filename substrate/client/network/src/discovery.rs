@@ -694,8 +694,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
 				let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id));
 
-				log::info!(target: "sub-libp2p", "external address confirmed: {addr:?}");
-
 				if Self::can_add_to_dht(addr) {
 					// NOTE: we might re-discover the same address multiple times
 					// in which case we just want to refrain from logging.

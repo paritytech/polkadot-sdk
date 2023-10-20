@@ -1467,8 +1467,9 @@ where
 				let entry = self.address_scores.entry(observed_addr.clone()).or_default();
 				*entry += 1;
 
-				// at least five nodes have confirmed the same address
-				if *entry > 5 {
+				// at least two nodes have reported the same observed address and it can be
+				// added as an external address for the node
+				if *entry > 2 {
 					self.network_service.add_external_address(observed_addr);
 				}
 			},
