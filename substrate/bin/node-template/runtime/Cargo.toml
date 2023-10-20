@@ -25,6 +25,7 @@ frame-system = { path = "../../../frame/system", default-features = false}
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
 pallet-timestamp = { path = "../../../frame/timestamp", default-features = false}
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
 frame-executive = { path = "../../../frame/executive", default-features = false}
 sp-api = { path = "../../../primitives/api", default-features = false}
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false}
@@ -74,6 +75,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-skip-feeless-payment/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",

@@ -8467,6 +8467,7 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
+ "pallet-skip-feeless-payment",
  "pallet-sudo",
  "pallet-template",
  "pallet-timestamp",
@@ -10424,6 +10425,18 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-skip-feeless-payment"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
  "sp-std",
 ]
 

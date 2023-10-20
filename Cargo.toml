@@ -355,6 +355,7 @@ members = [
 	"substrate/frame/transaction-payment/asset-tx-payment",
 	"substrate/frame/transaction-payment/rpc",
 	"substrate/frame/transaction-payment/rpc/runtime-api",
+	"substrate/frame/transaction-payment/skip-feeless-payment",
 	"substrate/frame/transaction-storage",
 	"substrate/frame/treasury",
 	"substrate/frame/try-runtime",
