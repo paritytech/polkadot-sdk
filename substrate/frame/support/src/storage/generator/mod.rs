@@ -103,6 +103,8 @@ mod tests {
 		pub mod pallet_prelude {
 			pub type OriginFor<T> = <T as super::Config>::RuntimeOrigin;
 
+			pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
+			
 			pub type HeaderFor<T> =
 				<<T as super::Config>::Block as sp_runtime::traits::HeaderProvider>::HeaderT;
 
