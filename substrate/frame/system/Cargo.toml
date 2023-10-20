@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 cfg-if = "1.0"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
 frame-support = { path = "../support", default-features = false}
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
