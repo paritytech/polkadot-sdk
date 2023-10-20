@@ -23,6 +23,7 @@ sc-authority-discovery = { path = "../../../substrate/client/authority-discovery
 sc-network = { path = "../../../substrate/client/network" }
 sc-network-common = { path = "../../../substrate/client/network/common" }
 sc-service = { path = "../../../substrate/client/service" }
+substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 sc-utils = { path = "../../../substrate/client/utils" }
 sp-api = { path = "../../../substrate/primitives/api" }
