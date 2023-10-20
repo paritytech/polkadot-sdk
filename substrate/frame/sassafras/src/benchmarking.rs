@@ -17,7 +17,7 @@
 
 //! Benchmarks for the Sassafras pallet.
 
-use super::*;
+use crate::*;
 use sp_consensus_sassafras::EpochConfiguration;
 use sp_std::vec;
 
@@ -107,16 +107,10 @@ mod benchmarks {
 
 	// Tickets segments sorting function benchmark.
 	#[benchmark]
-	fn sort_segments(x: Linear<1, 1800>, y: Linear<1, 2>) {
+	fn sort_segments(x: Linear<1, 100>) {
 		use sp_consensus_sassafras::EphemeralPublic;
-
-		let tickets_count = <T as Config>::EpochDuration::get() as u32;
 		let segments_count = x as u32;
-		let max_segments = y as u32;
-
-		let segment_len = 1 + (tickets_count - 1) / segments_count;
-
-		log::debug!(target: LOG_TARGET, "------ segments: {}, max_segments: {}", segments_count, max_segments);
+		let tickets_count = segments_count * SEGMENT_MAX_SIZE;
 
 		// Construct a bunch of dummy tickets
 		let tickets: Vec<_> = (0..tickets_count)
@@ -126,11 +120,13 @@ mod benchmarks {
 					erased_public: EphemeralPublic([i as u8; 32]),
 					revealed_public: EphemeralPublic([i as u8; 32]),
 				};
-				(i as TicketId, body)
+				let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
+				let id = TicketId::from_le_bytes(id_bytes);
+				(id, body)
 			})
 			.collect();
 
-		for (chunk_id, chunk) in tickets.chunks(segment_len as usize).enumerate() {
+		for (chunk_id, chunk) in tickets.chunks(SEGMENT_MAX_SIZE as usize).enumerate() {
 			let segment: Vec<TicketId> = chunk
 				.iter()
 				.map(|(id, body)| {
@@ -144,16 +140,14 @@ mod benchmarks {
 
 		// Update metadata
 		let mut meta = TicketsMeta::<T>::get();
-		meta.segments_count += segments_count as u32;
+		meta.unsorted_tickets_count = tickets_count;
 		TicketsMeta::<T>::set(meta.clone());
 
 		log::debug!(target: LOG_TARGET, "Before sort: {:?}", meta);
-
 		#[block]
 		{
-			Pallet::<T>::sort_tickets(max_segments, 0, &mut meta);
+			Pallet::<T>::sort_tickets(u32::MAX, 0, &mut meta);
 		}
-
 		log::debug!(target: LOG_TARGET, "After sort: {:?}", meta);
 	}
 }

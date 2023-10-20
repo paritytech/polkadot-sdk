@@ -231,48 +231,57 @@ pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, Ti
 	(id, body)
 }
 
-pub fn make_ticket_bodies(number: u32, pair: &AuthorityPair) -> Vec<(TicketId, TicketBody)> {
-	(0..number).into_iter().map(|i| make_ticket_body(i, pair)).collect()
+pub fn make_dummy_ticket_body(attempt_idx: u32) -> (TicketId, TicketBody) {
+	let hash = sp_core::hashing::blake2_256(&attempt_idx.to_le_bytes());
+
+	let erased_public = EphemeralPublic::unchecked_from(hash);
+	let revealed_public = erased_public;
+
+	let body = TicketBody { attempt_idx, erased_public, revealed_public };
+
+	let mut bytes = [0u8; 16];
+	bytes.copy_from_slice(&hash[..16]);
+	let id = TicketId::from_le_bytes(bytes);
+
+	(id, body)
+}
+
+pub fn make_ticket_bodies(
+	number: u32,
+	pair: Option<&AuthorityPair>,
+) -> Vec<(TicketId, TicketBody)> {
+	(0..number)
+		.into_iter()
+		.map(|i| match pair {
+			Some(pair) => make_ticket_body(i, pair),
+			None => make_dummy_ticket_body(i),
+		})
+		.collect()
 }
 
 /// Persist the given tickets in `segments_count` separated segments by appending
 /// them to the storage segments list.
 ///
 /// If segments_count > tickets.len() => segments_count = tickets.len()
-pub fn persist_next_epoch_tickets_as_segments(
-	tickets: &[(TicketId, TicketBody)],
-	mut segments_count: usize,
-) {
-	if segments_count > tickets.len() {
-		segments_count = tickets.len();
-	}
-	let segment_len = 1 + (tickets.len() - 1) / segments_count;
-
-	// Update metadata
-	let mut meta = TicketsMeta::<Test>::get();
-	meta.segments_count += segments_count as u32;
-	TicketsMeta::<Test>::set(meta);
-
-	for (chunk_id, chunk) in tickets.chunks(segment_len).enumerate() {
-		let segment: Vec<TicketId> = chunk
-			.iter()
-			.map(|(id, body)| {
-				TicketsData::<Test>::set(id, Some(body.clone()));
-				*id
-			})
-			.collect();
-		let segment = BoundedVec::truncate_from(segment);
-		NextTicketsSegments::<Test>::insert(chunk_id as u32, segment);
-	}
+pub fn persist_next_epoch_tickets_as_segments(tickets: &[(TicketId, TicketBody)]) {
+	let mut ids = Vec::with_capacity(tickets.len());
+	tickets.iter().for_each(|(id, body)| {
+		TicketsData::<Test>::set(id, Some(body.clone()));
+		ids.push(*id);
+	});
+	let max_chunk_size = MaxTicketsFor::<Test>::get() as usize;
+	ids.chunks(max_chunk_size).for_each(|chunk| {
+		Sassafras::append_tickets(BoundedVec::truncate_from(chunk.to_vec()));
+	})
 }
 
 pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
-	persist_next_epoch_tickets_as_segments(tickets, 1);
+	persist_next_epoch_tickets_as_segments(tickets);
 	// Force sorting of next epoch tickets (enactment) by explicitly querying the first of them.
 	let next_epoch = Sassafras::next_epoch();
-	assert_eq!(TicketsMeta::<Test>::get().segments_count, 1);
+	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, tickets.len() as u32);
 	Sassafras::slot_ticket(next_epoch.start_slot).unwrap();
-	assert_eq!(TicketsMeta::<Test>::get().segments_count, 0);
+	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, 0);
 }
 
 fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {

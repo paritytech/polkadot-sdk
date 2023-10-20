@@ -87,15 +87,17 @@ const LOG_TARGET: &str = "sassafras::runtime 🌳";
 // Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
 
+pub(crate) const SEGMENT_MAX_SIZE: u32 = 128;
+
 /// Tickets related metadata that is commonly used together.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
 pub struct TicketsMetadata {
+	/// Number of outstanding next epoch tickets requiring to be sorted.
+	pub unsorted_tickets_count: u32,
 	/// Number of tickets available into the tickets buffers for current and next epoch.
 	///
 	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
-	/// Number of outstanding next epoch tickets segments requiring to be sorted.
-	pub segments_count: u32,
 }
 
 #[frame_support::pallet]
@@ -192,14 +194,14 @@ pub mod pallet {
 
 	/// Randomness accumulator.
 	#[pallet::storage]
-	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
+	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
-	/// Temporary value which is `Some` if per-block initialization has already been called
-	/// for current block.
+	/// Per-slot randomness value which is `Some` if per-block initialization has already been
+	/// called for current block.
 	///
 	/// Cleared on block finalization.
 	#[pallet::storage]
-	pub(crate) type RandomnessVrfOutput<T> = StorageValue<_, vrf::VrfOutput>;
+	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -228,13 +230,13 @@ pub mod pallet {
 	///
 	/// The key is a tuple composed by:
 	/// - `u8` equal to epoch-index mod 2
-	/// - `u32` equal to the slot-index.
+	/// - `u32` equal to the after-sort ticket position.
 	#[pallet::storage]
-	pub type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
+	pub(crate) type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
 
 	/// Tickets to be used for current and next epoch.
 	#[pallet::storage]
-	pub type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
+	pub(crate) type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
 
 	/// Next epoch tickets accumulator.
 	///
@@ -245,19 +247,19 @@ pub mod pallet {
 	///
 	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
-	pub type NextTicketsSegments<T: Config> =
-		StorageMap<_, Identity, u32, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
+	pub(crate) type NextTicketsSegments<T: Config> =
+		StorageMap<_, Identity, u32, BoundedVec<TicketId, ConstU32<SEGMENT_MAX_SIZE>>, ValueQuery>;
 
 	/// Parameters used to construct the epoch's ring verifier.
 	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
-	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
+	pub(crate) type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
 	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
-	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+	pub(crate) type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -307,15 +309,23 @@ pub mod pallet {
 				Self::initialize_genesis_epoch(claim.slot)
 			}
 
-			let vrf_output = claim
+			// Enact epoch change, if necessary.
+			T::EpochChangeTrigger::trigger::<T>(now);
+
+			// This should be the last action, after
+			let randomness_input = vrf::slot_claim_input(
+				&Self::randomness(),
+				CurrentSlot::<T>::get(),
+				EpochIndex::<T>::get(),
+			);
+			let randomness_output = claim
 				.vrf_signature
 				.outputs
 				.get(0)
 				.expect("Presence should have been already checked by the client; qed");
-			RandomnessVrfOutput::<T>::put(vrf_output);
-
-			// Enact epoch change, if necessary.
-			T::EpochChangeTrigger::trigger::<T>(now);
+			let randomness = randomness_output
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
+			SlotRandomness::<T>::put(randomness);
 
 			Weight::zero()
 		}
@@ -328,29 +338,24 @@ pub mod pallet {
 			// this block into the randomness accumulator. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
 			// already occurred at this point.
-			let randomness_input = vrf::slot_claim_input(
-				&Self::randomness(),
-				CurrentSlot::<T>::get(),
-				EpochIndex::<T>::get(),
-			);
-			let randomness_output = RandomnessVrfOutput::<T>::take()
+			let randomness = SlotRandomness::<T>::take()
 				.expect("Finalization is called after initialization; qed");
-			let randomness = randomness_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
-
 			Self::deposit_randomness(&randomness);
 
-			// If we are in the epoch's second half, we start sorting the next epoch tickets.
+			// Check if we are in the epoch's second half.
+			// If so, start sorting the next epoch tickets.
 			let epoch_duration = T::EpochDuration::get();
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx >= epoch_duration / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
-				if metadata.segments_count != 0 {
+				if metadata.unsorted_tickets_count != 0 {
 					let epoch_idx = EpochIndex::<T>::get() + 1;
 					let epoch_tag = (epoch_idx & 1) as u8;
 					let slots_left = epoch_duration.checked_sub(current_slot_idx).unwrap_or(1);
 					Self::sort_tickets(
-						u32::max(1, metadata.segments_count / slots_left as u32),
+						metadata
+							.unsorted_tickets_count
+							.div_ceil(SEGMENT_MAX_SIZE * slots_left as u32),
 						epoch_tag,
 						&mut metadata,
 					);
@@ -395,7 +400,7 @@ pub mod pallet {
 			let randomness = NextRandomness::<T>::get();
 			let epoch_idx = EpochIndex::<T>::get() + 1;
 
-			let mut segment = BoundedVec::with_max_capacity();
+			let mut valid_tickets = BoundedVec::with_max_capacity();
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
@@ -419,21 +424,16 @@ pub mod pallet {
 
 				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
-					segment
+					valid_tickets
 						.try_push(ticket_id)
-						.expect("has same length as bounded input vector; qed");
+						.expect("input segment has same length as bounded destination vector; qed");
 				} else {
 					debug!(target: LOG_TARGET, "Proof verification failure");
 				}
 			}
 
-			if !segment.is_empty() {
-				debug!(target: LOG_TARGET, "Appending segment with {} tickets", segment.len());
-				segment.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:16x}"));
-				let mut metadata = TicketsMeta::<T>::get();
-				NextTicketsSegments::<T>::insert(metadata.segments_count, segment);
-				metadata.segments_count += 1;
-				TicketsMeta::<T>::set(metadata);
+			if !valid_tickets.is_empty() {
+				Self::append_tickets(valid_tickets);
 			}
 
 			Ok(Pays::No.into())
@@ -553,40 +553,6 @@ impl<T: Config> Pallet<T> {
 		slot.checked_sub(Self::current_epoch_start().into()).unwrap_or(u64::MAX)
 	}
 
-	/// Remove all tickets related data.
-	///
-	/// May not be efficient as the calling places may repeat some of this operations
-	/// but is a very extraordinary operation (hopefully never happens in production)
-	/// and better safe than sorry.
-	fn reset_tickets_data() {
-		let tickets_metadata = TicketsMeta::<T>::get();
-
-		// Remove even-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[0];
-		(0..tickets_count).into_iter().for_each(|idx| {
-			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
-				TicketsData::<T>::remove(id);
-			}
-		});
-
-		// Remove odd-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[1];
-		(0..tickets_count).into_iter().for_each(|idx| {
-			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
-				TicketsData::<T>::remove(id);
-			}
-		});
-
-		// Remove all outstanding tickets segments.
-		(0..tickets_metadata.segments_count).into_iter().for_each(|i| {
-			NextTicketsSegments::<T>::remove(i);
-		});
-		NextTicketsSegments::<T>::remove(u32::MAX);
-
-		// Reset tickets metadata
-		TicketsMeta::<T>::set(Default::default());
-	}
-
 	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
@@ -672,8 +638,8 @@ impl<T: Config> Pallet<T> {
 
 		let epoch_tag = (epoch_idx & 1) as u8;
 		// Optionally finish sorting
-		if tickets_metadata.segments_count != 0 {
-			Self::sort_tickets(tickets_metadata.segments_count, epoch_tag, &mut tickets_metadata);
+		if tickets_metadata.unsorted_tickets_count != 0 {
+			Self::sort_tickets(u32::MAX, epoch_tag, &mut tickets_metadata);
 		}
 
 		// Clear the "prev ≡ next (mod 2)" epoch tickets counter and bodies.
@@ -856,8 +822,8 @@ impl<T: Config> Pallet<T> {
 			// we may have to finish sorting the tickets.
 			epoch_tag ^= 1;
 			slot_idx -= duration;
-			if tickets_meta.segments_count != 0 {
-				Self::sort_tickets(tickets_meta.segments_count, epoch_tag, &mut tickets_meta);
+			if tickets_meta.unsorted_tickets_count != 0 {
+				Self::sort_tickets(u32::MAX, epoch_tag, &mut tickets_meta);
 				TicketsMeta::<T>::set(tickets_meta);
 			}
 		} else if slot_idx >= 2 * duration {
@@ -887,12 +853,9 @@ impl<T: Config> Pallet<T> {
 	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
 	// entries. If all the segments were consumed then the sorted vector is saved as the
 	// next epoch tickets, else it is saved to be used by next calls to this function.
-	pub(crate) fn sort_tickets(
-		mut max_segments: u32,
-		epoch_tag: u8,
-		metadata: &mut TicketsMetadata,
-	) {
-		max_segments = max_segments.min(metadata.segments_count);
+	pub(crate) fn sort_tickets(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
+		let mut segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		let max_segments = max_segments.min(segments_count);
 		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
 		// Fetch the sorted result (if any).
@@ -907,8 +870,9 @@ impl<T: Config> Pallet<T> {
 		// Consume at most `max_iter` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
 		for _ in 0..max_segments {
-			metadata.segments_count -= 1;
-			let segment = NextTicketsSegments::<T>::take(metadata.segments_count);
+			segments_count -= 1;
+			let segment = NextTicketsSegments::<T>::take(segments_count);
+			metadata.unsorted_tickets_count -= segment.len() as u32;
 
 			// Merge only elements below the current sorted segment sup.
 			segment.iter().for_each(|id| {
@@ -918,9 +882,10 @@ impl<T: Config> Pallet<T> {
 					TicketsData::<T>::remove(id);
 				}
 			});
+
 			if sorted_segment.len() > max_tickets {
+				// Sort, truncate good tickets, cleanup storage.
 				require_sort = false;
-				// Sort and truncate good tickets.
 				sorted_segment.sort_unstable();
 				sorted_segment[max_tickets..].iter().for_each(|id| TicketsData::<T>::remove(id));
 				sorted_segment.truncate(max_tickets);
@@ -932,7 +897,7 @@ impl<T: Config> Pallet<T> {
 			sorted_segment.sort_unstable();
 		}
 
-		if metadata.segments_count == 0 {
+		if metadata.unsorted_tickets_count == 0 {
 			// Sorting is over, write to next epoch map.
 			sorted_segment.iter().enumerate().for_each(|(i, id)| {
 				TicketsIds::<T>::insert((epoch_tag, i as u32), id);
@@ -942,6 +907,68 @@ impl<T: Config> Pallet<T> {
 			// Keep the partial result for next calls.
 			NextTicketsSegments::<T>::insert(u32::MAX, BoundedVec::truncate_from(sorted_segment));
 		}
+	}
+
+	/// Append a set of tickets to the segments map.
+	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, MaxTicketsFor<T>>) {
+		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
+		tickets.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:16x}"));
+
+		let mut metadata = TicketsMeta::<T>::get();
+		let mut segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;
+
+		let mut tickets = tickets.as_slice();
+		while !tickets.is_empty() {
+			let rem = metadata.unsorted_tickets_count % SEGMENT_MAX_SIZE;
+			let todo = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
+
+			let mut segment = NextTicketsSegments::<T>::get(segment_idx).into_inner();
+			segment.extend_from_slice(&tickets[..todo]);
+			let segment = BoundedVec::truncate_from(segment);
+			NextTicketsSegments::<T>::insert(segment_idx, segment);
+
+			metadata.unsorted_tickets_count += todo as u32;
+			segment_idx += 1;
+
+			tickets = &tickets[todo..];
+		}
+
+		TicketsMeta::<T>::set(metadata);
+	}
+
+	/// Remove all tickets related data.
+	///
+	/// May not be efficient as the calling places may repeat some of this operations
+	/// but is a very extraordinary operation (hopefully never happens in production)
+	/// and better safe than sorry.
+	fn reset_tickets_data() {
+		let tickets_metadata = TicketsMeta::<T>::get();
+
+		// Remove even-epoch data.
+		let tickets_count = tickets_metadata.tickets_count[0];
+		(0..tickets_count).into_iter().for_each(|idx| {
+			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
+				TicketsData::<T>::remove(id);
+			}
+		});
+
+		// Remove odd-epoch data.
+		let tickets_count = tickets_metadata.tickets_count[1];
+		(0..tickets_count).into_iter().for_each(|idx| {
+			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
+				TicketsData::<T>::remove(id);
+			}
+		});
+
+		// Remove all outstanding tickets segments.
+		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		(0..segments_count).into_iter().for_each(|i| {
+			NextTicketsSegments::<T>::remove(i);
+		});
+		NextTicketsSegments::<T>::remove(u32::MAX);
+
+		// Reset tickets metadata
+		TicketsMeta::<T>::set(Default::default());
 	}
 
 	/// Submit next epoch validator tickets via an unsigned extrinsic constructed with a call to
