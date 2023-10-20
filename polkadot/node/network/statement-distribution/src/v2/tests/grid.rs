@@ -1832,12 +1832,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let target_group_validators = state.group_validators(local_validator.group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = target_group_validators[0];
+		let v_b = target_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1912,6 +1912,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			)
 			.await;
 
+			// Message not expected from peers of our own group.
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
@@ -1928,6 +1929,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			)
 			.await;
 
+			// Message not expected from peers of our own group.
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
