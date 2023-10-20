@@ -605,14 +605,10 @@ impl<T: Config> Pallet<T> {
 	/// Moves all elements in the claimqueue forward.
 	fn move_claimqueue_forward() {
 		let mut cq = ClaimQueue::<T>::get();
-		for (_, core_queue) in cq.iter_mut() {
+		for core_queue in cq.values_mut() {
 			// First pop the finished claims from the front.
-			match core_queue.front() {
-				None => {},
-				Some(None) => {
-					core_queue.pop_front();
-				},
-				Some(_) => {},
+			if let Some(None) = core_queue.front() {
+				core_queue.pop_front();
 			}
 		}
 
@@ -628,9 +624,10 @@ impl<T: Config> Pallet<T> {
 
 		// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there's nothing we need to do here.
-		if ValidatorGroups::<T>::get().is_empty() {
+		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
 			return
 		}
+
 		let n_lookahead = Self::claimqueue_lookahead();
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
