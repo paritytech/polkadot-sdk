@@ -355,7 +355,7 @@ impl Candidates {
 			},
 		});
 
-		gum::debug!(
+		gum::trace!(
 			target: crate::LOG_TARGET,
 			"Candidates remaining after cleanup: {}",
 			self.candidates.len(),
