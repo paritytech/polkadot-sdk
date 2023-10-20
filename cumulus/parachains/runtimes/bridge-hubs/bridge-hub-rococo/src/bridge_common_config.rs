@@ -21,7 +21,7 @@
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-use super::{weights, Runtime, RuntimeEvent};
+use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use frame_support::{parameter_types, traits::ConstU32};
 
@@ -33,6 +33,12 @@ parameter_types! {
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 	pub const WococoBridgeParachainPalletName: &'static str = "Paras";
 	pub const MaxWococoParaHeadDataSize: u32 = bp_wococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+
+	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
+	pub const RelayerStakeLease: u32 = 8;
+	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Add GRANDPA bridge pallet to track Wococo relay chain.
@@ -79,4 +85,21 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+}
+
+/// Allows collect and claim rewards for relayers
+impl pallet_bridge_relayers::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reward = Balance;
+	type PaymentProcedure =
+		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		RequiredStakeForStakeAndSlash,
+		RelayerStakeLease,
+	>;
+	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 }

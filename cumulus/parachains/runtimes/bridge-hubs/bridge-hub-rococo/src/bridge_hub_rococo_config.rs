@@ -14,25 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions that are used on Rococo to bridge with Wococo.
+//! Bridge definitions used on BridgeHub with the Rococo flavor.
 
 use crate::{
-	bridge_common_config::BridgeParachainWococoInstance, BridgeWococoMessages, ParachainInfo,
-	Runtime, WithBridgeHubWococoMessagesInstance, XcmRouter,
+	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
+	weights, AccountId, BridgeWococoMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
 	messages,
 	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
+		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
-	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
+	messages_xcm_extension::{
+		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
+		XcmBlobMessageDispatch,
+	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
+
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
@@ -162,7 +168,7 @@ impl UnderlyingChainProvider for BridgeHubRococo {
 }
 
 impl ThisChainWithMessages for BridgeHubRococo {
-	type RuntimeOrigin = crate::RuntimeOrigin;
+	type RuntimeOrigin = RuntimeOrigin;
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Wococo parachain.
@@ -180,6 +186,43 @@ bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubWococoMessages);
 
 parameter_types! {
 	pub const BridgeHubWococoMessagesLane: bp_messages::LaneId = DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO;
+}
+
+/// Add XCM messages support for BridgeHubRococo to support Rococo->Wococo XCM messages
+pub type WithBridgeHubWococoMessagesInstance = pallet_bridge_messages::Instance1;
+impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_wococo_messages_instance::WeightInfo<Runtime>;
+	type BridgedChainId = BridgeHubWococoChainId;
+	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWococo;
+	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
+	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
+
+	type MaximalOutboundPayloadSize = ToBridgeHubWococoMaximalOutboundPayloadSize;
+	type OutboundPayload = XcmAsPlainPayload;
+
+	type InboundPayload = XcmAsPlainPayload;
+	type InboundRelayer = AccountId;
+	type DeliveryPayments = ();
+
+	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
+	type LaneMessageVerifier = ToBridgeHubWococoMessageVerifier;
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		WithBridgeHubWococoMessagesInstance,
+		DeliveryRewardInBalance,
+	>;
+
+	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubRococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
+			AssetHubRococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = OnMessagesDelivered;
 }
 
 #[cfg(test)]
