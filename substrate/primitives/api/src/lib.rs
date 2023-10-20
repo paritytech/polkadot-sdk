@@ -334,6 +334,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///     apis: RUNTIME_API_VERSIONS,
 ///     transaction_version: 1,
 ///     state_version: 1,
+///     extrinsic_state_version: 0,
 /// };
 ///
 /// # fn main() {}
@@ -797,7 +798,7 @@ pub fn deserialize_runtime_api_info(bytes: [u8; RUNTIME_API_INFO_SIZE]) -> ([u8;
 decl_runtime_apis! {
 	/// The `Core` runtime api that every Substrate runtime needs to implement.
 	#[core_trait]
-	#[api_version(4)]
+	#[api_version(5)]
 	pub trait Core {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
