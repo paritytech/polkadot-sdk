@@ -2342,7 +2342,8 @@ pub mod pallet_macros {
 	///
 	/// ## Storage Types
 	///
-	/// The following storage types are supported by the FRAME macros.
+	/// The following storage types are supported by the `#[storage]` macro. For specific
+	/// information about each storage type, refer to the documentation of the respective type.
 	///
 	/// * [`StorageValue`](frame_support::storage::types::StorageValue)
 	/// * [`StorageMap`](frame_support::storage::types::StorageMap)
@@ -2351,30 +2352,6 @@ pub mod pallet_macros {
 	/// * [`StorageNMap`](frame_support::storage::types::StorageNMap)
 	/// * [`CountedStorageNMap`](frame_support::storage::types::CountedStorageNMap)
 	///
-	/// The FRAME macros always generate a type alias for one of these types, as indicated by
-	/// the syntax, for example: `type Foo = StorageValue<..>`. For specific information about
-	/// each storage type, refer to the documentation of the respective type.
-	///
-	/// #### Example
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// mod pallet {
-	///     # use frame_support::pallet_prelude::*;
-	///     # #[pallet::config]
-	///     # pub trait Config: frame_system::Config {}
-	///     # #[pallet::pallet]
-	///     # pub struct Pallet<T>(_);
-	/// 	#[pallet::storage]
-	/// 	type FooValue<T> = StorageValue<_, u32>;
-	///
-	/// 	#[pallet::storage]
-	/// 	type BarMap<T> = StorageMap<_, Blake2_128Concat, u32, u32>;
-	///
-	/// 	#[pallet::storage]
-	/// 	type BazCountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u32, u32>;
-	/// }
-	/// ```
 	/// ## Storage Type Usage
 	///
 	/// The following details are relevant to all of the aforementioned storage types.
@@ -2387,7 +2364,7 @@ pub mod pallet_macros {
 	/// * [`QueryKind`](#querykind) - Used to configure how to handle queries to the underlying
 	///   storage,
 	/// * `OnEmpty` - Used to handle missing values when querying the underlying storage,
-	/// * `MaxValues` - _not used_.
+	/// * `MaxValues` - _not currently used_.
 	///
 	/// Each `Key` type requires its own designated `Hasher` declaration, so that
 	/// [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) needs two of
@@ -2397,7 +2374,8 @@ pub mod pallet_macros {
 	///
 	/// ### Syntax
 	///
-	/// Two general syntaxes are supported, as demonstrated below:
+	/// The FRAME `#[storage]` macro generates a type alias for a given storage type.
+	/// For this, two general syntaxes are supported, as demonstrated below:
 	///
 	/// 1. Named type parameters, e.g., `type Foo<T> = StorageValue<Value = u32>`.
 	/// 2. Positional type parameters, e.g., `type Foo<T> = StorageValue<_, u32>`.
@@ -2529,11 +2507,29 @@ pub mod pallet_macros {
 	#[doc = docify::embed!("src/lib.rs", example_storage_value_map_prefixes)]
 	/// ## Related Macros
 	///
-	/// The following macros can be used in conjunction with the storage macro:
+	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
 	///
 	/// * [`macro@getter`]: Creates a custom getter function.
 	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
 	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
+	///
+	/// #### Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+	///     #[pallet::storage]
+	/// 	#[pallet::getter(fn foo)]
+	/// 	#[pallet::storage_prefix = "OtherFoo"]
+	/// 	#[pallet::unbounded]
+	///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
+	/// }
+	/// ```
 	pub use frame_support_procedural::storage;
 
 	#[cfg(test)]
