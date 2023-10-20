@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, match_types, parameter_types,
+	construct_runtime, derive_impl, match_types, parameter_types,
 	traits::{ConstU32, Everything, EverythingBut, Nothing},
 	weights::Weight,
 };
@@ -366,8 +366,8 @@ parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
 }
 
+#[derive_impl(pallet_xcm::config_preludes::TestDefaultConfig as pallet_xcm::DefaultConfig)]
 impl pallet_xcm::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = (TestSendXcmErrX8, TestPaidForPara3000SendXcm, TestSendXcm);
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -377,8 +377,6 @@ impl pallet_xcm::Config for Test {
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = AdvertisedXcmVersion;
 	type TrustedLockers = ();

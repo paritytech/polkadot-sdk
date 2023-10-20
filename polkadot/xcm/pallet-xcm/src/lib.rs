@@ -171,19 +171,19 @@ pub mod pallet {
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	/// The module configuration trait.
 	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// A lockable currency.
 		// TODO: We should really use a trait which can handle multiple currencies.
+		#[pallet::no_default]
+		/// A lockable currency.
 		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
+		#[pallet::no_default]
 		/// The `MultiAsset` matcher for `Currency`.
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
 
+		#[pallet::no_default]
 		/// Required origin for sending XCM messages. If successful, it resolves to `MultiLocation`
 		/// which exists as an interior location within this chain's XCM context.
 		type SendXcmOrigin: EnsureOrigin<
@@ -191,9 +191,11 @@ pub mod pallet {
 			Success = MultiLocation,
 		>;
 
+		#[pallet::no_default]
 		/// The type used to actually dispatch an XCM to its destination.
 		type XcmRouter: SendXcm;
 
+		#[pallet::no_default]
 		/// Required origin for executing XCM messages, including the teleport functionality. If
 		/// successful, then it resolves to `MultiLocation` which exists as an interior location
 		/// within this chain's XCM context.
@@ -202,69 +204,112 @@ pub mod pallet {
 			Success = MultiLocation,
 		>;
 
+		#[pallet::no_default]
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
 		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
+		#[pallet::no_default]
 		/// Something to execute an XCM message.
 		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
 
+		#[pallet::no_default]
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
 
+		#[pallet::no_default]
 		/// Our XCM filter which messages to be reserve-transferred using the dedicated extrinsic
 		/// must pass.
 		type XcmReserveTransferFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
 
+		#[pallet::no_default]
 		/// Means of measuring the weight consumed by an XCM message locally.
 		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
+		#[pallet::no_default]
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorMultiLocation>;
 
+		#[pallet::no_default]
+		const VERSION_DISCOVERY_QUEUE_SIZE: u32;
+
+		#[pallet::no_default]
+		/// The latest supported version that we advertise. Generally just set it to
+		/// `pallet_xcm::CurrentXcmVersion`.
+		type AdvertisedXcmVersion: Get<XcmVersion>;
+
+		#[pallet::no_default]
+		/// The origin that is allowed to call privileged operations on the XCM pallet
+		type AdminOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin>;
+
+		#[pallet::no_default]
+		/// The assets which we consider a given origin is trusted if they claim to have placed a
+		/// lock.
+		type TrustedLockers: ContainsPair<MultiLocation, MultiAsset>;
+
+		#[pallet::no_default]
+		/// How to get an `AccountId` value from a `MultiLocation`, useful for handling asset locks.
+		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
+
+		#[pallet::no_default]
+		/// The maximum number of local XCM locks that a single account may have.
+		type MaxLockers: Get<u32>;
+
+		#[pallet::no_default]
+		/// The maximum number of consumers a single remote lock may have.
+		type MaxRemoteLockConsumers: Get<u32>;
+
+		#[pallet::no_default]
+		/// The ID type for local consumers of remote locks.
+		type RemoteLockConsumerIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+
+		#[pallet::no_default]
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
+
+		#[pallet::no_default]
+		/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
+		///
+		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
+		#[cfg(feature = "runtime-benchmarks")]
+		type ReachableDest: Get<Option<MultiLocation>>;
+
+		/// The overarching event type.
+		#[pallet::no_default_bounds]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// The runtime `Origin` type.
+		#[pallet::no_default_bounds]
 		type RuntimeOrigin: From<Origin> + From<<Self as SysConfig>::RuntimeOrigin>;
 
 		/// The runtime `Call` type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
 			+ GetDispatchInfo
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
 			>;
+	}
 
-		const VERSION_DISCOVERY_QUEUE_SIZE: u32;
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`]
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{derive_impl, register_default_impl};
 
-		/// The latest supported version that we advertise. Generally just set it to
-		/// `pallet_xcm::CurrentXcmVersion`.
-		type AdvertisedXcmVersion: Get<XcmVersion>;
+		pub struct TestDefaultConfig;
 
-		/// The origin that is allowed to call privileged operations on the XCM pallet
-		type AdminOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin>;
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		/// The assets which we consider a given origin is trusted if they claim to have placed a
-		/// lock.
-		type TrustedLockers: ContainsPair<MultiLocation, MultiAsset>;
-
-		/// How to get an `AccountId` value from a `MultiLocation`, useful for handling asset locks.
-		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
-
-		/// The maximum number of local XCM locks that a single account may have.
-		type MaxLockers: Get<u32>;
-
-		/// The maximum number of consumers a single remote lock may have.
-		type MaxRemoteLockConsumers: Get<u32>;
-
-		/// The ID type for local consumers of remote locks.
-		type RemoteLockConsumerIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
-
-		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
-
-		/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
-		///
-		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
-		#[cfg(feature = "runtime-benchmarks")]
-		type ReachableDest: Get<Option<MultiLocation>>;
+		#[register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+		}
 	}
 
 	#[pallet::event]
