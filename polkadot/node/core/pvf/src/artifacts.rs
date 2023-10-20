@@ -18,8 +18,8 @@
 //!
 //! # Lifecycle of an artifact
 //!
-//! 1. During node start-up, the artifacts cache is cleaned up. This means that all local artifacts
-//!    stored on-disk are cleared, and we start with an empty [`Artifacts`] table.
+//! 1. During node start-up, we will check the cached artifacts, if any. The stale and corrupted
+//!    ones are pruned. The valid ones are registered in the [`Artifacts`] table.
 //!
 //! 2. In order to be executed, a PVF should be prepared first. This means that artifacts should
 //!    have an [`ArtifactState::Prepared`] entry for that artifact in the table. If not, the
@@ -69,6 +69,7 @@ use std::{
 	time::{Duration, SystemTime},
 };
 
+// A workaround for defining a `const` that is a concatenation of other constants.
 macro_rules! concat_const {
     ($($arg:tt),*) => {{
         // ensure inputs to be strings
@@ -97,9 +98,8 @@ macro_rules! concat_const {
             cat
         };
 
-        // FIXME eagr: consider opting for `from_utf8_unchecked()`
-        // SAFETY: The concatenation of two string slices is guaranteed to be valid UTF8,
-        // so are the byte slices as they have the same memory layout.
+		// The concatenation of two string slices is guaranteed to be valid UTF8,
+		// so are the byte slices as they have the same memory layout.
         match std::str::from_utf8(&CAT) {
             Ok(s) => s,
             Err(_) => panic!("Error converting bytes to str"),
