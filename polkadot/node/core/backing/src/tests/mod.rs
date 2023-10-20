@@ -163,7 +163,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = async move {
-		if let Err(e) = super::run(context, keystore, Metrics(None)).await {
+		if let Err(e) = super::run(context, keystore, Metrics(None), None).await {
 			panic!("{:?}", e);
 		}
 	};

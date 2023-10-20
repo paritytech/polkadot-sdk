@@ -1066,6 +1066,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
 						transaction_pool.clone(),
 					),
+					telemetry: telemetry.as_ref().map(|x| x.handle()),
 				},
 			)
 			.map_err(|e| {

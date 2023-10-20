@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 futures = "0.3.21"
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+sc-telemetry = { path = "../../../../substrate/client/telemetry" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
