@@ -26,7 +26,7 @@ pub use std::{
 // Substrate
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header as HeaderT, AccountId32, DispatchResult},
+	sp_runtime::{traits::Header as HeaderT, DispatchResult},
 	traits::{
 		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
@@ -61,6 +61,8 @@ pub use xcm::v3::prelude::{
 };
 pub use xcm_executor::traits::ConvertLocation;
 
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
 thread_local! {
 	/// Downward messages, each message is: `(to_para_id, [(relay_block_number, msg)])`
 	#[allow(clippy::type_complexity)]
@@ -90,8 +92,8 @@ pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -103,8 +105,8 @@ impl<Origin, Destination, Hops, Args> CheckAssertion<Origin, Destination, Hops, 
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 	Args: Clone,
 {
@@ -219,24 +221,24 @@ pub trait Chain: TestExt + NetworkComponent {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
 	}
 
-	fn account_data_of(account: AccountId) -> AccountData<Balance>;
+	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
 
 	fn events() -> Vec<<Self as Chain>::RuntimeEvent>;
 }
 
 pub trait RelayChain: Chain {
 	type MessageProcessor: ProcessMessage;
-	type SovereignAccountOf: ConvertLocation<AccountId>;
+	type SovereignAccountOf: ConvertLocation<AccountIdOf<Self::Runtime>>;
 
 	fn child_location_of(id: ParaId) -> MultiLocation {
 		(Ancestor(0), ParachainJunction(id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
 		Self::SovereignAccountOf::convert_location(&location).unwrap()
 	}
 
-	fn sovereign_account_id_of_child_para(id: ParaId) -> AccountId {
+	fn sovereign_account_id_of_child_para(id: ParaId) -> AccountIdOf<Self::Runtime> {
 		Self::sovereign_account_id_of(Self::child_location_of(id))
 	}
 }
@@ -244,9 +246,17 @@ pub trait RelayChain: Chain {
 pub trait Parachain: Chain {
 	type XcmpMessageHandler: XcmpMessageHandler;
 	type DmpMessageHandler: DmpMessageHandler;
-	type LocationToAccountId: ConvertLocation<AccountId>;
+	type LocationToAccountId: ConvertLocation<AccountIdOf<Self::Runtime>>;
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
+
+	fn init();
+
+	fn new_block();
+
+	fn finalize_block();
+
+	fn set_last_head();
 
 	fn para_id() -> ParaId {
 		Self::ext_wrapper(|| Self::ParachainInfo::get())
@@ -260,11 +270,9 @@ pub trait Parachain: Chain {
 		(Parent, X1(ParachainJunction(para_id.into()))).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountId {
+	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
-
-	fn init();
 }
 
 pub trait Bridge {
@@ -359,7 +367,7 @@ macro_rules! decl_test_relay_chains {
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
 
-				fn account_data_of(account: $crate::AccountId) -> $crate::AccountData<$crate::Balance> {
+				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
 				}
 
@@ -584,7 +592,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
 
-				fn account_data_of(account: $crate::AccountId) -> $crate::AccountData<$crate::Balance> {
+				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
 				}
 
@@ -603,28 +611,74 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 
+				// We run an empty block during initialisation to open HRMP channels
+				// and have them ready for the next block
 				fn init() {
 					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					// Set the last block head for later use in the next block
+					Self::set_last_head();
+					// Initialize a new block
+					Self::new_block();
+					// Finalize the new block
+					Self::finalize_block();
+				}
 
-					let para_id = Self::para_id();
+				fn new_block() {
+					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+
+					let para_id = Self::para_id().into();
+
+					Self::ext_wrapper(|| {
+						// Increase Relay Chain block number
+						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+						relay_block_number += 1;
+						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
+
+						// Initialize a new Parachain block
+						let mut block_number = <Self as Chain>::System::block_number();
+						block_number += 1;
+						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
+							.get_mut(<Self as NetworkComponent>::Network::name())
+							.expect("network not initialized?")
+							.get(&para_id)
+							.expect("network not initialized?")
+							.clone()
+						);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
+
+						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
+							<Self as Chain>::RuntimeOrigin::none(),
+							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						);
+					});
+				}
+
+				fn finalize_block() {
+					use $crate::{Chain, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						let mut relay_block_number = <Self as NetworkComponent>::Network::relay_block_number();
+						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+					});
 
-						// Get parent head data
-						let header = <Self as Chain>::System::finalize();
-						let parent_head_data = HeadData(header.encode());
+					Self::set_last_head();
+				}
 
+
+				fn set_last_head() {
+					use $crate::{Chain, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
+
+					let para_id = Self::para_id().into();
+
+					Self::ext_wrapper(|| {
+						// Store parent head data for use later.
+						let created_header = <Self as Chain>::System::finalize();
 						$crate::LAST_HEAD.with(|b| b.borrow_mut()
 							.get_mut(<Self as NetworkComponent>::Network::name())
 							.expect("network not initialized?")
-							.insert(para_id.into(), parent_head_data.clone())
+							.insert(para_id, HeadData(created_header.encode()))
 						);
-
-						let next_block_number = block_number + 1;
-						<Self as Chain>::System::initialize(&next_block_number, &header.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
 					});
 				}
 			}
@@ -746,59 +800,26 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Make sure the Network is initialized
 				<$name as NetworkComponent>::Network::init();
 
-				let para_id = <$name>::para_id().into();
-
-				// Initialize block
-				$local_ext.with(|v| {
-					v.borrow_mut().execute_with(|| {
-						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
-							.expect("network not initialized?")
-							.get(&para_id)
-							.expect("network not initialized?")
-							.clone()
-						);
-
-						// Increase block number
-						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-						relay_block_number += 1;
-						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
-
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
-						);
-					})
-				});
+				// Initialize a new block
+				Self::new_block();
 
 				// Execute
 				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
 
-				// provide inbound DMP/HRMP messages through a side-channel.
-				// normally this would come through the `set_validation_data`,
-				// but we go around that.
-				<$name as NetworkComponent>::Network::process_messages();
+				// Finalize the block
+				Self::finalize_block();
 
-				// Finalize block and send messages if needed
+				let para_id = <$name>::para_id().into();
+
+				// Send messages if needed
 				$local_ext.with(|v| {
 					v.borrow_mut().execute_with(|| {
-						let block_number = <Self as Chain>::System::block_number();
 						let mock_header = $crate::HeaderT::new(
 							0,
 							Default::default(),
 							Default::default(),
 							Default::default(),
 							Default::default(),
-						);
-
-						// Finalize to get xcmp messages.
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
-						// Store parent head data for use later.
-						let created_header = <Self as Chain>::System::finalize();
-						$crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
-							.expect("network not initialized?")
-							.insert(para_id.into(), $crate::HeadData(created_header.encode()))
 						);
 
 						let collation_info = <Self as Parachain>::ParachainSystem::collect_collation_info(&mock_header);
@@ -834,11 +855,6 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// clean events
 						<Self as $crate::Chain>::System::reset_events();
-
-						// reinitialize before next call.
-						let next_block_number = block_number + 1;
-						<Self as $crate::Chain>::System::initialize(&next_block_number, &created_header.hash(), &Default::default());
-						<<Self as $crate::Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(next_block_number);
 					})
 				});
 
@@ -1145,9 +1161,10 @@ macro_rules! __impl_check_assertion {
 		where
 			Origin: $crate::Chain + Clone,
 			Destination: $crate::Chain + Clone,
-			Origin::RuntimeOrigin: $crate::OriginTrait<AccountId = $crate::AccountId32> + Clone,
+			Origin::RuntimeOrigin:
+				$crate::OriginTrait<AccountId = $crate::AccountIdOf<Origin::Runtime>> + Clone,
 			Destination::RuntimeOrigin:
-				$crate::OriginTrait<AccountId = $crate::AccountId32> + Clone,
+				$crate::OriginTrait<AccountId = $crate::AccountIdOf<Destination::Runtime>> + Clone,
 			Hops: Clone,
 			Args: Clone,
 		{
@@ -1294,8 +1311,8 @@ where
 
 /// Struct that keeps account's id and balance
 #[derive(Clone)]
-pub struct TestAccount {
-	pub account_id: AccountId,
+pub struct TestAccount<R: Chain> {
+	pub account_id: AccountIdOf<R::Runtime>,
 	pub balance: Balance,
 }
 
@@ -1312,9 +1329,9 @@ pub struct TestArgs {
 }
 
 /// Auxiliar struct to help creating a new `Test` instance
-pub struct TestContext<T> {
-	pub sender: AccountId,
-	pub receiver: AccountId,
+pub struct TestContext<T, Origin: Chain, Destination: Chain> {
+	pub sender: AccountIdOf<Origin::Runtime>,
+	pub receiver: AccountIdOf<Destination::Runtime>,
 	pub args: T,
 }
 
@@ -1331,12 +1348,12 @@ pub struct Test<Origin, Destination, Hops = (), Args = TestArgs>
 where
 	Origin: Chain + Clone,
 	Destination: Chain + Clone,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone,
 {
-	pub sender: TestAccount,
-	pub receiver: TestAccount,
+	pub sender: TestAccount<Origin>,
+	pub receiver: TestAccount<Destination>,
 	pub signed_origin: Origin::RuntimeOrigin,
 	pub root_origin: Origin::RuntimeOrigin,
 	pub hops_assertion: HashMap<String, fn(Self)>,
@@ -1351,12 +1368,12 @@ where
 	Args: Clone,
 	Origin: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 	Destination: Chain + Clone + CheckAssertion<Origin, Destination, Hops, Args>,
-	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
-	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountId32> + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 {
 	/// Creates a new `Test` instance
-	pub fn new(test_args: TestContext<Args>) -> Self {
+	pub fn new(test_args: TestContext<Args, Origin, Destination>) -> Self {
 		Test {
 			sender: TestAccount {
 				account_id: test_args.sender.clone(),

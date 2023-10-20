@@ -216,7 +216,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::ConstU64};
 
 		pub struct TestDefaultConfig;
 
@@ -227,11 +227,16 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
 
 			type Balance = u64;
+			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = ();
+
+			type DustRemoval = ();
 
 			type MaxLocks = ();
 			type MaxReserves = ();
@@ -248,6 +253,10 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -266,7 +275,7 @@ pub mod pallet {
 			+ FixedPointOperand;
 
 		/// Handler for the unbalanced reduction when removing a dust account.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DustRemoval: OnUnbalanced<CreditOf<Self, I>>;
 
 		/// The minimum amount required to keep an account open. MUST BE GREATER THAN ZERO!
@@ -278,7 +287,7 @@ pub mod pallet {
 		///
 		/// Bottom line: Do yourself a favour and make it at least one!
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type ExistentialDeposit: Get<Self::Balance>;
 
 		/// The means of storing the balances of an account.
@@ -289,10 +298,6 @@ pub mod pallet {
 		///
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
-
-		/// The overarching hold reason.
-		#[pallet::no_default]
-		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// The ID type for freezes.
 		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
@@ -563,53 +568,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the regular balance of a given account; it also takes a reserved balance but this
-		/// must be the same as the account's current reserved balance.
-		///
-		/// The dispatch origin for this call is `root`.
-		///
-		/// WARNING: This call is DEPRECATED! Use `force_set_balance` instead.
-		#[pallet::call_index(1)]
-		#[pallet::weight(
-			T::WeightInfo::force_set_balance_creating() // Creates a new account.
-				.max(T::WeightInfo::force_set_balance_killing()) // Kills an existing account.
-		)]
-		pub fn set_balance_deprecated(
-			origin: OriginFor<T>,
-			who: AccountIdLookupOf<T>,
-			#[pallet::compact] new_free: T::Balance,
-			#[pallet::compact] old_reserved: T::Balance,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let who = T::Lookup::lookup(who)?;
-			let existential_deposit = Self::ed();
-
-			let wipeout = new_free < existential_deposit;
-			let new_free = if wipeout { Zero::zero() } else { new_free };
-
-			// First we try to modify the account's balance to the forced balance.
-			let old_free = Self::try_mutate_account_handling_dust(
-				&who,
-				|account, _is_new| -> Result<T::Balance, DispatchError> {
-					let old_free = account.free;
-					ensure!(account.reserved == old_reserved, TokenError::Unsupported);
-					account.free = new_free;
-					Ok(old_free)
-				},
-			)?;
-
-			// This will adjust the total issuance, which was not done by the `mutate_account`
-			// above.
-			if new_free > old_free {
-				mem::drop(PositiveImbalance::<T, I>::new(new_free - old_free));
-			} else if new_free < old_free {
-				mem::drop(NegativeImbalance::<T, I>::new(old_free - new_free));
-			}
-
-			Self::deposit_event(Event::BalanceSet { who, free: new_free });
-			Ok(())
-		}
-
 		/// Exactly as `transfer_allow_death`, except the origin must be root and the source account
 		/// may be specified.
 		#[pallet::call_index(2)]
@@ -728,22 +686,6 @@ pub mod pallet {
 			} else {
 				Ok(Pays::Yes.into())
 			}
-		}
-
-		/// Alias for `transfer_allow_death`, provided only for name-wise compatibility.
-		///
-		/// WARNING: DEPRECATED! Will be released in approximately 3 months.
-		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::transfer_allow_death())]
-		pub fn transfer(
-			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
-			#[pallet::compact] value: T::Balance,
-		) -> DispatchResult {
-			let source = ensure_signed(origin)?;
-			let dest = T::Lookup::lookup(dest)?;
-			<Self as fungible::Mutate<_>>::transfer(&source, &dest, value, Expendable)?;
-			Ok(())
 		}
 
 		/// Set the regular balance of a given account.

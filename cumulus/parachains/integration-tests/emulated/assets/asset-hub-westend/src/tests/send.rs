@@ -1,68 +1,31 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::*;
 
 /// Relay Chain should be able to execute `Transact` instructions in System Parachain
-/// when `OriginKind::Superuser` and signer is `sudo`
+/// when `OriginKind::Superuser`.
 #[test]
-fn send_transact_sudo_from_relay_to_system_para_works() {
-	// Init tests variables
-	let root_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let system_para_destination = Westend::child_location_of(AssetHubWestend::para_id()).into();
-	let asset_owner: AccountId = AssetHubWestendSender::get().into();
-	let xcm = AssetHubWestend::force_create_asset_xcm(
-		OriginKind::Superuser,
+fn send_transact_as_superuser_from_relay_to_system_para_works() {
+	AssetHubWestend::force_create_asset_from_relay_as_root(
 		ASSET_ID,
-		asset_owner.clone(),
+		ASSET_MIN_BALANCE,
 		true,
-		1000,
-	);
-	// Send XCM message from Relay Chain
-	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			root_origin,
-			bx!(system_para_destination),
-			bx!(xcm),
-		));
-
-		Westend::assert_xcm_pallet_sent();
-	});
-
-	// Receive XCM message in Assets Parachain
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		AssetHubWestend::assert_dmp_queue_complete(Some(Weight::from_parts(
-			1_019_445_000,
-			200_000,
-		)));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::ForceCreated { asset_id, owner }) => {
-					asset_id: *asset_id == ASSET_ID,
-					owner: *owner == asset_owner,
-				},
-			]
-		);
-
-		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(ASSET_ID));
-	});
+		AssetHubWestendSender::get().into(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
+	)
 }
 
 /// Parachain should be able to send XCM paying its fee with sufficient asset
@@ -79,6 +42,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		ASSET_MIN_BALANCE,
 		true,
 		para_sovereign_account.clone(),
+		Some(Weight::from_parts(1_019_445_000, 200_000)),
 		ASSET_MIN_BALANCE * 1000000000,
 	);
 
@@ -116,14 +80,12 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		PenpalWestendA::assert_xcm_pallet_sent();
 	});
 
-	PenpalWestendA::execute_with(|| {});
-
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		AssetHubWestend::assert_xcmp_queue_success(Some(Weight::from_parts(
-			2_176_414_000,
-			203_593,
+			16_290_336_000,
+			562_893,
 		)));
 
 		assert_expected_events!(

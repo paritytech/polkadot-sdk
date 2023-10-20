@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.0.0"
+version = "1.1.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -12,13 +12,13 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.73"
-clap = { version = "4.4.2", features = ["derive"] }
+clap = { version = "4.4.6", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.105"
+serde_json = "1.0.107"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -87,6 +87,7 @@ cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
 cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
 cumulus-client-service = { path = "../client/service" }
+cumulus-primitives-aura = { path = "../primitives/aura" }
 cumulus-primitives-core = { path = "../primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
@@ -116,6 +117,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"glutton-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",

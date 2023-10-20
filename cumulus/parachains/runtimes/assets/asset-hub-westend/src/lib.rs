@@ -24,7 +24,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
@@ -36,11 +35,11 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use constants::{consensus::*, currency::*, fee::WeightToFee};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
 	traits::{
 		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
@@ -57,8 +56,10 @@ use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber,
-	Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
+	impls::DealWithFees,
+	westend::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
+	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use sp_api::impl_runtime_apis;
@@ -856,7 +857,45 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
 	migrations::NativeAssetParents0ToParents1Migration<Runtime>,
+	// unreleased
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	// unreleased
+	InitStorageVersions,
 );
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+		use sp_runtime::traits::Saturating;
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			ForeignAssets::current_storage_version().put::<ForeignAssets>();
+			writes.saturating_inc();
+		}
+
+		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			PoolAssets::current_storage_version().put::<PoolAssets>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -1351,6 +1390,16 @@ impl_runtime_apis! {
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

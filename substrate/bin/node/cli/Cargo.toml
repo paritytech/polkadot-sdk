@@ -38,7 +38,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # third-party dependencies
 array-bytes = "6.1"
-clap = { version = "4.4.2", features = ["derive"], optional = true }
+clap = { version = "4.4.6", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { version = "1.0.188", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -60,6 +60,7 @@ sp-keystore = { path = "../../../primitives/keystore" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
 sp-io = { path = "../../../primitives/io" }
+sp-mixnet = { path = "../../../primitives/mixnet" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 
 # client dependencies
@@ -82,6 +83,7 @@ sc-service = { path = "../../../client/service", default-features = false}
 sc-telemetry = { path = "../../../client/telemetry" }
 sc-executor = { path = "../../../client/executor" }
 sc-authority-discovery = { path = "../../../client/authority-discovery" }
+sc-mixnet = { path = "../../../client/mixnet" }
 sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
 sc-sysinfo = { path = "../../../client/sysinfo" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }
@@ -106,7 +108,7 @@ sc-cli = { path = "../../../client/cli", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
 node-inspect = { path = "../inspect", optional = true}
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
-serde_json = "1.0.85"
+serde_json = "1.0.107"
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
@@ -135,7 +137,7 @@ pallet-timestamp = { path = "../../../frame/timestamp" }
 substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 
 [build-dependencies]
-clap = { version = "4.4.2", optional = true }
+clap = { version = "4.4.6", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 node-inspect = { path = "../inspect", optional = true}
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}

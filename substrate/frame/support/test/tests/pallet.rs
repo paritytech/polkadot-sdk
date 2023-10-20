@@ -210,12 +210,13 @@ pub mod pallet {
 	{
 		/// Doc comment put in metadata
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(*_foo as u64, 0))]
+		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
 			origin: OriginFor<T>,
-			#[pallet::compact] _foo: u32,
+			#[pallet::compact] foo: u32,
 			_bar: u32,
 		) -> DispatchResultWithPostInfo {
+			let _ = foo;
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType3); // Test for where clause
 			let _ = origin;
@@ -1386,7 +1387,7 @@ fn metadata() {
 		}
 	}
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
 
 	let pallets = vec![
@@ -1889,7 +1890,7 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
 	assert_eq!(pallet.docs, expected);
 }
@@ -1919,7 +1920,7 @@ fn extrinsic_metadata_ir_types() {
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0";
+	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
 	assert_eq!(docs, expected);
 }

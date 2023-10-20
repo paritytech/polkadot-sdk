@@ -852,6 +852,27 @@ mod benches {
 		}
 	}
 
+	#[benchmark]
+	fn do_tick_base() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(5);
+
+		let mut status = Status::<T>::get().unwrap();
+		status.last_committed_timeslice = 3;
+		Status::<T>::put(&status);
+
+		#[block]
+		{
+			Broker::<T>::do_tick();
+		}
+
+		let updated_status = Status::<T>::get().unwrap();
+		assert_eq!(status, updated_status);
+
+		Ok(())
+	}
+
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

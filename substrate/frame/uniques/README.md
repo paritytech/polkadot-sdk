@@ -13,9 +13,11 @@ The Uniques module provides functionality for non-fungible tokens' management, i
 * Attributes Management
 * Item Burning
 
-To use it in your runtime, you need to implement [`uniques::Config`](https://paritytech.github.io/substrate/master/pallet_uniques/pallet/trait.Config.html).
+To use it in your runtime, you need to implement
+[`uniques::Config`](https://paritytech.github.io/substrate/master/pallet_uniques/pallet/trait.Config.html).
 
-The supported dispatchable functions are documented in the [`uniques::Call`](https://paritytech.github.io/substrate/master/pallet_uniques/pallet/enum.Call.html) enum.
+The supported dispatchable functions are documented in the
+[`uniques::Call`](https://paritytech.github.io/substrate/master/pallet_uniques/pallet/enum.Call.html) enum.
 
 ### Terminology
 
@@ -23,8 +25,8 @@ The supported dispatchable functions are documented in the [`uniques::Call`](htt
 * **Item minting:** The action of creating a new item within a collection.
 * **Item transfer:** The action of sending an item from one account to another.
 * **Item burning:** The destruction of an item.
-* **Non-fungible token (NFT):** An item for which each unit has unique characteristics. There is exactly
-  one instance of such an item in existence and there is exactly one owning account.
+* **Non-fungible token (NFT):** An item for which each unit has unique characteristics. There is exactly one instance of
+  such an item in existence and there is exactly one owning account.
 
 ### Goals
 
@@ -33,10 +35,8 @@ The Uniques pallet in Substrate is designed to make the following possible:
 * Allow accounts to permissionlessly create NFT collections.
 * Allow a named (permissioned) account to mint and burn unique items within a collection.
 * Move items between accounts permissionlessly.
-* Allow a named (permissioned) account to freeze and unfreeze unique items within a
-  collection or the entire collection.
-* Allow the owner of an item to delegate the ability to transfer the item to some
-  named third-party.
+* Allow a named (permissioned) account to freeze and unfreeze unique items within a collection or the entire collection.
+* Allow the owner of an item to delegate the ability to transfer the item to some named third-party.
 
 ## Interface
 
