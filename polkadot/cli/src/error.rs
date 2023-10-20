@@ -28,10 +28,6 @@ pub enum Error {
 	#[error(transparent)]
 	SubstrateTracing(#[from] sc_tracing::logging::Error),
 
-	#[error(transparent)]
-	#[cfg(feature = "hostperfcheck")]
-	PerfCheck(#[from] polkadot_performance_test::PerfCheckError),
-
 	#[cfg(not(feature = "pyroscope"))]
 	#[error("Binary was not compiled with `--feature=pyroscope`")]
 	PyroscopeNotCompiledIn,
@@ -57,4 +53,10 @@ pub enum Error {
 
 	#[error("This subcommand is only available when compiled with `{feature}`")]
 	FeatureNotEnabled { feature: &'static str },
+}
+
+impl From<String> for Error {
+	fn from(s: String) -> Self {
+		Self::Other(s)
+	}
 }

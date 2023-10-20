@@ -23,13 +23,8 @@ test-linux-stable:
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
-    # "receive_rate_limit_is_enforced"and "benchmark_block_works" can be found in test-linux-stable-additional-tests
-    # they fail if run with other tests
-    # "rx::tests::sent_views_include_finalized_number_update", "follow_chain_works", "create_snapshot_works" and "block_execution_works"
-    # can be found in test-linux-stable-slow
     - |
       time cargo nextest run \
-        -E 'all() & !test(upgrade_version_checks_should_work) & !test(receive_rate_limit_is_enforced) & !test(benchmark_block_works) & !test(rx::tests::sent_views_include_finalized_number_update) & !test(follow_chain_works) & !test(create_snapshot_works) & !test(block_execution_works)' \
         --workspace \
         --locked \
         --release \
@@ -59,6 +54,22 @@ test-linux-oldkernel-stable:
   tags:
     - oldkernel-vm
 
+# https://github.com/paritytech/ci_cd/issues/864
+test-linux-stable-runtime-benchmarks:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
 # can be used to run all tests
 # test-linux-stable-all:
 #   stage: test
@@ -85,7 +96,7 @@ test-linux-oldkernel-stable:
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
 
-# for some reasons these tests fail if run with all tests
+# TODO: remove me
 test-linux-stable-additional-tests:
   stage: test
   extends:
@@ -99,31 +110,11 @@ test-linux-stable-additional-tests:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - |
-      time cargo nextest run \
-        -E 'test(receive_rate_limit_is_enforced) + test(benchmark_block_works)' \
-        --workspace \
-        --locked \
-        --release \
-        --features runtime-benchmarks,try-runtime
+    # tests were moved to test-linux-stable
+    # the jobs should be removed
+    - exit 0
 
-# https://github.com/paritytech/ci_cd/issues/864
-test-linux-stable-runtime-benchmarks:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    - time cargo nextest run --features runtime-benchmarks benchmark --locked --cargo-profile testnet
-
-# these ones can be really slow so it's better to run them separately
+# TODO: remove me
 test-linux-stable-slow:
   stage: test
   # remove after cache is setup
@@ -139,14 +130,9 @@ test-linux-stable-slow:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - |
-      time cargo nextest run \
-        -E 'test(rx::tests::sent_views_include_finalized_number_update) + test(follow_chain_works) + test(create_snapshot_works) + test(block_execution_works)' \
-        --workspace \
-        --locked \
-        --release \
-        --features runtime-benchmarks,try-runtime
-  allow_failure: true
+    # tests were moved to test-linux-stable
+    # the jobs should be removed
+    - exit 0
 
 # takes about 1,5h without cache
 # can be used to check that nextest works correctly
@@ -185,7 +171,7 @@ test-doc:
     # but still want to have debug assertions.
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
-    - time cargo test --doc
+    - time cargo test --doc --workspace
 
 test-rustdoc:
   stage: test
@@ -195,10 +181,8 @@ test-rustdoc:
     - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
-    RUSTDOCFLAGS: "-Dwarnings"
   script:
     - time cargo doc --workspace --all-features --no-deps
-  allow_failure: true
 
 cargo-check-all-benches:
   stage: test
@@ -243,12 +227,12 @@ test-deterministic-wasm:
       artifacts: false
   script:
     # build runtime
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
     # make checksum
     - sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
     - cargo clean
     # build again
-    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p staging-kusama-runtime -p polkadot-runtime -p westend-runtime
+    - WASM_BUILD_NO_COLOR=1 cargo build -q --locked --release -p westend-runtime -p rococo-runtime
     # confirm checksum
     - sha256sum -c checksum.sha256
 
@@ -328,8 +312,8 @@ node-bench-regression-guard:
       --compare-with artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA"
   after_script: [""]
 
-# if this fails (especially after rust version upgrade) run
-# ./substrate/.maintain/update-rust-stable.sh <rust_version>
+# if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
+# see ./docs/CONTRIBUTING.md#ui-tests
 test-frame-ui:
   stage: test
   extends:
@@ -368,7 +352,7 @@ quick-benchmarks:
     WASM_BUILD_NO_COLOR: 1
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
   script:
-    - time cargo run --locked --release --features runtime-benchmarks -- benchmark pallet --execution wasm --wasm-execution compiled --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - time cargo run --locked --release -p node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --execution wasm --wasm-execution compiled --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
 test-frame-examples-compile-to-wasm:
   # into one job
@@ -519,3 +503,23 @@ cargo-hfuzz:
     - cargo hfuzz build
     - for target in $(cargo read-manifest | jq -r '.targets | .[] | .name'); do
       cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; }; done
+
+# cf https://github.com/paritytech/polkadot-sdk/issues/1652
+test-syscalls:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+  variables:
+    SKIP_WASM_BUILD: 1
+  script:
+    - cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
+    - cd polkadot/scripts/list-syscalls
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
+    - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
+  after_script:
+    - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
+        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      fi
+  allow_failure: true # TODO: remove this once we have an idea how often the syscall lists will change
