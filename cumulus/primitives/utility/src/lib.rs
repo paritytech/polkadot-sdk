@@ -28,28 +28,12 @@ use frame_support::{
 	},
 	weights::Weight,
 };
-use polkadot_runtime_common::xcm_sender::ConstantPrice;
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_runtime::{traits::Saturating, SaturatedConversion};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
-
-pub trait PriceForParentDelivery {
-	fn price_for_parent_delivery(message: &Xcm<()>) -> MultiAssets;
-}
-
-impl PriceForParentDelivery for () {
-	fn price_for_parent_delivery(_: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
-	}
-}
-
-impl<T: Get<MultiAssets>> PriceForParentDelivery for ConstantPrice<T> {
-	fn price_for_parent_delivery(_: &Xcm<()>) -> MultiAssets {
-		T::get()
-	}
-}
 
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
 /// the given UMP `UpwardMessageSender` implementation. Thus this essentially adapts an
@@ -63,7 +47,7 @@ impl<T, W, P> SendXcm for ParentAsUmp<T, W, P>
 where
 	T: UpwardMessageSender,
 	W: WrapVersion,
-	P: PriceForParentDelivery,
+	P: PriceForMessageDelivery<Id = ()>,
 {
 	type Ticket = Vec<u8>;
 
@@ -76,7 +60,7 @@ where
 		if d.contains_parents_only(1) {
 			// An upward message for the relay chain.
 			let xcm = msg.take().ok_or(SendError::MissingArgument)?;
-			let price = P::price_for_parent_delivery(&xcm);
+			let price = P::price_for_delivery((), &xcm);
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
 			let data = versioned_xcm.encode();
@@ -280,7 +264,7 @@ pub struct XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAcc
 impl<
 		FungiblesMutateAdapter: TransactAsset,
 		AccountId: Clone + Into<[u8; 32]>,
-		ReceiverAccount: frame_support::traits::Get<Option<AccountId>>,
+		ReceiverAccount: Get<Option<AccountId>>,
 	> TakeRevenue for XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>
 {
 	fn take_revenue(revenue: MultiAsset) {
@@ -288,9 +272,7 @@ impl<
 			let ok = FungiblesMutateAdapter::deposit_asset(
 				&revenue,
 				&(X1(AccountId32 { network: None, id: receiver.into() }).into()),
-				// We aren't able to track the XCM that initiated the fee deposit, so we create a
-				// fake message hash here
-				&XcmContext::with_message_id([0; 32]),
+				None,
 			)
 			.is_ok();
 
@@ -540,5 +522,60 @@ mod tests {
 
 		// lets do second call (error)
 		assert_eq!(trader.buy_weight(weight_to_buy, payment, &ctx), Err(XcmError::NotWithdrawable));
+	}
+}
+
+/// Implementation of `pallet_xcm_benchmarks::EnsureDelivery` which helps to ensure delivery to the
+/// parent relay chain. Deposits existential deposit for origin (if needed).
+/// Deposits estimated fee to the origin account (if needed).
+/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
+	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
+);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<
+		XcmConfig: xcm_executor::Config,
+		ExistentialDeposit: Get<Option<MultiAsset>>,
+		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
+	> pallet_xcm_benchmarks::EnsureDelivery
+	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
+{
+	fn ensure_successful_delivery(
+		origin_ref: &MultiLocation,
+		_dest: &MultiLocation,
+		fee_reason: xcm_executor::traits::FeeReason,
+	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
+		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_MULTIASSETS};
+		use xcm_executor::{traits::FeeManager, FeesMode};
+
+		let mut fees_mode = None;
+		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
+			// if not waived, we need to set up accounts for paying and receiving fees
+
+			// mint ED to origin if needed
+			if let Some(ed) = ExistentialDeposit::get() {
+				XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
+			}
+
+			// overestimate delivery fee
+			let mut max_assets: Vec<MultiAsset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_MULTIASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
+			let overestimated_fees = PriceForDelivery::price_for_delivery((), &overestimated_xcm);
+
+			// mint overestimated fee to origin
+			for fee in overestimated_fees.inner() {
+				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
+			}
+
+			// expected worst case - direct withdraw
+			fees_mode = Some(FeesMode { jit_withdraw: true });
+		}
+		(fees_mode, None)
 	}
 }
