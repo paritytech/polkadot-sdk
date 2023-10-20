@@ -859,7 +859,7 @@ pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
 	properties.insert("tokenSymbol".into(), "WOC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
-	AssetHubRococoChainSpec::from_genesis(
+	AssetHubWococoChainSpec::from_genesis(
 		// Name
 		"Wococo Asset Hub",
 		// ID
