@@ -20,7 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -1057,7 +1057,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(Self::validator_count())
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_remaining: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		// This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
 		let voters = Self::get_npos_voters(bounds);
 
@@ -1069,7 +1072,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(voters)
 	}
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<T::AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_remaining: PageIndex,
+	) -> data_provider::Result<Vec<T::AccountId>> {
 		let targets = Self::get_npos_targets(bounds);
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in

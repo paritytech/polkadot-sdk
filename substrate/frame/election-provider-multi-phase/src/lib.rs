@@ -1432,7 +1432,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Vec<T::AccountId>, Vec<VoterOf<T>>, u32), ElectionError<T>> {
 		let election_bounds = T::ElectionBounds::get();
 
-		let targets = T::DataProvider::electable_targets(election_bounds.targets)
+		// NOTE: this implementation expects a single-page election provider.
+		let targets = T::DataProvider::electable_targets(election_bounds.targets, Zero::zero())
 			.and_then(|t| {
 				election_bounds.ensure_targets_limits(
 					CountBound(t.len() as u32),
@@ -1442,7 +1443,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let voters = T::DataProvider::electing_voters(election_bounds.voters)
+		let voters = T::DataProvider::electing_voters(election_bounds.voters, Zero::zero())
 			.and_then(|v| {
 				election_bounds.ensure_voters_limits(
 					CountBound(v.len() as u32),

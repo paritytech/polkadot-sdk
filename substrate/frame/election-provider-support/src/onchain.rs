@@ -99,8 +99,8 @@ pub type OnChainBoundedSupportsOf<E> = BoundedSupports<
 fn elect_with_input_bounds<T: Config>(
 	bounds: ElectionBounds,
 ) -> Result<OnChainBoundedSupportsOf<T>, Error> {
-	let (voters, targets) = T::DataProvider::electing_voters(bounds.voters)
-		.and_then(|voters| Ok((voters, T::DataProvider::electable_targets(bounds.targets)?)))
+	let (voters, targets) = T::DataProvider::electing_voters(bounds.voters, 0)
+		.and_then(|voters| Ok((voters, T::DataProvider::electable_targets(bounds.targets, 0)?)))
 		.map_err(Error::DataProvider)?;
 
 	let desired_targets = T::DataProvider::desired_targets().map_err(Error::DataProvider)?;
@@ -258,14 +258,17 @@ mod tests {
 		use sp_runtime::bounded_vec;
 
 		use super::*;
-		use crate::{data_provider, VoterOf};
+		use crate::{data_provider, PageIndex, VoterOf};
 
 		pub struct DataProvider;
 		impl ElectionDataProvider for DataProvider {
 			type AccountId = AccountId;
 			type BlockNumber = BlockNumber;
 			type MaxVotesPerVoter = ConstU32<2>;
-			fn electing_voters(_: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+			fn electing_voters(
+				_: DataProviderBounds,
+				_remaining_pages: PageIndex,
+			) -> data_provider::Result<Vec<VoterOf<Self>>> {
 				Ok(vec![
 					(1, 10, bounded_vec![10, 20]),
 					(2, 20, bounded_vec![30, 20]),
@@ -273,7 +276,10 @@ mod tests {
 				])
 			}
 
-			fn electable_targets(_: DataProviderBounds) -> data_provider::Result<Vec<AccountId>> {
+			fn electable_targets(
+				_: DataProviderBounds,
+				_remaining_pages: PageIndex,
+			) -> data_provider::Result<Vec<AccountId>> {
 				Ok(vec![10, 20, 30])
 			}
 

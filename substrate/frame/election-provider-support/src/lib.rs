@@ -109,12 +109,12 @@
 //!         fn desired_targets() -> data_provider::Result<u32> {
 //!             Ok(1)
 //!         }
-//!         fn electing_voters(bounds: DataProviderBounds)
+//!         fn electing_voters(bounds: DataProviderBounds, _remaining_pages: PageIndex)
 //!           -> data_provider::Result<Vec<VoterOf<Self>>>
 //!         {
 //!             Ok(Default::default())
 //!         }
-//!         fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<AccountId>> {
+//!         fn electable_targets(bounds: DataProviderBounds, _remaining_pages: PageIndex) -> data_provider::Result<Vec<AccountId>> {
 //!             Ok(vec![10, 20, 30])
 //!         }
 //!         fn next_election_prediction(now: BlockNumber) -> BlockNumber {
@@ -126,6 +126,7 @@
 //!
 //! mod generic_election_provider {
 //!     use super::*;
+//!     use sp_runtime::traits::Zero;
 //!
 //!     pub struct GenericElectionProvider<T: Config>(std::marker::PhantomData<T>);
 //!
@@ -145,7 +146,8 @@
 //!     impl<T: Config> ElectionProvider for GenericElectionProvider<T> {
 //!         fn ongoing() -> bool { false }
 //!         fn elect() -> Result<BoundedSupportsOf<Self>, Self::Error> {
-//!             Self::DataProvider::electable_targets(DataProviderBounds::default())
+//!             // NOTE: this is a single block election provider, thus remaining pages is 0.
+//!             Self::DataProvider::electable_targets(DataProviderBounds::default(), Zero::zero())
 //!                 .map_err(|_| "failed to elect")
 //!                 .map(|t| bounded_vec![(t[0], Support::default())])
 //!         }
@@ -295,8 +297,10 @@ pub trait ElectionDataProvider {
 	///
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
-	fn electable_targets(bounds: DataProviderBounds)
-		-> data_provider::Result<Vec<Self::AccountId>>;
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		remaining_pages: PageIndex,
+	) -> data_provider::Result<Vec<Self::AccountId>>;
 
 	/// All the voters that participate in the election, thus "electing".
 	///
@@ -304,7 +308,10 @@ pub trait ElectionDataProvider {
 	///
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>>;
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		remaining_pages: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Self>>>;
 
 	/// The number of targets to elect.
 	///
@@ -676,6 +683,9 @@ pub type BoundedSupportsOf<E> = BoundedSupports<
 	<E as ElectionProviderBase>::AccountId,
 	<E as ElectionProviderBase>::MaxWinners,
 >;
+
+/// A page index for the multi-block elections pagination.
+pub type PageIndex = u32;
 
 sp_core::generate_feature_enabled_macro!(
 	runtime_benchmarks_enabled,

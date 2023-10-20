@@ -19,7 +19,7 @@ use super::*;
 use crate::{self as multi_phase, signed::GeometricDepositBase, unsigned::MinerConfig};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
-	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
+	data_provider, onchain, ElectionDataProvider, NposSolution, PageIndex, SequentialPhragmen,
 };
 pub use frame_support::{assert_noop, assert_ok, pallet_prelude::GetDefault};
 use frame_support::{
@@ -455,7 +455,10 @@ impl ElectionDataProvider for StakingMock {
 	type AccountId = AccountId;
 	type MaxVotesPerVoter = MaxNominations;
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_remaining_pages: PageIndex,
+	) -> data_provider::Result<Vec<AccountId>> {
 		let targets = Targets::get();
 
 		if !DataProviderAllowBadData::get() &&
@@ -467,7 +470,10 @@ impl ElectionDataProvider for StakingMock {
 		Ok(targets)
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_reamining_pages: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Runtime>>> {
 		let mut voters = Voters::get();
 
 		if !DataProviderAllowBadData::get() {
