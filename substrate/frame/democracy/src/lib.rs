@@ -529,15 +529,17 @@ pub mod pallet {
 		},
 	}
 
-	/// A reason for holding funds.
+	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
+		/// Funds are held as a deposit for submitting a proposal.
 		Proposal,
 	}
 
-	/// A reason for freezing funds.
+	/// A reason for this pallet placing a freeze on funds.
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
+		/// Funds are frozen when they are used to vote.
 		Vote,
 	}
 
