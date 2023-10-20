@@ -28,7 +28,6 @@ default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",
-	"sp-weights/std",
 	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
 	"scale-info/std",
@@ -36,7 +35,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-weights/std",
 ]
-runtime-benchmarks = [
-	"sp-runtime/runtime-benchmarks",
-]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
