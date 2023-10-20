@@ -546,7 +546,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
 		]),
 		validation_data.clone(),
@@ -599,8 +599,8 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 		]),
 		validation_data,
 		validation_code,
@@ -648,7 +648,7 @@ fn candidate_validation_retry_internal_errors() {
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		]),
@@ -697,7 +697,7 @@ fn candidate_validation_retry_panic_errors() {
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::Invalid(WasmInvalidCandidate::Panic("foo".into()))),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			// Throw another panic error.
 			Err(ValidationError::Invalid(WasmInvalidCandidate::Panic("bar".into()))),
 		]),

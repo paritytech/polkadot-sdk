@@ -1311,27 +1311,27 @@ pub(crate) mod tests {
 		);
 
 		result_tx_pvf_1_1
-			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_1.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_1_2
-			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_1_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 
 		result_tx_pvf_2
-			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_pvf_2.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 
@@ -1638,11 +1638,11 @@ pub(crate) mod tests {
 		// Send an error for the execution here, just so we can check the result receiver is still
 		// alive.
 		result_tx_3
-			.send(Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath)))
+			.send(Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)))
 			.unwrap();
 		assert_matches!(
 			result_rx_3.now_or_never().unwrap().unwrap(),
-			Err(ValidationError::Invalid(InvalidCandidate::AmbiguousWorkerDeath))
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 		);
 	}
 

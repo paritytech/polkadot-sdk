@@ -102,7 +102,7 @@ mod worker_intf;
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-pub use error::{InvalidCandidate, ValidationError};
+pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 pub use metrics::Metrics;
 pub use priority::Priority;

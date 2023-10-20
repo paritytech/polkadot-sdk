@@ -24,8 +24,8 @@
 #![warn(missing_docs)]
 
 use polkadot_node_core_pvf::{
-	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PrepareError,
-	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
+	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
+	PrepareError, PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -654,7 +654,7 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
 		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedError(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
@@ -747,9 +747,9 @@ trait ValidationBackend {
 			}
 
 			match validation_result {
-				Err(ValidationError::Invalid(WasmInvalidCandidate::AmbiguousWorkerDeath))
-					if num_awd_retries_left > 0 =>
-					num_awd_retries_left -= 1,
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::AmbiguousWorkerDeath,
+				)) if num_awd_retries_left > 0 => num_awd_retries_left -= 1,
 				Err(ValidationError::Invalid(WasmInvalidCandidate::Panic(_)))
 					if num_panic_retries_left > 0 =>
 					num_panic_retries_left -= 1,

@@ -21,20 +21,18 @@ use polkadot_node_core_pvf_common::error::{InternalValidationError, PrepareError
 pub enum ValidationError {
 	/// Deterministic preparation issue.
 	Preparation(PrepareError),
-	/// The error was raised because the candidate is invalid.
-	///
-	/// Whenever we are unsure if the error was due to the candidate or not, we must vote invalid.
+	/// The error was raised because the candidate is invalid. Should vote against when occurs.
 	Invalid(InvalidCandidate),
-	/// Preparation or execution issue caused by an internal condition.
+	/// Possibly transient issue that may resolve after retries. Should vote against if retries
+	/// fail.
+	PossiblyInvalid(PossiblyInvalidError),
+	/// Preparation or execution issue caused by an internal condition. Should not vote against.
 	Internal(InternalValidationError),
 }
 
-/// A description of an error raised during executing a PVF and can be attributed to the combination
-/// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
+/// Possibly transient issue that may resolve after retries.
 #[derive(Debug, Clone)]
-pub enum InvalidCandidate {
-	/// The failure is reported by the execution worker. The string contains the error message.
-	WorkerReportedError(String),
+pub enum PossiblyInvalidError {
 	/// The worker has died during validation of a candidate. That may fall in one of the following
 	/// categories, which we cannot distinguish programmatically:
 	///
@@ -55,6 +53,14 @@ pub enum InvalidCandidate {
 	/// performance of the validator. On the other hand, if the worker died because of (b) we would
 	/// have better chances to stop the attack.
 	AmbiguousWorkerDeath,
+}
+
+/// A description of an error raised during executing a PVF and can be attributed to the combination
+/// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
+#[derive(Debug, Clone)]
+pub enum InvalidCandidate {
+	/// The failure is reported by the execution worker. The string contains the error message.
+	WorkerReportedError(String),
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	HardTimeout,
 	/// A panic occurred and we can't be sure whether the candidate is really invalid or some
