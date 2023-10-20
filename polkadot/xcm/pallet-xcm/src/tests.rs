@@ -39,6 +39,8 @@ const PARA_ID: u32 = 2000;
 const INITIAL_BALANCE: u128 = 100;
 const SEND_AMOUNT: u128 = 10;
 
+mod execute_filter;
+
 #[test]
 fn report_outcome_notify_works() {
 	let balances = vec![
