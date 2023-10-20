@@ -33,6 +33,7 @@ struct JustificationOptimizer<Header: HeaderT> {
 	votes: BTreeSet<AuthorityId>,
 
 	extra_precommits: Vec<usize>,
+	duplicate_votes_ancestries_idxs: Vec<usize>,
 	redundant_votes_ancestries: BTreeSet<Header::Hash>,
 }
 
@@ -40,6 +41,11 @@ impl<Header: HeaderT> JustificationOptimizer<Header> {
 	fn optimize(self, justification: &mut GrandpaJustification<Header>) {
 		for invalid_precommit_idx in self.extra_precommits.into_iter().rev() {
 			justification.commit.precommits.remove(invalid_precommit_idx);
+		}
+		if !self.duplicate_votes_ancestries_idxs.is_empty() {
+			for idx in self.duplicate_votes_ancestries_idxs.iter().rev() {
+				justification.votes_ancestries.swap_remove(*idx);
+			}
 		}
 		if !self.redundant_votes_ancestries.is_empty() {
 			justification
@@ -50,6 +56,14 @@ impl<Header: HeaderT> JustificationOptimizer<Header> {
 }
 
 impl<Header: HeaderT> JustificationVerifier<Header> for JustificationOptimizer<Header> {
+	fn process_duplicate_votes_ancestries(
+		&mut self,
+		duplicate_votes_ancestries: Vec<usize>,
+	) -> Result<(), Error> {
+		self.duplicate_votes_ancestries_idxs = duplicate_votes_ancestries.to_vec();
+		Ok(())
+	}
+
 	fn process_redundant_vote(
 		&mut self,
 		precommit_idx: usize,
@@ -118,6 +132,7 @@ pub fn verify_and_optimize_justification<Header: HeaderT>(
 	let mut optimizer = JustificationOptimizer {
 		votes: BTreeSet::new(),
 		extra_precommits: vec![],
+		duplicate_votes_ancestries_idxs: vec![],
 		redundant_votes_ancestries: Default::default(),
 	};
 	optimizer.verify_justification(finalized_target, context, justification)?;
