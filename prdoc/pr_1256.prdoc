@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: `chain-spec`: getting ready for native-runtime-free world
+
+doc:
+  - audience: Node Dev
+    description: |
+      - [`ChainSpec::from_genesis`](https://github.com/paritytech/substrate/blob/3ef576eaeb3f42610e85daecc464961cf1295570/client/chain-spec/src/chain_spec.rs#L263) becomes deprecated in favor of [`ChainSpec::builder()`](https://github.com/paritytech/substrate/blob/20bee680ed098be7239cf7a6b804cd4de267983e/client/chain-spec/src/chain_spec.rs#L507), 
+      - The signature of [`ChainSpec::from_genesis`] method was chagned by extending it with `code` argument. 
+
+  - audience: Node Operator
+    description: |
+      Change in plain chain specification JSON file. `::genesis::runtime::system::code` key is removed and replaced with `::code` key. Raw version of chain spec remains unchanged.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates: []
+
+host_functions: []
