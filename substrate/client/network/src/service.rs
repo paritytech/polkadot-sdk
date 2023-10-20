@@ -1236,7 +1236,7 @@ where
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
 	/// Address scores for tracking external addresses.
-	address_scores: HashMap<Multiaddr, i32>,
+	address_scores: HashMap<Multiaddr, usize>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -1465,7 +1465,7 @@ where
 				// default (libp2p >= 0.52)
 				// TODO: remove this when/if AutoNAT is implemented.
 				let entry = self.address_scores.entry(observed_addr.clone()).or_default();
-				*entry += 1;
+				*entry = entry.saturating_add(1);
 
 				// at least two nodes have reported the same observed address and it can be
 				// added as an external address for the node
