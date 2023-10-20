@@ -55,6 +55,7 @@ use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::time::Duration;
 use thiserror::Error;
+use vstaging::get_disabled_validators_with_fallback;
 
 pub use metered;
 pub use polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
@@ -462,19 +463,9 @@ impl Validator {
 		let validators = validators?;
 
 		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-		// When `DisabledValidators` is released remove this `if`` and add a
-		// `request_disabled_validators` call in the `try_join!` call above
-		let disabled_validators = if has_required_runtime(
-			sender,
-			parent,
-			RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-		)
-		.await
-		{
-			request_disabled_validators(parent, sender).await.await??
-		} else {
-			vec![]
-		};
+		// When `DisabledValidators` is released remove this and add a
+		// `request_disabled_validators` call here
+		let disabled_validators = get_disabled_validators_with_fallback(sender, parent).await?;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
