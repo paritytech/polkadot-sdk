@@ -194,7 +194,7 @@ impl TransactAsset for Tuple {
 	fn deposit_asset(
 		what: &Asset,
 		who: &Location,
-		context: &Option<XcmContext>
+		context: Option<&XcmContext>
 	) -> XcmResult {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {

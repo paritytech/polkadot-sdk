@@ -14,37 +14,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various implementations and utilities for matching and filtering `MultiLocation` and
-//! `InteriorMultiLocation` types.
+//! Various implementations and utilities for matching and filtering `Location` and
+//! `InteriorLocation` types.
 
 use frame_support::traits::{Contains, Get};
-use xcm::latest::{InteriorMultiLocation, MultiLocation, NetworkId};
+use xcm::latest::{InteriorLocation, Location, NetworkId};
 
-/// An implementation of `Contains` that checks for `MultiLocation` or
-/// `InteriorMultiLocation` if starts with the provided type `T`.
+/// An implementation of `Contains` that checks for `Location` or
+/// `InteriorLocation` if starts with the provided type `T`.
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiLocation>> Contains<MultiLocation> for StartsWith<T> {
-	fn contains(t: &MultiLocation) -> bool {
+impl<T: Get<Location>> Contains<Location> for StartsWith<T> {
+	fn contains(t: &Location) -> bool {
 		t.starts_with(&T::get())
 	}
 }
-impl<T: Get<InteriorMultiLocation>> Contains<InteriorMultiLocation> for StartsWith<T> {
-	fn contains(t: &InteriorMultiLocation) -> bool {
+impl<T: Get<InteriorLocation>> Contains<InteriorLocation> for StartsWith<T> {
+	fn contains(t: &InteriorLocation) -> bool {
 		t.starts_with(&T::get())
 	}
 }
 
-/// An implementation of `Contains` that checks for `MultiLocation` or
-/// `InteriorMultiLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
+/// An implementation of `Contains` that checks for `Location` or
+/// `InteriorLocation` if starts with expected `GlobalConsensus(NetworkId)` provided as type
 /// `T`.
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<NetworkId>> Contains<MultiLocation> for StartsWithExplicitGlobalConsensus<T> {
-	fn contains(location: &MultiLocation) -> bool {
+impl<T: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &Location) -> bool {
 		matches!(location.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
 	}
 }
-impl<T: Get<NetworkId>> Contains<InteriorMultiLocation> for StartsWithExplicitGlobalConsensus<T> {
-	fn contains(location: &InteriorMultiLocation) -> bool {
+impl<T: Get<NetworkId>> Contains<InteriorLocation> for StartsWithExplicitGlobalConsensus<T> {
+	fn contains(location: &InteriorLocation) -> bool {
 		matches!(location.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
 	}
 }

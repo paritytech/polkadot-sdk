@@ -41,14 +41,14 @@ pub trait Config: frame_system::Config {
 	/// `TransactAsset` is implemented.
 	type XcmConfig: XcmConfig;
 
-	/// A converter between a multi-location to a sovereign account.
+	/// A converter between a location to a sovereign account.
 	type AccountIdConverter: ConvertLocation<Self::AccountId>;
 
 	/// Helper that ensures successful delivery for XCM instructions which need `SendXcm`.
 	type DeliveryHelper: EnsureDelivery;
 
 	/// Does any necessary setup to create a valid destination for XCM messages.
-	/// Returns that destination's multi-location to be used in benchmarks.
+	/// Returns that destination's location to be used in benchmarks.
 	fn valid_destination() -> Result<Location, BenchmarkError>;
 
 	/// Worst case scenario for a holding account in this runtime.
@@ -98,7 +98,7 @@ pub fn new_executor<T: Config>(origin: Location) -> ExecutorOf<T> {
 	ExecutorOf::<T>::new(origin, [0; 32])
 }
 
-/// Build a multi-location from an account id.
+/// Build a location from an account id.
 fn account_id_junction<T: frame_system::Config>(index: u32) -> Junction {
 	let account: T::AccountId = account("account", index, SEED);
 	let mut encoded = account.encode();
@@ -121,21 +121,21 @@ pub trait EnsureDelivery {
 	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
 	/// channels ...). Returns:
 	/// - possible `FeesMode` which is expected to be set to executor
-	/// - possible `MultiAssets` which are expected to be subsume to the Holding Register
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
 	fn ensure_successful_delivery(
-		origin_ref: &MultiLocation,
-		dest: &MultiLocation,
+		origin_ref: &Location,
+		dest: &Location,
 		fee_reason: FeeReason,
-	) -> (Option<FeesMode>, Option<MultiAssets>);
+	) -> (Option<FeesMode>, Option<Assets>);
 }
 
 /// `()` implementation does nothing which means no special requirements for environment.
 impl EnsureDelivery for () {
 	fn ensure_successful_delivery(
-		_origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		_origin_ref: &Location,
+		_dest: &Location,
 		_fee_reason: FeeReason,
-	) -> (Option<FeesMode>, Option<MultiAssets>) {
+	) -> (Option<FeesMode>, Option<Assets>) {
 		// doing nothing
 		(None, None)
 	}

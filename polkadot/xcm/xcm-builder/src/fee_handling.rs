@@ -31,17 +31,17 @@ pub struct XcmFeesToAccount<XcmConfig, WaivedLocations, AccountId, ReceiverAccou
 );
 impl<
 		XcmConfig: xcm_executor::Config,
-		WaivedLocations: Contains<MultiLocation>,
+		WaivedLocations: Contains<Location>,
 		AccountId: Clone + Into<[u8; 32]>,
 		ReceiverAccount: Get<Option<AccountId>>,
 	> FeeManager for XcmFeesToAccount<XcmConfig, WaivedLocations, AccountId, ReceiverAccount>
 {
-	fn is_waived(origin: Option<&MultiLocation>, _: FeeReason) -> bool {
+	fn is_waived(origin: Option<&Location>, _: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		WaivedLocations::contains(loc)
 	}
 
-	fn handle_fee(fees: MultiAssets, context: Option<&XcmContext>) {
+	fn handle_fee(fees: Assets, context: Option<&XcmContext>) {
 		if let Some(receiver) = ReceiverAccount::get() {
 			let dest = AccountId32 { network: None, id: receiver.into() }.into();
 			for asset in fees.into_inner() {

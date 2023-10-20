@@ -49,8 +49,8 @@ pub struct NoPriceForMessageDelivery<Id>(PhantomData<Id>);
 impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 	type Id = Id;
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
@@ -160,7 +160,7 @@ pub struct ToParachainDeliveryHelper<
 #[cfg(feature = "runtime-benchmarks")]
 impl<
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<MultiAsset>>,
+		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
 		ToParachainHelper: EnsureForParachain,
@@ -174,10 +174,10 @@ impl<
 	>
 {
 	fn ensure_successful_delivery(
-		origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		origin_ref: &Location,
+		_dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,

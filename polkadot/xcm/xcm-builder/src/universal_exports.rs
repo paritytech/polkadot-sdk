@@ -125,21 +125,21 @@ pub struct NetworkExportTableItem {
 	/// If `Some`, the requested remote location must be equal to one of the items in the vector.
 	/// These are locations in the remote network.
 	/// If `None`, then the check is skipped.
-	pub remote_location_filter: Option<Vec<InteriorMultiLocation>>,
+	pub remote_location_filter: Option<Vec<InteriorLocation>>,
 	/// Locally-routable bridge with bridging capabilities to the `remote_network` and
 	/// `remote_location`. See [`ExporterFor`] for more details.
-	pub bridge: MultiLocation,
+	pub bridge: Location,
 	/// The local payment.
 	/// See [`ExporterFor`] for more details.
-	pub payment: Option<MultiAsset>,
+	pub payment: Option<Asset>,
 }
 
 impl NetworkExportTableItem {
 	pub fn new(
 		remote_network: NetworkId,
-		remote_location_filter: Option<Vec<InteriorMultiLocation>>,
-		bridge: MultiLocation,
-		payment: Option<MultiAsset>,
+		remote_location_filter: Option<Vec<InteriorLocation>>,
+		bridge: Location,
+		payment: Option<Asset>,
 	) -> Self {
 		Self { remote_network, remote_location_filter, bridge, payment }
 	}
@@ -583,15 +583,15 @@ mod tests {
 	fn network_export_table_works() {
 		frame_support::parameter_types! {
 			pub NetworkA: NetworkId = ByGenesis([0; 32]);
-			pub Parachain1000InNetworkA: InteriorMultiLocation = X1(Parachain(1000));
-			pub Parachain2000InNetworkA: InteriorMultiLocation = X1(Parachain(2000));
+			pub Parachain1000InNetworkA: InteriorLocation = [Parachain(1000)].into();
+			pub Parachain2000InNetworkA: InteriorLocation = [Parachain(2000)].into();
 
 			pub NetworkB: NetworkId = ByGenesis([1; 32]);
 
-			pub BridgeToALocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
-			pub BridgeToBLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(4321)));
+			pub BridgeToALocation: Location = Location::new(1, [Parachain(1234)]);
+			pub BridgeToBLocation: Location = Location::new(1, [Parachain(4321)]);
 
-			pub PaymentForNetworkAAndParachain2000: MultiAsset = (MultiLocation::parent(), 150).into();
+			pub PaymentForNetworkAAndParachain2000: Asset = (Location::parent(), 150).into();
 
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.

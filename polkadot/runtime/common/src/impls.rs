@@ -109,7 +109,7 @@ pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
 	V3 {
 		/// The (relative) location in which the asset ID is meaningful.
-		location: xcm::v3::Location,
+		location: xcm::v3::MultiLocation,
 		/// The asset's ID.
 		asset_id: xcm::v3::AssetId,
 	},

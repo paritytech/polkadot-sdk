@@ -88,9 +88,9 @@ impl DescribeLocation for DescribeAccountKey20Terminal {
 pub struct DescribeTreasuryVoiceTerminal;
 
 impl DescribeLocation for DescribeTreasuryVoiceTerminal {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
-		match (l.parents, &l.interior) {
-			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
+	fn describe_location(location: &Location) -> Option<Vec<u8>> {
+		match location.unpack() {
+			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
 				Some((b"Treasury", b"Voice").encode()),
 			_ => None,
 		}
@@ -338,12 +338,9 @@ pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
 impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-		match *location {
-			MultiLocation {
-				parents: 0,
-				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} => Some((TreasuryAccount::get().into() as [u8; 32]).into()),
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(0,	[Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => Some((TreasuryAccount::get().into() as [u8; 32]).into()),
 			_ => None,
 		}
 	}
@@ -952,9 +949,9 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_from_remote_para_treasury() {
-		let relay_treasury_to_para_location = MultiLocation {
+		let relay_treasury_to_para_location = Location {
 			parents: 1,
-			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			interior: [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
 		};
 		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
 			&relay_treasury_to_para_location,
@@ -969,12 +966,12 @@ mod tests {
 			actual_description
 		);
 
-		let para_to_para_treasury_location = MultiLocation {
+		let para_to_para_treasury_location = Location {
 			parents: 1,
-			interior: X2(
+			interior: [
 				Parachain(1001),
 				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
-			),
+			],
 		};
 		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
 			&para_to_para_treasury_location,
@@ -992,10 +989,7 @@ mod tests {
 
 	#[test]
 	fn local_account_convert_on_para_from_relay_treasury() {
-		let location = MultiLocation {
-			parents: 0,
-			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-		};
+		let location = Location::new(0,	[Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 
 		parameter_types! {
 			pub TreasuryAccountId: AccountId = AccountId::new([42u8; 32]);

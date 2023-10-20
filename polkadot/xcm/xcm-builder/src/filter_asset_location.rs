@@ -43,17 +43,17 @@ impl<T: Get<(AssetFilter, Location)>> ContainsPair<Asset, Location> for Case<T> 
 /// Accepts a tuple `(location, assets)` if the `location` is contained in the `Contains`
 /// implementation of the given `Location` and if every asset from `assets` matches at least one of
 /// the `AssetFilter` instances provided by the `Get` implementation of `AssetFilters`.
-pub struct LocationWithAssetFilters<Location, AssetFilters>(
-	sp_std::marker::PhantomData<(Location, AssetFilters)>,
+pub struct LocationWithAssetFilters<LocationFilter, AssetFilters>(
+	sp_std::marker::PhantomData<(LocationFilter, AssetFilters)>,
 );
-impl<Location: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
-	Contains<(Location, Vec<Asset>)> for LocationWithAssetFilters<Location, AssetFilters>
+impl<LocationFilter: Contains<Location>, AssetFilters: Get<Vec<AssetFilter>>>
+	Contains<(Location, Vec<Asset>)> for LocationWithAssetFilters<LocationFilter, AssetFilters>
 {
 	fn contains((location, assets): &(Location, Vec<Asset>)) -> bool {
 		log::trace!(target: "xcm::contains", "LocationWithAssetFilters location: {:?}, assets: {:?}", location, assets);
 
 		// `location` must match the `Location` filter.
-		if !Location::contains(location) {
+		if !LocationFilter::contains(location) {
 			return false
 		}
 
