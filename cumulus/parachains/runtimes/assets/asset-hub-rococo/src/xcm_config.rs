@@ -58,7 +58,6 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
-use crate::xcm_config::bridging::to_rococo::EthereumNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_primitives_core::ParaId;
 
@@ -623,11 +622,8 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
-	type UniversalAliases = (
-		bridging::to_wococo::UniversalAliases,
-		bridging::to_rococo::UniversalAliases,
-		GlobalConsensus(EthereumNetwork::get()),
-	);
+	type UniversalAliases =
+		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -682,6 +678,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmReserveTransferFilter = (
 		LocationWithAssetFilters<WithParentsZeroOrOne, AllAssets>,
 		bridging::to_rococo::AllowedReserveTransferAssets,
+		bridging::to_rococo::AllowedReserveTransferAssetsEthereum,
 		bridging::to_wococo::AllowedReserveTransferAssets,
 	);
 
@@ -923,9 +920,10 @@ pub mod bridging {
 				),
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![LocationFilter::default()
-					.add_equals(EthereumLocation::get().interior.split_global().expect("invalid configuration for Ethereum").1)]),
-					BridgeHubRococo::get(),
+					Some(sp_std::vec![
+						EthereumLocation::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
+					]),
+					SiblingBridgeHub::get(), // TODO check
 					None // TODO check
 				),
 			];
@@ -946,7 +944,8 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
-					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
+					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get())),
+					(SiblingBridgeHub::get(), GlobalConsensus(EthereumNetwork::get())), // TODO check
 				]
 			);
 		}
@@ -975,13 +974,8 @@ pub mod bridging {
 			AllowedReserveTransferAssetsToAssetHubRococo,
 		>;
 
-		pub type AllowedReserveTransferAssetsToEthereum = LocationWithAssetFilters<
-			StartsWithExplicitGlobalConsensus<EthereumLocation::get()>, // TODO check
-			AllowedReserveTransferAssetsToEthereum,
-		>;
-
-		pub type AllowedReserveTransferAssetsToEthereumGateway = LocationWithAssetFilters<
-			StartsWithExplicitGlobalConsensus<EthereumGatewayLocation::get()>, // TODO check
+		pub type AllowedReserveTransferAssetsEthereum = LocationWithAssetFilters<
+			StartsWithExplicitGlobalConsensus<EthereumNetwork>, // TODO check
 			AllowedReserveTransferAssetsToEthereum,
 		>;
 
