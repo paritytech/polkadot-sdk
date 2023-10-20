@@ -68,6 +68,9 @@ where
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
 	/// Get all proposal deposits from the old storage.
+	///
+	/// # Paramaters
+	/// - `weight`: The weight to be updated with the weight consumed by this call.
 	pub fn get_deposits(weight: &mut Weight) -> BTreeMap<AccountIdOf<T>, OldCurrency::Balance> {
 		old::DepositOf::<T>::iter()
 			.flat_map(|(_prop_index, (accounts, balance))| {
@@ -200,12 +203,12 @@ where
 			return weight
 		}
 
-		// convert reserved deposit to held deposit
+		// Convert reserved deposit to held deposit.
 		Self::get_deposits(&mut weight).into_iter().for_each(|(depositor, amount)| {
 			weight.saturating_accrue(Self::translate_reserve_to_hold(&depositor, amount));
 		});
 
-		// convert locked deposit to frozen deposit
+		// Convert locked deposit to frozen deposit.
 		old::VotingOf::<T>::iter()
 			.map(|(account_id, voting)| (account_id, voting.locked_balance()))
 			.for_each(|(account_id, amount)| {
