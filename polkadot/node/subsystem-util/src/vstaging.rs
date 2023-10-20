@@ -43,12 +43,10 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 	)
 	.await
 	{
-		let r = request_disabled_validators(relay_parent, sender)
+		request_disabled_validators(relay_parent, sender)
 			.await
 			.await
-			.map_err(Error::Oneshot)??;
-
-		r
+			.map_err(Error::Oneshot)??
 	} else {
 		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
 		vec![]
