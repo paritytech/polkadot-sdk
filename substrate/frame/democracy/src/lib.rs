@@ -532,14 +532,17 @@ pub mod pallet {
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Funds are held as a deposit for submitting a proposal.
+		/// Funds are deposited when a proposal is submitted and are returned when the proposal is
+		/// tabled. If the proposal is vetoed and blacklisted, the deposit is slashed.
 		Proposal,
 	}
 
 	/// A reason for this pallet placing a freeze on funds.
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
-		/// Funds are frozen when they are used to vote.
+		/// Funds are frozen upon casting a vote. They are subsequently unfrozen either
+		/// when the vote is cancelled or after the specified lock period has elapsed (see
+		/// [`convictionn::Conviction`]).
 		Vote,
 	}
 
