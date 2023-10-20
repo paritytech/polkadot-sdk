@@ -28,6 +28,7 @@ seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
 asset-hub-polkadot-runtime = { path = "../parachains/runtimes/assets/asset-hub-polkadot" }
 asset-hub-kusama-runtime = { path = "../parachains/runtimes/assets/asset-hub-kusama" }
 asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
+staking-westend-runtime = { path = "../parachains/runtimes/staking/staking-westend" }
 collectives-polkadot-runtime = { path = "../parachains/runtimes/collectives/collectives-polkadot" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
