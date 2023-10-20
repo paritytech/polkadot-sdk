@@ -118,7 +118,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
-use util::{has_required_runtime, request_disabled_validators};
+use util::vstaging::get_disabled_validators_with_fallback;
 
 mod error;
 
@@ -1027,27 +1027,12 @@ async fn construct_per_relay_parent_state<Context>(
 		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
 
 	// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this `if`
-	// statement, add `request_from_runtime` call to the `try_join!` call above and use
-	// `try_runtime_api!` to get `disabled_validators`
-	let disabled_validators = if has_required_runtime(
-		ctx.sender(),
-		parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		let disabled_validators = request_disabled_validators(parent, ctx.sender())
-			.await
-			.await
-			.map_err(Error::JoinMultiple)?;
-
-		let disabled_validators = try_runtime_api!(disabled_validators);
-		disabled_validators
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
+	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
+	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
+	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
+	let disabled_validators = get_disabled_validators_with_fallback(ctx.sender(), parent)
+		.await
+		.map_err(Error::UtilError)?;
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator = match Validator::construct(

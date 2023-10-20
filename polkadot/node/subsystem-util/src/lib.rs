@@ -79,6 +79,9 @@ pub mod inclusion_emulator;
 /// Convenient and efficient runtime info access.
 pub mod runtime;
 
+/// Helpers for working with unreleased runtime calls
+pub mod vstaging;
+
 /// Nested message sending
 ///
 /// Useful for having mostly synchronous code, with submodules spawning short lived asynchronous
