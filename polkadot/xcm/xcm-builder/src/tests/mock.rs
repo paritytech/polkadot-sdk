@@ -254,8 +254,12 @@ pub fn clear_assets(who: impl Into<Location>) {
 
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
-	fn deposit_asset(what: &Asset, who: &Location, _context: &XcmContext) -> Result<(), XcmError> {
-		add_asset(who.clone(), what.clone());
+	fn deposit_asset(
+		what: &Asset,
+		who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), XcmError> {
+		add_asset(*who, what.clone());
 		Ok(())
 	}
 
@@ -522,7 +526,7 @@ impl FeeManager for TestFeeManager {
 	fn is_waived(_: Option<&Location>, r: FeeReason) -> bool {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
-	fn handle_fee(_: Assets) {}
+	fn handle_fee(_: Assets, _: Option<&XcmContext>) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

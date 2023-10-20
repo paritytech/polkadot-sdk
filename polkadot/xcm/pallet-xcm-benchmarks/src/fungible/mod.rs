@@ -44,7 +44,7 @@ pub mod pallet {
 		type TrustedReserve: Get<Option<(xcm::latest::Location, xcm::latest::Asset)>>;
 
 		/// Give me a fungible asset that your asset transactor is going to accept.
-		fn get_multi_asset() -> xcm::latest::Asset;
+		fn get_asset() -> xcm::latest::Asset;
 	}
 
 	#[pallet::pallet]

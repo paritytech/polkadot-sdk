@@ -403,16 +403,17 @@ where
 #[cfg(test)]
 mod tests {
 	use crate::{
-		local_and_foreign_assets::LocationConverter, matching::StartsWith,
-		AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
+		local_and_foreign_assets::LocationConverter, AssetIdForPoolAssetsConvert,
+		AssetIdForTrustBackedAssetsConvert,
 	};
 	use frame_support::traits::EverythingBut;
 	use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
+	use xcm_builder::StartsWith;
 
 	#[test]
-	fn test_multi_location_converter_works() {
+	fn test_location_converter_works() {
 		frame_support::parameter_types! {
 			pub const WestendLocation: Location = Location::parent();
 			pub TrustBackedAssetsPalletLocation: Location = PalletInstance(50_u8).into();

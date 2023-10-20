@@ -148,11 +148,14 @@ fn salary_pay_over_xcm_works() {
 		let expected_message: Xcm<RuntimeCall> = Xcm::<RuntimeCall>(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(42)).into(),
-				query_id: 1,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination: (Parent, Parachain(42)).into(),
+					query_id: 1,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				assets: (AssetHubAssetId::get(), FixedSalaryAmount::get()).into(),
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),

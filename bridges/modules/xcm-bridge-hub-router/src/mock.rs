@@ -27,7 +27,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_builder::NetworkExportTable;
+use xcm_builder::{NetworkExportTable, NetworkExportTableItem};
 
 pub type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -53,8 +53,15 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetworkId::get()), Parachain(1000)].into();
 	pub SiblingBridgeHubLocation: Location = ParentThen([Parachain(1002)].into()).into();
 	pub BridgeFeeAsset: AssetId = Location::parent().into();
-	pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)>
-		= vec![(BridgedNetworkId::get(), SiblingBridgeHubLocation::get(), Some((BridgeFeeAsset::get(), BASE_FEE).into()))];
+	pub BridgeTable: Vec<NetworkExportTableItem>
+		= vec![
+			NetworkExportTableItem::new(
+				BridgedNetworkId::get(),
+				None,
+				SiblingBridgeHubLocation::get(),
+				Some((BridgeFeeAsset::get(), BASE_FEE).into())
+			)
+		];
 }
 
 impl frame_system::Config for TestRuntime {

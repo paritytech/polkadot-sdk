@@ -26,13 +26,13 @@ use sp_std::prelude::*;
 use xcm::{latest::prelude::*, DoubleEncoded};
 
 trait WeighAssets {
-	fn weigh_multi_assets(&self, weight: Weight) -> Weight;
+	fn weigh_assets(&self, weight: Weight) -> Weight;
 }
 
 const MAX_ASSETS: u64 = 100;
 
 impl WeighAssets for AssetFilter {
-	fn weigh_multi_assets(&self, weight: Weight) -> Weight {
+	fn weigh_assets(&self, weight: Weight) -> Weight {
 		match self {
 			Self::Definite(assets) => weight.saturating_mul(assets.inner().iter().count() as u64),
 			Self::Wild(asset) => match asset {
@@ -52,7 +52,7 @@ impl WeighAssets for AssetFilter {
 }
 
 impl WeighAssets for Assets {
-	fn weigh_multi_assets(&self, weight: Weight) -> Weight {
+	fn weigh_assets(&self, weight: Weight) -> Weight {
 		weight.saturating_mul(self.inner().iter().count() as u64)
 	}
 }
@@ -60,21 +60,13 @@ impl WeighAssets for Assets {
 pub struct BridgeHubRococoXcmWeight<Call>(core::marker::PhantomData<Call>);
 impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	// Currently there is no trusted reserve (`IsReserve = ()`),
-	// but we need this hack for `pallet_xcm::reserve_transfer_assets`
-	// (TODO) fix https://github.com/paritytech/polkadot/pull/7424
-	// (TODO) fix https://github.com/paritytech/polkadot/pull/7546
-	fn reserve_asset_deposited(_assets: &Assets) -> Weight {
-		// TODO: if we change `IsReserve = ...` then use this line...
-		// TODO: or if remote weight estimation is fixed, then remove
-		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
-		hardcoded_weight.min(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
+	fn reserve_asset_deposited(assets: &Assets) -> Weight {
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
 	}
 	fn query_response(
 		_query_id: &u64,
@@ -85,10 +77,10 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::query_response()
 	}
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::transfer_asset())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_asset())
 	}
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::transfer_reserve_asset())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_reserve_asset())
 	}
 	fn transact(
 		_origin_type: &OriginKind,
@@ -124,13 +116,10 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	}
 
 	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
-		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
 		Weight::MAX
@@ -140,10 +129,10 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 		_reserve: &Location,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
@@ -176,10 +165,10 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::unsubscribe_version()
 	}
 	fn burn_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::burn_asset())
+		assets.weigh_assets(XcmGeneric::<Runtime>::burn_asset())
 	}
 	fn expect_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::expect_asset())
+		assets.weigh_assets(XcmGeneric::<Runtime>::expect_asset())
 	}
 	fn expect_origin(_origin: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::expect_origin()

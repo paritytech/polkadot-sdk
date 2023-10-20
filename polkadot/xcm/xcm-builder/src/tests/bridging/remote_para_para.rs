@@ -24,8 +24,14 @@ parameter_types! {
 	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1000)].into();
 	pub ParaBridgeUniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1)].into();
 	pub RemoteParaBridgeUniversalLocation: Junctions = [GlobalConsensus(Remote::get()), Parachain(1)].into();
-	pub BridgeTable: Vec<(NetworkId, Location, Option<Asset>)>
-		= vec![(Remote::get(), (Parent, Parachain(1)).into(), None)];
+	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
+		NetworkExportTableItem::new(
+			Remote::get(),
+			None,
+			(Parent, Parachain(1)).into(),
+			None
+		)
+	];
 }
 type TheBridge = TestBridge<
 	BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteParaBridgeUniversalLocation, ()>,

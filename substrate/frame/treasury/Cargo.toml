@@ -17,6 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
+docify = "0.2.0"
 impl-trait-for-tuples = "0.2.2"
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"], optional = true }
@@ -26,11 +27,12 @@ frame-system = { path = "../system", default-features = false}
 pallet-balances = { path = "../balances", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}
 sp-std = { path = "../../primitives/std", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false, optional = true}
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
 pallet-utility = { path = "../utility" }
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = [ "std" ]
@@ -43,12 +45,13 @@ std = [
 	"pallet-utility/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
+	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
 runtime-benchmarks = [
+	"dep:sp-core",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

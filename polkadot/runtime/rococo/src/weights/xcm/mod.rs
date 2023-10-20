@@ -44,14 +44,14 @@ impl From<&Asset> for AssetTypes {
 }
 
 trait WeighAssets {
-	fn weigh_multi_assets(&self, balances_weight: Weight) -> Weight;
+	fn weigh_assets(&self, balances_weight: Weight) -> Weight;
 }
 
 // Rococo only knows about one asset, the balances pallet.
 const MAX_ASSETS: u64 = 1;
 
 impl WeighAssets for AssetFilter {
-	fn weigh_multi_assets(&self, balances_weight: Weight) -> Weight {
+	fn weigh_assets(&self, balances_weight: Weight) -> Weight {
 		match self {
 			Self::Definite(assets) => assets
 				.inner()
@@ -73,7 +73,7 @@ impl WeighAssets for AssetFilter {
 }
 
 impl WeighAssets for Assets {
-	fn weigh_multi_assets(&self, balances_weight: Weight) -> Weight {
+	fn weigh_assets(&self, balances_weight: Weight) -> Weight {
 		self.inner()
 			.into_iter()
 			.map(|m| <AssetTypes as From<&Asset>>::from(m))
@@ -88,14 +88,13 @@ impl WeighAssets for Assets {
 pub struct RococoXcmWeight<RuntimeCall>(core::marker::PhantomData<RuntimeCall>);
 impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::withdraw_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::withdraw_asset())
 	}
 	fn reserve_asset_deposited(assets: &Assets) -> Weight {
-		// Rococo doesn't support ReserveAssetDeposited, so this benchmark has a default weight
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::reserve_asset_deposited())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::receive_teleported_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::receive_teleported_asset())
 	}
 	fn query_response(
 		_query_id: &u64,
@@ -106,10 +105,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::query_response()
 	}
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::transfer_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::transfer_asset())
 	}
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::transfer_reserve_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::transfer_reserve_asset())
 	}
 	fn transact(
 		_origin_kind: &OriginKind,
@@ -145,10 +144,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	}
 
 	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::deposit_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::deposit_reserve_asset())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::deposit_reserve_asset())
 	}
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
 		// Rococo does not currently support exchange asset operations
@@ -159,10 +158,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		_reserve: &Location,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::<Runtime>::initiate_teleport())
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_teleport())
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
@@ -195,10 +194,10 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::unsubscribe_version()
 	}
 	fn burn_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::burn_asset())
+		assets.weigh_assets(XcmGeneric::<Runtime>::burn_asset())
 	}
 	fn expect_asset(assets: &Assets) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::expect_asset())
+		assets.weigh_assets(XcmGeneric::<Runtime>::expect_asset())
 	}
 	fn expect_origin(_origin: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::expect_origin()
@@ -274,5 +273,5 @@ fn all_counted_has_a_sane_weight_upper_limit() {
 	let assets = AssetFilter::Wild(AllCounted(4294967295));
 	let weight = Weight::from_parts(1000, 1000);
 
-	assert_eq!(assets.weigh_multi_assets(weight), weight * MAX_ASSETS);
+	assert_eq!(assets.weigh_assets(weight), weight * MAX_ASSETS);
 }

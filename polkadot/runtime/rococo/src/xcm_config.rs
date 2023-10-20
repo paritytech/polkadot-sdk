@@ -18,7 +18,7 @@
 
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 
 use crate::governance::StakingAdmin;
@@ -29,7 +29,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::currency::CENTS;
+use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
@@ -43,7 +43,7 @@ use xcm_builder::{
 	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
 	MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeesToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -53,6 +53,7 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	pub TreasuryAccount: Option<AccountId> = Some(Treasury::account_id());
 }
 
 pub type LocationConverter = (
@@ -100,22 +101,22 @@ parameter_types! {
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
 
+pub type PriceForChildParachainDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>;
+
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-pub type XcmRouter = WithUniqueTopic<(
+pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<
-		Runtime,
-		XcmPallet,
-		ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>,
-	>,
-)>;
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
+>;
 
 parameter_types! {
 	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
-	pub AssetHub: Location = Parachain(1000).into_location();
-	pub Contracts: Location = Parachain(1002).into_location();
-	pub Encointer: Location = Parachain(1003).into_location();
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Contracts: Location = Parachain(CONTRACTS_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
 	pub Tick: Location = Parachain(100).into_location();
 	pub Trick: Location = Parachain(110).into_location();
 	pub Track: Location = Parachain(120).into_location();
@@ -125,6 +126,7 @@ parameter_types! {
 	pub RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
 	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
 	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	pub RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -135,6 +137,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForAssetHub>,
 	xcm_builder::Case<RocForContracts>,
 	xcm_builder::Case<RocForEncointer>,
+	xcm_builder::Case<RocForBridgeHub>,
 );
 
 pub struct OnlyParachains;
@@ -152,7 +155,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 	AllowKnownQueryResponses<XcmPallet>,
 	WithComputedOrigin<
 		(
-			// If the message is one that immediately attemps to pay for execution, then allow it.
+			// If the message is one that immediately attempts to pay for execution, then allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Messages coming from system parachains need not pay for execution.
 			AllowExplicitUnpaidExecutionFrom<IsChildSystemParachain<ParaId>>,
@@ -189,7 +192,7 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = XcmFeesToAccount<Self, SystemParachains, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
@@ -207,7 +210,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<Location> = Some(Parachain(1000).into());
+	pub ReachableDest: Option<Location> = Some(Parachain(ASSET_HUB_ID).into());
 }
 
 /// Type to convert an `Origin` type value into a `Location` value which represents an interior

@@ -21,11 +21,11 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
-use crate::matching::{Equals, LocalLocationPattern, ParentLocation, StartsWith};
-use frame_support::traits::EverythingBut;
+use crate::matching::{LocalLocationPattern, ParentLocation};
+use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
 use xcm::prelude::Location;
-use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId};
+use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
@@ -90,9 +90,9 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::matching::StartsWithExplicitGlobalConsensus;
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::latest::prelude::*;
+	use xcm_builder::StartsWithExplicitGlobalConsensus;
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
 	#[test]
@@ -200,15 +200,15 @@ mod tests {
 			(ma_1000(2, [PalletInstance(13)].into()), Err(MatchError::AssetNotHandled)),
 		];
 
-		for (multi_asset, expected_result) in test_data {
+		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&multi_asset),
-				expected_result, "multi_asset: {:?}", multi_asset);
+				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset),
+				expected_result, "asset: {:?}", asset);
 		}
 	}
 
 	#[test]
-	fn multi_location_converted_concrete_id_converter_works() {
+	fn location_converted_concrete_id_converter_works() {
 		frame_support::parameter_types! {
 			pub Parachain100Pattern: Location = Location::new(1, [Parachain(100)]);
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
@@ -303,14 +303,14 @@ mod tests {
 			),
 		];
 
-		for (multi_asset, expected_result) in test_data {
+		for (asset, expected_result) in test_data {
 			assert_eq!(
 				<Convert as MatchesFungibles<LocationForAssetId, u128>>::matches_fungibles(
-					&multi_asset
+					&asset
 				),
 				expected_result,
-				"multi_asset: {:?}",
-				multi_asset
+				"asset: {:?}",
+				asset
 			);
 		}
 	}
