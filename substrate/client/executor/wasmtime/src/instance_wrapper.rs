@@ -156,6 +156,9 @@ impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
 pub struct InstanceWrapper {
 	instance: Instance,
 	store: Store,
+	// NOTE: We want to decrement the instance counter *after* the store has been dropped
+	// to avoid a potential race condition, so this field must always be kept
+	// as the last field in the struct!
 	_release_instance_handle: ReleaseInstanceHandle,
 }
 
@@ -165,8 +168,8 @@ impl InstanceWrapper {
 		instance_pre: &InstancePre<StoreData>,
 		instance_counter: Arc<InstanceCounter>,
 	) -> Result<Self> {
-		let mut store = Store::new(engine, Default::default());
 		let _release_instance_handle = instance_counter.acquire_instance();
+		let mut store = Store::new(engine, Default::default());
 		let instance = instance_pre.instantiate(&mut store).map_err(|error| {
 			WasmError::Other(format!(
 				"failed to instantiate a new WASM module instance: {:#}",
