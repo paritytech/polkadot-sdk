@@ -408,12 +408,24 @@ impl<AllPallets: crate::traits::TryDecodeEntireStorage> crate::traits::OnRuntime
 	}
 
 	fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let decoded = AllPallets::try_decode_entire_state()?;
+		let decoded = match AllPallets::try_decode_entire_state() {
+			Ok(bytes) => bytes,
+			Err(err) => {
+				log::info!(
+					target: crate::LOG_TARGET,
+					"failed to decode the entire state: {}", err
+				);
+				// NOTE: This only supports static strings.
+				return Err("failed to decode a value from the storage".into())
+			}
+		};
+
 		log::info!(
 			target: crate::LOG_TARGET,
 			"decoded the entire state, total size = {} bytes",
 			decoded
 		);
+
 		Ok(())
 	}
 }

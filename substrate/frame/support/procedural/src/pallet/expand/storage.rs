@@ -849,11 +849,11 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
 			for #pallet_ident<#type_use_gen> #completed_where_clause
 			{
-				fn try_decode_entire_state() -> Result<usize, &'static str> {
+				fn try_decode_entire_state() -> Result<usize, #frame_support::traits::TryDecodeEntireStorageError> {
 					// simply delegate impl to a tuple of all storage items we have.
 					//
 					// NOTE: for now, we have to exclude storage items that are feature gated.
-					<( #( #storage_names ),*) as frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()
+					<( #( #storage_names ),*) as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()
 				}
 			}
 		)

@@ -126,5 +126,5 @@ pub use tx_pause::{TransactionPause, TransactionPauseError};
 mod try_runtime;
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{
-	Select as TryStateSelect, TryDecodeEntireStorage, TryState, UpgradeCheckSelect,
+	Select as TryStateSelect, TryDecodeEntireStorageError, TryDecodeEntireStorage, TryState, UpgradeCheckSelect,
 };
