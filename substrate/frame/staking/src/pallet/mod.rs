@@ -24,9 +24,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive,
-		DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
-		OnUnbalanced, UnixTime,
+		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive, DefensiveSaturating,
+		EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -91,7 +90,11 @@ pub mod pallet {
 				Self::AccountId,
 				Moment = BlockNumberFor<Self>,
 				Balance = Self::CurrencyBalance,
-			> + FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason, Balance = Self::CurrencyBalance>;
+			> + FunHoldMutate<
+				Self::AccountId,
+				Reason = Self::RuntimeHoldReason,
+				Balance = Self::CurrencyBalance,
+			>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -693,7 +696,10 @@ pub mod pallet {
 	/// A reason for staking pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// These funds are held for delegation to another account.
+		/// Funds held for delegation to another account.
+		// This helps us differentiate the locks used for direct staking to the held funds for
+		// delegation based staking. In future, we will move to fungible hold for direct staking
+		// as well but with a different HoldReason variant.
 		#[codec(index = 0)]
 		Delegating,
 	}

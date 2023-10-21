@@ -24,22 +24,13 @@
 use crate::{BalanceOf, Config, Delegatees, Delegators, Error, HoldReason};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive,
+	defensive, defensive_assert,
 	dispatch::DispatchResult,
 	ensure,
-	traits::{Currency, LockIdentifier, LockableCurrency},
+	traits::{Currency, fungible::MutateHold, tokens::Precision},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
-
-/// Lock identifier for funds delegated to another account.
-///
-/// This helps us differentiate the locks used for direct nomination and delegation based nomination
-/// and technically allows a direct nominator to be a delegator as well. We don't strictly need to
-/// support this but before delegation based staking were a thing, above was possible and we would
-/// like to keep things consistent and compatible once user of this pallet (NominationPools) moves
-/// to delegation based staking.
-const DELEGATING_ID: LockIdentifier = *b"delegate";
 
 /// An aggregate ledger of a delegator.
 ///
@@ -107,7 +98,6 @@ pub(crate) fn delegate<T: Config>(
 			}),
 	});
 
-	use frame_support::traits::fungible::MutateHold;
 	T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
 
 	Ok(())
@@ -148,7 +138,14 @@ pub(crate) fn withdraw<T: Config>(
 		},
 	})?;
 
-	T::Currency::remove_lock(DELEGATING_ID, &delegator);
+	let released = T::Currency::release(
+		&HoldReason::Delegating.into(),
+		&delegator,
+		value,
+		Precision::BestEffort,
+	)?;
+
+	defensive_assert!(released == value, "hold should have been released fully");
 
 	Ok(())
 }
