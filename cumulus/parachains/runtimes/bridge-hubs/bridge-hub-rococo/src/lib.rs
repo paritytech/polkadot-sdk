@@ -540,13 +540,13 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		// Bridge pallets at Rococo
-		[pallet_bridge_grandpa, BridgeWococoGrandpa]
-		[pallet_bridge_parachains, BridgeParachainsBench::<Runtime, bridge_common_config::BridgeParachainWococoInstance>]
-		[pallet_bridge_messages, BridgeMessagesBench::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>]
+		[pallet_bridge_grandpa, WococoFinality]
+		[pallet_bridge_parachains, WithinWococo]
+		[pallet_bridge_messages, RococoToWococo]
 		// Bridge pallets at Wococo
-		[pallet_bridge_grandpa, BridgeRococoGrandpa]
-		[pallet_bridge_parachains, BridgeParachainsBench::<Runtime, bridge_common_config::BridgeParachainRococoInstance>]
-		[pallet_bridge_messages, BridgeMessagesBench::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>]
+		[pallet_bridge_grandpa, RococoFinality]
+		[pallet_bridge_parachains, WithinRococo]
+		[pallet_bridge_messages, WococoToRococo]
 		// Bridge relayer pallets
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
@@ -823,9 +823,14 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
-			use pallet_bridge_parachains::benchmarking::Pallet as BridgeParachainsBench;
-			use pallet_bridge_messages::benchmarking::Pallet as BridgeMessagesBench;
 			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
+			// Change weight file names.
+			type WococoFinality = BridgeWococoGrandpa;
+			type RococoFinality = BridgeRococoGrandpa;
+			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
+			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
+			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -960,6 +965,13 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
+			type WococoFinality = BridgeWococoGrandpa;
+			type RococoFinality = BridgeRococoGrandpa;
+			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
+			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
+			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
+
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
 				prepare_message_proof_from_parachain,
@@ -967,7 +979,6 @@ impl_runtime_apis! {
 			};
 			use pallet_bridge_messages::benchmarking::{
 				Config as BridgeMessagesConfig,
-				Pallet as BridgeMessagesBench,
 				MessageDeliveryProofParams,
 				MessageProofParams,
 			};
@@ -1059,10 +1070,7 @@ impl_runtime_apis! {
 			}
 
 			use bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof;
-			use pallet_bridge_parachains::benchmarking::{
-				Config as BridgeParachainsConfig,
-				Pallet as BridgeParachainsBench,
-			};
+			use pallet_bridge_parachains::benchmarking::Config as BridgeParachainsConfig;
 			use pallet_bridge_relayers::benchmarking::{
 				Pallet as BridgeRelayersBench,
 				Config as BridgeRelayersConfig,
