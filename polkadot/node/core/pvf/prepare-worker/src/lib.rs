@@ -229,6 +229,7 @@ async fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
+	// Set a hard CPU time limit for the child process.
 	nix::sys::resource::setrlimit(
 		Resource::RLIMIT_CPU,
 		preparation_timeout.as_secs(),
@@ -273,52 +274,42 @@ async fn handle_child_process(
 	)
 	.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-	let outcome = thread::wait_for_threads(condvar);
+	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
+	// simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
+	let result = prepare_thread.join().unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-	match outcome {
-		WaitOutcome::Finished => {
-			let result =
-				prepare_thread.join().unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
-			match result {
-				Ok(ok) => {
-					cfg_if::cfg_if! {
-						if #[cfg(target_os = "linux")] {
-							let (artifact, max_rss) = ok;
-						} else {
-							let artifact = ok;
-						}
-					}
-
-					// Stop the memory stats worker and get its observed memory stats.
-					#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-					let memory_tracker_stats =
-						get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
-
-					let memory_stats = MemoryStats {
-						#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-						memory_tracker_stats,
-						#[cfg(target_os = "linux")]
-						max_rss: extract_max_rss_stat(max_rss, process::id()),
-					};
-
-					let response: Result<Response, PrepareError> =
-						Ok(Response { artifact, memory_stats });
-
-					pipe_write
-						.write_all(response.encode().as_slice())
-						.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
-				},
-				Err(err) => {
-					pipe_write
-						.write_all(Err::<Response, PrepareError>(err).encode().as_slice())
-						.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
-				},
+	let response: Result<Response, PrepareError> = match result {
+		Ok(ok) => {
+			cfg_if::cfg_if! {
+				if #[cfg(target_os = "linux")] {
+					let (artifact, max_rss) = ok;
+				} else {
+					let artifact = ok;
+				}
 			}
 
-			process::exit(libc::EXIT_SUCCESS);
+			// Stop the memory stats worker and get its observed memory stats.
+			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+			let memory_tracker_stats =
+				get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
+
+			let memory_stats = MemoryStats {
+				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+				memory_tracker_stats,
+				#[cfg(target_os = "linux")]
+				max_rss: extract_max_rss_stat(max_rss, process::id()),
+			};
+
+			Ok(Response { artifact, memory_stats })
 		},
-		_ => process::exit(libc::EXIT_FAILURE),
-	}
+		Err(err) => Err(err),
+	};
+
+	pipe_write
+		.write_all(response.encode().as_slice())
+		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+
+	process::exit(libc::EXIT_SUCCESS);
 }
 
 async fn handle_parent_process(
@@ -340,10 +331,9 @@ async fn handle_parent_process(
 
 	return match status {
 		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
-			let result: Result<Response, PrepareError> = parity_scale_codec::decode_from_bytes(
-				bytes::Bytes::copy_from_slice(received_data.as_slice()),
-			)
-			.map_err(|e| PrepareError::Panic(e.to_string()))?;
+			let result: Result<Response, PrepareError> =
+				Result::decode(&mut received_data.as_slice())
+					.map_err(|e| PrepareError::Panic(e.to_string()))?;
 			match result {
 				Err(err) => Err(err),
 				Ok(response) => {
@@ -355,10 +345,10 @@ async fn handle_parent_process(
 					// is only required to send `Ok` to the pool to indicate the
 					// success.
 					gum::debug!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"worker: writing artifact to {}",
-					temp_artifact_dest.display(),
+						target: LOG_TARGET,
+						%worker_pid,
+						"worker: writing artifact to {}",
+						temp_artifact_dest.display(),
 					);
 					if let Err(err) =
 						tokio::fs::write(&temp_artifact_dest, &response.artifact).await

@@ -16,7 +16,6 @@ tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 os_pipe = "1.1.4"
 nix = { version = "0.27.1", features = ["resource", "process"]}
-bytes = { version = "1.1.0", default-features = false }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 

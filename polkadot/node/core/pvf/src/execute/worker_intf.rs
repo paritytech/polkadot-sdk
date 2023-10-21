@@ -275,7 +275,7 @@ async fn send_request(
 
 async fn recv_response(stream: &mut UnixStream) -> io::Result<Response> {
 	let response_bytes = framed_recv(stream).await?;
-	Response::decode(&mut &response_bytes[..]).map_err(|e| {
+	Response::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
 			format!("execute pvf recv_response: decode error: {:?}", e),

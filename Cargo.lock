@@ -12173,7 +12173,6 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "1.0.0"
 dependencies = [
- "bytes",
  "cfg-if",
  "futures",
  "libc",
