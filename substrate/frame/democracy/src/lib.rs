@@ -532,7 +532,7 @@ pub mod pallet {
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Funds are deposited when a proposal is submitted and are returned when the proposal is
+		/// Funds are held when a proposal is submitted and are released when the proposal is
 		/// tabled. If the proposal is vetoed and blacklisted, the deposit is slashed.
 		Proposal,
 	}
