@@ -17,7 +17,7 @@
 
 //! Tests for Nfts pallet.
 
-use crate::{mock::*, Event, *};
+use crate::{mock::*, Event, SystemConfig, *};
 use enumflags2::BitFlags;
 use frame_support::{
 	assert_noop, assert_ok,

@@ -290,6 +290,14 @@ async fn handle_active_leaves_update<Context>(
 			)
 			.expect("ancestors are provided in reverse order and correctly; qed");
 
+			gum::debug!(
+				target: LOG_TARGET,
+				relay_parent = ?hash,
+				min_relay_parent = scope.earliest_relay_parent().number,
+				para_id = ?para,
+				"Creating fragment tree"
+			);
+
 			let tree = FragmentTree::populate(scope, &*candidate_storage);
 
 			fragment_trees.insert(para, tree);
