@@ -24,16 +24,16 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive, DefensiveResult,
+		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive,
 		DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
-		OnUnbalanced, TryCollect, UnixTime,
+		OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{

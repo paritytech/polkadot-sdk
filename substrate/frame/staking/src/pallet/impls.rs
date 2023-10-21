@@ -1887,14 +1887,14 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	}
 
 	fn delegated_bond_migrate(
-		delegator: Self::AccountId,
+		_delegator: Self::AccountId,
 		delegatee: Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 		// ledger for delegatee account should always be bonded by stash.
-		let ledger = Self::ledger(Stash(delegatee.clone()))?;
+		let _ledger = Self::ledger(Stash(delegatee.clone()))?;
 
 		// we want to transfer the bonded value only from active bond that is not part of delegation
 		// bond. We ignore the funds that are in unlocking period.

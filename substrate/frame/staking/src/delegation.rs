@@ -27,7 +27,7 @@ use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
 	ensure,
-	traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+	traits::{Currency, LockIdentifier, LockableCurrency},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
