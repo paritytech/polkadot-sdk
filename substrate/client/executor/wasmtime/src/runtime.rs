@@ -123,12 +123,10 @@ impl InstanceCounter {
 	pub fn acquire_instance(self: Arc<Self>) -> ReleaseInstanceHandle {
 		let mut counter = self.counter.lock();
 
-		if *counter + 1 < MAX_INSTANCE_COUNT {
-			*counter += 1;
-		} else {
+		while *counter >= MAX_INSTANCE_COUNT {
 			self.wait_for_instance.wait(&mut counter);
-			*counter += 1;
 		}
+		*counter += 1;
 
 		ReleaseInstanceHandle { counter: self.clone() }
 	}
