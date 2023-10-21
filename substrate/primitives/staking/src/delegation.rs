@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{FullCodec, MaxEncodedLen};
-use scale_info::TypeInfo;
+use crate::StakingInterface;
 use sp_runtime::{DispatchError, DispatchResult, Saturating};
-use sp_std::{ops::Sub};
 
 pub struct StakeableBalance<B: Copy> {
 	pub free: B,
@@ -45,21 +43,7 @@ pub struct StakeResult<B: Copy> {
 /// account (delegatee). In delegation based staking, the funds are locked in the delegator's
 /// account and gives the delegatee the right to use the funds for staking as if it is a direct
 /// nominator.
-pub trait DelegatedStakeInterface {
-	/// AccountId type used by the runtime.
-	type AccountId: Clone + sp_std::fmt::Debug;
-
-	/// Balance type used by the runtime.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
+pub trait DelegatedStakeInterface: StakingInterface {
 	/// Delegate some funds to a new staker.
 	///
 	/// Similar to [`StakingInterface::bond`].

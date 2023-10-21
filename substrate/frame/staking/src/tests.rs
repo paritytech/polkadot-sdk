@@ -6240,3 +6240,31 @@ mod ledger {
 		})
 	}
 }
+
+mod delegation_stake {
+	use sp_staking::delegation::DelegatedStakeInterface;
+
+	use super::*;
+	#[test]
+	fn delegated_bond_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// assert!(Staking::staker_status());
+			// assert!(<Bonded<Test>>::get(&42).is_none());
+			//
+			// let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
+			// let reward_dest = RewardDestination::Account(10);
+			//
+			// assert_ok!(ledger.clone().bond(reward_dest));
+			// assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
+			// assert!(<Bonded<Test>>::get(&42).is_some());
+			// assert_eq!(<Payee<Test>>::get(&42), reward_dest);
+			//
+			// // cannot bond again.
+			// assert!(ledger.clone().bond(reward_dest).is_err());
+			//
+			// // once bonded, update works as expected.
+			// ledger.claimed_rewards = bounded_vec![1];
+			// assert_ok!(ledger.update());
+		})
+	}
+}

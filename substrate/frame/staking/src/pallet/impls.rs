@@ -1848,9 +1848,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
-	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
-
 	fn delegated_bond_new(
 		delegator: Self::AccountId,
 		delegatee: Self::AccountId,

@@ -603,11 +603,11 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let should_lazy_slash = delegation::is_delegatee::<T>(stash);
+	let lazy_slash = delegation::is_delegatee::<T>(stash);
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
 	if !value.is_zero() {
-		if should_lazy_slash {
+		if lazy_slash {
 			delegation::report_slash::<T>(stash.clone(), value);
 		} else {
 			let (imbalance, missing) = T::Currency::slash(stash, value);
