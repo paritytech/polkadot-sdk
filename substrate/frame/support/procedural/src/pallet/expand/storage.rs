@@ -856,13 +856,13 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						.expect("Every active pallet has a name in the runtime; qed");
 
 					#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode pallet: {pallet_name}");
-					
+
 					// NOTE: for now, we have to exclude storage items that are feature gated.
 					let mut decoded = 0usize;
 					#(
 						#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode storage: \
 						{pallet_name}::{}", stringify!(#storage_names));
-						
+
 						decoded +=
 							<#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()?;
 					)*
