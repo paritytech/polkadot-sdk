@@ -18,9 +18,8 @@
 //! Tests for Uniques pallet.
 
 use crate::{mock::*, Event, *};
-use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_balances::Error as BalancesError;
-use sp_runtime::traits::Dispatchable;
+use frame_support::{assert_noop, assert_ok};
+use sp_runtime::{traits::Dispatchable, TokenError::FundsUnavailable};
 use sp_std::prelude::*;
 
 fn items() -> Vec<(u64, u32, u32)> {
@@ -108,7 +107,7 @@ fn basic_minting_should_work() {
 #[test]
 fn lifecycle_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		assert_eq!(collections(), vec![(1, 0)]);
@@ -156,7 +155,7 @@ fn lifecycle_should_work() {
 #[test]
 fn destroy_with_bad_witness_should_not_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
 
 		let w = Collection::<Test>::get(0).unwrap().destroy_witness();
@@ -217,7 +216,7 @@ fn origin_guards_should_work() {
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
 
-		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 100));
 		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(2), Some(0)));
 		assert_noop!(
 			Uniques::transfer_ownership(RuntimeOrigin::signed(2), 0, 2),
@@ -245,9 +244,9 @@ fn origin_guards_should_work() {
 #[test]
 fn transfer_owner_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
-		Balances::make_free_balance_be(&2, 100);
-		Balances::make_free_balance_be(&3, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 100));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 3, 100));
 		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(collections(), vec![(1, 0)]);
 		assert_noop!(
@@ -286,7 +285,7 @@ fn transfer_owner_should_work() {
 		assert_eq!(Balances::reserved_balance(&2), 0);
 		assert_eq!(Balances::reserved_balance(&3), 45);
 
-		// 2's acceptence from before is reset when it became owner, so it cannot be transfered
+		// 2's acceptance from before is reset when it became owner, so it cannot be transferred
 		// without a fresh acceptance.
 		assert_noop!(
 			Uniques::transfer_ownership(RuntimeOrigin::signed(3), 0, 2),
@@ -325,7 +324,7 @@ fn set_collection_metadata_should_work() {
 		);
 
 		// Successfully add metadata and take deposit
-		Balances::make_free_balance_be(&1, 30);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 30));
 		assert_ok!(Uniques::set_collection_metadata(
 			RuntimeOrigin::signed(1),
 			0,
@@ -362,7 +361,7 @@ fn set_collection_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 40], false),
-			BalancesError::<Test, _>::InsufficientBalance,
+			FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -404,7 +403,7 @@ fn set_collection_metadata_should_work() {
 #[test]
 fn set_item_metadata_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 30);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 30));
 
 		// Cannot add metadata to unknown item
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
@@ -432,7 +431,7 @@ fn set_item_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 40], false),
-			BalancesError::<Test, _>::InsufficientBalance,
+			FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -464,7 +463,7 @@ fn set_item_metadata_should_work() {
 #[test]
 fn set_attribute_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 
@@ -527,7 +526,7 @@ fn set_attribute_should_work() {
 #[test]
 fn set_attribute_should_respect_freeze() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 
@@ -589,7 +588,7 @@ fn set_attribute_should_respect_freeze() {
 #[test]
 fn force_item_status_should_work() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, 42, 1));
@@ -634,7 +633,7 @@ fn force_item_status_should_work() {
 #[test]
 fn burn_works() {
 	new_test_ext().execute_with(|| {
-		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 100));
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, false));
 		assert_ok!(Uniques::set_team(RuntimeOrigin::signed(1), 0, 2, 3, 4));
 
@@ -705,7 +704,7 @@ fn approved_account_gets_reset_after_buy_item() {
 		let item = 1;
 		let price = 15;
 
-		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 100));
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), 0, 1, true));
 		assert_ok!(Uniques::mint(RuntimeOrigin::signed(1), 0, item, 1));
@@ -936,9 +935,9 @@ fn buy_item_should_work() {
 		let price_2 = 30;
 		let initial_balance = 100;
 
-		Balances::make_free_balance_be(&user_1, initial_balance);
-		Balances::make_free_balance_be(&user_2, initial_balance);
-		Balances::make_free_balance_be(&user_3, initial_balance);
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_1, initial_balance));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_2, initial_balance));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user_3, initial_balance));
 
 		assert_ok!(Uniques::force_create(RuntimeOrigin::root(), collection_id, user_1, true));
 

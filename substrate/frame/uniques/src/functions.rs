@@ -20,7 +20,7 @@
 use super::*;
 use frame_support::{
 	ensure,
-	traits::{ExistenceRequirement, Get},
+	traits::{tokens::Preservation::Preserve, Get},
 };
 use sp_runtime::{DispatchError, DispatchResult};
 
@@ -91,7 +91,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Collection::<T, I>::contains_key(collection.clone()), Error::<T, I>::InUse);
 
-		T::Currency::reserve(&owner, deposit)?;
+		T::Currency::hold(&HoldReason::CollectionOwnerAggregatedDeposit.into(), &owner, deposit)?;
 
 		Collection::<T, I>::insert(
 			collection.clone(),
@@ -152,7 +152,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			#[allow(deprecated)]
 			Attribute::<T, I>::remove_prefix((&collection,), None);
 			CollectionAccount::<T, I>::remove(&collection_details.owner, &collection);
-			T::Currency::unreserve(&collection_details.owner, collection_details.total_deposit);
+			T::Currency::release(
+				&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+				&collection_details.owner,
+				collection_details.total_deposit,
+				BestEffort,
+			)?;
 			CollectionMaxSupply::<T, I>::remove(&collection);
 
 			Self::deposit_event(Event::Destroyed { collection });
@@ -208,7 +213,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					true => Zero::zero(),
 					false => T::ItemDeposit::get(),
 				};
-				T::Currency::reserve(&collection_details.owner, deposit)?;
+				T::Currency::hold(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					deposit,
+				)?;
 				collection_details.total_deposit += deposit;
 
 				let owner = owner.clone();
@@ -247,7 +256,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				with_details(collection_details, &details)?;
 
 				// Return the deposit.
-				T::Currency::unreserve(&collection_details.owner, details.deposit);
+				T::Currency::release(
+					&HoldReason::CollectionOwnerAggregatedDeposit.into(),
+					&collection_details.owner,
+					details.deposit,
+					BestEffort,
+				)?;
 				collection_details.total_deposit.saturating_reduce(details.deposit);
 				collection_details.items.saturating_dec();
 				Ok(details.owner)
@@ -326,12 +340,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(only_buyer == buyer, Error::<T, I>::NoPermission);
 		}
 
-		T::Currency::transfer(
-			&buyer,
-			&details.owner,
-			price_info.0,
-			ExistenceRequirement::KeepAlive,
-		)?;
+		T::Currency::transfer(&buyer, &details.owner, price_info.0, Preserve)?;
 
 		let old_owner = details.owner.clone();
 

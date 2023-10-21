@@ -29,18 +29,22 @@ use frame_support::{
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
+use sp_std::{ops::Div, prelude::*};
 
 use crate::Pallet as Uniques;
 
 const SEED: u32 = 0;
+
+fn set_default_balance<T: Config<I>, I: 'static>(who: &T::AccountId) {
+	T::Currency::set_balance(&who, DepositBalanceOf::<T, I>::max_value().div(1000u32.into()));
+}
 
 fn create_collection<T: Config<I>, I: 'static>(
 ) -> (T::CollectionId, T::AccountId, AccountIdLookupOf<T>) {
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
 	let collection = T::Helper::collection(0);
-	T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+	set_default_balance::<T, I>(&caller);
 	assert!(Uniques::<T, I>::force_create(
 		SystemOrigin::Root.into(),
 		collection.clone(),
@@ -141,7 +145,7 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &collection).unwrap();
 		whitelist_account!(caller);
 		let admin = T::Lookup::unlookup(caller.clone());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&caller);
 		let call = Call::<T, I>::create { collection, admin };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
@@ -151,6 +155,7 @@ benchmarks_instance_pallet! {
 	force_create {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
+		set_default_balance::<T, I>(&caller);
 	}: _(SystemOrigin::Root, T::Helper::collection(0), caller_lookup, true)
 	verify {
 		assert_last_event::<T, I>(Event::ForceCreated { collection: T::Helper::collection(0), owner: caller }.into());
@@ -265,7 +270,7 @@ benchmarks_instance_pallet! {
 		let (collection, caller, _) = create_collection::<T, I>();
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::Currency::set_balance(&target, T::Currency::minimum_balance());
 		let origin = SystemOrigin::Signed(target.clone()).into();
 		Uniques::<T, I>::set_accept_ownership(origin, Some(collection.clone()))?;
 	}: _(SystemOrigin::Signed(caller), collection.clone(), target_lookup)
@@ -388,7 +393,7 @@ benchmarks_instance_pallet! {
 
 	set_accept_ownership {
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&caller);
 		let collection = T::Helper::collection(0);
 	}: _(SystemOrigin::Signed(caller.clone()), Some(collection.clone()))
 	verify {
@@ -432,7 +437,7 @@ benchmarks_instance_pallet! {
 		let price = ItemPrice::<T, I>::from(0u32);
 		let origin = SystemOrigin::Signed(seller.clone()).into();
 		Uniques::<T, I>::set_price(origin, collection.clone(), item, Some(price.clone()), Some(buyer_lookup))?;
-		T::Currency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value());
+		set_default_balance::<T, I>(&buyer);
 	}: _(SystemOrigin::Signed(buyer.clone()), collection.clone(), item, price.clone())
 	verify {
 		assert_last_event::<T, I>(Event::ItemBought {
