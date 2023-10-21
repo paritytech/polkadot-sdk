@@ -683,8 +683,7 @@ impl<T: Config> Pallet<T> {
 
 	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
 		ClaimQueue::<T>::mutate(|la| {
-			let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(Some(pe));
+			la.entry(core_idx).or_default().push_back(Some(pe));
 		});
 	}
 
