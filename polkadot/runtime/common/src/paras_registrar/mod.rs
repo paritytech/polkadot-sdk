@@ -282,15 +282,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(
-				who,
-				None,
-				id,
-				genesis_head,
-				validation_code,
-				true,
-				ParaKind::Parachain,
-			)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, true)?;
 			Ok(())
 		}
 
@@ -311,15 +303,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(
-				who,
-				Some(deposit),
-				id,
-				genesis_head,
-				validation_code,
-				false,
-				ParaKind::Parachain,
-			)
+			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, true)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -486,15 +470,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(
-				who,
-				None,
-				id,
-				genesis_head,
-				validation_code,
-				true,
-				ParaKind::Parathread,
-			)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, false)?;
 			Ok(())
 		}
 
@@ -560,15 +536,7 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(
-			manager,
-			None,
-			id,
-			genesis_head,
-			validation_code,
-			false,
-			ParaKind::Parachain,
-		)
+		Self::do_register(manager, None, id, genesis_head, validation_code, false, true)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -683,7 +651,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
-		para_kind: ParaKind,
+		is_permanent: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -697,7 +665,8 @@ impl<T: Config> Pallet<T> {
 		let (genesis, deposit) = Self::validate_onboarding_data(
 			genesis_head,
 			validation_code.clone(),
-			para_kind.clone(),
+			ParaKind::Parathread,
+			is_permanent,
 		)?;
 		let deposit = deposit_override.unwrap_or(deposit);
 
@@ -708,7 +677,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
-		if para_kind == ParaKind::Parathread {
+		if !is_permanent {
 			let now = shared::Pallet::<T>::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
@@ -753,6 +722,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
+		is_permanent: bool,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
 		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
@@ -762,10 +732,8 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::HeadDataTooLarge
 		);
 
-		let base_deposit = match para_kind {
-			ParaKind::Parachain => T::ParaDeposit::get(),
-			ParaKind::Parathread => T::RentalParaDeposit::get(),
-		};
+		let base_deposit =
+			if is_permanent { T::ParaDeposit::get() } else { T::RentalParaDeposit::get() };
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = base_deposit
@@ -1208,6 +1176,36 @@ mod tests {
 			assert_noop!(
 				Registrar::reserve(RuntimeOrigin::signed(1337)),
 				BalancesError::<Test, _>::InsufficientBalance
+			);
+		});
+	}
+
+	#[test]
+	fn register_rental_works() {
+		new_test_ext().execute_with(|| {
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
+
+			let para_id = LOWEST_PUBLIC_ID;
+			assert!(!Parachains::is_parathread(para_id));
+
+			let validation_code = test_validation_code(32);
+			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
+			assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
+			assert_ok!(Registrar::register_rental(
+				RuntimeOrigin::signed(1),
+				para_id,
+				test_genesis_head(32),
+				validation_code.clone(),
+			));
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+			run_to_session(START_SESSION_INDEX + 2);
+			assert!(Parachains::is_parathread(para_id));
+			assert_eq!(
+				Balances::reserved_balance(&1),
+				<Test as Config>::RentalParaDeposit::get() +
+					64 * <Test as Config>::DataDepositPerByte::get()
 			);
 		});
 	}
