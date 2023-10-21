@@ -181,8 +181,16 @@ pub mod pallet {
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
-		/// This should be less than the bonding duration. Set to 0 if slashes
-		/// should be applied immediately, without opportunity for intervention.
+		/// This should be less than the bonding duration. Set to 0 if slashes should be applied
+		/// immediately, without opportunity for intervention.
+		///
+		/// Note: Ideally this value should never be changed from its initial value once a runtime
+		/// is in production. Changing it may cause inconsistent behaviour for slashing.
+		// TODO:(ank4n) Replace following with a test.
+		/// Example scenario: Initially set as 10, an offence is reported at era 100, and slash
+		/// scheduled at era 110. Then an upgrade on era 105 sets defer duration to 20. The slash
+		/// scheduled on era 110 would think the actual slash era is 110-20 = 90, thus attempting to
+		/// slash validators for era 90.
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
