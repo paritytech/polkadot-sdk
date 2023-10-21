@@ -46,7 +46,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, One},
 	transaction_validity::TransactionPriority,
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, Perbill,
 };
 use sp_std::sync::Arc;
 
@@ -209,7 +209,10 @@ impl paras::Config for Test {
 
 parameter_types! {
 	pub const ParaDeposit: Balance = 500;
+	pub const RentalParaDeposit: Balance = 5;
 	pub const DataDepositPerByte: Balance = 1;
+	pub const RentDuration: u32 = 2;
+	pub const RecurringRentCost: Perbill = Perbill::from_percent(10);
 }
 
 impl paras_registrar::Config for Test {
@@ -219,6 +222,9 @@ impl paras_registrar::Config for Test {
 	type DataDepositPerByte = DataDepositPerByte;
 	type Currency = Balances;
 	type RuntimeOrigin = RuntimeOrigin;
+	type RentDuration = RentDuration;
+	type RentalParaDeposit = RentalParaDeposit;
+	type RecurringRentCost = RecurringRentCost;
 	type WeightInfo = crate::paras_registrar::TestWeightInfo;
 }
 

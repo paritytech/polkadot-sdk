@@ -23,14 +23,14 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Currency, Get, ReservableCurrency, ValidatorSet},
+	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, SetGoAhead},
-	Origin, ParaLifecycle,
+	shared, Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
 
@@ -152,7 +152,7 @@ pub mod pallet {
 
 		/// Defines how frequently the rent needs to be paid.
 		#[pallet::constant]
-		type RentDuration: Get<BlockNumberFor<Self>>;
+		type RentDuration: Get<SessionIndex>;
 
 		/// The initial 'base' deposit of registering a parathread.
 		///
@@ -163,9 +163,6 @@ pub mod pallet {
 		/// The recurring rental cost as a percentage of the initial rental registration payment.
 		#[pallet::constant]
 		type RecurringRentCost: Get<Perbill>;
-
-		/// A type for getting the current session number.
-		type ValidatorSet: Parameter + ValidatorSet<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
@@ -510,7 +507,7 @@ pub mod pallet {
 			let mut rent_info = RentedParas::<T>::get(id).ok_or(Error::<T>::NotParathread)?;
 			<T as Config>::Currency::reserve(&who, rent_info.rent_cost)?;
 
-			let now = T::ValidatorSet::session_index();
+			let now = shared::Pallet::<T>::session_index();
 			rent_info.last_rent_payment = now;
 			RentedParas::<T>::insert(id, rent_info);
 
@@ -621,7 +618,6 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn execute_pending_transitions() {
-		use runtime_parachains::shared;
 		shared::Pallet::<T>::set_session_index(shared::Pallet::<T>::scheduled_session());
 		paras::Pallet::<T>::test_on_new_session();
 	}
@@ -713,7 +709,7 @@ impl<T: Config> Pallet<T> {
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
 		if para_kind == ParaKind::Parathread {
-			let now = T::ValidatorSet::session_index();
+			let now = shared::Pallet::<T>::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
@@ -820,7 +816,7 @@ mod tests {
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
 	use primitives::{Balance, BlockNumber, SessionIndex};
-	use runtime_parachains::{configuration, origin, shared};
+	use runtime_parachains::{configuration, origin};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
@@ -933,8 +929,11 @@ mod tests {
 
 	parameter_types! {
 		pub const ParaDeposit: Balance = 10;
+		pub const RentalParaDeposit: Balance = 5;
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
+		pub const RentDuration: u32 = 2;
+		pub const RecurringRentCost: Perbill = Perbill::from_percent(10);
 	}
 
 	impl Config for Test {
@@ -944,6 +943,9 @@ mod tests {
 		type OnSwap = MockSwap;
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
+		type RentDuration = RentDuration;
+		type RentalParaDeposit = RentalParaDeposit;
+		type RecurringRentCost = RecurringRentCost;
 		type WeightInfo = TestWeightInfo;
 	}
 
