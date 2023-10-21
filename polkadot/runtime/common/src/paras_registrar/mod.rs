@@ -23,10 +23,10 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, ReservableCurrency, ValidatorSet},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, SetGoAhead},
@@ -56,9 +56,9 @@ pub struct ParaInfo<Account, Balance> {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-pub struct RentInfo<Balance, BlockNumber> {
+pub struct RentInfo<Balance, SessionIndex> {
 	// Stores information about the last time the rent was paid.
-	last_rent_payment: BlockNumber,
+	last_rent_payment: SessionIndex,
 	// The amount that needs to be paid every `T::RentDuration` blocks.
 	rent_cost: Balance,
 }
@@ -162,6 +162,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type RecurringRentCost: Get<Perbill>;
 
+		/// A type for getting the current session number.
+		type ValidatorSet: Parameter + ValidatorSet<Self::AccountId>;
+
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -223,7 +226,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RentedParas<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, RentInfo<BalanceOf<T>, BlockNumberFor<T>>>;
+		StorageMap<_, Twox64Concat, ParaId, RentInfo<BalanceOf<T>, SessionIndex>>;
 
 	/// The next free `ParaId`.
 	#[pallet::storage]
@@ -502,7 +505,7 @@ pub mod pallet {
 			let mut rent_info = RentedParas::<T>::get(id).ok_or(Error::<T>::NotParathread)?;
 			<T as Config>::Currency::reserve(&who, rent_info.rent_cost)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::ValidatorSet::session_index();
 			rent_info.last_rent_payment = now;
 			RentedParas::<T>::insert(id, rent_info);
 
@@ -702,7 +705,7 @@ impl<T: Config> Pallet<T> {
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
 		if para_kind == ParaKind::Parathread {
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::ValidatorSet::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
