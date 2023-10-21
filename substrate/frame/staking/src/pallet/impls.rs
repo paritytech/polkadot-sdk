@@ -61,7 +61,6 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
-use frame_support::traits::ExistenceRequirement::KeepAlive;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -147,7 +146,9 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InsufficientBond.into())
 		}
 
-		frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+		// fixme(ank4n): Re-evaluate this later if we really need to do this infallibly?
+		let _ = frame_system::Pallet::<T>::inc_consumers(&stash);
+		// frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
 		let current_era = CurrentEra::<T>::get().unwrap_or(0);
 		let history_depth = T::HistoryDepth::get();
@@ -1861,7 +1862,8 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
 
 		// transfer ED from the initiator to delegatee to keep the account alive.
-		T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(), KeepAlive)?;
+		// fixme(ank4n): Does this account even need to be real?
+		// T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(), KeepAlive)?;
 
 		// delegate funds from delegator to delegatee.
 		delegation::delegate::<T>(delegation_initiator.clone(), delegatee.clone(), value)?;

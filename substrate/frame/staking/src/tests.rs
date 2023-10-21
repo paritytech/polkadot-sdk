@@ -6278,7 +6278,7 @@ mod delegation_stake {
 			// it alive.
 			assert_eq!(
 				Balances::free_balance(delegation_initiator),
-				1000 - 100 - ExistentialDeposit::get()
+				1000 - 100
 			);
 		})
 	}
