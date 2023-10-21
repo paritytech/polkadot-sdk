@@ -161,8 +161,8 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<1>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -289,6 +289,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();

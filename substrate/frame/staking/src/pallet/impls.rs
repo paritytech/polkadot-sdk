@@ -61,6 +61,7 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::ExistenceRequirement::KeepAlive;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -120,7 +121,7 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+	pub fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
 		// if the account is a delegatee, the balance is made up of its child delegators.
 		if delegation::is_delegatee::<T>(who) {
 			let staked_balance =
@@ -1790,9 +1791,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		let maybe_delegator = Delegators::<T>::get(&who);
-		if maybe_delegator.is_some() {
-			return Ok(StakerStatus::Delegator(maybe_delegator.expect("is checked above; qed").0))
+		// delegators stash are not directly bonded so we check this first.
+		if let Some(delegator) = Delegators::<T>::get(&who) {
+			return Ok(StakerStatus::Delegator(delegator.0))
 		}
 
 		// The staker account is bonded for all staker types except if it is a delegator.
@@ -1849,13 +1850,21 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	fn delegated_bond_new(
-		delegator: Self::AccountId,
+		delegation_initiator: Self::AccountId,
 		delegatee: Self::AccountId,
 		value: Self::Balance,
 		payee: Self::AccountId,
 	) -> sp_runtime::DispatchResult {
+		// TODO(ank4n): This is conservative and not needed on staking pallet level. NP can decide
+		// how it wants to pay rewards. Staking only needs to ensure that the rewards are not
+		// restaked.
+		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
+
+		// transfer ED from the initiator to delegatee to keep the account alive.
+		T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(), KeepAlive)?;
+
 		// delegate funds from delegator to delegatee.
-		delegation::delegate::<T>(delegator.clone(), delegatee.clone(), value)?;
+		delegation::delegate::<T>(delegation_initiator.clone(), delegatee.clone(), value)?;
 
 		// Bond with delegatee as a new staker.
 		Self::bond(

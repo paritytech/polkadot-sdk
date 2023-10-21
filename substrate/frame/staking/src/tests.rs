@@ -6242,29 +6242,44 @@ mod ledger {
 }
 
 mod delegation_stake {
-	use sp_staking::delegation::DelegatedStakeInterface;
+	use sp_staking::{delegation::DelegatedStakeInterface, StakingInterface};
 
 	use super::*;
 	#[test]
 	fn delegated_bond_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// assert!(Staking::staker_status());
-			// assert!(<Bonded<Test>>::get(&42).is_none());
-			//
-			// let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
-			// let reward_dest = RewardDestination::Account(10);
-			//
-			// assert_ok!(ledger.clone().bond(reward_dest));
-			// assert!(StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
-			// assert!(<Bonded<Test>>::get(&42).is_some());
-			// assert_eq!(<Payee<Test>>::get(&42), reward_dest);
-			//
-			// // cannot bond again.
-			// assert!(ledger.clone().bond(reward_dest).is_err());
-			//
-			// // once bonded, update works as expected.
-			// ledger.claimed_rewards = bounded_vec![1];
-			// assert_ok!(ledger.update());
+			// Given an account with no balance or delegations yet
+			let delegatee: AccountId = 99;
+			let reward_acc: AccountId = 100;
+			assert_eq!(Staking::status(&delegatee), Err(Error::<Test>::NotStash.into()));
+			assert_eq!(Staking::stakeable_balance(&delegatee), 0);
+			assert_eq!(Balances::free_balance(delegatee), 0);
+
+			let delegation_initiator = 200;
+			// give some balance to the delegator
+			let _ = Balances::make_free_balance_be(&delegation_initiator, 1000);
+
+			// when the first delegator delegates to the account (this would be the pool operator
+			// who creates the pool)
+			assert_ok!(Staking::delegated_bond_new(
+				delegation_initiator,
+				delegatee,
+				100,
+				reward_acc
+			));
+
+			assert_eq!(Staking::status(&delegatee).unwrap(), StakerStatus::Delegatee);
+			assert_eq!(
+				Staking::status(&delegation_initiator).unwrap(),
+				StakerStatus::Delegator(delegatee)
+			);
+
+			// delegator locked 100 for delegation and transferred ED to delegatee account to keep
+			// it alive.
+			assert_eq!(
+				Balances::free_balance(delegation_initiator),
+				1000 - 100 - ExistentialDeposit::get()
+			);
 		})
 	}
 }

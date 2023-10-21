@@ -21,7 +21,7 @@
 //! (delegatee). Multiple delegators can delegate to the same delegatee. The delegatee is then able
 //! to use the funds of all delegators to nominate a set of validators.
 
-use crate::{BalanceOf, Config, Delegatees, Delegators, Error};
+use crate::{BalanceOf, Config, Delegatees, Delegators, Error, HoldReason};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	defensive,
@@ -106,7 +106,9 @@ pub(crate) fn delegate<T: Config>(
 				pending_slash: Default::default(),
 			}),
 	});
-	T::Currency::set_lock(DELEGATING_ID, &delegator, value, WithdrawReasons::all());
+
+	use frame_support::traits::fungible::MutateHold;
+	T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
 
 	Ok(())
 }

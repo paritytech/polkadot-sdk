@@ -24,8 +24,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveResult, DefensiveSaturating, EnsureOrigin,
-		EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		fungible::hold::Mutate as FunHoldMutate, Currency, Defensive, DefensiveResult,
+		DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
+		OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -87,10 +88,14 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		type Currency: LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
+				Self::AccountId,
+				Moment = BlockNumberFor<Self>,
+				Balance = Self::CurrencyBalance,
+			> + FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason, Balance = Self::CurrencyBalance>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -683,6 +688,14 @@ pub mod pallet {
 				"not all genesis stakers were inserted into sorted list provider, something is wrong."
 			);
 		}
+	}
+
+	/// A reason for staking pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// These funds are held for delegation to another account.
+		#[codec(index = 0)]
+		Delegating,
 	}
 
 	#[pallet::event]
