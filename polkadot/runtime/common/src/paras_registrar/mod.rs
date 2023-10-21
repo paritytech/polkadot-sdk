@@ -40,7 +40,7 @@ use parity_scale_codec::{Decode, Encode};
 use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedSub, Saturating},
+	traits::{CheckedSub, Hash, Saturating},
 	Perbill, RuntimeDebug,
 };
 
@@ -155,6 +155,8 @@ pub mod pallet {
 		type RentDuration: Get<BlockNumberFor<Self>>;
 
 		/// The initial 'base' deposit of registering a parathread.
+		///
+		/// This should also account for the PVF hash that is being stored.
 		#[pallet::constant]
 		type RentalParaDeposit: Get<BalanceOf<Self>>;
 
@@ -227,6 +229,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RentedParas<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, RentInfo<BalanceOf<T>, SessionIndex>>;
+
+	#[pallet::storage]
+	pub type RentedParaHashes<T: Config> = StorageMap<_, Twox64Concat, ParaId, T::Hash>;
 
 	/// The next free `ParaId`.
 	#[pallet::storage]
@@ -693,8 +698,11 @@ impl<T: Config> Pallet<T> {
 			Default::default()
 		};
 		ensure!(paras::Pallet::<T>::lifecycle(id).is_none(), Error::<T>::AlreadyRegistered);
-		let (genesis, deposit) =
-			Self::validate_onboarding_data(genesis_head, validation_code, para_kind.clone())?;
+		let (genesis, deposit) = Self::validate_onboarding_data(
+			genesis_head,
+			validation_code.clone(),
+			para_kind.clone(),
+		)?;
 		let deposit = deposit_override.unwrap_or(deposit);
 
 		if let Some(additional) = deposit.checked_sub(&deposited) {
@@ -709,7 +717,10 @@ impl<T: Config> Pallet<T> {
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
+			let pvf_hash = T::Hashing::hash(validation_code.0.as_slice());
+
 			RentedParas::<T>::insert(id, rent_info);
+			RentedParaHashes::<T>::insert(id, pvf_hash);
 		}
 
 		Paras::<T>::insert(id, info);
