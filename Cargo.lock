@@ -12456,6 +12456,7 @@ dependencies = [
  "sp-timestamp",
  "sp-transaction-pool",
  "staging-xcm",
+ "staking-westend-runtime",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
@@ -17883,7 +17884,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "staking-westend"
+name = "staking-westend-runtime"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
