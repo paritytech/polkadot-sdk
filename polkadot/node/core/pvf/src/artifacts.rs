@@ -64,7 +64,6 @@ use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
-	future::Future,
 	path::{Path, PathBuf},
 	str::FromStr as _,
 	time::{Duration, SystemTime},
@@ -231,6 +230,73 @@ impl Artifacts {
 	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
 	pub async fn new_and_prune(cache_path: &Path) -> Self {
 		let mut artifacts = Self { inner: HashMap::new() };
+		artifacts.insert_and_prune(cache_path).await;
+		artifacts
+	}
+
+	async fn insert_and_prune(&mut self, cache_path: &Path) {
+		fn is_stale(file_name: &str) -> bool {
+			!file_name.starts_with(ARTIFACT_PREFIX)
+		}
+
+		// Inserts the entry into the artifacts table if it is a valid artifact file, or prune it
+		// otherwise.
+		async fn insert_or_prune(
+			artifacts: &mut Artifacts,
+			entry: &tokio::fs::DirEntry,
+			cache_path: &Path,
+		) {
+			let file_type = entry.file_type().await;
+			let file_name = entry.file_name();
+
+			match file_type {
+				Ok(file_type) =>
+					if !file_type.is_file() {
+						return
+					},
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?err,
+						"unable to get file type for {:?}",
+						file_name,
+					);
+					return
+				},
+			}
+
+			if let Some(file_name) = file_name.to_str() {
+				let id = ArtifactId::from_file_name(file_name);
+				let file_path = cache_path.join(file_name);
+
+				if is_stale(file_name) || id.is_none() {
+					gum::debug!(
+						target: LOG_TARGET,
+						"discarding invalid artifact {:?}",
+						&file_path,
+					);
+					let _ = tokio::fs::remove_file(&file_path).await;
+					return
+				}
+
+				if let Some(id) = id {
+					artifacts.insert_prepared(id, SystemTime::now(), Default::default());
+					gum::debug!(
+						target: LOG_TARGET,
+						"reusing {:?} for node version v{}",
+						&file_path,
+						NODE_VERSION,
+					);
+				}
+			} else {
+				gum::warn!(
+					target: LOG_TARGET,
+					"non-Unicode file name {:?} found in {:?}",
+					file_name,
+					cache_path,
+				);
+			}
+		}
 
 		// Make sure that the cache path directory and all its parents are created.
 		let _ = tokio::fs::create_dir_all(cache_path).await;
@@ -244,17 +310,13 @@ impl Artifacts {
 					"failed to read dir {:?}",
 					cache_path,
 				);
-				return artifacts
+				return
 			},
 		};
-		let mut prunes = vec![];
 
 		loop {
 			match dir.next_entry().await {
-				Ok(Some(entry)) =>
-					if let Some(prune) = artifacts.insert_or_prune_entry(entry, cache_path).await {
-						prunes.push(prune);
-					},
+				Ok(Some(entry)) => insert_or_prune(self, &entry, cache_path).await,
 
 				Ok(None) => break,
 
@@ -269,75 +331,6 @@ impl Artifacts {
 				},
 			}
 		}
-
-		// Prune all the invalid artifact files that were found.
-		futures::future::join_all(prunes).await;
-
-		artifacts
-	}
-
-	/// Inserts the entry into the artifacts table if it is a valid artifact file. If the file has
-	/// to be pruned, returns a future that does the pruning.
-	async fn insert_or_prune_entry(
-		&mut self,
-		entry: tokio::fs::DirEntry,
-		cache_path: &Path,
-	) -> Option<impl Future> {
-		fn is_stale(file_name: &str) -> bool {
-			!file_name.starts_with(ARTIFACT_PREFIX)
-		}
-
-		let file_type = entry.file_type().await;
-		let file_name = entry.file_name();
-
-		match file_type {
-			Ok(file_type) =>
-				if !file_type.is_file() {
-					return None
-				},
-			Err(err) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					?err,
-					"unable to get file type for {:?}",
-					file_name,
-				);
-				return None
-			},
-		}
-
-		if let Some(file_name) = file_name.to_str() {
-			let id = ArtifactId::from_file_name(file_name);
-			let file_path = cache_path.join(file_name);
-
-			if is_stale(file_name) || id.is_none() {
-				gum::debug!(
-					target: LOG_TARGET,
-					"discarding invalid artifact {:?}",
-					&file_path,
-				);
-				return Some(tokio::fs::remove_file(file_path.clone()))
-			}
-
-			if let Some(id) = id {
-				self.insert_prepared(id, SystemTime::now(), Default::default());
-				gum::debug!(
-					target: LOG_TARGET,
-					"reusing {:?} for node version v{}",
-					&file_path,
-					NODE_VERSION,
-				);
-			}
-		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"non-Unicode file name {:?} found in {:?}",
-				file_name,
-				cache_path,
-			);
-		}
-
-		None
 	}
 
 	/// Returns the state of the given artifact by its ID.
