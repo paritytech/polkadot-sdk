@@ -16,25 +16,7 @@
 // limitations under the License.
 
 use crate::StakingInterface;
-use sp_runtime::{DispatchError, DispatchResult, Saturating};
-
-pub struct StakeableBalance<B: Copy> {
-	pub free: B,
-	// balance that is delegated to this account but not staked.
-	pub delegated_unstaked: B,
-}
-
-impl<B: Saturating + Copy> StakeableBalance<B> {
-	pub fn stakeable_balance(&self) -> B {
-		self.free.saturating_add(self.delegated_unstaked)
-	}
-}
-
-pub struct StakeResult<B: Copy> {
-	pub free: B,
-	// balance that is delegated to this account but not staked.
-	pub delegated_unstaked: B,
-}
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// A generic representation of a delegation based staking apis that other runtime pallets can use.
 ///
