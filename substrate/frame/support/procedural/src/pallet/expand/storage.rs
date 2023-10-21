@@ -830,7 +830,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_use_gen = &def.type_use_generics(proc_macro2::Span::call_site());
 
 	let try_decode_entire_state = {
-		let storage_names = def
+		let mut storage_names = def
 			.storages
 			.iter()
 			.filter_map(|storage| {
@@ -843,6 +843,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 				}
 			})
 			.collect::<Vec<_>>();
+		storage_names.sort_by_cached_key(|ident| ident.to_string());
 
 		quote::quote!(
 			#[cfg(feature = "try-runtime")]
@@ -850,10 +851,23 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen> #completed_where_clause
 			{
 				fn try_decode_entire_state() -> Result<usize, #frame_support::traits::TryDecodeEntireStorageError> {
-					// simply delegate impl to a tuple of all storage items we have.
-					//
+					let pallet_name = <<T as #frame_system::Config>::PalletInfo	as frame_support::traits::PalletInfo>
+						::name::<#pallet_ident<#type_use_gen>>()
+						.expect("Every active pallet has a name in the runtime; qed");
+
+					#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode pallet: {pallet_name}");
+					
 					// NOTE: for now, we have to exclude storage items that are feature gated.
-					<( #( #storage_names ),*) as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()
+					let mut decoded = 0usize;
+					#(
+						#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode storage: \
+						{pallet_name}::{}", stringify!(#storage_names));
+						
+						decoded +=
+							<#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()?;
+					)*
+
+					Ok(decoded)
 				}
 			}
 		)
