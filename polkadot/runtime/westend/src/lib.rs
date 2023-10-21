@@ -1527,7 +1527,10 @@ impl Get<Perbill> for NominationPoolsMigrationV4OldPallet {
 ///
 /// This contains the combined migrations of the last 10 releases. It allows to skip runtime
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
-pub type Migrations = migrations::Unreleased;
+pub type Migrations = (
+	migrations::Unreleased,
+	migrations::Perpetual
+);
 
 /// The runtime migrations per release.
 #[allow(deprecated, missing_docs)]
@@ -1557,6 +1560,12 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+	);
+
+	/// Migrations that should run in *every* upgrade. Do not change on release!
+	pub type Perpetual = (
+		// This must be last:
+		frame_support::storage::migration::EnsureStateDecodes<AllPalletsWithSystem>,
 	);
 }
 
