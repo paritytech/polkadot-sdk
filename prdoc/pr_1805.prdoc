@@ -1,0 +1,23 @@
+title: Introduce state decoding check after runtime upgrades.
+
+doc:
+  - audience: Core Dev
+    description: |
+      Adds a `TryDecodeEntireState` migration that can be optionally included into the list of migrations of a runtime. It will try to decode the state of all pallets to spot any decoding errors that might have been introduced by missing a migration.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates: 
+  - name: frame-support
+    semver: minor
+  - name: frame-support-procedural
+    semver: minor
+  - name: kitchensink-runtime
+    semver: minor
+  - name: node-template-runtime
+    semver: minor
+
+host_functions: []
