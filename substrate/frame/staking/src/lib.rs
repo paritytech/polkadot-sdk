@@ -566,6 +566,8 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Slash the staker for a given amount of balance.
 	///
+	/// Returns the actual slashed amount of balance.
+	///
 	/// This implements a proportional slashing system, whereby we set our preference to slash as
 	/// such:
 	///

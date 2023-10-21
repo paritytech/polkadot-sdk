@@ -24,6 +24,7 @@
 use crate::{BalanceOf, Config, Delegatees, Delegators, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	defensive,
 	dispatch::DispatchResult,
 	ensure,
 	traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
@@ -148,4 +149,13 @@ pub(crate) fn withdraw<T: Config>(
 	T::Currency::remove_lock(DELEGATING_ID, &delegator);
 
 	Ok(())
+}
+
+pub(crate) fn report_slash<T: Config>(delegatee: T::AccountId, slash: BalanceOf<T>) {
+	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
+		Some(aggregate) => aggregate.pending_slash.saturating_accrue(slash),
+		None => {
+			defensive!("should not be called on non-delegatee");
+		},
+	});
 }
