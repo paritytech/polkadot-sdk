@@ -796,39 +796,49 @@ fn asset_hub_rococo_like_local_config(
 	)
 }
 
-pub fn asset_hub_rococo_config() -> AssetHubRococoChainSpec {
+pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
-	asset_hub_rococo_like_local_config(properties, "Rococo Asset Hub", "asset-hub-rococo", 1000)
-}
-
-pub fn asset_hub_wococo_config() -> AssetHubWococoChainSpec {
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 42.into());
-	properties.insert("tokenSymbol".into(), "WOC".into());
-	properties.insert("tokenDecimals".into(), 12.into());
-	asset_hub_rococo_like_config(properties, "Wococo Asset Hub", "asset-hub-wococo", 1000)
-}
-
-fn asset_hub_rococo_like_config(
-	properties: sc_chain_spec::Properties,
-	name: &str,
-	chain_id: &str,
-	para_id: u32,
-) -> AssetHubRococoChainSpec {
+	let para_id = 1000;
 	AssetHubRococoChainSpec::from_genesis(
 		// Name
-		name,
+		"Rococo Asset Hub",
 		// ID
-		chain_id,
+		"asset-hub-rococo",
 		ChainType::Live,
 		move || {
 			asset_hub_rococo_genesis(
 				// initial collators.
 				vec![
-					// TODO: add invulnerables? from Rockmine?
+					// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
+					(
+						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+							.into(),
+						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+							.unchecked_into(),
+					),
+					// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
+					(
+						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+							.into(),
+						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+							.unchecked_into(),
+					),
+					// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
+					(
+						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+							.into(),
+						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+							.unchecked_into(),
+					),
+					// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
+					(
+						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+							.into(),
+						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+							.unchecked_into(),
+					),
 				],
 				Vec::new(),
 				para_id.into(),
@@ -840,6 +850,64 @@ fn asset_hub_rococo_like_config(
 		None,
 		Some(properties),
 		Extensions { relay_chain: "rococo".into(), para_id },
+	)
+}
+
+pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	let para_id = 1000;
+	AssetHubWococoChainSpec::from_genesis(
+		// Name
+		"Wococo Asset Hub",
+		// ID
+		"asset-hub-wococo",
+		ChainType::Live,
+		move || {
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![
+					// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
+					(
+						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
+							.into(),
+						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
+							.unchecked_into(),
+					),
+					// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
+					(
+						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
+							.into(),
+						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
+							.unchecked_into(),
+					),
+					// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
+					(
+						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
+							.into(),
+						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
+							.unchecked_into(),
+					),
+					// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
+					(
+						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
+							.into(),
+						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
+							.unchecked_into(),
+					),
+				],
+				Vec::new(),
+				para_id.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "wococo".into(), para_id },
 	)
 }
 
