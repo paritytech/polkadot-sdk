@@ -415,7 +415,7 @@ impl<AllPallets: crate::traits::TryDecodeEntireStorage> crate::traits::OnRuntime
 					target: crate::LOG_TARGET,
 					"failed to decode the entire state: {}", err
 				);
-				// NOTE: This only supports static strings.
+				// NOTE: This only supports static strings, so we cannot bubble up the exact error.
 				return Err("failed to decode a value from the storage".into())
 			},
 		};
