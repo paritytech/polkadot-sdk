@@ -1246,6 +1246,31 @@
 <a href="#1246" id="1246">1246</a>
 <a href="#1247" id="1247">1247</a>
 <a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1513,6 +1538,12 @@
 				</span>HEntry::Vacant(<span class="kw">_</span>) =&gt; (),
 			}
 		}
+
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Requests remaining after cleanup: {}&quot;</span>,
+			<span class="self">self</span>.by_priority.len(),
+		);
 	}
 
 	<span class="doccomment">/// Returns true if there are pending requests that are dispatchable.
@@ -1602,6 +1633,13 @@
 				<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
 				<span class="prelude-val">Some</span>(t) =&gt; t,
 			};
+
+			<span class="macro">gum::debug!</span>(
+				target: <span class="kw">crate</span>::LOG_TARGET,
+				candidate_hash = <span class="question-mark">?</span>id.candidate_hash,
+				peer = <span class="question-mark">?</span>target,
+				<span class="string">&quot;Issuing candidate request&quot;
+			</span>);
 
 			<span class="kw">let </span>(request, response_fut) = OutgoingRequest::new(
 				RequestRecipient::Peer(target),
@@ -1746,6 +1784,11 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>.response.identifier
 	}
 
+	<span class="doccomment">/// Get the peer we made the request to.
+	</span><span class="kw">pub fn </span>requested_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PeerId {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.response.requested_peer
+	}
+
 	<span class="doccomment">/// Validate the response. If the response is valid, this will yield the
 	/// candidate, the [`PersistedValidationData`] of the candidate, and requested
 	/// checked statements.
@@ -1830,12 +1873,19 @@
 					request_status: CandidateRequestStatus::Incomplete,
 				}
 			},
-			<span class="prelude-val">Err</span>(RequestError::NetworkError(<span class="kw">_</span>) | RequestError::Canceled(<span class="kw">_</span>)) =&gt;
+			<span class="prelude-val">Err</span>(e @ RequestError::NetworkError(<span class="kw">_</span>) | e @ RequestError::Canceled(<span class="kw">_</span>)) =&gt; {
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					err = <span class="question-mark">?</span>e,
+					peer = <span class="question-mark">?</span>requested_peer,
+					<span class="string">&quot;Request error&quot;
+				</span>);
 				<span class="kw">return </span>ResponseValidationOutput {
 					requested_peer,
 					reputation_changes: <span class="macro">vec!</span>[],
 					request_status: CandidateRequestStatus::Incomplete,
-				},
+				}
+			},
 			<span class="prelude-val">Ok</span>(response) =&gt; response,
 		};
 

@@ -431,6 +431,7 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -753,6 +754,7 @@
 					<span class="kw">let </span>mode = prospective_parachains_mode(ctx.sender(), activated.hash).<span class="kw">await</span><span class="question-mark">?</span>;
 					<span class="kw">if let </span>ProspectiveParachainsMode::Enabled { .. } = mode {
 						v2::handle_active_leaves_update(ctx, state, activated, mode).<span class="kw">await</span><span class="question-mark">?</span>;
+						v2::handle_deactivate_leaves(state, <span class="kw-2">&amp;</span>deactivated);
 					} <span class="kw">else if let </span>ProspectiveParachainsMode::Disabled = mode {
 						<span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>deactivated {
 							<span class="kw">crate</span>::legacy_v1::handle_deactivate_leaf(legacy_v1_state, <span class="kw-2">*</span>deactivated);

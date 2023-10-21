@@ -638,6 +638,30 @@
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -744,7 +768,7 @@
 	<span class="doccomment">/// By `PeerId`.
 	///
 	/// Needed for efficient handling of disconnect events.
-	</span>connected_authorities_by_peer_id: HashMap&lt;PeerId, HashSet&lt;AuthorityDiscoveryId&gt;&gt;,
+	</span>connected_peers: HashMap&lt;PeerId, HashSet&lt;AuthorityDiscoveryId&gt;&gt;,
 	<span class="doccomment">/// Authority discovery service.
 	</span>authority_discovery: AD,
 
@@ -770,7 +794,7 @@
 			failure_start: <span class="prelude-val">None</span>,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
-			connected_authorities_by_peer_id: HashMap::new(),
+			connected_peers: HashMap::new(),
 			authority_discovery,
 			metrics,
 		}
@@ -1047,19 +1071,42 @@
 			}
 		}
 
-		<span class="kw">for </span>(peer_id, auths) <span class="kw">in </span>authority_ids {
-			<span class="kw">if </span><span class="self">self</span>.connected_authorities_by_peer_id.get(<span class="kw-2">&amp;</span>peer_id) != <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>auths) {
+		<span class="comment">// peer was authority and now isn&#39;t
+		</span><span class="kw">for </span>(peer_id, current) <span class="kw">in </span><span class="self">self</span>.connected_peers.iter_mut() {
+			<span class="comment">// empty -&gt; nonempty is handled in the next loop
+			</span><span class="kw">if </span>!current.is_empty() &amp;&amp; !authority_ids.contains_key(peer_id) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id,
-						authority_ids: auths.clone(),
+						peer_id: <span class="kw-2">*</span>peer_id,
+						authority_ids: HashSet::new(),
 					})
 					.<span class="kw">await</span>;
 
-				auths.iter().for_each(|a| {
+				<span class="kw">for </span>a <span class="kw">in </span>current.drain() {
+					<span class="self">self</span>.connected_authorities.remove(<span class="kw-2">&amp;</span>a);
+				}
+			}
+		}
+
+		<span class="comment">// peer has new authority set.
+		</span><span class="kw">for </span>(peer_id, new) <span class="kw">in </span>authority_ids {
+			<span class="comment">// If the peer is connected _and_ the authority IDs have changed.
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(prev) = <span class="self">self</span>.connected_peers.get(<span class="kw-2">&amp;</span>peer_id).filter(|x| x != &amp;&amp;new) {
+				sender
+					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+						peer_id,
+						authority_ids: new.clone(),
+					})
+					.<span class="kw">await</span>;
+
+				prev.iter().for_each(|a| {
+					<span class="self">self</span>.connected_authorities.remove(a);
+				});
+				new.iter().for_each(|a| {
 					<span class="self">self</span>.connected_authorities.insert(a.clone(), peer_id);
 				});
-				<span class="self">self</span>.connected_authorities_by_peer_id.insert(peer_id, auths);
+
+				<span class="self">self</span>.connected_peers.insert(peer_id, new);
 			}
 		}
 	}
@@ -1071,12 +1118,13 @@
 					authority_ids.iter().for_each(|a| {
 						<span class="self">self</span>.connected_authorities.insert(a.clone(), peer_id);
 					});
-					<span class="self">self</span>.connected_authorities_by_peer_id.insert(peer_id, authority_ids);
+					<span class="self">self</span>.connected_peers.insert(peer_id, authority_ids);
+				} <span class="kw">else </span>{
+					<span class="self">self</span>.connected_peers.insert(peer_id, HashSet::new());
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(authority_ids) = <span class="self">self</span>.connected_authorities_by_peer_id.remove(<span class="kw-2">&amp;</span>peer_id)
-				{
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(authority_ids) = <span class="self">self</span>.connected_peers.remove(<span class="kw-2">&amp;</span>peer_id) {
 					authority_ids.into_iter().for_each(|a| {
 						<span class="self">self</span>.connected_authorities.remove(<span class="kw-2">&amp;</span>a);
 					});

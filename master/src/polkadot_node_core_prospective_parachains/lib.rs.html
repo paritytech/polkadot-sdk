@@ -938,6 +938,14 @@
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1229,6 +1237,14 @@
 				ancestry.iter().cloned(),
 			)
 			.expect(<span class="string">&quot;ancestors are provided in reverse order and correctly; qed&quot;</span>);
+
+			<span class="macro">gum::debug!</span>(
+				target: LOG_TARGET,
+				relay_parent = <span class="question-mark">?</span>hash,
+				min_relay_parent = scope.earliest_relay_parent().number,
+				para_id = <span class="question-mark">?</span>para,
+				<span class="string">&quot;Creating fragment tree&quot;
+			</span>);
 
 			<span class="kw">let </span>tree = FragmentTree::populate(scope, <span class="kw-2">&amp;*</span>candidate_storage);
 

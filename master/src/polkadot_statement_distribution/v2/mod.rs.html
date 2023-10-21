@@ -2810,6 +2810,95 @@
 <a href="#2810" id="2810">2810</a>
 <a href="#2811" id="2811">2811</a>
 <a href="#2812" id="2812">2812</a>
+<a href="#2813" id="2813">2813</a>
+<a href="#2814" id="2814">2814</a>
+<a href="#2815" id="2815">2815</a>
+<a href="#2816" id="2816">2816</a>
+<a href="#2817" id="2817">2817</a>
+<a href="#2818" id="2818">2818</a>
+<a href="#2819" id="2819">2819</a>
+<a href="#2820" id="2820">2820</a>
+<a href="#2821" id="2821">2821</a>
+<a href="#2822" id="2822">2822</a>
+<a href="#2823" id="2823">2823</a>
+<a href="#2824" id="2824">2824</a>
+<a href="#2825" id="2825">2825</a>
+<a href="#2826" id="2826">2826</a>
+<a href="#2827" id="2827">2827</a>
+<a href="#2828" id="2828">2828</a>
+<a href="#2829" id="2829">2829</a>
+<a href="#2830" id="2830">2830</a>
+<a href="#2831" id="2831">2831</a>
+<a href="#2832" id="2832">2832</a>
+<a href="#2833" id="2833">2833</a>
+<a href="#2834" id="2834">2834</a>
+<a href="#2835" id="2835">2835</a>
+<a href="#2836" id="2836">2836</a>
+<a href="#2837" id="2837">2837</a>
+<a href="#2838" id="2838">2838</a>
+<a href="#2839" id="2839">2839</a>
+<a href="#2840" id="2840">2840</a>
+<a href="#2841" id="2841">2841</a>
+<a href="#2842" id="2842">2842</a>
+<a href="#2843" id="2843">2843</a>
+<a href="#2844" id="2844">2844</a>
+<a href="#2845" id="2845">2845</a>
+<a href="#2846" id="2846">2846</a>
+<a href="#2847" id="2847">2847</a>
+<a href="#2848" id="2848">2848</a>
+<a href="#2849" id="2849">2849</a>
+<a href="#2850" id="2850">2850</a>
+<a href="#2851" id="2851">2851</a>
+<a href="#2852" id="2852">2852</a>
+<a href="#2853" id="2853">2853</a>
+<a href="#2854" id="2854">2854</a>
+<a href="#2855" id="2855">2855</a>
+<a href="#2856" id="2856">2856</a>
+<a href="#2857" id="2857">2857</a>
+<a href="#2858" id="2858">2858</a>
+<a href="#2859" id="2859">2859</a>
+<a href="#2860" id="2860">2860</a>
+<a href="#2861" id="2861">2861</a>
+<a href="#2862" id="2862">2862</a>
+<a href="#2863" id="2863">2863</a>
+<a href="#2864" id="2864">2864</a>
+<a href="#2865" id="2865">2865</a>
+<a href="#2866" id="2866">2866</a>
+<a href="#2867" id="2867">2867</a>
+<a href="#2868" id="2868">2868</a>
+<a href="#2869" id="2869">2869</a>
+<a href="#2870" id="2870">2870</a>
+<a href="#2871" id="2871">2871</a>
+<a href="#2872" id="2872">2872</a>
+<a href="#2873" id="2873">2873</a>
+<a href="#2874" id="2874">2874</a>
+<a href="#2875" id="2875">2875</a>
+<a href="#2876" id="2876">2876</a>
+<a href="#2877" id="2877">2877</a>
+<a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
+<a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
+<a href="#2884" id="2884">2884</a>
+<a href="#2885" id="2885">2885</a>
+<a href="#2886" id="2886">2886</a>
+<a href="#2887" id="2887">2887</a>
+<a href="#2888" id="2888">2888</a>
+<a href="#2889" id="2889">2889</a>
+<a href="#2890" id="2890">2890</a>
+<a href="#2891" id="2891">2891</a>
+<a href="#2892" id="2892">2892</a>
+<a href="#2893" id="2893">2893</a>
+<a href="#2894" id="2894">2894</a>
+<a href="#2895" id="2895">2895</a>
+<a href="#2896" id="2896">2896</a>
+<a href="#2897" id="2897">2897</a>
+<a href="#2898" id="2898">2898</a>
+<a href="#2899" id="2899">2899</a>
+<a href="#2900" id="2900">2900</a>
+<a href="#2901" id="2901">2901</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2912,6 +3001,8 @@
 	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, missing knowlege for relay parent&quot;</span>);
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, Peer Disallowed&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, Peer Unknown&quot;</span>);
 <span class="kw">const </span>COST_CONFLICTING_MANIFEST: Rep = Rep::CostMajor(<span class="string">&quot;Manifest conflicts with previous&quot;</span>);
 <span class="kw">const </span>COST_INSUFFICIENT_MANIFEST: Rep =
 	Rep::CostMajor(<span class="string">&quot;Manifest statements insufficient to back candidate&quot;</span>);
@@ -2997,11 +3088,18 @@
 		}
 	}
 
-	<span class="kw">fn </span>supply_topology(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topology: <span class="kw-2">&amp;</span>SessionGridTopology) {
-		<span class="kw">let </span>grid_view = grid::build_session_topology(
+	<span class="kw">fn </span>supply_topology(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		topology: <span class="kw-2">&amp;</span>SessionGridTopology,
+		local_index: <span class="prelude-ty">Option</span>&lt;ValidatorIndex&gt;,
+	) {
+		<span class="comment">// Note: we use the local index rather than the `self.local_validator` as the
+		// former may be `Some` when the latter is `None`, due to the set of nodes in
+		// discovery being a superset of the active validators for consensus.
+		</span><span class="kw">let </span>grid_view = grid::build_session_topology(
 			<span class="self">self</span>.session_info.validator_groups.iter(),
 			topology,
-			<span class="self">self</span>.local_validator,
+			local_index,
 		);
 
 		<span class="self">self</span>.grid_view = <span class="prelude-val">Some</span>(grid_view);
@@ -3146,7 +3244,7 @@
 						<span class="bool-val">true
 					</span>},
 					Entry::Occupied(e) =&gt; {
-						<span class="macro">gum::trace!</span>(
+						<span class="macro">gum::debug!</span>(
 							target: LOG_TARGET,
 							authority_id = <span class="question-mark">?</span>a,
 							existing_peer = <span class="question-mark">?</span>e.get(),
@@ -3178,9 +3276,10 @@
 		NetworkBridgeEvent::NewGossipTopology(topology) =&gt; {
 			<span class="kw">let </span>new_session_index = topology.session;
 			<span class="kw">let </span>new_topology = topology.topology;
+			<span class="kw">let </span>local_index = topology.local_index;
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(per_session) = state.per_session.get_mut(<span class="kw-2">&amp;</span>new_session_index) {
-				per_session.supply_topology(<span class="kw-2">&amp;</span>new_topology);
+				per_session.supply_topology(<span class="kw-2">&amp;</span>new_topology, local_index);
 			}
 
 			<span class="comment">// TODO [https://github.com/paritytech/polkadot/issues/6194]
@@ -3221,6 +3320,12 @@
 				<span class="string">&quot;Updated `AuthorityDiscoveryId`s&quot;
 			</span>);
 
+			<span class="comment">// defensive: ensure peers are actually connected
+			</span><span class="kw">let </span>peer_state = <span class="kw">match </span>state.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
+				<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
+				<span class="prelude-val">Some</span>(p) =&gt; p,
+			};
+
 			<span class="comment">// Remove the authority IDs which were previously mapped to the peer
 			// but aren&#39;t part of the new set.
 			</span>state.authorities.retain(|a, p| p != <span class="kw-2">&amp;</span>peer_id || authority_ids.contains(a));
@@ -3230,9 +3335,7 @@
 				state.authorities.insert(a, peer_id);
 			}
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_state) = state.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
-				peer_state.discovery_ids = <span class="prelude-val">Some</span>(authority_ids);
-			}
+			peer_state.discovery_ids = <span class="prelude-val">Some</span>(authority_ids);
 		},
 	}
 }
@@ -3354,6 +3457,13 @@
 		);
 	}
 
+	<span class="macro">gum::debug!</span>(
+		target: LOG_TARGET,
+		<span class="string">&quot;Activated leaves. Now tracking {} relay-parents across {} sessions&quot;</span>,
+		state.per_relay_parent.len(),
+		state.per_session.len(),
+	);
+
 	<span class="comment">// Reconcile all peers&#39; views with the active leaf and any relay parents
 	// it implies. If they learned about the block before we did, this reconciliation will give
 	// non-empty results and we should send them messages concerning all activated relay-parents.
@@ -3411,25 +3521,18 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>handle_deactivate_leaves(state: <span class="kw-2">&amp;mut </span>State, leaves: <span class="kw-2">&amp;</span>[Hash]) {
 	<span class="comment">// deactivate the leaf in the implicit view.
 	</span><span class="kw">for </span>leaf <span class="kw">in </span>leaves {
-		state.implicit_view.deactivate_leaf(<span class="kw-2">*</span>leaf);
+		<span class="kw">let </span>pruned = state.implicit_view.deactivate_leaf(<span class="kw-2">*</span>leaf);
+		<span class="kw">for </span>pruned_rp <span class="kw">in </span>pruned {
+			<span class="comment">// clean up per-relay-parent data based on everything removed.
+			</span>state.per_relay_parent.remove(<span class="kw-2">&amp;</span>pruned_rp);
+			<span class="comment">// clean up requests related to this relay parent.
+			</span>state.request_manager.remove_by_relay_parent(<span class="kw-2">*</span>leaf);
+		}
 	}
 
-	<span class="kw">let </span>relay_parents = state.implicit_view.all_allowed_relay_parents().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
-
-	<span class="comment">// fast exit for no-op.
-	</span><span class="kw">if </span>relay_parents.len() == state.per_relay_parent.len() {
-		<span class="kw">return
-	</span>}
-
-	<span class="comment">// clean up per-relay-parent data based on everything removed.
-	</span>state.per_relay_parent.retain(|r, <span class="kw">_</span>| relay_parents.contains(r));
-
-	<span class="comment">// Clean up all requests
-	</span><span class="kw">for </span>leaf <span class="kw">in </span>leaves {
-		state.request_manager.remove_by_relay_parent(<span class="kw-2">*</span>leaf);
-	}
-
-	state.candidates.on_deactivate_leaves(<span class="kw-2">&amp;</span>leaves, |h| relay_parents.contains(h));
+	state
+		.candidates
+		.on_deactivate_leaves(<span class="kw-2">&amp;</span>leaves, |h| state.per_relay_parent.contains_key(h));
 
 	<span class="comment">// clean up sessions based on everything remaining.
 	</span><span class="kw">let </span>sessions: HashSet&lt;<span class="kw">_</span>&gt; = state.per_relay_parent.values().map(|r| r.session).collect();
@@ -4546,6 +4649,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
+			local_validator = <span class="question-mark">?</span>local_validator.index,
 			n_peers = manifest_peers.len(),
 			<span class="string">&quot;Sending manifest to peers&quot;
 		</span>);
@@ -4561,6 +4665,7 @@
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
+			local_validator = <span class="question-mark">?</span>local_validator.index,
 			n_peers = ack_peers.len(),
 			<span class="string">&quot;Sending acknowledgement to peers&quot;
 		</span>);
@@ -4786,8 +4891,13 @@
 
 	<span class="kw">let </span>sender_index = <span class="kw">match </span>sender_index {
 		<span class="prelude-val">None </span>=&gt; {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_MANIFEST_DISALLOWED)
-				.<span class="kw">await</span>;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN,
+			)
+			.<span class="kw">await</span>;
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>},
 		<span class="prelude-val">Some</span>(s) =&gt; s,
@@ -4840,6 +4950,17 @@
 		modify_reputation(reputation, ctx.sender(), peer, COST_INACCURATE_ADVERTISEMENT).<span class="kw">await</span>;
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
+
+	<span class="kw">if </span>acknowledge {
+		<span class="macro">gum::trace!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>candidate_hash,
+			from = <span class="question-mark">?</span>sender_index,
+			local_index = <span class="question-mark">?</span>local_validator.index,
+			<span class="question-mark">?</span>manifest_kind,
+			<span class="string">&quot;immediate ack, known candidate&quot;
+		</span>);
+	}
 
 	<span class="prelude-val">Some</span>(ManifestImportSuccess { relay_parent_state, per_session, acknowledge, sender_index })
 }
@@ -5370,6 +5491,13 @@
 	<span class="kw">let </span><span class="kw-2">&amp;</span>requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
 
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>candidate_hash,
+		peer = <span class="question-mark">?</span>response.requested_peer(),
+		<span class="string">&quot;Received response&quot;</span>,
+	);
+
 	<span class="kw">let </span>post_confirmation = {
 		<span class="kw">let </span>relay_parent_state = <span class="kw">match </span>state.per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
@@ -5408,12 +5536,29 @@
 
 		<span class="kw">let </span>(candidate, pvd, statements) = <span class="kw">match </span>res.request_status {
 			requests::CandidateRequestStatus::Outdated =&gt; <span class="kw">return</span>,
-			requests::CandidateRequestStatus::Incomplete =&gt; <span class="kw">return</span>,
+			requests::CandidateRequestStatus::Incomplete =&gt; {
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					<span class="question-mark">?</span>candidate_hash,
+					<span class="string">&quot;Response incomplete. Retrying&quot;
+				</span>);
+
+				<span class="kw">return
+			</span>},
 			requests::CandidateRequestStatus::Complete {
 				candidate,
 				persisted_validation_data,
 				statements,
-			} =&gt; (candidate, persisted_validation_data, statements),
+			} =&gt; {
+				<span class="macro">gum::trace!</span>(
+					target: LOG_TARGET,
+					<span class="question-mark">?</span>candidate_hash,
+					n_statements = statements.len(),
+					<span class="string">&quot;Successfully received candidate&quot;
+				</span>);
+
+				(candidate, persisted_validation_data, statements)
+			},
 		};
 
 		<span class="kw">for </span>statement <span class="kw">in </span>statements {
@@ -5485,6 +5630,13 @@
 	<span class="kw">let </span>ResponderMessage { request, sent_feedback } = message;
 	<span class="kw">let </span>AttestedCandidateRequest { candidate_hash, <span class="kw-2">ref </span>mask } = <span class="kw-2">&amp;</span>request.payload;
 
+	<span class="macro">gum::trace!</span>(
+		target: LOG_TARGET,
+		<span class="question-mark">?</span>candidate_hash,
+		peer = <span class="question-mark">?</span>request.peer,
+		<span class="string">&quot;Received request&quot;
+	</span>);
+
 	<span class="comment">// Signal to the responder that we started processing this request.
 	</span><span class="kw">let _ </span>= sent_feedback.send(());
 
@@ -5493,12 +5645,12 @@
 		</span><span class="prelude-val">Some</span>(c) =&gt; c,
 	};
 
-	<span class="kw">let </span>relay_parent_state = <span class="kw">match </span>state.per_relay_parent.get(<span class="kw-2">&amp;</span>confirmed.relay_parent()) {
+	<span class="kw">let </span>relay_parent_state = <span class="kw">match </span>state.per_relay_parent.get_mut(<span class="kw-2">&amp;</span>confirmed.relay_parent()) {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
 
-	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_ref() {
+	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
@@ -5530,28 +5682,39 @@
 		<span class="kw">return
 	</span>}
 
-	<span class="comment">// check peer is allowed to request the candidate (i.e. we&#39;ve sent them a manifest)
-	</span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>can_request = <span class="bool-val">false</span>;
-		<span class="kw">for </span>validator_id <span class="kw">in </span>find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
+	<span class="comment">// check peer is allowed to request the candidate (i.e. they&#39;re in the cluster or we&#39;ve sent
+	// them a manifest)
+	</span><span class="kw">let </span>(validator_id, is_cluster) = {
+		<span class="kw">let </span><span class="kw-2">mut </span>validator_id = <span class="prelude-val">None</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>is_cluster = <span class="bool-val">false</span>;
+		<span class="kw">for </span>v <span class="kw">in </span>find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
 		}) {
-			<span class="kw">if </span>local_validator.grid_tracker.can_request(validator_id, <span class="kw-2">*</span>candidate_hash) {
-				can_request = <span class="bool-val">true</span>;
+			<span class="kw">if </span>local_validator.cluster_tracker.can_request(v, <span class="kw-2">*</span>candidate_hash) {
+				validator_id = <span class="prelude-val">Some</span>(v);
+				is_cluster = <span class="bool-val">true</span>;
+				<span class="kw">break
+			</span>}
+
+			<span class="kw">if </span>local_validator.grid_tracker.can_request(v, <span class="kw-2">*</span>candidate_hash) {
+				validator_id = <span class="prelude-val">Some</span>(v);
 				<span class="kw">break
 			</span>}
 		}
 
-		<span class="kw">if </span>!can_request {
-			<span class="kw">let _ </span>= request.send_outgoing_response(OutgoingResponse {
-				result: <span class="prelude-val">Err</span>(()),
-				reputation_changes: <span class="macro">vec!</span>[COST_UNEXPECTED_REQUEST],
-				sent_feedback: <span class="prelude-val">None</span>,
-			});
+		<span class="kw">match </span>validator_id {
+			<span class="prelude-val">Some</span>(v) =&gt; (v, is_cluster),
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="kw">let _ </span>= request.send_outgoing_response(OutgoingResponse {
+					result: <span class="prelude-val">Err</span>(()),
+					reputation_changes: <span class="macro">vec!</span>[COST_UNEXPECTED_REQUEST],
+					sent_feedback: <span class="prelude-val">None</span>,
+				});
 
-			<span class="kw">return
-		</span>}
-	}
+				<span class="kw">return
+			</span>},
+		}
+	};
 
 	<span class="comment">// Transform mask with &#39;OR&#39; semantics into one with &#39;AND&#39; semantics for the API used
 	// below.
@@ -5560,19 +5723,34 @@
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
 
+	<span class="kw">let </span>statements: Vec&lt;<span class="kw">_</span>&gt; = relay_parent_state
+		.statement_store
+		.group_statements(<span class="kw-2">&amp;</span>per_session.groups, confirmed.group_index(), <span class="kw-2">*</span>candidate_hash, <span class="kw-2">&amp;</span>and_mask)
+		.map(|s| s.as_unchecked().clone())
+		.collect();
+
+	<span class="comment">// Update bookkeeping about which statements peers have received.
+	</span><span class="kw">for </span>statement <span class="kw">in </span><span class="kw-2">&amp;</span>statements {
+		<span class="kw">if </span>is_cluster {
+			local_validator.cluster_tracker.note_sent(
+				validator_id,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload().clone(),
+			);
+		} <span class="kw">else </span>{
+			local_validator.grid_tracker.sent_or_received_direct_statement(
+				<span class="kw-2">&amp;</span>per_session.groups,
+				statement.unchecked_validator_index(),
+				validator_id,
+				statement.unchecked_payload(),
+			);
+		}
+	}
+
 	<span class="kw">let </span>response = AttestedCandidateResponse {
 		candidate_receipt: (<span class="kw-2">&amp;**</span>confirmed.candidate_receipt()).clone(),
 		persisted_validation_data: confirmed.persisted_validation_data().clone(),
-		statements: relay_parent_state
-			.statement_store
-			.group_statements(
-				<span class="kw-2">&amp;</span>per_session.groups,
-				confirmed.group_index(),
-				<span class="kw-2">*</span>candidate_hash,
-				<span class="kw-2">&amp;</span>and_mask,
-			)
-			.map(|s| s.as_unchecked().clone())
-			.collect(),
+		statements,
 	};
 
 	<span class="kw">let _ </span>= request.send_response(response);

@@ -2034,8 +2034,6 @@
 <a href="#2034" id="2034">2034</a>
 <a href="#2035" id="2035">2035</a>
 <a href="#2036" id="2036">2036</a>
-<a href="#2037" id="2037">2037</a>
-<a href="#2038" id="2038">2038</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3612,7 +3610,7 @@
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	rp_state: <span class="kw-2">&amp;mut </span>PerRelayParentState,
 	summary: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TableSummary&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+) {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(attested) = summary.as_ref().and_then(|s| {
 		rp_state.table.attested_candidate(
 			<span class="kw-2">&amp;</span>s.candidate,
@@ -3668,8 +3666,6 @@
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, <span class="kw-2">&amp;mut </span>rp_state.table);
-
-	<span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Check if there have happened any new misbehaviors and issue necessary messages.
@@ -3712,7 +3708,7 @@
 		</span><span class="kw">let </span>smsg = StatementDistributionMessage::Share(rp_state.parent, signed_statement.clone());
 		ctx.send_unbounded_message(smsg);
 
-		post_import_statement_actions(ctx, rp_state, summary.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
+		post_import_statement_actions(ctx, rp_state, summary.as_ref()).<span class="kw">await</span>;
 
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(signed_statement))
 	} <span class="kw">else </span>{
@@ -3838,7 +3834,7 @@
 	}
 
 	<span class="kw">let </span>summary = res<span class="question-mark">?</span>;
-	post_import_statement_actions(ctx, rp_state, summary.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
+	post_import_statement_actions(ctx, rp_state, summary.as_ref()).<span class="kw">await</span>;
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(summary) = summary {
 		<span class="comment">// import_statement already takes care of communicating with the

@@ -1296,6 +1296,12 @@
 <a href="#1296" id="1296">1296</a>
 <a href="#1297" id="1297">1297</a>
 <a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1651,7 +1657,13 @@
 				);
 				c.has_claims()
 			},
-		})
+		});
+
+		<span class="macro">gum::trace!</span>(
+			target: <span class="kw">crate</span>::LOG_TARGET,
+			<span class="string">&quot;Candidates remaining after cleanup: {}&quot;</span>,
+			<span class="self">self</span>.candidates.len(),
+		);
 	}
 }
 

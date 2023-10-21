@@ -1201,6 +1201,13 @@
 <a href="#1201" id="1201">1201</a>
 <a href="#1202" id="1202">1202</a>
 <a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1532,6 +1539,13 @@
 		</span><span class="self">self</span>.we_sent_seconded(validator, candidate_hash) ||
 			<span class="self">self</span>.they_sent_seconded(validator, candidate_hash) ||
 			<span class="self">self</span>.validator_seconded(validator, candidate_hash)
+	}
+
+	<span class="doccomment">/// Whether a validator can request a candidate from us.
+	</span><span class="kw">pub fn </span>can_request(<span class="kw-2">&amp;</span><span class="self">self</span>, target: ValidatorIndex, candidate_hash: CandidateHash) -&gt; bool {
+		<span class="self">self</span>.validators.contains(<span class="kw-2">&amp;</span>target) &amp;&amp;
+			<span class="self">self</span>.we_sent_seconded(target, candidate_hash) &amp;&amp;
+			!<span class="self">self</span>.they_sent_seconded(target, candidate_hash)
 	}
 
 	<span class="doccomment">/// Returns a Vec of pending statements to be sent to a particular validator
