@@ -41,7 +41,7 @@ use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	RuntimeDebug, Perbill,
+	Perbill, RuntimeDebug,
 };
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
@@ -277,7 +277,15 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true, ParaKind::Parachain)?;
+			Self::do_register(
+				who,
+				None,
+				id,
+				genesis_head,
+				validation_code,
+				true,
+				ParaKind::Parachain,
+			)?;
 			Ok(())
 		}
 
@@ -298,7 +306,15 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, ParaKind::Parachain)
+			Self::do_register(
+				who,
+				Some(deposit),
+				id,
+				genesis_head,
+				validation_code,
+				false,
+				ParaKind::Parachain,
+			)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -465,24 +481,33 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true, ParaKind::Parathread)?;
+			Self::do_register(
+				who,
+				None,
+				id,
+				genesis_head,
+				validation_code,
+				true,
+				ParaKind::Parathread,
+			)?;
 			Ok(())
 		}
 
-		// #[pallet::call_index(10)]
-		// #[pallet::weight(<T as Config>::WeightInfo::register())]
-		// pub fn pay_rent(
-		// 	origin: OriginFor<T>,
-		// 	id: ParaId,
-		// ) -> DispatchResult {
-		// 	// Requires the user to deposit the rental amount.
-		// 	//
-		// 	// Other than that the code is the same as for regular registration.
-		// 	let who = ensure_signed(origin)?;
-		// 	Self::do_register(who, None, id, genesis_head, validation_code, true)?;
-		// 	Ok(())
-		// }
+		/// Callable by anyone.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::register())]
+		pub fn pay_rent(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 
+			let mut rent_info = RentedParas::<T>::get(id).ok_or(Error::<T>::NotParathread)?;
+			<T as Config>::Currency::reserve(&who, rent_info.rent_cost)?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			rent_info.last_rent_payment = now;
+			RentedParas::<T>::insert(id, rent_info);
+
+			Ok(())
+		}
 	}
 }
 
@@ -530,7 +555,15 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(manager, None, id, genesis_head, validation_code, false, ParaKind::Parachain)
+		Self::do_register(
+			manager,
+			None,
+			id,
+			genesis_head,
+			validation_code,
+			false,
+			ParaKind::Parachain,
+		)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -646,7 +679,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
-		para_kind: ParaKind
+		para_kind: ParaKind,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -672,7 +705,7 @@ impl<T: Config> Pallet<T> {
 			let now = frame_system::Pallet::<T>::block_number();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
-			let rent_info = RentInfo { last_rent_payment: now,  rent_cost };
+			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
 			RentedParas::<T>::insert(id, rent_info);
 		}
 
