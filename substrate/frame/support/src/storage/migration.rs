@@ -417,7 +417,7 @@ impl<AllPallets: crate::traits::TryDecodeEntireStorage> crate::traits::OnRuntime
 				);
 				// NOTE: This only supports static strings.
 				return Err("failed to decode a value from the storage".into())
-			}
+			},
 		};
 
 		log::info!(

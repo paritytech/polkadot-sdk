@@ -225,7 +225,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		
+
 
 		// Implement `PalletInfoAccess` for `Pallet`
 		impl<#type_impl_gen> #frame_support::traits::PalletInfoAccess
