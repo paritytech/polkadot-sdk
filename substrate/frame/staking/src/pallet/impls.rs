@@ -123,10 +123,7 @@ impl<T: Config> Pallet<T> {
 	pub fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
 		// if the account is a delegatee, the balance is made up of its child delegators.
 		if delegation::is_delegatee::<T>(who) {
-			let staked_balance =
-				Self::ledger(Stash(who.clone())).map(|l| l.total).unwrap_or_default();
-			let delegated_balance = delegation::delegated_balance::<T>(who);
-			return delegated_balance.saturating_sub(staked_balance)
+			return delegation::delegated_balance::<T>(who);
 		}
 
 		T::Currency::free_balance(who)
@@ -1851,10 +1848,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	fn delegated_bond_new(
-		delegation_initiator: Self::AccountId,
-		delegatee: Self::AccountId,
+		delegation_initiator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
-		payee: Self::AccountId,
+		payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
 		// TODO(ank4n): This is conservative and not needed on staking pallet level. NP can decide
 		// how it wants to pay rewards. Staking only needs to ensure that the rewards are not
@@ -1862,11 +1859,11 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
 
 		// transfer ED from the initiator to delegatee to keep the account alive.
-		// fixme(ank4n): Does this account even need to be real?
+		// fixme(ank4n): Can this be just a ghost account?
 		// T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(), KeepAlive)?;
 
 		// delegate funds from delegator to delegatee.
-		delegation::delegate::<T>(delegation_initiator.clone(), delegatee.clone(), value)?;
+		delegation::delegate::<T>(delegation_initiator, delegatee, value)?;
 
 		// Bond with delegatee as a new staker.
 		Self::bond(
@@ -1878,19 +1875,19 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 
 	// Just delegate balance.
 	fn delegated_bond_extra(
-		delegator: Self::AccountId,
-		delegatee: Self::AccountId,
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		extra: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		// delegate funds to from delegator to delegatee.
-		delegation::delegate::<T>(delegator.clone(), delegatee.clone(), extra)?;
+		delegation::delegate::<T>(delegator, delegatee, extra)?;
 		// bond extra with delegatee as the staker.
 		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
 	}
 
 	fn delegated_bond_migrate(
-		_delegator: Self::AccountId,
-		delegatee: Self::AccountId,
+		_delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
@@ -1927,25 +1924,25 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		todo!("Revisit migrate strategy again");
 	}
 
-	fn unbond(delegatee: Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		Self::unbond(RawOrigin::Signed(delegatee).into(), value)
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+		Self::unbond(RawOrigin::Signed(delegatee.clone()).into(), value)
 			.map_err(|with_post| with_post.error)
 			.map(|_| ())
 	}
 
 	fn withdraw_unbonded(
-		delegatee: Self::AccountId,
-		delegator: Self::AccountId,
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> Result<bool, DispatchError> {
 		// partial withdraw funds from the pool ledger.
 		let real_num_slashing_spans =
-			Self::slashing_spans(&delegatee).map_or(0, |s| s.iter().count());
+			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
 		// this should withdraw funds from the ledger without unlocking.
-		let _ = Self::do_withdraw_unbonded(&delegatee, real_num_slashing_spans as u32, Some(value));
+		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value));
 		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
-		delegation::withdraw::<T>(delegator.clone(), delegatee.clone(), value)
-			.map(|_| !Ledger::<T>::contains_key(&delegatee))
+		delegation::withdraw::<T>(delegator, delegatee, value)
+			.map(|_| !Ledger::<T>::contains_key(delegatee))
 	}
 }
 

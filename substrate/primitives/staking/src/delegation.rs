@@ -30,18 +30,18 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	///
 	/// Similar to [`StakingInterface::bond`].
 	fn delegated_bond_new(
-		delegator: Self::AccountId,
-		delegatee: Self::AccountId,
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
-		payee: Self::AccountId,
+		payee: &Self::AccountId,
 	) -> DispatchResult;
 
 	/// Delegate some funds or add to an existing staker.
 	///
 	/// Similar to [`StakingInterface::bond_extra`].
 	fn delegated_bond_extra(
-		delegator: Self::AccountId,
-		delegatee: Self::AccountId,
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 
@@ -53,15 +53,15 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	/// This is useful to move active funds in a non-delegation based pool account and migrate it
 	/// into a delegation based staking.
 	fn delegated_bond_migrate(
-		delegator: Self::AccountId,
-		delegatee: Self::AccountId,
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 
 	/// Unbond some funds from a delegator.
 	///
 	/// Similar to [`StakingInterface::unbond`].
-	fn unbond(delegatee: Self::AccountId, value: Self::Balance) -> DispatchResult;
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
 	/// Remove delegation of some or all funds available for unlock at the current era.
 	///
@@ -69,8 +69,8 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	///
 	/// Similar to [`StakingInterface::withdraw_unbonded`].
 	fn withdraw_unbonded(
-		delegatee: Self::AccountId,
-		delegator: Self::AccountId,
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> Result<bool, DispatchError>;
 }

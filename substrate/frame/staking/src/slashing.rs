@@ -608,7 +608,7 @@ pub fn do_slash<T: Config>(
 
 	if !value.is_zero() {
 		if lazy_slash {
-			delegation::report_slash::<T>(stash.clone(), value);
+			delegation::report_slash::<T>(stash, value);
 		} else {
 			let (imbalance, missing) = T::Currency::slash(stash, value);
 			slashed_imbalance.subsume(imbalance);

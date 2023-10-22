@@ -6256,17 +6256,17 @@ mod delegation_stake {
 			assert_eq!(Staking::stakeable_balance(&delegatee), 0);
 			assert_eq!(Balances::free_balance(delegatee), 0);
 
-			let delegation_initiator = 200;
+			let delegation_initiator: AccountId = 200;
 
 			// give some balance to the delegator
 			let _ = Balances::make_free_balance_be(&delegation_initiator, 1000);
 
 			// when: there is a new delegated staking
 			assert_ok!(Staking::delegated_bond_new(
-				delegation_initiator,
-				delegatee,
+				&delegation_initiator,
+				&delegatee,
 				100,
-				reward_acc
+				&reward_acc
 			));
 
 			// Then: verify delegation is bonded correctly
@@ -6290,15 +6290,14 @@ mod delegation_stake {
 					total: 100,
 					active: 100,
 					..
-				} if stash == delegatee)
-			);
+				} if stash == delegatee));
 		})
 	}
 
 	#[test]
 	fn delegated_bond_extra_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Given an account with no balance or delegations yet
+			// Given a bonded delegatee account
 			let delegatee: AccountId = 99;
 			let reward_acc: AccountId = 100;
 
@@ -6308,20 +6307,14 @@ mod delegation_stake {
 			}
 
 			// initiate delegation
-			assert_ok!(Staking::delegated_bond_new(
-				200,
-				delegatee,
-				100,
-				reward_acc
-			));
+			assert_ok!(Staking::delegated_bond_new(&200, &delegatee, 100, &reward_acc));
 
 			// when: more delegators join the delegatee
 			for i in 201..210 {
-				assert_ok!(Staking::delegated_bond_extra(i, delegatee, 100));
+				assert_ok!(Staking::delegated_bond_extra(&(i), &delegatee, 100));
 			}
 
 			// Then: verify delegated stake is bonded correctly
-
 			for i in 200..210 {
 				// Role of delegator is correct and delegating to correct account
 				assert_eq!(Staking::status(&i).unwrap(), StakerStatus::Delegator(delegatee));
@@ -6344,7 +6337,73 @@ mod delegation_stake {
 					total: 1000,
 					active: 1000,
 					..
-				} if stash == delegatee)
+				} if stash == delegatee));
+		})
+	}
+
+	#[test]
+	fn reward_account_cannot_be_same_as_delegatee() {
+		ExtBuilder::default().build_and_execute(|| {
+			let delegatee: AccountId = 99;
+
+			// give some balance to the delegators
+			let _ = Balances::make_free_balance_be(&200, 1000);
+
+			// trying to set reward account as delegatee fails
+			assert_noop!(
+				Staking::delegated_bond_new(&200, &delegatee, 100, &delegatee),
+				Error::<Test>::InvalidDelegation
+			);
+		})
+	}
+
+	#[test]
+	fn delegation_withdrawal_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given a delegation account with 10 delegators
+			let delegatee: AccountId = 99;
+			let reward_acc: AccountId = 100;
+
+			// give some balance to the delegators
+			for i in 200..210 {
+				let _ = Balances::make_free_balance_be(&(i), 1000);
+			}
+
+			assert_eq!(active_era(), 0);
+			// initiate delegation
+			assert_ok!(Staking::delegated_bond_new(&200, &delegatee, 100, &reward_acc));
+
+			// add more delegations
+			for i in 201..210 {
+				assert_ok!(Staking::delegated_bond_extra(&i, &delegatee, 100));
+			}
+
+			// when: some delegators unbond their stake
+			mock::start_active_era(1);
+
+			// unbonding for 201 ( higher level abstraction such as nomination pool would track
+			// this, staking pallet does not care).
+			assert_ok!(<Staking as DelegatedStakeInterface>::unbond(&delegatee, 10));
+			println!("Staking ledger: {:?}", Staking::ledger(StakingAccount::Stash(delegatee)).unwrap());
+			mock::start_active_era(2);
+			// unbonding for 202
+			assert_ok!(<Staking as DelegatedStakeInterface>::unbond(&delegatee, 20));
+			println!("Staking ledger: {:?}", Staking::ledger(StakingAccount::Stash(delegatee)).unwrap());
+
+			// verify ledgers for unlocking
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
+				StakingLedgerInspect {
+					stash: delegatee,
+					total: 1000,
+					active: 1000 - 30,
+					// bonding duration = 3,
+					unlocking: bounded_vec![
+						UnlockChunk { value: 10, era: 4 },
+						UnlockChunk { value: 20, era: 5 }
+					],
+					claimed_rewards: bounded_vec![],
+				}
 			);
 		})
 	}

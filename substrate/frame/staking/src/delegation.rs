@@ -58,8 +58,8 @@ pub(crate) fn is_delegatee<T: Config>(delegatee: &T::AccountId) -> bool {
 
 /// Delegate some amount from delegator to delegatee.
 pub(crate) fn delegate<T: Config>(
-	delegator: T::AccountId,
-	delegatee: T::AccountId,
+	delegator: &T::AccountId,
+	delegatee: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> DispatchResult {
 	let delegator_balance = T::Currency::free_balance(&delegator);
@@ -84,7 +84,7 @@ pub(crate) fn delegate<T: Config>(
 		// add to existing delegation.
 		let (current_delegatee, current_delegation) =
 			delegation.expect("checked delegation exists above; qed");
-		ensure!(current_delegatee == delegatee, Error::<T>::InvalidDelegation);
+		ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
 		new_delegation_amount = new_delegation_amount.saturating_add(current_delegation);
 	}
 
@@ -104,15 +104,15 @@ pub(crate) fn delegate<T: Config>(
 }
 
 pub(crate) fn withdraw<T: Config>(
-	delegatee: T::AccountId,
-	delegator: T::AccountId,
+	delegatee: &T::AccountId,
+	delegator: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> DispatchResult {
 	// fixme(ank4n): Needs refactor..
 
 	<Delegators<T>>::mutate_exists(&delegator, |maybe_delegate| match maybe_delegate {
 		Some((current_delegatee, delegate_balance)) => {
-			ensure!(current_delegatee == &delegatee, Error::<T>::InvalidDelegation);
+			ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
 			ensure!(delegate_balance.clone() >= value, Error::<T>::InvalidDelegation);
 
 			delegate_balance.saturating_reduce(value);
@@ -150,7 +150,7 @@ pub(crate) fn withdraw<T: Config>(
 	Ok(())
 }
 
-pub(crate) fn report_slash<T: Config>(delegatee: T::AccountId, slash: BalanceOf<T>) {
+pub(crate) fn report_slash<T: Config>(delegatee: &T::AccountId, slash: BalanceOf<T>) {
 	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
 		Some(aggregate) => aggregate.pending_slash.saturating_accrue(slash),
 		None => {
