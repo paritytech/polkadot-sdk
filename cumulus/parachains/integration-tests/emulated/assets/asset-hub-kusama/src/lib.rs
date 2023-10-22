@@ -26,9 +26,9 @@ pub use integration_tests_common::{
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubKusama, AssetHubKusamaPallet, AssetHubKusamaReceiver, AssetHubKusamaSender, Kusama,
-	KusamaPallet, KusamaReceiver, KusamaSender, PenpalKusamaA, PenpalKusamaAPallet,
-	PenpalKusamaAReceiver, PenpalKusamaASender, PenpalKusamaB, PenpalKusamaBPallet,
+	AssetHubKusamaPara as AssetHubKusama, AssetHubKusamaParaPallet, AssetHubKusamaParaReceiver, AssetHubKusamaParaSender, KusamaRelay,
+	KusamaRelayPallet, KusamaRelayReceiver, KusamaRelaySender, PenpalKusamaAPara, PenpalKusamaAParaPallet,
+	PenpalKusamaAParaReceiver, PenpalKusamaAParaSender, PenpalKusamaBPara, PenpalKusamaBParaPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -45,17 +45,17 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 // `Assets` pallet index
 pub const ASSETS_PALLET_ID: u8 = 50;
 
-pub type RelayToSystemParaTest = Test<Kusama, AssetHubKusama>;
-pub type SystemParaToRelayTest = Test<AssetHubKusama, Kusama>;
-pub type SystemParaToParaTest = Test<AssetHubKusama, PenpalKusamaA>;
+pub type RelayToSystemParaTest = Test<KusamaRelay, AssetHubKusama>;
+pub type SystemParaToRelayTest = Test<AssetHubKusama, KusamaRelay>;
+pub type SystemParaToParaTest = Test<AssetHubKusama, PenpalKusamaAPara>;
 
 /// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
 pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
-		dest: Kusama::child_location_of(AssetHubKusama::para_id()),
+		dest: KusamaRelay::child_location_of(AssetHubKusama::para_id()),
 		beneficiary: AccountId32Junction {
 			network: None,
-			id: AssetHubKusamaReceiver::get().into(),
+			id: AssetHubKusamaParaReceiver::get().into(),
 		}
 		.into(),
 		amount,

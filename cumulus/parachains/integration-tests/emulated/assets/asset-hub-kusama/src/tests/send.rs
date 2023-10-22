@@ -20,9 +20,9 @@ use crate::*;
 #[test]
 fn send_transact_sudo_from_relay_to_system_para_works() {
 	// Init tests variables
-	let root_origin = <Kusama as Chain>::RuntimeOrigin::root();
-	let system_para_destination = Kusama::child_location_of(AssetHubKusama::para_id()).into();
-	let asset_owner: AccountId = AssetHubKusamaSender::get().into();
+	let root_origin = <KusamaRelay as Chain>::RuntimeOrigin::root();
+	let system_para_destination = KusamaRelay::child_location_of(AssetHubKusama::para_id()).into();
+	let asset_owner: AccountId = AssetHubKusamaParaSender::get().into();
 	let xcm = AssetHubKusama::force_create_asset_xcm(
 		OriginKind::Superuser,
 		ASSET_ID,
@@ -31,14 +31,14 @@ fn send_transact_sudo_from_relay_to_system_para_works() {
 		1000,
 	);
 	// Send XCM message from Relay Chain
-	Kusama::execute_with(|| {
-		assert_ok!(<Kusama as KusamaPallet>::XcmPallet::send(
+	KusamaRelay::execute_with(|| {
+		assert_ok!(<KusamaRelay as KusamaRelayPallet>::XcmPallet::send(
 			root_origin,
 			bx!(system_para_destination),
 			bx!(xcm),
 		));
 
-		Kusama::assert_xcm_pallet_sent();
+		KusamaRelay::assert_xcm_pallet_sent();
 	});
 
 	// Receive XCM message in Assets Parachain
@@ -57,7 +57,7 @@ fn send_transact_sudo_from_relay_to_system_para_works() {
 			]
 		);
 
-		assert!(<AssetHubKusama as AssetHubKusamaPallet>::Assets::asset_exists(ASSET_ID));
+		assert!(<AssetHubKusama as AssetHubKusamaParaPallet>::Assets::asset_exists(ASSET_ID));
 	});
 }
 
@@ -66,9 +66,9 @@ fn send_transact_sudo_from_relay_to_system_para_works() {
 #[test]
 fn send_transact_native_from_relay_to_system_para_fails() {
 	// Init tests variables
-	let signed_origin = <Kusama as Chain>::RuntimeOrigin::signed(KusamaSender::get().into());
-	let system_para_destination = Kusama::child_location_of(AssetHubKusama::para_id()).into();
-	let asset_owner = AssetHubKusamaSender::get().into();
+	let signed_origin = <KusamaRelay as Chain>::RuntimeOrigin::signed(KusamaRelaySender::get().into());
+	let system_para_destination = KusamaRelay::child_location_of(AssetHubKusama::para_id()).into();
+	let asset_owner = AssetHubKusamaParaSender::get().into();
 	let xcm = AssetHubKusama::force_create_asset_xcm(
 		OriginKind::Native,
 		ASSET_ID,
@@ -78,9 +78,9 @@ fn send_transact_native_from_relay_to_system_para_fails() {
 	);
 
 	// Send XCM message from Relay Chain
-	Kusama::execute_with(|| {
+	KusamaRelay::execute_with(|| {
 		assert_err!(
-			<Kusama as KusamaPallet>::XcmPallet::send(
+			<KusamaRelay as KusamaRelayPallet>::XcmPallet::send(
 				signed_origin,
 				bx!(system_para_destination),
 				bx!(xcm)
@@ -96,10 +96,10 @@ fn send_transact_native_from_relay_to_system_para_fails() {
 fn send_transact_native_from_system_para_to_relay_fails() {
 	// Init tests variables
 	let signed_origin =
-		<AssetHubKusama as Chain>::RuntimeOrigin::signed(AssetHubKusamaSender::get().into());
+		<AssetHubKusama as Chain>::RuntimeOrigin::signed(AssetHubKusamaParaSender::get().into());
 	let relay_destination = AssetHubKusama::parent_location().into();
-	let call = <Kusama as Chain>::RuntimeCall::System(frame_system::Call::<
-		<Kusama as Chain>::Runtime,
+	let call = <KusamaRelay as Chain>::RuntimeCall::System(frame_system::Call::<
+		<KusamaRelay as Chain>::Runtime,
 	>::remark_with_event {
 		remark: vec![0, 1, 2, 3],
 	})
@@ -112,7 +112,7 @@ fn send_transact_native_from_system_para_to_relay_fails() {
 	// Send XCM message from Relay Chain
 	AssetHubKusama::execute_with(|| {
 		assert_err!(
-			<AssetHubKusama as AssetHubKusamaPallet>::PolkadotXcm::send(
+			<AssetHubKusama as AssetHubKusamaParaPallet>::PolkadotXcm::send(
 				signed_origin,
 				bx!(relay_destination),
 				bx!(xcm)
@@ -127,7 +127,7 @@ fn send_transact_native_from_system_para_to_relay_fails() {
 #[test]
 fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 	let para_sovereign_account = AssetHubKusama::sovereign_account_id_of(
-		AssetHubKusama::sibling_location_of(PenpalKusamaA::para_id()),
+		AssetHubKusama::sibling_location_of(PenpalKusamaAPara::para_id()),
 	);
 
 	// Force create and mint assets for Parachain's sovereign account
@@ -153,9 +153,9 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 	let native_asset =
 		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), fee_amount).into();
 
-	let root_origin = <PenpalKusamaA as Chain>::RuntimeOrigin::root();
+	let root_origin = <PenpalKusamaAPara as Chain>::RuntimeOrigin::root();
 	let system_para_destination =
-		PenpalKusamaA::sibling_location_of(AssetHubKusama::para_id()).into();
+		PenpalKusamaAPara::sibling_location_of(AssetHubKusama::para_id()).into();
 	let xcm = xcm_transact_paid_execution(
 		call,
 		origin_kind,
@@ -163,14 +163,14 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		para_sovereign_account.clone(),
 	);
 
-	PenpalKusamaA::execute_with(|| {
-		assert_ok!(<PenpalKusamaA as PenpalKusamaAPallet>::PolkadotXcm::send(
+	PenpalKusamaAPara::execute_with(|| {
+		assert_ok!(<PenpalKusamaAPara as PenpalKusamaAParaPallet>::PolkadotXcm::send(
 			root_origin,
 			bx!(system_para_destination),
 			bx!(xcm),
 		));
 
-		PenpalKusamaA::assert_xcm_pallet_sent();
+		PenpalKusamaAPara::assert_xcm_pallet_sent();
 	});
 
 	AssetHubKusama::execute_with(|| {

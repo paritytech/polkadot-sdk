@@ -40,7 +40,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = polkadot_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Polkadot>,
+			// MessageProcessor: DefaultMessageProcessor<Polkadot<N>>,
 			SovereignAccountOf: polkadot_runtime::xcm_config::SovereignAccountOf,
 		},
 		pallets = {
@@ -55,7 +55,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = kusama_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Kusama>,
+			// MessageProcessor: DefaultMessageProcessor<Kusama<N>>,
 			SovereignAccountOf: kusama_runtime::xcm_config::SovereignAccountOf,
 		},
 		pallets = {
@@ -70,7 +70,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = westend_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Westend>,
+			// MessageProcessor: DefaultMessageProcessor<Westend<N>>,
 			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -85,7 +85,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Rococo>,
+			// MessageProcessor: DefaultMessageProcessor<Rococo<N>>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -100,7 +100,7 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Wococo>,
+			// MessageProcessor: DefaultMessageProcessor<Wococo<N>>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -453,13 +453,13 @@ decl_test_networks! {
 
 decl_test_bridges! {
 	pub struct RococoWococoMockBridge {
-		source = BridgeHubRococo,
-		target = BridgeHubWococo,
+		source = BridgeHubRococoPara,
+		target = BridgeHubWococoPara,
 		handler = RococoWococoMessageHandler
 	},
 	pub struct WococoRococoMockBridge {
-		source = BridgeHubWococo,
-		target = BridgeHubRococo,
+		source = BridgeHubWococoPara,
+		target = BridgeHubRococoPara,
 		handler = WococoRococoMessageHandler
 	}
 	// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
@@ -533,29 +533,29 @@ impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	// Relays
-	Polkadot { sender: ALICE, receiver: BOB },
-	Kusama { sender: ALICE, receiver: BOB },
-	Westend { sender: ALICE, receiver: BOB },
-	Rococo { sender: ALICE, receiver: BOB },
-	Wococo { sender: ALICE, receiver: BOB },
+	PolkadotRelay { sender: ALICE, receiver: BOB },
+	KusamaRelay { sender: ALICE, receiver: BOB },
+	WestendRelay { sender: ALICE, receiver: BOB },
+	RococoRelay { sender: ALICE, receiver: BOB },
+	WococoRelay { sender: ALICE, receiver: BOB },
 	// Asset Hubs
-	AssetHubPolkadot { sender: ALICE, receiver: BOB },
-	AssetHubKusama { sender: ALICE, receiver: BOB },
-	AssetHubWestend { sender: ALICE, receiver: BOB },
-	AssetHubRococo { sender: ALICE, receiver: BOB },
-	AssetHubWococo { sender: ALICE, receiver: BOB },
+	AssetHubPolkadotPara { sender: ALICE, receiver: BOB },
+	AssetHubKusamaPara { sender: ALICE, receiver: BOB },
+	AssetHubWestendPara { sender: ALICE, receiver: BOB },
+	AssetHubRococoPara { sender: ALICE, receiver: BOB },
+	AssetHubWococoPara { sender: ALICE, receiver: BOB },
 	// Collectives
-	Collectives { sender: ALICE, receiver: BOB },
+	CollectivesPara { sender: ALICE, receiver: BOB },
 	// Bridged Hubs
-	BridgeHubPolkadot { sender: ALICE, receiver: BOB },
-	BridgeHubKusama { sender: ALICE, receiver: BOB },
-	BridgeHubRococo { sender: ALICE, receiver: BOB },
-	BridgeHubWococo { sender: ALICE, receiver: BOB },
+	BridgeHubPolkadotPara { sender: ALICE, receiver: BOB },
+	BridgeHubKusamaPara { sender: ALICE, receiver: BOB },
+	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
+	BridgeHubWococoPara { sender: ALICE, receiver: BOB },
 	// Penpals
-	PenpalPolkadotA { sender: ALICE, receiver: BOB },
-	PenpalPolkadotB { sender: ALICE, receiver: BOB },
-	PenpalKusamaA { sender: ALICE, receiver: BOB },
-	PenpalKusamaB { sender: ALICE, receiver: BOB },
-	PenpalWestendA { sender: ALICE, receiver: BOB },
-	PenpalRococoA { sender: ALICE, receiver: BOB }
+	PenpalPolkadotAPara { sender: ALICE, receiver: BOB },
+	PenpalPolkadotBPara { sender: ALICE, receiver: BOB },
+	PenpalKusamaAPara { sender: ALICE, receiver: BOB },
+	PenpalKusamaBPara { sender: ALICE, receiver: BOB },
+	PenpalWestendAPara { sender: ALICE, receiver: BOB },
+	PenpalRococoAPara { sender: ALICE, receiver: BOB }
 }
