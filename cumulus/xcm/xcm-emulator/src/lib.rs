@@ -911,6 +911,7 @@ macro_rules! decl_test_networks {
 		$(,)?
 	) => {
 		$(
+			#[derive(Clone)]
 			pub struct $name;
 
 			impl $crate::Network for $name {

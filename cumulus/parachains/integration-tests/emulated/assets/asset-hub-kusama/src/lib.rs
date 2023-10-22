@@ -26,9 +26,13 @@ pub use integration_tests_common::{
 		REF_TIME_THRESHOLD, XCM_V3,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubKusamaPara as AssetHubKusama, AssetHubKusamaParaPallet, AssetHubKusamaParaReceiver, AssetHubKusamaParaSender, KusamaRelay,
-	KusamaRelayPallet, KusamaRelayReceiver, KusamaRelaySender, PenpalKusamaAPara, PenpalKusamaAParaPallet,
-	PenpalKusamaAParaReceiver, PenpalKusamaAParaSender, PenpalKusamaBPara, PenpalKusamaBParaPallet,
+	AssetHubKusamaPara as AssetHubKusama, AssetHubKusamaParaPallet as AssetHubKusamaPallet,
+	AssetHubKusamaParaReceiver as AssetHubKusamaReceiver, AssetHubKusamaParaSender as AssetHubKusamaSender,
+	KusamaRelay as Kusama, KusamaRelayPallet as KusamaPallet, KusamaRelayReceiver as KusamaReceiver,
+	KusamaRelaySender as KusamaSender, PenpalKusamaAPara as PenpalKusamaA,
+	PenpalKusamaAParaPallet as PenpalKusamaAPallet, PenpalKusamaAParaReceiver as PenpalKusamaAReceiver,
+	PenpalKusamaAParaSender as PenpalKusamaASender, PenpalKusamaBPara as PenpalKusamaB,
+	PenpalKusamaBParaPallet as PenpalKusamaBPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -45,17 +49,17 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 // `Assets` pallet index
 pub const ASSETS_PALLET_ID: u8 = 50;
 
-pub type RelayToSystemParaTest = Test<KusamaRelay, AssetHubKusama>;
-pub type SystemParaToRelayTest = Test<AssetHubKusama, KusamaRelay>;
-pub type SystemParaToParaTest = Test<AssetHubKusama, PenpalKusamaAPara>;
+pub type RelayToSystemParaTest = Test<Kusama, AssetHubKusama>;
+pub type SystemParaToRelayTest = Test<AssetHubKusama, Kusama>;
+pub type SystemParaToParaTest = Test<AssetHubKusama, PenpalKusamaA>;
 
 /// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
 pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
-		dest: KusamaRelay::child_location_of(AssetHubKusama::para_id()),
+		dest: Kusama::child_location_of(AssetHubKusama::para_id()),
 		beneficiary: AccountId32Junction {
 			network: None,
-			id: AssetHubKusamaParaReceiver::get().into(),
+			id: AssetHubKusamaReceiver::get().into(),
 		}
 		.into(),
 		amount,
