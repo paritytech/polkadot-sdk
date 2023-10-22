@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-frame-crate"
-version = "4.0.0-dev"
+version = "0.0.1"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "MIT-0"
