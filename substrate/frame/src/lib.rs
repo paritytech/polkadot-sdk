@@ -38,58 +38,9 @@
 //!
 //! This crate and all of its content is experimental, and should not yet be used in production.
 //!
-//! ## Introduction
+//! ## Getting Started
 //!
-//! Substrate is at a very high level composed of two parts:
-//!
-//! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
-//! blockchain, and is encoded as a Wasm blob.
-//! 2. A client whose primary purpose is to execute the given runtime.
-//!
-//! FRAME is the Substrate's framework of choice to build a runtime.
-//!
-//! FRAME is composed of two major components, **pallets** and a **runtime**. Pallets are isolated
-//! pieces of logic that can be composed together to form a runtime. Recall from the [`substrate`]'s
-//! architecture that a FRAME-based runtime would be part of a substrate client.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
-//! ## Pallets
-//!
-//! A pallet is analogous to a module in the runtime, which can itself be composed of multiple
-//! components, most notable of which are:
-//!
-//! - Storage
-//! - Dispatchables
-//! - Events
-//! - Errors
-//!
-//! Most of these components are defined using macros, the full list of which can be found in
-//! [`frame_support::pallet_macros`]
-//!
-//! ###
-//!
-//! The following examples showcases a minimal pallet.
-#![doc = docify::embed!("src/lib.rs", pallet)]
-//!
-//! ## Runtime
-//!
-//! This crate also provides the ability to amalgamate multiple pallets into a single runtime. See
-//! [`runtime`]. To do so, the `runtime` feature of this crate needs to be enabled.
-//!
-//! ### Example
-//!
-//! The following example shows a (test) runtime that is composing the pallet demonstrated above,
-//! next to the [`frame_system`] pallet, into a runtime.
-#![doc = docify::embed!("src/lib.rs", runtime)]
-//!
-//! ## Underlying dependencies
-//!
-//! This crate is an amalgamation of multiple other crates that are often used together to compose a
-//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
-//!
-//! In short, this crate only re-exports types and traits from multiple sources. All of these
-//! sources are listed (and re-exported again) in [`deps`].
-//!
-//! [`substrate`]: ../substrate/index.html
+//! TODO: link to `developer_hub::polkadot_sdk::frame`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -106,6 +57,7 @@ pub use frame_support::pallet;
 pub use log;
 
 /// The main prelude of FRAME.
+///
 ///
 /// This prelude should almost always be the first non-import line of code in any pallet or runtime.
 ///
@@ -390,60 +342,4 @@ pub mod deps {
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
 	pub use sp_version;
-}
-
-#[cfg(test)]
-mod tests {
-	use crate as frame;
-	use frame::{prelude::*, testing_prelude::*};
-
-	#[docify::export]
-	#[frame::pallet(dev_mode)]
-	pub mod pallet {
-		use super::*;
-
-		#[pallet::config]
-		pub trait Config: frame_system::Config {
-			type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent>
-				+ From<Event<Self>>;
-		}
-
-		#[pallet::pallet]
-		pub struct Pallet<T>(PhantomData<T>);
-
-		#[pallet::event]
-		pub enum Event<T: Config> {}
-
-		#[pallet::storage]
-		pub type Value<T> = StorageValue<Value = u32>;
-
-		#[pallet::call]
-		impl<T: Config> Pallet<T> {
-			pub fn some_dispatchable(_origin: OriginFor<T>) -> DispatchResult {
-				Ok(())
-			}
-		}
-	}
-
-	#[docify::export]
-	pub mod runtime {
-		use super::{frame, pallet as pallet_example};
-		use frame::{prelude::*, testing_prelude::*};
-
-		construct_runtime!(
-			pub struct Runtime {
-				System: frame_system,
-				Example: pallet_example,
-			}
-		);
-
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
-		impl frame_system::Config for Runtime {
-			type Block = MockBlock<Self>;
-		}
-
-		impl pallet_example::Config for Runtime {
-			type RuntimeEvent = RuntimeEvent;
-		}
-	}
 }

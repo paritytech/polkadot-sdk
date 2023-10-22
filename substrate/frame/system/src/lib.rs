@@ -258,6 +258,7 @@ pub mod pallet {
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
 		/// * 2s block time, and a default 5mb block size is used.
+		#[cfg(feature = "experimental")]
 		pub struct SolochainDefaultConfig;
 
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
@@ -286,7 +287,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type PalletInfo = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU32<10>;
+			type BlockHashCount = frame_support::traits::ConstU32<256>;
 			type OnSetCode = ();
 		}
 	}

@@ -57,14 +57,7 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
-		type BaseCallFilter = frame::traits::Everything;
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-		type RuntimeEvent = RuntimeEvent;
-		type PalletInfo = PalletInfo;
-		type OnSetCode = ();
 		type Block = MockBlock<Self>;
-		type BlockHashCount = ();
 	}
 
 	impl my_pallet::Config for Runtime {
