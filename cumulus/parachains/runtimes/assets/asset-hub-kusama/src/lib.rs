@@ -227,8 +227,9 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
 	// We allow each account to have holds on it from:
+	//   - `Assets`: 4 * 3 instances = 12
 	//   - `NftFractionalization`: 1
-	type MaxHolds = ConstU32<1>;
+	type MaxHolds = ConstU32<13>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -268,10 +269,11 @@ pub type TrustBackedAssetsInstance = pallet_assets::Instance1;
 type TrustBackedAssetsCall = pallet_assets::Call<Runtime, TrustBackedAssetsInstance>;
 impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = AssetDeposit;
@@ -304,11 +306,12 @@ ord_parameter_types! {
 pub type PoolAssetsInstance = pallet_assets::Instance3;
 impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -376,10 +379,11 @@ parameter_types! {
 pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type AssetId = MultiLocationForAssetId;
 	type AssetIdParameter = MultiLocationForAssetId;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin = ForeignCreators<
 		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),
 		ForeignCreatorsSovereignAccountOf,
@@ -855,13 +859,13 @@ construct_runtime!(
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
 
 		// The main stage.
-		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
+		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>, HoldReason} = 50,
 		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,
 		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 52,
-		ForeignAssets: pallet_assets::<Instance2>::{Pallet, Call, Storage, Event<T>} = 53,
+		ForeignAssets: pallet_assets::<Instance2>::{Pallet, Call, Storage, Event<T>, HoldReason} = 53,
 		NftFractionalization: pallet_nft_fractionalization::{Pallet, Call, Storage, Event<T>, HoldReason} = 54,
 
-		PoolAssets: pallet_assets::<Instance3>::{Pallet, Call, Storage, Event<T>} = 55,
+		PoolAssets: pallet_assets::<Instance3>::{Pallet, Call, Storage, Event<T>, HoldReason} = 55,
 		AssetConversion: pallet_asset_conversion::{Pallet, Call, Storage, Event<T>} = 56,
 
 		#[cfg(feature = "state-trie-version-1")]

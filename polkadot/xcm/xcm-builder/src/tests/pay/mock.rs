@@ -76,7 +76,7 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	type MaxHolds = ConstU32<4>; // assets
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -92,9 +92,10 @@ parameter_types! {
 
 impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type AssetId = AssetIdForAssets;
-	type Currency = Balances;
+	type NativeToken = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;

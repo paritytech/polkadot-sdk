@@ -1,0 +1,20 @@
+# Schema: Parity PR Documentation Schema (prdoc)
+# See doc at https://github.com/paritytech/prdoc
+
+title: pallet assets / upgrade to use fungible
+
+doc:
+  - audience: Core Dev
+    description: |
+      This updates the assets pallet to use the new fungible traits rather than the now deprecated
+      Currency and ReserveCurrency traits ( paritytech/substrate#12951 ).
+      Partial fix of #226.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates: []
+
+host_functions: []
