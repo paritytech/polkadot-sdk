@@ -517,7 +517,10 @@ impl<T: Config> StakingLedger<T> {
 						// keep the leftover amount in the chunk
 						total = total.saturating_sub(max_unlock);
 						unlocked = unlocked.saturating_add(max_unlock);
-						Some(UnlockChunk { value: chunk.value.saturating_sub(max_unlock), era: chunk.era })
+						Some(UnlockChunk {
+							value: chunk.value.saturating_sub(max_unlock),
+							era: chunk.era,
+						})
 					}
 				}
 			})

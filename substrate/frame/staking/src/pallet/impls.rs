@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
 	pub fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
 		// if the account is a delegatee, the balance is made up of its child delegators.
 		if delegation::is_delegatee::<T>(who) {
-			return delegation::delegated_balance::<T>(who);
+			return delegation::delegated_balance::<T>(who)
 		}
 
 		T::Currency::free_balance(who)
@@ -1860,7 +1860,8 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 
 		// transfer ED from the initiator to delegatee to keep the account alive.
 		// fixme(ank4n): Can this be just a ghost account?
-		// T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(), KeepAlive)?;
+		// T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(),
+		// KeepAlive)?;
 
 		// delegate funds from delegator to delegatee.
 		delegation::delegate::<T>(delegation_initiator, delegatee, value)?;
