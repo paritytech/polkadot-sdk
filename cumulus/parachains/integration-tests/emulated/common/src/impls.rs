@@ -45,6 +45,7 @@ pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
 	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
 	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Parachain, RelayChain, TestExt,
+	Network,
 };
 
 // Polkadot
@@ -178,7 +179,7 @@ where
 macro_rules! impl_accounts_helpers_for_relay_chain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Fund a set of accounts with a balance
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
@@ -208,7 +209,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 		$crate::impls::paste::paste! {
 			type [<$chain RuntimeEvent>]<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Asserts a dispatchable is completely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_complete(expected_weight: Option<$crate::impls::Weight>) {
 					$crate::impls::assert_expected_events!(
@@ -296,7 +297,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Init open channel request with another Parachain
 				pub fn init_open_channel_call(
 					recipient_para_id: $crate::impls::ParaId,
@@ -360,7 +361,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 macro_rules! impl_accounts_helpers_for_parachain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Fund a set of accounts with a balance
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
@@ -384,7 +385,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 		$crate::impls::paste::paste! {
 			type [<$chain RuntimeEvent>]<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Asserts a dispatchable is completely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_complete(expected_weight: Option<$crate::impls::Weight>) {
 					$crate::impls::assert_expected_events!(
@@ -529,7 +530,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 macro_rules! impl_assets_helpers_for_parachain {
 	( $chain:ident, $relay_chain:ident ) => {
 		$crate::impls::paste::paste! {
-			impl<N> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Returns the encoded call for `force_create` from the assets pallet
 				pub fn force_create_asset_call(
 					asset_id: u32,
