@@ -15172,6 +15172,7 @@ dependencies = [
  "libc",
  "log",
  "parity-scale-codec",
+ "parking_lot 0.12.1",
  "paste",
  "rustix 0.36.15",
  "sc-allocator",
