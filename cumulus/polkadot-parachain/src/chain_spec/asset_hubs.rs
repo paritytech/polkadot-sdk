@@ -30,12 +30,17 @@ pub type AssetHubKusamaChainSpec =
 	sc_service::GenericChainSpec<asset_hub_kusama_runtime::RuntimeGenesisConfig, Extensions>;
 pub type AssetHubWestendChainSpec =
 	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubRococoChainSpec =
+	sc_service::GenericChainSpec<asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions>;
+pub type AssetHubWococoChainSpec = AssetHubRococoChainSpec;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_KUSAMA_ED: AssetHubBalance =
 	parachains_common::kusama::currency::EXISTENTIAL_DEPOSIT;
 const ASSET_HUB_WESTEND_ED: AssetHubBalance =
+	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+const ASSET_HUB_ROCOCO_ED: AssetHubBalance =
 	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
@@ -52,6 +57,13 @@ pub fn asset_hub_polkadot_session_keys(
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn asset_hub_kusama_session_keys(keys: AuraId) -> asset_hub_kusama_runtime::SessionKeys {
 	asset_hub_kusama_runtime::SessionKeys { aura: keys }
+}
+
+/// Generate the session keys from individual elements.
+///
+/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
+pub fn asset_hub_rococo_session_keys(keys: AuraId) -> asset_hub_rococo_runtime::SessionKeys {
+	asset_hub_rococo_runtime::SessionKeys { aura: keys }
 }
 
 /// Generate the session keys from individual elements.
@@ -638,6 +650,311 @@ fn asset_hub_westend_genesis(
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
 		polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
+			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
+		},
+	}
+}
+
+pub fn asset_hub_rococo_development_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_development_config(
+		properties,
+		"Rococo Asset Hub Development",
+		"asset-hub-rococo-dev",
+		1000,
+	)
+}
+
+pub fn asset_hub_wococo_development_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_development_config(
+		properties,
+		"Wococo Asset Hub Development",
+		"asset-hub-wococo-dev",
+		1000,
+	)
+}
+
+fn asset_hub_rococo_like_development_config(
+	properties: sc_chain_spec::Properties,
+	name: &str,
+	chain_id: &str,
+	para_id: u32,
+) -> AssetHubRococoChainSpec {
+	AssetHubRococoChainSpec::from_genesis(
+		// Name
+		name,
+		// ID
+		chain_id,
+		ChainType::Local,
+		move || {
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+				)],
+				vec![
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				],
+				para_id.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "rococo-dev".into(), para_id },
+	)
+}
+
+pub fn asset_hub_rococo_local_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_local_config(
+		properties,
+		"Rococo Asset Hub Local",
+		"asset-hub-rococo-local",
+		1000,
+	)
+}
+
+pub fn asset_hub_wococo_local_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	asset_hub_rococo_like_local_config(
+		properties,
+		"Wococo Asset Hub Local",
+		"asset-hub-wococo-local",
+		1000,
+	)
+}
+
+fn asset_hub_rococo_like_local_config(
+	properties: sc_chain_spec::Properties,
+	name: &str,
+	chain_id: &str,
+	para_id: u32,
+) -> AssetHubRococoChainSpec {
+	AssetHubRococoChainSpec::from_genesis(
+		// Name
+		name,
+		// ID
+		chain_id,
+		ChainType::Local,
+		move || {
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						get_collator_keys_from_seed::<AuraId>("Alice"),
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Bob"),
+						get_collator_keys_from_seed::<AuraId>("Bob"),
+					),
+				],
+				vec![
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie"),
+					get_account_id_from_seed::<sr25519::Public>("Dave"),
+					get_account_id_from_seed::<sr25519::Public>("Eve"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+				],
+				para_id.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "rococo-local".into(), para_id },
+	)
+}
+
+pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "ROC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	let para_id = 1000;
+	AssetHubRococoChainSpec::from_genesis(
+		// Name
+		"Rococo Asset Hub",
+		// ID
+		"asset-hub-rococo",
+		ChainType::Live,
+		move || {
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![
+					// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
+					(
+						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+							.into(),
+						hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+							.unchecked_into(),
+					),
+					// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
+					(
+						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+							.into(),
+						hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+							.unchecked_into(),
+					),
+					// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
+					(
+						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+							.into(),
+						hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+							.unchecked_into(),
+					),
+					// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
+					(
+						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+							.into(),
+						hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+							.unchecked_into(),
+					),
+				],
+				Vec::new(),
+				para_id.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "rococo".into(), para_id },
+	)
+}
+
+pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WOC".into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	let para_id = 1000;
+	AssetHubWococoChainSpec::from_genesis(
+		// Name
+		"Wococo Asset Hub",
+		// ID
+		"asset-hub-wococo",
+		ChainType::Live,
+		move || {
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![
+					// 5C8RGkS8t5K93fB2hkgKbvSYs5iG6AknJMuQmbBDeazon9Lj
+					(
+						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
+							.into(),
+						hex!("02d526f43cf27e94f478f9db785dc86052a77c695e7c855211839d3fde3ce534")
+							.unchecked_into(),
+					),
+					// 5GePeDZQeBagXH7kH5QPKnQKi39Z5hoYFB5FmUtEvc4yxKej
+					(
+						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
+							.into(),
+						hex!("caa1f623ca183296c4521b56cc29c484ca017830f8cb538f30f2d4664d631814")
+							.unchecked_into(),
+					),
+					// 5CfnTTb9NMJDNKDntA83mHKoedZ7wjDC8ypLCTDd4NwUx3zv
+					(
+						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
+							.into(),
+						hex!("1ac112d635db2bd34e79ae2b99486cf7c0b71a928668e4feb3dc4633d368f965")
+							.unchecked_into(),
+					),
+					// 5EqheiwiG22gvGpN7cvrbeaQzhg7rzsYYVkYK4yj5vRrTQRQ
+					(
+						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
+							.into(),
+						hex!("7ac9d11be07334cd27e9eb849f5fc7677a10ad36b6ab38b377d3c8b2c0b08b66")
+							.unchecked_into(),
+					),
+				],
+				Vec::new(),
+				para_id.into(),
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		Some(properties),
+		Extensions { relay_chain: "wococo".into(), para_id },
+	)
+}
+
+fn asset_hub_rococo_genesis(
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+) -> asset_hub_rococo_runtime::RuntimeGenesisConfig {
+	asset_hub_rococo_runtime::RuntimeGenesisConfig {
+		system: asset_hub_rococo_runtime::SystemConfig {
+			code: asset_hub_rococo_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+			..Default::default()
+		},
+		balances: asset_hub_rococo_runtime::BalancesConfig {
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, ASSET_HUB_ROCOCO_ED * 524_288))
+				.collect(),
+		},
+		parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
+			parachain_id: id,
+			..Default::default()
+		},
+		collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
+			..Default::default()
+		},
+		session: asset_hub_rococo_runtime::SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),                         // account id
+						acc,                                 // validator id
+						asset_hub_rococo_session_keys(aura), // session keys
+					)
+				})
+				.collect(),
+		},
+		aura: Default::default(),
+		aura_ext: Default::default(),
+		parachain_system: Default::default(),
+		polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},

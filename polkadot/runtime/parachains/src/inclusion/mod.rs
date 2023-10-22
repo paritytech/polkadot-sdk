@@ -21,7 +21,8 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	disputes, dmp, hrmp, paras,
+	disputes, dmp, hrmp,
+	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
@@ -448,8 +449,9 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 				"the ump queue would have grown past the max size permitted by config ({} > {})",
 				total_size, limit,
 			),
-			UmpAcceptanceCheckErr::IsOffboarding =>
-				write!(fmt, "upward message rejected because the para is off-boarding",),
+			UmpAcceptanceCheckErr::IsOffboarding => {
+				write!(fmt, "upward message rejected because the para is off-boarding")
+			},
 		}
 	}
 }
@@ -885,6 +887,7 @@ impl<T: Config> Pallet<T> {
 				new_code,
 				now,
 				&config,
+				SetGoAhead::Yes,
 			));
 		}
 

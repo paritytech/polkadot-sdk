@@ -1,12 +1,13 @@
 [package]
 name = "glutton-runtime"
 version = "1.0.0"
+description = "Glutton parachain runtime."
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
@@ -43,6 +44,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false }
 parachain-info = { path = "../../../pallets/parachain-info", default-features = false }
@@ -72,6 +74,7 @@ std = [
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcm/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-timestamp/std",
 	"frame-benchmarking?/std",

@@ -110,11 +110,14 @@ impl<
 		let message = Xcm(vec![
 			DescendOrigin(Interior::get()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination,
-				query_id,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination,
+					query_id,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				beneficiary,
 				assets: vec![MultiAsset { id: asset_id, fun: Fungibility::Fungible(amount) }]

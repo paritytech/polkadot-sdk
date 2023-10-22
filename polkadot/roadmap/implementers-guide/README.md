@@ -4,7 +4,7 @@ The implementers' guide is compiled from several source files with [`mdBook`](ht
 
 ## Hosted build
 
-This is available [here](https://paritytech.github.io/polkadot/book/).
+This is available [here](https://paritytech.github.io/polkadot-sdk/book/).
 
 ## Local build
 

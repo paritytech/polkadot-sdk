@@ -19,6 +19,7 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
@@ -43,6 +44,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
 asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
 asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
+asset-hub-rococo-runtime = { path = "../../../runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
 collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
 bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
@@ -60,6 +62,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 runtime-benchmarks = [
 	"asset-hub-kusama-runtime/runtime-benchmarks",
 	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
@@ -70,6 +73,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
