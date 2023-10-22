@@ -118,8 +118,7 @@ pub use log;
 pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
-	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// frame::prelude::*`
+	/// Conveniently, the keyword `frame_system` is in scope as one uses `use frame::prelude::*`
 	#[doc(inline)]
 	pub use frame_system;
 
