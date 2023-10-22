@@ -154,11 +154,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type RentDuration: Get<SessionIndex>;
 
-		/// The initial 'base' deposit of registering a parathread.
+		/// The initial deposit amount for registering a PVF using the rental model.
 		///
-		/// This should also account for the PVF hash that is being stored.
+		/// This is defined as a percentage of the deposit that would be required in the regular
+		/// model.
 		#[pallet::constant]
-		type RentalParaDeposit: Get<BalanceOf<Self>>;
+		type InitialRentDeposit: Get<Perbill>;
 
 		/// The recurring rental cost as a percentage of the initial rental registration payment.
 		#[pallet::constant]
@@ -651,7 +652,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
-		is_permanent: bool,
+		is_rental: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -666,7 +667,7 @@ impl<T: Config> Pallet<T> {
 			genesis_head,
 			validation_code.clone(),
 			ParaKind::Parathread,
-			is_permanent,
+			is_rental,
 		)?;
 		let deposit = deposit_override.unwrap_or(deposit);
 
@@ -677,7 +678,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
-		if !is_permanent {
+		if is_rental {
 			let now = shared::Pallet::<T>::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
@@ -722,7 +723,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
-		is_permanent: bool,
+		is_rental: bool,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
 		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
@@ -732,13 +733,14 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::HeadDataTooLarge
 		);
 
-		let base_deposit =
-			if is_permanent { T::ParaDeposit::get() } else { T::RentalParaDeposit::get() };
-
 		let per_byte_fee = T::DataDepositPerByte::get();
-		let deposit = base_deposit
+		let mut deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
 			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+
+		if is_rental {
+			deposit = T::InitialRentDeposit::get().mul_ceil(deposit);
+		}
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -897,7 +899,7 @@ mod tests {
 
 	parameter_types! {
 		pub const ParaDeposit: Balance = 10;
-		pub const RentalParaDeposit: Balance = 5;
+		pub const InitialRentDeposit: Perbill = Perbill::from_percent(20);
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
 		pub const RentDuration: u32 = 2;
@@ -912,7 +914,7 @@ mod tests {
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
 		type RentDuration = RentDuration;
-		type RentalParaDeposit = RentalParaDeposit;
+		type InitialRentDeposit = InitialRentDeposit;
 		type RecurringRentCost = RecurringRentCost;
 		type WeightInfo = TestWeightInfo;
 	}
@@ -1204,8 +1206,10 @@ mod tests {
 			assert!(Parachains::is_parathread(para_id));
 			assert_eq!(
 				Balances::reserved_balance(&1),
-				<Test as Config>::RentalParaDeposit::get() +
-					64 * <Test as Config>::DataDepositPerByte::get()
+				<Test as Config>::InitialRentDeposit::get().mul_ceil(
+					<Test as Config>::ParaDeposit::get() +
+						64 * <Test as Config>::DataDepositPerByte::get()
+				)
 			);
 		});
 	}
