@@ -757,9 +757,14 @@ async fn handle_prepare_done(
 		.await?;
 	}
 
-	*state = match result {
-		Ok(prepare_stats) =>
-			ArtifactState::Prepared { last_time_needed: SystemTime::now(), prepare_stats },
+	match result {
+		Ok(prepare_stats) => match artifacts.remove_artifact(&artifact_id) {
+			Some((mut id, _)) => {
+				id.update_checksum(&prepare_stats.checksum);
+				artifacts.insert_prepared(artifact_id, SystemTime::now(), prepare_stats);
+			},
+			None => unreachable!(),
+		},
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -772,9 +777,9 @@ async fn handle_prepare_done(
 				"artifact preparation failed: {}",
 				error
 			);
-			ArtifactState::FailedToProcess { last_time_failed, num_failures, error }
+			*state = ArtifactState::FailedToProcess { last_time_failed, num_failures, error };
 		},
-	};
+	}
 
 	Ok(())
 }

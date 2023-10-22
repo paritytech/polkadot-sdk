@@ -111,17 +111,42 @@ const RUNTIME_PREFIX: &str = "wasmtime_";
 const NODE_PREFIX: &str = "polkadot_v";
 const ARTIFACT_PREFIX: &str = concat_const!(RUNTIME_PREFIX, NODE_PREFIX, NODE_VERSION);
 
+pub type ChecksumInner = [u8; 32];
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Checksum(ChecksumInner);
+
+impl Checksum {
+	pub fn new() -> Self {
+		Self([0; 32])
+	}
+
+	pub fn update(&mut self, src: &ChecksumInner) {
+		self.0.copy_from_slice(src);
+	}
+}
+
+impl std::fmt::LowerHex for Checksum {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		for byte in self.0 {
+			write!(f, "{}", byte)?;
+		}
+		Ok(())
+	}
+}
+
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArtifactId {
 	pub(crate) code_hash: ValidationCodeHash,
 	pub(crate) executor_params_hash: ExecutorParamsHash,
+	pub(crate) checksum: Checksum,
 }
 
 impl ArtifactId {
 	/// Creates a new artifact ID with the given hash.
 	pub fn new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -> Self {
-		Self { code_hash, executor_params_hash }
+		Self { code_hash, executor_params_hash, checksum: Checksum::new() }
 	}
 
 	/// Returns an artifact ID that corresponds to the PVF with given executor params.
@@ -129,10 +154,16 @@ impl ArtifactId {
 		Self::new(pvf.code_hash(), pvf.executor_params().hash())
 	}
 
+	pub fn update_checksum(&mut self, src: &ChecksumInner) {
+		self.checksum.update(src);
+	}
+
 	/// Returns the expected path to this artifact given the root of the cache.
 	pub fn path(&self, cache_path: &Path) -> PathBuf {
-		let file_name =
-			format!("{}_{:#x}_{:#x}", ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash);
+		let file_name = format!(
+			"{}_{:#x}_{:#x}_{:#x}",
+			ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash, self.checksum
+		);
 		cache_path.join(file_name)
 	}
 
@@ -153,7 +184,7 @@ impl ArtifactId {
 		let executor_params_hash =
 			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
 
-		Some(Self { code_hash, executor_params_hash })
+		Some(Self::new(code_hash, executor_params_hash))
 	}
 }
 
@@ -369,6 +400,13 @@ impl Artifacts {
 			.inner
 			.insert(artifact_id, ArtifactState::Prepared { last_time_needed, prepare_stats })
 			.is_none());
+	}
+
+	pub(crate) fn remove_artifact(
+		&mut self,
+		artifact_id: &ArtifactId,
+	) -> Option<(ArtifactId, ArtifactState)> {
+		self.inner.remove_entry(&artifact_id)
 	}
 
 	/// Remove and retrieve the artifacts from the table that are older than the supplied

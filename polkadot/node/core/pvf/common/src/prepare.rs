@@ -23,6 +23,8 @@ pub struct PrepareStats {
 	pub cpu_time_elapsed: std::time::Duration,
 	/// The observed memory statistics for the preparation job.
 	pub memory_stats: MemoryStats,
+	/// checksum
+	pub checksum: [u8; 32],
 }
 
 /// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if
