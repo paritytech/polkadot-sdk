@@ -82,6 +82,8 @@ pub trait WeightInfo {
 	fn clear_referendum_metadata() -> Weight;
 
 	fn v2_migration_base() -> Weight { Weight::zero()}
+	fn v2_migration_proposals_count(_n: u32) -> Weight { Weight::zero()}
+	fn v2_migration_read_next_vote() -> Weight { Weight::zero()}
 	fn v2_migration_get_deposits(_n: u32) -> Weight { Weight::zero()}
 	fn v2_migration_translate_reserve_to_hold() -> Weight { Weight::zero()}
 	fn v2_migration_translate_lock_to_freeze() -> Weight { Weight::zero()}

@@ -102,6 +102,8 @@ benchmarks! {
 		T: Config + pallet_balances::Config,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
 	}
+
+	// Benchmark the cost of a noop v2 migration.
 	v2_migration_base {
 		use frame_support::pallet_prelude::StorageVersion;
 		use frame_support::traits::OnRuntimeUpgrade;
@@ -112,22 +114,35 @@ benchmarks! {
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
 	}
 
-	v2_migration_get_deposits {
-		let c in 0 .. T::MaxDeposits::get();
-		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(depositors);
+	// Benchmark the cost of reading the proposals from storage.
+	v2_migration_proposals_count {
+		let c = 0 .. T::MaxProposals::get();
+		let depositors: Vec<_> = (0..T::MaxDeposits::get()).map(|i| funded_account::<T>("caller", i)).collect();
+		for i in 0 .. T::MaxProposals::get() {
+			migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(i, depositors.clone());
+		}
 	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits(&mut Weight::zero());
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits_and_proposal_count();
 	}
 
+	// Benchmark the cost of translating a reserved balance of a proposal deposit into a held balance.
 	v2_migration_translate_reserve_to_hold {
 		let depositor = funded_account::<T>("backer", 0);
 		let deposit = T::MinimumDeposit::get().into();
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(vec![depositor.clone()]);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(0u32, vec![depositor.clone()]);
 	}: {
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_reserve_to_hold(&depositor, deposit);
 	}
 
+	// Benchmark the cost of reading the next vote from storage.
+	v2_migration_votes_read_next {
+		let voter = funded_account::<T>("voter", 0);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
+	}: {
+		migrations::v2::old::VotingOf::<T>::iter().next();
+	}
+
+	// Benchmark the cost of translating a locked vote balance into a frozen balance.
 	v2_migration_translate_lock_to_freeze {
 		let voter = funded_account::<T>("voter", 0);
 		let balance = 1_000u32.into();
