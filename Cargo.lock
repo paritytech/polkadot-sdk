@@ -9772,7 +9772,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-frame-crate"
-version = "4.0.0-dev"
+version = "0.0.1"
 dependencies = [
  "frame",
  "parity-scale-codec",

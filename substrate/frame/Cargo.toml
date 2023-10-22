@@ -50,7 +50,7 @@ pallet-examples = { path = "./examples" }
 
 [features]
 default = [ "runtime", "std" ]
-experimental = []
+experimental = [ "frame-system/experimental", "frame-support/experimental" ]
 runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",

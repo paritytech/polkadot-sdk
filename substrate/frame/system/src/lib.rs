@@ -261,6 +261,7 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		pub struct SolochainDefaultConfig;
 
+		#[cfg(feature = "experimental")]
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		impl DefaultConfig for SolochainDefaultConfig {
 			type Nonce = u32;

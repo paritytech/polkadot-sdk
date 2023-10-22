@@ -13,16 +13,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-<<<<<<< HEAD
-frame = { path = "../../..", default-features = false, features = [ "experimental" ] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-||||||| d9e266f432
-frame = { path = "frame", default-features = false}
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-=======
-frame = { path = "frame", default-features = false}
+frame = { path = "../../..", default-features = false}
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
->>>>>>> e2b21d00c7856961ab3b692b2e2798747af1e819
 
 [features]
 default = [ "std" ]
