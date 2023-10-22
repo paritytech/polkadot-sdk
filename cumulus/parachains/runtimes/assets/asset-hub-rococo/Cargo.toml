@@ -9,7 +9,7 @@ description = "Rococo variant of Asset Hub parachain runtime"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -55,6 +55,7 @@ sp-weights = { path = "../../../../../substrate/primitives/weights", default-fea
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
 
 # Polkadot
+rococo-runtime = { path = "../../../../../polkadot/runtime/rococo", default-features = false }
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false}
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
@@ -130,6 +131,7 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -165,6 +167,7 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"rococo-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 std = [
@@ -218,6 +221,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",
+	"rococo-runtime/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",

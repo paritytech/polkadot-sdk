@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 log = { version = "0.4.19", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2", default-features = false}
 smallvec = "1.11.0"
 
@@ -40,6 +40,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/x
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
+parachain-info = { path = "../pallets/parachain-info", default-features = false }
 
 [dev-dependencies]
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}
@@ -61,6 +62,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"parachain-info/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
 	"rococo-runtime-constants/std",
