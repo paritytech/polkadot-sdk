@@ -27,7 +27,7 @@ use frame_support::{
 	defensive, defensive_assert,
 	dispatch::DispatchResult,
 	ensure,
-	traits::{Currency, fungible::MutateHold, tokens::Precision},
+	traits::{fungible::MutateHold, tokens::Precision, Currency},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
@@ -68,18 +68,18 @@ pub(crate) fn delegate<T: Config>(
 	ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
 
 	// A delegator cannot receive delegations.
-	if <Delegators<T>>::contains_key(&delegatee) {
+	if <Delegators<T>>::contains_key(delegatee) {
 		return Err(Error::<T>::InvalidDelegation.into())
 	}
 
 	// A delegatee cannot delegate to another account
-	if <Delegatees<T>>::contains_key(&delegator) {
+	if <Delegatees<T>>::contains_key(delegator) {
 		return Err(Error::<T>::InvalidDelegation.into())
 	}
 
 	let mut new_delegation_amount = value;
 
-	let delegation = <Delegators<T>>::get(&delegator);
+	let delegation = <Delegators<T>>::get(delegator);
 	if delegation.is_some() {
 		// add to existing delegation.
 		let (current_delegatee, current_delegation) =
@@ -88,8 +88,8 @@ pub(crate) fn delegate<T: Config>(
 		new_delegation_amount = new_delegation_amount.saturating_add(current_delegation);
 	}
 
-	<Delegators<T>>::insert(&delegator, (&delegatee, new_delegation_amount));
-	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
+	<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
+	<Delegatees<T>>::mutate(delegatee, |maybe_aggregate| match maybe_aggregate {
 		Some(aggregate) => aggregate.balance.saturating_accrue(value),
 		None =>
 			*maybe_aggregate = Some(DelegationAggregate {
@@ -110,11 +110,10 @@ pub(crate) fn withdraw<T: Config>(
 ) -> DispatchResult {
 	// fixme(ank4n): Needs refactor..
 
-	<Delegators<T>>::mutate_exists(&delegator, |maybe_delegate| match maybe_delegate {
+	<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
 		Some((current_delegatee, delegate_balance)) => {
 			ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
 			ensure!(delegate_balance.clone() >= value, Error::<T>::InvalidDelegation);
-
 			delegate_balance.saturating_reduce(value);
 			if delegate_balance.clone() == BalanceOf::<T>::zero() {
 				*maybe_delegate = None;
@@ -127,7 +126,7 @@ pub(crate) fn withdraw<T: Config>(
 		},
 	})?;
 
-	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
+	<Delegatees<T>>::mutate(delegatee, |maybe_aggregate| match maybe_aggregate {
 		Some(ledger) => {
 			ledger.balance.saturating_reduce(value);
 			Ok(())

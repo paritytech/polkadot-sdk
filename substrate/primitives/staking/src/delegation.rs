@@ -29,7 +29,7 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	/// Delegate some funds to a new staker.
 	///
 	/// Similar to [`StakingInterface::bond`].
-	fn delegated_bond_new(
+	fn bond_new(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
@@ -39,7 +39,7 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	/// Delegate some funds or add to an existing staker.
 	///
 	/// Similar to [`StakingInterface::bond_extra`].
-	fn delegated_bond_extra(
+	fn bond_extra(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
@@ -52,7 +52,7 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	///
 	/// This is useful to move active funds in a non-delegation based pool account and migrate it
 	/// into a delegation based staking.
-	fn delegated_bond_migrate(
+	fn bond_migrate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,

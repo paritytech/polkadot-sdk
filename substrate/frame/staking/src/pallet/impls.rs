@@ -1847,7 +1847,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
-	fn delegated_bond_new(
+	fn bond_new(
 		delegation_initiator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
@@ -1874,7 +1874,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	}
 
 	// Just delegate balance.
-	fn delegated_bond_extra(
+	fn bond_extra(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		extra: Self::Balance,
@@ -1885,7 +1885,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
 	}
 
-	fn delegated_bond_migrate(
+	fn bond_migrate(
 		_delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
@@ -1939,9 +1939,9 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		let real_num_slashing_spans =
 			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
 		// this should withdraw funds from the ledger without unlocking.
-		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value));
+		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value))?;
 		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
-		delegation::withdraw::<T>(delegator, delegatee, value)
+		delegation::withdraw::<T>(delegatee, delegator, value)
 			.map(|_| !Ledger::<T>::contains_key(delegatee))
 	}
 }

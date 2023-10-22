@@ -6246,6 +6246,7 @@ mod delegation_stake {
 	use sp_staking::{delegation::DelegatedStakeInterface, StakingInterface};
 
 	use super::*;
+
 	#[test]
 	fn delegated_bond_works() {
 		ExtBuilder::default().build_and_execute(|| {
@@ -6262,7 +6263,7 @@ mod delegation_stake {
 			let _ = Balances::make_free_balance_be(&delegation_initiator, 1000);
 
 			// when: there is a new delegated staking
-			assert_ok!(Staking::delegated_bond_new(
+			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
 				&delegation_initiator,
 				&delegatee,
 				100,
@@ -6307,11 +6308,16 @@ mod delegation_stake {
 			}
 
 			// initiate delegation
-			assert_ok!(Staking::delegated_bond_new(&200, &delegatee, 100, &reward_acc));
+			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
+				&200,
+				&delegatee,
+				100,
+				&reward_acc
+			));
 
 			// when: more delegators join the delegatee
 			for i in 201..210 {
-				assert_ok!(Staking::delegated_bond_extra(&(i), &delegatee, 100));
+				assert_ok!(<Staking as DelegatedStakeInterface>::bond_extra(&(i), &delegatee, 100));
 			}
 
 			// Then: verify delegated stake is bonded correctly
@@ -6351,7 +6357,7 @@ mod delegation_stake {
 
 			// trying to set reward account as delegatee fails
 			assert_noop!(
-				Staking::delegated_bond_new(&200, &delegatee, 100, &delegatee),
+				<Staking as DelegatedStakeInterface>::bond_new(&200, &delegatee, 100, &delegatee),
 				Error::<Test>::InvalidDelegation
 			);
 		})
@@ -6371,24 +6377,34 @@ mod delegation_stake {
 
 			assert_eq!(active_era(), 0);
 			// initiate delegation
-			assert_ok!(Staking::delegated_bond_new(&200, &delegatee, 100, &reward_acc));
+			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
+				&200,
+				&delegatee,
+				100,
+				&reward_acc
+			));
 
 			// add more delegations
 			for i in 201..210 {
-				assert_ok!(Staking::delegated_bond_extra(&i, &delegatee, 100));
+				assert_ok!(<Staking as DelegatedStakeInterface>::bond_extra(&i, &delegatee, 100));
 			}
 
 			// when: some delegators unbond their stake
-			mock::start_active_era(1);
+			start_active_era(1);
 
-			// unbonding for 201 ( higher level abstraction such as nomination pool would track
-			// this, staking pallet does not care).
+			// Note: a higher level abstraction such as nomination pool would track for which
+			// delegator something is unlocking, staking pallet does not care.
+
+			// unbonding 10 tokens for 201 at era 1
 			assert_ok!(<Staking as DelegatedStakeInterface>::unbond(&delegatee, 10));
-			println!("Staking ledger: {:?}", Staking::ledger(StakingAccount::Stash(delegatee)).unwrap());
-			mock::start_active_era(2);
-			// unbonding for 202
+
+			// unbonding 20 tokens for 202 at era 2
+			start_active_era(2);
 			assert_ok!(<Staking as DelegatedStakeInterface>::unbond(&delegatee, 20));
-			println!("Staking ledger: {:?}", Staking::ledger(StakingAccount::Stash(delegatee)).unwrap());
+
+			// unbonding 30 tokens for 203 at era 3
+			start_active_era(3);
+			assert_ok!(<Staking as DelegatedStakeInterface>::unbond(&delegatee, 30));
 
 			// verify ledgers for unlocking
 			assert_eq!(
@@ -6396,15 +6412,29 @@ mod delegation_stake {
 				StakingLedgerInspect {
 					stash: delegatee,
 					total: 1000,
-					active: 1000 - 30,
+					active: 1000 - 10 - 20 - 30,
 					// bonding duration = 3,
 					unlocking: bounded_vec![
 						UnlockChunk { value: 10, era: 4 },
-						UnlockChunk { value: 20, era: 5 }
+						UnlockChunk { value: 20, era: 5 },
+						UnlockChunk { value: 30, era: 6 }
 					],
 					claimed_rewards: bounded_vec![],
 				}
 			);
+
+			// Then: lets withdraw some stake
+
+			// at era 4 there is only one unlocking chunk so it is a full withdraw equivalent to
+			// direct staking
+			start_active_era(4);
+			let pre_balance_201 = Balances::free_balance(&201);
+			// while unbonding, we have to specify we want to release funds for delegator 201 from
+			// the unlocking chunks of delegatee.
+			assert_ok!(<Staking as DelegatedStakeInterface>::withdraw_unbonded(
+				&delegatee, &201, 10
+			));
+			assert_eq!(Balances::free_balance(&201), pre_balance_201 + 10);
 		})
 	}
 }
