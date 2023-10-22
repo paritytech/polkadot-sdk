@@ -506,6 +506,14 @@ impl OnNewHead for Tuple {
 	}
 }
 
+pub trait RentStatusProvider {
+	/// Check whether the rent is paid for storing the PVF on-chain.
+	///
+	/// In case the para is not on-demand, should return true since there is no  rent
+	/// payment in that case.
+	fn rent_paid(id: ParaId) -> bool;
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;

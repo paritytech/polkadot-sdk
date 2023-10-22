@@ -36,7 +36,9 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use crate::{configuration, initializer::SessionChangeNotification, paras};
+use crate::{
+	configuration, initializer::SessionChangeNotification, paras, paras::RentStatusProvider,
+};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
@@ -75,6 +77,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
 		type AssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
+		type RentStatusProvider: RentStatusProvider;
 	}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the
@@ -395,7 +398,9 @@ impl<T: Config> Pallet<T> {
 					// the back of the claimqueue.
 					for drop in dropped_claims {
 						match T::AssignmentProvider::pop_assignment_for_core(core_idx, drop) {
-							Some(assignment) => {
+							Some(assignment)
+								if T::RentStatusProvider::rent_paid(assignment.para_id) =>
+							{
 								let AssignmentProviderConfig { ttl, .. } =
 									T::AssignmentProvider::get_provider_config(core_idx);
 								core_claimqueue.push_back(Some(ParasEntry::new(
@@ -403,7 +408,7 @@ impl<T: Config> Pallet<T> {
 									now + ttl,
 								)));
 							},
-							None => (),
+							_ => (),
 						}
 					}
 				}
@@ -685,10 +690,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
-		ClaimQueue::<T>::mutate(|la| {
-			let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(Some(pe));
-		});
+		if T::RentStatusProvider::rent_paid(pe.assignment.para_id) {
+			ClaimQueue::<T>::mutate(|la| {
+				let la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
+				la_deque.push_back(Some(pe));
+			});
+		}
 	}
 
 	/// Returns `ParasEntry` with `para_id` at `core_idx` if found.
