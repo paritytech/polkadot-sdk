@@ -1,0 +1,26 @@
+flowchart LR
+    subgraph Parachain[A Polkadot Parachain]
+        ParachainCollator[Parachain Collator]
+        ParachainRuntime[Parachain Runtime]
+    end
+
+    subgraph Polkadot[The Polkadot Relay Chain]
+        PolkadotClinet[Polkadot Clinet]
+        PolkadotRuntime[Polkadot Runtime]
+    end
+
+    subgraph SubstrateChain[A Substrate-based blockchain]
+        Clinet
+        Runtime
+    end
+
+    FRAME1[FRAME] -.-> Runtime
+    FRAME2[FRAME] -.-> PolkadotRuntime
+    FRAME3[FRAME] -.-> ParachainRuntime
+
+    Substrate1[Substrate Client Libraries] -.-> Clinet
+    Substrate2[Substrate Client Libraries] -.-> PolkadotClinet
+    Substrate3[Substrate Client Libraries] -.-> ParachainCollator
+
+    Cumulus1[Cumulus Runtime Pallets/Libraries] -.-> ParachainRuntime
+    Cumulus2[Cumulus Client Libraries] -.-> ParachainCollator
