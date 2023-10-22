@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage migrations for the preimage pallet.
+//! Migrate the democracy pallet to use the Fungible trait.
+//! See <https://github.com/paritytech/polkadot-sdk/pull/1861>
 
 use crate::*;
 use frame_support::{
@@ -34,7 +35,6 @@ const LOG_TARGET: &'static str = "runtime::democracy::migration::v2";
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type FungibleOf<T> = <T as pallet::Config>::Fungible;
 
-/// The original data layout of the democracy pallet without a specific version number.
 mod old {
 	use super::*;
 	pub type MaxVotesOf<T> = <T as Config>::MaxDeposits;
@@ -90,7 +90,7 @@ where
 			)
 	}
 
-	/// Store proposal deposits to exercise benchmarking.
+	/// Store proposal deposits for benchmarking purposes.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub fn bench_store_deposit(depositors: Vec<AccountIdOf<T>>) {
 		let amount = T::MinimumDeposit::get();
@@ -143,7 +143,7 @@ where
 		T::WeightInfo::v2_migration_translate_reserve_to_hold()
 	}
 
-	/// Store votes to exercise benchmarking.
+	/// Store votes for benchmarking purposes.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub fn bench_store_vote(voter: AccountIdOf<T>) {
 		use frame_support::traits::WithdrawReasons;
