@@ -553,12 +553,15 @@ pub mod pallet {
 
 			assert!(
 				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::variant_count(),
-				"MaxHolds should be greater than or equal to the number of hold reasons"
+				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
+				T::MaxHolds::get(),
+				<T::RuntimeHoldReason as VariantCount>::variant_count()
 			);
 
 			assert!(
 				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::variant_count(),
-				"MaxFreezes should be greater than or equal to the number of freeze reasons"
+				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
+				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::variant_count(),
 			);
 		}
 	}
