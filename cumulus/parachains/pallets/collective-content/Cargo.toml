@@ -7,7 +7,7 @@ description = "Managed content"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", optional = true, default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }

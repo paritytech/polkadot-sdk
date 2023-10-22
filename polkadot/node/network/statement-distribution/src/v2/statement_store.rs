@@ -212,6 +212,7 @@ impl StatementStore {
 	}
 
 	/// Get an iterator over all statements marked as being unknown by the backing subsystem.
+	/// This provides `Seconded` statements prior to `Valid` statements.
 	pub fn fresh_statements_for_backing<'a>(
 		&'a self,
 		validators: &'a [ValidatorIndex],
@@ -220,14 +221,15 @@ impl StatementStore {
 		let s_st = CompactStatement::Seconded(candidate_hash);
 		let v_st = CompactStatement::Valid(candidate_hash);
 
-		validators
-			.iter()
-			.flat_map(move |v| {
-				let a = self.known_statements.get(&(*v, s_st.clone()));
-				let b = self.known_statements.get(&(*v, v_st.clone()));
+		let fresh_seconded =
+			validators.iter().map(move |v| self.known_statements.get(&(*v, s_st.clone())));
 
-				a.into_iter().chain(b)
-			})
+		let fresh_valid =
+			validators.iter().map(move |v| self.known_statements.get(&(*v, v_st.clone())));
+
+		fresh_seconded
+			.chain(fresh_valid)
+			.flatten()
 			.filter(|stored| !stored.known_by_backing)
 			.map(|stored| &stored.statement)
 	}
@@ -250,6 +252,7 @@ impl StatementStore {
 }
 
 /// Error indicating that the validator was unknown.
+#[derive(Debug)]
 pub struct ValidatorUnknown;
 
 type Fingerprint = (ValidatorIndex, CompactStatement);
@@ -279,5 +282,80 @@ impl GroupStatements {
 
 	fn note_validated(&mut self, within_group_index: usize) {
 		self.valid.set(within_group_index, true);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use polkadot_primitives::v6::{Hash, SigningContext, ValidatorPair};
+	use sp_application_crypto::Pair as PairT;
+
+	#[test]
+	fn always_provides_fresh_statements_in_order() {
+		let validator_a = ValidatorIndex(1);
+		let validator_b = ValidatorIndex(2);
+		let candidate_hash = CandidateHash(Hash::repeat_byte(42));
+
+		let valid_statement = CompactStatement::Valid(candidate_hash);
+		let seconded_statement = CompactStatement::Seconded(candidate_hash);
+		let signing_context =
+			SigningContext { parent_hash: Hash::repeat_byte(0), session_index: 1 };
+
+		let groups = Groups::new(vec![vec![validator_a, validator_b]].into(), 2);
+
+		let mut store = StatementStore::new(&groups);
+
+		// import a Valid statement from A and a Seconded statement from B.
+		let signed_valid_by_a = {
+			let payload = valid_statement.signing_payload(&signing_context);
+			let pair = ValidatorPair::generate().0;
+			let signature = pair.sign(&payload[..]);
+
+			SignedStatement::new(
+				valid_statement.clone(),
+				validator_a,
+				signature,
+				&signing_context,
+				&pair.public(),
+			)
+			.unwrap()
+		};
+		store.insert(&groups, signed_valid_by_a, StatementOrigin::Remote).unwrap();
+
+		let signed_seconded_by_b = {
+			let payload = seconded_statement.signing_payload(&signing_context);
+			let pair = ValidatorPair::generate().0;
+			let signature = pair.sign(&payload[..]);
+
+			SignedStatement::new(
+				seconded_statement.clone(),
+				validator_b,
+				signature,
+				&signing_context,
+				&pair.public(),
+			)
+			.unwrap()
+		};
+		store.insert(&groups, signed_seconded_by_b, StatementOrigin::Remote).unwrap();
+
+		// Regardless of the order statements are requested,
+		// we will get them in the order [B, A] because seconded statements must be first.
+		let vals = &[validator_a, validator_b];
+		let statements =
+			store.fresh_statements_for_backing(vals, candidate_hash).collect::<Vec<_>>();
+
+		assert_eq!(statements.len(), 2);
+		assert_eq!(statements[0].payload(), &seconded_statement);
+		assert_eq!(statements[1].payload(), &valid_statement);
+
+		let vals = &[validator_b, validator_a];
+		let statements =
+			store.fresh_statements_for_backing(vals, candidate_hash).collect::<Vec<_>>();
+
+		assert_eq!(statements.len(), 2);
+		assert_eq!(statements[0].payload(), &seconded_statement);
+		assert_eq!(statements[1].payload(), &valid_statement);
 	}
 }
