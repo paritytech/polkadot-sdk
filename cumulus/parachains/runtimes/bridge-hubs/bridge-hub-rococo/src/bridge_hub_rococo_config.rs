@@ -192,7 +192,7 @@ parameter_types! {
 pub type WithBridgeHubWococoMessagesInstance = pallet_bridge_messages::Instance1;
 impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_wococo_messages_instance::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_messages_rococo_to_wococo::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubWococoChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWococo;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;

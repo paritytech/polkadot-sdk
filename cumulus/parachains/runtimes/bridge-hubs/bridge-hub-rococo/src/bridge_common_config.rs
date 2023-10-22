@@ -48,14 +48,14 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaWococoInstance> for Runtime {
 	type BridgedChain = bp_wococo::Wococo;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_bridge_wococo_grandpa::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_grandpa_wococo_finality::WeightInfo<Runtime>;
 }
 
 /// Add parachain bridge pallet to track Wococo BridgeHub parachain
 pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
 impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_parachains_within_wococo::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWococoInstance;
 	type ParasPalletName = WococoBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
@@ -71,14 +71,14 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 	type BridgedChain = bp_rococo::Rococo;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_bridge_rococo_grandpa::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_grandpa_rococo_finality::WeightInfo<Runtime>;
 }
 
 /// Add parachain bridge pallet to track Rococo BridgeHub parachain
 pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
 impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_rococo_instance::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_parachains_within_rococo::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
