@@ -53,13 +53,12 @@
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
-/// The logging library of the runtime. Can be normally like the classic `log` crate.
+/// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
 
 /// The main prelude of FRAME.
 ///
-///
-/// This prelude should almost always be the first non-import line of code in any pallet or runtime.
+/// This prelude should almost always be the first line of code in any pallet or runtime.
 ///
 /// ```
 /// use frame::prelude::*;
