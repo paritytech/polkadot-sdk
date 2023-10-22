@@ -102,7 +102,7 @@
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
-/// The logging library of the runtime. Can be normally like the classic `log` crate.
+/// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
 
 /// The main prelude of FRAME.
