@@ -678,20 +678,37 @@ impl<T: Config> Pallet<T> {
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
-		if is_rental {
+		let bypass_pre_checking = if is_rental {
 			let now = shared::Pallet::<T>::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
-			let pvf_hash = T::Hashing::hash(validation_code.0.as_slice());
-
 			RentedParas::<T>::insert(id, rent_info);
-			RentedParaHashes::<T>::insert(id, pvf_hash);
-		}
+
+			// In case the PVF hash was already stored before there is no need to go through the
+			// PVF pre-ckecking process again.
+			//
+			// TODO: Adding an 'expiry' date for when the hash is no longer considered as 'known
+			// valid' could be a good idea.
+			//
+			// IMPORTANT TODO: Only store the hash of the pvf if it has successfully completed
+			// pre-checking. Otherwise it would be possible to easily store an incorrect pvf.
+			if let Some(_) = RentedParaHashes::<T>::get(id) {
+				true
+			} else {
+				let pvf_hash = T::Hashing::hash(validation_code.0.as_slice());
+				RentedParaHashes::<T>::insert(id, pvf_hash);
+
+				false
+			}
+		} else {
+			false
+		};
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
-		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
+		let res =
+			runtime_parachains::schedule_para_initialize::<T>(id, genesis, bypass_pre_checking);
 		debug_assert!(res.is_ok());
 		Self::deposit_event(Event::<T>::Registered { para_id: id, manager: who });
 		Ok(())

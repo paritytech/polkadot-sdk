@@ -1697,6 +1697,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_para_initialize(
 		id: ParaId,
 		mut genesis_data: ParaGenesisArgs,
+		bypass_pre_checking: bool, 
 	) -> DispatchResult {
 		// Make sure parachain isn't already in our system and that the onboarding parameters are
 		// valid.
@@ -1743,13 +1744,15 @@ impl<T: Config> Pallet<T> {
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
 
-		let cfg = configuration::Pallet::<T>::config();
-		Self::kick_off_pvf_check(
-			PvfCheckCause::Onboarding(id),
-			validation_code_hash,
-			validation_code,
-			&cfg,
-		);
+		if !bypass_pre_checking {
+			let cfg = configuration::Pallet::<T>::config();
+			Self::kick_off_pvf_check(
+				PvfCheckCause::Onboarding(id),
+				validation_code_hash,
+				validation_code,
+				&cfg,
+			);
+		}
 
 		Ok(())
 	}

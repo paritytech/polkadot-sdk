@@ -558,6 +558,7 @@ pub(crate) fn register_parachain_with_balance(id: ParaId, balance: Balance) {
 			genesis_head: vec![1].into(),
 			validation_code: validation_code.clone(),
 		},
+		false,
 	));
 
 	assert_ok!(Paras::add_trusted_validation_code(RuntimeOrigin::root(), validation_code));

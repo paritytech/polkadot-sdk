@@ -80,8 +80,9 @@ pub trait FeeTracker {
 pub fn schedule_para_initialize<T: paras::Config>(
 	id: ParaId,
 	genesis: paras::ParaGenesisArgs,
+	bypass_pre_checking: bool, 
 ) -> Result<(), ()> {
-	<paras::Pallet<T>>::schedule_para_initialize(id, genesis).map_err(|_| ())
+	<paras::Pallet<T>>::schedule_para_initialize(id, genesis, bypass_pre_checking).map_err(|_| ())
 }
 
 /// Schedule a para to be cleaned up at the start of the next session.

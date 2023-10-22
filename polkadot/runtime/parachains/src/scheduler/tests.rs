@@ -40,7 +40,8 @@ fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 			genesis_head: Vec::new().into(),
 			validation_code: validation_code.clone(),
 			para_kind: parakind,
-		}
+		},
+		false,
 	));
 
 	assert_ok!(Paras::add_trusted_validation_code(RuntimeOrigin::root(), validation_code));
