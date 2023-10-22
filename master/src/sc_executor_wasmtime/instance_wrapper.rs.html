@@ -309,6 +309,17 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -330,7 +341,9 @@
 </span><span class="doccomment">//! Defines data and logic needed for interaction with an WebAssembly instance of a substrate
 //! runtime module.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::runtime::{Store, StoreData};
+</span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span><span class="kw">crate</span>::runtime::{InstanceCounter, ReleaseInstanceHandle, Store, StoreData};
 <span class="kw">use </span>sc_executor_common::{
 	error::{Backtrace, Error, MessageWithBacktrace, <span class="prelude-ty">Result</span>, WasmError},
 	wasm_runtime::InvokeMethod,
@@ -465,10 +478,19 @@
 </span><span class="kw">pub struct </span>InstanceWrapper {
 	instance: Instance,
 	store: Store,
+	<span class="comment">// NOTE: We want to decrement the instance counter *after* the store has been dropped
+	// to avoid a potential race condition, so this field must always be kept
+	// as the last field in the struct!
+	</span>_release_instance_handle: ReleaseInstanceHandle,
 }
 
 <span class="kw">impl </span>InstanceWrapper {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(engine: <span class="kw-2">&amp;</span>Engine, instance_pre: <span class="kw-2">&amp;</span>InstancePre&lt;StoreData&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
+		engine: <span class="kw-2">&amp;</span>Engine,
+		instance_pre: <span class="kw-2">&amp;</span>InstancePre&lt;StoreData&gt;,
+		instance_counter: Arc&lt;InstanceCounter&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+		<span class="kw">let </span>_release_instance_handle = instance_counter.acquire_instance();
 		<span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine, Default::default());
 		<span class="kw">let </span>instance = instance_pre.instantiate(<span class="kw-2">&amp;mut </span>store).map_err(|error| {
 			WasmError::Other(<span class="macro">format!</span>(
@@ -483,7 +505,7 @@
 		store.data_mut().memory = <span class="prelude-val">Some</span>(memory);
 		store.data_mut().table = table;
 
-		<span class="prelude-val">Ok</span>(InstanceWrapper { instance, store })
+		<span class="prelude-val">Ok</span>(InstanceWrapper { instance, store, _release_instance_handle })
 	}
 
 	<span class="doccomment">/// Resolves a substrate entrypoint by the given name.

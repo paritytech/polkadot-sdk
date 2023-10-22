@@ -691,6 +691,64 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -717,6 +775,7 @@
 	util::{<span class="self">self</span>, replace_strategy_if_broken},
 };
 
+<span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 <span class="kw">use </span>sc_executor_common::{
 	error::{Error, <span class="prelude-ty">Result</span>, WasmError},
@@ -734,6 +793,8 @@
 	},
 };
 <span class="kw">use </span>wasmtime::{AsContext, Engine, Memory, Table};
+
+<span class="kw">const </span>MAX_INSTANCE_COUNT: u32 = <span class="number">64</span>;
 
 <span class="attr">#[derive(Default)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StoreData {
@@ -766,11 +827,59 @@
 <span class="kw">struct </span>InstanceCreator {
 	engine: Engine,
 	instance_pre: Arc&lt;wasmtime::InstancePre&lt;StoreData&gt;&gt;,
+	instance_counter: Arc&lt;InstanceCounter&gt;,
 }
 
 <span class="kw">impl </span>InstanceCreator {
 	<span class="kw">fn </span>instantiate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;InstanceWrapper&gt; {
-		InstanceWrapper::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.instance_pre)
+		InstanceWrapper::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="kw-2">&amp;</span><span class="self">self</span>.instance_pre, <span class="self">self</span>.instance_counter.clone())
+	}
+}
+
+<span class="doccomment">/// A handle for releasing an instance acquired by [`InstanceCounter::acquire_instance`].
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ReleaseInstanceHandle {
+	counter: Arc&lt;InstanceCounter&gt;,
+}
+
+<span class="kw">impl </span>Drop <span class="kw">for </span>ReleaseInstanceHandle {
+	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		{
+			<span class="kw">let </span><span class="kw-2">mut </span>counter = <span class="self">self</span>.counter.counter.lock();
+			<span class="kw-2">*</span>counter = counter.saturating_sub(<span class="number">1</span>);
+		}
+
+		<span class="self">self</span>.counter.wait_for_instance.notify_one();
+	}
+}
+
+<span class="doccomment">/// Keeps track on the number of parallel instances.
+///
+/// The runtime cache keeps track on the number of parallel instances. The maximum number in the
+/// cache is less than what we have configured as [`MAX_INSTANCE_COUNT`] for wasmtime. However, the
+/// cache will create on demand instances if required. This instance counter will ensure that we are
+/// blocking when we are trying to create too many instances.
+</span><span class="attr">#[derive(Default)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InstanceCounter {
+	counter: Mutex&lt;u32&gt;,
+	wait_for_instance: parking_lot::Condvar,
+}
+
+<span class="kw">impl </span>InstanceCounter {
+	<span class="doccomment">/// Acquire an instance.
+	///
+	/// Blocks if there is no free instance available.
+	///
+	/// The returned [`ReleaseInstanceHandle`] should be dropped when the instance isn&#39;t used
+	/// anymore.
+	</span><span class="kw">pub fn </span>acquire_instance(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;) -&gt; ReleaseInstanceHandle {
+		<span class="kw">let </span><span class="kw-2">mut </span>counter = <span class="self">self</span>.counter.lock();
+
+		<span class="kw">while </span><span class="kw-2">*</span>counter &gt;= MAX_INSTANCE_COUNT {
+			<span class="self">self</span>.wait_for_instance.wait(<span class="kw-2">&amp;mut </span>counter);
+		}
+		<span class="kw-2">*</span>counter += <span class="number">1</span>;
+
+		ReleaseInstanceHandle { counter: <span class="self">self</span>.clone() }
 	}
 }
 
@@ -780,6 +889,7 @@
 	engine: Engine,
 	instance_pre: Arc&lt;wasmtime::InstancePre&lt;StoreData&gt;&gt;,
 	instantiation_strategy: InternalInstantiationStrategy,
+	instance_counter: Arc&lt;InstanceCounter&gt;,
 }
 
 <span class="kw">impl </span>WasmModule <span class="kw">for </span>WasmtimeRuntime {
@@ -788,6 +898,7 @@
 			InternalInstantiationStrategy::Builtin =&gt; Strategy::RecreateInstance(InstanceCreator {
 				engine: <span class="self">self</span>.engine.clone(),
 				instance_pre: <span class="self">self</span>.instance_pre.clone(),
+				instance_counter: <span class="self">self</span>.instance_counter.clone(),
 			}),
 		};
 
@@ -970,7 +1081,7 @@ directory = \&quot;{cache_dir}\&quot;
 			.instance_memories(<span class="number">1</span>)
 			<span class="comment">// This determines how many instances of the module can be
 			// instantiated in parallel from the same `Module`.
-			</span>.instance_count(<span class="number">32</span>);
+			</span>.instance_count(MAX_INSTANCE_COUNT);
 
 		config.allocation_strategy(wasmtime::InstanceAllocationStrategy::Pooling(pooling_config));
 	}
@@ -1280,7 +1391,12 @@ directory = \&quot;{cache_dir}\&quot;
 		.instantiate_pre(<span class="kw-2">&amp;</span>module)
 		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot preinstantiate module: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
 
-	<span class="prelude-val">Ok</span>(WasmtimeRuntime { engine, instance_pre: Arc::new(instance_pre), instantiation_strategy })
+	<span class="prelude-val">Ok</span>(WasmtimeRuntime {
+		engine,
+		instance_pre: Arc::new(instance_pre),
+		instantiation_strategy,
+		instance_counter: Default::default(),
+	})
 }
 
 <span class="kw">fn </span>prepare_blob_for_compilation(

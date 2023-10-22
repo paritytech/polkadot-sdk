@@ -65,7 +65,7 @@
 <span class="doccomment">/// Parameters used to config runtime.
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>RuntimeParams {
-	<span class="doccomment">/// The size of the instances cache for each runtime. The values higher than 256 are illegal.
+	<span class="doccomment">/// The size of the instances cache for each runtime. The values higher than 32 are illegal.
 	</span><span class="attr">#[arg(long, default_value_t = <span class="number">8</span>, value_parser = parse_max_runtime_instances)]
 	</span><span class="kw">pub </span>max_runtime_instances: usize,
 
@@ -78,8 +78,8 @@
 	<span class="kw">let </span>max_runtime_instances = usize::from_str(s)
 		.map_err(|_err| <span class="macro">format!</span>(<span class="string">&quot;Illegal `--max-runtime-instances` value: {s}&quot;</span>))<span class="question-mark">?</span>;
 
-	<span class="kw">if </span>max_runtime_instances &gt; <span class="number">256 </span>{
-		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Illegal `--max-runtime-instances` value: {max_runtime_instances} is more than the allowed maximum of `256` &quot;</span>))
+	<span class="kw">if </span>max_runtime_instances &gt; <span class="number">32 </span>{
+		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Illegal `--max-runtime-instances` value: {max_runtime_instances} is more than the allowed maximum of `32` &quot;</span>))
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Ok</span>(max_runtime_instances)
 	}
