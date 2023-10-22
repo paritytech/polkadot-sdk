@@ -53,6 +53,7 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+use os_pipe::PipeWriter;
 use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
@@ -222,6 +223,27 @@ struct Response {
 	memory_stats: MemoryStats,
 }
 
+/// This is used to handle child process during pvf prepare worker.
+/// It prepare the artifact and track memory stats during preparation
+/// and pipes back the response to the parent process
+///
+/// # Arguments
+///
+/// - `pvf`: `PvfPrepData` structure, containing data to prepare the artifact
+///
+/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+///
+/// - `preparation_timeout`: The timeout in `Duration`.
+///
+/// - `prepare_job_kind`: The kind of prepare job.
+///
+/// - `executor_params`: Deterministically serialized execution environment semantics.
+///
+/// # Returns
+///
+/// - If any error occur, pipe response back with `PrepareError`.
+///
+/// - If success, pipe back `Response`.
 async fn handle_child_process(
 	pvf: PvfPrepData,
 	mut pipe_write: os_pipe::PipeWriter,
@@ -234,8 +256,7 @@ async fn handle_child_process(
 		Resource::RLIMIT_CPU,
 		preparation_timeout.as_secs(),
 		preparation_timeout.as_secs(),
-	)
-	.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+	).unwrap_or_else(|err|send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
 
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
@@ -272,11 +293,14 @@ async fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 	)
-	.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+	.unwrap_or_else(|err|
+		send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
 
 	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
 	// simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
-	let result = prepare_thread.join().unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+	let result = prepare_thread.join()
+		.unwrap_or_else(|err|
+							send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
 
 	let response: Result<Response, PrepareError> = match result {
 		Ok(ok) => {
@@ -305,13 +329,34 @@ async fn handle_child_process(
 		Err(err) => Err(err),
 	};
 
-	pipe_write
-		.write_all(response.encode().as_slice())
-		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
-
-	process::exit(libc::EXIT_SUCCESS);
+	send_child_response(pipe_write, response);
 }
 
+
+
+/// Waits for child process to finish and handle child response from pipe.
+///
+/// # Arguments
+///
+/// - `pipe_read`: A `PipeReader` used to read data from the child process.
+///
+/// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
+///
+/// - `worker_pid`: The PID of the child process.
+///
+/// - `usage_before`: Resource usage statistics before executing the child process.
+///
+/// - `timeout`: The maximum allowed time for the child process to finish, in milliseconds.
+///
+/// # Returns
+///
+/// - If the child send response without an error, this function returns `Ok(PrepareStats)` containing memory and CPU usage statistics.
+///
+/// - If the child send response with an error, it returns a `PrepareError`.
+///
+/// - If the child process timeout, it returns `PrepareError::TimedOut`.
+///
+/// - If the child process exits with an unknown status, it returns `PrepareError`.
 async fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
 	temp_artifact_dest: PathBuf,
@@ -327,10 +372,18 @@ async fn handle_parent_process(
 	let status = nix::sys::wait::wait();
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|err| PrepareError::Panic(err.to_string()))?;
-	let cpu_tv = (get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before)) as u64;
+
+	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
+	// As `getrusage` returns resource usage from all terminated child processes,
+	// it is necessary to subtract the usage before the current child process to isolate its cpu time
+	let cpu_tv = (get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before));
+
+	if cpu_tv >= timeout {
+		return Err(PrepareError::TimedOut)
+	}
 
 	return match status {
-		Ok(nix::sys::wait::WaitStatus::Exited(_, libc::EXIT_SUCCESS)) => {
+		Ok(_) => {
 			let result: Result<Response, PrepareError> =
 				Result::decode(&mut received_data.as_slice())
 					.map_err(|e| PrepareError::Panic(e.to_string()))?;
@@ -364,17 +417,41 @@ async fn handle_parent_process(
 			}
 		},
 		_ => {
-			if cpu_tv >= timeout {
-				return Err(PrepareError::TimedOut)
-			}
 			Err(PrepareError::Panic("child finished with unknown status".to_string()))
 		},
 	}
 }
 
-fn get_total_cpu_usage(rusage: Usage) -> u64 {
-	return (rusage.user_time().tv_sec() +
-		rusage.system_time().tv_sec() +
-		((rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) / 1_000_000) as i64)
-		as u64
+/// Calculate the total CPU time from the given `nix::sys::Usage` structure, returned from `nix::sys::resource::getrusage`,
+/// and calculates the total CPU time spent, including both user and system time.
+///
+/// # Arguments
+///
+/// - `rusage`: A `nix::sys::Usage` structure, contains resource usage information.
+///
+/// # Returns
+///
+/// Returns a `Duration` representing the total CPU time.
+fn get_total_cpu_usage(rusage: Usage) -> Duration {
+	let millis = (((rusage.user_time().tv_sec() +
+		rusage.system_time().tv_sec()) * 1_000_000) +
+		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64)
+		as u64;
+
+	return Duration::from_millis(millis)
+}
+
+/// Write response to the pipe and exit process after.
+///
+/// # Arguments
+///
+/// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
+///
+/// - `response`: Child process response
+fn send_child_response(mut pipe_write: PipeWriter, response: Result<Response, PrepareError>) -> ! {
+	pipe_write
+		.write_all(response.encode().as_slice())
+		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
+
+	process::exit(libc::EXIT_SUCCESS)
 }
