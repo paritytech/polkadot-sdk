@@ -6428,13 +6428,68 @@ mod delegation_stake {
 			// at era 4 there is only one unlocking chunk so it is a full withdraw equivalent to
 			// direct staking
 			start_active_era(4);
-			let pre_balance_201 = Balances::free_balance(&201);
+			let pre_balance = Balances::free_balance(&201);
 			// while unbonding, we have to specify we want to release funds for delegator 201 from
 			// the unlocking chunks of delegatee.
 			assert_ok!(<Staking as DelegatedStakeInterface>::withdraw_unbonded(
 				&delegatee, &201, 10
 			));
-			assert_eq!(Balances::free_balance(&201), pre_balance_201 + 10);
+			assert_eq!(Balances::free_balance(&201), pre_balance + 10);
+
+			// Lets go to era 6 when multiple chunks are unlockable
+			start_active_era(6);
+			// lets withdraw 20 tokens for delegator 202
+			let pre_balance = Balances::free_balance(&202);
+			assert_ok!(<Staking as DelegatedStakeInterface>::withdraw_unbonded(
+				&delegatee, &202, 20
+			));
+			assert_eq!(Balances::free_balance(&202), pre_balance + 20);
+			// verify the last unlock chunk still exists
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
+				StakingLedgerInspect {
+					stash: delegatee,
+					total: 1000 - 10 - 20,
+					active: 1000 - 10 - 20 - 30,
+					unlocking: bounded_vec![UnlockChunk { value: 30, era: 6 }],
+					claimed_rewards: bounded_vec![],
+				}
+			);
+
+			// 203 has 30 tokens to unlock, but lets unlock only half of it
+			let pre_balance = Balances::free_balance(&203);
+			assert_ok!(<Staking as DelegatedStakeInterface>::withdraw_unbonded(
+				&delegatee, &203, 15
+			));
+			assert_eq!(Balances::free_balance(&203), pre_balance + 15);
+			// verify only part of unlock chunk is removed
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
+				StakingLedgerInspect {
+					stash: delegatee,
+					total: 1000 - 10 - 20 - 15,
+					active: 1000 - 10 - 20 - 30,
+					unlocking: bounded_vec![UnlockChunk { value: 15, era: 6 }],
+					claimed_rewards: bounded_vec![],
+				}
+			);
+
+			// lets unlock rest of 203 tokens
+			assert_ok!(<Staking as DelegatedStakeInterface>::withdraw_unbonded(
+				&delegatee, &203, 15
+			));
+			assert_eq!(Balances::free_balance(&203), pre_balance + 30);
+			// verify all unlock chunks are removed
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
+				StakingLedgerInspect {
+					stash: delegatee,
+					total: 1000 - 10 - 20 - 30,
+					active: 1000 - 10 - 20 - 30,
+					unlocking: bounded_vec![],
+					claimed_rewards: bounded_vec![],
+				}
+			);
 		})
 	}
 }

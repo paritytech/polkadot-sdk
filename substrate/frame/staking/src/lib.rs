@@ -500,11 +500,11 @@ impl<T: Config> StakingLedger<T> {
 		let unlocking: BoundedVec<_, _> = self
 			.unlocking
 			.into_iter()
-			.filter(|chunk| {
+			.filter_map(|chunk| {
 				// keep the chunks if they are from a future era or we have unlocked upto the limit
 				if chunk.era > current_era || limit == unlocked {
 					defensive_assert!(limit >= unlocked, "unlocked should never exceed limit");
-					true
+					Some(chunk)
 				} else {
 					// we remove chunks that are old enough until we reach limit.
 					let max_unlock = limit - unlocked;
@@ -512,12 +512,12 @@ impl<T: Config> StakingLedger<T> {
 						// unlock all and filter out
 						total = total.saturating_sub(chunk.value);
 						unlocked = unlocked.saturating_add(chunk.value);
-						false
+						None
 					} else {
 						// keep the leftover amount in the chunk
 						total = total.saturating_sub(max_unlock);
 						unlocked = unlocked.saturating_add(max_unlock);
-						true
+						Some(UnlockChunk { value: chunk.value.saturating_sub(max_unlock), era: chunk.era })
 					}
 				}
 			})
