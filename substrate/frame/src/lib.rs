@@ -107,7 +107,7 @@ pub use log;
 
 /// The main prelude of FRAME.
 ///
-/// This prelude should almost always be the first non-import line of code in any pallet or runtime.
+/// This prelude should almost always be the first line of code in any pallet or runtime.
 ///
 /// ```
 /// use frame::prelude::*;
