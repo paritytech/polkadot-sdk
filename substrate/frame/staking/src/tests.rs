@@ -6271,6 +6271,7 @@ mod delegation_stake {
 			));
 
 			// Then: verify delegation is bonded correctly
+			assert_eq!(Staking::payee(delegatee.into()), RewardDestination::Account(reward_acc));
 			assert_eq!(Staking::status(&delegatee).unwrap(), StakerStatus::Delegatee);
 			assert_eq!(
 				Staking::status(&delegation_initiator).unwrap(),
