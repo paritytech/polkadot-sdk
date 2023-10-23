@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      # Setup protoc
+      - name: Set up Protocol Buffers
+        uses: arduino/setup-protoc@v1
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
