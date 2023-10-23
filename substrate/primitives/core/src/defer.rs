@@ -48,7 +48,7 @@ impl<F: FnOnce()> Drop for DeferGuard<F> {
 /// ```rust
 /// use sp_core::defer;
 ///
-/// let message = std::cell::RefCell::new("".to_string());
+/// let message = sp_std::cell::RefCell::new("".to_string());
 /// {
 /// 	defer!(
 /// 		message.borrow_mut().push_str("world!");
@@ -82,7 +82,7 @@ mod test {
 	#[test]
 	/// `defer` executes the code in reverse order of being called.
 	fn defer_guard_order_works() {
-		let called = std::cell::RefCell::new(1);
+		let called = sp_std::cell::RefCell::new(1);
 
 		defer!(
 			assert_eq!(*called.borrow(), 3);
@@ -101,7 +101,7 @@ mod test {
 	#[allow(unused_braces)]
 	#[allow(clippy::unnecessary_operation)]
 	fn defer_guard_syntax_works() {
-		let called = std::cell::RefCell::new(0);
+		let called = sp_std::cell::RefCell::new(0);
 		{
 			defer!(*called.borrow_mut() += 1);
 			defer!(*called.borrow_mut() += 1;); // With ;
@@ -113,6 +113,7 @@ mod test {
 
 	#[test]
 	/// `defer` executes the code even in case of a panic.
+	#[cfg(feature = "std")]
 	fn defer_guard_panic_unwind_works() {
 		use std::panic::{catch_unwind, AssertUnwindSafe};
 		let mut called = false;
@@ -128,9 +129,10 @@ mod test {
 
 	#[test]
 	/// `defer` executes the code even in case another `defer` panics.
+	#[cfg(feature = "std")]
 	fn defer_guard_defer_panics_unwind_works() {
 		use std::panic::{catch_unwind, AssertUnwindSafe};
-		let counter = std::cell::RefCell::new(0);
+		let counter = sp_std::cell::RefCell::new(0);
 
 		let should_panic = catch_unwind(AssertUnwindSafe(|| {
 			defer!(*counter.borrow_mut() += 1);

@@ -832,11 +832,20 @@ pub mod vrf {
 
 #[cfg(test)]
 mod tests {
-	use super::{vrf::*, *};
-	use crate::crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE};
+	#[cfg(feature = "std")]
+	use super::vrf::*;
+	use super::*;
+	#[cfg(feature = "serde")]
+	// use crate::crypto::Ss58Codec;
+	#[cfg(feature = "std")]
+	use crate::crypto::{VrfPublic, VrfSecret};
+	#[cfg(feature = "std")]
+	use crate::crypto::{DEV_ADDRESS, DEV_PHRASE};
+	#[cfg(feature = "serde")]
 	use serde_json;
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn derive_soft_known_pair_should_work() {
 		let pair = Pair::from_string(&format!("{}/Alice", DEV_PHRASE), None).unwrap();
 		// known address of DEV_PHRASE with 1.1
@@ -847,6 +856,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn derive_hard_known_pair_should_work() {
 		let pair = Pair::from_string(&format!("{}//Alice", DEV_PHRASE), None).unwrap();
 		// known address of DEV_PHRASE with 1.1
@@ -857,6 +867,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn verify_known_old_message_should_work() {
 		let public = Public::from_raw(array_bytes::hex2array_unchecked(
 			"b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918",
@@ -871,6 +882,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn default_phrase_should_be_used() {
 		assert_eq!(
 			Pair::from_string("//Alice///password", None).unwrap().public(),
@@ -887,6 +899,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn default_address_should_be_used() {
 		assert_eq!(
 			Public::from_string(&format!("{}/Alice", DEV_ADDRESS)),
@@ -895,6 +908,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn default_phrase_should_correspond_to_default_address() {
 		assert_eq!(
 			Pair::from_string(&format!("{}/Alice", DEV_PHRASE), None).unwrap().public(),
@@ -907,6 +921,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")] //randomness
 	fn derive_soft_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -919,6 +934,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "full_crypto")]
 	fn derive_hard_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -931,6 +947,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")] //randomness
 	fn derive_soft_public_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -942,6 +959,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(all(feature = "full_crypto", feature = "serde"))]
 	fn derive_hard_public_should_fail() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -951,6 +969,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn sr_test_vector_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -968,6 +987,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn generated_pair_should_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -977,6 +997,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn messed_signature_should_not_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -989,6 +1010,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn messed_message_should_not_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -998,6 +1020,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn seeded_pair_should_work() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
@@ -1013,16 +1036,17 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn ss58check_roundtrip_works() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
 		let s = public.to_ss58check();
-		println!("Correct: {}", s);
 		let cmp = Public::from_ss58check(&s).unwrap();
 		assert_eq!(cmp, public);
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn verify_from_old_wasm_works() {
 		// The values in this test case are compared to the output of `node-test.js` in
 		// schnorrkel-js.
@@ -1040,6 +1064,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")] //randomness
 	fn signature_serialization_works() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let message = b"Something important";
@@ -1052,6 +1077,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "serde")]
 	fn signature_serialization_doesnt_panic() {
 		fn deserialize_signature(text: &str) -> Result<Signature, serde_json::error::Error> {
 			serde_json::from_str(text)
@@ -1063,6 +1089,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn vrf_sign_verify() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
@@ -1075,6 +1102,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn vrf_sign_verify_with_extra() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
@@ -1090,6 +1118,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn vrf_make_bytes_matches() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
@@ -1113,6 +1142,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn vrf_backend_compat() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();

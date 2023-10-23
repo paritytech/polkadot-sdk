@@ -23,10 +23,15 @@ pub use primitive_types::{U256, U512};
 mod tests {
 	use super::*;
 	use codec::{Decode, Encode};
+	#[cfg(all(not(feature = "std"), feature = "serde"))]
+	use sp_std::alloc::format;
+	#[cfg(any(not(feature = "std"), feature = "serde"))]
+	use sp_std::vec;
 
 	macro_rules! test {
 		($name: ident, $test_name: ident) => {
 			#[test]
+			#[cfg(feature = "serde")]
 			fn $test_name() {
 				let tests = vec![
 					($name::from(0), "0x0"),
@@ -78,6 +83,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "serde")]
 	fn test_large_values() {
 		assert_eq!(
 			serde_json::to_string_pretty(&!U256::zero()).expect("Json pretty print failed"),

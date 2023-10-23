@@ -471,10 +471,17 @@ impl CryptoType for Pair {
 #[cfg(test)]
 mod test {
 	use super::*;
+	#[cfg(feature = "full_crypto")]
+	use crate::crypto::DeriveJunction;
+	#[cfg(feature = "std")]
 	use crate::crypto::DEV_PHRASE;
+	#[cfg(feature = "serde")]
 	use serde_json;
+	#[cfg(feature = "full_crypto")]
+	use sp_std::vec;
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn default_phrase_should_be_used() {
 		assert_eq!(
 			Pair::from_string("//Alice///password", None).unwrap().public(),
@@ -485,6 +492,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "full_crypto")]
 	fn seed_and_derive_should_work() {
 		let seed = array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -502,6 +510,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "full_crypto")]
 	fn test_vector_should_work() {
 		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -521,6 +530,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn test_vector_by_string_should_work() {
 		let pair = Pair::from_string(
 			"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -542,6 +552,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn generated_pair_should_work() {
 		let (pair, _) = Pair::generate();
 		let public = pair.public();
@@ -552,6 +563,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "full_crypto")]
 	fn seeded_pair_should_work() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
@@ -563,12 +575,12 @@ mod test {
 		);
 		let message = array_bytes::hex2bytes_unchecked("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000");
 		let signature = pair.sign(&message[..]);
-		println!("Correct signature: {:?}", signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
 		assert!(!Pair::verify(&signature, "Other message", &public));
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn generate_with_phrase_recovery_possible() {
 		let (pair1, phrase, _) = Pair::generate_with_phrase(None);
 		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
@@ -577,6 +589,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn generate_with_password_phrase_recovery_possible() {
 		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
 		let (pair2, _) = Pair::from_phrase(&phrase, Some("password")).unwrap();
@@ -585,6 +598,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn password_does_something() {
 		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
 		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
@@ -593,16 +607,17 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(all(feature = "full_crypto", feature = "serde"))]
 	fn ss58check_roundtrip_works() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
 		let s = public.to_ss58check();
-		println!("Correct: {}", s);
 		let cmp = Public::from_ss58check(&s).unwrap();
 		assert_eq!(cmp, public);
 	}
 
 	#[test]
+	#[cfg(all(feature = "full_crypto", feature = "serde"))]
 	fn signature_serialization_works() {
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let message = b"Something important";
@@ -615,6 +630,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(feature = "serde")]
 	fn signature_serialization_doesnt_panic() {
 		fn deserialize_signature(text: &str) -> Result<Signature, serde_json::error::Error> {
 			serde_json::from_str(text)

@@ -30,8 +30,12 @@ pub fn convert_hash<H1: Default + AsMut<[u8]>, H2: AsRef<[u8]>>(src: &H2) -> H1 
 }
 
 #[cfg(test)]
+#[cfg(feature = "bytesorder")]
 mod tests {
 	use super::*;
+
+	#[cfg(not(feature = "std"))]
+	use sp_std::{alloc::format, vec};
 
 	#[test]
 	fn test_h160() {

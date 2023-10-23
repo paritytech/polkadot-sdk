@@ -1223,14 +1223,30 @@ impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::DeriveJunction;
+	#[cfg(feature = "full_crypto")]
+	use crate::crypto::DeriveJunction;
+	#[cfg(feature = "full_crypto")]
+	use sp_std::prelude::ToOwned;
+	#[cfg(not(feature = "std"))]
+	use sp_std::vec;
 
 	#[derive(Clone, Eq, PartialEq, Debug)]
 	enum TestPair {
 		Generated,
+		#[cfg(feature = "std")]
 		GeneratedWithPhrase,
-		GeneratedFromPhrase { phrase: String, password: Option<String> },
-		Standard { phrase: String, password: Option<String>, path: Vec<DeriveJunction> },
+		#[cfg(feature = "std")]
+		GeneratedFromPhrase {
+			phrase: String,
+			password: Option<String>,
+		},
+		#[cfg(feature = "std")]
+		Standard {
+			phrase: String,
+			password: Option<String>,
+			path: Vec<DeriveJunction>,
+		},
+		#[cfg(feature = "full_crypto")]
 		Seed(Vec<u8>),
 	}
 	impl Default for TestPair {
@@ -1238,6 +1254,7 @@ mod tests {
 			TestPair::Generated
 		}
 	}
+	#[cfg(feature = "full_crypto")]
 	impl CryptoType for TestPair {
 		type Pair = Self;
 	}
@@ -1262,6 +1279,7 @@ mod tests {
 		}
 	}
 	impl CryptoType for TestPublic {
+		#[cfg(feature = "full_crypto")]
 		type Pair = TestPair;
 	}
 	impl Derive for TestPublic {}
@@ -1282,19 +1300,23 @@ mod tests {
 		}
 	}
 	impl Public for TestPublic {}
+	#[cfg(feature = "full_crypto")]
 	impl Pair for TestPair {
 		type Public = TestPublic;
 		type Seed = [u8; 8];
 		type Signature = [u8; 0];
 
+		#[cfg(feature = "std")]
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])
 		}
 
+		#[cfg(feature = "std")]
 		fn generate_with_phrase(_password: Option<&str>) -> (Self, String, <Self as Pair>::Seed) {
 			(TestPair::GeneratedWithPhrase, "".into(), [0u8; 8])
 		}
 
+		#[cfg(feature = "std")]
 		fn from_phrase(
 			phrase: &str,
 			password: Option<&str>,
@@ -1308,6 +1330,7 @@ mod tests {
 			))
 		}
 
+		#[cfg(feature = "full_crypto")]
 		fn derive<Iter: Iterator<Item = DeriveJunction>>(
 			&self,
 			path_iter: Iter,
@@ -1315,11 +1338,13 @@ mod tests {
 		) -> Result<(Self, Option<[u8; 8]>), DeriveError> {
 			Ok((
 				match self.clone() {
+					#[cfg(feature = "std")]
 					TestPair::Standard { phrase, password, path } => TestPair::Standard {
 						phrase,
 						password,
 						path: path.into_iter().chain(path_iter).collect(),
 					},
+					#[cfg(feature = "std")]
 					TestPair::GeneratedFromPhrase { phrase, password } =>
 						TestPair::Standard { phrase, password, path: path_iter.collect() },
 					x =>
@@ -1355,6 +1380,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn interpret_std_seed_should_work() {
 		assert_eq!(
 			TestPair::from_string("0x0123456789abcdef", None),
@@ -1363,6 +1389,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn password_override_should_work() {
 		assert_eq!(
 			TestPair::from_string("hello world///password", None),
@@ -1375,6 +1402,7 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn interpret_std_secret_string_should_work() {
 		assert_eq!(
 			TestPair::from_string("hello world", None),
@@ -1475,8 +1503,9 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "std")]
 	fn accountid_32_from_str_works() {
-		use std::str::FromStr;
+		use sp_std::str::FromStr;
 		assert!(AccountId32::from_str("5G9VdMwXvzza9pS8qE8ZHJk3CheHW9uucBn9ngW4C1gmmzpv").is_ok());
 		assert!(AccountId32::from_str(
 			"5c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
