@@ -96,7 +96,7 @@ pub struct ChannelInfo {
 
 pub trait GetChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus;
-	fn get_channel_max(id: ParaId) -> Option<usize>;
+	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
 }
 
 /// Something that should be called when sending an upward message.

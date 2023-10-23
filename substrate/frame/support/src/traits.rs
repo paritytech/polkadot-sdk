@@ -27,14 +27,15 @@ pub use tokens::{
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
-	nonfungible, nonfungibles, BalanceStatus, ExistenceRequirement, Locker, WithdrawReasons,
+	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2, BalanceStatus,
+	ExistenceRequirement, Locker, WithdrawReasons,
 };
 
 mod members;
 #[allow(deprecated)]
 pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
-	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Everything,
+	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
 	RankedMembers, SortedMembers, TheseExcept,
 };
@@ -107,7 +108,7 @@ mod voting;
 pub use voting::{ClassCountOf, PollStatus, Polling, VoteTally};
 
 mod preimages;
-pub use preimages::{Bounded, BoundedInline, FetchResult, Hash, QueryPreimage, StorePreimage};
+pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};
 
 mod messages;
 pub use messages::{

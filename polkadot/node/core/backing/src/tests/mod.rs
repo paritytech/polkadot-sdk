@@ -237,7 +237,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == test_state.relay_parent => {
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
 		}
@@ -1595,8 +1595,8 @@ fn retry_works() {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_,
-					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
-				)) if sess_idx == 1 => {
+					RuntimeApiRequest::SessionExecutorParams(1, tx),
+				)) => {
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
 				msg => {
