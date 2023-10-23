@@ -536,13 +536,13 @@ x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
-[patch."https://github.com/w3f/ring-vrf"]
-bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "davxy-patch" }
+# [patch."https://github.com/w3f/ring-vrf"]
+# bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "davxy-patch" }
 # bandersnatch_vrfs = { path = "../../w3f/ring-vrf/bandersnatch_vrfs" }
 
-[patch."https://github.com/w3f/ring-proof"]
-ring = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
-common = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
+# [patch."https://github.com/w3f/ring-proof"]
+# ring = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
+# common = { git = "https://github.com/davxy/ring-proof", branch = "davxy-patch" }
 # ring = { path = "../../w3f/ring-proof/ring" }
 # common = { path = "../../w3f/ring-proof/common" }
 

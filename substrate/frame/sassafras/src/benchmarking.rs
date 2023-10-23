@@ -17,7 +17,7 @@
 
 //! Benchmarks for the Sassafras pallet.
 
-use super::*;
+use crate::*;
 use sp_consensus_sassafras::EpochConfiguration;
 use sp_std::vec;
 
@@ -39,7 +39,7 @@ mod benchmarks {
 	const LOG_TARGET: &str = "sassafras::benchmark";
 
 	#[benchmark]
-	fn submit_tickets(x: Linear<0, 3>) {
+	fn submit_tickets(x: Linear<1, 20>) {
 		let tickets_count = x as usize;
 
 		let mut raw_data = TICKETS_DATA;
@@ -76,7 +76,19 @@ mod benchmarks {
 
 	// Construction of ring verifier benchmark
 	#[benchmark]
-	fn recompute_ring_verifier(x: Linear<1, 20>) {
+	fn load_ring_context() {
+		let ring_ctx = vrf::RingContext::new_testing();
+		RingContext::<T>::set(Some(ring_ctx));
+
+		#[block]
+		{
+			let _ring_ctx = RingContext::<T>::get().unwrap();
+		}
+	}
+
+	// Construction of ring verifier benchmark
+	#[benchmark]
+	fn update_ring_verifier(x: Linear<1, 20>) {
 		let authorities_count = x as usize;
 
 		let ring_ctx = vrf::RingContext::new_testing();
@@ -89,25 +101,16 @@ mod benchmarks {
 
 		#[block]
 		{
-			let ring_ctx = RingContext::<T>::get().unwrap();
-
-			let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
-			let _verifier = ring_ctx.verifier(&pks[..]);
+			Pallet::<T>::update_ring_verifier(&authorities);
 		}
 	}
 
 	// Tickets segments sorting function benchmark.
 	#[benchmark]
-	fn sort_segments(x: Linear<1, 1800>, y: Linear<1, 2>) {
+	fn sort_segments(x: Linear<1, 100>) {
 		use sp_consensus_sassafras::EphemeralPublic;
-
-		let tickets_count = <T as Config>::EpochDuration::get() as u32;
 		let segments_count = x as u32;
-		let max_segments = y as u32;
-
-		let segment_len = 1 + (tickets_count - 1) / segments_count;
-
-		log::debug!(target: LOG_TARGET, "------ segments: {}, max_segments: {}", segments_count, max_segments);
+		let tickets_count = segments_count * SEGMENT_MAX_SIZE;
 
 		// Construct a bunch of dummy tickets
 		let tickets: Vec<_> = (0..tickets_count)
@@ -117,11 +120,13 @@ mod benchmarks {
 					erased_public: EphemeralPublic([i as u8; 32]),
 					revealed_public: EphemeralPublic([i as u8; 32]),
 				};
-				(i as TicketId, body)
+				let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
+				let id = TicketId::from_le_bytes(id_bytes);
+				(id, body)
 			})
 			.collect();
 
-		for (chunk_id, chunk) in tickets.chunks(segment_len as usize).enumerate() {
+		for (chunk_id, chunk) in tickets.chunks(SEGMENT_MAX_SIZE as usize).enumerate() {
 			let segment: Vec<TicketId> = chunk
 				.iter()
 				.map(|(id, body)| {
@@ -135,16 +140,14 @@ mod benchmarks {
 
 		// Update metadata
 		let mut meta = TicketsMeta::<T>::get();
-		meta.segments_count += segments_count as u32;
+		meta.unsorted_tickets_count = tickets_count;
 		TicketsMeta::<T>::set(meta.clone());
 
 		log::debug!(target: LOG_TARGET, "Before sort: {:?}", meta);
-
 		#[block]
 		{
-			Pallet::<T>::sort_tickets(max_segments, 0, &mut meta);
+			Pallet::<T>::sort_tickets(u32::MAX, 0, &mut meta);
 		}
-
 		log::debug!(target: LOG_TARGET, "After sort: {:?}", meta);
 	}
 }

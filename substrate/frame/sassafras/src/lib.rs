@@ -43,7 +43,7 @@
 //! To anonymously publish the ticket to the chain a validator sends their tickets
 //! to a random validator who later puts it on-chain as a transaction.
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -84,21 +84,24 @@ pub mod session;
 pub mod weights;
 pub use weights::WeightInfo;
 
-// Re-export pallet symbols.
 pub use pallet::*;
 
 const LOG_TARGET: &str = "sassafras::runtime 🌳";
 
+// Contextual string used by the VRF to generate per-block randomness.
 const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasRandomness";
+
+pub(crate) const SEGMENT_MAX_SIZE: u32 = 128;
 
 /// Tickets related metadata that is commonly used together.
 #[derive(Debug, Default, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy)]
 pub struct TicketsMetadata {
-	/// Number of tickets available into the tickets buffers.
-	/// The array index is computed as epoch index modulo 2.
+	/// Number of outstanding next epoch tickets requiring to be sorted.
+	pub unsorted_tickets_count: u32,
+	/// Number of tickets available into the tickets buffers for current and next epoch.
+	///
+	/// The array entry to be used for the current epoch is computed as epoch index modulo 2.
 	pub tickets_count: [u32; 2],
-	/// Number of outstanding tickets segments requiring to be sorted.
-	pub segments_count: u32,
 }
 
 #[frame_support::pallet]
@@ -195,14 +198,14 @@ pub mod pallet {
 
 	/// Randomness accumulator.
 	#[pallet::storage]
-	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
+	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
-	/// Temporary value which is `Some` if per-block initialization has already been called
-	/// for current block.
+	/// Per-slot randomness value which is `Some` if per-block initialization has already been
+	/// called for current block.
 	///
 	/// Cleared on block finalization.
 	#[pallet::storage]
-	pub(crate) type RandomnessVrfOutput<T> = StorageValue<_, vrf::VrfOutput>;
+	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
@@ -231,13 +234,13 @@ pub mod pallet {
 	///
 	/// The key is a tuple composed by:
 	/// - `u8` equal to epoch-index mod 2
-	/// - `u32` equal to the slot-index.
+	/// - `u32` equal to the after-sort ticket position.
 	#[pallet::storage]
-	pub type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
+	pub(crate) type TicketsIds<T> = StorageMap<_, Identity, (u8, u32), TicketId>;
 
 	/// Tickets to be used for current and next epoch.
 	#[pallet::storage]
-	pub type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
+	pub(crate) type TicketsData<T> = StorageMap<_, Identity, TicketId, TicketBody>;
 
 	/// Next epoch tickets accumulator.
 	///
@@ -248,18 +251,19 @@ pub mod pallet {
 	///
 	/// Special `u32::MAX` key is reserved for the most recently sorted segment.
 	#[pallet::storage]
-	pub type NextTicketsSegments<T: Config> =
-		StorageMap<_, Identity, u32, BoundedVec<TicketId, MaxTicketsFor<T>>, ValueQuery>;
+	pub(crate) type NextTicketsSegments<T: Config> =
+		StorageMap<_, Identity, u32, BoundedVec<TicketId, ConstU32<SEGMENT_MAX_SIZE>>, ValueQuery>;
 
-	/// Parameters used to verify tickets validity via ring-proof.
+	/// Parameters used to construct the epoch's ring verifier.
 	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
 	#[pallet::getter(fn ring_context)]
-	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
+	pub(crate) type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
+	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
-	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
+	pub(crate) type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -280,14 +284,13 @@ pub mod pallet {
 			#[cfg(feature = "construct-dummy-ring-context")]
 			{
 				// TODO @davxy : this is a temporary solution for node-sassafras development.
-				// Should be called before `initialize_genesis_authorities`
 				// (load a pre-constructed one from chain-spec?)
 				debug!(target: LOG_TARGET, "Constructing dummy ring context");
 				let ring_ctx = vrf::RingContext::new_testing();
 				RingContext::<T>::put(ring_ctx);
 			}
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(self.epoch_config.clone());
+			EpochConfig::<T>::put(self.epoch_config);
 		}
 	}
 
@@ -297,9 +300,10 @@ pub mod pallet {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// Since `on_initialize` can be called twice (e.g. if `session` pallet
 			// is used as the session manager) let's ensure that we only do the the
-			// initialization once per block.
+			// initialization once per block. We rely on the only volatile value to check if
+			// `on_initialize` has been already called.
 			#[cfg(feature = "session-pallet-support")]
-			if Self::is_initialized() {
+			if SlotRandomness::<T>::exists() {
 				return Weight::zero()
 			}
 
@@ -318,15 +322,23 @@ pub mod pallet {
 				Self::initialize_genesis_epoch(claim.slot)
 			}
 
-			let vrf_output = claim
+			// Enact epoch change, if necessary.
+			T::EpochChangeTrigger::trigger::<T>(now);
+
+			// This should be the last action, after
+			let randomness_input = vrf::slot_claim_input(
+				&Self::randomness(),
+				CurrentSlot::<T>::get(),
+				EpochIndex::<T>::get(),
+			);
+			let randomness_output = claim
 				.vrf_signature
 				.outputs
 				.get(0)
 				.expect("Presence should have been already checked by the client; qed");
-			RandomnessVrfOutput::<T>::put(vrf_output);
-
-			// Enact epoch change, if necessary.
-			T::EpochChangeTrigger::trigger::<T>(now);
+			let randomness = randomness_output
+				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
+			SlotRandomness::<T>::put(randomness);
 
 			Weight::zero()
 		}
@@ -339,29 +351,24 @@ pub mod pallet {
 			// this block into the randomness accumulator. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
 			// already occurred at this point.
-			let randomness_input = vrf::slot_claim_input(
-				&Self::randomness(),
-				CurrentSlot::<T>::get(),
-				EpochIndex::<T>::get(),
-			);
-			let randomness_output = RandomnessVrfOutput::<T>::take()
+			let randomness = SlotRandomness::<T>::take()
 				.expect("Finalization is called after initialization; qed");
-			let randomness = randomness_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
-
 			Self::deposit_randomness(&randomness);
 
-			// If we are in the epoch's second half, we start sorting the next epoch tickets.
+			// Check if we are in the epoch's second half.
+			// If so, start sorting the next epoch tickets.
 			let epoch_duration = T::EpochDuration::get();
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx >= epoch_duration / 2 {
 				let mut metadata = TicketsMeta::<T>::get();
-				if metadata.segments_count != 0 {
+				if metadata.unsorted_tickets_count != 0 {
 					let epoch_idx = EpochIndex::<T>::get() + 1;
 					let epoch_tag = (epoch_idx & 1) as u8;
 					let slots_left = epoch_duration.checked_sub(current_slot_idx).unwrap_or(1);
 					Self::sort_tickets(
-						u32::max(1, metadata.segments_count / slots_left as u32),
+						metadata
+							.unsorted_tickets_count
+							.div_ceil(SEGMENT_MAX_SIZE * slots_left as u32),
 						epoch_tag,
 						&mut metadata,
 					);
@@ -373,7 +380,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit next epoch tickets.
+		/// Submit next epoch tickets candidates.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
 		pub fn submit_tickets(
@@ -384,8 +391,7 @@ pub mod pallet {
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
-			debug!(target: LOG_TARGET, "Loading ring verifier");
-			let Some(verifier) = RingVerifierData::<T>::get().map(|vd| vd.into()) else {
+			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
 				warn!(target: LOG_TARGET, "Ring verifier not initialized");
 				return Err("Ring context not initialized".into())
 			};
@@ -407,7 +413,7 @@ pub mod pallet {
 			let randomness = NextRandomness::<T>::get();
 			let epoch_idx = EpochIndex::<T>::get() + 1;
 
-			let mut segment = BoundedVec::with_max_capacity();
+			let mut valid_tickets = BoundedVec::with_max_capacity();
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
@@ -417,38 +423,30 @@ pub mod pallet {
 					debug!(target: LOG_TARGET, "Missing ticket vrf output from ring signature");
 					continue
 				};
-
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
-
 				if ticket_id >= ticket_threshold {
-					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({} >= {})", ticket_id, ticket_threshold);
+					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:16x} >= {:16x})", ticket_id, ticket_threshold);
 					continue
 				}
 
 				if TicketsData::<T>::contains_key(ticket_id) {
-					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({})", ticket_id);
-					continue
+					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:16x})", ticket_id);
 				}
 
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 
 				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
-					segment
+					valid_tickets
 						.try_push(ticket_id)
-						.expect("has same length as bounded input vector; qed");
+						.expect("input segment has same length as bounded destination vector; qed");
 				} else {
 					debug!(target: LOG_TARGET, "Proof verification failure");
 				}
 			}
 
-			if !segment.is_empty() {
-				debug!(target: LOG_TARGET, "Appending segment with {} tickets", segment.len());
-				segment.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:16x}"));
-				let mut metadata = TicketsMeta::<T>::get();
-				NextTicketsSegments::<T>::insert(metadata.segments_count, segment);
-				metadata.segments_count += 1;
-				TicketsMeta::<T>::set(metadata);
+			if !valid_tickets.is_empty() {
+				Self::append_tickets(valid_tickets);
 			}
 
 			Ok(Pays::No.into())
@@ -569,11 +567,6 @@ pub mod pallet {
 
 // Inherent methods
 impl<T: Config> Pallet<T> {
-	fn is_initialized() -> bool {
-		// We rely on the only ephemeral value to check if `on_initialize` has been called.
-		RandomnessVrfOutput::<T>::exists()
-	}
-
 	/// Determine whether an epoch change should take place at this block.
 	/// Assumes that initialization has already taken place.
 	pub fn should_end_epoch(now: BlockNumberFor<T>) -> bool {
@@ -600,41 +593,7 @@ impl<T: Config> Pallet<T> {
 		slot.checked_sub(Self::current_epoch_start().into()).unwrap_or(u64::MAX)
 	}
 
-	/// Remove all tickets related data.
-	///
-	/// May not be efficient as the calling places may repeat some of this operations
-	/// but is a very extraordinary operation (hopefully never happens in production)
-	/// and better safe than sorry.
-	fn reset_tickets_data() {
-		let tickets_metadata = TicketsMeta::<T>::get();
-
-		// Remove even-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[0];
-		(0..tickets_count).into_iter().for_each(|idx| {
-			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
-				TicketsData::<T>::remove(id);
-			}
-		});
-
-		// Remove odd-epoch data.
-		let tickets_count = tickets_metadata.tickets_count[1];
-		(0..tickets_count).into_iter().for_each(|idx| {
-			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
-				TicketsData::<T>::remove(id);
-			}
-		});
-
-		// Remove all outstanding tickets segments.
-		(0..tickets_metadata.segments_count).into_iter().for_each(|i| {
-			NextTicketsSegments::<T>::remove(i);
-		});
-		NextTicketsSegments::<T>::remove(u32::MAX);
-
-		// Reset tickets metadata
-		TicketsMeta::<T>::set(Default::default());
-	}
-
-	fn update_ring_verifier(authorities: &[AuthorityId]) {
+	pub(crate) fn update_ring_verifier(authorities: &[AuthorityId]) {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
 			debug!(target: LOG_TARGET, "Ring context not initialized");
@@ -643,9 +602,9 @@ impl<T: Config> Pallet<T> {
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
-		debug!(target: LOG_TARGET, "Building ring verifier (ring-size: {})", pks.len());
+		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {})", pks.len());
 		let verifier_data = ring_ctx
-			.verifier_data(pks.as_slice())
+			.verifier_data(&pks)
 			.expect("Failed to build ring verifier. This is a bug");
 
 		RingVerifierData::<T>::put(verifier_data);
@@ -661,21 +620,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
 	/// from the first skipped epoch. The tickets are invalidated.
-	// TODO @davxy just take a reference to the vectors
 	pub(crate) fn enact_epoch_change(
 		authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 		next_authorities: WeakBoundedVec<AuthorityId, T::MaxAuthorities>,
 	) {
-		debug_assert!(Self::is_initialized());
-
-		// TODO: @davxy. This is expensive.
-		// Indeed it makes miss the slot deadline on first attempt.
-		// if next_authorities != authorities {
+		// TODO: @davxy. Remove comments.
+		// if next_authorities != authoritues {
 		Self::update_ring_verifier(&next_authorities);
 		// }
 
 		// Update authorities
-		Authorities::<T>::put(authorities);
+		Authorities::<T>::put(&authorities);
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update epoch index
@@ -708,14 +663,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let next_config = PendingEpochConfigChange::<T>::take();
-		if let Some(next_config) = next_config.clone() {
+		if let Some(next_config) = next_config {
 			NextEpochConfig::<T>::put(next_config);
 		}
 
 		// After we update the current epoch, we signal the *next* epoch change
 		// so that nodes can track changes.
 		let next_epoch = NextEpochDescriptor {
-			authorities: next_authorities.to_vec(),
+			authorities: next_authorities.into_inner(),
 			randomness: next_randomness,
 			config: next_config,
 		};
@@ -723,8 +678,8 @@ impl<T: Config> Pallet<T> {
 
 		let epoch_tag = (epoch_idx & 1) as u8;
 		// Optionally finish sorting
-		if tickets_metadata.segments_count != 0 {
-			Self::sort_tickets(tickets_metadata.segments_count, epoch_tag, &mut tickets_metadata);
+		if tickets_metadata.unsorted_tickets_count != 0 {
+			Self::sort_tickets(u32::MAX, epoch_tag, &mut tickets_metadata);
 		}
 
 		// Clear the "prev ≡ next (mod 2)" epoch tickets counter and bodies.
@@ -743,6 +698,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Call this function on epoch change to update the randomness.
+	///
 	/// Returns the next epoch randomness.
 	fn update_randomness(next_epoch_index: u64) -> Randomness {
 		let curr_randomness = NextRandomness::<T>::get();
@@ -813,15 +769,14 @@ impl<T: Config> Pallet<T> {
 
 		GenesisSlot::<T>::put(genesis_slot);
 
-		let next_authorities = Self::next_authorities().to_vec();
-
+		let next_authorities = Self::next_authorities().into_inner();
 		Self::update_ring_verifier(&next_authorities);
 
 		// Deposit a log because this is the first block in epoch #0.
 		// We use the same values as genesis because we haven't collected any randomness yet.
 		let next_epoch = NextEpochDescriptor {
 			authorities: next_authorities,
-			randomness: Self::randomness(),
+			randomness: Self::next_randomness(),
 			config: None,
 		};
 		Self::deposit_consensus(ConsensusLog::NextEpochData(next_epoch));
@@ -907,8 +862,8 @@ impl<T: Config> Pallet<T> {
 			// we may have to finish sorting the tickets.
 			epoch_tag ^= 1;
 			slot_idx -= duration;
-			if tickets_meta.segments_count != 0 {
-				Self::sort_tickets(tickets_meta.segments_count, epoch_tag, &mut tickets_meta);
+			if tickets_meta.unsorted_tickets_count != 0 {
+				Self::sort_tickets(u32::MAX, epoch_tag, &mut tickets_meta);
 				TicketsMeta::<T>::set(tickets_meta);
 			}
 		} else if slot_idx >= 2 * duration {
@@ -938,12 +893,9 @@ impl<T: Config> Pallet<T> {
 	// The resulting sorted vector is optionally truncated to contain at most `MaxTickets`
 	// entries. If all the segments were consumed then the sorted vector is saved as the
 	// next epoch tickets, else it is saved to be used by next calls to this function.
-	pub(crate) fn sort_tickets(
-		mut max_segments: u32,
-		epoch_tag: u8,
-		metadata: &mut TicketsMetadata,
-	) {
-		max_segments = max_segments.min(metadata.segments_count);
+	pub(crate) fn sort_tickets(max_segments: u32, epoch_tag: u8, metadata: &mut TicketsMetadata) {
+		let mut segments_count = metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		let max_segments = max_segments.min(segments_count);
 		let max_tickets = MaxTicketsFor::<T>::get() as usize;
 
 		// Fetch the sorted result (if any).
@@ -958,8 +910,9 @@ impl<T: Config> Pallet<T> {
 		// Consume at most `max_iter` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
 		for _ in 0..max_segments {
-			metadata.segments_count -= 1;
-			let segment = NextTicketsSegments::<T>::take(metadata.segments_count);
+			segments_count -= 1;
+			let segment = NextTicketsSegments::<T>::take(segments_count);
+			metadata.unsorted_tickets_count -= segment.len() as u32;
 
 			// Merge only elements below the current sorted segment sup.
 			segment.iter().for_each(|id| {
@@ -969,9 +922,10 @@ impl<T: Config> Pallet<T> {
 					TicketsData::<T>::remove(id);
 				}
 			});
+
 			if sorted_segment.len() > max_tickets {
+				// Sort, truncate good tickets, cleanup storage.
 				require_sort = false;
-				// Sort and truncate good tickets.
 				sorted_segment.sort_unstable();
 				sorted_segment[max_tickets..].iter().for_each(|id| TicketsData::<T>::remove(id));
 				sorted_segment.truncate(max_tickets);
@@ -983,7 +937,7 @@ impl<T: Config> Pallet<T> {
 			sorted_segment.sort_unstable();
 		}
 
-		if metadata.segments_count == 0 {
+		if metadata.unsorted_tickets_count == 0 {
 			// Sorting is over, write to next epoch map.
 			sorted_segment.iter().enumerate().for_each(|(i, id)| {
 				TicketsIds::<T>::insert((epoch_tag, i as u32), id);
@@ -993,6 +947,68 @@ impl<T: Config> Pallet<T> {
 			// Keep the partial result for next calls.
 			NextTicketsSegments::<T>::insert(u32::MAX, BoundedVec::truncate_from(sorted_segment));
 		}
+	}
+
+	/// Append a set of tickets to the segments map.
+	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, MaxTicketsFor<T>>) {
+		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
+		tickets.iter().for_each(|t| debug!(target: LOG_TARGET, "  + {t:16x}"));
+
+		let mut metadata = TicketsMeta::<T>::get();
+		let mut segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;
+
+		let mut tickets = tickets.as_slice();
+		while !tickets.is_empty() {
+			let rem = metadata.unsorted_tickets_count % SEGMENT_MAX_SIZE;
+			let todo = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
+
+			let mut segment = NextTicketsSegments::<T>::get(segment_idx).into_inner();
+			segment.extend_from_slice(&tickets[..todo]);
+			let segment = BoundedVec::truncate_from(segment);
+			NextTicketsSegments::<T>::insert(segment_idx, segment);
+
+			metadata.unsorted_tickets_count += todo as u32;
+			segment_idx += 1;
+
+			tickets = &tickets[todo..];
+		}
+
+		TicketsMeta::<T>::set(metadata);
+	}
+
+	/// Remove all tickets related data.
+	///
+	/// May not be efficient as the calling places may repeat some of this operations
+	/// but is a very extraordinary operation (hopefully never happens in production)
+	/// and better safe than sorry.
+	fn reset_tickets_data() {
+		let tickets_metadata = TicketsMeta::<T>::get();
+
+		// Remove even-epoch data.
+		let tickets_count = tickets_metadata.tickets_count[0];
+		(0..tickets_count).into_iter().for_each(|idx| {
+			if let Some(id) = TicketsIds::<T>::get((0, idx)) {
+				TicketsData::<T>::remove(id);
+			}
+		});
+
+		// Remove odd-epoch data.
+		let tickets_count = tickets_metadata.tickets_count[1];
+		(0..tickets_count).into_iter().for_each(|idx| {
+			if let Some(id) = TicketsIds::<T>::get((1, idx)) {
+				TicketsData::<T>::remove(id);
+			}
+		});
+
+		// Remove all outstanding tickets segments.
+		let segments_count = tickets_metadata.unsorted_tickets_count.div_ceil(SEGMENT_MAX_SIZE);
+		(0..segments_count).into_iter().for_each(|i| {
+			NextTicketsSegments::<T>::remove(i);
+		});
+		NextTicketsSegments::<T>::remove(u32::MAX);
+
+		// Reset tickets metadata
+		TicketsMeta::<T>::set(Default::default());
 	}
 
 	/// Submit next epoch validator tickets via an unsigned extrinsic constructed with a call to
@@ -1065,6 +1081,7 @@ impl EpochChangeTrigger for EpochChangeInternalTrigger {
 		if <Pallet<T>>::should_end_epoch(now) {
 			let authorities = <Pallet<T>>::authorities();
 			let next_authorities = authorities.clone();
+
 			<Pallet<T>>::enact_epoch_change(authorities, next_authorities);
 		}
 	}
