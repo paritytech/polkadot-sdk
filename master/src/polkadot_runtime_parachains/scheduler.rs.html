@@ -745,10 +745,6 @@
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1356,14 +1352,10 @@
 	<span class="doccomment">/// Moves all elements in the claimqueue forward.
 	</span><span class="kw">fn </span>move_claimqueue_forward() {
 		<span class="kw">let </span><span class="kw-2">mut </span>cq = ClaimQueue::&lt;T&gt;::get();
-		<span class="kw">for </span>(<span class="kw">_</span>, core_queue) <span class="kw">in </span>cq.iter_mut() {
+		<span class="kw">for </span>core_queue <span class="kw">in </span>cq.values_mut() {
 			<span class="comment">// First pop the finished claims from the front.
-			</span><span class="kw">match </span>core_queue.front() {
-				<span class="prelude-val">None </span>=&gt; {},
-				<span class="prelude-val">Some</span>(<span class="prelude-val">None</span>) =&gt; {
-					core_queue.pop_front();
-				},
-				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {},
+			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">None</span>) = core_queue.front() {
+				core_queue.pop_front();
 			}
 		}
 
@@ -1379,9 +1371,10 @@
 
 		<span class="comment">// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there&#39;s nothing we need to do here.
-		</span><span class="kw">if </span>ValidatorGroups::&lt;T&gt;::get().is_empty() {
+		</span><span class="kw">if </span>ValidatorGroups::&lt;T&gt;::decode_len().map_or(<span class="bool-val">true</span>, |l| l == <span class="number">0</span>) {
 			<span class="kw">return
 		</span>}
+
 		<span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead();
 		<span class="kw">let </span>n_session_cores = T::AssignmentProvider::session_core_count();
 		<span class="kw">let </span>cq = ClaimQueue::&lt;T&gt;::get();
@@ -1437,8 +1430,7 @@
 
 	<span class="kw">fn </span>add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntry&lt;BlockNumberFor&lt;T&gt;&gt;) {
 		ClaimQueue::&lt;T&gt;::mutate(|la| {
-			<span class="kw">let </span>la_deque = la.entry(core_idx).or_insert_with(|| VecDeque::new());
-			la_deque.push_back(<span class="prelude-val">Some</span>(pe));
+			la.entry(core_idx).or_default().push_back(<span class="prelude-val">Some</span>(pe));
 		});
 	}
 

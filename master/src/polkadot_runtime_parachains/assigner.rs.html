@@ -109,6 +109,7 @@
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -164,7 +165,8 @@
 	</span><span class="kw">fn </span>is_bulk_core(core_idx: <span class="kw-2">&amp;</span>CoreIndex) -&gt; bool {
 		<span class="kw">let </span>parachain_cores =
 			&lt;ParachainAssigner&lt;T&gt; <span class="kw">as </span>AssignmentProvider&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::session_core_count();
-		(<span class="number">0</span>..parachain_cores).contains(<span class="kw-2">&amp;</span>core_idx.<span class="number">0</span>)
+
+		core_idx.<span class="number">0 </span>&lt; parachain_cores
 	}
 }
 

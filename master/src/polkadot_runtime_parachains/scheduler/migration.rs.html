@@ -165,6 +165,43 @@
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -192,36 +229,45 @@
 <span class="kw">mod </span>v0 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="kw">use </span>primitives::CollatorId;
+	<span class="kw">use </span>primitives::{CollatorId, Id};
+
 	<span class="attr">#[storage_alias]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Scheduled&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, Vec&lt;CoreAssignment&gt;, ValueQuery&gt;;
 
-	<span class="attr">#[derive(Encode, Decode)]
-	</span><span class="kw">pub struct </span>QueuedParathread {
-		claim: primitives::ParathreadEntry,
-		core_offset: u32,
+	<span class="attr">#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	</span><span class="kw">pub struct </span>ParathreadClaim(<span class="kw">pub </span>Id, <span class="kw">pub </span>CollatorId);
+
+	<span class="attr">#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	</span><span class="kw">pub struct </span>ParathreadEntry {
+		<span class="doccomment">/// The claim.
+		</span><span class="kw">pub </span>claim: ParathreadClaim,
+		<span class="doccomment">/// Number of retries.
+		</span><span class="kw">pub </span>retries: u32,
 	}
 
-	<span class="attr">#[derive(Encode, Decode, Default)]
-	</span><span class="kw">pub struct </span>ParathreadClaimQueue {
-		queue: Vec&lt;QueuedParathread&gt;,
-		next_core_offset: u32,
+	<span class="doccomment">/// What is occupying a specific availability core.
+	</span><span class="attr">#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	</span><span class="kw">pub enum </span>CoreOccupied {
+		<span class="doccomment">/// A parathread.
+		</span>Parathread(ParathreadEntry),
+		<span class="doccomment">/// A parachain.
+		</span>Parachain,
 	}
 
-	<span class="comment">// Only here to facilitate the migration.
-	</span><span class="kw">impl </span>ParathreadClaimQueue {
-		<span class="kw">pub fn </span>len(<span class="self">self</span>) -&gt; usize {
-			<span class="self">self</span>.queue.len()
-		}
-	}
+	<span class="doccomment">/// The actual type isn&#39;t important, as we only delete the key in the state.
+	</span><span class="attr">#[storage_alias]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AvailabilityCores&lt;T: Config&gt; =
+		StorageValue&lt;Pallet&lt;T&gt;, Vec&lt;<span class="prelude-ty">Option</span>&lt;CoreOccupied&gt;&gt;, ValueQuery&gt;;
+
+	<span class="doccomment">/// The actual type isn&#39;t important, as we only delete the key in the state.
+	</span><span class="attr">#[storage_alias]
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParathreadQueue&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, (), ValueQuery&gt;;
 
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParathreadQueue&lt;T: Config&gt; =
-		StorageValue&lt;Pallet&lt;T&gt;, ParathreadClaimQueue, ValueQuery&gt;;
-
-	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParathreadClaimIndex&lt;T: Config&gt; =
-		StorageValue&lt;Pallet&lt;T&gt;, Vec&lt;ParaId&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParathreadClaimIndex&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, (), ValueQuery&gt;;
 
 	<span class="doccomment">/// The assignment type.
 	</span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
@@ -275,31 +321,37 @@
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::DispatchError&gt; {
-			<span class="macro">log::trace!</span>(
+			<span class="kw">let </span>n: u32 = v0::Scheduled::&lt;T&gt;::get().len() <span class="kw">as </span>u32 +
+				v0::AvailabilityCores::&lt;T&gt;::get().iter().filter(|c| c.is_some()).count() <span class="kw">as </span>u32;
+
+			<span class="macro">log::info!</span>(
 				target: <span class="kw">crate</span>::scheduler::LOG_TARGET,
-				<span class="string">&quot;Scheduled before migration: {}&quot;</span>,
-				v0::Scheduled::&lt;T&gt;::get().len()
+				<span class="string">&quot;Number of scheduled and waiting for availability before: {n}&quot;</span>,
 			);
 
-			<span class="kw">let </span>bytes = u32::to_be_bytes(v0::Scheduled::&lt;T&gt;::get().len() <span class="kw">as </span>u32);
-
-			<span class="prelude-val">Ok</span>(bytes.to_vec())
+			<span class="prelude-val">Ok</span>(n.encode())
 		}
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
-			<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">&quot;Running post_upgrade()&quot;</span>);
+			<span class="macro">log::info!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">&quot;Running post_upgrade()&quot;</span>);
 
 			<span class="macro">ensure!</span>(
-				v0::Scheduled::&lt;T&gt;::get().len() == <span class="number">0</span>,
+				v0::Scheduled::&lt;T&gt;::get().is_empty(),
 				<span class="string">&quot;Scheduled should be empty after the migration&quot;
 			</span>);
 
-			<span class="kw">let </span>sched_len = u32::from_be_bytes(state.try_into().unwrap());
+			<span class="kw">let </span>expected_len = u32::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).unwrap();
+			<span class="kw">let </span>availability_cores_waiting = <span class="kw">super</span>::AvailabilityCores::&lt;T&gt;::get()
+				.iter()
+				.filter(|c| !<span class="macro">matches!</span>(c, CoreOccupied::Free))
+				.count();
+
 			<span class="macro">ensure!</span>(
-				Pallet::&lt;T&gt;::claimqueue_len() <span class="kw">as </span>u32 == sched_len,
-				<span class="string">&quot;Scheduled completely moved to ClaimQueue after migration&quot;
-			</span>);
+				Pallet::&lt;T&gt;::claimqueue_len() <span class="kw">as </span>u32 + availability_cores_waiting <span class="kw">as </span>u32 ==
+					expected_len,
+				<span class="string">&quot;ClaimQueue and AvailabilityCores should have the correct length&quot;</span>,
+			);
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -309,11 +361,8 @@
 <span class="kw">pub fn </span>migrate_to_v1&lt;T: <span class="kw">crate</span>::scheduler::Config&gt;() -&gt; Weight {
 	<span class="kw">let </span><span class="kw-2">mut </span>weight: Weight = Weight::zero();
 
-	<span class="kw">let </span>pq = v0::ParathreadQueue::&lt;T&gt;::take();
-	<span class="kw">let </span>pq_len = pq.len() <span class="kw">as </span>u64;
-
-	<span class="kw">let </span>pci = v0::ParathreadClaimIndex::&lt;T&gt;::take();
-	<span class="kw">let </span>pci_len = pci.len() <span class="kw">as </span>u64;
+	v0::ParathreadQueue::&lt;T&gt;::kill();
+	v0::ParathreadClaimIndex::&lt;T&gt;::kill();
 
 	<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
 	<span class="kw">let </span>scheduled = v0::Scheduled::&lt;T&gt;::take();
@@ -325,10 +374,35 @@
 		Pallet::&lt;T&gt;::add_to_claimqueue(core_idx, pe);
 	}
 
+	<span class="kw">let </span>parachains = paras::Pallet::&lt;T&gt;::parachains();
+	<span class="kw">let </span>availability_cores = v0::AvailabilityCores::&lt;T&gt;::take();
+	<span class="kw">let </span><span class="kw-2">mut </span>new_availability_cores = Vec::new();
+
+	<span class="kw">for </span>(core_index, core) <span class="kw">in </span>availability_cores.into_iter().enumerate() {
+		<span class="kw">let </span>new_core = <span class="kw">if let </span><span class="prelude-val">Some</span>(core) = core {
+			<span class="kw">match </span>core {
+				v0::CoreOccupied::Parachain =&gt; CoreOccupied::Paras(ParasEntry::new(
+					Assignment::new(parachains[core_index]),
+					now,
+				)),
+				v0::CoreOccupied::Parathread(entry) =&gt;
+					CoreOccupied::Paras(ParasEntry::new(Assignment::new(entry.claim.<span class="number">0</span>), now)),
+			}
+		} <span class="kw">else </span>{
+			CoreOccupied::Free
+		};
+
+		new_availability_cores.push(new_core);
+	}
+
+	<span class="kw">super</span>::AvailabilityCores::&lt;T&gt;::set(new_availability_cores);
+
 	<span class="comment">// 2x as once for Scheduled and once for Claimqueue
 	</span>weight = weight.saturating_add(T::DbWeight::get().reads_writes(<span class="number">2 </span>* sched_len, <span class="number">2 </span>* sched_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pq_len, pq_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pci_len, pci_len));
+	<span class="comment">// reading parachains + availability_cores, writing AvailabilityCores
+	</span>weight = weight.saturating_add(T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">1</span>));
+	<span class="comment">// 2x kill
+	</span>weight = weight.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>));
 
 	weight
 }
