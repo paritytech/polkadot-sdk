@@ -17,7 +17,7 @@
 
 //! Traits, types and structs to support a bounded `BTreeSet`.
 
-use crate::storage::{StorageDecodeLength, StorageDecodeNonDedupLength};
+use crate::storage::{StorageDecodeLength};
 pub use sp_runtime::BoundedBTreeSet;
 
 impl<T, S> StorageDecodeLength for BoundedBTreeSet<T, S> {}

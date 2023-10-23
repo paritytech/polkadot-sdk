@@ -1477,13 +1477,7 @@ pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// and is a `Compact<u32>`.
 	///
 	/// Returns `None` if the storage value does not exist or the decoding failed.
-	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
-		// `Compact<u32>` is 5 bytes in maximum.
-		let mut data = [0u8; 5];
-		let len = sp_io::storage::read(key, &mut data, 0)?;
-		let len = data.len().min(len as usize);
-		<Self as codec::DecodeLength>::len(&data[..len]).ok()
-	}
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize>;
 }
 
 /// Provides `Sealed` trait to prevent implementing trait `StorageAppend` & `StorageDecodeLength`
@@ -1541,7 +1535,7 @@ impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
 // for all types that are StorageDecodeLength.
 impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
 	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
-		T::decode_non_dedup_len(key)
+		T::decode_len(key)
 	}
 }
 
@@ -2114,7 +2108,7 @@ mod test {
 
 			let length_with_dup_items = 3;
 
-			assert_eq!(Store::decode_dedup_len().unwrap(), length_with_dup_items);
+			assert_eq!(Store::decode_non_dedup_len().unwrap(), length_with_dup_items);
 		});
 	}
 }
