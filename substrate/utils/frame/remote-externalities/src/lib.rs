@@ -439,6 +439,85 @@ where
 		Ok(keys)
 	}
 
+	/// Get keys at `prefix` in `block` in parallel manner.
+	async fn rpc_get_keys_parallel(
+		&self,
+		prefix: StorageKey,
+		block: B::Hash,
+		parallel: u16,
+	) -> Result<Vec<StorageKey>, &'static str> {
+		const MAX_PARALLEL: u16 = 16 ** 3;
+		const POW_OF_SIXTEEN: [u16; 3] = [1, 16, 256];
+
+		// round to power of 16, up to MAX_PARALLEL
+		fn round(n: u16) -> (u16, usize) {
+			if n <= 1 {
+				return (1, 0)
+			} else if n <= 16 {
+				return (16, 1)
+			}
+
+			let mut pow: u16 = 16;
+			let mut exp: usize = 1;
+
+			while pow < n {
+				if pow == MAX_PARALLEL {
+					break;
+				}
+
+				pow = pow.saturating_mul(16);
+				exp += 1;
+			}
+
+			debug_assert!(pow <= MAX_PARALLEL);
+
+			// FIXME eagr: lack of a better idea for threshold
+			if n * 4 <= pow {
+				(pow / 16, exp - 1)
+			} else {
+				(pow, exp)
+			}
+		}
+
+		fn extension(n: u16, len: usize) -> Vec<u8> {
+			let mut ext = vec![0; len];
+			for i in 0..len {
+				ext[i] = (n / POW_OF_SIXTEEN[i] % 16) as u8;
+			}
+			ext
+		}
+
+		let (parallel, len) = round(parallel);
+
+		let batch = (0..parallel).into_iter().map(|i| {
+			let mut prefix = prefix.as_ref().to_vec();
+			prefix.extend(extension(i, len));
+			let prefix = StorageKey(prefix);
+
+			self.rpc_get_keys_paged(prefix, block)
+		});
+
+		let keys = futures::future::join_all(batch)
+			.await
+			.into_iter()
+			.filter_map(|res| match res {
+				Ok(keys) => Some(keys),
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"{} when fetching keys at block {:?}",
+						err,
+						block,
+					);
+					None
+				},
+			})
+			.flatten()
+			.collect::<Vec<StorageKey>>();
+
+		Ok(keys)
+	}
+
 	/// Fetches storage data from a node using a dynamic batch size.
 	///
 	/// This function adjusts the batch size on the fly to help prevent overwhelming the node with
