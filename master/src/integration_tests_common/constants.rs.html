@@ -683,6 +683,8 @@
 <a href="#683" id="683">683</a>
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1354,14 +1356,16 @@
 				owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
 				..Default::default()
 			},
-			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-				owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
-				..Default::default()
-			},
-			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
-				owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
-				..Default::default()
-			},
+			bridge_wococo_to_rococo_messages:
+				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
+					owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
+					..Default::default()
+				},
+			bridge_rococo_to_wococo_messages:
+				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+					owner: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(accounts::BOB)),
+					..Default::default()
+				},
 			..Default::default()
 		};
 

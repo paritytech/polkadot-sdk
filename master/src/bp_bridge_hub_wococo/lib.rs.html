@@ -73,6 +73,7 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -137,14 +138,15 @@
 </span><span class="kw">pub const </span>BRIDGE_HUB_WOCOCO_PARACHAIN_ID: u32 = <span class="number">1014</span>;
 
 <span class="doccomment">/// Name of the With-BridgeHubWococo messages pallet instance that is deployed at bridged chains.
-</span><span class="kw">pub const </span>WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;BridgeWococoMessages&quot;</span>;
+</span><span class="kw">pub const </span>WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span>str =
+	<span class="string">&quot;BridgeRococoToWococoMessages&quot;</span>;
 
 <span class="doccomment">/// Name of the With-BridgeHubWococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 </span><span class="kw">pub const </span>WITH_BRIDGE_HUB_WOCOCO_RELAYERS_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;BridgeRelayers&quot;</span>;
 
-<span class="doccomment">/// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::&lt;Instance2&gt;`.
-</span><span class="kw">pub const </span>WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX: u8 = <span class="number">45</span>;
+<span class="doccomment">/// Pallet index of `BridgeWococoToRococoMessages: pallet_bridge_messages::&lt;Instance2&gt;`.
+</span><span class="kw">pub const </span>WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = <span class="number">45</span>;
 
 <span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_wococo);
 <span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_wococo);

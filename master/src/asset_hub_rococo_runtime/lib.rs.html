@@ -2431,7 +2431,7 @@
 
 	<span class="kw">type </span>UniversalLocation = xcm_config::UniversalLocation;
 	<span class="kw">type </span>BridgedNetworkId = xcm_config::bridging::to_wococo::WococoNetwork;
-	<span class="kw">type </span>Bridges = xcm_config::bridging::to_wococo::NetworkExportTable;
+	<span class="kw">type </span>Bridges = xcm_config::bridging::NetworkExportTable;
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>BridgeHubOrigin = EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;;
@@ -2462,7 +2462,7 @@
 
 	<span class="kw">type </span>UniversalLocation = xcm_config::UniversalLocation;
 	<span class="kw">type </span>BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
-	<span class="kw">type </span>Bridges = xcm_config::bridging::to_rococo::NetworkExportTable;
+	<span class="kw">type </span>Bridges = xcm_config::bridging::NetworkExportTable;
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>BridgeHubOrigin = EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;;

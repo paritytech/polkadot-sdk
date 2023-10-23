@@ -89,6 +89,16 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -113,12 +123,12 @@
 <span class="kw">pub mod </span>extrinsic_weights;
 <span class="kw">pub mod </span>frame_system;
 <span class="kw">pub mod </span>pallet_balances;
-<span class="kw">pub mod </span>pallet_bridge_grandpa_bridge_rococo_grandpa;
-<span class="kw">pub mod </span>pallet_bridge_grandpa_bridge_wococo_grandpa;
-<span class="kw">pub mod </span>pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_rococo_messages_instance;
-<span class="kw">pub mod </span>pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_wococo_messages_instance;
-<span class="kw">pub mod </span>pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_rococo_instance;
-<span class="kw">pub mod </span>pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance;
+<span class="kw">pub mod </span>pallet_bridge_grandpa_rococo_finality;
+<span class="kw">pub mod </span>pallet_bridge_grandpa_wococo_finality;
+<span class="kw">pub mod </span>pallet_bridge_messages_rococo_to_wococo;
+<span class="kw">pub mod </span>pallet_bridge_messages_wococo_to_rococo;
+<span class="kw">pub mod </span>pallet_bridge_parachains_within_rococo;
+<span class="kw">pub mod </span>pallet_bridge_parachains_within_wococo;
 <span class="kw">pub mod </span>pallet_bridge_relayers;
 <span class="kw">pub mod </span>pallet_collator_selection;
 <span class="kw">pub mod </span>pallet_multisig;
@@ -141,13 +151,16 @@
 <span class="comment">// import trait from dependency module
 </span><span class="kw">use </span>::pallet_bridge_relayers::WeightInfoExt <span class="kw">as _</span>;
 
-<span class="kw">impl </span>pallet_bridge_messages::WeightInfoExt <span class="kw">for </span>pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_rococo_messages_instance::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
+<span class="kw">impl </span>pallet_bridge_messages::WeightInfoExt
+	<span class="kw">for </span>pallet_bridge_messages_wococo_to_rococo::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt;
+{
 	<span class="kw">fn </span>expected_extra_storage_proof_size() -&gt; u32 {
 		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 
 	<span class="kw">fn </span>receive_messages_proof_overhead_from_runtime() -&gt; Weight {
-		pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::receive_messages_proof_overhead_from_runtime()
+		pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::receive_messages_proof_overhead_from_runtime(
+		)
 	}
 
 	<span class="kw">fn </span>receive_messages_delivery_proof_overhead_from_runtime() -&gt; Weight {
@@ -155,13 +168,16 @@
 	}
 }
 
-<span class="kw">impl </span>pallet_bridge_messages::WeightInfoExt <span class="kw">for </span>pallet_bridge_messages_bridge_messages_bench_runtime_with_bridge_hub_wococo_messages_instance::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
+<span class="kw">impl </span>pallet_bridge_messages::WeightInfoExt
+	<span class="kw">for </span>pallet_bridge_messages_rococo_to_wococo::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt;
+{
 	<span class="kw">fn </span>expected_extra_storage_proof_size() -&gt; u32 {
 		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 
 	<span class="kw">fn </span>receive_messages_proof_overhead_from_runtime() -&gt; Weight {
-		pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::receive_messages_proof_overhead_from_runtime()
+		pallet_bridge_relayers::WeightInfo::&lt;Runtime&gt;::receive_messages_proof_overhead_from_runtime(
+		)
 	}
 
 	<span class="kw">fn </span>receive_messages_delivery_proof_overhead_from_runtime() -&gt; Weight {
@@ -169,13 +185,17 @@
 	}
 }
 
-<span class="kw">impl </span>pallet_bridge_parachains::WeightInfoExt <span class="kw">for </span>pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_rococo_instance::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
+<span class="kw">impl </span>pallet_bridge_parachains::WeightInfoExt
+	<span class="kw">for </span>pallet_bridge_parachains_within_rococo::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt;
+{
 	<span class="kw">fn </span>expected_extra_storage_proof_size() -&gt; u32 {
 		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
 	}
 }
 
-<span class="kw">impl </span>pallet_bridge_parachains::WeightInfoExt <span class="kw">for </span>pallet_bridge_parachains_bridge_parachains_bench_runtime_bridge_parachain_wococo_instance::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt; {
+<span class="kw">impl </span>pallet_bridge_parachains::WeightInfoExt
+	<span class="kw">for </span>pallet_bridge_parachains_within_wococo::WeightInfo&lt;<span class="kw">crate</span>::Runtime&gt;
+{
 	<span class="kw">fn </span>expected_extra_storage_proof_size() -&gt; u32 {
 		bp_bridge_hub_wococo::EXTRA_STORAGE_PROOF_SIZE
 	}

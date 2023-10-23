@@ -622,6 +622,8 @@
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
 <a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -939,14 +941,16 @@
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
-			bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-				owner: bridges_pallet_owner.clone(),
-				..Default::default()
-			},
-			bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
-				owner: bridges_pallet_owner,
-				..Default::default()
-			},
+			bridge_wococo_to_rococo_messages:
+				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
+					owner: bridges_pallet_owner.clone(),
+					..Default::default()
+				},
+			bridge_rococo_to_wococo_messages:
+				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+					owner: bridges_pallet_owner,
+					..Default::default()
+				},
 		}
 	}
 }
