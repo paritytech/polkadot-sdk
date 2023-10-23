@@ -93,4 +93,3 @@ test!(
 	test31,
 	bridge_hubs::polkadot::local_config("bridge-hub-polkadot-local", "Test", "test", 667.into())
 );
-
