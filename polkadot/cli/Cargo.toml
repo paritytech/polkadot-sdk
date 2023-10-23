@@ -15,7 +15,7 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-clap = { version = "4.4.4", features = ["derive"], optional = true }
+clap = { version = "4.4.6", features = ["derive"], optional = true }
 log = "0.4.17"
 thiserror = "1.0.48"
 futures = "0.3.21"
@@ -33,6 +33,7 @@ try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", option
 sc-cli = { path = "../../substrate/client/cli", optional = true }
 sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
+polkadot-node-primitives = { path = "../node/primitives" }
 sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
