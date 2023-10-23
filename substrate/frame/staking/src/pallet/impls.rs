@@ -1849,37 +1849,45 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
-	fn bond_new(
-		delegation_initiator: &Self::AccountId,
+	fn accept_delegations(
 		delegatee: &Self::AccountId,
-		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		// fixme(ank4n): This is conservative and not needed on staking pallet level. NP can decide
-		// how it wants to pay rewards. Staking only needs to ensure that the rewards are not
-		// restaked.
-		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
-
-		// delegate funds from delegator to delegatee.
-		delegation::delegate::<T>(delegation_initiator, delegatee, value)?;
-
-		// Bond with delegatee as a new staker.
-		Self::bond(
-			RawOrigin::Signed(delegatee.clone()).into(),
-			value,
-			RewardDestination::Account(payee.clone()),
-		)
+		delegation::accept_delegations::<T>(delegatee, payee)
 	}
 
-	fn bond_extra(
+	fn block_delegations(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		delegation::block_delegations::<T>(delegatee)
+	}
+
+	fn kill_delegatee(_delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		// fixme(ank4n): Impl this.
+		todo!()
+	}
+
+	fn delegate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
-		extra: Self::Balance,
+		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
-		// delegate funds to from delegator to delegatee.
-		delegation::delegate::<T>(delegator, delegatee, extra)?;
-		// bond extra with delegatee as the staker.
-		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
+		delegation::delegate::<T>(delegator, delegatee, value)
+	}
+
+	fn update_bond(
+		delegatee: &Self::AccountId,
+		value: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		let is_first_bond = !Ledger::<T>::contains_key(&delegatee);
+
+		if is_first_bond {
+			Self::bond(
+				RawOrigin::Signed(delegatee.clone()).into(),
+				value,
+				RewardDestination::Account(delegation::get_payee::<T>(delegatee)?),
+			)
+		} else {
+			Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), value)
+		}
 	}
 
 	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {

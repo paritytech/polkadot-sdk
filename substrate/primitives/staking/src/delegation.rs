@@ -26,26 +26,32 @@ use sp_runtime::{DispatchError, DispatchResult};
 /// account and gives the delegatee the right to use the funds for staking as if it is a direct
 /// nominator.
 pub trait DelegatedStakeInterface: StakingInterface {
-	/// Delegate some funds to a new staker.
+	/// Set intention to accept delegations.
 	///
-	/// Similar to [`StakingInterface::bond`].
-	fn bond_new(
+	/// The caller would be Delegatee. Also takes input where the reward should be paid out.
+	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> DispatchResult;
+
+	/// Stop accepting new delegations.
+	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
+
+	/// Remove yourself as Delegatee.
+	///
+	/// This will only succeed if all delegations to this delegatee are removed.
+	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult;
+
+	/// Delegate some funds to a Delegatee
+	///
+	/// Delegated funds are locked in delegator's account and added to Delegatee's stakeable
+	/// balance.
+	fn delegate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
-		payee: &Self::AccountId,
 	) -> DispatchResult;
 
-	/// Delegate some funds or add to an existing staker.
-	///
-	/// Similar to [`StakingInterface::bond_extra`].
-	fn bond_extra(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
+	fn update_bond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
-	/// Unbond some funds from a delegator.
+	/// Unbond some funds from a delegatee.
 	///
 	/// Similar to [`StakingInterface::unbond`].
 	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;

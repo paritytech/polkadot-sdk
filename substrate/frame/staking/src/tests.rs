@@ -6250,93 +6250,65 @@ mod delegation_stake {
 	#[test]
 	fn delegated_bond_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Given: an account with no balance or delegations yet
+			// Given: an account that wants to become a delegatee.
 			let delegatee: AccountId = 99;
 			let reward_acc: AccountId = 100;
 			assert_eq!(Staking::status(&delegatee), Err(Error::<Test>::NotStash.into()));
 			assert_eq!(Staking::stakeable_balance(&delegatee), 0);
 			assert_eq!(Balances::free_balance(delegatee), 0);
 
-			let delegation_initiator: AccountId = 200;
-
-			// give some balance to the delegator
-			let _ = Balances::make_free_balance_be(&delegation_initiator, 1000);
-
-			// when: there is a new delegated staking
-			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
-				&delegation_initiator,
+			// set intent to be delegatee
+			assert_ok!(<Staking as DelegatedStakeInterface>::accept_delegations(
 				&delegatee,
-				100,
 				&reward_acc
 			));
+
+			// when: delegators delegate to the delegatee
+			for delegator in 201..211 {
+				let _ = Balances::make_free_balance_be(&delegator, 1000);
+
+				// delegate funds to delegatee
+				assert_ok!(<Staking as DelegatedStakeInterface>::delegate(
+					&delegator, &delegatee, 100,
+				));
+
+				let delegator_index: Balance = (delegator - 200).into();
+				assert_eq!(Staking::stakeable_balance(&delegatee), delegator_index * 100);
+
+				// Balance of 100 held on delegator account for delegating to the delegatee.
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					100
+				);
+
+				// Stake is not reflected yet in staking ledger
+				assert_eq!(
+					Staking::ledger(StakingAccount::Stash(delegatee))
+						.map(|l| l.total)
+						.unwrap_or_default(),
+					(delegator_index - 1) * 100
+				);
+
+				// update stake
+				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee, 100,));
+
+				// stake is now reflected in staking ledger
+				assert_eq!(
+					Staking::ledger(StakingAccount::Stash(delegatee)).unwrap().total,
+					delegator_index * 100
+				);
+
+				// delegator status is correct
+				assert_eq!(
+					Staking::status(&delegator).unwrap(),
+					StakerStatus::Delegator(delegatee)
+				);
+			}
 
 			// Then: verify delegation is bonded correctly
 			assert_eq!(Staking::payee(delegatee.into()), RewardDestination::Account(reward_acc));
 			assert_eq!(Staking::status(&delegatee).unwrap(), StakerStatus::Delegatee);
-			assert_eq!(
-				Staking::status(&delegation_initiator).unwrap(),
-				StakerStatus::Delegator(delegatee)
-			);
-			// Balance of 100 held on delegator_initiator account for delegating to the delegatee.
-			assert_eq!(
-				Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegation_initiator),
-				100
-			);
-			// stake is bonded via delegatee account
-			assert_eq!(delegation::delegated_balance::<Test>(&delegatee), 100);
 
-			assert!(matches!(
-				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
-				StakingLedger {
-					stash,
-					total: 100,
-					active: 100,
-					..
-				} if stash == delegatee));
-		})
-	}
-
-	#[test]
-	fn delegated_bond_extra_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			// Given a bonded delegatee account
-			let delegatee: AccountId = 99;
-			let reward_acc: AccountId = 100;
-
-			// give some balance to the delegators
-			for i in 200..210 {
-				let _ = Balances::make_free_balance_be(&(i), 1000);
-			}
-
-			// initiate delegation
-			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
-				&200,
-				&delegatee,
-				100,
-				&reward_acc
-			));
-
-			// when: more delegators join the delegatee
-			for i in 201..210 {
-				assert_ok!(<Staking as DelegatedStakeInterface>::bond_extra(&(i), &delegatee, 100));
-			}
-
-			// Then: verify delegated stake is bonded correctly
-			for i in 200..210 {
-				// Role of delegator is correct and delegating to correct account
-				assert_eq!(Staking::status(&i).unwrap(), StakerStatus::Delegator(delegatee));
-
-				// Balance of 100 held on delegator's account for delegating to the delegatee.
-				assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
-
-				// we keep record of delegators and their stake
-				// fixme(ank4n): Can we do better by getting rid of this storage and using named
-				// holds indexed by delegatee account to track this?
-				assert_eq!(<Delegators<Test>>::get(&i).unwrap(), (delegatee, 100));
-			}
-
-			// verify total delegated stake is correct
-			assert_eq!(delegation::delegated_balance::<Test>(&delegatee), 100 * 10);
 			assert!(matches!(
 				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
 				StakingLedger {
@@ -6358,7 +6330,7 @@ mod delegation_stake {
 
 			// trying to set reward account as delegatee fails
 			assert_noop!(
-				<Staking as DelegatedStakeInterface>::bond_new(&200, &delegatee, 100, &delegatee),
+				<Staking as DelegatedStakeInterface>::accept_delegations(&delegatee, &delegatee),
 				Error::<Test>::InvalidDelegation
 			);
 		})
@@ -6377,17 +6349,18 @@ mod delegation_stake {
 			}
 
 			assert_eq!(active_era(), 0);
-			// initiate delegation
-			assert_ok!(<Staking as DelegatedStakeInterface>::bond_new(
-				&200,
+			// Accept delegation
+			assert_ok!(<Staking as DelegatedStakeInterface>::accept_delegations(
 				&delegatee,
-				100,
 				&reward_acc
 			));
 
 			// add more delegations
-			for i in 201..210 {
-				assert_ok!(<Staking as DelegatedStakeInterface>::bond_extra(&i, &delegatee, 100));
+			for delegator in 200..210 {
+				assert_ok!(<Staking as DelegatedStakeInterface>::delegate(
+					&delegator, &delegatee, 100
+				));
+				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee, 100));
 			}
 
 			// when: some delegators unbond their stake

@@ -611,7 +611,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		delegation::DelegationAggregate<T>,
+		delegation::DelegationRegister<T>,
 		OptionQuery,
 	>;
 
@@ -824,6 +824,10 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Not an existing delegatee account.
 		NotDelegatee,
+		/// This operation is not allowed for a existing Delegatee.
+		AlreadyDelegatee,
+		/// This operation is not allowed for a existing Delegator.
+		AlreadyDelegator,
 	}
 
 	#[pallet::hooks]

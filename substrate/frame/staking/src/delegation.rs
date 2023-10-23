@@ -15,11 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! An implementation of a delegation system for nominators.
+//! An implementation of a delegation system that can be utilised by an off-chain entity, a smart
+//! contract or a runtime module.
 //!
-//! This allows an account (called delegator) to delegate their funds to another account
-//! (delegatee). Multiple delegators can delegate to the same delegatee. The delegatee is then able
-//! to use the funds of all delegators to nominate a set of validators.
+//! Delegatee: Someone who accepts delegations. An account can set their intention to accept
+//! delegations by calling `accept_delegations`. This account cannot have another role in the
+//! staking system and once set as delegatee, can only stake with their delegated balance, i.e.
+//! cannot use their own free balance to stake. They can also block new delegations or stop being a
+//! delegatee once all delegations to it are removed.
+//!
+//! Delegator: Someone who delegates their funds to a delegatee. A delegator can delegate their
+//! funds to one and only one delegatee. They also can not be a nominator or validator.
+//!
+//! Reward payouts are always made to another account set by delegatee. This account is a separate
+//! account from delegatee and rewards cannot be restaked automatically. The reward payouts can then
+//! be distributed to delegators by the delegatee via custom strategies.
+//!
+//! Any slashes to a delegatee (which is equivalent to nominator as long as StakingLedger is
+//! concerned) are recorded in `DelegationRegister` of the Delegatee as a pending slash. It is
+//! delegatee's responsibility to apply slash for each delegator at a time. Staking pallet ensures
+//! the pending slash never exceeds staked amount and would freeze further withdraws until pending
+//! slashes are applied.
 
 use crate::{BalanceOf, Config, Delegatees, Delegators, Error, HoldReason};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -30,30 +46,78 @@ use frame_support::{
 	traits::{fungible::MutateHold, tokens::Precision, Currency},
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
+use sp_runtime::{traits::Zero, DispatchError, RuntimeDebug, Saturating};
 
-/// An aggregate ledger of a delegator.
+/// Register of all delegations to a `Delegatee`.
 ///
-/// This keeps track of the active balance of the delegator that is made up from the funds that are
-/// currently delegated to a delegatee. It also tracks the slashes yet to be applied.
+/// This keeps track of the active balance of the delegatee that is made up from the funds that are
+/// currently delegated to this delegatee. It also tracks the pending slashes yet to be applied
+/// among other things.
 #[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct DelegationAggregate<T: Config> {
+pub struct DelegationRegister<T: Config> {
+	/// Where the reward should be paid out.
+	pub payee: T::AccountId,
 	/// Sum of all delegated funds to this delegatee.
 	#[codec(compact)]
 	pub balance: BalanceOf<T>,
 	/// Slashes that are not yet applied.
 	#[codec(compact)]
 	pub pending_slash: BalanceOf<T>,
+	/// Whether this delegatee is blocked from receiving new delegations.
+	pub blocked: bool,
 }
 
 /// Total balance that is delegated to this account but not yet staked.
 pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
-	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |aggregate| aggregate.balance)
+	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |register| register.balance)
 }
 
 pub(crate) fn is_delegatee<T: Config>(delegatee: &T::AccountId) -> bool {
 	<Delegatees<T>>::contains_key(delegatee)
+}
+
+pub(crate) fn get_payee<T: Config>(
+	delegatee: &T::AccountId,
+) -> Result<T::AccountId, DispatchError> {
+	<Delegatees<T>>::get(delegatee)
+		.map(|register| register.payee)
+		.ok_or(Error::<T>::NotDelegatee.into())
+}
+
+pub(crate) fn accept_delegations<T: Config>(
+	delegatee: &T::AccountId,
+	payee: &T::AccountId,
+) -> DispatchResult {
+	// fail if already delegatee
+	ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::AlreadyDelegatee);
+	// a delegator cannot be delegatee
+	ensure!(!<Delegators<T>>::contains_key(delegatee), Error::<T>::AlreadyDelegator);
+	// payee account cannot be same as delegatee
+	ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
+
+	<Delegatees<T>>::insert(
+		delegatee,
+		DelegationRegister {
+			payee: payee.clone(),
+			balance: Zero::zero(),
+			pending_slash: Zero::zero(),
+			blocked: false,
+		},
+	);
+
+	Ok(())
+}
+
+pub(crate) fn block_delegations<T: Config>(delegatee: &T::AccountId) -> DispatchResult {
+	<Delegatees<T>>::mutate(delegatee, |maybe_register| {
+		if let Some(register) = maybe_register {
+			register.blocked = true;
+			Ok(())
+		} else {
+			Err(Error::<T>::NotDelegatee.into())
+		}
+	})
 }
 
 /// Delegate some amount from delegator to delegatee.
@@ -66,13 +130,9 @@ pub(crate) fn delegate<T: Config>(
 	ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 	ensure!(delegator_balance >= value, Error::<T>::InsufficientBond);
 	ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
+	ensure!(<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
 
-	// A delegator cannot receive delegations.
-	if <Delegators<T>>::contains_key(delegatee) {
-		return Err(Error::<T>::InvalidDelegation.into())
-	}
-
-	// A delegatee cannot delegate to another account
+	// cannot delegate to another delegatee.
 	if <Delegatees<T>>::contains_key(delegator) {
 		return Err(Error::<T>::InvalidDelegation.into())
 	}
@@ -86,13 +146,10 @@ pub(crate) fn delegate<T: Config>(
 		};
 
 	<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
-	<Delegatees<T>>::mutate(delegatee, |maybe_aggregate| match maybe_aggregate {
-		Some(aggregate) => aggregate.balance.saturating_accrue(value),
-		None =>
-			*maybe_aggregate = Some(DelegationAggregate {
-				balance: new_delegation_amount,
-				pending_slash: Default::default(),
-			}),
+	<Delegatees<T>>::mutate(delegatee, |maybe_register| {
+		if let Some(register) = maybe_register {
+			register.balance.saturating_accrue(value);
+		}
 	});
 
 	T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
@@ -125,7 +182,7 @@ pub(crate) fn withdraw<T: Config>(
 		},
 	})?;
 
-	<Delegatees<T>>::mutate(delegatee, |maybe_aggregate| match maybe_aggregate {
+	<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
 		Some(ledger) => {
 			ledger.balance.saturating_reduce(value);
 			Ok(())
@@ -149,7 +206,7 @@ pub(crate) fn withdraw<T: Config>(
 }
 
 pub(crate) fn report_slash<T: Config>(delegatee: &T::AccountId, slash: BalanceOf<T>) {
-	<Delegatees<T>>::mutate(&delegatee, |maybe_aggregate| match maybe_aggregate {
+	<Delegatees<T>>::mutate(&delegatee, |maybe_register| match maybe_register {
 		Some(aggregate) => aggregate.pending_slash.saturating_accrue(slash),
 		None => {
 			defensive!("should not be called on non-delegatee");
