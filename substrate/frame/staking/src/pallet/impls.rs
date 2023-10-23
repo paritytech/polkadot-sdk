@@ -1871,7 +1871,6 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		)
 	}
 
-	// Just delegate balance.
 	fn bond_extra(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
