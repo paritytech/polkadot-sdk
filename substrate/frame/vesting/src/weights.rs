@@ -60,6 +60,7 @@ pub trait WeightInfo {
 	fn force_vested_transfer(l: u32, s: u32, ) -> Weight;
 	fn not_unlocking_merge_schedules(l: u32, s: u32, ) -> Weight;
 	fn unlocking_merge_schedules(l: u32, s: u32, ) -> Weight;
+	fn force_remove_vesting_schedule(l: u32, s: u32, ) -> Weight;
 }
 
 /// Weights for pallet_vesting using the Substrate node and recommended hardware.
@@ -245,6 +246,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	fn force_remove_vesting_schedule(_: u32, _: u32) -> Weight {
+		Weight::MAX
+	}
 }
 
 // For backwards compatibility and tests
@@ -428,5 +432,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(84_652, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	fn force_remove_vesting_schedule(_: u32, _: u32) -> Weight {
+		Weight::MAX
 	}
 }
