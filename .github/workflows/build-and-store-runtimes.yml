@@ -1,0 +1,58 @@
+name: Build Runtimes and Store Artifacts
+
+on:
+  push:
+    branches:
+      # - master
+      - liam-try-state-scheduled-checks
+
+jobs:
+  build_and_store:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Free space on the runner
+      run: |
+        df -h
+        sudo apt -y autoremove --purge
+        sudo apt -y autoclean
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        df -h
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        version: "3.6.1"
+
+    - name: Add wasm32-unknown-unknown target
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Build Runtimes with try-runtime
+      run: |
+        cargo build --release --features try-runtime \
+          -p westend-runtime \
+          -p rococo-runtime \
+          -p asset-hub-westend-runtime \
+          -p bridge-hub-rococo-runtime \
+          -p contracts-rococo-runtime
+
+    - name: Archive runtime binaries
+      uses: actions/upload-artifact@v2
+      with:
+        name: runtimes-try-runtime
+        path: ./target/release/wbuild/**/*.compact.compressed.wasm
+
+    # If in the future we want runtimes without try-runtime, we can build them here and store 
+    # them as well.

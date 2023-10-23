@@ -36,16 +36,22 @@ jobs:
         curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime-x86_64-unknown-linux-musl -o try-runtime
         chmod +x try-runtime
 
-    # TODO: Build all runtimes
+    - name: Download runtime artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: runtimes-try-runtime
 
-    - name: Build Runtimes
-      run: |
-        cargo build --release --features try-runtime \
-          -p westend-runtime \
-          -p rococo-runtime \
-          -p asset-hub-westend-runtime \
-          -p bridge-hub-rococo-runtime \
-          -p contracts-rococo-runtime
+    - name: Display structure of downloaded files
+      run: ls -R
+
+    # - name: Build Runtimes
+    #   run: |
+    #     cargo build --release --features try-runtime \
+    #       -p westend-runtime \
+    #       -p rococo-runtime \
+    #       -p asset-hub-westend-runtime \
+    #       -p bridge-hub-rococo-runtime \
+    #       -p contracts-rococo-runtime
 
     - name: Check Westend
       run: | 
