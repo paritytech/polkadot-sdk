@@ -77,16 +77,13 @@ pub(crate) fn delegate<T: Config>(
 		return Err(Error::<T>::InvalidDelegation.into())
 	}
 
-	let mut new_delegation_amount = value;
-
-	let delegation = <Delegators<T>>::get(delegator);
-	if delegation.is_some() {
-		// add to existing delegation.
-		let (current_delegatee, current_delegation) =
-			delegation.expect("checked delegation exists above; qed");
-		ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
-		new_delegation_amount = new_delegation_amount.saturating_add(current_delegation);
-	}
+	let new_delegation_amount =
+		if let Some((current_delegatee, current_delegation)) = <Delegators<T>>::get(delegator) {
+			ensure!(&current_delegatee == delegatee, Error::<T>::InvalidDelegation);
+			value.saturating_add(current_delegation)
+		} else {
+			value
+		};
 
 	<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
 	<Delegatees<T>>::mutate(delegatee, |maybe_aggregate| match maybe_aggregate {
@@ -113,9 +110,11 @@ pub(crate) fn withdraw<T: Config>(
 	<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
 		Some((current_delegatee, delegate_balance)) => {
 			ensure!(&current_delegatee.clone() == delegatee, Error::<T>::InvalidDelegation);
-			ensure!(delegate_balance.clone() >= value, Error::<T>::InvalidDelegation);
+			ensure!(*delegate_balance >= value, Error::<T>::InvalidDelegation);
+
 			delegate_balance.saturating_reduce(value);
-			if delegate_balance.clone() == BalanceOf::<T>::zero() {
+
+			if *delegate_balance == BalanceOf::<T>::zero() {
 				*maybe_delegate = None;
 			}
 			Ok(())
