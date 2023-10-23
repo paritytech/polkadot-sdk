@@ -333,7 +333,7 @@ fn session_change_takes_only_max_per_core() {
 fn fill_claimqueue_fills() {
 	let genesis_config = genesis_config(&default_config());
 
-	let para_a= ParaId::from(3_u32);
+	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
 	let para_c = ParaId::from(5_u32);
 
@@ -414,7 +414,7 @@ fn schedule_schedules_including_just_freed() {
 	config.scheduling_lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
-	let para_a= ParaId::from(3_u32);
+	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
 	let para_c = ParaId::from(5_u32);
 	let para_d = ParaId::from(6_u32);
@@ -620,7 +620,7 @@ fn schedule_clears_availability_cores() {
 				.for_each(|(_core_idx, core_queue)| assert!(core_queue.len() == 0))
 		}
 
-		// Add more assignments 
+		// Add more assignments
 		MockAssigner::add_test_assignment(assignment_a.clone());
 		MockAssigner::add_test_assignment(assignment_c.clone());
 
@@ -669,7 +669,7 @@ fn schedule_rotates_groups() {
 
 	let genesis_config = genesis_config(&config);
 
-	let para_a= ParaId::from(1_u32);
+	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
 	let assignment_a = TestAssignment::new(para_a);
@@ -748,7 +748,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	config.scheduling_lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
-	let para_a= ParaId::from(1_u32);
+	let para_a = ParaId::from(1_u32);
 
 	let assignment_a = TestAssignment::new(para_a);
 
@@ -912,7 +912,7 @@ fn availability_predicate_works() {
 fn next_up_on_available_uses_next_scheduled_or_none() {
 	let genesis_config = genesis_config(&default_config());
 
-	let para_a= ParaId::from(1_u32);
+	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
@@ -978,7 +978,7 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 	let genesis_config = genesis_config(&default_config());
 
-	let para_a= ParaId::from(1_u32);
+	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
 	let assignment_a = TestAssignment::new(para_a);
