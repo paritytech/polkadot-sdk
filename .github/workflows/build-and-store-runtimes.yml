@@ -42,11 +42,7 @@ jobs:
     - name: Build Runtimes with try-runtime
       run: |
         cargo build --release --features try-runtime \
-          -p westend-runtime \
-          -p rococo-runtime \
-          -p asset-hub-westend-runtime \
-          -p bridge-hub-rococo-runtime \
-          -p contracts-rococo-runtime
+          -p westend-runtime
 
     - name: Archive runtime binaries
       uses: actions/upload-artifact@v2
@@ -56,3 +52,10 @@ jobs:
 
     # If in the future we want runtimes without try-runtime, we can build them here and store 
     # them as well.
+
+        # cargo build --release --features try-runtime \
+        #   -p westend-runtime \
+        #   -p rococo-runtime \
+        #   -p asset-hub-westend-runtime \
+        #   -p bridge-hub-rococo-runtime \
+        #   -p contracts-rococo-runtime
