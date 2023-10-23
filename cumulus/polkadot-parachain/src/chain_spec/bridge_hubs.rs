@@ -316,7 +316,7 @@ pub mod rococo {
 				..Default::default()
 			},
 			bridge_wococo_to_rococo_messages:
-				bridge_hub_rococo_runtime::BridgeWococoToRococoMessages {
+				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
 					owner: bridges_pallet_owner.clone(),
 					..Default::default()
 				},
