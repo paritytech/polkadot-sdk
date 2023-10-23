@@ -61,6 +61,7 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::ExistenceRequirement;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -1921,7 +1922,34 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		staker: &Self::AccountId,
 		delegator: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		todo!()
+		ensure!(staker != delegator, Error::<T>::InvalidDelegation);
+
+		// ensure staker is a nominator
+		let status = Self::status(staker)?;
+		match status {
+			StakerStatus::Nominator(_) => (),
+			_ => return Err(Error::<T>::InvalidDelegation.into()),
+		}
+
+		let ledger = Self::ledger(Stash(staker.clone()))?;
+		let stake_amount = ledger.total;
+
+		// unlock funds from staker
+		use frame_support::traits::LockableCurrency;
+		T::Currency::remove_lock(crate::STAKING_ID, staker);
+
+		// try transferring the staked amount. This should never fail but if it does, it indicates bad state
+		// and we abort.
+		T::Currency::transfer(
+			staker,
+			delegator,
+			stake_amount,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
+		// delegate from new delegator to staker
+		delegation::delegate::<T>(delegator, staker, stake_amount)
 	}
 
 	fn delegator_swap(

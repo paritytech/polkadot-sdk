@@ -818,6 +818,7 @@ pub mod pallet {
 		/// 3) Cannot delegate to multiple delegatees,
 		/// 4) Cannot delegate to a delegator.
 		/// 5) Cannot set reward destination as delegatee.
+		// fixme(ank4n): refactor and add more errors as needed.
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
