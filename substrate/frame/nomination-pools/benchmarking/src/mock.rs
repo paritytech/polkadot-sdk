@@ -96,6 +96,7 @@ parameter_types! {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();
@@ -182,7 +183,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Event<T>},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, HoldReason},
 		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
 		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
 	}

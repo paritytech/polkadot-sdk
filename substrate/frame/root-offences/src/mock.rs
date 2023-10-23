@@ -51,7 +51,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, HoldReason},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
 		RootOffences: root_offences::{Pallet, Call, Storage, Event<T>},
 		Historical: pallet_session::historical::{Pallet, Storage},
@@ -164,6 +164,7 @@ parameter_types! {
 
 impl pallet_staking::Config for Test {
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();

@@ -118,6 +118,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
