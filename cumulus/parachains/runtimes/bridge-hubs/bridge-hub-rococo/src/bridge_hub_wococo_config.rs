@@ -18,8 +18,8 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainRococoInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWococoToRococoMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmRouter,
+	weights, AccountId, BridgeWococoToRococoMessages, ParachainInfo, Runtime, RuntimeEvent,
+	RuntimeOrigin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -130,7 +130,7 @@ pub type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHaul
 pub struct WithBridgeHubRococoMessageBridge;
 impl MessageBridge for WithBridgeHubRococoMessageBridge {
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubWococo;
 	type BridgedChain = BridgeHubRococo;
 	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
@@ -293,7 +293,7 @@ mod tests {
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME,
 				with_bridged_chain_grandpa_pallet_name: bp_rococo::WITH_ROCOCO_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
 					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME,
@@ -308,7 +308,9 @@ mod tests {
 
 		assert_eq!(
 			BridgeWococoToRococoMessagesPalletInstance::get(),
-			X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX))
+			X1(PalletInstance(
+				bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX
+			))
 		);
 	}
 }

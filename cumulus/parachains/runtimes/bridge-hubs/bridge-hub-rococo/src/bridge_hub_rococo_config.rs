@@ -18,8 +18,8 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWococoMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmRouter,
+	weights, AccountId, BridgeRococoToWococoMessages, ParachainInfo, Runtime, RuntimeEvent,
+	RuntimeOrigin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -54,7 +54,7 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
-	pub BridgeWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWococoMessages as PalletInfoAccess>::index() as u8));
+	pub BridgeRococoToWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoToWococoMessages as PalletInfoAccess>::index() as u8));
 	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
 	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
@@ -103,7 +103,7 @@ pub type ToWococoBridgeHubMessagesDeliveryProof =
 pub type OnBridgeHubRococoBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,
 	BridgeHubRococoUniversalLocation,
-	BridgeWococoMessagesPalletInstance,
+	BridgeRococoToWococoMessagesPalletInstance,
 >;
 
 /// Export XCM messages to be relayed to the other side
@@ -297,7 +297,7 @@ mod tests {
 					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME,
 				with_bridged_chain_grandpa_pallet_name: bp_wococo::WITH_WOCOCO_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
 
@@ -308,8 +308,10 @@ mod tests {
 		>(FEE_BOOST_PER_MESSAGE);
 
 		assert_eq!(
-			BridgeWococoMessagesPalletInstance::get(),
-			X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX))
+			BridgeRococoToWococoMessagesPalletInstance::get(),
+			X1(PalletInstance(
+				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX
+			))
 		);
 	}
 }

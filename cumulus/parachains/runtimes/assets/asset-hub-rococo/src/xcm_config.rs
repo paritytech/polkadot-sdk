@@ -781,7 +781,7 @@ pub mod bridging {
 				1,
 				X2(
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)
 				)
 			);
 

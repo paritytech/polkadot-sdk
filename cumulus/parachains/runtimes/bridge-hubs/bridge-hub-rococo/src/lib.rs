@@ -497,7 +497,7 @@ construct_runtime!(
 		// With-Wococo bridge modules that are active (used) at Rococo BridgeHub runtime.
 		BridgeWococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
 		BridgeWococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
-		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
+		BridgeRococoToWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
 
 		// With-Rococo bridge modules that are active (used) at Wococo BridgeHub runtime.
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 43,
@@ -515,7 +515,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	// Parachains
 	BridgeRococoParachain, BridgeWococoParachain,
 	// Messages
-	BridgeWococoToRococoMessages, BridgeWococoMessages
+	BridgeWococoToRococoMessages, BridgeRococoToWococoMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]

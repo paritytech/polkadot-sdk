@@ -704,7 +704,7 @@ mod asset_hub_rococo_tests {
 			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Wococo)) }, 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_wococo,
 			(
-				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)),
+				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)),
 				GlobalConsensus(Wococo),
 				X1(Parachain(1000))
 			)
