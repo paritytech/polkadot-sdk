@@ -238,10 +238,10 @@ pub mod pallet {
 
 			type DustRemoval = ();
 
-			type MaxLocks = ();
-			type MaxReserves = ();
-			type MaxFreezes = ();
-			type MaxHolds = ();
+			type MaxLocks = ConstU32<100>;
+			type MaxReserves = ConstU32<100>;
+			type MaxFreezes = ConstU32<100>;
+			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
