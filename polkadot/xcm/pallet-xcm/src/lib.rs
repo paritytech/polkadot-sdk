@@ -448,6 +448,8 @@ pub mod pallet {
 		InvalidAssetNotConcrete,
 		/// Invalid asset, reserve chain could not be determined for it.
 		InvalidAssetUnknownReserve,
+		/// Invalid asset, do not support remote asset reserves with different fees reserves.
+		InvalidAssetUnsupportedReserve,
 		/// The owner does not own (all) of the asset that they wish to do the operation on.
 		LowBalance,
 		/// The asset owner has too many locks on the asset.
@@ -1257,7 +1259,7 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Box<VersionedMultiLocation>,
 		assets: Box<VersionedMultiAssets>,
 		fee_asset_item: u32,
-		mut weight_limit: WeightLimit,
+		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 		let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
@@ -1273,7 +1275,7 @@ impl<T: Config> Pallet<T> {
 		if fee_asset_item as usize >= assets.len() {
 			return Err(Error::<T>::Empty.into())
 		}
-		let mut fees = assets.swap_remove(fee_asset_item as usize);
+		let fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type =
 			<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &dest)
 				.map_err(Error::<T>::from)?;
@@ -1286,68 +1288,43 @@ impl<T: Config> Pallet<T> {
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
 		};
 
-		// Disallow (for now) different _remote_ reserves for assets and fees.
-		match (&fees_transfer_type, &assets_transfer_type) {
-			(TransferType::RemoteReserve(a), TransferType::RemoteReserve(b)) if a != b =>
-				return Err(Error::<T>::TooManyReserves.into()),
-			_ => (),
-		};
-
+		let jit_withdraw_fee_on_dest;
 		if fees_transfer_type == assets_transfer_type {
 			// Same reserve location (fees not teleportable), we can batch together fees and assets
 			// in same reserve-based-transfer.
 			assets.push(fees.clone());
+			// no need to jit withdraw fee, fees batched with assets will be available in holding
+			jit_withdraw_fee_on_dest = false;
 		} else {
-			// Different transfer types: we have to do separate transfers for fees and assets.
-			// This code block handles transferring the assets *used for fees*.
-
-			// Use only half the weight limit for fees transfer, then other half for assets
+			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
+			// branch above). The reason for this is that we'd need to send XCMs to separate chains
+			// with no guarantee of delivery order on final destination; therefore we cannot
+			// guarantee to have fees in place on final destination chain to pay for assets
 			// transfer.
-			weight_limit = Self::halve_weight_limit(&weight_limit);
+			if let TransferType::RemoteReserve(_) = assets_transfer_type {}
+			// Disallow (for now) different _remote_ reserves for assets and fees.
+			match (&fees_transfer_type, &assets_transfer_type) {
+				(TransferType::RemoteReserve(_), _) | (_, TransferType::RemoteReserve(_)) =>
+					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
+				_ => (),
+			};
 
-			// When assets reserve is remote chain, we need to "prefund" fees to be able to
-			// BuyExecution on both chains. Split fees, and deposit half at assets-reserve chain
-			// and half at destination.
-			if let TransferType::RemoteReserve(assets_reserve) = assets_transfer_type {
-				// Halve amount of fees, each half will be sent to one chain.
-				Self::halve_fees(&mut fees)?;
-				// Halve weight limit again to be used for the two fees transfers.
-				let quarter_weight_limit = Self::halve_weight_limit(&weight_limit);
-				// Send half the `fees` to `beneficiary` on assets-reserve chain.
-				Self::build_and_execute_xcm_transfer_type(
-					origin_location,
-					assets_reserve,
-					beneficiary,
-					vec![fees.clone()],
-					<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &assets_reserve)
-						.map_err(Error::<T>::from)?,
-					fees.clone(),
-					quarter_weight_limit.clone(),
-				)?;
-				// Send the other half of the `fees` to `beneficiary` on dest chain.
-				Self::build_and_execute_xcm_transfer_type(
-					origin_location,
-					dest,
-					beneficiary,
-					vec![fees.clone()],
-					fees_transfer_type,
-					fees.clone(),
-					quarter_weight_limit,
-				)?;
-			} else {
-				// execute fees transfer - have to do it separately than assets because of the
-				// different transfer type (different XCM program required)
-				Self::build_and_execute_xcm_transfer_type(
-					origin_location,
-					dest,
-					beneficiary,
-					vec![fees.clone()],
-					fees_transfer_type,
-					fees.clone(),
-					weight_limit.clone(),
-				)?;
-			}
-		}
+			// execute fees transfer - do it in a separate asset transfer call to keep code logic
+			// simple: first send over fees, then assets with `jit_withdraw=true`
+			Self::build_and_execute_xcm_transfer_type(
+				origin_location,
+				dest,
+				beneficiary,
+				vec![fees.clone()],
+				fees_transfer_type,
+				fees.clone(),
+				false,
+				weight_limit.clone(),
+			)?;
+			// fees are deposited to beneficiary in call above, when transferring rest of assets,
+			// jit withdraw fee on destination
+			jit_withdraw_fee_on_dest = true;
+		};
 
 		// Fees have been prefunded/transferred (or batched together with assets to be transferred
 		// here), now do reserve-transfer assets.
@@ -1358,6 +1335,7 @@ impl<T: Config> Pallet<T> {
 			assets,
 			assets_transfer_type,
 			fees,
+			jit_withdraw_fee_on_dest,
 			weight_limit,
 		)
 	}
@@ -1395,6 +1373,7 @@ impl<T: Config> Pallet<T> {
 			assets,
 			TransferType::Teleport,
 			fees,
+			false,
 			weight_limit,
 		)
 	}
@@ -1406,16 +1385,24 @@ impl<T: Config> Pallet<T> {
 		assets: Vec<MultiAsset>,
 		transfer_type: TransferType,
 		fees: MultiAsset,
+		jit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let mut message = match transfer_type {
-			TransferType::LocalReserve =>
-				Self::local_reserve_transfer_message(dest, beneficiary, assets, fees, weight_limit),
+			TransferType::LocalReserve => Self::local_reserve_transfer_message(
+				dest,
+				beneficiary,
+				assets,
+				fees,
+				jit_withdraw_fee_on_dest,
+				weight_limit,
+			),
 			TransferType::DestinationReserve => Self::destination_reserve_transfer_message(
 				dest,
 				beneficiary,
 				assets,
 				fees,
+				jit_withdraw_fee_on_dest,
 				weight_limit,
 			),
 			TransferType::RemoteReserve(reserve) => Self::remote_reserve_transfer_message(
@@ -1442,12 +1429,14 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		mut fees: MultiAsset,
+		jit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
 		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let xcm_on_dest = Xcm(vec![
+			SetFeesMode { jit_withdraw: jit_withdraw_fee_on_dest },
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 		]);
@@ -1462,12 +1451,14 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		mut fees: MultiAsset,
+		jit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
 		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
 		let max_assets = assets.len() as u32;
 		let xcm_on_dest = Xcm(vec![
+			SetFeesMode { jit_withdraw: jit_withdraw_fee_on_dest },
 			BuyExecution { fees, weight_limit },
 			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 		]);
@@ -1874,25 +1865,6 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::FeesNotMet)?;
 		Self::deposit_event(Event::FeesPaid { paying: location, fees: assets });
 		Ok(())
-	}
-
-	/// Return `WeightLimit` with half the given weight `limit`.
-	fn halve_weight_limit(limit: &WeightLimit) -> WeightLimit {
-		match limit {
-			Unlimited => Unlimited,
-			Limited(w) => Limited(w.saturating_div(2)),
-		}
-	}
-
-	/// Halve `fees` fungible amount.
-	pub(crate) fn halve_fees(fees: &mut MultiAsset) -> Result<(), Error<T>> {
-		match &mut fees.fun {
-			Fungible(amount) => {
-				*amount = amount.saturating_div(2);
-				Ok(())
-			},
-			NonFungible(_) => Err(Error::<T>::FeesNotMet),
-		}
 	}
 }
 

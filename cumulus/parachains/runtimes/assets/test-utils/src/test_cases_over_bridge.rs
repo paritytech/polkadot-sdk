@@ -183,7 +183,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			));
 
 			// check alice account decreased by balance_to_transfer
-			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
 				alice_account_init_balance - balance_to_transfer.into()
