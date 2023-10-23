@@ -1600,10 +1600,10 @@
 		.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;rustc&quot;</span>, <span class="string">&quot;--target=wasm32-unknown-unknown&quot;</span>])
 		.arg(<span class="macro">format!</span>(<span class="string">&quot;--manifest-path={}&quot;</span>, manifest_path.display()))
 		.env(<span class="string">&quot;RUSTFLAGS&quot;</span>, rustflags)
-		<span class="comment">// Unset the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
+		<span class="comment">// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
 		// exclusive). The runner project is created in `CARGO_TARGET_DIR` and executing it will
 		// create a sub target directory inside of `CARGO_TARGET_DIR`.
-		</span>.env_remove(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>)
+		</span>.env(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>, <span class="kw-2">&amp;</span>project.join(<span class="string">&quot;target&quot;</span>).display().to_string())
 		<span class="comment">// As we are being called inside a build-script, this env variable is set. However, we set
 		// our own `RUSTFLAGS` and thus, we need to remove this. Otherwise cargo favors this
 		// env variable.

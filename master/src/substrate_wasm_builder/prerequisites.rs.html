@@ -178,6 +178,7 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -323,9 +324,10 @@
 	</span>run_cmd.current_dir(<span class="kw-2">&amp;</span>temp);
 	run_cmd.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="string">&quot;--manifest-path&quot;</span>, <span class="kw-2">&amp;</span>manifest_path]);
 
-	<span class="comment">// Unset the `CARGO_TARGET_DIR` to prevent a cargo deadlock
-	</span>build_cmd.env_remove(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>);
-	run_cmd.env_remove(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>);
+	<span class="comment">// manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock
+	</span><span class="kw">let </span>target_dir = temp.path().join(<span class="string">&quot;target&quot;</span>).display().to_string();
+	build_cmd.env(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>, <span class="kw-2">&amp;</span>target_dir);
+	run_cmd.env(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>, <span class="kw-2">&amp;</span>target_dir);
 
 	<span class="comment">// Make sure the host&#39;s flags aren&#39;t used here, e.g. if an alternative linker is specified
 	// in the RUSTFLAGS then the check we do here will break unless we clear these.
