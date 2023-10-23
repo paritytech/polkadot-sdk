@@ -69,6 +69,12 @@ pub struct DelegationRegister<T: Config> {
 	pub blocked: bool,
 }
 
+impl<T: Config> DelegationRegister<T> {
+	pub fn effective_balance(&self) -> BalanceOf<T> {
+		self.balance.saturating_sub(self.pending_slash)
+	}
+}
+
 /// Returns total balance that is delegated to this account.
 pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
 	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |register| register.balance)
