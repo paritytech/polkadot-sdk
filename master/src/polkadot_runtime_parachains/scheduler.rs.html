@@ -1374,8 +1374,8 @@
 		</span><span class="kw">if </span>ValidatorGroups::&lt;T&gt;::decode_len().map_or(<span class="bool-val">true</span>, |l| l == <span class="number">0</span>) {
 			<span class="kw">return
 		</span>}
-
-		<span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead();
+		<span class="comment">// If there exists a core, ensure we schedule at least one job onto it.
+		</span><span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead().max(<span class="number">1</span>);
 		<span class="kw">let </span>n_session_cores = T::AssignmentProvider::session_core_count();
 		<span class="kw">let </span>cq = ClaimQueue::&lt;T&gt;::get();
 		<span class="kw">let </span>ttl = &lt;configuration::Pallet&lt;T&gt;&gt;::config().on_demand_ttl;
