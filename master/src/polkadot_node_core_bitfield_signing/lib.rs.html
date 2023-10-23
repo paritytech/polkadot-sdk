@@ -322,16 +322,6 @@
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -366,8 +356,8 @@
 	messages::{
 		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
-	SpawnedSubsystem, SubsystemError, SubsystemResult, SubsystemSender,
+	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
+	SubsystemError, SubsystemResult, SubsystemSender,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{<span class="self">self </span><span class="kw">as </span>util, Validator};
 <span class="kw">use </span>polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
@@ -591,16 +581,6 @@
 <span class="kw">where
 	</span>Sender: overseer::BitfieldSigningSenderTrait,
 {
-	<span class="kw">if let </span>LeafStatus::Stale = leaf.status {
-		<span class="macro">gum::debug!</span>(
-			target: LOG_TARGET,
-			relay_parent = <span class="question-mark">?</span>leaf.hash,
-			block_number =  <span class="question-mark">?</span>leaf.number,
-			<span class="string">&quot;Skip bitfield signing for stale leaf&quot;
-		</span>);
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-	}
-
 	<span class="kw">let </span>span = PerLeafSpan::new(leaf.span, <span class="string">&quot;bitfield-signing&quot;</span>);
 	<span class="kw">let </span>span_delay = span.child(<span class="string">&quot;delay&quot;</span>);
 	<span class="kw">let </span>wait_until = Instant::now() + SPAWNED_TASK_DELAY;

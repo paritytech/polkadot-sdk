@@ -125,37 +125,6 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -209,35 +178,6 @@
 /// If there are greater than this number of slots, then we fall back to a heap vector.
 </span><span class="kw">const </span>ACTIVE_LEAVES_SMALLVEC_CAPACITY: usize = <span class="number">8</span>;
 
-<span class="doccomment">/// The status of an activated leaf.
-</span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-</span><span class="kw">pub enum </span>LeafStatus {
-	<span class="doccomment">/// A leaf is fresh when it&#39;s the first time the leaf has been encountered.
-	/// Most leaves should be fresh.
-	</span>Fresh,
-	<span class="doccomment">/// A leaf is stale when it&#39;s encountered for a subsequent time. This will happen
-	/// when the chain is reverted or the fork-choice rule abandons some chain.
-	</span>Stale,
-}
-
-<span class="kw">impl </span>LeafStatus {
-	<span class="doccomment">/// Returns a `bool` indicating fresh status.
-	</span><span class="kw">pub fn </span>is_fresh(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			LeafStatus::Fresh =&gt; <span class="bool-val">true</span>,
-			LeafStatus::Stale =&gt; <span class="bool-val">false</span>,
-		}
-	}
-
-	<span class="doccomment">/// Returns a `bool` indicating stale status.
-	</span><span class="kw">pub fn </span>is_stale(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			LeafStatus::Fresh =&gt; <span class="bool-val">false</span>,
-			LeafStatus::Stale =&gt; <span class="bool-val">true</span>,
-		}
-	}
-}
-
 <span class="doccomment">/// Activated leaf.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ActivatedLeaf {
@@ -245,8 +185,6 @@
 	</span><span class="kw">pub </span>hash: Hash,
 	<span class="doccomment">/// The block number.
 	</span><span class="kw">pub </span>number: BlockNumber,
-	<span class="doccomment">/// The status of the leaf.
-	</span><span class="kw">pub </span>status: LeafStatus,
 	<span class="doccomment">/// A handle to unpin the block on drop.
 	</span><span class="kw">pub </span>unpin_handle: UnpinHandle,
 	<span class="doccomment">/// An associated [`jaeger::Span`].

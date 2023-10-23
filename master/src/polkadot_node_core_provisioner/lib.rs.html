@@ -909,12 +909,6 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -948,8 +942,8 @@
 		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, ProvisionableData,
 		ProvisionerInherentData, ProvisionerMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal,
-	PerLeafSpan, RuntimeApiError, SpawnedSubsystem, SubsystemError,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
+	RuntimeApiError, SpawnedSubsystem, SubsystemError,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	request_availability_cores, request_persisted_validation_data,
@@ -1338,13 +1332,7 @@
 		<span class="string">&quot;Selected disputes&quot;
 	</span>);
 
-	<span class="comment">// Only include bitfields on fresh leaves. On chain reversions, we want to make sure that
-	// there will be at least one block, which cannot get disputed, so the chain can make progress.
-	</span><span class="kw">let </span>bitfields = <span class="kw">match </span>leaf.status {
-		LeafStatus::Fresh =&gt;
-			select_availability_bitfields(<span class="kw-2">&amp;</span>availability_cores, bitfields, <span class="kw-2">&amp;</span>leaf.hash),
-		LeafStatus::Stale =&gt; Vec::new(),
-	};
+	<span class="kw">let </span>bitfields = select_availability_bitfields(<span class="kw-2">&amp;</span>availability_cores, bitfields, <span class="kw-2">&amp;</span>leaf.hash);
 
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,

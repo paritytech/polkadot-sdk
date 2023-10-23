@@ -175,18 +175,8 @@ are currently two proposals for how to handle that with unified communication ch
 winding-down of work based on those leaves.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>enum LeafStatus {
-    // A leaf is fresh when it's the first time the leaf has been encountered.
-    // Most leaves should be fresh.
-    Fresh,
-    // A leaf is stale when it's encountered for a subsequent time. This will
-    // happen when the chain is reverted or the fork-choice rule abandons some
-    // chain.
-    Stale,
-}
-
-struct ActiveLeavesUpdate {
-    activated: [(Hash, Number, LeafStatus)], // in practice, these should probably be a SmallVec
+</span>struct ActiveLeavesUpdate {
+    activated: [(Hash, Number)],
     deactivated: [Hash],
 }
 <span class="boring">}
@@ -1081,7 +1071,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2023-10-23, commit: <a href="https://github.com/paritytech/polkadot/commit/5ca909cc09">5ca909cc09</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

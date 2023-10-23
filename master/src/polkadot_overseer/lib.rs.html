@@ -948,17 +948,6 @@
 <a href="#948" id="948">948</a>
 <a href="#949" id="949">949</a>
 <a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1031,7 +1020,6 @@
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
-<span class="kw">use </span>schnellru::LruMap;
 
 <span class="kw">use </span>client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 <span class="kw">use </span>polkadot_primitives::{Block, BlockNumber, Hash};
@@ -1049,8 +1037,8 @@
 
 <span class="kw">pub use </span>polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
-	RuntimeApiSubsystemClient, UnpinHandle,
+	jaeger, ActivatedLeaf, ActiveLeavesUpdate, OverseerSignal, RuntimeApiSubsystemClient,
+	UnpinHandle,
 };
 
 <span class="kw">pub mod </span>metrics;
@@ -1072,10 +1060,6 @@
 	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
 	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
-
-<span class="doccomment">/// Store 2 days worth of blocks, not accounting for forks,
-/// in the LRU cache. Assumes a 6-second block time.
-</span><span class="kw">pub const </span>KNOWN_LEAVES_CACHE_SIZE: u32 = <span class="number">2 </span>* <span class="number">24 </span>* <span class="number">3600 </span>/ <span class="number">6</span>;
 
 <span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
 </span><span class="kw">mod </span>memory_stats;
@@ -1244,6 +1228,11 @@
 /// as the substrate framework or user interaction.
 </span><span class="kw">pub enum </span>Event {
 	<span class="doccomment">/// A new block was imported.
+	///
+	/// This event is not sent if the block was already known
+	/// and we reorged to it e.g. due to a reversion.
+	///
+	/// Also, these events are not sent during a major sync.
 	</span>BlockImported(BlockInfo),
 	<span class="doccomment">/// A block was finalized with i.e. babe or another consensus algorithm.
 	</span>BlockFinalized(BlockInfo),
@@ -1602,9 +1591,6 @@
 	<span class="doccomment">/// An implementation for checking whether a header supports parachain consensus.
 	</span><span class="kw">pub </span>supports_parachains: SupportsParachains,
 
-	<span class="doccomment">/// An LRU cache for keeping track of relay-chain heads that have already been seen.
-	</span><span class="kw">pub </span>known_leaves: LruMap&lt;Hash, ()&gt;,
-
 	<span class="doccomment">/// Various Prometheus metrics.
 	</span><span class="kw">pub </span>metrics: OverseerMetrics,
 }
@@ -1763,10 +1749,9 @@
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>update = <span class="kw">match </span><span class="self">self</span>.on_head_activated(<span class="kw-2">&amp;</span>block.hash, <span class="prelude-val">Some</span>(block.parent_hash)).<span class="kw">await </span>{
-			<span class="prelude-val">Some</span>((span, status)) =&gt; ActiveLeavesUpdate::start_work(ActivatedLeaf {
+			<span class="prelude-val">Some</span>(span) =&gt; ActiveLeavesUpdate::start_work(ActivatedLeaf {
 				hash: block.hash,
 				number: block.number,
-				status,
 				unpin_handle: block.unpin_handle,
 				span,
 			}),
@@ -1825,7 +1810,7 @@
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		hash: <span class="kw-2">&amp;</span>Hash,
 		parent_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(Arc&lt;jaeger::Span&gt;, LeafStatus)&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;jaeger::Span&gt;&gt; {
 		<span class="kw">if </span>!<span class="self">self</span>.supports_parachains.head_supports_parachains(hash).<span class="kw">await </span>{
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -1852,14 +1837,7 @@
 		<span class="kw">let </span>span = Arc::new(span);
 		<span class="self">self</span>.span_per_active_leaf.insert(<span class="kw-2">*</span>hash, span.clone());
 
-		<span class="kw">let </span>status = <span class="kw">if </span><span class="self">self</span>.known_leaves.get(hash).is_some() {
-			LeafStatus::Stale
-		} <span class="kw">else </span>{
-			<span class="self">self</span>.known_leaves.insert(<span class="kw-2">*</span>hash, ());
-			LeafStatus::Fresh
-		};
-
-		<span class="prelude-val">Some</span>((span, status))
+		<span class="prelude-val">Some</span>(span)
 	}
 
 	<span class="kw">fn </span>on_head_deactivated(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>Hash) {

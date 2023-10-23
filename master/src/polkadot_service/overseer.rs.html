@@ -400,10 +400,6 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -446,7 +442,6 @@
 	metrics::Metrics <span class="kw">as </span>OverseerMetrics, InitializedOverseerBuilder, MetricsTrait, Overseer,
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
-<span class="kw">use </span>schnellru::{ByLength, LruMap};
 
 <span class="kw">use </span>polkadot_primitives::runtime_api::ParachainHost;
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
@@ -748,7 +743,6 @@
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_api_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(metrics)
 		.spawner(spawner);
 
@@ -785,8 +779,6 @@
 	// but the amount of generic arguments that would be required as
 	// as consequence make this rather annoying to implement and use.
 </span>}
-
-<span class="kw">use </span>polkadot_overseer::KNOWN_LEAVES_CACHE_SIZE;
 
 <span class="doccomment">/// The regular set of subsystems.
 </span><span class="kw">pub struct </span>RealOverseerGen;

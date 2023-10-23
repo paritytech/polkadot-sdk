@@ -261,8 +261,6 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -280,7 +278,6 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>futures::{select, StreamExt};
-<span class="kw">use </span>schnellru::{ByLength, LruMap};
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -301,7 +298,7 @@
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 <span class="kw">use </span>polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
@@ -421,7 +418,6 @@
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)<span class="question-mark">?</span>)
 		.spawner(spawner);
 

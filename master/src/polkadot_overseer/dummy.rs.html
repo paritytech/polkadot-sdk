@@ -196,9 +196,6 @@
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -218,11 +215,9 @@
 </span><span class="kw">use crate</span>::{
 	prometheus::Registry, HeadSupportsParachains, InitializedOverseerBuilder, MetricsTrait,
 	Overseer, OverseerMetrics, OverseerSignal, OverseerSubsystemContext, SpawnGlue,
-	KNOWN_LEAVES_CACHE_SIZE,
 };
 <span class="kw">use </span>orchestra::{FromOrchestra, SpawnedSubsystem, Subsystem, SubsystemContext};
 <span class="kw">use </span>polkadot_node_subsystem_types::{errors::SubsystemError, messages::<span class="kw-2">*</span>};
-<span class="kw">use </span>schnellru::{ByLength, LruMap};
 <span class="comment">// Generated dummy messages
 </span><span class="kw">use </span><span class="kw">crate</span>::messages::<span class="kw-2">*</span>;
 
@@ -394,7 +389,6 @@
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.spawner(SpawnGlue(spawner))
 		.metrics(metrics)
 		.supports_parachains(supports_parachains);
