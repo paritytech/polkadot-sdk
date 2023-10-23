@@ -1463,7 +1463,8 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			);
 
 			// drip ED to account
-			let alice_account_init_balance = existential_deposit + balance_to_transfer.into();
+			let alice_account_init_balance =
+				existential_deposit.saturating_mul(2.into()) + balance_to_transfer.into();
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&alice_account,
 				alice_account_init_balance,
@@ -1503,6 +1504,15 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				weight_limit,
 			));
 
+			// check events
+			// check pallet_xcm attempted
+			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
+				&unwrap_pallet_xcm_event,
+				|outcome| {
+					assert_ok!(outcome.ensure_complete());
+				},
+			);
+
 			// check alice account decreased by balance_to_transfer
 			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot/pull/7005) merged
 			assert_eq!(
@@ -1515,15 +1525,6 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
 				existential_deposit + balance_to_transfer.into()
-			);
-
-			// check events
-			// check pallet_xcm attempted
-			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
-				&unwrap_pallet_xcm_event,
-				|outcome| {
-					assert_ok!(outcome.ensure_complete());
-				},
 			);
 
 			// check that xcm was sent

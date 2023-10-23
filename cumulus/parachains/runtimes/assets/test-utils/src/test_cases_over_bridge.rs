@@ -30,7 +30,7 @@ use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
 	ValidatorIdOf, XcmReceivedFrom,
 };
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::{traits::StaticLookup, Saturating};
 use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -127,7 +127,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			);
 
 			// drip ED to account
-			let alice_account_init_balance = existential_deposit + balance_to_transfer.into();
+			let alice_account_init_balance =
+				existential_deposit.saturating_mul(2.into()) + balance_to_transfer.into();
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&alice_account,
 				alice_account_init_balance,
@@ -168,7 +169,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			// Make sure sender has enough funds for paying delivery fees
 			// TODO: Get this fee via weighing the corresponding message
-			let delivery_fees = 1324039894;
+			let delivery_fees = 1324173226;
 			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
 				.unwrap();
 
@@ -181,19 +182,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				0,
 				weight_limit,
 			));
-
-			// check alice account decreased by balance_to_transfer
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
-				alice_account_init_balance - balance_to_transfer.into()
-			);
-
-			// check reserve account
-			// check reserve account increased by balance_to_transfer
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
-				existential_deposit + balance_to_transfer.into()
-			);
 
 			// check events
 			// check pallet_xcm attempted
@@ -219,7 +207,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				local_bridge_hub_para_id.into(),
 			)
 			.unwrap();
-
 			assert_eq!(
 				xcm_sent_message_hash,
 				Some(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
@@ -274,6 +261,19 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				_ => Err(ProcessMessageError::BadFormat),
 			})
 			.expect("contains ExportMessage");
+
+			// check alice account decreased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				alice_account_init_balance - balance_to_transfer.into()
+			);
+
+			// check reserve account
+			// check reserve account increased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit + balance_to_transfer.into()
+			);
 		})
 }
 
@@ -415,6 +415,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					fun: Fungible(transfered_foreign_asset_id_amount),
 				}])),
 				ClearOrigin,
+				SetFeesMode { jit_withdraw: false },
 				BuyExecution {
 					fees: MultiAsset {
 						id: Concrete(foreign_asset_id_multilocation),
@@ -516,6 +517,11 @@ fn assert_matches_pallet_xcm_reserve_transfer_assets_instructions<RuntimeCall>(
 			_ => Err(ProcessMessageError::BadFormat),
 		})
 		.expect("expected instruction ClearOrigin")
+		.match_next_inst(|instr| match instr {
+			SetFeesMode { .. } => Ok(()),
+			_ => Err(ProcessMessageError::BadFormat),
+		})
+		.expect("expected instruction SetFeesMode")
 		.match_next_inst(|instr| match instr {
 			BuyExecution { .. } => Ok(()),
 			_ => Err(ProcessMessageError::BadFormat),
