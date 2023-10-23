@@ -133,7 +133,7 @@ pub(crate) fn create_and_compile(
 	);
 
 	let build_config = BuildConfiguration::detect(&project);
-	build_blob(&build_config.wasm_build_profile, &project, default_rustflags, cargo_cmd);
+	build_blob(&build_config.blob_build_profile, &project, default_rustflags, cargo_cmd);
 	let (wasm_binary, wasm_binary_compressed, bloaty) = maybe_compact_wasm_and_copy_blobs(
 		&project,
 		&build_config,
@@ -636,8 +636,8 @@ impl BuildConfiguration {
 				.to_string();
 			(name, false)
 		};
-		let cargo_build_profile = Profile::iter().find(|p| p.directory() == name);
-		let wasm_build_profile = match (cargo_build_profile.clone(), overriden) {
+		let outer_build_profile = Profile::iter().find(|p| p.directory() == name);
+		let blob_build_profile = match (outer_build_profile.clone(), overriden) {
 			// When not overriden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
@@ -669,8 +669,8 @@ impl BuildConfiguration {
 			},
 		};
 		BuildConfiguration {
-			cargo_build_profile: cargo_build_profile.unwrap_or(Profile::Release),
-			wasm_build_profile,
+			outer_build_profile: outer_build_profile.unwrap_or(Profile::Release),
+			blob_build_profile,
 		}
 	}
 }
@@ -682,7 +682,7 @@ fn offline_build() -> bool {
 
 /// Build the project and create the runtime blob.
 fn build_blob(
-	wasm_build_profile: &Profile,
+	blob_build_profile: &Profile,
 	project: &Path,
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
@@ -716,7 +716,7 @@ fn build_blob(
 	}
 
 	build_cmd.arg("--profile");
-	build_cmd.arg(wasm_build_profile.name());
+	build_cmd.arg(blob_build_profile.name());
 
 	if offline_build() {
 		build_cmd.arg("--offline");
@@ -746,13 +746,13 @@ fn maybe_compact_wasm_and_copy_blobs(
 	let out_name = out_name.unwrap_or_else(|| default_out_name.clone());
 	let in_path = project
 		.join("target/wasm32-unknown-unknown")
-		.join(build_config.wasm_build_profile.directory())
+		.join(build_config.blob_build_profile.directory())
 		.join(format!("{}.wasm", default_out_name));
 
 	// When cargo is running cargo in `--profile dev` the user wants speed, so skip producing
 	// compact and compressed blobs.
 	let (wasm_compact_path, wasm_compact_compressed_path) = if build_config
-		.cargo_build_profile
+		.outer_build_profile
 		.wants_compact()
 	{
 		let wasm_compact_path = project.join(format!("{}.compact.wasm", out_name,));
