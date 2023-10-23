@@ -143,7 +143,8 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InsufficientBond.into())
 		}
 
-		// fixme(ank4n): Re-evaluate this later if we really need to do this infallibly?
+		// fixme(ank4n): Add debug assert and re-evaluate this later if we really need to do this
+		// infallibly?
 		let _ = frame_system::Pallet::<T>::inc_consumers(&stash);
 		// frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
@@ -1853,7 +1854,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		// TODO(ank4n): This is conservative and not needed on staking pallet level. NP can decide
+		// fixme(ank4n): This is conservative and not needed on staking pallet level. NP can decide
 		// how it wants to pay rewards. Staking only needs to ensure that the rewards are not
 		// restaked.
 		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
@@ -1916,7 +1917,10 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		todo!("apply slash from pending slashes of a delegatee")
 	}
 
-	fn migrate(staker: &Self::AccountId, delegator: &Self::AccountId) -> sp_runtime::DispatchResult {
+	fn migrate(
+		staker: &Self::AccountId,
+		delegator: &Self::AccountId,
+	) -> sp_runtime::DispatchResult {
 		todo!()
 	}
 

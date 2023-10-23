@@ -6330,7 +6330,7 @@ mod delegation_stake {
 				assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
 
 				// we keep record of delegators and their stake
-				// TODO(ank4n): Can we do better by getting rid of this storage and using named
+				// fixme(ank4n): Can we do better by getting rid of this storage and using named
 				// holds indexed by delegatee account to track this?
 				assert_eq!(<Delegators<Test>>::get(&i).unwrap(), (delegatee, 100));
 			}
