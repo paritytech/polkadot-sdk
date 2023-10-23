@@ -916,8 +916,8 @@ pub mod pallet {
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
 					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+						// best-effort revert consumer change.
 						if did_consume && !does_consume {
-							// best-effort revert consumer change.
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
 						}
 						if !did_consume && does_consume {
@@ -987,8 +987,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// TODO: Revisit this assumption. We no manipulate consumer/provider refs.
 			// No way this can fail since we do not alter the existential balances.
+			// TODO: Revisit this assumption.
 			let res = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
