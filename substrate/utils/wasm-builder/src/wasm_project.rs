@@ -587,10 +587,10 @@ impl Profile {
 /// The build configuration for this build.
 #[derive(Debug)]
 struct BuildConfiguration {
-	/// The profile that is used to build the main project.
-	pub cargo_build_profile: Profile,
-	/// The profile to use to build the wasm project.
-	pub wasm_build_profile: Profile,
+	/// The profile that is used to build the outer project.
+	pub outer_build_profile: Profile,
+	/// The profile to use to build the runtime blob.
+	pub blob_build_profile: Profile,
 }
 
 impl BuildConfiguration {
