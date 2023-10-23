@@ -1005,26 +1005,9 @@ pub mod pallet {
 				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
 			}
 
-			let existed = Locks::<T, I>::contains_key(who);
-			if locks.is_empty() {
-				Locks::<T, I>::remove(who);
-				if existed {
-					// TODO: use Locks::<T, I>::hashed_key
-					// https://github.com/paritytech/substrate/issues/4969
-					system::Pallet::<T>::dec_consumers(who);
-				}
-			} else {
-				Locks::<T, I>::insert(who, bounded_locks);
-				if !existed && system::Pallet::<T>::inc_consumers_without_limit(who).is_err() {
-					// No providers for the locks. This is impossible under normal circumstances
-					// since the funds that are under the lock will themselves be stored in the
-					// account and therefore will need a reference.
-					log::warn!(
-						target: LOG_TARGET,
-						"Warning: Attempt to introduce lock consumer reference, yet no providers. \
-						This is unexpected but should be safe."
-					);
-				}
+			match locks.is_empty() {
+				true => Locks::<T, I>::remove(who),
+				false => Locks::<T, I>::insert(who, bounded_locks),
 			}
 
 			if prev_frozen > after_frozen {
