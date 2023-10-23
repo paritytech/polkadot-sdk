@@ -45,21 +45,6 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
-	/// the same.
-	///
-	/// This is useful for migrating old pool accounts using direct staking to lazily move
-	/// delegators to the new delegated pool account.
-	///
-	/// This is useful to move active funds in a non-delegation based pool account and migrate it
-	/// into a delegation based staking.
-	fn delegator_swap(
-		delegatee: &Self::AccountId,
-		delegator_from: &Self::AccountId,
-		delegator_to: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
-
 	/// Unbond some funds from a delegator.
 	///
 	/// Similar to [`StakingInterface::unbond`].
@@ -84,5 +69,28 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		reporter: Option<Self::AccountId>,
+	) -> DispatchResult;
+
+	/// Migrate a staker account into a delegatee by providing another delegator account where all
+	/// bonded funds will be moved and delegated from.
+	///
+	/// This is useful for migrating old pool accounts to use delegation by providing a pool
+	/// delegator account. This pool delegator account funds can then lazily move to actual
+	/// delegators using [`Self::delegator_swap`].
+	fn migrate(staker: &Self::AccountId, delegator: &Self::AccountId) -> DispatchResult;
+
+	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
+	/// the same.
+	///
+	/// This is useful for migrating old pool accounts using direct staking to lazily move
+	/// delegators to the new delegated pool account.
+	///
+	/// This is useful to move active funds in a non-delegation based pool account and migrate it
+	/// into a delegation based staking.
+	fn delegator_swap(
+		delegatee: &Self::AccountId,
+		delegator_from: &Self::AccountId,
+		delegator_to: &Self::AccountId,
+		value: Self::Balance,
 	) -> DispatchResult;
 }

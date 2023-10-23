@@ -1886,6 +1886,40 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
 	}
 
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
+		Self::unbond(RawOrigin::Signed(delegatee.clone()).into(), value)
+			.map_err(|with_post| with_post.error)
+			.map(|_| ())
+	}
+
+	fn withdraw_unbonded(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> Result<bool, DispatchError> {
+		// partial withdraw funds from the pool ledger.
+		let real_num_slashing_spans =
+			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
+		// this should withdraw funds from the ledger without unlocking.
+		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value))?;
+		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
+		delegation::withdraw::<T>(delegatee, delegator, value)
+			.map(|_| !Ledger::<T>::contains_key(delegatee))
+	}
+
+	fn apply_slash(
+		_delegatee: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
+		todo!("apply slash from pending slashes of a delegatee")
+	}
+
+	fn migrate(staker: &Self::AccountId, delegator: &Self::AccountId) -> sp_runtime::DispatchResult {
+		todo!()
+	}
+
 	fn delegator_swap(
 		delegatee: &Self::AccountId,
 		_delegator_to: &Self::AccountId,
@@ -1924,36 +1958,6 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 
 		// Ok(())
 		todo!("Revisit migrate strategy again");
-	}
-
-	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> sp_runtime::DispatchResult {
-		Self::unbond(RawOrigin::Signed(delegatee.clone()).into(), value)
-			.map_err(|with_post| with_post.error)
-			.map(|_| ())
-	}
-
-	fn withdraw_unbonded(
-		delegatee: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-	) -> Result<bool, DispatchError> {
-		// partial withdraw funds from the pool ledger.
-		let real_num_slashing_spans =
-			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
-		// this should withdraw funds from the ledger without unlocking.
-		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value))?;
-		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
-		delegation::withdraw::<T>(delegatee, delegator, value)
-			.map(|_| !Ledger::<T>::contains_key(delegatee))
-	}
-
-	fn apply_slash(
-		_delegatee: &Self::AccountId,
-		_delegator: &Self::AccountId,
-		_value: Self::Balance,
-		_reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
-		todo!("apply slash from pending slashes of a delegatee")
 	}
 }
 
