@@ -40,7 +40,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime::Treasury as RococoTreasury;
 use rococo_runtime_constants::system_parachain::SystemParachains;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
@@ -532,7 +531,7 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 	>;
 
 parameter_types! {
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(<RococoTreasury as PalletInfoAccess>::index() as u8)).into();
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 pub struct RelayTreasury;
