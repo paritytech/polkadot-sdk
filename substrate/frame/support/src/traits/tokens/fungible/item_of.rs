@@ -354,7 +354,7 @@ impl<
 		Balance,
 		AssetIdType,
 		AssetId: Get<AssetIdType>,
-		Handler: crate::traits::tokens::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
+		Handler: crate::traits::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
 	> HandleImbalanceDrop<Balance>
 	for ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>
 {
