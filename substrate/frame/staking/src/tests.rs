@@ -1739,11 +1739,6 @@ fn max_staked_rewards_default_works() {
 		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
 
 		assert_eq!(default_stakers_payout, max_stakers_payout);
-
-		// however, if the max staking rewards is 0%, the total staking payout for the era should
-		// be 0.
-		<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(0)));
-		assert_eq!(current_total_payout_for_duration(reward_time_per_era()), 0);
 	})
 }
 

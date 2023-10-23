@@ -665,9 +665,9 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		<MaxStakedRewards<Test>>::get().unwrap_or(Percent::from_parts(100)),
 		duration,
 	);
+	assert!(payout > 0);
 	payout
 }
 
@@ -675,7 +675,6 @@ pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
-		<MaxStakedRewards<Test>>::get().unwrap_or(Percent::from_parts(100)),
 		duration,
 	);
 	payout + rest

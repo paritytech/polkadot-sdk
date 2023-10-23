@@ -317,7 +317,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Percent, Perquintill, Rounding, RuntimeDebug, Saturating,
+	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 pub use sp_staking::StakerStatus;
 use sp_staking::{
@@ -863,7 +863,6 @@ pub trait EraPayout<Balance> {
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
-		max_staking_payout: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance);
 }
@@ -872,7 +871,6 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
-		_max_staking_payout: Percent,
 		_era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		(Default::default(), Default::default())
@@ -890,7 +888,6 @@ where
 	fn era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
-		max_staking_payout: Percent,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
 		let (validator_payout, max_payout) = inflation::compute_total_payout(
@@ -900,8 +897,6 @@ where
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		// impose the limit on the staking payout based on `max_staking_payout`.
-		let validator_payout = validator_payout.min(max_staking_payout * max_payout);
 		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
 	}

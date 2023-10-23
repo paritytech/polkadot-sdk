@@ -468,13 +468,16 @@ impl<T: Config> Pallet<T> {
 			let staked = Self::eras_total_stake(&active_era.index);
 			let issuance = T::Currency::total_issuance();
 
-			let (validator_payout, remainder) = T::EraPayout::era_payout(
-				staked,
-				issuance,
-				// default max staked rewards is 100%.
-				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_parts(100)),
-				era_duration,
-			);
+			let (validator_payout, remainder) =
+				T::EraPayout::era_payout(staked, issuance, era_duration);
+
+			let total_payout = validator_payout.saturating_add(remainder);
+			let max_staked_rewards =
+				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+
+			// apply cap to validators payout and add difference to remainder.
+			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+			let remainder = total_payout.saturating_sub(validator_payout);
 
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
