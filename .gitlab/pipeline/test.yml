@@ -157,6 +157,23 @@ test-linux-stable-slow:
 #       --features=runtime-benchmarks,runtime-metrics,try-runtime --
 #       --skip upgrade_version_checks_should_work
 
+test-core-crypto-features:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - time cargo test --release -p sp-core --no-default-features --features="full_crypto"
+    - time cargo test --release -p sp-core --no-default-features --features="full_crypto,serde"
+    - time cargo test --release -p sp-core --no-default-features --features="serde"
+
 test-doc:
   stage: test
   extends:
