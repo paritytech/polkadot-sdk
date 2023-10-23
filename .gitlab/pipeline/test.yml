@@ -172,7 +172,7 @@ cargo-check-core-crypto-features:
   script:
     - time cargo check --release -p sp-core --no-default-features --features="full_crypto"
     - time cargo check --release -p sp-core --no-default-features --features="full_crypto,serde"
-    - time cargo check --release -p sp-core --no-default-features --features="serde"
+    - time cargo check --release -p sp-core --no-default-features --features="serde,sp-runtime-interface/disable_target_static_assertions"
 
 test-doc:
   stage: test

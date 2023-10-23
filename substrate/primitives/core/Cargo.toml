@@ -131,7 +131,6 @@ serde = [
 	"scale-info/serde",
 	"secrecy/alloc",
 	"sp-core-hashing",
-	"sp-runtime-interface/disable_target_static_assertions",
 	"sp-storage/serde",
 ]
 
