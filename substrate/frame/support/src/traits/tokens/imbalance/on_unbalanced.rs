@@ -17,7 +17,9 @@
 
 //! Trait for handling imbalances.
 
-use crate::traits::misc::TryDrop;
+use frame_support::traits::{fungible, fungibles, misc::TryDrop};
+use sp_core::TypedGet;
+use sp_std::marker::PhantomData;
 
 /// Handler for when some currency "account" decreased in balance for
 /// some reason.
