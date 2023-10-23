@@ -28,12 +28,14 @@ use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
 use frame_support::traits::OnInitialize;
 
 // Cumulus
-pub use xcm_emulator::{
-	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
-	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor, TestExt, Network
-};
+// pub use xcm_emulator::{
+// 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
+// 	decl_test_sender_receiver_accounts_parameter_types,
+// };
 
-decl_test_relay_chains! {
+pub use xcm_emulator;
+
+xcm_emulator::decl_test_relay_chains! {
 	#[api_version(5)]
 	pub struct Polkadot {
 		genesis = polkadot::genesis(),
@@ -111,7 +113,7 @@ decl_test_relay_chains! {
 	}
 }
 
-decl_test_parachains! {
+xcm_emulator::decl_test_parachains! {
 	// Polkadot Parachains
 	pub struct AssetHubPolkadot {
 		genesis = asset_hub_polkadot::genesis(),
@@ -398,7 +400,7 @@ decl_test_parachains! {
 	}
 }
 
-decl_test_networks! {
+xcm_emulator::decl_test_networks! {
 	pub struct PolkadotMockNet {
 		relay_chain = Polkadot,
 		parachains = vec![
@@ -451,7 +453,7 @@ decl_test_networks! {
 	}
 }
 
-decl_test_bridges! {
+xcm_emulator::decl_test_bridges! {
 	pub struct RococoWococoMockBridge {
 		source = BridgeHubRococoPara,
 		target = BridgeHubWococoPara,
@@ -531,7 +533,7 @@ impl_assert_events_helpers_for_parachain!(Collectives);
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
 impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
 
-decl_test_sender_receiver_accounts_parameter_types! {
+xcm_emulator::decl_test_sender_receiver_accounts_parameter_types! {
 	// Relays
 	PolkadotRelay { sender: ALICE, receiver: BOB },
 	KusamaRelay { sender: ALICE, receiver: BOB },

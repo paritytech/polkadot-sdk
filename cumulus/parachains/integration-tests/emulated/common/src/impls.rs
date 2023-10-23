@@ -180,10 +180,10 @@ where
 macro_rules! impl_accounts_helpers_for_relay_chain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
-			impl<N: $crate::Network> $chain<N> {
+			impl<N: $crate::impls::Network> $chain<N> {
 				/// Fund a set of accounts with a balance
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
-					<Self as $crate::TestExt>::execute_with(|| {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
 							$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
