@@ -285,8 +285,16 @@ impl crate::disputes::SlashingHandler<BlockNumber> for Test {
 	fn initializer_on_new_session(_: SessionIndex) {}
 }
 
+pub struct RentStatusProvider;
+impl crate::paras::RentStatusProvider for RentStatusProvider {
+	fn rent_paid(_id: ParaId) -> bool {
+		true
+	}
+}
+
 impl crate::scheduler::Config for Test {
 	type AssignmentProvider = Assigner;
+	type RentStatusProvider = RentStatusProvider;
 }
 
 pub struct TestMessageQueueWeight;

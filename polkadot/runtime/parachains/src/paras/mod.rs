@@ -506,6 +506,14 @@ impl OnNewHead for Tuple {
 	}
 }
 
+pub trait RentStatusProvider {
+	/// Check whether the rent is paid for storing the PVF on-chain.
+	///
+	/// In case the para is not on-demand, should return true since there is no  rent
+	/// payment in that case.
+	fn rent_paid(id: ParaId) -> bool;
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -699,6 +707,21 @@ pub mod pallet {
 	#[pallet::getter(fn para_most_recent_context)]
 	pub(super) type MostRecentContext<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
+
+	/// Validation code that successfully completed pre-checking.
+	///
+	/// This is stored to enable faster on-demand para registration in case its pvf has been earlier
+	/// registered and checked.
+	///
+	/// Corresponding code might not be found with [`CodeByHash`] since this map stores hashses even
+	/// for the removed paras.
+	///
+	/// During a runtime upgrade where the pre-checking rules change this storage map should be
+	/// cleared.
+	#[pallet::storage]
+	#[pallet::getter(fn checked_code_hash)]
+	pub(super) type CheckedCodeHash<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// The validation code hash of every live para.
 	///
@@ -1735,13 +1758,21 @@ impl<T: Config> Pallet<T> {
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
 
-		let cfg = configuration::Pallet::<T>::config();
-		Self::kick_off_pvf_check(
-			PvfCheckCause::Onboarding(id),
-			validation_code_hash,
-			validation_code,
-			&cfg,
-		);
+		let bypass_pre_checking = if let Some(checked_code_hash) = CheckedCodeHash::<T>::get(&id) {
+			validation_code_hash == checked_code_hash
+		} else {
+			false
+		};
+
+		if !bypass_pre_checking {
+			let cfg = configuration::Pallet::<T>::config();
+			Self::kick_off_pvf_check(
+				PvfCheckCause::Onboarding(id),
+				validation_code_hash,
+				validation_code,
+				&cfg,
+			);
+		}
 
 		Ok(())
 	}
@@ -2213,6 +2244,12 @@ impl<T: Config> Pallet<T> {
 			let code_hash = genesis_data.validation_code.hash();
 			Self::increase_code_ref(&code_hash, &genesis_data.validation_code);
 			CurrentCodeHash::<T>::insert(&id, code_hash);
+		}
+
+		// This is a defensive check. In reality a para cannot get initialized without having some
+		// validation code stored on-chain.
+		if let Some(code_hash) = CurrentCodeHash::<T>::get(&id) {
+			CheckedCodeHash::<T>::insert(&id, code_hash);
 		}
 
 		Heads::<T>::insert(&id, &genesis_data.genesis_head);

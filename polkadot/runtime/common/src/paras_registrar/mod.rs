@@ -26,11 +26,11 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{self, ParaGenesisArgs, SetGoAhead},
-	Origin, ParaLifecycle,
+	shared, Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
 
@@ -41,7 +41,7 @@ use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	RuntimeDebug,
+	Perbill, RuntimeDebug,
 };
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
@@ -53,6 +53,14 @@ pub struct ParaInfo<Account, Balance> {
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
 	locked: Option<bool>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
+pub struct RentInfo<Balance, SessionIndex> {
+	// Stores information about the last time the rent was paid.
+	last_rent_payment: SessionIndex,
+	// The amount that needs to be paid every `T::RentDuration` blocks.
+	rent_cost: Balance,
 }
 
 impl<Account, Balance> ParaInfo<Account, Balance> {
@@ -142,6 +150,21 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
+		/// Defines how frequently the rent needs to be paid.
+		#[pallet::constant]
+		type RentDuration: Get<SessionIndex>;
+
+		/// The initial deposit amount for registering a PVF using the rental model.
+		///
+		/// This is defined as a percentage of the deposit that would be required in the regular
+		/// model.
+		#[pallet::constant]
+		type InitialRentDeposit: Get<Perbill>;
+
+		/// The recurring rental cost as a percentage of the initial rental registration payment.
+		#[pallet::constant]
+		type RecurringRentCost: Get<Perbill>;
+
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -201,6 +224,10 @@ pub mod pallet {
 	pub type Paras<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaInfo<T::AccountId, BalanceOf<T>>>;
 
+	#[pallet::storage]
+	pub type RentedParas<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, RentInfo<BalanceOf<T>, SessionIndex>>;
+
 	/// The next free `ParaId`.
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
@@ -253,7 +280,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, true)?;
 			Ok(())
 		}
 
@@ -274,7 +301,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false)
+			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, true)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -431,6 +458,35 @@ pub mod pallet {
 			runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::register())]
+		pub fn register_rental(
+			origin: OriginFor<T>,
+			id: ParaId,
+			genesis_head: HeadData,
+			validation_code: ValidationCode,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, false)?;
+			Ok(())
+		}
+
+		/// Callable by anyone.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::register())]
+		pub fn pay_rent(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut rent_info = RentedParas::<T>::get(id).ok_or(Error::<T>::NotParathread)?;
+			<T as Config>::Currency::reserve(&who, rent_info.rent_cost)?;
+
+			let now = shared::Pallet::<T>::session_index();
+			rent_info.last_rent_payment = now;
+			RentedParas::<T>::insert(id, rent_info);
+
+			Ok(())
+		}
 	}
 }
 
@@ -478,7 +534,7 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(manager, None, id, genesis_head, validation_code, false)
+		Self::do_register(manager, None, id, genesis_head, validation_code, false, true)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -528,7 +584,6 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn execute_pending_transitions() {
-		use runtime_parachains::shared;
 		shared::Pallet::<T>::set_session_index(shared::Pallet::<T>::scheduled_session());
 		paras::Pallet::<T>::test_on_new_session();
 	}
@@ -594,6 +649,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
+		is_rental: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -604,8 +660,12 @@ impl<T: Config> Pallet<T> {
 			Default::default()
 		};
 		ensure!(paras::Pallet::<T>::lifecycle(id).is_none(), Error::<T>::AlreadyRegistered);
-		let (genesis, deposit) =
-			Self::validate_onboarding_data(genesis_head, validation_code, ParaKind::Parathread)?;
+		let (genesis, deposit) = Self::validate_onboarding_data(
+			genesis_head,
+			validation_code.clone(),
+			ParaKind::Parathread,
+			is_rental,
+		)?;
 		let deposit = deposit_override.unwrap_or(deposit);
 
 		if let Some(additional) = deposit.checked_sub(&deposited) {
@@ -614,6 +674,14 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
+
+		if is_rental {
+			let now = shared::Pallet::<T>::session_index();
+			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
+
+			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
+			RentedParas::<T>::insert(id, rent_info);
+		}
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
@@ -649,6 +717,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
+		is_rental: bool,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
 		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
@@ -659,9 +728,13 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let per_byte_fee = T::DataDepositPerByte::get();
-		let deposit = T::ParaDeposit::get()
+		let mut deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
 			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+
+		if is_rental {
+			deposit = T::InitialRentDeposit::get().mul_ceil(deposit);
+		}
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -707,7 +780,7 @@ mod tests {
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
 	use primitives::{Balance, BlockNumber, SessionIndex};
-	use runtime_parachains::{configuration, origin, shared};
+	use runtime_parachains::{configuration, origin};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
@@ -820,8 +893,11 @@ mod tests {
 
 	parameter_types! {
 		pub const ParaDeposit: Balance = 10;
+		pub const InitialRentDeposit: Perbill = Perbill::from_percent(20);
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
+		pub const RentDuration: u32 = 2;
+		pub const RecurringRentCost: Perbill = Perbill::from_percent(10);
 	}
 
 	impl Config for Test {
@@ -831,6 +907,9 @@ mod tests {
 		type OnSwap = MockSwap;
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
+		type RentDuration = RentDuration;
+		type InitialRentDeposit = InitialRentDeposit;
+		type RecurringRentCost = RecurringRentCost;
 		type WeightInfo = TestWeightInfo;
 	}
 
@@ -1093,6 +1172,38 @@ mod tests {
 			assert_noop!(
 				Registrar::reserve(RuntimeOrigin::signed(1337)),
 				BalancesError::<Test, _>::InsufficientBalance
+			);
+		});
+	}
+
+	#[test]
+	fn register_rental_works() {
+		new_test_ext().execute_with(|| {
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
+
+			let para_id = LOWEST_PUBLIC_ID;
+			assert!(!Parachains::is_parathread(para_id));
+
+			let validation_code = test_validation_code(32);
+			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
+			assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
+			assert_ok!(Registrar::register_rental(
+				RuntimeOrigin::signed(1),
+				para_id,
+				test_genesis_head(32),
+				validation_code.clone(),
+			));
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+			run_to_session(START_SESSION_INDEX + 2);
+			assert!(Parachains::is_parathread(para_id));
+			assert_eq!(
+				Balances::reserved_balance(&1),
+				<Test as Config>::InitialRentDeposit::get().mul_ceil(
+					<Test as Config>::ParaDeposit::get() +
+						64 * <Test as Config>::DataDepositPerByte::get()
+				)
 			);
 		});
 	}

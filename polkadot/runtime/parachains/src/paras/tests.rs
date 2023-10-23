@@ -234,7 +234,7 @@ fn schedule_para_init_rejects_empty_code() {
 					para_kind: ParaKind::Parathread,
 					genesis_head: dummy_head_data(),
 					validation_code: ValidationCode(vec![]),
-				}
+				},
 			),
 			Error::<Test>::CannotOnboard,
 		);
@@ -245,7 +245,7 @@ fn schedule_para_init_rejects_empty_code() {
 				para_kind: ParaKind::Parathread,
 				genesis_head: dummy_head_data(),
 				validation_code: ValidationCode(vec![1]),
-			}
+			},
 		));
 	});
 }
