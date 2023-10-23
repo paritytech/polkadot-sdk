@@ -1860,11 +1860,6 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		// restaked.
 		ensure!(payee != delegatee, Error::<T>::InvalidDelegation);
 
-		// transfer ED from the initiator to delegatee to keep the account alive.
-		// fixme(ank4n): Can this be just a ghost account?
-		// T::Currency::transfer(&delegation_initiator, &delegatee, T::Currency::minimum_balance(),
-		// KeepAlive)?;
-
 		// delegate funds from delegator to delegatee.
 		delegation::delegate::<T>(delegation_initiator, delegatee, value)?;
 
@@ -1939,15 +1934,10 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		use frame_support::traits::LockableCurrency;
 		T::Currency::remove_lock(crate::STAKING_ID, staker);
 
-		// try transferring the staked amount. This should never fail but if it does, it indicates bad state
-		// and we abort.
-		T::Currency::transfer(
-			staker,
-			delegator,
-			stake_amount,
-			ExistenceRequirement::AllowDeath,
-		)
-		.map_err(|_| Error::<T>::BadState)?;
+		// try transferring the staked amount. This should never fail but if it does, it indicates
+		// bad state and we abort.
+		T::Currency::transfer(staker, delegator, stake_amount, ExistenceRequirement::AllowDeath)
+			.map_err(|_| Error::<T>::BadState)?;
 
 		// delegate from new delegator to staker.
 		delegation::delegate::<T>(delegator, staker, stake_amount)
