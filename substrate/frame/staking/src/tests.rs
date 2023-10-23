@@ -1728,17 +1728,20 @@ fn rebond_emits_right_value_in_event() {
 #[test]
 fn max_staked_rewards_default_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		// if max staked rewards is None, there is no limit imposed on staking rewards from era
-		// inflation.
 		assert_eq!(<MaxStakedRewards<Test>>::get(), None);
+
 		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
 		assert!(default_stakers_payout > 0);
+		start_active_era(1);
 
-		// get max payout for era to compare with default.
+		// the final stakers reward is the same as the reward before applied the cap.
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
+
+		// which is the same behaviour if the `MaxStakedRewards` is set to 100%.
 		<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
-		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
 
-		assert_eq!(default_stakers_payout, max_stakers_payout);
+		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 	})
 }
 
