@@ -419,7 +419,7 @@ mod bridge_hub_wococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeRococoMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeWococoToRococoMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),

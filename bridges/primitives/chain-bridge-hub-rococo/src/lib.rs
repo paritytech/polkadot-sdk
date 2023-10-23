@@ -68,7 +68,7 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub const BRIDGE_HUB_ROCOCO_PARACHAIN_ID: u32 = 1013;
 
 /// Name of the With-BridgeHubRococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
+pub const WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoToRococoMessages";
 
 /// Name of the With-BridgeHubRococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
