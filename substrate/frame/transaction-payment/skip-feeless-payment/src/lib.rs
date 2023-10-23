@@ -26,6 +26,11 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 };
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -78,12 +83,12 @@ where
 {
 	type AccountId = T::AccountId;
 	type Call = S::Call;
-	type AdditionalSigned = ();
+	type AdditionalSigned = S::AdditionalSigned;
 	type Pre = (Self::AccountId, Option<<S as SignedExtension>::Pre>);
 	const IDENTIFIER: &'static str = "SkipCheckIfFeeless";
 
-	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
-		Ok(())
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		self.0.additional_signed()
 	}
 
 	fn pre_dispatch(
