@@ -677,7 +677,6 @@
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -721,7 +720,6 @@
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
-<span class="kw">use </span>westend_runtime::Treasury <span class="kw">as </span>WestendTreasury;
 <span class="kw">use </span>westend_runtime_constants::system_parachain;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -1186,7 +1184,7 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(&lt;WestendTreasury <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)).into();
+	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 <span class="kw">pub struct </span>RelayTreasury;
