@@ -45,16 +45,18 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	/// Migrate a direct stake to a delegation based stake.
+	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
+	/// the same.
 	///
-	/// Takes a new delegatee account as input. The required funds are moved from the delegatee
-	/// account (who is an active staker) to the delegator account and restaked.
+	/// This is useful for migrating old pool accounts using direct staking to lazily move
+	/// delegators to the new delegated pool account.
 	///
 	/// This is useful to move active funds in a non-delegation based pool account and migrate it
 	/// into a delegation based staking.
-	fn bond_migrate(
-		delegator: &Self::AccountId,
+	fn delegator_swap(
 		delegatee: &Self::AccountId,
+		delegator_from: &Self::AccountId,
+		delegator_to: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 
@@ -73,4 +75,14 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> Result<bool, DispatchError>;
+
+	/// Applies a pending slash on delegatee by passing a delegator account who should be slashed
+	/// and the value to be slashed. Optionally also takes a reporter account who will be rewarded
+	/// from part of the slash imbalance.
+	fn apply_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		reporter: Option<Self::AccountId>,
+	) -> DispatchResult;
 }

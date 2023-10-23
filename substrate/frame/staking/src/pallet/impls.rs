@@ -1886,9 +1886,10 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), extra)
 	}
 
-	fn bond_migrate(
-		_delegator: &Self::AccountId,
+	fn delegator_swap(
 		delegatee: &Self::AccountId,
+		_delegator_to: &Self::AccountId,
+		_delegator_from: &Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
@@ -1944,6 +1945,15 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
 		delegation::withdraw::<T>(delegatee, delegator, value)
 			.map(|_| !Ledger::<T>::contains_key(delegatee))
+	}
+
+	fn apply_slash(
+		_delegatee: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult {
+		todo!("apply slash from pending slashes of a delegatee")
 	}
 }
 
