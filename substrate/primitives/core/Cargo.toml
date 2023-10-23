@@ -131,8 +131,8 @@ serde = [
 	"scale-info/serde",
 	"secrecy/alloc",
 	"sp-core-hashing",
-	"sp-storage/serde",
 	"sp-runtime-interface/disable_target_static_assertions",
+	"sp-storage/serde",
 ]
 
 # This feature enables all crypto primitives for `no_std` builds like microcontrollers
