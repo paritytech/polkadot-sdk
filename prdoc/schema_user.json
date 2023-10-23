@@ -107,10 +107,10 @@
           "title": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not he meta-protocol (client)."},
 
           {"const": "Node Operator",
-          "title": "Those who don’t write any code and only run code."},
+          "title": "Those who don't write any code and only run code."},
 
           {"const": "Runtime User",
-          "title": "Token holders who don’t run anything but are involved in the network."}
+          "title": "Token holders who don't run anything but are involved in the network."}
         ]
       },
       "crate": {
