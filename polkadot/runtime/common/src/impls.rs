@@ -113,8 +113,14 @@ pub enum VersionedLocatableAsset {
 		/// The asset's ID.
 		asset_id: xcm::v3::AssetId,
 	},
+	#[codec(index = 4)]
+	V4 {
+		location: xcm::v4::Location,
+		asset_id: xcm::v4::AssetId,
+	}
 }
 
+// TODO: Fix `LocatableAssetId`
 /// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
 pub struct LocatableAssetConverter;
 impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
@@ -125,6 +131,8 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
 			VersionedLocatableAsset::V3 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId { asset_id: asset_id.try_into().unwrap(), location: location.try_into().unwrap() }),
+			VersionedLocatableAsset::V4 { location, asset_id } =>
 				Ok(xcm_builder::LocatableAssetId { asset_id, location }),
 		}
 	}
@@ -139,8 +147,12 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location>
 		location: &VersionedLocation,
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
 		let latest = match location.clone() {
-			VersionedLocation::V2(l) => l.try_into().map_err(|_| location)?,
-			VersionedLocation::V3(l) => l,
+			VersionedLocation::V2(l) => {
+				let v3: xcm::v3::MultiLocation = l.try_into().map_err(|_| location)?;
+				v3.try_into().map_err(|_| location)?
+			},
+			VersionedLocation::V3(l) => l.try_into().map_err(|_| location)?,
+			VersionedLocation::V4(l) => l,
 		};
 		Ok(latest)
 	}
