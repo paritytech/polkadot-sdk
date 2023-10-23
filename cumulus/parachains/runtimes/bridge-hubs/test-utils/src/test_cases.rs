@@ -186,7 +186,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 					XcmConfig::AssetTransactor::deposit_asset(
 						&ed,
 						&sibling_parachain_location,
-						&XcmContext::with_message_id([0; 32]),
+						Some(&XcmContext::with_message_id([0; 32])),
 					)
 					.expect("deposited ed");
 				}
@@ -194,7 +194,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 				XcmConfig::AssetTransactor::deposit_asset(
 					&fee,
 					&sibling_parachain_location,
-					&XcmContext::with_message_id([0; 32]),
+					Some(&XcmContext::with_message_id([0; 32])),
 				)
 				.expect("deposited fee");
 
