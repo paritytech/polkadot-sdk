@@ -1744,11 +1744,11 @@ fn max_staked_rewards_default_works() {
 
 #[test]
 fn max_staked_rewards_works() {
-	let max_staked_rewards = 80;
-
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
-		<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(max_staked_rewards)));
-		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_parts(80)));
+		let max_staked_rewards = 10;
+
+		<MaxStakedRewards<Test>>::set(Some(Percent::from_percent(max_staked_rewards)));
+		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
 
 		// check validators account state.
 		assert_eq!(Session::validators().len(), 2);
@@ -1756,15 +1756,25 @@ fn max_staked_rewards_works() {
 		// balance of the mock treasury account is 0
 		assert_eq!(RewardRemainderUnbalanced::get(), 0);
 
+		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+
 		start_active_era(1);
 
 		let treasury_payout = RewardRemainderUnbalanced::get();
 		let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
+		let total_payout = treasury_payout + validators_payout;
 
-		// validators payout is less than `max_staked_rewards`.
-		assert!(
-			validators_payout * 100 / (treasury_payout + validators_payout) <
-				max_staked_rewards as Balance
+		// max stakers payout (without max staked rewards cap applied) is larger than the final
+		// validator rewards. The final payment and remainder should be adjusted by redestributing
+		// the era inflation to apply the cap...
+		assert!(max_stakers_payout > validators_payout);
+
+		// .. which means that the final validator payout is 10% of the total payout..
+		assert_eq!(validators_payout, Percent::from_percent(max_staked_rewards) * total_payout);
+		// .. and the remainder 90% goes to the treasury.
+		assert_eq!(
+			treasury_payout,
+			Percent::from_percent(100 - max_staked_rewards) * (treasury_payout + validators_payout)
 		);
 	})
 }
