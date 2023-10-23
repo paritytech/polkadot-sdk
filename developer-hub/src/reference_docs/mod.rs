@@ -37,3 +37,6 @@ pub mod wasm_meta_protocol;
 /// Learn about the differences between smart contracts and a FRAME-based runtime. They are both
 /// "code stored onchain", but how do they differ?
 pub mod runtime_vs_smart_contract;
+
+/// Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.
+pub mod extrinsic_encoding;

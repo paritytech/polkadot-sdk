@@ -4307,6 +4307,7 @@ dependencies = [
  "sp-api",
  "sp-core",
  "sp-io",
+ "sp-runtime",
  "subkey",
  "substrate-wasm-builder",
 ]
