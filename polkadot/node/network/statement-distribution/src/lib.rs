@@ -320,6 +320,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
 						v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						v2::handle_deactivate_leaves(state, &deactivated);
 					} else if let ProspectiveParachainsMode::Disabled = mode {
 						for deactivated in &deactivated {
 							crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
