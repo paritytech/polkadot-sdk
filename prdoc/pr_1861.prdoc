@@ -1,0 +1,17 @@
+title: "Fungibles: migrate Democracy pallet"
+
+doc:
+  - audience: Core Dev
+    description: "Migrate the Democracy pallet to use the new Fungible traits."
+
+migrations:
+  db: []
+
+  runtime:
+    - { pallet: "pallet-democracy", description: "Add a v2 migration that converts reserved and locked deposits into fungible holds and freezes" }
+
+crates:
+  - name: "pallet-democracy"
+    semver: patch
+
+host_functions: []
