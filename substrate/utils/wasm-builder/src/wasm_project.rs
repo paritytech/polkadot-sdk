@@ -133,7 +133,7 @@ pub(crate) fn create_and_compile(
 	);
 
 	let build_config = BuildConfiguration::detect(&project);
-	build_wasm(&build_config.wasm_build_profile, &project, default_rustflags, cargo_cmd);
+	build_blob(&build_config.wasm_build_profile, &project, default_rustflags, cargo_cmd);
 	let (wasm_binary, wasm_binary_compressed, bloaty) = maybe_compact_wasm_and_copy_blobs(
 		&project,
 		&build_config,
@@ -680,8 +680,8 @@ fn offline_build() -> bool {
 	env::var(OFFLINE).map_or(false, |v| v == "true")
 }
 
-/// Build the project and create the WASM binary.
-fn build_wasm(
+/// Build the project and create the runtime blob.
+fn build_blob(
 	wasm_build_profile: &Profile,
 	project: &Path,
 	default_rustflags: &str,
