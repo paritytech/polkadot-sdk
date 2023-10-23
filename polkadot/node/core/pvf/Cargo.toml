@@ -49,7 +49,7 @@ adder = { package = "test-parachain-adder", path = "../../../parachain/test-para
 halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
 
 [[bench]]
-name = "host_rococo_runtime"
+name = "host_prepare_rococo_runtime"
 harness = false
 
 [features]
