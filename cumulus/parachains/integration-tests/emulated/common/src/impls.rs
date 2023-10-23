@@ -23,10 +23,11 @@ pub use crate::{
 };
 
 // Substrate
-pub use frame_support::{assert_ok, traits::fungibles::Inspect};
+pub use frame_support::{sp_runtime::AccountId32, assert_ok, traits::fungibles::Inspect};
 pub use pallet_assets;
 pub use pallet_message_queue;
 use sp_core::Get;
+// pub use sp_runtime::AccountId32;
 
 // Cumulus
 use bp_messages::{
@@ -193,7 +194,7 @@ macro_rules! impl_accounts_helpers_for_relay_chain {
 					});
 				}
 				/// Fund a sovereign account based on its Parachain Id
-				pub fn fund_para_sovereign(amount: $crate::impls::Balance, para_id: $crate::impls::ParaId) -> sp_runtime::AccountId32 {
+				pub fn fund_para_sovereign(amount: $crate::impls::Balance, para_id: $crate::impls::ParaId) -> $crate::impls::AccountId32 {
 					let sovereign_account = <Self as $crate::impls::RelayChain>::sovereign_account_id_of_child_para(para_id);
 					Self::fund_accounts(vec![(sovereign_account.clone(), amount)]);
 					sovereign_account

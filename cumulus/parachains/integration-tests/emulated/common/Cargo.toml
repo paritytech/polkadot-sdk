@@ -5,7 +5,6 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
-publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
