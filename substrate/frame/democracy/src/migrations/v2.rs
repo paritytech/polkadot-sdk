@@ -32,7 +32,10 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 /// The log target.
 const LOG_TARGET: &'static str = "runtime::democracy::migration::v2";
 
+/// Type alias for `frame_system`'s account id.
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+/// Type alias for `democracy`'s fungible type.
 pub type FungibleOf<T> = <T as pallet::Config>::Fungible;
 
 pub mod old {
@@ -268,7 +271,7 @@ mod test {
 			let alice = 1;
 
 			// Store a proposal deposit and vote for alice.
-			MigrationOf::<T>::bench_store_deposit(vec![alice]);
+			MigrationOf::<T>::bench_store_deposit(0u32, vec![alice]);
 			MigrationOf::<T>::bench_store_vote(alice.into());
 
 			// Check that alice's deposit is reserved and vote balance is locked.
