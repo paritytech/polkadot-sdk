@@ -45,21 +45,27 @@ test!(test05, asset_hubs::asset_hub_kusama_config());
 test!(test06, asset_hubs::asset_hub_westend_development_config());
 test!(test07, asset_hubs::asset_hub_westend_local_config());
 test!(test08, asset_hubs::asset_hub_westend_config());
-test!(test09, collectives::collectives_polkadot_development_config());
-test!(test10, collectives::collectives_polkadot_local_config());
-test!(test11, contracts::contracts_rococo_development_config());
-test!(test12, contracts::contracts_rococo_local_config());
-test!(test13, contracts::contracts_rococo_config());
-test!(test14, glutton::glutton_development_config(667.into()));
-test!(test15, glutton::glutton_local_config(667.into()));
-test!(test16, glutton::glutton_config(667.into()));
-test!(test17, penpal::get_penpal_chain_spec(667.into(), "test"));
-test!(test18, rococo_parachain::rococo_parachain_local_config());
-test!(test19, rococo_parachain::staging_rococo_parachain_local_config());
-test!(test20, seedling::get_seedling_chain_spec());
-test!(test21, shell::get_shell_chain_spec());
+test!(test09, asset_hubs::asset_hub_rococo_development_config());
+test!(test10, asset_hubs::asset_hub_wococo_development_config());
+test!(test11, asset_hubs::asset_hub_rococo_local_config());
+test!(test12, asset_hubs::asset_hub_wococo_local_config());
+test!(test13, asset_hubs::asset_hub_rococo_genesis_config());
+test!(test14, asset_hubs::asset_hub_wococo_genesis_config());
+test!(test15, collectives::collectives_polkadot_development_config());
+test!(test16, collectives::collectives_polkadot_local_config());
+test!(test17, contracts::contracts_rococo_development_config());
+test!(test18, contracts::contracts_rococo_local_config());
+test!(test19, contracts::contracts_rococo_config());
+test!(test20, glutton::glutton_development_config(667.into()));
+test!(test21, glutton::glutton_local_config(667.into()));
+test!(test22, glutton::glutton_config(667.into()));
+test!(test23, penpal::get_penpal_chain_spec(667.into(), "test"));
+test!(test24, rococo_parachain::rococo_parachain_local_config());
+test!(test25, rococo_parachain::staging_rococo_parachain_local_config());
+test!(test26, seedling::get_seedling_chain_spec());
+test!(test27, shell::get_shell_chain_spec());
 test!(
-	test22,
+	test28,
 	bridge_hubs::rococo::local_config(
 		"bridge-hub-rococo-local",
 		"Test",
@@ -70,7 +76,7 @@ test!(
 	)
 );
 test!(
-	test23,
+	test29,
 	bridge_hubs::wococo::local_config(
 		"bridge-hub-wococo-local",
 		"Test",
@@ -80,17 +86,11 @@ test!(
 	)
 );
 test!(
-	test24,
+	test30,
 	bridge_hubs::kusama::local_config("bridge-hub-kusama-local", "Test", "test", 667.into())
 );
 test!(
-	test25,
+	test31,
 	bridge_hubs::polkadot::local_config("bridge-hub-polkadot-local", "Test", "test", 667.into())
 );
 
-test!(test26, asset_hubs::asset_hub_rococo_development_config());
-test!(test27, asset_hubs::asset_hub_wococo_development_config());
-test!(test28, asset_hubs::asset_hub_rococo_local_config());
-test!(test29, asset_hubs::asset_hub_wococo_local_config());
-test!(test30, asset_hubs::asset_hub_rococo_config());
-test!(test31, asset_hubs::asset_hub_wococo_config());
