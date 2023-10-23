@@ -1903,10 +1903,11 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		let real_num_slashing_spans =
 			Self::slashing_spans(delegatee).map_or(0, |s| s.iter().count());
 		// this should withdraw funds from the ledger without unlocking.
-		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value))?;
+		let _ = Self::do_withdraw_unbonded(delegatee, real_num_slashing_spans as u32, Some(value));
 		// withdraw unlocked amount to delegator. This essentially unlocks the delegator funds.
-		delegation::withdraw::<T>(delegatee, delegator, value)
-			.map(|_| !Ledger::<T>::contains_key(delegatee))
+		delegation::withdraw::<T>(delegatee, delegator, value)?;
+
+		Ok(!Ledger::<T>::contains_key(&delegatee))
 	}
 
 	fn apply_slash(
@@ -1948,48 +1949,26 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		)
 		.map_err(|_| Error::<T>::BadState)?;
 
-		// delegate from new delegator to staker
+		// delegate from new delegator to staker.
 		delegation::delegate::<T>(delegator, staker, stake_amount)
 	}
 
-	fn delegator_swap(
+	fn delegation_swap(
 		delegatee: &Self::AccountId,
-		_delegator_to: &Self::AccountId,
-		_delegator_from: &Self::AccountId,
+		new_delegator: &Self::AccountId,
+		existing_delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 		// ledger for delegatee account should always be bonded by stash.
-		let _ledger = Self::ledger(Stash(delegatee.clone()))?;
+		ensure!(Self::status(delegatee)? == StakerStatus::Delegatee, Error::<T>::NotDelegatee);
 
-		// we want to transfer the bonded value only from active bond that is not part of delegation
-		// bond. We ignore the funds that are in unlocking period.
-		// fixme(ank4n): possible way it could work
-		// 1) Pools creates new account that will act as delegatee.
-		// 2) Old pool account delegates to new account.
-		// 3) Slowly move funds from old account to user account, lock and delegate to new account
-		//    in one go. This is what the new migration function should do.
+		// remove delegation of `value` from `existing_delegator`.
+		delegation::withdraw::<T>(delegatee, existing_delegator, value)?;
 
-		// let active_direct =
-		// 	ledger.active.saturating_sub(delegation::delegated_balance::<T>(&delegatee));
-		// ensure!(ledger.active > value + T::Currency::minimum_balance(),
-		// Error::<T>::NotEnoughFunds);
-		//
-		// // Unbond `value` from delegatee and transfer it to delegator.
-		// T::Currency::set_lock(
-		// 	crate::STAKING_ID,
-		// 	&delegatee,
-		// 	active_direct - value,
-		// 	WithdrawReasons::all(),
-		// );
-		// T::Currency::transfer(&delegatee, &delegator, value, KeepAlive)?;
-		//
-		// // Delegate the unbonded fund.
-		// delegation::delegate::<T>(delegator, delegatee, value)?;
-
-		// Ok(())
-		todo!("Revisit migrate strategy again");
+		// add the above removed delegation to `new_delegator`.
+		delegation::delegate::<T>(new_delegator, delegatee, value)
 	}
 }
 

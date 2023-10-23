@@ -822,6 +822,8 @@ pub mod pallet {
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
+		/// Not an existing delegatee account.
+		NotDelegatee,
 	}
 
 	#[pallet::hooks]
