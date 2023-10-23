@@ -2384,17 +2384,6 @@
 <a href="#2384" id="2384">2384</a>
 <a href="#2385" id="2385">2385</a>
 <a href="#2386" id="2386">2386</a>
-<a href="#2387" id="2387">2387</a>
-<a href="#2388" id="2388">2388</a>
-<a href="#2389" id="2389">2389</a>
-<a href="#2390" id="2390">2390</a>
-<a href="#2391" id="2391">2391</a>
-<a href="#2392" id="2392">2392</a>
-<a href="#2393" id="2393">2393</a>
-<a href="#2394" id="2394">2394</a>
-<a href="#2395" id="2395">2395</a>
-<a href="#2396" id="2396">2396</a>
-<a href="#2397" id="2397">2397</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2428,7 +2417,7 @@
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
+		fungible::HoldConsideration, ConstU32, EitherOf, EitherOfDiverse, Everything,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
@@ -2557,24 +2546,13 @@
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-<span class="doccomment">/// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
-/// locking the state of the pallet and preventing further updates to identities and sub-identities.
-/// The locked state will be the genesis state of a new system chain and then removed from the Relay
-/// Chain.
-</span><span class="kw">pub struct </span>IdentityCalls;
-<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IdentityCalls {
-	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
-	}
-}
-
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
 <span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IdentityCalls&gt;;
+	<span class="kw">type </span>BaseCallFilter = Everything;
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
