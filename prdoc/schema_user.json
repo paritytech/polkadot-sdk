@@ -202,13 +202,10 @@
       "host_function": {
         "type": "object",
         "additionalProperties": false,
-        "description": "List of host functions and their properties",
+        "description": "List of host functions and their descriptions",
         "properties": {
           "name": {
             "type": "string"
-          },
-          "enabled": {
-            "type": "boolean"
           },
           "description": {
             "type": "string"
@@ -219,7 +216,6 @@
         },
         "required": [
           "name",
-          "enabled",
           "description"
         ]
       }
