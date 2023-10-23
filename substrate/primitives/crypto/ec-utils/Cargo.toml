@@ -13,9 +13,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ark-ec = { version = "0.4.2", default-features = false }
+ark-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false, features = ["scale-fast"] }
 ark-bls12-377 = { version = "0.4.0", features = ["curve"], default-features = false }
 ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
 ark-bw6-761 = { version = "0.4.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false, features = ["scale-fast"] }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
@@ -25,11 +27,13 @@ sp-std = { path = "../../std", default-features = false }
 [features]
 default = [ "std" ]
 std = [
+	"ark-bls12-377-ext/std",
 	"ark-bls12-377/std",
 	"ark-bls12-381/std",
 	"ark-bw6-761/std",
 	"ark-ec/std",
 	"ark-ed-on-bls12-377/std",
+	"ark-ed-on-bls12-381-bandersnatch-ext/std",
 	"ark-ed-on-bls12-381-bandersnatch/std",
 	"ark-scale/std",
 	"sp-runtime-interface/std",

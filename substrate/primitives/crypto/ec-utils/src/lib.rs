@@ -27,6 +27,13 @@ use sp_runtime_interface::runtime_interface;
 use sp_std::vec::Vec;
 use utils::*;
 
+// #[cfg(feature = "bls12-377")]
+pub mod bls12_377;
+// #[cfg(feature = "ed-on-bls12-381-bandersnatch")]
+pub mod ed_on_bls12_381_bandersnatch;
+
+pub struct Host;
+
 /// Interfaces for working with *Arkworks* elliptic curves related types from within the runtime.
 ///
 /// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
