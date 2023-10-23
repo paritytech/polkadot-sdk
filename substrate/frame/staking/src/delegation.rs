@@ -21,8 +21,9 @@
 //! Delegatee: Someone who accepts delegations. An account can set their intention to accept
 //! delegations by calling `accept_delegations`. This account cannot have another role in the
 //! staking system and once set as delegatee, can only stake with their delegated balance, i.e.
-//! cannot use their own free balance to stake. They can also block new delegations or stop being a
-//! delegatee once all delegations to it are removed.
+//! cannot use their own free balance to stake. They can also block new delegations by calling
+//! `block_delegations` or remove themselves from being a delegatee by calling 'kill_delegatee' once
+//! all delegations to it are removed.
 //!
 //! Delegator: Someone who delegates their funds to a delegatee. A delegator can delegate their
 //! funds to one and only one delegatee. They also can not be a nominator or validator.
@@ -68,15 +69,17 @@ pub struct DelegationRegister<T: Config> {
 	pub blocked: bool,
 }
 
-/// Total balance that is delegated to this account but not yet staked.
+/// Returns total balance that is delegated to this account.
 pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
 	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |register| register.balance)
 }
 
+/// Returns true if this account is a registered delegatee.
 pub(crate) fn is_delegatee<T: Config>(delegatee: &T::AccountId) -> bool {
 	<Delegatees<T>>::contains_key(delegatee)
 }
 
+/// Returns reward destination for the delegatee.
 pub(crate) fn get_payee<T: Config>(
 	delegatee: &T::AccountId,
 ) -> Result<T::AccountId, DispatchError> {
@@ -85,6 +88,7 @@ pub(crate) fn get_payee<T: Config>(
 		.ok_or(Error::<T>::NotDelegatee.into())
 }
 
+/// Register intention to be a delegatee that accepts delegation from other accounts/delegators.
 pub(crate) fn accept_delegations<T: Config>(
 	delegatee: &T::AccountId,
 	payee: &T::AccountId,
