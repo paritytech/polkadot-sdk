@@ -265,6 +265,12 @@ impl RequestManager {
 				HEntry::Vacant(_) => (),
 			}
 		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			"Requests remaining after cleanup: {}",
+			self.by_priority.len(),
+		);
 	}
 
 	/// Returns true if there are pending requests that are dispatchable.
@@ -354,6 +360,13 @@ impl RequestManager {
 				None => continue,
 				Some(t) => t,
 			};
+
+			gum::debug!(
+				target: crate::LOG_TARGET,
+				candidate_hash = ?id.candidate_hash,
+				peer = ?target,
+				"Issuing candidate request"
+			);
 
 			let (request, response_fut) = OutgoingRequest::new(
 				RequestRecipient::Peer(target),
@@ -498,6 +511,11 @@ impl UnhandledResponse {
 		&self.response.identifier
 	}
 
+	/// Get the peer we made the request to.
+	pub fn requested_peer(&self) -> &PeerId {
+		&self.response.requested_peer
+	}
+
 	/// Validate the response. If the response is valid, this will yield the
 	/// candidate, the [`PersistedValidationData`] of the candidate, and requested
 	/// checked statements.
@@ -582,12 +600,19 @@ impl UnhandledResponse {
 					request_status: CandidateRequestStatus::Incomplete,
 				}
 			},
-			Err(RequestError::NetworkError(_) | RequestError::Canceled(_)) =>
+			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					err = ?e,
+					peer = ?requested_peer,
+					"Request error"
+				);
 				return ResponseValidationOutput {
 					requested_peer,
 					reputation_changes: vec![],
 					request_status: CandidateRequestStatus::Incomplete,
-				},
+				}
+			},
 			Ok(response) => response,
 		};
 
