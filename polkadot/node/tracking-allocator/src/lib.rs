@@ -18,23 +18,36 @@
 //! the whole process. Accepts an optional limit and a failure handler which is called if the limit
 //! is overflown.
 
-use core::alloc::{GlobalAlloc, Layout};
+use core::{
+	alloc::{GlobalAlloc, Layout},
+	ops::{Deref, DerefMut},
+};
 use std::{
+	cell::UnsafeCell,
 	ptr::null_mut,
 	sync::atomic::{AtomicBool, Ordering},
 };
 
-struct TrackingAllocatorData {
+struct Spinlock<T: Send> {
 	lock: AtomicBool,
-	current: isize,
-	peak: isize,
-	limit: isize,
-	failure_handler: Option<Box<dyn Fn()>>,
+	data: UnsafeCell<T>,
 }
 
-impl TrackingAllocatorData {
+struct SpinlockGuard<'a, T: 'a + Send> {
+	lock: &'a Spinlock<T>,
+}
+
+// SAFETY: Data under `UnsafeCell<T>` are protected by an exclusive lock, so they may be shared
+// between threads safely
+unsafe impl<T: Send> Sync for Spinlock<T> {}
+
+impl<T: Send> Spinlock<T> {
+	pub const fn new(t: T) -> Spinlock<T> {
+		Spinlock { lock: AtomicBool::new(false), data: UnsafeCell::new(t) }
+	}
+
 	#[inline]
-	fn lock(&self) {
+	pub fn lock(&self) -> SpinlockGuard<T> {
 		loop {
 			// Try to acquire the lock.
 			if self
@@ -42,7 +55,7 @@ impl TrackingAllocatorData {
 				.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
 				.is_ok()
 			{
-				break
+				return SpinlockGuard { lock: self }
 			}
 			// We failed to acquire the lock; wait until it's unlocked.
 			//
@@ -59,60 +72,83 @@ impl TrackingAllocatorData {
 	fn unlock(&self) {
 		self.lock.store(false, Ordering::Release);
 	}
+}
 
-	fn start_tracking(&mut self, limit: isize, failure_handler: Option<Box<dyn Fn()>>) {
-		self.lock();
-		self.current = 0;
-		self.peak = 0;
-		self.limit = limit;
+impl<T: Send> Deref for SpinlockGuard<'_, T> {
+	type Target = T;
+
+	fn deref(&self) -> &T {
+		// SAFETY: It is safe to dereference a guard to the `UnsafeCell` underlying data as the
+		// presence of the guard means the data are already locked.
+		unsafe { &*self.lock.data.get() }
+	}
+}
+
+impl<T: Send> DerefMut for SpinlockGuard<'_, T> {
+	fn deref_mut(&mut self) -> &mut T {
+		unsafe { &mut *self.lock.data.get() }
+	}
+}
+
+impl<T: Send> Drop for SpinlockGuard<'_, T> {
+	fn drop(&mut self) {
+		self.lock.unlock();
+	}
+}
+
+struct TrackingAllocatorData {
+	current: isize,
+	peak: isize,
+	limit: isize,
+	failure_handler: Option<Box<dyn Fn() + Send>>,
+}
+
+impl TrackingAllocatorData {
+	fn start_tracking(
+		mut guard: SpinlockGuard<Self>,
+		limit: isize,
+		failure_handler: Option<Box<dyn Fn() + Send>>,
+	) {
+		guard.current = 0;
+		guard.peak = 0;
+		guard.limit = limit;
 		// Cannot drop it yet, as it would trigger a deallocation
-		let old_handler = self.failure_handler.take();
-		self.failure_handler = failure_handler;
-		self.unlock();
-		core::mem::drop(old_handler);
+		let old_handler = guard.failure_handler.take();
+		guard.failure_handler = failure_handler;
+		drop(guard);
+		drop(old_handler);
 	}
 
-	fn end_tracking(&mut self) -> isize {
-		self.lock();
-		let peak = self.peak;
-		self.limit = 0;
+	fn end_tracking(mut guard: SpinlockGuard<Self>) -> isize {
+		let peak = guard.peak;
+		guard.limit = 0;
 		// Cannot drop it yet, as it would trigger a deallocation
-		let old_handler = self.failure_handler.take();
-		self.unlock();
-		core::mem::drop(old_handler);
+		let old_handler = guard.failure_handler.take();
+		drop(guard);
+		drop(old_handler);
 		peak
 	}
 
 	#[inline]
-	fn track(&mut self, alloc: isize) -> bool {
-		self.lock();
-		self.current += alloc;
-		if self.current > self.peak {
-			self.peak = self.current;
+	fn track(mut guard: SpinlockGuard<Self>, alloc: isize) -> Option<SpinlockGuard<Self>> {
+		guard.current += alloc;
+		if guard.current > guard.peak {
+			guard.peak = guard.current;
 		}
-		let within_limits = self.limit == 0 || self.peak <= self.limit;
-		if within_limits {
-			self.unlock()
+		if guard.limit == 0 || guard.peak <= guard.limit {
+			None
+		} else {
+			Some(guard)
 		}
-		within_limits
 	}
 }
 
-static mut ALLOCATOR_DATA: TrackingAllocatorData = TrackingAllocatorData {
-	lock: AtomicBool::new(false),
-	current: 0,
-	peak: 0,
-	limit: 0,
-	failure_handler: None,
-};
+static ALLOCATOR_DATA: Spinlock<TrackingAllocatorData> =
+	Spinlock::new(TrackingAllocatorData { current: 0, peak: 0, limit: 0, failure_handler: None });
 
 pub struct TrackingAllocator<A: GlobalAlloc>(pub A);
 
 impl<A: GlobalAlloc> TrackingAllocator<A> {
-	// SAFETY:
-	// * The following functions write to `static mut`. That is safe as the critical section inside
-	//   is isolated by an exclusive lock.
-
 	/// Start tracking
 	/// SAFETY: Failure handler is called with the allocator being in the locked state. Thus, no
 	/// allocations or deallocations are allowed inside the failure handler; otherwise, a
@@ -120,25 +156,28 @@ impl<A: GlobalAlloc> TrackingAllocator<A> {
 	pub unsafe fn start_tracking(
 		&self,
 		limit: Option<isize>,
-		failure_handler: Option<Box<dyn Fn()>>,
+		failure_handler: Option<Box<dyn Fn() + Send>>,
 	) {
-		ALLOCATOR_DATA.start_tracking(limit.unwrap_or(0), failure_handler);
+		TrackingAllocatorData::start_tracking(
+			ALLOCATOR_DATA.lock(),
+			limit.unwrap_or(0),
+			failure_handler,
+		);
 	}
 
 	/// End tracking and return the peak allocation value in bytes (as `isize`). Peak allocation
 	/// value is not guaranteed to be neither non-zero nor positive.
 	pub fn end_tracking(&self) -> isize {
-		unsafe { ALLOCATOR_DATA.end_tracking() }
+		TrackingAllocatorData::end_tracking(ALLOCATOR_DATA.lock())
 	}
 }
 
 #[cold]
 #[inline(never)]
-unsafe fn fail_allocation() -> *mut u8 {
-	if let Some(failure_handler) = &ALLOCATOR_DATA.failure_handler {
+unsafe fn fail_allocation(guard: SpinlockGuard<TrackingAllocatorData>) -> *mut u8 {
+	if let Some(failure_handler) = &guard.failure_handler {
 		failure_handler()
 	}
-	ALLOCATOR_DATA.unlock();
 	null_mut()
 }
 
@@ -148,34 +187,40 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for TrackingAllocator<A> {
 
 	#[inline]
 	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		if ALLOCATOR_DATA.track(layout.size() as isize) {
-			self.0.alloc(layout)
+		let guard = ALLOCATOR_DATA.lock();
+		if let Some(guard) = TrackingAllocatorData::track(guard, layout.size() as isize) {
+			fail_allocation(guard)
 		} else {
-			fail_allocation()
+			self.0.alloc(layout)
 		}
 	}
 
 	#[inline]
 	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-		if ALLOCATOR_DATA.track(layout.size() as isize) {
-			self.0.alloc_zeroed(layout)
+		let guard = ALLOCATOR_DATA.lock();
+		if let Some(guard) = TrackingAllocatorData::track(guard, layout.size() as isize) {
+			fail_allocation(guard)
 		} else {
-			fail_allocation()
+			self.0.alloc_zeroed(layout)
 		}
 	}
 
 	#[inline]
 	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) -> () {
-		ALLOCATOR_DATA.track(-(layout.size() as isize));
+		let guard = ALLOCATOR_DATA.lock();
+		TrackingAllocatorData::track(guard, -(layout.size() as isize));
 		self.0.dealloc(ptr, layout)
 	}
 
 	#[inline]
 	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-		if ALLOCATOR_DATA.track((new_size as isize) - (layout.size() as isize)) {
-			self.0.realloc(ptr, layout, new_size)
+		let guard = ALLOCATOR_DATA.lock();
+		if let Some(guard) =
+			TrackingAllocatorData::track(guard, (new_size as isize) - (layout.size() as isize))
+		{
+			fail_allocation(guard)
 		} else {
-			fail_allocation()
+			self.0.realloc(ptr, layout, new_size)
 		}
 	}
 }
