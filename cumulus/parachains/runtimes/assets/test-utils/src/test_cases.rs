@@ -261,7 +261,6 @@ pub fn teleports_for_native_asset_works<
 					},),)
 				);
 
-
 				// check balances
 				assert_eq!(
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
