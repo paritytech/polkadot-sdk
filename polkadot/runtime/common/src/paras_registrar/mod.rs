@@ -40,7 +40,7 @@ use parity_scale_codec::{Decode, Encode};
 use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedSub, Hash, Saturating},
+	traits::{CheckedSub, Saturating},
 	Perbill, RuntimeDebug,
 };
 
@@ -227,9 +227,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RentedParas<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, RentInfo<BalanceOf<T>, SessionIndex>>;
-
-	#[pallet::storage]
-	pub type RentedParaHashes<T: Config> = StorageMap<_, Twox64Concat, ParaId, T::Hash>;
 
 	/// The next free `ParaId`.
 	#[pallet::storage]
@@ -685,20 +682,12 @@ impl<T: Config> Pallet<T> {
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
 			RentedParas::<T>::insert(id, rent_info);
 
-			// In case the PVF hash was already stored before there is no need to go through the
+			// In case the PVF hash was pre-checked before there is no need to go through the
 			// PVF pre-ckecking process again.
-			//
-			// TODO: Adding an 'expiry' date for when the hash is no longer considered as 'known
-			// valid' could be a good idea.
-			//
-			// IMPORTANT TODO: Only store the hash of the pvf if it has successfully completed
-			// pre-checking. Otherwise it would be possible to easily store an incorrect pvf.
-			if let Some(_) = RentedParaHashes::<T>::get(id) {
-				true
+			let code_hash = ValidationCode::hash(&validation_code);
+			if let Some(checked_code_hash) = paras::Pallet::<T>::checked_code_hash(&id) {
+				code_hash == checked_code_hash
 			} else {
-				let pvf_hash = T::Hashing::hash(validation_code.0.as_slice());
-				RentedParaHashes::<T>::insert(id, pvf_hash);
-
 				false
 			}
 		} else {

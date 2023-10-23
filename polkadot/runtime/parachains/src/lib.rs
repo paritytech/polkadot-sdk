@@ -80,7 +80,7 @@ pub trait FeeTracker {
 pub fn schedule_para_initialize<T: paras::Config>(
 	id: ParaId,
 	genesis: paras::ParaGenesisArgs,
-	bypass_pre_checking: bool, 
+	bypass_pre_checking: bool,
 ) -> Result<(), ()> {
 	<paras::Pallet<T>>::schedule_para_initialize(id, genesis, bypass_pre_checking).map_err(|_| ())
 }
