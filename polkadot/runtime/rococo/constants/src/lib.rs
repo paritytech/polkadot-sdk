@@ -120,6 +120,9 @@ pub mod system_parachain {
 	}
 }
 
+/// Rococo Treasury pallet instance.
+pub const TREASURY_PALLET_ID: u8 = 18;
+
 #[cfg(test)]
 mod tests {
 	use super::{
