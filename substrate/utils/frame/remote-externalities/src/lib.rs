@@ -446,7 +446,7 @@ where
 		block: B::Hash,
 		parallel: u16,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		const MAX_PARALLEL: u16 = 16 ** 3;
+		const MAX_PARALLEL: u16 = 4096;
 		const POW_OF_SIXTEEN: [u16; 3] = [1, 16, 256];
 
 		// round to power of 16, up to MAX_PARALLEL
@@ -462,7 +462,7 @@ where
 
 			while pow < n {
 				if pow == MAX_PARALLEL {
-					break;
+					break
 				}
 
 				pow = pow.saturating_mul(16);
