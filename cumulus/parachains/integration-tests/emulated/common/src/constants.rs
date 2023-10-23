@@ -1067,12 +1067,12 @@ pub mod bridge_hub_rococo {
 			"bridgeRococoGrandpa": {
 				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			},
-			"bridgeRococoMessages": {
+			"bridgeWococoToRococoMessages": {
 				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			},
-			"bridgeWococoMessages": {
+			"bridgeRococoToWococoMessages": {
 				"owner": Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-			},
+			}
 		});
 
 		build_genesis_storage(
@@ -1132,14 +1132,16 @@ pub mod bridge_hub_rococo {
 					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 					..Default::default()
 				},
-				bridge_rococo_messages: bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
-					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-					..Default::default()
-				},
-				bridge_wococo_messages: bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
-					owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
-					..Default::default()
-				},
+				bridge_wococo_to_rococo_messages:
+					bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
+						owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+						..Default::default()
+					},
+				bridge_rococo_to_wococo_messages:
+					bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+						owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+						..Default::default()
+					},
 				..Default::default()
 			};
 

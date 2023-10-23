@@ -295,12 +295,12 @@ pub mod rococo {
 			"bridgeRococoGrandpa": {
 				"owner": bridges_pallet_owner.clone(),
 			},
-			"bridgeRococoMessages": {
+			"bridgeWococoToRococoMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
-			"bridgeWococoMessages": {
+			"bridgeRococoToWococoMessages": {
 				"owner": bridges_pallet_owner,
-			}
+			},
 		})
 	}
 }
