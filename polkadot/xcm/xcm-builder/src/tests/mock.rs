@@ -523,10 +523,11 @@ pub fn set_fee_waiver(waived: Vec<FeeReason>) {
 
 pub struct TestFeeManager;
 impl FeeManager for TestFeeManager {
+	type HandleFee = ();
+
 	fn is_waived(_: Option<&MultiLocation>, r: FeeReason) -> bool {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
-	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

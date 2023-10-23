@@ -17,42 +17,87 @@
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use xcm::prelude::*;
-use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
+use xcm_executor::traits::{FeeManager, FeeReason, HandleFee, TransactAsset};
 
-/// A `FeeManager` implementation that simply deposits the fees handled into a specific on-chain
-/// `ReceiverAccount`.
-///
-/// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets, and also
-/// permits specifying `WaivedLocations` for locations that are privileged to not pay for fees. If
-/// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
-/// logged.
-pub struct XcmFeesToAccount<XcmConfig, WaivedLocations, AccountId, ReceiverAccount>(
-	PhantomData<(XcmConfig, WaivedLocations, AccountId, ReceiverAccount)>,
+/// A `FeeManager` implementation that permits the specified `WaivedLocations` to not pay for fees
+/// and that uses the provided `HandleFee` implementation otherwise.
+pub struct XcmFeeManagerFromComponents<WaivedLocations, HandleFee>(
+	PhantomData<(WaivedLocations, HandleFee)>,
 );
-impl<
-		XcmConfig: xcm_executor::Config,
-		WaivedLocations: Contains<MultiLocation>,
-		AccountId: Clone + Into<[u8; 32]>,
-		ReceiverAccount: Get<Option<AccountId>>,
-	> FeeManager for XcmFeesToAccount<XcmConfig, WaivedLocations, AccountId, ReceiverAccount>
+impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
+	for XcmFeeManagerFromComponents<WaivedLocations, FeeHandler>
 {
+	type HandleFee = FeeHandler;
+
 	fn is_waived(origin: Option<&MultiLocation>, _: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		WaivedLocations::contains(loc)
 	}
+}
 
-	fn handle_fee(fees: MultiAssets, context: Option<&XcmContext>) {
-		if let Some(receiver) = ReceiverAccount::get() {
-			let dest = AccountId32 { network: None, id: receiver.into() }.into();
-			for asset in fees.into_inner() {
-				if let Err(e) = XcmConfig::AssetTransactor::deposit_asset(&asset, &dest, context) {
-					log::trace!(
-						target: "xcm::fees",
-						"`AssetTransactor::deposit_asset` returned error: {:?}, burning fees: {:?}",
-						e, asset,
-					);
-				}
+/// A `HandleFee` implementation that simply deposits the fees into a specific on-chain
+/// `ReceiverAccount`.
+///
+/// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
+/// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
+/// logged.
+pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
+	PhantomData<(AssetTransactor, AccountId, ReceiverAccount)>,
+);
+
+impl<
+		AssetTransactor: TransactAsset,
+		AccountId: Clone + Into<[u8; 32]>,
+		ReceiverAccount: Get<AccountId>,
+	> HandleFee for XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>
+{
+	fn handle_fee(
+		fee: MultiAssets,
+		context: Option<&XcmContext>,
+		_reason: FeeReason,
+	) -> MultiAssets {
+		let receiver = ReceiverAccount::get();
+		let dest = AccountId32 { network: None, id: receiver.into() }.into();
+		for asset in fee.into_inner() {
+			if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
+				log::trace!(
+					target: "xcm::fees",
+					"`AssetTransactor::deposit_asset` returned error: {:?}. Skipping fees: {:?}. \
+					They might be burned.",
+					e, asset,
+				);
 			}
+		}
+
+		MultiAssets::new()
+	}
+}
+
+/// A `HandleFee` implementation that simply deposits the fees for
+/// `ExportMessage { network: BridgedNetwork::get(), .. }` XCM instructions into a specific
+/// on-chain `ReceiverAccount`.
+pub struct XcmExportFeeToAccount<AssetTransactor, BridgedNetwork, AccountId, ReceiverAccount>(
+	PhantomData<(AssetTransactor, BridgedNetwork, AccountId, ReceiverAccount)>,
+);
+
+impl<
+		AssetTransactor: TransactAsset,
+		BridgedNetwork: Get<NetworkId>,
+		AccountId: Clone + Into<[u8; 32]>,
+		ReceiverAccount: Get<AccountId>,
+	> HandleFee for XcmExportFeeToAccount<AssetTransactor, BridgedNetwork, AccountId, ReceiverAccount>
+{
+	fn handle_fee(
+		fee: MultiAssets,
+		context: Option<&XcmContext>,
+		reason: FeeReason,
+	) -> MultiAssets {
+		match reason {
+			FeeReason::Export(bridged_network) if bridged_network == BridgedNetwork::get() =>
+				XcmFeeToAccount::<AssetTransactor, AccountId, ReceiverAccount>::handle_fee(
+					fee, context, reason,
+				),
+			_ => fee,
 		}
 	}
 }

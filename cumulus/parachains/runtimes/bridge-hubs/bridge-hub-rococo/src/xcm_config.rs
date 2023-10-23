@@ -24,8 +24,8 @@ use crate::{
 		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
 		RequiredStakeForStakeAndSlash,
 	},
-	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
-	bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter,
+	bridge_hub_rococo_config::{ToBridgeHubWococoHaulBlobExporter, WococoGlobalConsensusNetwork},
+	bridge_hub_wococo_config::{RococoGlobalConsensusNetwork, ToBridgeHubRococoHaulBlobExporter},
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -51,7 +51,7 @@ use xcm_builder::{
 	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount,
+	XcmExportFeeToAccount, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{ExportXcm, WithOriginFilter},
@@ -66,7 +66,7 @@ parameter_types! {
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -282,7 +282,26 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		// Just showcasing that we can direct fees from different bridges to different accounts.
+		// We use the `TreasuryAccount` as the receiver account in any case by design.
+		(
+			XcmExportFeeToAccount<
+				Self::AssetTransactor,
+				RococoGlobalConsensusNetwork,
+				AccountId,
+				TreasuryAccount,
+			>,
+			XcmExportFeeToAccount<
+				Self::AssetTransactor,
+				WococoGlobalConsensusNetwork,
+				AccountId,
+				TreasuryAccount,
+			>,
+			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		),
+	>;
 	type MessageExporter = BridgeHubRococoOrBridgeHubWococoSwitchExporter;
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;

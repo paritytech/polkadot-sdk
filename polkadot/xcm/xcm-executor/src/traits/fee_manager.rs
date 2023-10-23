@@ -16,16 +16,6 @@
 
 use xcm::prelude::*;
 
-/// Handle stuff to do with taking fees in certain XCM instructions.
-pub trait FeeManager {
-	/// Determine if a fee which would normally payable should be waived.
-	fn is_waived(origin: Option<&MultiLocation>, r: FeeReason) -> bool;
-
-	/// Do something with the fee which has been paid. Doing nothing here silently burns the
-	/// fees.
-	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>);
-}
-
 /// Context under which a fee is paid.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FeeReason {
@@ -51,9 +41,53 @@ pub enum FeeReason {
 	RequestUnlock,
 }
 
+/// Handles the fees that are taken by certain XCM instructions.
+pub trait HandleFee {
+	/// Do something with the fee which has been paid. Doing nothing here silently burns the
+	/// fees.
+	///
+	/// Returns any part of the fee that wasn't consumed.
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason)
+		-> MultiAssets;
+}
+
+impl HandleFee for () {
+	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) -> MultiAssets {
+		MultiAssets::new()
+	}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+impl HandleFee for Tuple {
+	fn handle_fee(
+		fee: MultiAssets,
+		context: Option<&XcmContext>,
+		reason: FeeReason,
+	) -> MultiAssets {
+		let mut unconsumed_fee = fee;
+		for_tuples!( #(
+			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason);
+			if unconsumed_fee.is_none() {
+				return unconsumed_fee;
+			}
+		)* );
+
+		unconsumed_fee
+	}
+}
+
+/// Handle stuff to do with taking fees in certain XCM instructions.
+pub trait FeeManager {
+	type HandleFee: HandleFee;
+
+	/// Determine if a fee should be waived.
+	fn is_waived(origin: Option<&MultiLocation>, reason: FeeReason) -> bool;
+}
+
 impl FeeManager for () {
+	type HandleFee = ();
+
 	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
 		false
 	}
-	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>) {}
 }

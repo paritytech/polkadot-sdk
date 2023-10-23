@@ -27,7 +27,7 @@ pub use asset_exchange::AssetExchange;
 mod export;
 pub use export::{export_xcm, validate_export, ExportXcm};
 mod fee_manager;
-pub use fee_manager::{FeeManager, FeeReason};
+pub use fee_manager::{FeeManager, FeeReason, HandleFee};
 mod filter_asset_location;
 #[allow(deprecated)]
 pub use filter_asset_location::FilterAssetLocation;
