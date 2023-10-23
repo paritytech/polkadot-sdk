@@ -18,7 +18,7 @@ use codec::Encode;
 use frame_support::{
 	construct_runtime, match_types, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Everything, EverythingBut, Nothing,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Equals, Everything, EverythingBut, Nothing,
 	},
 	weights::Weight,
 };
@@ -34,17 +34,17 @@ use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, FungiblesAdapter, IsConcrete, MatchedConvertedConcreteId, NoChecking,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
+	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
+	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription,
+	IsConcrete, MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
 	XcmExecutor,
 };
 
-use crate::{self as pallet_xcm, Get, TestWeightInfo};
+use crate::{self as pallet_xcm, TestWeightInfo};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -381,15 +381,8 @@ parameter_types! {
 pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<AnyNetwork, AccountId>,
-	SiblingParachainConvertsVia<ParaId, AccountId>,
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
-
-pub struct Equals<T>(PhantomData<T>);
-impl<Location: Get<MultiLocation>> Contains<MultiLocation> for Equals<Location> {
-	fn contains(t: &MultiLocation) -> bool {
-		t == &Location::get()
-	}
-}
 
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	MultiLocation,

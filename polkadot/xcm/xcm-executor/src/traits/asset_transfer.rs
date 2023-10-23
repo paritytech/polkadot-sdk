@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::traits::{ContainsPair, PalletError};
+use frame_support::traits::ContainsPair;
 use scale_info::TypeInfo;
 use sp_runtime::codec::{Decode, Encode};
 use xcm::prelude::*;
@@ -28,12 +28,7 @@ pub enum Error {
 	UnknownReserve,
 }
 
-impl PalletError for Error {
-	const MAX_ENCODED_SIZE: usize = 1;
-}
-
-/// Specify which type of asset transfer is required for a particular `(origin, asset, dest)`
-/// combination.
+/// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TransferType {
 	/// should teleport `asset` to `dest`

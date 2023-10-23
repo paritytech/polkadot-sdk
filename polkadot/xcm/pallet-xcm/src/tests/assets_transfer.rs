@@ -190,7 +190,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 //   - local reserve
 //   - destination reserve
 //   - remote reserve
-// - fee assests:
+// - fee assets:
 //   - reserve-transferred with reserve:
 //     - local reserve
 //     - destination reserve
@@ -653,8 +653,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_works
 ///    |
 ///    |  1. execute `InitiateReserveWithdraw(fees)`
 ///    |     \--> sends `WithdrawAsset(fees), ClearOrigin, BuyExecution(fees), DepositAsset`
-///    |  2. execute `TransferReserveAsset(assts)`
-///    |     \-> sends `ReserveAssetDeposited(assts), ClearOrigin, BuyExecution(fees), DepositAsset`
+///    |  2. execute `TransferReserveAsset(assets)`
+///    |     \-> sends `ReserveAssetDeposited(assets), ClearOrigin, BuyExecution(fees), DepositAsset`
 ///    \------------------------------------------>
 /// ```
 #[test]
@@ -1426,8 +1426,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 ///    |
 ///    |  1. execute `InitiateTeleport(fees)`
 ///    |     \--> sends `ReceiveTeleportedAsset(fees), .., DepositAsset(fees)`
-///    |  2. execute `TransferReserveAsset(assts)`
-///    |     \-> sends `ReserveAssetDeposited(assts), ClearOrigin, BuyExecution(fees), DepositAsset`
+///    |  2. execute `TransferReserveAsset(assets)`
+///    |     \-> sends `ReserveAssetDeposited(assets), ClearOrigin, BuyExecution(fees), DepositAsset`
 ///    \------------------------------------------>
 /// ```
 #[test]
