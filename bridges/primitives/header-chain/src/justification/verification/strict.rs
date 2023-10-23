@@ -26,7 +26,7 @@ use crate::justification::verification::{
 };
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::Header as HeaderT;
-use sp_std::collections::btree_set::BTreeSet;
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 /// Verification callbacks that reject all unknown, duplicate or redundant votes.
 struct StrictJustificationVerifier {
@@ -34,6 +34,13 @@ struct StrictJustificationVerifier {
 }
 
 impl<Header: HeaderT> JustificationVerifier<Header> for StrictJustificationVerifier {
+	fn process_duplicate_votes_ancestries(
+		&mut self,
+		_duplicate_votes_ancestries: Vec<usize>,
+	) -> Result<(), Error> {
+		Err(Error::DuplicateVotesAncestries)
+	}
+
 	fn process_redundant_vote(
 		&mut self,
 		_precommit_idx: usize,
