@@ -32,7 +32,7 @@ use primitives::{
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
+		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
@@ -94,10 +94,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
-	VersionedMultiLocation,
-};
+use xcm::{latest::prelude::*, VersionedLocation};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -398,7 +395,7 @@ parameter_types! {
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
 	// pallet instance (which sits at index 18).
-	pub TreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(18).into();
+	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(18).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -429,7 +426,7 @@ impl pallet_treasury::Config for Runtime {
 	type SpendFunds = Bounties;
 	type SpendOrigin = TreasurySpender;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedMultiLocation;
+	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
@@ -439,7 +436,7 @@ impl pallet_treasury::Config for Runtime {
 		Self::Beneficiary,
 		Self::AssetKind,
 		LocatableAssetConverter,
-		VersionedMultiLocationConverter,
+		VersionedLocationConverter,
 	>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;
@@ -2076,7 +2073,7 @@ sp_api::impl_runtime_apis! {
 			};
 
 			parameter_types! {
-				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
@@ -2090,7 +2087,7 @@ sp_api::impl_runtime_apis! {
 				type AccountIdConverter = LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					XcmConfig,
-					ExistentialDepositMultiAsset,
+					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					ToParachain,
 					(),

@@ -251,7 +251,7 @@ impl cumulus_pallet_xcm::Config for Runtime {
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(RelayLocation::get());
+	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }

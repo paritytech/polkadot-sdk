@@ -236,7 +236,7 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(DotRelayLocation::get());
+	pub FeeAssetId: AssetId = AssetId(DotRelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }

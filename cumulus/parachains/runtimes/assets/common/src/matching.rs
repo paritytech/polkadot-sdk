@@ -14,11 +14,8 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{pallet_prelude::Get, traits::ContainsPair};
-use xcm::{
-	latest::prelude::{Asset, Location},
-	prelude::*,
-};
+use frame_support::{pallet_prelude::Get, traits::{ContainsPair, Contains}};
+use xcm::prelude::*;
 
 pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
 impl<LocationValue: Get<Location>> Contains<Location> for StartsWith<LocationValue> {
@@ -79,19 +76,19 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<Location, Location>
 	}
 }
 
-/// Adapter verifies if it is allowed to receive `MultiAsset` from `MultiLocation`.
+/// Adapter verifies if it is allowed to receive `Asset` from `Location`.
 ///
-/// Note: `MultiLocation` has to be from a different global consensus.
+/// Note: `Location` has to be from a different global consensus.
 pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
 	sp_std::marker::PhantomData<(UniversalLocation, Reserves)>,
 );
 impl<
-		UniversalLocation: Get<InteriorMultiLocation>,
-		Reserves: ContainsPair<MultiAsset, MultiLocation>,
-	> ContainsPair<MultiAsset, MultiLocation>
+		UniversalLocation: Get<InteriorLocation>,
+		Reserves: ContainsPair<Asset, Location>,
+	> ContainsPair<Asset, Location>
 	for IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>
 {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let universal_source = UniversalLocation::get();
 		log::trace!(
 			target: "xcm::contains",
@@ -100,7 +97,7 @@ impl<
 		);
 
 		// check remote origin
-		let _ = match ensure_is_remote(universal_source, *origin) {
+		let _ = match ensure_is_remote(universal_source.clone(), origin.clone()) {
 			Ok(devolved) => devolved,
 			Err(_) => {
 				log::trace!(

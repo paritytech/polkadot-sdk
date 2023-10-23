@@ -21,11 +21,11 @@ use super::{
 	WeightToFee, XcmpQueue,
 };
 use assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
+	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 };
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Get, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
@@ -63,19 +63,19 @@ use cumulus_primitives_core::ParaId;
 
 parameter_types! {
 	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
-	pub const TokenLocation: MultiLocation = MultiLocation::parent();
+	pub const TokenLocation: Location = Location::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
-	pub TrustBackedAssetsPalletLocation: MultiLocation =
+	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
-	pub ForeignAssetsPalletLocation: MultiLocation =
+	pub ForeignAssetsPalletLocation: Location =
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
-	pub PoolAssetsPalletLocation: MultiLocation =
+	pub PoolAssetsPalletLocation: Location =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub const GovernanceLocation: Location = Location::parent();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
 }
 
@@ -95,7 +95,7 @@ impl Get<NetworkId> for RelayNetwork {
 	}
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -118,7 +118,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -136,7 +136,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	TrustBackedAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -153,7 +153,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `MultiLocation {parents: 1,
+		// - foreign assets from our consensus should be: `Location {parents: 1,
 		//   X*(Parachain(xyz), ..)}`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
@@ -168,7 +168,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	ForeignAssets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	ForeignAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -188,7 +188,7 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	PoolAssets,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	PoolAssetsConvertedConcreteId,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -203,20 +203,20 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 pub type AssetTransactors =
 	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
 
-/// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
-pub struct LocalAndForeignAssetsMultiLocationMatcher;
-impl MatchesLocalAndForeignAssetsMultiLocation for LocalAndForeignAssetsMultiLocationMatcher {
-	fn is_local(location: &MultiLocation) -> bool {
-		use assets_common::fungible_conversion::MatchesMultiLocation;
+/// Simple `Location` matcher for Local and Foreign asset `Location`.
+pub struct LocalAndForeignAssetsLocationMatcher;
+impl MatchesLocalAndForeignAssetsLocation for LocalAndForeignAssetsLocationMatcher {
+	fn is_local(location: &Location) -> bool {
+		use assets_common::fungible_conversion::MatchesLocation;
 		TrustBackedAssetsConvertedConcreteId::contains(location)
 	}
-	fn is_foreign(location: &MultiLocation) -> bool {
-		use assets_common::fungible_conversion::MatchesMultiLocation;
+	fn is_foreign(location: &Location) -> bool {
+		use assets_common::fungible_conversion::MatchesLocation;
 		ForeignAssetsConvertedConcreteId::contains(location)
 	}
 }
-impl Contains<MultiLocation> for LocalAndForeignAssetsMultiLocationMatcher {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for LocalAndForeignAssetsLocationMatcher {
+	fn contains(location: &Location) -> bool {
 		Self::is_local(location) || Self::is_foreign(location)
 	}
 }
@@ -251,19 +251,25 @@ parameter_types! {
 	pub XcmAssetFeesReceiver: Option<AccountId> = Authorship::author();
 }
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
-	pub type WithParentsZeroOrOne: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, .. } |
-		MultiLocation { parents: 1, .. }
-	};
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
+pub struct ParentOrSiblings;
+impl Contains<Location> for ParentOrSiblings {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [_]))
+	}
+}
+
+pub struct WithParentsZeroOrOne;
+impl Contains<Location> for WithParentsZeroOrOne {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, _) | (1, _))
+	}
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -532,12 +538,12 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 	>;
 
 parameter_types! {
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(<RococoTreasury as PalletInfoAccess>::index() as u8)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(<RococoTreasury as PalletInfoAccess>::index() as u8)).into();
 }
 
 pub struct RelayTreasury;
-impl Contains<MultiLocation> for RelayTreasury {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for RelayTreasury {
+	fn contains(location: &Location) -> bool {
 		let relay_treasury_location = RelayTreasuryLocation::get();
 		*location == relay_treasury_location
 	}
@@ -624,7 +630,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Nothing;
 }
 
-/// Converts a local signed origin into an XCM multilocation.
+/// Converts a local signed origin into an XCM location.
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
@@ -653,7 +659,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	pub ReachableDest: Option<Location> = Some(Parent.into());
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -713,35 +719,32 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Parachain(id)])
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub struct BenchmarkMultiLocationConverter<SelfParaId> {
+pub struct BenchmarkLocationConverter<SelfParaId> {
 	_phantom: sp_std::marker::PhantomData<SelfParaId>,
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<SelfParaId>
-	pallet_asset_conversion::BenchmarkHelper<MultiLocation, sp_std::boxed::Box<MultiLocation>>
-	for BenchmarkMultiLocationConverter<SelfParaId>
+	pallet_asset_conversion::BenchmarkHelper<Location, sp_std::boxed::Box<Location>>
+	for BenchmarkLocationConverter<SelfParaId>
 where
 	SelfParaId: Get<ParaId>,
 {
-	fn asset_id(asset_id: u32) -> MultiLocation {
-		MultiLocation {
-			parents: 1,
-			interior: X3(
-				Parachain(SelfParaId::get().into()),
-				PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
-				GeneralIndex(asset_id.into()),
-			),
-		}
+	fn asset_id(asset_id: u32) -> Location {
+		Location::new(1, [
+			Parachain(SelfParaId::get().into()),
+			PalletInstance(<Assets as PalletInfoAccess>::index() as u8),
+			GeneralIndex(asset_id.into()),
+		])
 	}
-	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
+	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<Location> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))
 	}
 }
@@ -758,7 +761,7 @@ pub mod bridging {
 			RuntimeFlavor::Rococo => bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			RuntimeFlavor::Wococo => bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
 		};
-		pub SiblingBridgeHub: MultiLocation = MultiLocation::new(1, X1(Parachain(SiblingBridgeHubParaId::get())));
+		pub SiblingBridgeHub: Location = Location::new(1, [Parachain(SiblingBridgeHubParaId::get())]);
 		/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
@@ -770,25 +773,25 @@ pub mod bridging {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubWococoInstance: MultiLocation = MultiLocation::new(
+			pub SiblingBridgeHubWithBridgeHubWococoInstance: Location = Location::new(
 				1,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX)
-				)
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_WOCOCO_MESSAGES_PALLET_INDEX),
+				]
 			);
 
 			pub const WococoNetwork: NetworkId = NetworkId::Wococo;
-			pub AssetHubWococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)));
-			pub WocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(WococoNetwork::get())));
+			pub AssetHubWococo: Location = Location::new(2, [GlobalConsensus(WococoNetwork::get()), Parachain(bp_asset_hub_wococo::ASSET_HUB_WOCOCO_PARACHAIN_ID)]);
+			pub WocLocation: Location = Location::new(2, [GlobalConsensus(WococoNetwork::get())]);
 
-			pub WocFromAssetHubWococo: (MultiAssetFilter, MultiLocation) = (
-				Wild(AllOf { fun: WildFungible, id: Concrete(WocLocation::get()) }),
+			pub WocFromAssetHubWococo: (AssetFilter, Location) = (
+				Wild(AllOf { fun: WildFungible, id: AssetId(WocLocation::get()) }),
 				AssetHubWococo::get()
 			);
 
 			/// Set up exporters configuration.
-			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					WococoNetwork::get(),
@@ -805,22 +808,22 @@ pub mod bridging {
 			];
 
 			/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			pub AllowedReserveTransferAssetsToAssetHubWococo: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
+			pub AllowedReserveTransferAssetsToAssetHubWococo: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
 				// allow send only ROC
-				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) }),
 				// and nothing else
 			];
 
 			/// Universal aliases
-			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
 					(SiblingBridgeHubWithBridgeHubWococoInstance::get(), GlobalConsensus(WococoNetwork::get()))
 				]
 			);
 		}
 
-		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
-			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}
@@ -861,25 +864,25 @@ pub mod bridging {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubRococoInstance: MultiLocation = MultiLocation::new(
+			pub SiblingBridgeHubWithBridgeHubRococoInstance: Location = Location::new(
 				1,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX)
-				)
+					PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_ROCOCO_MESSAGES_PALLET_INDEX),
+				]
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub AssetHubRococo: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)));
-			pub RocLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(RococoNetwork::get())));
+			pub AssetHubRococo: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
+			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 
-			pub RocFromAssetHubRococo: (MultiAssetFilter, MultiLocation) = (
-				Wild(AllOf { fun: WildFungible, id: Concrete(RocLocation::get()) }),
+			pub RocFromAssetHubRococo: (AssetFilter, Location) = (
+				Wild(AllOf { fun: WildFungible, id: AssetId(RocLocation::get()) }),
 				AssetHubRococo::get()
 			);
 
 			/// Set up exporters configuration.
-			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					RococoNetwork::get(),
@@ -896,22 +899,22 @@ pub mod bridging {
 			];
 
 			/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			pub AllowedReserveTransferAssetsToAssetHubRococo: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
+			pub AllowedReserveTransferAssetsToAssetHubRococo: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
 				// allow send only WOC
-				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) }),
 				// and nothing else
 			];
 
 			/// Universal aliases
-			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
 					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);
 		}
 
-		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
-			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}
@@ -954,7 +957,7 @@ pub mod bridging {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl BridgingBenchmarksHelper {
-		pub fn prepare_universal_alias() -> Option<(MultiLocation, Junction)> {
+		pub fn prepare_universal_alias() -> Option<(Location, Junction)> {
 			let alias =
 				to_wococo::UniversalAliases::get().into_iter().find_map(|(location, junction)| {
 					match to_wococo::SiblingBridgeHubWithBridgeHubWococoInstance::get()

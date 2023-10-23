@@ -243,7 +243,7 @@ pub struct ParentTreasuryPallet;
 impl Contains<Location> for ParentTreasuryPallet {
 	fn contains(location: &Location) -> bool {
 		let pallet_index = <WestendTreasury as PalletInfoAccess>::index() as u8;
-		matches!(location.unpack(), (1, [PalletInstance(pallet_index)]))
+		matches!(location.unpack(), (1, [PalletInstance(index)]) if *index == pallet_index)
 	}
 }
 
@@ -507,7 +507,7 @@ impl Contains<Location> for SystemParachains {
 			(1, [Parachain(ASSET_HUB_ID)]) |
 				(1, [Parachain(COLLECTIVES_ID)]) |
 				(1, [Parachain(BRIDGE_HUB_ID)])
-		);
+		)
 	}
 }
 

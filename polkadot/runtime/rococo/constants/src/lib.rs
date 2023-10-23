@@ -103,6 +103,7 @@ pub mod fee {
 /// System Parachains.
 pub mod system_parachain {
 	use xcm::latest::prelude::*;
+	use frame_support::traits::Contains;
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -113,10 +114,14 @@ pub mod system_parachain {
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
 
-	frame_support::match_types! {
-		pub type SystemParachains: impl Contains<MultiLocation> = {
-			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)) }
-		};
+	pub struct SystemParachains;
+	impl Contains<Location> for SystemParachains {
+		fn contains(location: &Location) -> bool {
+			matches!(
+				location.unpack(),
+				(0, [Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)])
+			)
+		}
 	}
 }
 
