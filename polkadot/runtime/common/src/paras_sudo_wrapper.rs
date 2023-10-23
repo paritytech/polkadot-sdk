@@ -74,7 +74,7 @@ pub mod pallet {
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			runtime_parachains::schedule_para_initialize::<T>(id, genesis, false)
+			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 			Ok(())
 		}

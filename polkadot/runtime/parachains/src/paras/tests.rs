@@ -235,7 +235,6 @@ fn schedule_para_init_rejects_empty_code() {
 					genesis_head: dummy_head_data(),
 					validation_code: ValidationCode(vec![]),
 				},
-				false,
 			),
 			Error::<Test>::CannotOnboard,
 		);
@@ -247,7 +246,6 @@ fn schedule_para_init_rejects_empty_code() {
 				genesis_head: dummy_head_data(),
 				validation_code: ValidationCode(vec![1]),
 			},
-			false
 		));
 	});
 }
@@ -1062,7 +1060,6 @@ fn para_incoming_at_session() {
 				genesis_head: vec![1].into(),
 				validation_code: code_b.clone(),
 			},
-			false,
 		));
 
 		assert_ok!(Paras::schedule_para_initialize(
@@ -1072,7 +1069,6 @@ fn para_incoming_at_session() {
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
-			false,
 		));
 
 		assert_ok!(Paras::schedule_para_initialize(
@@ -1082,7 +1078,6 @@ fn para_incoming_at_session() {
 				genesis_head: vec![3].into(),
 				validation_code: code_c.clone(),
 			},
-			false
 		));
 
 		IntoIterator::into_iter([0, 1, 2, 3])
@@ -1287,7 +1282,6 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 				genesis_head: vec![2].into(),
 				validation_code: validation_code.clone(),
 			},
-			false,
 		));
 
 		// And now at the same time upgrade `a` to `validation_code`
@@ -1345,7 +1339,6 @@ fn pvf_check_onboarding_reject_on_expiry() {
 				genesis_head: vec![2].into(),
 				validation_code: validation_code.clone(),
 			},
-			false,
 		));
 
 		// Make sure that we kicked off the PVF vote for this validation code and that the
@@ -1484,7 +1477,6 @@ fn pvf_check_submit_vote() {
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
-			false,
 		));
 
 		assert_eq!(
@@ -1895,7 +1887,6 @@ fn most_recent_context() {
 				genesis_head: vec![1].into(),
 				validation_code: validation_code.clone(),
 			},
-			false,
 		));
 		submit_super_majority_pvf_votes(&validation_code, EXPECTED_SESSION, true);
 

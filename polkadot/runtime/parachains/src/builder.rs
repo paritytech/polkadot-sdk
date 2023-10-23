@@ -355,7 +355,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					validation_code: validation_code.clone(),
 					para_kind: ParaKind::Parachain,
 				},
-				false,
 			)
 			.unwrap();
 			paras::Pallet::<T>::add_trusted_validation_code(

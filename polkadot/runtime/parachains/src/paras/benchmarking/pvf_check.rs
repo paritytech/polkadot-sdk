@@ -105,7 +105,6 @@ where
 				genesis_head: HeadData(vec![1, 2, 3, 4]),
 				validation_code: validation_code.clone(),
 			},
-			false,
 		));
 	}
 }
@@ -188,7 +187,6 @@ where
 					genesis_head: HeadData(vec![1, 2, 3, 4]),
 					validation_code: validation_code(),
 				},
-				false,
 			);
 			assert!(r.is_ok());
 		}

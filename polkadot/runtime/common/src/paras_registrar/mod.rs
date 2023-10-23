@@ -675,29 +675,17 @@ impl<T: Config> Pallet<T> {
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
-		let bypass_pre_checking = if is_rental {
+		if is_rental {
 			let now = shared::Pallet::<T>::session_index();
 			let rent_cost = T::RecurringRentCost::get().mul_ceil(deposit);
 
 			let rent_info = RentInfo { last_rent_payment: now, rent_cost };
 			RentedParas::<T>::insert(id, rent_info);
-
-			// In case the PVF hash was pre-checked before there is no need to go through the
-			// PVF pre-ckecking process again.
-			let code_hash = ValidationCode::hash(&validation_code);
-			if let Some(checked_code_hash) = paras::Pallet::<T>::checked_code_hash(&id) {
-				code_hash == checked_code_hash
-			} else {
-				false
-			}
-		} else {
-			false
-		};
+		}
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
-		let res =
-			runtime_parachains::schedule_para_initialize::<T>(id, genesis, bypass_pre_checking);
+		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
 		Self::deposit_event(Event::<T>::Registered { para_id: id, manager: who });
 		Ok(())

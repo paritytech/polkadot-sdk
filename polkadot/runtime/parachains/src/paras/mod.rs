@@ -716,7 +716,8 @@ pub mod pallet {
 	/// Corresponding code might not be found with [`CodeByHash`] since this map stores hashses even
 	/// for the removed paras.
 	///
-	/// During a runtime upgrade where the pre-checking rules change this storage map should be cleared.
+	/// During a runtime upgrade where the pre-checking rules change this storage map should be
+	/// cleared.
 	#[pallet::storage]
 	#[pallet::getter(fn checked_code_hash)]
 	pub(super) type CheckedCodeHash<T: Config> =
@@ -1711,7 +1712,6 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_para_initialize(
 		id: ParaId,
 		mut genesis_data: ParaGenesisArgs,
-		bypass_pre_checking: bool,
 	) -> DispatchResult {
 		// Make sure parachain isn't already in our system and that the onboarding parameters are
 		// valid.
@@ -1757,6 +1757,12 @@ impl<T: Config> Pallet<T> {
 		UpcomingParasGenesis::<T>::insert(&id, genesis_data);
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
+
+		let bypass_pre_checking = if let Some(checked_code_hash) = CheckedCodeHash::<T>::get(&id) {
+			validation_code_hash == checked_code_hash
+		} else {
+			false
+		};
 
 		if !bypass_pre_checking {
 			let cfg = configuration::Pallet::<T>::config();
