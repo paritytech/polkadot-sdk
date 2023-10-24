@@ -18,11 +18,10 @@
 
 use xcm::latest::prelude::*;
 
-/// Returns the delivery fees amount for pallet xcm's `teleport_assets` and
-/// `reserve_transfer_assets` extrinsics.
-/// Because it returns only a `u128`, it assumes delivery fees are only paid
-/// in one asset and that asset is known.
-pub fn transfer_assets_delivery_fees<S: SendXcm>(
+/// Returns the delivery fees amount for pallet xcm's `teleport_assets` extrinsic.
+/// Because it returns only a `u128`, it assumes delivery fees are only paid in one asset and that
+/// asset is known.
+pub fn teleport_assets_delivery_fees<S: SendXcm>(
 	assets: MultiAssets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,
@@ -30,6 +29,25 @@ pub fn transfer_assets_delivery_fees<S: SendXcm>(
 	destination: MultiLocation,
 ) -> u128 {
 	let message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
+	get_fungible_delivery_fees::<S>(destination, message)
+}
+
+/// Returns the delivery fees amount for pallet xcm's `reserve_transfer_assets` extrinsics.
+/// Because it returns only a `u128`, it assumes delivery fees are only paid in one asset and that
+/// asset is known.
+pub fn reserve_transfer_localreserve_assets_delivery_fees<S: SendXcm>(
+	assets: MultiAssets,
+	fee_asset_item: u32,
+	weight_limit: WeightLimit,
+	beneficiary: MultiLocation,
+	destination: MultiLocation,
+) -> u128 {
+	let message = reserve_transfer_localreserve_assets_dummy_message(
+		assets,
+		fee_asset_item,
+		weight_limit,
+		beneficiary,
+	);
 	get_fungible_delivery_fees::<S>(destination, message)
 }
 
@@ -76,7 +94,6 @@ pub fn pay_over_xcm_delivery_fees<S: SendXcm>(
 /// Approximates the actual message sent by the teleport extrinsic.
 /// The assets are not reanchored and the topic is a dummy one.
 /// However, it should have the same encoded size, which is what matters for delivery fees.
-/// Also has same encoded size as the one created by the reserve transfer assets extrinsic.
 fn teleport_assets_dummy_message(
 	assets: MultiAssets,
 	fee_asset_item: u32,
@@ -84,8 +101,27 @@ fn teleport_assets_dummy_message(
 	beneficiary: MultiLocation,
 ) -> Xcm<()> {
 	Xcm(vec![
-		ReceiveTeleportedAsset(assets.clone()), // Same encoded size as `ReserveAssetDeposited`
+		ReceiveTeleportedAsset(assets.clone()),
 		ClearOrigin,
+		BuyExecution { fees: assets.get(fee_asset_item as usize).unwrap().clone(), weight_limit },
+		DepositAsset { assets: Wild(AllCounted(assets.len() as u32)), beneficiary },
+		SetTopic([0u8; 32]), // Dummy topic
+	])
+}
+
+/// Approximates the actual message sent by the reserve-transfer of local reserve asset extrinsic.
+/// The assets are not reanchored and the topic is a dummy one.
+/// However, it should have the same encoded size, which is what matters for delivery fees.
+fn reserve_transfer_localreserve_assets_dummy_message(
+	assets: MultiAssets,
+	fee_asset_item: u32,
+	weight_limit: WeightLimit,
+	beneficiary: MultiLocation,
+) -> Xcm<()> {
+	Xcm(vec![
+		ReserveAssetDeposited(assets.clone()),
+		ClearOrigin,
+		SetFeesMode { jit_withdraw: false },
 		BuyExecution { fees: assets.get(fee_asset_item as usize).unwrap().clone(), weight_limit },
 		DepositAsset { assets: Wild(AllCounted(assets.len() as u32)), beneficiary },
 		SetTopic([0u8; 32]), // Dummy topic
