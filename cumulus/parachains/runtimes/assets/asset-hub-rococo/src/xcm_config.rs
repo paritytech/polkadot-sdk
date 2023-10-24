@@ -17,8 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
-	ToRococoXcmRouter, ToWococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance,
-	WeightToFee, XcmpQueue,
+	ToRococoXcmRouter, ToWestendXcmRouter, ToWococoXcmRouter, TransactionByteFee,
+	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -477,6 +477,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_uniques::Call::buy_item { .. }
 			) | RuntimeCall::ToWococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
+			) | RuntimeCall::ToWestendXcmRouter(
+				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			) | RuntimeCall::ToRococoXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			)
@@ -567,6 +569,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Users must use teleport where allowed (e.g. ROC with the Relay Chain).
 	type IsReserve = (
 		bridging::to_wococo::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_westend::IsTrustedBridgedReserveLocationForConcreteAsset,
 		bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,
 	);
 	type IsTeleporter = TrustedTeleporters;
@@ -616,8 +619,11 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
 	type MessageExporter = ();
-	type UniversalAliases =
-		(bridging::to_wococo::UniversalAliases, bridging::to_rococo::UniversalAliases);
+	type UniversalAliases = (
+		bridging::to_wococo::UniversalAliases,
+		bridging::to_rococo::UniversalAliases,
+		bridging::to_westend::UniversalAliases,
+	);
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -645,6 +651,9 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Wococo
 	// GlobalConsensus
 	ToWococoXcmRouter,
+	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
+	// GlobalConsensus
+	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Rococo
 	// GlobalConsensus
 	ToRococoXcmRouter,
@@ -767,6 +776,7 @@ pub mod bridging {
 		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
 			sp_std::vec::Vec::new().into_iter()
 			.chain(to_wococo::BridgeTable::get())
+			.chain(to_westend::BridgeTable::get())
 			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
@@ -855,6 +865,82 @@ pub mod bridging {
 				matches!(
 					call,
 					RuntimeCall::ToWococoXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
+					)
+				)
+			}
+		}
+	}
+
+	pub mod to_westend {
+		use super::*;
+
+		parameter_types! {
+			pub SiblingBridgeHubWithBridgeHubWestendInstance: MultiLocation = MultiLocation::new(
+				1,
+				X2(
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+				)
+			);
+
+			pub const WestendNetwork: NetworkId = NetworkId::Westend;
+			pub AssetHubWestend: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)));
+			pub WndLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(WestendNetwork::get())));
+
+			pub WndFromAssetHubWestend: (MultiAssetFilter, MultiLocation) = (
+				Wild(AllOf { fun: WildFungible, id: Concrete(WndLocation::get()) }),
+				AssetHubWestend::get()
+			);
+
+			/// Set up exporters configuration.
+			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					WestendNetwork::get(),
+					Some(sp_std::vec![
+						AssetHubWestend::get().interior.split_global().expect("invalid configuration for AssetHubWestend").1,
+					]),
+					SiblingBridgeHub::get(),
+					// base delivery fee to local `BridgeHub`
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+					).into())
+				)
+			];
+
+			/// Universal aliases
+			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+				sp_std::vec![
+					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+				]
+			);
+		}
+
+		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
+			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+				UniversalAliases::get().contains(alias)
+			}
+		}
+
+		/// Trusted reserve locations filter for `xcm_executor::Config::IsReserve`.
+		/// Locations from which the runtime accepts reserved assets.
+		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
+			matching::IsTrustedBridgedReserveLocationForConcreteAsset<
+				UniversalLocation,
+				(
+					// allow receive WND from AssetHubWestend
+					xcm_builder::Case<WndFromAssetHubWestend>,
+					// and nothing else
+				),
+			>;
+
+		impl Contains<RuntimeCall> for ToWestendXcmRouter {
+			fn contains(call: &RuntimeCall) -> bool {
+				matches!(
+					call,
+					RuntimeCall::ToWestendXcmRouter(
 						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 					)
 				)
