@@ -36,10 +36,20 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		/// Event dispatched when the trigger_defensive extrinsic is called.
+		DefensiveTestCall{}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -48,6 +58,14 @@ pub mod pallet {
 		#[pallet::weight(*_ratio * T::BlockWeights::get().max_block)]
 		pub fn fill_block(origin: OriginFor<T>, _ratio: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		pub fn trigger_defensive(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::deposit_event(Event::DefensiveTestCall{});
 			Ok(())
 		}
 	}
