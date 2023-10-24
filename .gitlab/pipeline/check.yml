@@ -99,12 +99,16 @@ test-rust-features-zepter:
   script:
     - |
       export RUST_LOG=remote-ext=debug,runtime=debug
-      echo "---------- Installing try-runtime-cli ----------"
-      time cargo install --locked --git https://github.com/paritytech/try-runtime-cli --tag v0.3.0
+
+      echo "---------- Downloading try-runtime CLI ----------"
+      curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+      chmod +x ./try-runtime
+
       echo "---------- Building ${PACKAGE} runtime ----------"
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
+
       echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
-      time try-runtime \
+      time ./try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}
 
