@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      # Setup protoc
+      - name: Set up Protocol Buffers
+        uses: arduino/setup-protoc@v1
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -20,7 +24,7 @@ jobs:
           target: wasm32-unknown-unknown
 
       - name: Generate docs
-        run: cargo doc -p developer-hub
+        run: cargo doc -p developer-hub -p sp-io -p sp-runtime -p frame -p frame-support --no-deps
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
