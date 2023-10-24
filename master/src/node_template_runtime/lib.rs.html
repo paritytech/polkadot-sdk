@@ -583,6 +583,7 @@
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
 <a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -836,6 +837,7 @@
 	<span class="kw">type </span>FreezeIdentifier = ();
 	<span class="kw">type </span>MaxFreezes = ();
 	<span class="kw">type </span>RuntimeHoldReason = ();
+	<span class="kw">type </span>RuntimeFreezeReason = ();
 	<span class="kw">type </span>MaxHolds = ();
 }
 

@@ -712,6 +712,50 @@
 <a href="#712" id="712">712</a>
 <a href="#713" id="713">713</a>
 <a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -729,7 +773,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use crate</span>::{limits::BlockWeights, Config, Pallet};
+</span><span class="kw">use crate</span>::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -764,8 +808,16 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
 		<span class="kw">let </span>max = T::BlockWeights::get().get(info.class).max_extrinsic;
 		<span class="kw">match </span>max {
-			<span class="prelude-val">Some</span>(max) <span class="kw">if </span>info.weight.any_gt(max) =&gt;
-				<span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()),
+			<span class="prelude-val">Some</span>(max) <span class="kw">if </span>info.weight.any_gt(max) =&gt; {
+				<span class="macro">log::debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Extrinsic {} is greater than the max extrinsic {}&quot;</span>,
+					info.weight,
+					max,
+				);
+
+				<span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
+			},
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
 		}
 	}
@@ -793,6 +845,13 @@
 		<span class="kw">let </span>added_len = len <span class="kw">as </span>u32;
 		<span class="kw">let </span>next_len = current_len.saturating_add(added_len);
 		<span class="kw">if </span>next_len &gt; <span class="kw-2">*</span>length_limit.max.get(info.class) {
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Exceeded block length limit: {} &gt; {}&quot;</span>,
+				next_len,
+				length_limit.max.get(info.class),
+			);
+
 			<span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Ok</span>(next_len)
@@ -851,17 +910,28 @@
 	</span><span class="kw">if </span>limit_per_class.max_total.is_none() &amp;&amp; limit_per_class.reserved.is_none() {
 		all_weight.accrue(extrinsic_weight, info.class)
 	} <span class="kw">else </span>{
-		all_weight
-			.checked_accrue(extrinsic_weight, info.class)
-			.map_err(|<span class="kw">_</span>| InvalidTransaction::ExhaustsResources)<span class="question-mark">?</span>;
+		all_weight.checked_accrue(extrinsic_weight, info.class).map_err(|<span class="kw">_</span>| {
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;All weight checked add overflow.&quot;</span>,
+			);
+
+			InvalidTransaction::ExhaustsResources
+		})<span class="question-mark">?</span>;
 	}
 
 	<span class="kw">let </span>per_class = <span class="kw-2">*</span>all_weight.get(info.class);
 
 	<span class="comment">// Check if we don&#39;t exceed per-class allowance
 	</span><span class="kw">match </span>limit_per_class.max_total {
-		<span class="prelude-val">Some</span>(max) <span class="kw">if </span>per_class.any_gt(max) =&gt;
-			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()),
+		<span class="prelude-val">Some</span>(max) <span class="kw">if </span>per_class.any_gt(max) =&gt; {
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Exceeded the per-class allowance.&quot;</span>,
+			);
+
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
+		},
 		<span class="comment">// There is no `max_total` limit (`None`),
 		// or we are below the limit.
 		</span><span class="kw">_ </span>=&gt; {},
@@ -872,8 +942,14 @@
 	</span><span class="kw">if </span>all_weight.total().any_gt(maximum_weight.max_block) {
 		<span class="kw">match </span>limit_per_class.reserved {
 			<span class="comment">// We are over the limit in reserved pool.
-			</span><span class="prelude-val">Some</span>(reserved) <span class="kw">if </span>per_class.any_gt(reserved) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()),
+			</span><span class="prelude-val">Some</span>(reserved) <span class="kw">if </span>per_class.any_gt(reserved) =&gt; {
+				<span class="macro">log::debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Total block weight is exceeded.&quot;</span>,
+				);
+
+				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into())
+			},
 			<span class="comment">// There is either no limit in reserved pool (`None`),
 			// or we are below the limit.
 			</span><span class="kw">_ </span>=&gt; {},
@@ -946,6 +1022,18 @@
 				current_weight.reduce(unspent, info.class);
 			})
 		}
+
+		<span class="macro">log::trace!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Used block weight: {:?}&quot;</span>,
+			<span class="kw">crate</span>::BlockWeight::&lt;T&gt;::get(),
+		);
+
+		<span class="macro">log::trace!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Used block length: {:?}&quot;</span>,
+			Pallet::&lt;T&gt;::all_extrinsics_len(),
+		);
 
 		<span class="prelude-val">Ok</span>(())
 	}

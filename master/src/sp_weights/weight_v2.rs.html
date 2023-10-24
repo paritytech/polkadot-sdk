@@ -641,9 +641,6 @@
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,13 +661,10 @@
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 <span class="kw">use </span>sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
-<span class="kw">use </span>sp_debug_derive::RuntimeDebug;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-<span class="attr">#[derive(
-	Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default,
-)]
+<span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Weight {
 	<span class="attr">#[codec(compact)]

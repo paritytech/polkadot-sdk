@@ -2858,6 +2858,7 @@
 <a href="#2858" id="2858">2858</a>
 <a href="#2859" id="2859">2859</a>
 <a href="#2860" id="2860">2860</a>
+<a href="#2861" id="2861">2861</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3372,6 +3373,8 @@
 }
 
 <span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
 	<span class="kw">type </span>MaxLocks = MaxLocks;
 	<span class="kw">type </span>MaxReserves = MaxReserves;
 	<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
@@ -3383,8 +3386,7 @@
 	<span class="kw">type </span>WeightInfo = pallet_balances::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>FreezeIdentifier = RuntimeFreezeReason;
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
-	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">2</span>&gt;;
+	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">5</span>&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

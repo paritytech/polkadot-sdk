@@ -1455,6 +1455,18 @@
 <a href="#1455" id="1455">1455</a>
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1492,6 +1504,18 @@
 </span><span class="kw">pub const </span>DEFENSIVE_OP_PUBLIC_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues&quot;</span>;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub const </span>DEFENSIVE_OP_INTERNAL_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Defensive failure has been triggered!&quot;</span>;
+
+<span class="doccomment">/// Trait to get the number of variants in any enum.
+///
+/// NOTE: can be removed once &lt;https://doc.rust-lang.org/std/mem/fn.variant_count.html&gt; is stable.
+</span><span class="kw">pub trait </span>VariantCount {
+	<span class="doccomment">/// Get the number of variants.
+	</span><span class="kw">const </span>VARIANT_COUNT: u32;
+}
+
+<span class="kw">impl </span>VariantCount <span class="kw">for </span>() {
+	<span class="kw">const </span>VARIANT_COUNT: u32 = <span class="number">0</span>;
+}
 
 <span class="doccomment">/// Generic function to mark an execution path as ONLY defensive.
 ///
