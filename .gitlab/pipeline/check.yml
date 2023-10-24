@@ -81,13 +81,13 @@ job-starter:
   script:
     - echo ok
 
-test-rust-features-zepter:
+check-rust-feature-propagation:
   stage: check
   extends:
     - .kubernetes-env
     - .test-pr-refs
   script:
-    - cargo install --locked --version 0.13.1 -q -f zepter && zepter --version
+    - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
     - zepter run check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865

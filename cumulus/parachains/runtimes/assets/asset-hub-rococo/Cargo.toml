@@ -217,6 +217,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"primitive-types/std",
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"sp-api/std",
