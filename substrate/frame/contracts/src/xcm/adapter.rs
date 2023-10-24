@@ -85,7 +85,6 @@ where
 impl<T> Xcm<T> for XcmAdapter<T>
 where
 	T: Config + pallet_xcm::Config,
-
 	<T as pallet_xcm::Config>::RuntimeCall: IsType<<T as frame_system::Config>::RuntimeCall>,
 {
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
