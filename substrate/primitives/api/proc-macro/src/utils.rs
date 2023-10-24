@@ -27,24 +27,21 @@ use syn::{
 
 /// Generates the access to the `sc_client` crate.
 pub fn generate_crate_access() -> TokenStream {
-	#[cfg(feature = "runtime")]
-	// The `frame` crate is only available with the `runtime` feature.
-	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
-		let path = format!("{}::deps::{}", name, "sp_api");
-		let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
-		return path.into_token_stream()
-	}
-
 	match crate_name("sp-api") {
 		Ok(FoundCrate::Itself) => quote!(sp_api),
 		Ok(FoundCrate::Name(renamed_name)) => {
 			let renamed_name = Ident::new(&renamed_name, Span::call_site());
 			quote!(#renamed_name)
 		},
-		Err(e) => {
-			let err = Error::new(Span::call_site(), e).to_compile_error();
-			quote!( #err )
-		},
+		Err(e) =>
+			if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+				let path = format!("{}::deps::{}", name, "sp_api");
+				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
+				quote!( #path )
+			} else {
+				let err = Error::new(Span::call_site(), e).to_compile_error();
+				quote!( #err )
+			},
 	}
 }
 
