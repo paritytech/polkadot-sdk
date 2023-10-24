@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
-use core::{borrow::Borrow, marker::PhantomData};
+use core::marker::PhantomData;
 use sp_core::blake2_256;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -33,7 +33,7 @@ impl<AccountId: From<[u8; 32]> + Clone> ConvertLocation<AccountId>
 	for ForeignChainAliasAccount<AccountId>
 {
 	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-		let entropy = match location.borrow() {
+		let entropy = match location {
 			// Used on the relay chain for sending paras that use 32 byte accounts
 			MultiLocation {
 				parents: 0,

@@ -21,20 +21,22 @@ use crate::{
 	xcm::{CallOf, WeightInfo, Xcm},
 	AccountIdOf, Box, Config, RawOrigin,
 };
-use frame_support::{pallet_prelude::DispatchResultWithPostInfo, weights::Weight};
+use frame_support::{
+	pallet_prelude::{DispatchResultWithPostInfo, IsType},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_xcm::WeightInfo as XcmWeightInfo;
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::{v3::MultiLocation, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
+pub type XcmCallOf<T> = <T as pallet_xcm::Config>::RuntimeCall;
+
 /// An implementation of the [`Xcm`] trait using pallet-xcm.
 pub struct XcmAdapter<T: pallet_xcm::Config>(sp_std::marker::PhantomData<T>);
 
-impl<T> WeightInfo for XcmAdapter<T>
-where
-	T: pallet_xcm::Config,
-{
+impl<T: pallet_xcm::Config> WeightInfo for XcmAdapter<T> {
 	fn execute() -> Weight {
 		<T as pallet_xcm::Config>::WeightInfo::execute()
 	}
@@ -49,12 +51,16 @@ where
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> XcmAdapter<T> {
+impl<T> XcmAdapter<T>
+where
+	T: Config + pallet_xcm::Config,
+	<T as pallet_xcm::Config>::RuntimeCall: IsType<<T as frame_system::Config>::RuntimeCall>,
+{
 	/// Ensure that the message is executable, by checking that it does not contain any [`Transact`]
 	/// instruction with a call that is not allowed by the CallFilter.
 	fn ensure_executable(
 		message: VersionedXcm<CallOf<T>>,
-	) -> Result<Box<VersionedXcm<CallOf<T>>>, DispatchError> {
+	) -> Result<Box<VersionedXcm<XcmCallOf<T>>>, DispatchError> {
 		use frame_support::traits::Contains;
 		use xcm::prelude::{Transact, Xcm};
 
@@ -72,11 +78,16 @@ impl<T: Config + pallet_xcm::Config> XcmAdapter<T> {
 			Ok(())
 		})?;
 
-		Ok(Box::new(VersionedXcm::from(message)))
+		Ok(Box::new(VersionedXcm::from(message.into())))
 	}
 }
 
-impl<T: Config + pallet_xcm::Config> Xcm<T> for XcmAdapter<T> {
+impl<T> Xcm<T> for XcmAdapter<T>
+where
+	T: Config + pallet_xcm::Config,
+
+	<T as pallet_xcm::Config>::RuntimeCall: IsType<<T as frame_system::Config>::RuntimeCall>,
+{
 	type QueryId = <pallet_xcm::Pallet<T> as QueryHandler>::QueryId;
 	type WeightInfo = Self;
 
