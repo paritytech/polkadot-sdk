@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main","print_help"]};
+window.SIDEBAR_ITEMS = {"fn":["get_full_version","main","print_help"]};

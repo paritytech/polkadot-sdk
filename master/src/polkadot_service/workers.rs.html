@@ -511,13 +511,6 @@
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -538,7 +531,7 @@
 
 </span><span class="kw">use </span><span class="kw">super</span>::Error;
 <span class="kw">use </span>is_executable::IsExecutable;
-<span class="kw">use </span>std::{path::PathBuf, process::Command};
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">use </span>std::sync::{Mutex, OnceLock};
@@ -595,11 +588,7 @@
 
 	<span class="comment">// Do the version check.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(node_version) = node_version {
-		<span class="kw">let </span>worker_version = Command::new(<span class="kw-2">&amp;</span>prep_worker_path).args([<span class="string">&quot;--version&quot;</span>]).output()<span class="question-mark">?</span>.stdout;
-		<span class="kw">let </span>worker_version = std::str::from_utf8(<span class="kw-2">&amp;</span>worker_version)
-			.expect(<span class="string">&quot;version is printed as a string; qed&quot;</span>)
-			.trim()
-			.to_string();
+		<span class="kw">let </span>worker_version = polkadot_node_core_pvf::get_worker_version(<span class="kw-2">&amp;</span>prep_worker_path)<span class="question-mark">?</span>;
 		<span class="kw">if </span>worker_version != node_version {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch {
 				worker_version,
@@ -607,11 +596,8 @@
 				worker_path: prep_worker_path,
 			})
 		}
-		<span class="kw">let </span>worker_version = Command::new(<span class="kw-2">&amp;</span>exec_worker_path).args([<span class="string">&quot;--version&quot;</span>]).output()<span class="question-mark">?</span>.stdout;
-		<span class="kw">let </span>worker_version = std::str::from_utf8(<span class="kw-2">&amp;</span>worker_version)
-			.expect(<span class="string">&quot;version is printed as a string; qed&quot;</span>)
-			.trim()
-			.to_string();
+
+		<span class="kw">let </span>worker_version = polkadot_node_core_pvf::get_worker_version(<span class="kw-2">&amp;</span>exec_worker_path)<span class="question-mark">?</span>;
 		<span class="kw">if </span>worker_version != node_version {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch {
 				worker_version,
@@ -735,11 +721,11 @@
 	<span class="kw">use </span>serial_test::serial;
 	<span class="kw">use </span>std::{env::temp_dir, fs, os::unix::fs::PermissionsExt, path::Path};
 
-	<span class="kw">const </span>NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;v0.1.2&quot;</span>;
+	<span class="kw">const </span>TEST_NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;v0.1.2&quot;</span>;
 
 	<span class="doccomment">/// Write a dummy executable to the path which satisfies the version check.
 	</span><span class="kw">fn </span>write_worker_exe(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
-		<span class="kw">let </span>program = get_program(NODE_VERSION);
+		<span class="kw">let </span>program = get_program(TEST_NODE_VERSION);
 		fs::write(<span class="kw-2">&amp;</span>path, program)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(fs::set_permissions(<span class="kw-2">&amp;</span>path, fs::Permissions::from_mode(<span class="number">0o744</span>))<span class="question-mark">?</span>)
 	}
@@ -807,7 +793,7 @@ echo {}
 
 			<span class="comment">// Try with provided workers path that has missing binaries.
 			</span><span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">Some</span>(p1), current_exe_path: p2, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p1 == given_workers_path &amp;&amp; p2 == exe_path
 			);
 
@@ -819,7 +805,7 @@ echo {}
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_path)<span class="question-mark">?</span>;
 			fs::set_permissions(<span class="kw-2">&amp;</span>execute_worker_path, fs::Permissions::from_mode(<span class="number">0o644</span>))<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::InvalidWorkerBinaries { prep_worker_path: p1, exec_worker_path: p2 }) <span class="kw">if </span>p1 == prepare_worker_path &amp;&amp; p2 == execute_worker_path
 			);
 
@@ -827,15 +813,15 @@ echo {}
 			</span>fs::set_permissions(<span class="kw-2">&amp;</span>prepare_worker_path, fs::Permissions::from_mode(<span class="number">0o744</span>))<span class="question-mark">?</span>;
 			fs::set_permissions(<span class="kw-2">&amp;</span>execute_worker_path, fs::Permissions::from_mode(<span class="number">0o744</span>))<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Ok</span>((p1, p2)) <span class="kw">if </span>p1 == prepare_worker_path &amp;&amp; p2 == execute_worker_path
 			);
 
 			<span class="comment">// Try with valid provided workers path that is a binary file.
-			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/puppet-worker&quot;</span>);
+			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/test-worker&quot;</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>given_workers_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Ok</span>((p1, p2)) <span class="kw">if </span>p1 == given_workers_path &amp;&amp; p2 == given_workers_path
 			);
 
@@ -850,7 +836,7 @@ echo {}
 		with_temp_dir_structure(|tempdir, exe_path| {
 			<span class="comment">// Try with both binaries missing.
 			</span><span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">None</span>, current_exe_path: p, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p == exe_path
 			);
 
@@ -858,7 +844,7 @@ echo {}
 			</span><span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-prepare-worker&quot;</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">None</span>, current_exe_path: p, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p == exe_path
 			);
 
@@ -867,7 +853,7 @@ echo {}
 			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-execute-worker&quot;</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">None</span>, current_exe_path: p, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p == exe_path
 			);
 
@@ -876,7 +862,7 @@ echo {}
 			<span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-prepare-worker&quot;</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">None</span>, current_exe_path: p, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p == exe_path
 			);
 
@@ -885,7 +871,7 @@ echo {}
 			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-execute-worker&quot;</span>);
 			write_worker_exe(execute_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Err</span>(Error::MissingWorkerBinaries { given_workers_path: <span class="prelude-val">None</span>, current_exe_path: p, workers_names: <span class="prelude-val">None </span>}) <span class="kw">if </span>p == exe_path
 			);
 
@@ -960,8 +946,8 @@ echo {}
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>prepare_worker_bin_path, bad_version)<span class="question-mark">?</span>;
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
-				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == NODE_VERSION &amp;&amp; p == prepare_worker_bin_path
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
+				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == TEST_NODE_VERSION &amp;&amp; p == prepare_worker_bin_path
 			);
 
 			<span class="comment">// Workers at lib location return bad version.
@@ -972,8 +958,8 @@ echo {}
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_lib_path)<span class="question-mark">?</span>;
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>execute_worker_lib_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
-				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == NODE_VERSION &amp;&amp; p == execute_worker_lib_path
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
+				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == TEST_NODE_VERSION &amp;&amp; p == execute_worker_lib_path
 			);
 
 			<span class="comment">// Workers at provided workers location return bad version.
@@ -983,16 +969,16 @@ echo {}
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>prepare_worker_path, bad_version)<span class="question-mark">?</span>;
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>execute_worker_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
-				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == NODE_VERSION &amp;&amp; p == prepare_worker_path
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
+				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == TEST_NODE_VERSION &amp;&amp; p == prepare_worker_path
 			);
 
 			<span class="comment">// Given worker binary returns bad version.
-			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/puppet-worker&quot;</span>);
+			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/test-worker&quot;</span>);
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>given_workers_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
-				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == NODE_VERSION &amp;&amp; p == given_workers_path
+				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
+				<span class="prelude-val">Err</span>(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) <span class="kw">if </span>v1 == bad_version &amp;&amp; v2 == TEST_NODE_VERSION &amp;&amp; p == given_workers_path
 			);
 
 			<span class="prelude-val">Ok</span>(())
@@ -1012,7 +998,7 @@ echo {}
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Ok</span>((p1, p2)) <span class="kw">if </span>p1 == prepare_worker_bin_path &amp;&amp; p2 == execute_worker_bin_path
 			);
 
@@ -1029,7 +1015,7 @@ echo {}
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_lib_path)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_matches!</span>(
-				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(NODE_VERSION.into())),
+				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
 				<span class="prelude-val">Ok</span>((p1, p2)) <span class="kw">if </span>p1 == prepare_worker_lib_path &amp;&amp; p2 == execute_worker_lib_path
 			);
 

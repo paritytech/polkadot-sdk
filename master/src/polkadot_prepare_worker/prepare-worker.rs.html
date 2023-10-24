@@ -21,6 +21,7 @@
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -43,5 +44,6 @@
 	<span class="string">&quot;prepare-worker&quot;</span>,
 	polkadot_node_core_pvf_prepare_worker::worker_entrypoint,
 	polkadot_cli::NODE_VERSION,
+	<span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_COMMIT_HASH&quot;</span>),
 );
 </code></pre></div></section></main></body></html>

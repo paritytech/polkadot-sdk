@@ -561,7 +561,7 @@
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
 		<span class="kw">let </span>commit_hash = <span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_COMMIT_HASH&quot;</span>);
-		<span class="macro">format!</span>(<span class="string">&quot;{NODE_VERSION}-{commit_hash}&quot;</span>)
+		<span class="macro">format!</span>(<span class="string">&quot;{}-{commit_hash}&quot;</span>, NODE_VERSION)
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {

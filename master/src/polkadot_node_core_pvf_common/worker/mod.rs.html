@@ -635,6 +635,16 @@
 <a href="#635" id="635">635</a>
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -672,9 +682,14 @@
 /// spawning the desired worker.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>decl_worker_main {
-	(<span class="macro-nonterminal">$expected_command</span>:expr, <span class="macro-nonterminal">$entrypoint</span>:expr, <span class="macro-nonterminal">$worker_version</span>:expr $(,)<span class="kw-2">*</span>) =&gt; {
+	(<span class="macro-nonterminal">$expected_command</span>:expr, <span class="macro-nonterminal">$entrypoint</span>:expr, <span class="macro-nonterminal">$worker_version</span>:expr, <span class="macro-nonterminal">$worker_version_hash</span>:expr $(,)<span class="kw-2">*</span>) =&gt; {
+		<span class="kw">fn </span>get_full_version() -&gt; String {
+			<span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, <span class="macro-nonterminal">$worker_version</span>, <span class="macro-nonterminal">$worker_version_hash</span>)
+		}
+
 		<span class="kw">fn </span>print_help(expected_command: <span class="kw-2">&amp;</span>str) {
 			<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, expected_command, <span class="macro-nonterminal">$worker_version</span>);
+			<span class="macro">println!</span>(<span class="string">&quot;commit: {}&quot;</span>, <span class="macro-nonterminal">$worker_version_hash</span>);
 			<span class="macro">println!</span>();
 			<span class="macro">println!</span>(<span class="string">&quot;PVF worker that is called by polkadot.&quot;</span>);
 		}
@@ -702,6 +717,11 @@
 				</span>},
 				<span class="string">&quot;--version&quot; </span>| <span class="string">&quot;-v&quot; </span>=&gt; {
 					<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro-nonterminal">$worker_version</span>);
+					<span class="kw">return
+				</span>},
+				<span class="comment">// Useful for debugging. --version is used for version checks.
+				</span><span class="string">&quot;--full-version&quot; </span>=&gt; {
+					<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, get_full_version());
 					<span class="kw">return
 				</span>},
 

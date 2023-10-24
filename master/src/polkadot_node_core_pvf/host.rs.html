@@ -2258,7 +2258,8 @@
 /// This tries to prepare the PVF by compiling the WASM blob within a timeout set in
 /// `PvfPrepData`.
 ///
-/// If the prepare job failed previously, we may retry it under certain conditions.
+/// We don&#39;t retry artifacts that previously failed preparation. We don&#39;t expect multiple
+/// pre-checking requests.
 </span><span class="kw">async fn </span>handle_precheck_pvf(
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
 	prepare_queue: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;prepare::ToQueue&gt;,
@@ -2276,8 +2277,7 @@
 			ArtifactState::Preparing { waiting_for_response, num_failures: <span class="kw">_ </span>} =&gt;
 				waiting_for_response.push(result_sender),
 			ArtifactState::FailedToProcess { error, .. } =&gt; {
-				<span class="comment">// Do not retry failed preparation if another pre-check request comes in. We do not
-				// retry pre-checking, anyway.
+				<span class="comment">// Do not retry an artifact that previously failed preparation.
 				</span><span class="kw">let _ </span>= result_sender.send(PrepareResult::Err(error.clone()));
 			},
 		}
@@ -2576,7 +2576,7 @@
 			<span class="kw">let </span>last_time_failed = SystemTime::now();
 			<span class="kw">let </span>num_failures = <span class="kw-2">*</span>num_failures + <span class="number">1</span>;
 
-			<span class="macro">gum::warn!</span>(
+			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>artifact_id,
 				time_failed = <span class="question-mark">?</span>last_time_failed,
@@ -2658,7 +2658,7 @@
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>result,
-					<span class="string">&quot;Sweeping the artifact file {}&quot;</span>,
+					<span class="string">&quot;Sweeped the artifact file {}&quot;</span>,
 					condemned.display(),
 				);
 			},

@@ -469,6 +469,7 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -754,6 +755,7 @@
 		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">&quot;RUST_LOG&quot;</span>) {
 			command.env(<span class="string">&quot;RUST_LOG&quot;</span>, value);
 		}
+
 		<span class="kw">let </span><span class="kw-2">mut </span>child = command
 			.args(extra_args)
 			.arg(<span class="string">&quot;--socket-path&quot;</span>)
