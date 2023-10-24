@@ -514,7 +514,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
+	type ReserveIdentifier = [u8; 10];
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
@@ -963,10 +963,11 @@ impl pallet_referenda::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin = EnsureSigned<AccountId>;
 	type CancelOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
-	type Slash = ();
+	type OnSlash = ();
 	type Votes = pallet_conviction_voting::VotesOf<Runtime>;
 	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -983,10 +984,11 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin = EnsureSigned<AccountId>;
 	type CancelOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
-	type Slash = ();
+	type OnSlash = ();
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -2110,7 +2112,7 @@ construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1>,
 		StateTrieMigration: pallet_state_trie_migration,
 		ChildBounties: pallet_child_bounties,
-		Referenda: pallet_referenda,
+		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>, HoldReason},
 		Remark: pallet_remark,
 		RootTesting: pallet_root_testing,
 		ConvictionVoting: pallet_conviction_voting,
@@ -2118,7 +2120,7 @@ construct_runtime!(
 		AllianceMotion: pallet_collective::<Instance3>,
 		Alliance: pallet_alliance,
 		NominationPools: pallet_nomination_pools,
-		RankedPolls: pallet_referenda::<Instance2>,
+		RankedPolls: pallet_referenda::<Instance2>::{Pallet, Call, Storage, Event<T>, HoldReason},
 		RankedCollective: pallet_ranked_collective,
 		AssetConversion: pallet_asset_conversion,
 		FastUnstake: pallet_fast_unstake,

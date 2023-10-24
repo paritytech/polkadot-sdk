@@ -21,8 +21,9 @@ use super::*;
 use crate as pallet_referenda;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
 		SortedMembers,
 	},
@@ -32,9 +33,10 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash, IdentityLookup},
-	BuildStorage, DispatchResult, Perbill,
+	BuildStorage, DispatchResult, Perbill, Permill,
 };
 
+type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -44,7 +46,8 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
-		Referenda: pallet_referenda,
+		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>, HoldReason},
+		Treasury: pallet_treasury,
 	}
 );
 
@@ -59,6 +62,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
 }
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type BlockWeights = ();
@@ -84,6 +88,38 @@ impl frame_system::Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
+
+parameter_types! {
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TreasuryPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/trsry");
+	pub TreasuryAccount: AccountId = Treasury::account_id();
+}
+impl pallet_treasury::Config for Test {
+	type PalletId = TreasuryPalletId;
+	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<u64>;
+	type RejectOrigin = frame_system::EnsureRoot<u64>;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ();
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
+	type SpendPeriod = ConstU64<2>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
+	type Burn = ();
+	type BurnDestination = (); // Just gets burned.
+	type WeightInfo = ();
+	type SpendFunds = ();
+	type MaxApprovals = ConstU32<100>;
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+}
+
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -91,6 +127,7 @@ impl pallet_preimage::Config for Test {
 	type ManagerOrigin = EnsureRoot<u64>;
 	type Consideration = ();
 }
+
 impl pallet_scheduler::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -103,24 +140,20 @@ impl pallet_scheduler::Config for Test {
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
 	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxHolds = ConstU32<128>;
 }
+
 parameter_types! {
 	pub static AlarmInterval: u64 = 1;
 }
+
 ord_parameter_types! {
 	pub const One: u64 = 1;
 	pub const Two: u64 = 2;
@@ -129,6 +162,7 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
+
 pub struct OneToFive;
 impl SortedMembers<u64> for OneToFive {
 	fn sorted_members() -> Vec<u64> {
@@ -203,6 +237,7 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
+
 impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
@@ -211,10 +246,11 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
 	type Currency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SubmitOrigin = frame_system::EnsureSigned<u64>;
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
-	type Slash = ();
+	type OnSlash = pallet_treasury::FunOnUnbalanced<Self, Balances, ()>;
 	type Votes = u32;
 	type Tally = Tally;
 	type SubmissionDeposit = ConstU64<2>;

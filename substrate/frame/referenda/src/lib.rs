@@ -69,12 +69,13 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{hold::Balanced as FnBalanced, MutateHold as FnMutateHold},
 		schedule::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime,
 		},
-		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
-		ReservableCurrency, StorePreimage, VoteTally,
+		tokens::{imbalance::OnUnbalanced, Precision},
+		LockIdentifier, OriginTrait, PollStatus, Polling, QueryPreimage, StorePreimage, VoteTally,
 	},
 	BoundedVec,
 };
@@ -95,10 +96,10 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf, Deposit,
-		InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex, ReferendumInfo,
-		ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf,
-		TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		BalanceOf, BoundedCallOf, CallOf, CreditOf, Curve, DecidingStatus, DecidingStatusOf,
+		Deposit, InsertSorted, PalletsOriginOf, ReferendumIndex, ReferendumInfo, ReferendumInfoOf,
+		ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -139,6 +140,7 @@ const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
@@ -150,6 +152,13 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// The funds are held as deposit to start the referendum's decision phase.
+		Referendum,
+	}
+
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + Sized {
 		// System level stuff.
@@ -158,10 +167,13 @@ pub mod pallet {
 			+ From<Call<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ From<frame_system::Call<Self>>;
+
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
 		/// The Scheduler.
 		type Scheduler: ScheduleAnon<
 				BlockNumberFor<Self>,
@@ -174,8 +186,14 @@ pub mod pallet {
 				PalletsOriginOf<Self>,
 				Hasher = Self::Hashing,
 			>;
+
 		/// Currency type for this pallet.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FnBalanced<Self::AccountId>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
 		// Origins and unbalances.
 		/// Origin from which proposals may be submitted.
 		type SubmitOrigin: EnsureOriginWithArg<
@@ -183,14 +201,19 @@ pub mod pallet {
 			PalletsOriginOf<Self>,
 			Success = Self::AccountId,
 		>;
+
 		/// Origin from which any vote may be cancelled.
 		type CancelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Origin from which any vote may be killed.
 		type KillOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Handler for the unbalanced reduction when slashing a preimage deposit.
-		type Slash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		type OnSlash: OnUnbalanced<CreditOf<Self, I>>;
+
 		/// The counting type for votes. Usually just balance.
 		type Votes: AtLeast32BitUnsigned + Copy + Parameter + Member + MaxEncodedLen;
+
 		/// The tallying type.
 		type Tally: VoteTally<Self::Votes, TrackIdOf<Self, I>>
 			+ Clone
@@ -536,7 +559,7 @@ pub mod pallet {
 				.take_decision_deposit()
 				.map_err(|_| Error::<T, I>::Unfinished)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			Self::refund_deposit(Some(deposit.clone()))?;
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::DecisionDepositRefunded {
 				index,
@@ -674,12 +697,12 @@ pub mod pallet {
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			let released = Self::refund_deposit(Some(deposit.clone()))?;
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
 				index,
 				who: deposit.who,
-				amount: deposit.amount,
+				amount: released,
 			};
 			Self::deposit_event(e);
 			Ok(())
@@ -1255,22 +1278,35 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		amount: BalanceOf<T, I>,
 	) -> Result<Deposit<T::AccountId, BalanceOf<T, I>>, DispatchError> {
-		T::Currency::reserve(&who, amount)?;
+		T::Currency::hold(&HoldReason::Referendum.into(), &who, amount)?;
 		Ok(Deposit { who, amount })
 	}
 
 	/// Return a deposit, if `Some`.
-	fn refund_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
+	fn refund_deposit(
+		deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>,
+	) -> Result<BalanceOf<T, I>, DispatchError> {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::Currency::unreserve(&who, amount);
+			T::Currency::release(&HoldReason::Referendum.into(), &who, amount, Precision::Exact)
+		} else {
+			Ok(Zero::zero())
 		}
 	}
 
 	/// Slash a deposit, if `Some`.
 	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
 		if let Some(Deposit { who, amount }) = deposit {
-			T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
-			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
+			let (imbalance, non_slashed) = <T::Currency as FnBalanced<T::AccountId>>::slash(
+				&HoldReason::Referendum.into(),
+				&who,
+				amount,
+			);
+			T::OnSlash::on_unbalanced(imbalance);
+
+			Self::deposit_event(Event::<T, I>::DepositSlashed {
+				who,
+				amount: amount.saturating_sub(non_slashed),
+			});
 		}
 	}
 

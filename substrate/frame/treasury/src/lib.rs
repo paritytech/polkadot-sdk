@@ -92,16 +92,22 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{Balanced, Credit},
+		tokens::Pay,
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		Get, Imbalance, OnUnbalanced, ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	PalletId,
 };
 
+use core::marker::PhantomData;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
@@ -1110,6 +1116,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
+/// Note: replace this implementation for [`FunOnUnbalanced`] once the `Currency` traits are
+/// deprecated and not used anymore.
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
 	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
 		let numeric_amount = amount.peek();
@@ -1118,5 +1126,22 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
+	}
+}
+
+/// Type that implements the [`OnUnbalanced`] trait that is supported by the fungible traits.
+pub struct FunOnUnbalanced<T, F, I>(PhantomData<(T, F, I)>);
+
+impl<T: Config<I>, F, I: 'static> OnUnbalanced<Credit<AccountIdOf<T>, F>>
+	for FunOnUnbalanced<T, F, I>
+where
+	F: Balanced<AccountIdOf<T>>,
+	F: Balanced<AccountIdOf<T>, Balance = BalanceOf<T, I>>,
+{
+	fn on_nonzero_unbalanced(amount: Credit<<T as frame_system::Config>::AccountId, F>) {
+		let peeked_amount = amount.peek();
+		let _ = F::resolve(&<Pallet<T, I>>::account_id(), amount);
+
+		<Pallet<T, I>>::deposit_event(Event::Deposit { value: peeked_amount });
 	}
 }

@@ -22,8 +22,10 @@ use crate::mock::{RefState::*, *};
 use assert_matches::assert_matches;
 use codec::Decode;
 use frame_support::{assert_noop, assert_ok, dispatch::RawOrigin, traits::Contains};
-use pallet_balances::Error as BalancesError;
-use sp_runtime::DispatchError::BadOrigin;
+use sp_runtime::{
+	DispatchError::{BadOrigin, Token},
+	TokenError::FundsUnavailable,
+};
 
 #[test]
 fn params_should_work() {
@@ -399,7 +401,6 @@ fn submit_errors_work() {
 			),
 			Error::<Test>::NoTrack
 		);
-
 		// No funds for deposit
 		assert_noop!(
 			Referenda::submit(
@@ -408,7 +409,7 @@ fn submit_errors_work() {
 				h,
 				DispatchTime::At(10),
 			),
-			BalancesError::<Test>::InsufficientBalance
+			Token(FundsUnavailable)
 		);
 	});
 }
@@ -426,8 +427,10 @@ fn decision_deposit_errors_work() {
 			h,
 			DispatchTime::At(10),
 		));
-		let e = BalancesError::<Test>::InsufficientBalance;
-		assert_noop!(Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0), e);
+		assert_noop!(
+			Referenda::place_decision_deposit(RuntimeOrigin::signed(10), 0),
+			Token(FundsUnavailable)
+		);
 
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
 		let e = Error::<Test>::HasDeposit;
