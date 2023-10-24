@@ -202,7 +202,6 @@ fn test_xcm_execute_reentrant_call() {
 		);
 
 		// assert that the Transact failed
-		// use crate::tests::{test_xcm::Outcome::Incomplete};
 		assert!(parachain::System::events().iter().any(|r| {
 			matches!(
 				r.event,
@@ -211,6 +210,9 @@ fn test_xcm_execute_reentrant_call() {
 				}),
 			)
 		}));
+
+		// Funds should not change hands as the XCM transact failed.
+		assert_eq!(ParachainBalances::free_balance(BOB),  INITIAL_BALANCE);
 	});
 }
 
