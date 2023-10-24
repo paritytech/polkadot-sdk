@@ -139,9 +139,15 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
-use log;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use ::{
+	frame_support::{
+		traits::{TryDecodeEntireStorage, TryState},
+		StorageNoopGuard,
+	},
+	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
+	log,
+	sp_runtime::TryRuntimeError,
+};
 
 #[allow(dead_code)]
 const LOG_TARGET: &str = "runtime::executive";
@@ -229,7 +235,8 @@ impl<
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
-			+ frame_support::traits::TryState<BlockNumberFor<System>>,
+			+ TryState<BlockNumberFor<System>>
+			+ TryDecodeEntireStorage,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
@@ -353,16 +360,12 @@ where
 	///
 	/// Runs the try-state code both before and after the migration function if `checks` is set to
 	/// `true`. Also, if set to `true`, it runs the `pre_upgrade` and `post_upgrade` hooks.
-	pub fn try_runtime_upgrade(
-		checks: frame_try_runtime::UpgradeCheckSelect,
-	) -> Result<Weight, TryRuntimeError> {
+	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
+			let _guard = StorageNoopGuard::default();
+			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
+				TryStateSelect::All,
 			)?;
 		}
 
@@ -370,14 +373,34 @@ where
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
+		// Nothing should modify the state after the migrations ran:
+		let _guard = StorageNoopGuard::default();
 
+		// The state must be decodable:
+		if checks.any() {
+			match AllPalletsWithSystem::try_decode_entire_state() {
+				Ok(bytes) => {
+					log::info!(
+						target: LOG_TARGET,
+						"decoded the entire state ({bytes} bytes)",
+					);
+				},
+				Err(err) => {
+					log::info!(
+						target: LOG_TARGET,
+						"failed to decode the state: {err}"
+					);
+
+					return Err("failed to decode a value from the storage".into())
+				},
+			};
+		}
+
+		// Check all storage invariants:
 		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
+			AllPalletsWithSystem::try_state(
 				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
+				TryStateSelect::All,
 			)?;
 		}
 

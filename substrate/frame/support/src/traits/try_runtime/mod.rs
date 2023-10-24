@@ -110,6 +110,11 @@ impl UpgradeCheckSelect {
 	pub fn try_state(&self) -> bool {
 		matches!(self, Self::All | Self::TryState)
 	}
+
+	/// Whether to run any checks.
+	pub fn any(&self) -> bool {
+		!matches!(self, Self::None)
+	}
 }
 
 #[cfg(feature = "std")]
