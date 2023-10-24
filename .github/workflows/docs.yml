@@ -24,7 +24,7 @@ jobs:
           target: wasm32-unknown-unknown
 
       - name: Generate docs
-        run: cargo doc -p developer-hub --no-deps
+        run: cargo doc -p developer-hub -p sp-io -p sp-runtime -p frame -p frame-support --no-deps
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
