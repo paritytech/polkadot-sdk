@@ -1142,6 +1142,15 @@
 <a href="#1142" id="1142">1142</a>
 <a href="#1143" id="1143">1143</a>
 <a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1478,7 +1487,7 @@
 		deadline: time::Instant,
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Proposal&lt;Block, PR::Proof&gt;, sp_blockchain::Error&gt; {
-		<span class="kw">let </span>propose_with_timer = time::Instant::now();
+		<span class="kw">let </span>block_timer = time::Instant::now();
 		<span class="kw">let </span><span class="kw-2">mut </span>block_builder =
 			<span class="self">self</span>.client.new_block_at(<span class="self">self</span>.parent_hash, inherent_digests, PR::ENABLED)<span class="question-mark">?</span>;
 
@@ -1487,8 +1496,7 @@
 		<span class="comment">// TODO call `after_inherents` and check if we should apply extrinsincs here
 		// &lt;https://github.com/paritytech/substrate/pull/14275/&gt;
 
-		</span><span class="kw">let </span>block_timer = time::Instant::now();
-		<span class="kw">let </span>end_reason =
+		</span><span class="kw">let </span>end_reason =
 			<span class="self">self</span>.apply_extrinsics(<span class="kw-2">&amp;mut </span>block_builder, deadline, block_size_limit).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>(block, storage_changes, proof) = block_builder.build()<span class="question-mark">?</span>.into_inner();
 		<span class="kw">let </span>block_took = block_timer.elapsed();
@@ -1496,7 +1504,7 @@
 		<span class="kw">let </span>proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))<span class="question-mark">?</span>;
 
-		<span class="self">self</span>.print_summary(<span class="kw-2">&amp;</span>block, end_reason, block_took, propose_with_timer.elapsed());
+		<span class="self">self</span>.print_summary(<span class="kw-2">&amp;</span>block, end_reason, block_took, block_timer.elapsed());
 		<span class="prelude-val">Ok</span>(Proposal { block, proof, storage_changes })
 	}
 
@@ -1587,6 +1595,11 @@
 			<span class="kw">let </span>pending_tx = <span class="kw">if let </span><span class="prelude-val">Some</span>(pending_tx) = pending_iterator.next() {
 				pending_tx
 			} <span class="kw">else </span>{
+				<span class="macro">debug!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;No more transactions, proceeding with proposing.&quot;
+				</span>);
+
 				<span class="kw">break </span>EndProposingReason::NoMoreTransactions
 			};
 
@@ -1683,19 +1696,24 @@
 	}
 
 	<span class="doccomment">/// Prints a summary and does telemetry + metrics.
+	///
+	/// - `block`: The block that was build.
+	/// - `end_reason`: Why did we stop producing the block?
+	/// - `block_took`: How long did it took to produce the actual block?
+	/// - `propose_took`: How long did the entire proposing took?
 	</span><span class="kw">fn </span>print_summary(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: <span class="kw-2">&amp;</span>Block,
 		end_reason: EndProposingReason,
 		block_took: time::Duration,
-		propose_with_took: time::Duration,
+		propose_took: time::Duration,
 	) {
 		<span class="kw">let </span>extrinsics = block.extrinsics();
 		<span class="self">self</span>.metrics.report(|metrics| {
 			metrics.number_of_transactions.set(extrinsics.len() <span class="kw">as </span>u64);
 			metrics.block_constructed.observe(block_took.as_secs_f64());
 			metrics.report_end_proposing_reason(end_reason);
-			metrics.create_block_proposal_time.observe(propose_with_took.as_secs_f64());
+			metrics.create_block_proposal_time.observe(propose_took.as_secs_f64());
 		});
 
 		<span class="kw">let </span>extrinsics_summary = <span class="kw">if </span>extrinsics.is_empty() {
