@@ -38,6 +38,11 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ Encode;
 
+		/// The type of `fungible` that is being used under the hood.
+		///
+		/// This is useful for testing and checking.
+		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
+
 		///	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);
 

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Wrapper for building with musl.
+#
+# See comments for musl-gcc in this repo.
+
+g++ "$@"

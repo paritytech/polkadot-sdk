@@ -23,11 +23,11 @@ pub trait FeeManager {
 
 	/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	fn handle_fee(fee: MultiAssets);
+	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>);
 }
 
 /// Context under which a fee is paid.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FeeReason {
 	/// When a reporting instruction is called.
 	Report,
@@ -53,7 +53,7 @@ pub enum FeeReason {
 
 impl FeeManager for () {
 	fn is_waived(_: Option<&MultiLocation>, _: FeeReason) -> bool {
-		true
+		false
 	}
-	fn handle_fee(_: MultiAssets) {}
+	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>) {}
 }
