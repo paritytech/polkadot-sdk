@@ -150,23 +150,20 @@ pub(crate) fn create_and_compile(
 	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
 	// development activities.
 	let (compact_blob_path, compact_compressed_blob_path) =
-		match build_config.outer_build_profile.wants_compact() {
-			true => {
-				let compact_blob_path = compact_wasm(
-					&project,
-					&build_config.blob_build_profile,
-					project_cargo_toml,
-					&bloaty_blob_name,
-				);
-				let compact_compressed_blob_path = compact_blob_path
-					.as_ref()
-					.and_then(|p| try_compress_blob(&p.0, &bloaty_blob_name));
-				(compact_blob_path, compact_compressed_blob_path)
-			},
-			false => {
-				println!("{}", colorize_info_message("Skipping wasm compaction and compression"));
-				(None, None)
-			},
+		if build_config.outer_build_profile.wants_compact() {
+			let compact_blob_path = compact_wasm(
+				&project,
+				&build_config.blob_build_profile,
+				project_cargo_toml,
+				&bloaty_blob_name,
+			);
+			let compact_compressed_blob_path = compact_blob_path
+				.as_ref()
+				.and_then(|p| try_compress_blob(&p.0, &bloaty_blob_name));
+			(compact_blob_path, compact_compressed_blob_path)
+		} else {
+			println!("{}", colorize_info_message("Skipping wasm compaction and compression"));
+			(None, None)
 		};
 
 	if check_for_runtime_version_section {
