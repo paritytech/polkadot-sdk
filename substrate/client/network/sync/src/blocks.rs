@@ -123,20 +123,29 @@ impl<B: BlockT> BlockCollection<B> {
 		let first_different = common + <NumberFor<B>>::one();
 		let count = (count as u32).into();
 		let (mut range, downloading) = {
+			// Iterate through the ranges in `self.blocks` looking for a range to download
 			let mut downloading_iter = self.blocks.iter().peekable();
 			let mut prev: Option<(&NumberFor<B>, &BlockRangeState<B>)> = None;
 			loop {
 				let next = downloading_iter.next();
 				break match (prev, next) {
+					// If we are already downloading this range, request it from `max_parallel`
+					// peers (`max_parallel` = 5 by default)
 					(Some((start, &BlockRangeState::Downloading { ref len, downloading })), _)
 						if downloading < max_parallel =>
 						(*start..*start + *len, downloading),
+					// If there is a gap between ranges requested, download this gap
 					(Some((start, r)), Some((next_start, _))) if *start + r.len() < *next_start =>
-						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0), // gap
-					(Some((start, r)), None) => (*start + r.len()..*start + r.len() + count, 0), /* last range */
-					(None, None) => (first_different..first_different + count, 0),               /* empty */
+						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0),
+					// Download `count` blocks after the last range requested
+					(Some((start, r)), None) => (*start + r.len()..*start + r.len() + count, 0),
+					// If there are no ranges currently requested, download `count` blocks after
+					// `common` number
+					(None, None) => (first_different..first_different + count, 0),
+					// If the first range starts above `common + 1`, download the gap at the start
 					(None, Some((start, _))) if *start > first_different =>
-						(first_different..cmp::min(first_different + count, *start), 0), /* gap at the start */
+						(first_different..cmp::min(first_different + count, *start), 0),
+					// Move on to the next range pair
 					_ => {
 						prev = next;
 						continue
@@ -430,5 +439,79 @@ mod test {
 		bc.clear_queued(&blocks[0].hash);
 		assert!(bc.blocks.is_empty());
 		assert!(bc.queued_blocks.is_empty());
+	}
+
+	#[test]
+	fn downloaded_range_is_requested_from_max_parallel_peers() {
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		// identical ranges requested from 2 peers
+		let max_parallel = 2;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+
+		// common for all peers
+		let best = 100;
+		let common = 10;
+
+		assert_eq!(
+			bc.needed_blocks(peer1, count, best, common, max_parallel, max_ahead),
+			Some(11..16)
+		);
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(11..16)
+		);
+		assert_eq!(
+			bc.needed_blocks(peer3, count, best, common, max_parallel, max_ahead),
+			Some(16..21)
+		);
+	}
+	#[test]
+	fn downloaded_range_not_requested_from_peers_with_higher_common_number() {
+		// A peer connects with a common number falling behind our best number
+		// (either a fork or lagging behind).
+		// We request a range from this peer starting at its common number + 1.
+		// Even though we have less than `max_parallel` downloads, we do not request
+		// this range from peers with a common number above the start of this range.
+
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		let max_parallel = 2;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer1_best = 20;
+		let peer1_common = 10;
+
+		// `peer2` has first different above the start of the range downloaded from `peer1`
+		let peer2 = PeerId::random();
+		let peer2_best = 20;
+		let peer2_common = 11; // first_different = 12
+
+		assert_eq!(
+			bc.needed_blocks(peer1, count, peer1_best, peer1_common, max_parallel, max_ahead),
+			Some(11..16)
+		);
+		assert_eq!(
+			bc.needed_blocks(peer2, count, peer2_best, peer2_common, max_parallel, max_ahead),
+			Some(16..21)
+		);
+	}
+
+	#[test]
+	fn gap_below_common_number_not_requested() {}
+
+	#[test]
+	fn range_at_the_end_below_common_number_not_requested() {
+		// A peer connects with common number below our best number. We request ranges from this
+		// peer, but not from other peers with common numbers above the ranges in question.
 	}
 }
