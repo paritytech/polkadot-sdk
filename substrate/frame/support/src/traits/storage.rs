@@ -93,9 +93,7 @@ pub trait StorageInstance {
 }
 
 /// Metadata about storage from the runtime.
-#[derive(
-	codec::Encode, codec::Decode, RuntimeDebug, Eq, PartialEq, Clone, scale_info::TypeInfo,
-)]
+#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, scale_info::TypeInfo)]
 pub struct StorageInfo {
 	/// Encoded string of pallet name.
 	pub pallet_name: Vec<u8>,
@@ -107,6 +105,19 @@ pub struct StorageInfo {
 	pub max_values: Option<u32>,
 	/// The maximum size of key/values in the storage, or none if no maximum specified.
 	pub max_size: Option<u32>,
+}
+
+// Uses strings instead of bytes for the debug output.
+impl core::fmt::Debug for StorageInfo {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("StorageInfo")
+			.field("pallet_name", &sp_std::str::from_utf8(&self.pallet_name))
+			.field("storage_name", &sp_std::str::from_utf8(&self.storage_name))
+			.field("prefix", &sp_std::str::from_utf8(&self.prefix))
+			.field("max_values", &self.max_values)
+			.field("max_size", &self.max_size)
+			.finish()
+	}
 }
 
 /// A trait to give information about storage.
