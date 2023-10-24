@@ -744,7 +744,6 @@
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1099,8 +1098,7 @@
 						<span class="prelude-val">None
 					</span>},
 					<span class="prelude-val">Ok</span>((pos_in_claimqueue, pe)) =&gt; {
-						<span class="comment">// is this correct?
-						</span>availability_cores[core_idx.<span class="number">0 </span><span class="kw">as </span>usize] = CoreOccupied::Paras(pe);
+						availability_cores[core_idx.<span class="number">0 </span><span class="kw">as </span>usize] = CoreOccupied::Paras(pe);
 
 						<span class="prelude-val">Some</span>((<span class="kw-2">*</span>core_idx, pos_in_claimqueue))
 					},
