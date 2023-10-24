@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/pallet_ui/call_feeless_invalid_closure_arg3.rs:33:31
+   |
+32 |         #[pallet::feeless_if(|_: &AccountIdFor<T>, _s: &u32| -> bool { true })]
+   |                              ------------------------------------------------ arguments to this function are incorrect
+33 |         pub fn foo(_: OriginFor<T>, _something: u64) -> DispatchResult { Ok(()) }
+   |                                     ^^^^^^^^^^ expected `&u32`, found `&u64`
+   |
+   = note: expected reference `&u32`
+              found reference `&u64`
+note: closure parameter defined here
+  --> tests/pallet_ui/call_feeless_invalid_closure_arg3.rs:32:46
+   |
+32 |         #[pallet::feeless_if(|_: &AccountIdFor<T>, _s: &u32| -> bool { true })]
+   |                                                    ^^^^^^^^
