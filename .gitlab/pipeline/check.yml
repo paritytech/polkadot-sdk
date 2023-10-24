@@ -85,7 +85,7 @@ check-rust-feature-propagation:
   stage: check
   extends:
     - .kubernetes-env
-    - .test-pr-refs
+    - .common-refs
   script:
     - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
     - zepter run check
