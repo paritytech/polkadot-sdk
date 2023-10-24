@@ -19,24 +19,26 @@
 
 use super::*;
 
+use crate::Pallet as Democracy;
 use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
+	traits::{fungible::Mutate, Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Bounded, BoundedVec};
 
-use crate::Pallet as Democracy;
-
 const REFERENDUM_COUNT_HINT: u32 = 10;
 const SEED: u32 = 0;
 
-fn funded_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
+fn funded_account<T: Config + pallet_balances::Config>(
+	name: &'static str,
+	index: u32,
+) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	// Give the account half of the maximum value of the `Balance` type.
-	// Otherwise some transfers will fail with an overflow error.
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
+	// but not too big to make the total supply overflow.
+	T::Fungible::set_balance(&caller, BalanceOf::<T>::max_value() / 10_000u32.into());
 	caller
 }
 
@@ -45,7 +47,7 @@ fn make_proposal<T: Config>(n: u32) -> BoundedCallOf<T> {
 	<T as Config>::Preimages::bound(call).unwrap()
 }
 
-fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
+fn add_proposal<T: Config + pallet_balances::Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
@@ -94,7 +96,61 @@ fn note_preimage<T: Config>() -> T::Hash {
 	hash
 }
 
+use frame_support::pallet_prelude::IsType;
 benchmarks! {
+	where_clause { where
+		T: Config + pallet_balances::Config,
+		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
+	}
+
+	// Benchmark the cost of a noop v2 migration.
+	v2_migration_base {
+		use frame_support::pallet_prelude::StorageVersion;
+		use frame_support::traits::OnRuntimeUpgrade;
+		StorageVersion::new(1).put::<Pallet<T>>();
+	}:{
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::on_runtime_upgrade();
+	} verify {
+		assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
+	}
+
+	// Benchmark the cost of reading the proposals from storage.
+	v2_migration_proposals_count {
+		let c = 0 .. T::MaxProposals::get();
+		let depositors: Vec<_> = (0..T::MaxDeposits::get()).map(|i| funded_account::<T>("caller", i)).collect();
+		for i in 0 .. T::MaxProposals::get() {
+			migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(i, depositors.clone());
+		}
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits_and_proposal_count();
+	}
+
+	// Benchmark the cost of translating a reserved balance of a proposal deposit into a held balance.
+	v2_migration_translate_reserve_to_hold {
+		let depositor = funded_account::<T>("backer", 0);
+		let deposit = T::MinimumDeposit::get().into();
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(0u32, vec![depositor.clone()]);
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_reserve_to_hold(&depositor, deposit);
+	}
+
+	// Benchmark the cost of reading the next vote from storage.
+	v2_migration_votes_read_next {
+		let voter = funded_account::<T>("voter", 0);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
+	}: {
+		migrations::v2::old::VotingOf::<T>::iter().next();
+	}
+
+	// Benchmark the cost of translating a locked vote balance into a frozen balance.
+	v2_migration_translate_lock_to_freeze {
+		let voter = funded_account::<T>("voter", 0);
+		let balance = 1_000u32.into();
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_lock_to_freeze(voter, balance);
+	}
+
 	propose {
 		let p = T::MaxProposals::get();
 
