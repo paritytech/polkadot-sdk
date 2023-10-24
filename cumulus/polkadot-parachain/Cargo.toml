@@ -25,6 +25,7 @@ rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parac
 shell-runtime = { path = "../parachains/runtimes/starters/shell" }
 glutton-westend-runtime = { path = "../parachains/runtimes/glutton/glutton-westend" }
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
+asset-hub-rococo-runtime = { path = "../parachains/runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
 collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
@@ -102,6 +103,7 @@ wait-timeout = "0.2"
 [features]
 default = []
 runtime-benchmarks = [
+	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"collectives-westend-runtime/runtime-benchmarks",
@@ -119,6 +121,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
+	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
 	"collectives-westend-runtime/try-runtime",

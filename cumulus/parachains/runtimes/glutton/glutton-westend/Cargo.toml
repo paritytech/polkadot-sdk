@@ -1,12 +1,13 @@
 [package]
 name = "glutton-westend-runtime"
 version = "1.0.0"
+description = "Glutton parachain runtime."
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}

@@ -19,6 +19,7 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
@@ -41,6 +42,7 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 parachains-common = { path = "../../../common" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
+asset-hub-rococo-runtime = { path = "../../../runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
 collectives-westend-runtime = { path = "../../../runtimes/collectives/collectives-westend" }
 bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
@@ -54,6 +56,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 
 [features]
 runtime-benchmarks = [
+	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
@@ -62,6 +65,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",

@@ -320,6 +320,33 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
 		})
 	}
 
+	fn set_item_metadata(
+		who: Option<&T::AccountId>,
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		data: &[u8],
+	) -> DispatchResult {
+		Self::do_set_item_metadata(
+			who.cloned(),
+			*collection,
+			*item,
+			Self::construct_metadata(data.to_vec())?,
+			None,
+		)
+	}
+
+	fn set_collection_metadata(
+		who: Option<&T::AccountId>,
+		collection: &Self::CollectionId,
+		data: &[u8],
+	) -> DispatchResult {
+		Self::do_set_collection_metadata(
+			who.cloned(),
+			*collection,
+			Self::construct_metadata(data.to_vec())?,
+		)
+	}
+
 	fn clear_attribute(
 		collection: &Self::CollectionId,
 		item: &Self::ItemId,
@@ -362,6 +389,21 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
 			<Self as Mutate<T::AccountId, ItemConfig>>::clear_collection_attribute(collection, k)
 		})
 	}
+
+	fn clear_item_metadata(
+		who: Option<&T::AccountId>,
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+	) -> DispatchResult {
+		Self::do_clear_item_metadata(who.cloned(), *collection, *item)
+	}
+
+	fn clear_collection_metadata(
+		who: Option<&T::AccountId>,
+		collection: &Self::CollectionId,
+	) -> DispatchResult {
+		Self::do_clear_collection_metadata(who.cloned(), *collection)
+	}
 }
 
 impl<T: Config<I>, I: 'static> Transfer<T::AccountId> for Pallet<T, I> {
@@ -395,6 +437,31 @@ impl<T: Config<I>, I: 'static> Transfer<T::AccountId> for Pallet<T, I> {
 			item,
 			&PalletAttributes::<Self::CollectionId>::TransferDisabled.encode(),
 		)
+	}
+}
+
+impl<T: Config<I>, I: 'static> Trading<T::AccountId, ItemPrice<T, I>> for Pallet<T, I> {
+	fn buy_item(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		buyer: &T::AccountId,
+		bid_price: &ItemPrice<T, I>,
+	) -> DispatchResult {
+		Self::do_buy_item(*collection, *item, buyer.clone(), *bid_price)
+	}
+
+	fn set_price(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		sender: &T::AccountId,
+		price: Option<ItemPrice<T, I>>,
+		whitelisted_buyer: Option<T::AccountId>,
+	) -> DispatchResult {
+		Self::do_set_price(*collection, *item, sender.clone(), price, whitelisted_buyer)
+	}
+
+	fn item_price(collection: &Self::CollectionId, item: &Self::ItemId) -> Option<ItemPrice<T, I>> {
+		ItemPriceOf::<T, I>::get(collection, item).map(|a| a.0)
 	}
 }
 

@@ -13,7 +13,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 bitvec = { version = "1.0.0", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false}
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}

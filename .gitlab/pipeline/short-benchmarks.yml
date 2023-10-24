@@ -49,6 +49,11 @@ short-benchmark-westend: &short-bench
   script:
     - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
+short-benchmark-asset-hub-rococo:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: asset-hub-rococo-dev
+
 short-benchmark-asset-hub-westend:
   <<: *short-bench-cumulus
   variables:
