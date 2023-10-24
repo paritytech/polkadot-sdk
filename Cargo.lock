@@ -3892,7 +3892,6 @@ dependencies = [
  "sc-service",
  "sc-tracing",
  "sc-utils",
- "schnellru",
  "sp-api",
  "sp-consensus",
  "sp-consensus-babe",
@@ -12185,9 +12184,11 @@ dependencies = [
  "always-assert",
  "assert_matches",
  "cfg-if",
+ "criterion 0.4.0",
  "futures",
  "futures-timer",
  "hex-literal",
+ "is_executable",
  "libc",
  "parity-scale-codec",
  "pin-project",
@@ -12201,11 +12202,11 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand 0.8.5",
+ "rococo-runtime",
  "slotmap",
  "sp-core",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface",
- "substrate-build-script-utils",
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
@@ -12527,7 +12528,6 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "sc-client-api",
- "schnellru",
  "sp-api",
  "sp-core",
  "tikv-jemalloc-ctl",
@@ -19525,9 +19525,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-opt"
-version = "0.114.1"
+version = "0.116.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d005a95f934878a1fb446a816d51c3601a0120ff929005ba3bab3c749cfd1c7"
+checksum = "fc942673e7684671f0c5708fc18993569d184265fd5223bb51fc8e5b9b6cfd52"
 dependencies = [
  "anyhow",
  "libc",
@@ -19541,9 +19541,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-opt-cxx-sys"
-version = "0.114.1"
+version = "0.116.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d04e240598162810fad3b2e96fa0dec6dba1eb65a03f3bd99a9248ab8b56caa"
+checksum = "8c57b28207aa724318fcec6575fe74803c23f6f266fce10cbc9f3f116762f12e"
 dependencies = [
  "anyhow",
  "cxx",
@@ -19553,9 +19553,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-opt-sys"
-version = "0.114.1"
+version = "0.116.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2efd2aaca519d64098c4faefc8b7433a97ed511caf4c9e516384eb6aef1ff4f9"
+checksum = "8a1cce564dc768dacbdb718fc29df2dba80bd21cb47d8f77ae7e3d95ceb98cbe"
 dependencies = [
  "anyhow",
  "cc",
