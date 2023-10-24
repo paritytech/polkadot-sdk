@@ -1,8 +1,8 @@
 const fs = require('fs-extra');
 const yargs = require('yargs');
+const { resolve } = require('path');
 const { ApiPromise, WsProvider } = require('@polkadot/api');
-const { hexToString } = require('@polkadot/util');
-var { xxhashAsHex } = require('@polkadot/util-crypto');
+const { xxhashAsHex } = require('@polkadot/util-crypto');
 
 
 // Open chain_spec raw file
@@ -23,34 +23,26 @@ const connect = async (endpoint) => {
 	return await ApiPromise.create({ provider: wsProvider });
 }
 
-const queryIdentityOf = async (api) => {
-	let allEntries = await api.query.identity.identityOf.entries();
+const migrateData = async (path, key, data, api) => {
+	let absolutePath = resolve('.', path);
+	let migrationFunction;
 
-	let totalIdentities = 0;
-	let identitiesWithAdditional = 0;
-	let additionalKeys = {}
+	try {
+		migrationFunction = await import(absolutePath);
+	} catch (e) {
+		console.log(`No data migration file can be found in ${path}`, e);
+		process.exit(1);
+	}
 
-	allEntries.forEach(([a, b]) => {
-		JSON.parse(b).info.additional.forEach(([key, value]) => {
-			identitiesWithAdditional += 1;
-
-			let keyString = hexToString(key.raw)
-			let valueString = hexToString(value.raw)
-
-			// console.log(keyString, valueString)
-
-			if (additionalKeys[keyString] !== undefined) {
-				additionalKeys[keyString] += 1
-			} else {
-				additionalKeys[keyString] = 1
-			}
-		});
-		totalIdentities += 1;
-	});
-
-	console.log(additionalKeys)
-	console.log("Total", totalIdentities);
-	console.log("With additional", identitiesWithAdditional);
+	if (typeof migrationFunction.default === 'function') {
+		let migratedValue = await migrationFunction.default(key, data, api);
+		return migratedValue;
+	} else {
+		console.log(
+			`Data migration function must be default exported from the file ${path}`
+		);
+		process.exit(1);
+	}
 }
 
 // Query all storage under a certain key
@@ -64,8 +56,9 @@ const queryStorage = async (api, argv) => {
 	console.log("Querying pallet state...")
 
 	for (let key of keys) {
-		let value = await api.rpc.state.getStorage(key);
-		storageKeyValues[key] = value
+		let data = await api.rpc.state.getStorage(key);
+		data = await migrateData(argv.migration, key, data, api)
+		storageKeyValues[key] = data
 	}
 
 	return storageKeyValues;
@@ -92,7 +85,7 @@ const run = async () => {
 	.option('chain', {
 		alias: 'c',
 		describe: 'Endpoint to the chain to query sorage',
-		demandOption: true, // Requires the --file option
+		demandOption: true, // Requires the --chain option
 		type: 'string',
 	})
 	.option('file', {
@@ -111,6 +104,12 @@ const run = async () => {
 		describe: 'Storage key',
 		type: 'string',
 	})
+	.option('migration', {
+		alias: 'm',
+		describe: 'Path to the migration file function',
+		demandOption: true, // Requires the --migration option
+		type: 'string',
+	})
 	.check((args) => {
 		if (!args.pallet && !args.key) {
 			throw new Error('Please provide either --pallet or --key option.');
@@ -125,8 +124,6 @@ const run = async () => {
 	let jsonData = openFile(filePath);
 
 	let api = await connect(argv.chain);
-
-	// queryIdentityOf(api);
 
 	let storageKeyValues = await queryStorage(api, argv);
 
