@@ -20,7 +20,6 @@ use frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
-use sp_runtime::traits::TryConvert;
 use sp_std::{marker::PhantomData, vec};
 use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
@@ -34,59 +33,26 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 /// the XCM endpoint on which the asset to be paid resides and an XCM `AssetId` to identify the
 /// specific asset at that endpoint.
 ///
-/// This relies on the XCM `TransferAsset` instruction. A trait `BeneficiaryRefToLocation` must be
-/// provided in order to convert the `Beneficiary` reference into a location usable by
-/// `TransferAsset`.
-///
 /// `PayOverXcm::pay` is asynchronous, and returns a `QueryId` which can then be used in
 /// `check_payment` to check the status of the XCM transaction.
 ///
-/// See also `PayAccountId32OverXcm` which is similar to this except that `BeneficiaryRefToLocation`
-/// need not be supplied and `Beneficiary` must implement `Into<[u8; 32]>`.
-pub struct PayOverXcm<
-	Interior,
-	Router,
-	Querier,
-	Timeout,
-	Beneficiary,
-	AssetKind,
-	AssetKindToLocatableAsset,
-	BeneficiaryRefToLocation,
->(
-	PhantomData<(
-		Interior,
-		Router,
-		Querier,
-		Timeout,
-		Beneficiary,
-		AssetKind,
-		AssetKindToLocatableAsset,
-		BeneficiaryRefToLocation,
-	)>,
+/// Only payment in fungible assets is handled.
+///
+/// The last junction of the beneficiary location will be used as the account and
+/// the earlier junctions as the destination.
+pub struct PayOverXcm<Interior, Router, Querier, Timeout>(
+	PhantomData<(Interior, Router, Querier, Timeout)>,
 );
 impl<
 		Interior: Get<InteriorMultiLocation>,
 		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
-		Beneficiary: Clone,
-		AssetKind,
-		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
-		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, MultiLocation>,
 	> Pay
-	for PayOverXcm<
-		Interior,
-		Router,
-		Querier,
-		Timeout,
-		Beneficiary,
-		AssetKind,
-		AssetKindToLocatableAsset,
-		BeneficiaryRefToLocation,
-	>
+	for PayOverXcm<Interior, Router, Querier, Timeout>
 {
-	type Beneficiary = Beneficiary;
-	type AssetKind = AssetKind;
+	type Beneficiary = MultiLocation;
+	type AssetKind = AssetId;
 	type Balance = u128;
 	type Id = Querier::QueryId;
 	type Error = xcm::latest::Error;
@@ -96,16 +62,15 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
-		let LocatableAssetId { asset_id, location: asset_location } = locatable;
-		let destination = Querier::UniversalLocation::get()
-			.invert_target(&asset_location)
+		let (destination, beneficiary) = who.split_last_interior();
+		let beneficiary: MultiLocation = beneficiary
+			.ok_or(Self::Error::InvalidLocation)?
+			.into();
+		let return_destination = Querier::UniversalLocation::get()
+			.invert_target(&destination)
 			.map_err(|()| Self::Error::LocationNotInvertible)?;
-		let beneficiary = BeneficiaryRefToLocation::try_convert(&who)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
 
-		let query_id = Querier::new_query(asset_location, Timeout::get(), Interior::get());
+		let query_id = Querier::new_query(destination, Timeout::get(), Interior::get());
 
 		let message = Xcm(vec![
 			DescendOrigin(Interior::get()),
@@ -113,19 +78,18 @@ impl<
 			SetAppendix(Xcm(vec![
 				SetFeesMode { jit_withdraw: true },
 				ReportError(QueryResponseInfo {
-					destination,
+					destination: return_destination,
 					query_id,
 					max_weight: Weight::zero(),
 				}),
 			])),
 			TransferAsset {
 				beneficiary,
-				assets: vec![MultiAsset { id: asset_id, fun: Fungibility::Fungible(amount) }]
-					.into(),
+				assets: (asset_kind, amount).into(),
 			},
 		]);
 
-		let (ticket, _) = Router::validate(&mut Some(asset_location), &mut Some(message))?;
+		let (ticket, _) = Router::validate(&mut Some(destination), &mut Some(message))?;
 		Router::deliver(ticket)?;
 		Ok(query_id.into())
 	}
@@ -153,58 +117,5 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		Querier::expect_response(id, Response::ExecutionResult(None));
-	}
-}
-
-/// Specialization of the [`PayOverXcm`] trait to allow `[u8; 32]`-based `AccountId` values to be
-/// paid on a remote chain.
-///
-/// Implementation of the [`frame_support::traits::tokens::Pay`] trait, to allow
-/// for XCM payments of a given `Balance` of `AssetKind` existing on a `DestinationChain` under
-/// ownership of some `Interior` location of the local chain to a particular `Beneficiary`.
-///
-/// This relies on the XCM `TransferAsset` instruction. `Beneficiary` must implement
-/// `Into<[u8; 32]>` (as 32-byte `AccountId`s generally do), and the actual XCM beneficiary will be
-/// the location consisting of a single `AccountId32` junction with an appropriate account and no
-/// specific network.
-///
-/// `PayOverXcm::pay` is asynchronous, and returns a `QueryId` which can then be used in
-/// `check_payment` to check the status of the XCM transaction.
-pub type PayAccountId32OnChainOverXcm<
-	DestinationChain,
-	Interior,
-	Router,
-	Querier,
-	Timeout,
-	Beneficiary,
-	AssetKind,
-> = PayOverXcm<
-	Interior,
-	Router,
-	Querier,
-	Timeout,
-	Beneficiary,
-	AssetKind,
-	crate::AliasesIntoAccountId32<(), Beneficiary>,
-	FixedLocation<DestinationChain>,
->;
-
-/// Simple struct which contains both an XCM `location` and `asset_id` to identify an asset which
-/// exists on some chain.
-pub struct LocatableAssetId {
-	/// The asset's ID.
-	pub asset_id: AssetId,
-	/// The (relative) location in which the asset ID is meaningful.
-	pub location: MultiLocation,
-}
-
-/// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
-/// value using a fixed `Location` for the `location` field.
-pub struct FixedLocation<Location>(sp_std::marker::PhantomData<Location>);
-impl<Location: Get<MultiLocation>, AssetKind: Into<AssetId>> TryConvert<AssetKind, LocatableAssetId>
-	for FixedLocation<Location>
-{
-	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
-		Ok(LocatableAssetId { asset_id: value.into(), location: Location::get() })
 	}
 }

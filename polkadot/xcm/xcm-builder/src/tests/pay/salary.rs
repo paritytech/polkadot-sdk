@@ -22,7 +22,7 @@ use frame_support::{
 	assert_ok,
 	traits::{tokens::GetSalary, RankedMembers},
 };
-use sp_runtime::{traits::ConvertToValue, DispatchResult};
+use sp_runtime::{DispatchResult, traits::Convert};
 
 parameter_types! {
 	pub Interior: InteriorMultiLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
@@ -30,7 +30,6 @@ parameter_types! {
 	pub AssetHub: MultiLocation = (Parent, Parachain(1)).into();
 	pub AssetIdGeneralIndex: u128 = 100;
 	pub AssetHubAssetId: AssetId = (PalletInstance(1), GeneralIndex(AssetIdGeneralIndex::get())).into();
-	pub LocatableAsset: LocatableAssetId = LocatableAssetId { asset_id: AssetHubAssetId::get(), location: AssetHub::get() };
 }
 
 type SalaryPayOverXcm = PayOverXcm<
@@ -38,10 +37,6 @@ type SalaryPayOverXcm = PayOverXcm<
 	TestMessageSender,
 	TestQueryHandler<TestConfig, BlockNumber>,
 	Timeout,
-	AccountId,
-	(),
-	ConvertToValue<LocatableAsset>,
-	AliasesIntoAccountId32<AnyNetwork, AccountId>,
 >;
 
 type Rank = u128;
@@ -95,6 +90,7 @@ parameter_types! {
 	pub const PayoutPeriod: BlockNumber = 2;
 	pub const FixedSalaryAmount: Balance = 10 * UNITS;
 	pub static Budget: Balance = FixedSalaryAmount::get();
+	pub const Network: Option<NetworkId> = None;
 }
 
 pub struct FixedSalary;
@@ -104,9 +100,23 @@ impl GetSalary<Rank, AccountId, Balance> for FixedSalary {
 	}
 }
 
+pub struct AccountToAccountInAssetHub;
+impl Convert<AccountId, MultiLocation> for AccountToAccountInAssetHub {
+	fn convert(who: AccountId) -> MultiLocation {
+		(
+			Parent,
+			Parachain(1000),
+			AccountId32 { id: who.into(), network: None },
+		).into()
+	}
+}
+
 impl pallet_salary::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type AssetKind = AssetId;
+	type SalaryAsset = AssetHubAssetId;
+	type AccountToBeneficiaryConverter = AccountToAccountInAssetHub;
 	type Paymaster = SalaryPayOverXcm;
 	type Members = TestClub;
 	type Salary = FixedSalary;
@@ -116,28 +126,33 @@ impl pallet_salary::Config for Test {
 }
 
 /// Scenario:
-/// The salary pallet is used to pay a member over XCM.
+/// The salary pallet is used to pay a member of a ranked collective over XCM.
 /// The correct XCM message is generated and when executed in the remote chain,
 /// the member receives the salary.
 #[test]
 fn salary_pay_over_xcm_works() {
-	let recipient = AccountId::new([1u8; 32]);
+	let recipient_account = AccountId::new([1u8; 32]);
+	// What the location is for this account:
+	// let recipient_location: MultiLocation = AssetHub::get()
+	// 	.pushed_with_interior(
+	// 		AccountId32 { id: recipient_account.clone().into(), network: None }
+	// 	).unwrap();
 
 	new_test_ext().execute_with(|| {
 		// Set the recipient as a member of a ranked collective
-		set_rank(recipient.clone(), 1);
+		set_rank(recipient_account.clone(), 1);
 
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient.clone()), 0);
+		assert_eq!(mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient_account.clone()), 0);
 
 		// Use salary pallet to call `PayOverXcm::pay`
-		assert_ok!(Salary::init(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::init(RuntimeOrigin::signed(recipient_account.clone())));
 		run_to(5);
-		assert_ok!(Salary::induct(RuntimeOrigin::signed(recipient.clone())));
-		assert_ok!(Salary::bump(RuntimeOrigin::signed(recipient.clone())));
-		assert_ok!(Salary::register(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(recipient_account.clone())));
+		assert_ok!(Salary::bump(RuntimeOrigin::signed(recipient_account.clone())));
+		assert_ok!(Salary::register(RuntimeOrigin::signed(recipient_account.clone())));
 		run_to(7);
-		assert_ok!(Salary::payout(RuntimeOrigin::signed(recipient.clone())));
+		assert_ok!(Salary::payout(RuntimeOrigin::signed(recipient_account.clone())));
 
 		// Get message from mock transport layer
 		let (_, message, hash) = sent_xcm()[0].clone();
@@ -158,7 +173,7 @@ fn salary_pay_over_xcm_works() {
 			])),
 			TransferAsset {
 				assets: (AssetHubAssetId::get(), FixedSalaryAmount::get()).into(),
-				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
+				beneficiary: AccountId32 { id: recipient_account.clone().into(), network: None }.into(),
 			},
 		]);
 		assert_eq!(message, expected_message);
@@ -168,7 +183,7 @@ fn salary_pay_over_xcm_works() {
 
 		// Recipient receives the payment
 		assert_eq!(
-			mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient),
+			mock::Assets::balance(AssetIdGeneralIndex::get(), &recipient_account),
 			FixedSalaryAmount::get()
 		);
 	});

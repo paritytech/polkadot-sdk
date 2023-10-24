@@ -23,7 +23,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::{Perbill, RuntimeDebug, traits::Convert};
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
@@ -103,9 +103,20 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// How assets are specified
+		type AssetKind;
+
+		/// The concrete asset used to pay salaries
+		type SalaryAsset: Get<Self::AssetKind>;
+
+		// TODO: The best would be to not require `AccountId` all over the place
+		/// How to convert from `Self::AccountId` to `Self::Paymaster::Beneficiary`
+		/// Most of the time this will be `()`
+		type AccountToBeneficiaryConverter: Convert<<Self as frame_system::Config>::AccountId, <Self::Paymaster as Pay>::Beneficiary>;
+
 		/// Means by which we can make payments to accounts. This also defines the currency and the
 		/// balance which we use to denote that currency.
-		type Paymaster: Pay<Beneficiary = <Self as frame_system::Config>::AccountId, AssetKind = ()>;
+		type Paymaster: Pay<AssetKind = Self::AssetKind>;
 
 		/// The current membership of payees.
 		type Members: RankedMembers<AccountId = <Self as frame_system::Config>::AccountId>;
@@ -435,7 +446,7 @@ pub mod pallet {
 			claimant.last_active = status.cycle_index;
 
 			let id =
-				T::Paymaster::pay(&beneficiary, (), payout).map_err(|_| Error::<T, I>::PayError)?;
+				T::Paymaster::pay(&T::AccountToBeneficiaryConverter::convert(beneficiary.clone()), T::SalaryAsset::get(), payout).map_err(|_| Error::<T, I>::PayError)?;
 
 			claimant.status = Attempted { registered, id, amount: payout };
 

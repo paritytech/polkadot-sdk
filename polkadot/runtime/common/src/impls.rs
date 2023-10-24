@@ -18,10 +18,8 @@
 
 use crate::NegativeImbalance;
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
-use xcm::VersionedMultiLocation;
+use sp_runtime::Perquintill;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
@@ -100,55 +98,8 @@ pub fn era_payout(
 	(staking_payout, rest)
 }
 
-/// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
-/// an asset which exists on some chain.
-#[derive(
-	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
-pub enum VersionedLocatableAsset {
-	#[codec(index = 3)]
-	V3 {
-		/// The (relative) location in which the asset ID is meaningful.
-		location: xcm::v3::MultiLocation,
-		/// The asset's ID.
-		asset_id: xcm::v3::AssetId,
-	},
-}
-
-/// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
-pub struct LocatableAssetConverter;
-impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
-	for LocatableAssetConverter
-{
-	fn try_convert(
-		asset: VersionedLocatableAsset,
-	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
-		match asset {
-			VersionedLocatableAsset::V3 { location, asset_id } =>
-				Ok(xcm_builder::LocatableAssetId { asset_id, location }),
-		}
-	}
-}
-
-/// Converts the [`VersionedMultiLocation`] to the [`xcm::latest::MultiLocation`].
-pub struct VersionedMultiLocationConverter;
-impl TryConvert<&VersionedMultiLocation, xcm::latest::MultiLocation>
-	for VersionedMultiLocationConverter
-{
-	fn try_convert(
-		location: &VersionedMultiLocation,
-	) -> Result<xcm::latest::MultiLocation, &VersionedMultiLocation> {
-		let latest = match location.clone() {
-			VersionedMultiLocation::V2(l) => l.try_into().map_err(|_| location)?,
-			VersionedMultiLocation::V3(l) => l,
-		};
-		Ok(latest)
-	}
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks {
-	use super::VersionedLocatableAsset;
 	use pallet_asset_rate::AssetKindFactory;
 	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
 	use xcm::prelude::*;

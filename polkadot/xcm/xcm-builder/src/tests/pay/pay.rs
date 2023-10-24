@@ -20,21 +20,6 @@
 use super::{mock::*, *};
 use frame_support::{assert_ok, traits::tokens::Pay};
 
-/// Type representing both a location and an asset that is held at that location.
-/// The id of the held asset is relative to the location where it is being held.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
-pub struct AssetKind {
-	destination: MultiLocation,
-	asset_id: AssetId,
-}
-
-pub struct LocatableAssetKindConverter;
-impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
-	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
-		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
-	}
-}
-
 parameter_types! {
 	pub SenderAccount: AccountId = AccountId::new([3u8; 32]);
 	pub InteriorAccount: InteriorMultiLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
@@ -48,25 +33,25 @@ parameter_types! {
 /// #5, on parachain 2, remotely, in its native token.
 #[test]
 fn pay_over_xcm_works() {
-	let recipient = AccountId::new([5u8; 32]);
-	let asset_kind =
-		AssetKind { destination: (Parent, Parachain(2)).into(), asset_id: Here.into() };
+	let recipient_account = AccountId::new([5u8; 32]);
+	let recipient_location: MultiLocation = (
+		Parent,
+		Parachain(2),
+		AccountId32 { id: recipient_account.clone().into(), network: None },
+	).into();
+	let asset_kind: AssetId = Here.into();
 	let amount = 10 * UNITS;
 
 	new_test_ext().execute_with(|| {
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(0, &recipient), 0);
+		assert_eq!(mock::Assets::balance(0, &recipient_account), 0);
 
 		assert_ok!(PayOverXcm::<
 			InteriorAccount,
 			TestMessageSender,
 			TestQueryHandler<TestConfig, BlockNumber>,
 			Timeout,
-			AccountId,
-			AssetKind,
-			LocatableAssetKindConverter,
-			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		>::pay(&recipient, asset_kind, amount));
+		>::pay(&recipient_location, asset_kind, amount));
 
 		let expected_message = Xcm(vec![
 			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
@@ -81,7 +66,7 @@ fn pay_over_xcm_works() {
 			])),
 			TransferAsset {
 				assets: (Here, amount).into(),
-				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
+				beneficiary: AccountId32 { id: recipient_account.clone().into(), network: None }.into(),
 			},
 		]);
 		let expected_hash = fake_message_hash(&expected_message);
@@ -98,7 +83,7 @@ fn pay_over_xcm_works() {
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
 		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
-		assert_eq!(mock::Assets::balance(0, &recipient), amount);
+		assert_eq!(mock::Assets::balance(0, &recipient_account), amount);
 	});
 }
 
@@ -108,27 +93,27 @@ fn pay_over_xcm_works() {
 /// another account, account #7, on parachain 2, remotely, in the relay's token.
 #[test]
 fn pay_over_xcm_governance_body() {
-	let recipient = AccountId::new([7u8; 32]);
-	let asset_kind =
-		AssetKind { destination: (Parent, Parachain(2)).into(), asset_id: Parent.into() };
+	let recipient_account = AccountId::new([7u8; 32]);
+	let recipient_location: MultiLocation = (
+		Parent,
+		Parachain(2),
+		AccountId32 { id: recipient_account.clone().into(), network: None },
+	).into();
+	let asset_kind: AssetId = Parent.into();
 	let amount = 10 * UNITS;
 
 	let relay_asset_index = 1;
 
 	new_test_ext().execute_with(|| {
 		// Check starting balance
-		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), 0);
+		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient_account), 0);
 
 		assert_ok!(PayOverXcm::<
 			InteriorBody,
 			TestMessageSender,
 			TestQueryHandler<TestConfig, BlockNumber>,
 			Timeout,
-			AccountId,
-			AssetKind,
-			LocatableAssetKindConverter,
-			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		>::pay(&recipient, asset_kind, amount));
+		>::pay(&recipient_location, asset_kind, amount));
 
 		let expected_message = Xcm(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
@@ -143,7 +128,7 @@ fn pay_over_xcm_governance_body() {
 			])),
 			TransferAsset {
 				assets: (Parent, amount).into(),
-				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
+				beneficiary: AccountId32 { id: recipient_account.clone().into(), network: None }.into(),
 			},
 		]);
 		let expected_hash = fake_message_hash(&expected_message);
@@ -159,6 +144,6 @@ fn pay_over_xcm_governance_body() {
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
 		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
-		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), amount);
+		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient_account), amount);
 	});
 }

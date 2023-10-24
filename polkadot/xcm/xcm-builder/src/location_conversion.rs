@@ -18,7 +18,7 @@ use crate::universal_exports::ensure_is_remote;
 use frame_support::traits::Get;
 use parity_scale_codec::{Compact, Decode, Encode};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
+use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert, Convert};
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -366,11 +366,18 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 /// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
 pub struct AliasesIntoAccountId32<Network, AccountId>(PhantomData<(Network, AccountId)>);
-impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]> + Clone>
+impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]>>
 	TryConvert<&'a AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
 {
 	fn try_convert(who: &AccountId) -> Result<MultiLocation, &AccountId> {
 		Ok(AccountId32 { network: Network::get(), id: who.clone().into() }.into())
+	}
+}
+impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]>>
+	Convert<AccountId, MultiLocation> for AliasesIntoAccountId32<Network, AccountId>
+{
+	fn convert(who: AccountId) -> MultiLocation {
+		AccountId32 { network: Network::get(), id: who.into() }.into()
 	}
 }
 

@@ -649,4 +649,17 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn testing_location_stuff() {
+		let location: MultiLocation = (Parent, Parachain(1000), AccountId32 {
+			id: [0u8; 32],
+			network: None,
+		}).into();
+		let (prefix, last) = location.split_last_interior();
+		dbg!(&prefix);
+		dbg!(&last);
+		// let junction = location.match_and_split(&(Parent, Parachain(1000)).into());
+		// dbg!(&junction);
+	}
 }

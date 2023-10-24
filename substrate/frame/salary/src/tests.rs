@@ -49,6 +49,7 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, 0));
 }
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -167,11 +168,15 @@ fn set_rank(who: u64, rank: u64) {
 
 parameter_types! {
 	pub static Budget: u64 = 10;
+	pub SalaryAsset: () = ();
 }
 
 impl Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type AssetKind = ();
+	type SalaryAsset = SalaryAsset;
+	type AccountToBeneficiaryConverter = Identity;
 	type Paymaster = TestPay;
 	type Members = TestClub;
 	type Salary = ConvertRank<Identity>;
