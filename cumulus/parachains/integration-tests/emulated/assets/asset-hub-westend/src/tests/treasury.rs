@@ -16,7 +16,6 @@
 use crate::*;
 use frame_support::traits::fungibles::{Create, Inspect, Mutate};
 use integration_tests_common::constants::accounts::{ALICE, BOB};
-use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
@@ -34,12 +33,12 @@ fn create_and_claim_treasury_spend() {
 	let asset_hub_location = MultiLocation::new(0, Parachain(AssetHubWestend::para_id().into()));
 	let root = <Westend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spend from the treasury.
-	let asset_kind = VersionedLocatableAsset::V3 {
-		location: asset_hub_location,
-		asset_id: AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
-	};
+	let asset_kind = AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into());
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
+	let alice_location_in_asset_hub = asset_hub_location
+		.pushed_with_interior(AccountId32 { id: alice.clone().into(), network: None })
+		.unwrap();
 	let bob: AccountId = Westend::account_id_of(BOB);
 	let bob_signed = <Westend as Chain>::RuntimeOrigin::signed(bob.clone());
 

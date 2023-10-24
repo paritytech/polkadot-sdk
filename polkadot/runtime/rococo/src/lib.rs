@@ -31,9 +31,7 @@ use primitives::{
 };
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, impl_runtime_weights,
-	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
-	},
+	impls::ToAuthor,
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
 };
@@ -96,7 +94,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
-	VersionedMultiLocation,
+	VersionedMultiLocation, VersionedAssetId,
 };
 use xcm_builder::PayOverXcm;
 
@@ -428,7 +426,7 @@ impl pallet_treasury::Config for Runtime {
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = Bounties;
 	type SpendOrigin = TreasurySpender;
-	type AssetKind = VersionedLocatableAsset;
+	type AssetKind = VersionedAssetId;
 	type Beneficiary = VersionedMultiLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
@@ -436,10 +434,6 @@ impl pallet_treasury::Config for Runtime {
 		crate::xcm_config::XcmRouter,
 		crate::XcmPallet,
 		ConstU32<{ 6 * HOURS }>,
-		Self::Beneficiary,
-		Self::AssetKind,
-		LocatableAssetConverter,
-		VersionedMultiLocationConverter,
 	>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;

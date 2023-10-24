@@ -98,47 +98,6 @@ pub fn era_payout(
 	(staking_payout, rest)
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarks {
-	use pallet_asset_rate::AssetKindFactory;
-	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
-	use xcm::prelude::*;
-
-	/// Provides a factory method for the [`VersionedLocatableAsset`].
-	/// The location of the asset is determined as a Parachain with an ID equal to the passed seed.
-	pub struct AssetRateArguments;
-	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
-		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(0, X1(Parachain(seed))),
-				asset_id: xcm::v3::MultiLocation::new(
-					0,
-					X2(PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())),
-				)
-				.into(),
-			}
-		}
-	}
-
-	/// Provide factory methods for the [`VersionedLocatableAsset`] and the `Beneficiary` of the
-	/// [`VersionedMultiLocation`]. The location of the asset is determined as a Parachain with an
-	/// ID equal to the passed seed.
-	pub struct TreasuryArguments;
-	impl TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedMultiLocation>
-		for TreasuryArguments
-	{
-		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			AssetRateArguments::create_asset_kind(seed)
-		}
-		fn create_beneficiary(seed: [u8; 32]) -> VersionedMultiLocation {
-			VersionedMultiLocation::V3(xcm::v3::MultiLocation::new(
-				0,
-				X1(AccountId32 { network: None, id: seed }),
-			))
-		}
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -26,12 +26,7 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// Implementation of the `frame_support::traits::tokens::Pay` trait, to allow
 /// for XCM-based payments of a given `Balance` of some asset ID existing on some chain under
-/// ownership of some `Interior` location of the local chain to a particular `Beneficiary`. The
-/// `AssetKind` value is not itself bounded (to avoid the issue of needing to wrap some preexisting
-/// datatype), however a converter type `AssetKindToLocatableAsset` must be provided in order to
-/// translate it into a `LocatableAsset`, which comprises both an XCM `MultiLocation` describing
-/// the XCM endpoint on which the asset to be paid resides and an XCM `AssetId` to identify the
-/// specific asset at that endpoint.
+/// ownership of some `Interior` location of the local chain to a particular `Beneficiary`.
 ///
 /// `PayOverXcm::pay` is asynchronous, and returns a `QueryId` which can then be used in
 /// `check_payment` to check the status of the XCM transaction.
