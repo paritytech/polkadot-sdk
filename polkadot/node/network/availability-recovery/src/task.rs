@@ -168,12 +168,12 @@ pub struct State {
 	received_chunks: BTreeMap<ChunkIndex, ErasureChunk>,
 
 	/// A record of errors returned when requesting a chunk from a validator.
-	historical_errors: HashMap<(ChunkIndex, ValidatorIndex), ErrorRecord>,
+	recorded_errors: HashMap<(ChunkIndex, ValidatorIndex), ErrorRecord>,
 }
 
 impl State {
 	fn new() -> Self {
-		Self { received_chunks: BTreeMap::new(), historical_errors: HashMap::new() }
+		Self { received_chunks: BTreeMap::new(), recorded_errors: HashMap::new() }
 	}
 
 	fn insert_chunk(&mut self, chunk_index: ChunkIndex, chunk: ErasureChunk) {
@@ -185,12 +185,11 @@ impl State {
 	}
 
 	fn record_error_fatal(&mut self, chunk_index: ChunkIndex, validator_index: ValidatorIndex) {
-		self.historical_errors
-			.insert((chunk_index, validator_index), ErrorRecord::Fatal);
+		self.recorded_errors.insert((chunk_index, validator_index), ErrorRecord::Fatal);
 	}
 
 	fn record_error_non_fatal(&mut self, chunk_index: ChunkIndex, validator_index: ValidatorIndex) {
-		self.historical_errors
+		self.recorded_errors
 			.entry((chunk_index, validator_index))
 			.and_modify(|record| {
 				if let ErrorRecord::NonFatal(ref mut count) = record {
@@ -206,7 +205,7 @@ impl State {
 		validator_index: ValidatorIndex,
 		retry_threshold: u32,
 	) -> bool {
-		match self.historical_errors.get(&(chunk_index, validator_index)) {
+		match self.recorded_errors.get(&(chunk_index, validator_index)) {
 			None => true,
 			Some(entry) => match entry {
 				ErrorRecord::Fatal => false,
@@ -1342,7 +1341,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_historical_errors() {
+	fn test_recorded_errors() {
 		let retry_threshold = 2;
 		let mut state = State::new();
 
