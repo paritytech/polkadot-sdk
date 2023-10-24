@@ -9983,7 +9983,6 @@ dependencies = [
 name = "pallet-example-mock-builder"
 version = "4.0.0-dev"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mock-builder",
