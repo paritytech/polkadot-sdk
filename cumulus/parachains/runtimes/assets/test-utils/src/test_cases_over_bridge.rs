@@ -16,6 +16,7 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
+use crate::assert_matches_reserve_asset_deposited_instructions;
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -173,12 +174,24 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
 				.unwrap();
 
+			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			let mut expected_assets = assets_to_transfer.clone();
+			expected_assets
+				.reanchor(&target_location_from_different_consensus, Here.into())
+				.unwrap();
+			// FIXME: remove this hardcode here when fixing reanchor over bridge
+			expected_assets = MultiAssets::from(MultiAsset {
+				id: Concrete(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }),
+				fun: Fungible(1000000000000),
+			});
+
+			let expected_beneficiary = target_destination_account;
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(target_location_from_different_consensus.into_versioned()),
 				Box::new(target_destination_account.into_versioned()),
-				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
+				Box::new(VersionedMultiAssets::from(assets_to_transfer)),
 				0,
 				weight_limit,
 			));
@@ -255,7 +268,11 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 							.split_global()
 							.expect("split works");
 					assert_eq!(destination, &target_location_junctions_without_global_consensus);
-					assert_matches_pallet_xcm_reserve_transfer_assets_instructions(inner_xcm);
+					assert_matches_reserve_asset_deposited_instructions(
+						inner_xcm,
+						&expected_assets,
+						&expected_beneficiary,
+					);
 					Ok(())
 				},
 				_ => Err(ProcessMessageError::BadFormat),
@@ -405,15 +422,21 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 
+			let expected_assets = MultiAssets::from(vec![MultiAsset {
+				id: Concrete(foreign_asset_id_multilocation),
+				fun: Fungible(transfered_foreign_asset_id_amount),
+			}]);
+			let expected_beneficiary = MultiLocation {
+				parents: 0,
+				interior: X1(AccountId32 { network: None, id: target_account.clone().into() }),
+			};
+
 			// Call received XCM execution
 			let xcm = Xcm(vec![
 				DescendOrigin(bridge_instance),
 				UniversalOrigin(universal_origin),
 				DescendOrigin(descend_origin),
-				ReserveAssetDeposited(MultiAssets::from(vec![MultiAsset {
-					id: Concrete(foreign_asset_id_multilocation),
-					fun: Fungible(transfered_foreign_asset_id_amount),
-				}])),
+				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
 				SetFeesMode { jit_withdraw: false },
 				BuyExecution {
@@ -423,22 +446,17 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset {
-					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
-						parents: 0,
-						interior: X1(AccountId32 {
-							network: None,
-							id: target_account.clone().into(),
-						}),
-					},
-				},
+				DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
 				SetTopic([
 					220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112, 140,
 					247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
 				]),
 			]);
-			assert_matches_pallet_xcm_reserve_transfer_assets_instructions(&mut xcm.clone());
+			assert_matches_reserve_asset_deposited_instructions(
+				&mut xcm.clone(),
+				&expected_assets,
+				&expected_beneficiary,
+			);
 
 			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
@@ -497,41 +515,6 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 		})
-}
-
-fn assert_matches_pallet_xcm_reserve_transfer_assets_instructions<RuntimeCall>(
-	xcm: &mut Xcm<RuntimeCall>,
-) {
-	let _ = xcm
-		.0
-		.matcher()
-		.skip_inst_while(|inst| !matches!(inst, ReserveAssetDeposited(..)))
-		.expect("no instruction ReserveAssetDeposited?")
-		.match_next_inst(|instr| match instr {
-			ReserveAssetDeposited(..) => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction ReserveAssetDeposited")
-		.match_next_inst(|instr| match instr {
-			ClearOrigin => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction ClearOrigin")
-		.match_next_inst(|instr| match instr {
-			SetFeesMode { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction SetFeesMode")
-		.match_next_inst(|instr| match instr {
-			BuyExecution { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction BuyExecution")
-		.match_next_inst(|instr| match instr {
-			DepositAsset { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction DepositAsset");
 }
 
 pub fn report_bridge_status_from_xcm_bridge_router_works<
