@@ -42,11 +42,11 @@ struct TestHost {
 }
 
 impl TestHost {
-	fn new() -> Self {
-		Self::new_with_config(|_| ())
+	async fn new() -> Self {
+		Self::new_with_config(|_| ()).await
 	}
 
-	fn new_with_config<F>(f: F) -> Self
+	async fn new_with_config<F>(f: F) -> Self
 	where
 		F: FnOnce(&mut Config),
 	{
@@ -65,7 +65,7 @@ impl TestHost {
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default());
+		let (host, task) = start(config, Metrics::default()).await;
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
 	}
@@ -131,7 +131,7 @@ impl TestHost {
 
 #[tokio::test]
 async fn terminates_on_timeout() {
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 
 	let start = std::time::Instant::now();
 	let result = host
@@ -161,7 +161,7 @@ async fn terminates_on_timeout() {
 #[tokio::test]
 async fn ensure_parallel_execution() {
 	// Run some jobs that do not complete, thus timing out.
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 	let execute_pvf_future_1 = host.validate_candidate(
 		halt::wasm_binary_unwrap(),
 		ValidationParams {
@@ -208,7 +208,7 @@ async fn ensure_parallel_execution() {
 async fn execute_queue_doesnt_stall_if_workers_died() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.execute_workers_max_num = 5;
-	});
+	}).await;
 
 	// Here we spawn 8 validation jobs for the `halt` PVF and share those between 5 workers. The
 	// first five jobs should timeout and the workers killed. For the next 3 jobs a new batch of
@@ -245,7 +245,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.execute_workers_max_num = 2;
-	});
+	}).await;
 
 	let executor_params_1 = ExecutorParams::default();
 	let executor_params_2 = ExecutorParams::from(&[ExecutorParam::StackLogicalMax(1024)][..]);
@@ -293,7 +293,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 // Test that deleting a prepared artifact does not lead to a dispute when we try to execute it.
 #[tokio::test]
 async fn deleting_prepared_artifact_does_not_dispute() {
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
 
 	let result = host
@@ -354,7 +354,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 async fn prepare_can_run_serially() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.prepare_workers_hard_max_num = 1;
-	});
+	}).await;
 
 	let _stats = host
 		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())

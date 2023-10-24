@@ -75,6 +75,13 @@ macro_rules! decl_worker_main {
 					let status = -1;
 					std::process::exit(status)
 				},
+				"--check-can-enable-seccomp" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::seccomp::check_is_fully_enabled() { 0 } else { -1 };
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
@@ -119,6 +126,7 @@ macro_rules! decl_worker_main {
 			let mut worker_dir_path = None;
 			let mut node_version = None;
 			let mut can_enable_landlock = false;
+			let mut can_enable_seccomp = false;
 			let mut can_unshare_user_namespace_and_change_root = false;
 
 			let mut i = 2;
@@ -137,6 +145,7 @@ macro_rules! decl_worker_main {
 						i += 1
 					},
 					"--can-enable-landlock" => can_enable_landlock = true,
+					"--can-enable-seccomp" => can_enable_seccomp = true,
 					"--can-unshare-user-namespace-and-change-root" =>
 						can_unshare_user_namespace_and_change_root = true,
 					arg => panic!("Unexpected argument found: {}", arg),
@@ -151,6 +160,7 @@ macro_rules! decl_worker_main {
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 			let security_status = $crate::SecurityStatus {
 				can_enable_landlock,
+				can_enable_seccomp,
 				can_unshare_user_namespace_and_change_root,
 			};
 
@@ -308,6 +318,22 @@ pub fn worker_event_loop<F, Fut>(
 				security::landlock::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
 			if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
 				// We previously were able to enable, so this should never happen.
+				gum::error!(
+					target: LOG_TARGET,
+					%worker_kind,
+					%worker_pid,
+					"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
+					landlock_status
+				);
+			}
+		}
+
+		#[cfg(target_os = "linux")]
+		if security_status.can_enable_seccomp {
+			let seccomp_status =
+				security::seccomp::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
+			if !matches!(seccomp_status, Ok(())) {
+				// We previously were able to enable, so this should never happen.
 				//
 				// TODO: Make this a real error in secure-mode. See:
 				// <https://github.com/paritytech/polkadot-sdk/issues/1444>
@@ -315,8 +341,8 @@ pub fn worker_event_loop<F, Fut>(
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
-					landlock_status
+					"could not fully enable seccomp: {:?}. This should not happen, please report to the Polkadot devs",
+					seccomp_status
 				);
 			}
 		}

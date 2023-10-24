@@ -270,6 +270,9 @@ impl WorkerHandle {
 			if security_status.can_enable_landlock {
 				args.push("--can-enable-landlock".to_string());
 			}
+			if security_status.can_enable_seccomp {
+				args.push("--can-enable-seccomp".to_string());
+			}
 			if security_status.can_unshare_user_namespace_and_change_root {
 				args.push("--can-unshare-user-namespace-and-change-root".to_string());
 			}

@@ -29,7 +29,7 @@ use crate::{
 use always_assert::never;
 use futures::{
 	channel::{mpsc, oneshot},
-	Future, FutureExt, SinkExt, StreamExt,
+	join, Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -200,15 +200,21 @@ impl Config {
 /// The future should not return normally but if it does then that indicates an unrecoverable error.
 /// In that case all pending requests will be canceled, dropping the result senders and new ones
 /// will be rejected.
-pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
+pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
 	let security_status = {
-		let can_enable_landlock = check_landlock(&config.prepare_worker_program_path);
-		let can_unshare_user_namespace_and_change_root =
-			check_can_unshare_user_namespace_and_change_root(&config.prepare_worker_program_path);
-		SecurityStatus { can_enable_landlock, can_unshare_user_namespace_and_change_root }
+		let (can_enable_landlock, can_enable_seccomp, can_unshare_user_namespace_and_change_root) = join!(
+			check_landlock(&config.prepare_worker_program_path),
+			check_seccomp(&config.prepare_worker_program_path),
+			check_can_unshare_user_namespace_and_change_root(&config.prepare_worker_program_path)
+		);
+		SecurityStatus {
+			can_enable_landlock,
+			can_enable_seccomp,
+			can_unshare_user_namespace_and_change_root,
+		}
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
@@ -887,17 +893,17 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-fn check_can_unshare_user_namespace_and_change_root(
+async fn check_can_unshare_user_namespace_and_change_root(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
 ) -> bool {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			let output = std::process::Command::new(prepare_worker_program_path)
+			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.output();
-
-			match output {
+				.output()
+				.await
+			{
 				Ok(output) if output.status.success() => true,
 				Ok(output) => {
 					let stderr = std::str::from_utf8(&output.stderr)
@@ -938,15 +944,16 @@ fn check_can_unshare_user_namespace_and_change_root(
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-fn check_landlock(
+async fn check_landlock(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
 ) -> bool {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match std::process::Command::new(prepare_worker_program_path)
+			match tokio::process::Command::new(prepare_worker_program_path)
 				.arg("--check-can-enable-landlock")
 				.status()
+				.await
 			{
 				Ok(status) if status.success() => true,
 				Ok(status) => {
@@ -975,6 +982,52 @@ fn check_landlock(
 			gum::warn!(
 				target: LOG_TARGET,
 				"Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security."
+			);
+			false
+		}
+	}
+}
+
+/// Check if seccomp is supported and emit a warning if not.
+///
+/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
+/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
+/// success and -1 on failure.
+async fn check_seccomp(
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	prepare_worker_program_path: &Path,
+) -> bool {
+	cfg_if::cfg_if! {
+		if #[cfg(target_os = "linux")] {
+			match tokio::process::Command::new(prepare_worker_program_path)
+				.arg("--check-can-enable-seccomp")
+				.status()
+				.await
+			{
+				Ok(status) if status.success() => true,
+				Ok(status) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?prepare_worker_program_path,
+						?status,
+						"Cannot fully enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
+					);
+					false
+				},
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?prepare_worker_program_path,
+						"Could not start child process: {}",
+						err
+					);
+					false
+				},
+			}
+		} else {
+			gum::warn!(
+				target: LOG_TARGET,
+				"Cannot enable seccomp, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with seccomp support for maximum security."
 			);
 			false
 		}
