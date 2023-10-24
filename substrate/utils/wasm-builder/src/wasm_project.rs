@@ -116,7 +116,7 @@ pub(crate) fn create_and_compile(
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
 	features_to_enable: Vec<String>,
-	runtime_blob_name: Option<String>,
+	bloaty_blob_name: Option<String>,
 	check_for_runtime_version_section: bool,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
@@ -138,8 +138,11 @@ pub(crate) fn create_and_compile(
 	build_bloaty_blob(&build_config.blob_build_profile, &project, default_rustflags, cargo_cmd);
 
 	// Get the name of the bloaty runtime blob.
-	let default_bloaty_name = get_blob_name(project_cargo_toml);
-	let bloaty_blob_name = runtime_blob_name.unwrap_or_else(|| default_bloaty_name.clone());
+	let default_bloaty_blob_name = get_blob_name(project_cargo_toml);
+	let bloaty_blob_name = bloaty_blob_name.unwrap_or_else(|| default_bloaty_blob_name.clone());
+
+	let bloaty_blob_binary =
+		copy_bloaty_blob(&project, &build_config.blob_build_profile, &bloaty_blob_name);
 
 	// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
 	//
@@ -149,8 +152,12 @@ pub(crate) fn create_and_compile(
 	let (compact_blob_path, compact_compressed_blob_path) =
 		match build_config.outer_build_profile.wants_compact() {
 			true => {
-				let compact_blob_path =
-					compact_wasm(&project, project_cargo_toml, &bloaty_blob_name);
+				let compact_blob_path = compact_wasm(
+					&project,
+					&build_config.blob_build_profile,
+					project_cargo_toml,
+					&bloaty_blob_name,
+				);
 				let compact_compressed_blob_path = compact_blob_path
 					.as_ref()
 					.and_then(|p| try_compress_blob(&p.0, &bloaty_blob_name));
@@ -161,8 +168,6 @@ pub(crate) fn create_and_compile(
 				(None, None)
 			},
 		};
-
-	let bloaty_blob_binary = copy_bloaty_blob(&project, project_cargo_toml, &bloaty_blob_name);
 
 	if check_for_runtime_version_section {
 		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
@@ -755,10 +760,16 @@ fn build_bloaty_blob(
 	}
 }
 
-fn compact_wasm(project: &Path, cargo_manifest: &Path, out_name: &str) -> Option<WasmBinary> {
+fn compact_wasm(
+	project: &Path,
+	inner_profile: &Profile,
+	cargo_manifest: &Path,
+	out_name: &str,
+) -> Option<WasmBinary> {
 	let default_out_name = get_blob_name(cargo_manifest);
 	let in_path = project
 		.join("target/wasm32-unknown-unknown")
+		.join(inner_profile.directory())
 		.join(format!("{}.wasm", default_out_name));
 
 	let wasm_compact_path = project.join(format!("{}.compact.wasm", out_name));
@@ -777,14 +788,14 @@ fn compact_wasm(project: &Path, cargo_manifest: &Path, out_name: &str) -> Option
 	Some(WasmBinary(wasm_compact_path))
 }
 
-fn copy_bloaty_blob(project: &Path, cargo_manifest: &Path, out_name: &str) -> WasmBinaryBloaty {
-	let default_out_name = get_blob_name(cargo_manifest);
+fn copy_bloaty_blob(project: &Path, inner_profile: &Profile, out_name: &str) -> WasmBinaryBloaty {
 	let in_path = project
 		.join("target/wasm32-unknown-unknown")
-		.join(format!("{}.wasm", default_out_name));
-	let bloaty_path = project.join(format!("{}.wasm", out_name));
+		.join(inner_profile.directory())
+		.join(format!("{}.wasm", out_name));
 
-	fs::copy(in_path, &bloaty_path).expect("Copying the bloaty blob to the project dir.");
+	let bloaty_path = project.join(format!("{}.wasm", out_name));
+	fs::copy(in_path, &bloaty_path).expect("Copying the bloaty file to the project dir.");
 	WasmBinaryBloaty(bloaty_path)
 }
 
