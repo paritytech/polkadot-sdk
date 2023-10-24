@@ -49,7 +49,7 @@ pub enum Error {
 
 	#[fatal]
 	#[error("Oneshot for receiving response from Chain API got cancelled")]
-	ChainApiSenderDropped(#[source] oneshot::Canceled),
+	ChainApiSenderDropped(#[from] oneshot::Canceled),
 
 	#[fatal]
 	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]

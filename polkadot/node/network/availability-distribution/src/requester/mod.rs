@@ -35,10 +35,11 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
+	get_block_number,
 	runtime::{get_occupied_cores, request_client_features, RuntimeInfo},
 	ChunkIndexCacheRegistry,
 };
-use polkadot_primitives::{BlockNumber, CandidateHash, Hash, OccupiedCore, SessionIndex};
+use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
 
 use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
 
@@ -228,9 +229,12 @@ impl Requester {
 				span.add_string_tag("already-requested-chunk", "false");
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
-				let block_number =
-					get_block_number(context.sender(), core.candidate_descriptor.relay_parent)
-						.await?;
+				let block_number = get_block_number::<_, Error>(
+					context.sender(),
+					core.candidate_descriptor.relay_parent,
+				)
+				.await?
+				.ok_or(Error::BlockNumberNotFound)?;
 
 				let session_info = self
 					.session_cache
@@ -400,23 +404,4 @@ where
 		.map_err(FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApi)?;
 	Ok(ancestors)
-}
-
-async fn get_block_number<Sender>(sender: &mut Sender, relay_parent: Hash) -> Result<BlockNumber>
-where
-	Sender: overseer::SubsystemSender<ChainApiMessage>,
-{
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
-
-	let block_number = rx
-		.await
-		.map_err(FatalError::ChainApiSenderDropped)?
-		.map_err(FatalError::ChainApi)?;
-
-	if let Some(number) = block_number {
-		Ok(number)
-	} else {
-		Err(Error::BlockNumberNotFound)
-	}
 }

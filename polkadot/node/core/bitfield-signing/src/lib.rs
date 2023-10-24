@@ -28,16 +28,16 @@ use futures::{
 };
 use polkadot_node_subsystem::{
 	jaeger,
-	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage},
+	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage},
 	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, OverseerSignal, PerLeafSpan,
 	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	self as util, availability_chunk_index, request_validators, runtime::request_client_features,
-	Validator,
+	self as util, availability_chunk_index, get_block_number, request_validators,
+	runtime::request_client_features, Validator,
 };
 use polkadot_primitives::{
-	vstaging::ClientFeatures, AvailabilityBitfield, BlockNumber, CoreState, Hash, ValidatorIndex,
+	vstaging::ClientFeatures, AvailabilityBitfield, CoreState, Hash, ValidatorIndex,
 };
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
@@ -100,16 +100,33 @@ async fn get_core_availability(
 		let _span = span.child("query-chunk-availability");
 		let relay_parent = core.candidate_descriptor.relay_parent;
 
-		let Ok(block_number) = get_block_number(*sender.lock().await, relay_parent).await else {
-			gum::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?core.candidate_hash,
-				para_id = %core.para_id(),
-				"Failed to get block number."
-			);
+		let block_number = get_block_number::<_, Error>(*sender.lock().await, relay_parent).await;
 
-			return Ok(false)
+		let block_number = match block_number {
+			Ok(Some(block_number)) => block_number,
+			Ok(None) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?core.candidate_hash,
+					para_id = %core.para_id(),
+					"Failed to get block number."
+				);
+
+				return Ok(false)
+			},
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?core.candidate_hash,
+					para_id = %core.para_id(),
+					error = ?err,
+					"Failed to get block number."
+				);
+
+				return Ok(false)
+			},
 		};
 
 		let maybe_client_features = request_client_features(relay_parent, *sender.lock().await)
@@ -380,23 +397,4 @@ where
 		.await;
 
 	Ok(())
-}
-
-async fn get_block_number<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<BlockNumber, Error>
-where
-	Sender: overseer::SubsystemSender<ChainApiMessage>,
-{
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
-
-	let block_number = rx.await.map_err(Error::Oneshot)?.map_err(Error::ChainApi)?;
-
-	if let Some(number) = block_number {
-		Ok(number)
-	} else {
-		Err(Error::BlockNumberNotFound)
-	}
 }

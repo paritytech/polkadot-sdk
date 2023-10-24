@@ -39,10 +39,6 @@ pub enum Error {
 	#[error("failed to query full data from store")]
 	CanceledQueryFullData(#[source] oneshot::Canceled),
 
-	#[fatal]
-	#[error("failed to query session info")]
-	CanceledSessionInfo(#[source] oneshot::Canceled),
-
 	#[error("`SessionInfo` is `None` at {0}")]
 	SessionInfoUnavailable(Hash),
 
@@ -58,11 +54,9 @@ pub enum Error {
 	#[error(transparent)]
 	Erasure(#[from] polkadot_erasure_coding::Error),
 
-	// #[error(transparent)]
-	// Util(#[from] polkadot_node_subsystem_util::Error),
 	#[fatal]
-	#[error("Oneshot for receiving response from Chain API got cancelled")]
-	ChainApiSenderDropped(#[source] oneshot::Canceled),
+	#[error(transparent)]
+	Oneshot(#[from] oneshot::Canceled),
 
 	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
 	ChainApi(#[from] ChainApiError),

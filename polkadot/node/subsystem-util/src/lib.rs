@@ -33,8 +33,9 @@ use polkadot_node_primitives::BabeRandomness;
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
-	overseer, SubsystemSender,
+	overseer, ChainApiError, SubsystemSender,
 };
+use polkadot_node_subsystem_types::messages::ChainApiMessage;
 use rand::{seq::SliceRandom, Rng};
 use rand_chacha::ChaCha8Rng;
 
@@ -635,4 +636,19 @@ pub fn availability_chunk_index(
 		para_id,
 		validator_index,
 	)
+}
+
+/// Get the block number by hash.
+pub async fn get_block_number<Sender, E>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<Option<BlockNumber>, E>
+where
+	Sender: overseer::SubsystemSender<ChainApiMessage>,
+	E: From<ChainApiError> + From<oneshot::Canceled>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+
+	rx.await?.map_err(Into::into)
 }

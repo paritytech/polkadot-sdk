@@ -16,7 +16,9 @@
 
 use super::*;
 use futures::{executor::block_on, pin_mut, StreamExt};
-use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::{
+	AllMessages, ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest,
+};
 use polkadot_primitives::{vstaging::ClientFeatures, CandidateHash, OccupiedCore};
 use test_helpers::dummy_candidate_descriptor;
 

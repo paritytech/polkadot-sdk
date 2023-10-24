@@ -55,12 +55,13 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
-	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage, ChainApiMessage},
+	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	request_session_info, runtime::request_client_features, ChunkIndexCacheRegistry,
+	get_block_number, request_session_info, runtime::request_client_features,
+	ChunkIndexCacheRegistry,
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, SessionIndex,
@@ -387,14 +388,15 @@ async fn handle_recover<Context>(
 	let _span = span.child("not-cached");
 	let session_info = request_session_info(state.live_block.1, session_index, ctx.sender())
 		.await
-		.await
-		.map_err(Error::CanceledSessionInfo)??;
+		.await??;
 
 	let _span = span.child("session-info-ctx-received");
 	match session_info {
 		Some(session_info) => {
 			let block_number =
-				get_block_number(ctx.sender(), receipt.descriptor.relay_parent).await?;
+				get_block_number::<_, Error>(ctx.sender(), receipt.descriptor.relay_parent)
+					.await?
+					.ok_or(Error::BlockNumberNotFound)?;
 
 			let chunk_indices = if let Some(chunk_indices) = state
 				.chunk_indices
@@ -901,21 +903,5 @@ async fn erasure_task_thread(
 				);
 			},
 		}
-	}
-}
-
-async fn get_block_number<Sender>(sender: &mut Sender, relay_parent: Hash) -> Result<BlockNumber>
-where
-	Sender: overseer::SubsystemSender<ChainApiMessage>,
-{
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
-
-	let block_number = rx.await.map_err(Error::ChainApiSenderDropped)?.map_err(Error::ChainApi)?;
-
-	if let Some(number) = block_number {
-		Ok(number)
-	} else {
-		Err(Error::BlockNumberNotFound)
 	}
 }

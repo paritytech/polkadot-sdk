@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::request_response::{
 };
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{
-	AllMessages, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
+	AllMessages, ChainApiMessage, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
