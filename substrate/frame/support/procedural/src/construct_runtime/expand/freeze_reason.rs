@@ -61,9 +61,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		}
 
 		impl #scrate::traits::VariantCount for RuntimeFreezeReason {
-			fn variant_count() -> u32 {
-				#freeze_reason_variants_count
-			}
+			const VARIANT_COUNT: u32 = #freeze_reason_variants_count;
 		}
 
 		#( #conversion_fns )*

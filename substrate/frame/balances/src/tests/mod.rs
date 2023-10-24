@@ -71,9 +71,7 @@ pub enum TestId {
 }
 
 impl VariantCount for TestId {
-	fn variant_count() -> u32 {
-		3
-	}
+	const VARIANT_COUNT: u32 = 3;
 }
 
 frame_support::construct_runtime!(

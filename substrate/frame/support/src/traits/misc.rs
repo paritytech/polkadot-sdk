@@ -41,13 +41,11 @@ pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been trigge
 /// NOTE: can be removed once <https://doc.rust-lang.org/std/mem/fn.variant_count.html> is stable.
 pub trait VariantCount {
 	/// Get the number of variants.
-	fn variant_count() -> u32;
+	const VARIANT_COUNT: u32;
 }
 
 impl VariantCount for () {
-	fn variant_count() -> u32 {
-		0
-	}
+	const VARIANT_COUNT: u32 = 0;
 }
 
 /// Generic function to mark an execution path as ONLY defensive.
