@@ -51,8 +51,8 @@ impl<
 	> Pay
 	for PayOverXcm<Interior, Router, Querier, Timeout>
 {
-	type Beneficiary = MultiLocation;
-	type AssetKind = AssetId;
+	type Beneficiary = VersionedMultiLocation;
+	type AssetKind = VersionedAssetId;
 	type Balance = u128;
 	type Id = Querier::QueryId;
 	type Error = xcm::latest::Error;
@@ -62,6 +62,9 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
+		let who: MultiLocation = who.clone().try_into().map_err(|_| Self::Error::UnhandledXcmVersion)?;
+		let asset_kind: AssetId = asset_kind.try_into().map_err(|_| Self::Error::UnhandledXcmVersion)?;
+
 		let (destination, beneficiary) = who.split_last_interior();
 		let beneficiary: MultiLocation = beneficiary
 			.ok_or(Self::Error::InvalidLocation)?
