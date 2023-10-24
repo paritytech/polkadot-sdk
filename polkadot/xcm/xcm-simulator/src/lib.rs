@@ -110,6 +110,8 @@ macro_rules! decl_test_relay_chain {
 			MessageQueue = $mq:path,
 			System = $system:path,
 			new_ext = $new_ext:expr,
+			$(on_initialize = $on_init:path,)?
+			$(on_finalize = $on_finalize:path,)?
 		}
 	) => {
 		pub struct $name;
@@ -130,6 +132,8 @@ macro_rules! decl_test_relay_chain {
 				use $runtime_event as runtime_event;
 
 				Self::execute_with(|| {
+					$(<$on_init>::on_initialize(args);)?
+
 					<$mq as EnqueueMessage<AggregateMessageOrigin>>::enqueue_message(
 						msg.try_into().expect("Message too long"),
 						AggregateMessageOrigin::Ump(UmpQueueId::Para(para.clone()))
@@ -147,6 +151,9 @@ macro_rules! decl_test_relay_chain {
 						},
 						event => panic!("Unexpected event: {:#?}", event),
 					}
+
+					$(<$on_finalize>::on_finalize(args);)?
+
 					Ok(true)
 				})
 			}
@@ -176,7 +183,8 @@ macro_rules! decl_test_parachain {
 			Runtime = $runtime:path,
 			XcmpMessageHandler = $xcmp_message_handler:path,
 			DmpMessageHandler = $dmp_message_handler:path,
-			new_ext = $new_ext:expr,
+			$(OnInitialize = $on_init:path,)?
+			$(OnFinalize = $on_finalize:path,)?
 		}
 	) => {
 		pub struct $name;
@@ -211,6 +219,22 @@ macro_rules! decl_test_parachain {
 				})
 			}
 		}
+
+		$(
+			impl $crate::OnInitialize<$crate::RelayBlockNumber> for $name {
+				fn on_initialize(n: $crate::RelayBlockNumber) -> $crate::Weight {
+					$on_initialize(n)
+				}
+			}
+		)?
+
+		$(
+			impl $crate::OnFinalize<$crate::RelayBlockNumber> for $name {
+				fn on_finalize(n: $crate::RelayBlockNumber) {
+					$on_finalize(n)
+				}
+			}
+		)?
 	};
 }
 
