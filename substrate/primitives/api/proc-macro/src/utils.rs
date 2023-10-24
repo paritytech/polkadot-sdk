@@ -27,6 +27,8 @@ use syn::{
 
 /// Generates the access to the `sc_client` crate.
 pub fn generate_crate_access() -> TokenStream {
+	#[cfg(feature = "runtime")]
+	// The `frame` crate is only available with the `runtime` feature.
 	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
 		let path = format!("{}::deps::{}", name, "sp_api");
 		let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
