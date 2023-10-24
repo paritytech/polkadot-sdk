@@ -496,7 +496,7 @@ where
 	(x / maximum) * part_n + c
 }
 
-/// Checked compute of the error due to integer division in the expression `x / denom * numer`.
+/// Unchecked computation of the error due to integer division in the expression `x / denom * numer`.
 fn rational_mul_correction<N, P>(x: N, numer: P::Inner, denom: P::Inner, rounding: Rounding) -> N
 where
 	N: MultiplyArg + UniqueSaturatedInto<P::Inner>,
@@ -506,7 +506,7 @@ where
 	checked_rational_mul_correction::<N, P>(x, numer, denom, rounding).unwrap()
 }
 
-/// Compute the error due to integer division in the expression `x / denom * numer`.
+/// Checked computation of the error due to integer division in the expression `x / denom * numer`.
 ///
 /// Take the remainder of `x / denom` and multiply by  `numer / denom`. The result can be added
 /// to `x / denom * numer` for an accurate result.
@@ -521,12 +521,14 @@ where
 	P: PerThing,
 	P::Inner: Into<N>,
 {
+	let numer_upper = P::Upper::from(numer);
+	let denom_n: N = denom.into();
+
+	// checking `denom` after in case `into()` is truncating.
 	if P::Inner::is_zero(&denom) {
 		return Err("Division by zero")
 	}
 
-	let numer_upper = P::Upper::from(numer);
-	let denom_n: N = denom.into();
 	let denom_upper = P::Upper::from(denom);
 	let rem = x.rem(denom_n);
 	// `rem` is less than `denom`, which fits in `P::Inner`.

@@ -222,7 +222,7 @@ pub const fn checked_multiply_by_rational_with_rounding(
 	} {
 		result = match result.checked_add(1) {
 			Some(v) => v,
-			None => return Err("None"),
+			None => return Err("Overflow"),
 		};
 	}
 	Ok(result)
