@@ -212,7 +212,7 @@ fn test_xcm_execute_reentrant_call() {
 		}));
 
 		// Funds should not change hands as the XCM transact failed.
-		assert_eq!(ParachainBalances::free_balance(BOB),  INITIAL_BALANCE);
+		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
 	});
 }
 

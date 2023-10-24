@@ -116,8 +116,13 @@ pub enum ReturnCode {
 	EcdsaRecoverFailed = 11,
 	/// sr25519 signature verification failed.
 	Sr25519VerifyFailed = 12,
-	/// The `seal_xcm_query` was executed but returned an error.
-	XcmQueryFailed = 13,
+	/// The `xcm_execute` call failed.
+	XcmExecutionFailed = 13,
+	/// The `xcm_send` call failed.
+	XcmSendFailed = 14,
+	/// The `xcm_query` was executed but returned an error.
+	XcmQueryFailed = 15,
+}
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -2694,7 +2699,7 @@ pub mod env {
 	///   is placed.
 	/// - `call_ptr`: the pointer into the linear memory where the message is placed.
 	/// - `call_len`: the length of the message in bytes.
-        ///
+	///
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
@@ -2725,7 +2730,7 @@ pub mod env {
 					ctx.ext.append_debug_buffer("seal0::xcm_send failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
-				Ok(ReturnCode::CallRuntimeFailed)
+				Ok(ReturnCode::XcmSendFailed)
 			},
 		}
 	}
