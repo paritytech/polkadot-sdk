@@ -137,7 +137,7 @@ pub mod validators {
 }
 
 /// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 // Polkadot
 pub mod polkadot {
 	use super::*;
