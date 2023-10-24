@@ -1272,7 +1272,7 @@ mod tests {
 		channel::mpsc::UnboundedReceiver, executor, future, Future, FutureExt, StreamExt,
 	};
 	use parity_scale_codec::Error as DecodingError;
-	use polkadot_erasure_coding::recovery_threshold;
+	use polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
 	use polkadot_node_primitives::{BlockData, PoV};
 	use polkadot_node_subsystem::{AllMessages, TimeoutExt};
 	use polkadot_node_subsystem_test_helpers::{sender_receiver, TestSubsystemSender};
@@ -1309,25 +1309,29 @@ mod tests {
 
 	impl RecoveryParams {
 		fn create_chunks(&mut self) -> Vec<ErasureChunk> {
-			let validation_data = PersistedValidationData {
-				parent_head: HeadData(vec![7, 8, 9]),
-				relay_parent_number: Default::default(),
-				max_pov_size: 1024,
-				relay_parent_storage_root: Default::default(),
-			};
-
 			let (chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
 				self.n_validators,
-				&AvailableData {
-					validation_data,
-					pov: Arc::new(PoV { block_data: BlockData(vec![42; 64]) }),
-				},
+				&dummy_available_data(),
 				|_, _| {},
 			);
 
 			self.erasure_root = erasure_root;
 
 			chunks
+		}
+	}
+
+	fn dummy_available_data() -> AvailableData {
+		let validation_data = PersistedValidationData {
+			parent_head: HeadData(vec![7, 8, 9]),
+			relay_parent_number: Default::default(),
+			max_pov_size: 1024,
+			relay_parent_storage_root: Default::default(),
+		};
+
+		AvailableData {
+			validation_data,
+			pov: Arc::new(PoV { block_data: BlockData(vec![42; 64]) }),
 		}
 	}
 
@@ -1739,36 +1743,277 @@ mod tests {
 		}
 	}
 
-	// TODO: Test RecoveryTask::run();
-	// TODO: test is_unavailable
-	// TODO: Test get_desired_request_count
+	#[test]
+	fn test_recovery_strategy_run() {
+		let params = RecoveryParams::default();
+
+		struct GoodStrategy;
+		#[async_trait::async_trait]
+		impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for GoodStrategy {
+			fn display_name(&self) -> &'static str {
+				"GoodStrategy"
+			}
+
+			fn strategy_type(&self) -> &'static str {
+				"good_strategy"
+			}
+
+			async fn run(
+				mut self: Box<Self>,
+				_state: &mut State,
+				_sender: &mut Sender,
+				_common_params: &RecoveryParams,
+			) -> Result<AvailableData, RecoveryError> {
+				Ok(dummy_available_data())
+			}
+		}
+
+		struct UnavailableStrategy;
+		#[async_trait::async_trait]
+		impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
+			for UnavailableStrategy
+		{
+			fn display_name(&self) -> &'static str {
+				"UnavailableStrategy"
+			}
+
+			fn strategy_type(&self) -> &'static str {
+				"unavailable_strategy"
+			}
+
+			async fn run(
+				mut self: Box<Self>,
+				_state: &mut State,
+				_sender: &mut Sender,
+				_common_params: &RecoveryParams,
+			) -> Result<AvailableData, RecoveryError> {
+				Err(RecoveryError::Unavailable)
+			}
+		}
+
+		struct InvalidStrategy;
+		#[async_trait::async_trait]
+		impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
+			for InvalidStrategy
+		{
+			fn display_name(&self) -> &'static str {
+				"InvalidStrategy"
+			}
+
+			fn strategy_type(&self) -> &'static str {
+				"invalid_strategy"
+			}
+
+			async fn run(
+				mut self: Box<Self>,
+				_state: &mut State,
+				_sender: &mut Sender,
+				_common_params: &RecoveryParams,
+			) -> Result<AvailableData, RecoveryError> {
+				Err(RecoveryError::Invalid)
+			}
+		}
+
+		// No recovery strategies.
+		{
+			let mut params = params.clone();
+			let strategies = VecDeque::new();
+			params.bypass_availability_store = true;
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|sender| async move {
+					let task = RecoveryTask::new(sender, params, strategies);
+
+					assert_eq!(task.run().await.unwrap_err(), RecoveryError::Unavailable);
+				},
+			);
+		}
+
+		// If we have the data in av-store, returns early.
+		{
+			let params = params.clone();
+			let strategies = VecDeque::new();
+			let candidate_hash = params.candidate_hash;
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+					receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+					AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(hash, tx)) => {
+						assert_eq!(hash, candidate_hash);
+						tx.send(Some(dummy_available_data())).unwrap();
+					});
+				},
+				|sender| async move {
+					let task = RecoveryTask::new(sender, params, strategies);
+
+					assert_eq!(task.run().await.unwrap(), dummy_available_data());
+				},
+			);
+		}
+
+		// Strategy returning `RecoveryError::Invalid`` will short-circuit the entire task.
+		{
+			let mut params = params.clone();
+			params.bypass_availability_store = true;
+			let mut strategies: VecDeque<Box<dyn RecoveryStrategy<TestSubsystemSender>>> =
+				VecDeque::new();
+			strategies.push_back(Box::new(InvalidStrategy));
+			strategies.push_back(Box::new(GoodStrategy));
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					// Shouldn't send any requests.
+					assert!(receiver.next().timeout(TIMEOUT).await.unwrap().is_none());
+				},
+				|sender| async move {
+					let task = RecoveryTask::new(sender, params, strategies);
+
+					assert_eq!(task.run().await.unwrap_err(), RecoveryError::Invalid);
+				},
+			);
+		}
+
+		// Strategy returning `Unavailable` will fall back to the next one.
+		{
+			let params = params.clone();
+			let candidate_hash = params.candidate_hash;
+			let mut strategies: VecDeque<Box<dyn RecoveryStrategy<TestSubsystemSender>>> =
+				VecDeque::new();
+			strategies.push_back(Box::new(UnavailableStrategy));
+			strategies.push_back(Box::new(GoodStrategy));
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+						receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(hash, tx)) => {
+							assert_eq!(hash, candidate_hash);
+							tx.send(Some(dummy_available_data())).unwrap();
+					});
+				},
+				|sender| async move {
+					let task = RecoveryTask::new(sender, params, strategies);
+
+					assert_eq!(task.run().await.unwrap(), dummy_available_data());
+				},
+			);
+		}
+
+		// More complex scenario.
+		{
+			let params = params.clone();
+			let candidate_hash = params.candidate_hash;
+			let mut strategies: VecDeque<Box<dyn RecoveryStrategy<TestSubsystemSender>>> =
+				VecDeque::new();
+			strategies.push_back(Box::new(UnavailableStrategy));
+			strategies.push_back(Box::new(UnavailableStrategy));
+			strategies.push_back(Box::new(GoodStrategy));
+			strategies.push_back(Box::new(InvalidStrategy));
+
+			test_harness(
+				|mut receiver: UnboundedReceiver<AllMessages>| async move {
+					assert_matches!(
+						receiver.next().timeout(TIMEOUT).await.unwrap().unwrap(),
+						AllMessages::AvailabilityStore(AvailabilityStoreMessage::QueryAvailableData(hash, tx)) => {
+							assert_eq!(hash, candidate_hash);
+							tx.send(Some(dummy_available_data())).unwrap();
+					});
+				},
+				|sender| async move {
+					let task = RecoveryTask::new(sender, params, strategies);
+
+					assert_eq!(task.run().await.unwrap(), dummy_available_data());
+				},
+			);
+		}
+	}
 
 	#[test]
-	fn parallel_request_calculation_works_as_expected() {
-		let num_validators = 100;
-		let threshold = recovery_threshold(num_validators).unwrap();
-		let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
+	fn test_is_unavailable() {
+		assert_eq!(is_unavailable(0, 0, 0, 0), false);
+		assert_eq!(is_unavailable(2, 2, 2, 0), false);
+		// Already reached the threshold.
+		assert_eq!(is_unavailable(3, 0, 10, 3), false);
+		assert_eq!(is_unavailable(3, 2, 0, 3), false);
+		assert_eq!(is_unavailable(3, 2, 10, 3), false);
+		// It's still possible to reach the threshold
+		assert_eq!(is_unavailable(0, 0, 10, 3), false);
+		assert_eq!(is_unavailable(0, 0, 3, 3), false);
+		assert_eq!(is_unavailable(1, 1, 1, 3), false);
+		// Not possible to reach the threshold
+		assert_eq!(is_unavailable(0, 0, 0, 3), true);
+		assert_eq!(is_unavailable(2, 3, 2, 10), true);
+	}
 
-		let mut fetch_chunks_task = FetchChunks::new(FetchChunksParams {
-			validators: (0..100u32).map(|i| (ChunkIndex(i), ValidatorIndex(i))).collect(),
-			erasure_task_tx,
-		});
-		assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);
-		fetch_chunks_task.error_count = 1;
-		fetch_chunks_task.total_received_responses = 1;
-		// We saturate at threshold (34):
-		assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);
+	#[test]
+	fn test_get_desired_request_count() {
+		// Systematic chunk recovery
+		{
+			let num_validators = 100;
+			let threshold = systematic_recovery_threshold(num_validators).unwrap();
+			let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
 
-		fetch_chunks_task.total_received_responses = 2;
-		// With given error rate - still saturating:
-		assert_eq!(fetch_chunks_task.get_desired_request_count(1, threshold), threshold);
-		fetch_chunks_task.total_received_responses += 8;
-		// error rate: 1/10
-		// remaining chunks needed: threshold (34) - 9
-		// expected: 24 * (1+ 1/10) = (next greater integer) = 27
-		assert_eq!(fetch_chunks_task.get_desired_request_count(9, threshold), 27);
-		fetch_chunks_task.error_count = 0;
-		// With error count zero - we should fetch exactly as needed:
-		assert_eq!(fetch_chunks_task.get_desired_request_count(10, threshold), threshold - 10);
+			let systematic_chunks_task = FetchChunks::new(FetchChunksParams {
+				validators: (0..100u32).map(|i| (i.into(), i.into())).collect(),
+				erasure_task_tx,
+			});
+			assert_eq!(systematic_chunks_task.get_desired_request_count(0, threshold), threshold);
+			assert_eq!(
+				systematic_chunks_task.get_desired_request_count(5, threshold),
+				threshold - 5
+			);
+			assert_eq!(
+				systematic_chunks_task.get_desired_request_count(num_validators * 2, threshold),
+				0
+			);
+			assert_eq!(
+				systematic_chunks_task.get_desired_request_count(0, N_PARALLEL * 2),
+				N_PARALLEL
+			);
+			assert_eq!(
+				systematic_chunks_task.get_desired_request_count(N_PARALLEL, N_PARALLEL + 2),
+				2
+			);
+		}
+
+		// Regular chunk recovery
+		{
+			let num_validators = 100;
+			let threshold = recovery_threshold(num_validators).unwrap();
+			let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
+
+			let mut fetch_chunks_task = FetchChunks::new(FetchChunksParams {
+				validators: (0..100u32).map(|i| (i.into(), i.into())).collect(),
+				erasure_task_tx,
+			});
+			assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);
+			fetch_chunks_task.error_count = 1;
+			fetch_chunks_task.total_received_responses = 1;
+			// We saturate at threshold (34):
+			assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);
+
+			// We saturate at the parallel limit.
+			assert_eq!(fetch_chunks_task.get_desired_request_count(0, N_PARALLEL + 2), N_PARALLEL);
+
+			fetch_chunks_task.total_received_responses = 2;
+			// With given error rate - still saturating:
+			assert_eq!(fetch_chunks_task.get_desired_request_count(1, threshold), threshold);
+			fetch_chunks_task.total_received_responses = 10;
+			// error rate: 1/10
+			// remaining chunks needed: threshold (34) - 9
+			// expected: 24 * (1+ 1/10) = (next greater integer) = 27
+			assert_eq!(fetch_chunks_task.get_desired_request_count(9, threshold), 27);
+			// We saturate at the parallel limit.
+			assert_eq!(fetch_chunks_task.get_desired_request_count(9, N_PARALLEL + 9), N_PARALLEL);
+
+			fetch_chunks_task.error_count = 0;
+			// With error count zero - we should fetch exactly as needed:
+			assert_eq!(fetch_chunks_task.get_desired_request_count(10, threshold), threshold - 10);
+		}
 	}
 }
