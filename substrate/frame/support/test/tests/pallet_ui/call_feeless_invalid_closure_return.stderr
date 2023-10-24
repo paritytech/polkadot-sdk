@@ -1,0 +1,5 @@
+error: Invalid pallet::call, feeless_if closure must return `bool`
+  --> tests/pallet_ui/call_feeless_invalid_closure_return.rs:32:46
+   |
+32 |         #[pallet::feeless_if(|_: &AccountIdFor<T>| -> u32 { 0 })]
+   |                                                    ^

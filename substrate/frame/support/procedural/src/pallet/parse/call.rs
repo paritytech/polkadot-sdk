@@ -394,15 +394,11 @@ impl CallDef {
 					}
 
 					let valid_return = match &feeless_check.output {
-						syn::ReturnType::Type(_, type_) => {
-							match *(type_.clone()) {
-								syn::Type::Path(syn::TypePath { path, .. }) => {
-									path.is_ident("bool")
-								},
-								_ => false 
-							}
+						syn::ReturnType::Type(_, type_) => match *(type_.clone()) {
+							syn::Type::Path(syn::TypePath { path, .. }) => path.is_ident("bool"),
+							_ => false,
 						},
-						_ => false
+						_ => false,
 					};
 					if !valid_return {
 						let msg = "Invalid pallet::call, feeless_if closure must return `bool`";
