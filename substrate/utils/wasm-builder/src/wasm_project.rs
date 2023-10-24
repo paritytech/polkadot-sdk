@@ -162,7 +162,6 @@ pub(crate) fn create_and_compile(
 				.and_then(|p| try_compress_blob(&p.0, &bloaty_blob_name));
 			(compact_blob_path, compact_compressed_blob_path)
 		} else {
-			println!("{}", colorize_info_message("Skipping wasm compaction and compression"));
 			(None, None)
 		};
 
