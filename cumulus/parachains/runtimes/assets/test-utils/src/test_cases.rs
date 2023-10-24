@@ -16,7 +16,7 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets.
 
 use super::xcm_helpers;
-use crate::assert_matches_reserve_asset_deposited_instructions;
+use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -1462,9 +1462,14 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				&alice,
 			);
 
-			// drip ED to account
-			let alice_account_init_balance =
-				existential_deposit.saturating_mul(2.into()) + balance_to_transfer.into();
+			// we calculate exact delivery fees _after_ sending the message by weighing the sent
+			// xcm, and this delivery fee varies for different runtimes, so just add enough buffer,
+			// then verify the arithmetics check out on final balance.
+			let delivery_fees_buffer = 40_000_000_000u128;
+			// drip 2xED + transfer_amount + delivery_fees_buffer to Alice account
+			let alice_account_init_balance = existential_deposit.saturating_mul(2.into()) +
+				balance_to_transfer.into() +
+				delivery_fees_buffer.into();
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&alice_account,
 				alice_account_init_balance,
@@ -1494,15 +1499,10 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				id: Concrete(native_asset),
 			};
 
-			// TODO: Get this fee via weighing the corresponding message
-			let delivery_fees = 31010000000;
-			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
-				.unwrap();
-
 			// pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
-				Box::new(dest.into_versioned()),
+				Box::new(dest.clone().into_versioned()),
 				Box::new(dest_beneficiary.into_versioned()),
 				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
 				0,
@@ -1516,20 +1516,6 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				|outcome| {
 					assert_ok!(outcome.ensure_complete());
 				},
-			);
-
-			// check alice account decreased by balance_to_transfer
-			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot/pull/7005) merged
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
-				alice_account_init_balance - balance_to_transfer.into()
-			);
-
-			// check reserve account
-			// check reserve account increased by balance_to_transfer
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
-				existential_deposit + balance_to_transfer.into()
 			);
 
 			// check that xcm was sent
@@ -1548,6 +1534,10 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			)
 			.unwrap();
 
+			let delivery_fees = get_fungible_delivery_fees::<
+				<XcmConfig as xcm_executor::Config>::XcmSender,
+			>(dest, Xcm::try_from(xcm_sent.clone()).unwrap());
+
 			assert_eq!(
 				xcm_sent_message_hash,
 				Some(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
@@ -1565,6 +1555,19 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				&mut xcm_sent,
 				&reserve_assets_deposited,
 				&dest_beneficiary,
+			);
+
+			// check alice account decreased by balance_to_transfer ( + delivery_fees)
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
+				alice_account_init_balance - balance_to_transfer.into() - delivery_fees.into()
+			);
+
+			// check reserve account
+			// check reserve account increased by balance_to_transfer
+			assert_eq!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
+				existential_deposit + balance_to_transfer.into()
 			);
 		})
 }
