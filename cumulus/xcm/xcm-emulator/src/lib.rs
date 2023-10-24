@@ -350,8 +350,8 @@ macro_rules! decl_test_relay_chains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
-				$(on_initialize = $on_initialize_fn:path,)?
-				$(on_finalize = $on_finalize_fn:path,)?
+				$(on_initialize = $on_initialize_fn:expr,)?
+				$(on_finalize = $on_finalize_fn:expr,)?
 			}
 		),
 		+
@@ -589,8 +589,8 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
-				$(on_initialize = $on_initialize_fn:path,)?
-				$(on_finalize = $on_finalize_fn:path,)?
+				$(on_initialize = $on_initialize_fn:expr,)?
+				$(on_finalize = $on_finalize_fn:expr,)?
 			}
 		),
 		+
