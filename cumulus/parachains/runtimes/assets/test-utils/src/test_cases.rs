@@ -169,7 +169,7 @@ pub fn teleports_for_native_asset_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
+				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -234,7 +234,7 @@ pub fn teleports_for_native_asset_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
+				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
@@ -543,7 +543,7 @@ pub fn teleports_for_foreign_assets_works<
 						id: sp_runtime::AccountId32::new([3; 32]).into(),
 					})
 					.unwrap();
-				dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
+				dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
 
 				let target_account_balance_before_teleport =
 					<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
@@ -1448,7 +1448,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 					id: sp_runtime::AccountId32::new([3; 32]).into(),
 				})
 				.unwrap();
-			dest_beneficiary.reanchor(&dest, Here.into()).unwrap();
+			dest_beneficiary.reanchor(&dest, XcmConfig::UniversalLocation::get()).unwrap();
 
 			let reserve_account = LocationToAccountId::convert_location(&dest)
 				.expect("Sovereign account for reserves");
@@ -1493,6 +1493,11 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				fun: Fungible(balance_to_transfer.into()),
 				id: Concrete(native_asset),
 			};
+
+			// TODO: Get this fee via weighing the corresponding message
+			let delivery_fees = 31010000000;
+			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
+				.unwrap();
 
 			// pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(

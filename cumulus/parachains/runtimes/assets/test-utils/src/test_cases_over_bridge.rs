@@ -22,7 +22,7 @@ use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::Mutate, Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
+		fungible::Mutate, Currency, Get, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -176,14 +176,10 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			let assets_to_transfer = MultiAssets::from(asset_to_transfer);
 			let mut expected_assets = assets_to_transfer.clone();
+			let context = XcmConfig::UniversalLocation::get();
 			expected_assets
-				.reanchor(&target_location_from_different_consensus, Here.into())
+				.reanchor(&target_location_from_different_consensus, context)
 				.unwrap();
-			// FIXME: remove this hardcode here when fixing reanchor over bridge
-			expected_assets = MultiAssets::from(MultiAsset {
-				id: Concrete(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }),
-				fun: Fungible(1000000000000),
-			});
 
 			let expected_beneficiary = target_destination_account;
 			// do pallet_xcm call reserve transfer
