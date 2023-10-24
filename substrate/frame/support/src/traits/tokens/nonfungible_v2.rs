@@ -119,7 +119,7 @@ pub trait InspectEnumerable<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing an interface for NFT-like items which may be minted, burned and/or have
-/// attributes set on them.
+/// attributes and metadata set on them.
 pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Mint some `item` to be owned by `who`.
 	///
@@ -158,6 +158,13 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 		key.using_encoded(|k| value.using_encoded(|v| Self::set_attribute(item, k, v)))
 	}
 
+	/// Set the metadata `data` of an `item`.
+	///
+	/// By default, this is not a supported operation.
+	fn set_metadata(_who: &AccountId, _item: &Self::ItemId, _data: &[u8]) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
 	/// Clear attribute of `item`'s `key`.
 	///
 	/// By default, this is not a supported operation.
@@ -170,6 +177,13 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// By default this just attempts to use `clear_attribute`.
 	fn clear_typed_attribute<K: Encode>(item: &Self::ItemId, key: &K) -> DispatchResult {
 		key.using_encoded(|k| Self::clear_attribute(item, k))
+	}
+
+	/// Clear the metadata of an `item`.
+	///
+	/// By default, this is not a supported operation.
+	fn clear_metadata(_who: &AccountId, _item: &Self::ItemId) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
 	}
 }
 

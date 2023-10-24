@@ -60,6 +60,7 @@ use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
+use pallet_identity::simple::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
@@ -512,6 +513,8 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
@@ -523,8 +526,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<5>;
 }
 
 parameter_types! {
@@ -1475,6 +1477,7 @@ impl pallet_identity::Config for Runtime {
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;

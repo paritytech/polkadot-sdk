@@ -1447,6 +1447,7 @@ mod tests {
 		type FreezeIdentifier = RuntimeFreezeReason;
 		type MaxFreezes = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = ();
 		type MaxHolds = ();
 	}
 
