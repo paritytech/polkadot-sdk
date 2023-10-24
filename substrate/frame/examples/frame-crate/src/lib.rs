@@ -46,7 +46,7 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use crate::pallet as my_pallet;
-	use frame::{prelude::*, testing_prelude::*};
+	use frame::testing_prelude::*;
 
 	construct_runtime!(
 		pub struct Runtime {

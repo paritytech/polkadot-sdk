@@ -19,7 +19,7 @@
 
 use super::*;
 use crate::{mock::*, types::*, Event};
-use frame_support::{pallet_prelude::*, testing_prelude::*, traits::Currency};
+use frame_support::{testing_prelude::*, traits::Currency};
 use pallet_staking::{CurrentEra, RewardDestination};
 
 use sp_runtime::traits::BadOrigin;

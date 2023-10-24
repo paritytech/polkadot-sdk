@@ -98,14 +98,15 @@ pub mod prelude {
 /// A test setup typically starts with:
 ///
 /// ```
-/// use frame::{prelude::*, testing_prelude::*};
+/// use frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
 #[cfg(feature = "std")]
 pub mod testing_prelude {
+	pub use super::prelude::*;
 	/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
-	pub use super::runtime::{prelude::*, testing_prelude::*};
+	pub use super::runtime::testing_prelude::*;
 
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
@@ -262,6 +263,7 @@ pub mod runtime {
 	/// counter part of `runtime::prelude`.
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
+		pub use super::prelude::*;
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::BuildStorage;
 	}
