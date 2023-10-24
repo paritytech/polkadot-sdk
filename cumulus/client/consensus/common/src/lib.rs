@@ -111,12 +111,14 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 
 /// Parachain specific block import.
 ///
-/// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
-/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain.
-/// Meaning we will update the best block, as it is included by the relay-chain.
+/// If `update_fork_choice` is `true` this is used to set `block_import_params.fork_choice` to
+/// `false` as long as the block origin is not `NetworkInitialSync`. The best block for parachains
+/// is determined by the relay chain. Meaning we will update the best block, as it is included by
+/// the relay-chain.
 pub struct ParachainBlockImport<Block: BlockT, BI, BE> {
 	inner: BI,
 	monitor: Option<SharedData<LevelMonitor<Block, BE>>>,
+	update_fork_choice: bool,
 }
 
 impl<Block: BlockT, BI, BE: Backend<Block>> ParachainBlockImport<Block, BI, BE> {
@@ -141,13 +143,27 @@ impl<Block: BlockT, BI, BE: Backend<Block>> ParachainBlockImport<Block, BI, BE> 
 		let monitor =
 			level_limit.map(|level_limit| SharedData::new(LevelMonitor::new(level_limit, backend)));
 
-		Self { inner, monitor }
+		Self { inner, monitor, update_fork_choice: false }
+	}
+
+	/// Create a new instance which allows to update `params.fork_choice`.
+	///
+	/// The number of leaves per level limit is set to `LevelLimit::Default`.
+	pub fn new_with_update_fork_choice_enabled(inner: BI, backend: Arc<BE>) -> Self {
+		Self {
+			update_fork_choice: true,
+			..Self::new_with_limit(inner, backend, LevelLimit::Default)
+		}
 	}
 }
 
 impl<Block: BlockT, I: Clone, BE> Clone for ParachainBlockImport<Block, I, BE> {
 	fn clone(&self) -> Self {
-		ParachainBlockImport { inner: self.inner.clone(), monitor: self.monitor.clone() }
+		ParachainBlockImport {
+			inner: self.inner.clone(),
+			monitor: self.monitor.clone(),
+			update_fork_choice: self.update_fork_choice,
+		}
 	}
 }
 
@@ -182,11 +198,13 @@ where
 			params.finalized = true;
 		}
 
-		// Best block is determined by the relay chain, or if we are doing the initial sync
-		// we import all blocks as new best.
-		params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
-			params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
-		));
+		if self.update_fork_choice {
+			// Best block is determined by the relay chain, or if we are doing the initial sync
+			// we import all blocks as new best.
+			params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
+				params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+			));
+		}
 
 		let maybe_lock = self.monitor.as_ref().map(|monitor_lock| {
 			let mut monitor = monitor_lock.shared_data_locked();
