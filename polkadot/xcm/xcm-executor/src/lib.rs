@@ -691,17 +691,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
-				// Note that here we are able to place any assets which could not be reanchored
-				// back into Holding.
-				let assets = Self::reanchored(
-					self.holding.saturating_take(assets),
-					&reserve,
-					Some(&mut self.holding),
-				);
-				let mut message = vec![WithdrawAsset(assets), ClearOrigin];
-				message.extend(xcm.0.into_iter());
-				self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
-				Ok(())
+				let old_holding = self.holding.clone();
+				let result = Config::TransactionalProcessor::process(|| -> Result<(), XcmError> {
+					// Note that here we are able to place any assets which could not be reanchored
+					// back into Holding.
+					let assets = Self::reanchored(
+						self.holding.saturating_take(assets),
+						&reserve,
+						Some(&mut self.holding),
+					);
+					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
+					message.extend(xcm.0.into_iter());
+					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
+					Ok(())
+				});
+				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
+					self.holding = old_holding;
+				}
+				result
 			},
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
