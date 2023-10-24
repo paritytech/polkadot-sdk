@@ -184,8 +184,7 @@ pub trait StorageValue<T: FullCodec> {
 	/// ignored by this function.
 	/// # Example
 	///
-	/// ```rust
-	/// #[crate::storage_alias]
+	/// ```text
 	/// type Store = StorageValue<Prefix, BTreeSet<u32>>;
 	///
 	/// TestExternalities::default().execute_with(|| {
