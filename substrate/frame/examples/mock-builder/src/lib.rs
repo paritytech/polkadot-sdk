@@ -1,4 +1,4 @@
-//! Silly pallet to show how to test it with mock-builder
+//! Silly pallet to show how to testing with mock-builder works
 //!
 //! The pallet allows to create auctions once a certain deposit is reached and some time has been
 //! passed from the last deposit.
