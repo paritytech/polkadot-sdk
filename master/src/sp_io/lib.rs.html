@@ -1936,6 +1936,25 @@
 <a href="#1936" id="1936">1936</a>
 <a href="#1937" id="1937">1937</a>
 <a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2044,7 +2063,7 @@
 };
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
-</span><span class="kw">use </span>sp_core::bls377;
+</span><span class="kw">use </span>sp_core::{bls377, ecdsa_bls377};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -3143,6 +3162,25 @@
 			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
 			.bls377_generate_new(id, seed)
 			.expect(<span class="string">&quot;`bls377_generate` failed&quot;</span>)
+	}
+
+	<span class="doccomment">/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Returns the public key.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_generate(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		id: KeyTypeId,
+		seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+	) -&gt; ecdsa_bls377::Public {
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
+			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.ecdsa_bls377_generate_new(id, seed)
+			.expect(<span class="string">&quot;`ecdsa_bls377_generate` failed&quot;</span>)
 	}
 
 	<span class="doccomment">/// Generate a `bandersnatch` key pair for the given key type using an optional

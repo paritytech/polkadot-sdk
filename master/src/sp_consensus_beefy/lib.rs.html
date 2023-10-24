@@ -459,6 +459,64 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -535,10 +593,11 @@
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 </span><span class="kw">pub mod </span>ecdsa_crypto {
-	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE <span class="kw">as </span>BEEFY_KEY_TYPE};
+	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa};
 	<span class="kw">use </span>sp_core::crypto::Wraps;
-	<span class="macro">app_crypto!</span>(ecdsa, BEEFY_KEY_TYPE);
+
+	<span class="macro">app_crypto!</span>(ecdsa, KEY_TYPE);
 
 	<span class="doccomment">/// Identity of a BEEFY authority using ECDSA as its crypto.
 	</span><span class="kw">pub type </span>AuthorityId = Public;
@@ -576,10 +635,11 @@
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>bls_crypto {
-	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE <span class="kw">as </span>BEEFY_KEY_TYPE};
+	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, bls377};
 	<span class="kw">use </span>sp_core::{bls377::Pair <span class="kw">as </span>BlsPair, crypto::Wraps, Pair <span class="kw">as _</span>};
-	<span class="macro">app_crypto!</span>(bls377, BEEFY_KEY_TYPE);
+
+	<span class="macro">app_crypto!</span>(bls377, KEY_TYPE);
 
 	<span class="doccomment">/// Identity of a BEEFY authority using BLS as its crypto.
 	</span><span class="kw">pub type </span>AuthorityId = Public;
@@ -601,6 +661,46 @@
 		}
 	}
 }
+
+<span class="doccomment">/// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
+///
+/// This module basically introduces four crypto types:
+/// - `ecdsa_bls_crypto::Pair`
+/// - `ecdsa_bls_crypto::Public`
+/// - `ecdsa_bls_crypto::Signature`
+/// - `ecdsa_bls_crypto::AuthorityId`
+///
+/// Your code should use the above types as concrete types for all crypto related
+/// functionality.
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="kw">pub mod </span>ecdsa_bls_crypto {
+	<span class="kw">use super</span>::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa_bls377};
+	<span class="kw">use </span>sp_core::{crypto::Wraps, ecdsa_bls377::Pair <span class="kw">as </span>EcdsaBlsPair, Pair <span class="kw">as _</span>};
+
+	<span class="macro">app_crypto!</span>(ecdsa_bls377, KEY_TYPE);
+
+	<span class="doccomment">/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
+	</span><span class="kw">pub type </span>AuthorityId = Public;
+
+	<span class="doccomment">/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
+	</span><span class="kw">pub type </span>AuthoritySignature = Signature;
+
+	<span class="kw">impl</span>&lt;MsgHash: Hash&gt; BeefyAuthorityId&lt;MsgHash&gt; <span class="kw">for </span>AuthorityId
+	<span class="kw">where
+		</span>&lt;MsgHash <span class="kw">as </span>Hash&gt;::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
+	{
+		<span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeAppPublic&gt;::Signature, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+			<span class="comment">// `w3f-bls` library uses IETF hashing standard and as such does not exposes
+			// a choice of hash to field function.
+			// We are directly calling into the library to avoid introducing new host call.
+			// and because BeefyAuthorityId::verify is being called in the runtime so we don&#39;t have
+
+			</span>EcdsaBlsPair::verify(signature.as_inner_ref(), msg, <span class="self">self</span>.as_inner_ref())
+		}
+	}
+}
+
 <span class="doccomment">/// The `ConsensusEngineId` of BEEFY.
 </span><span class="kw">pub const </span>BEEFY_ENGINE_ID: sp_runtime::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;BEEF&quot;</span>;
 
@@ -917,6 +1017,22 @@
 
 		<span class="comment">// Other public key doesn&#39;t work
 		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = bls_crypto::Pair::generate();
+		<span class="macro">assert!</span>(!BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>other_pair.public(), <span class="kw-2">&amp;</span>signature, msg,));
+	}
+
+	<span class="attr">#[test]
+	#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls_beefy_verify_works() {
+		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
+		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();
+
+		<span class="kw">let </span>signature: ecdsa_bls_crypto::Signature = pair.as_inner_ref().sign(<span class="kw-2">&amp;</span>msg).into();
+
+		<span class="comment">// Verification works if same hashing function is used when signing and verifying.
+		</span><span class="macro">assert!</span>(BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>signature, msg));
+
+		<span class="comment">// Other public key doesn&#39;t work
+		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();
 		<span class="macro">assert!</span>(!BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>other_pair.public(), <span class="kw-2">&amp;</span>signature, msg,));
 	}
 }

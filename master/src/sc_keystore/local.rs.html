@@ -791,6 +791,31 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -830,7 +855,7 @@
 }
 
 <span class="macro">sp_keystore::bls_experimental_enabled! </span>{
-<span class="kw">use </span>sp_core::{bls377, bls381};
+<span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377};
 }
 
 <span class="kw">use crate</span>::{Error, <span class="prelude-ty">Result</span>};
@@ -1159,6 +1184,31 @@
 		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, TraitError&gt; {
 			<span class="self">self</span>.sign::&lt;bls377::Pair&gt;(key_type, public, msg)
 		}
+
+		<span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
+			<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
+		}
+
+		<span class="doccomment">/// Generate a new pair of paired-keys compatible with the &#39;(ecdsa,bls377)&#39; signature scheme.
+		///
+		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
+		</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			key_type: KeyTypeId,
+			seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+		) -&gt; std::result::Result&lt;ecdsa_bls377::Public, TraitError&gt; {
+			<span class="self">self</span>.generate_new::&lt;ecdsa_bls377::Pair&gt;(key_type, seed)
+		}
+
+		<span class="kw">fn </span>ecdsa_bls377_sign(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			key_type: KeyTypeId,
+			public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+			msg: <span class="kw-2">&amp;</span>[u8],
+		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, TraitError&gt; {
+			<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
+		}
+
 	}
 }
 

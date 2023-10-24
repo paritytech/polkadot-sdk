@@ -532,6 +532,30 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -556,7 +580,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
-</span><span class="kw">use </span>sp_core::{bls377, bls381};
+</span><span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377};
 <span class="kw">use </span>sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -854,6 +878,30 @@
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt; {
 		<span class="self">self</span>.sign::&lt;bls377::Pair&gt;(key_type, public, msg)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
+		<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt; {
+		<span class="self">self</span>.generate_new::&lt;ecdsa_bls377::Pair&gt;(key_type, seed)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_sign(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		msg: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
+		<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
 	}
 
 	<span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {

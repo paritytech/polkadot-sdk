@@ -644,6 +644,69 @@
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -669,7 +732,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
-</span><span class="kw">use </span>sp_core::{bls377, bls381};
+</span><span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377};
 <span class="kw">use </span>sp_core::{
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
 	ecdsa, ed25519, sr25519,
@@ -916,6 +979,10 @@
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 	</span><span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt;;
 
+	<span class="doccomment">/// Returns all (ecdsa,bls12-377) paired public keys for the given key type.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt;;
+
 	<span class="doccomment">/// Generate a new bls381 key pair for the given key type and an optional seed.
 	///
 	/// Returns an `bls381::Public` key of the generated key pair or an `Err` if
@@ -937,6 +1004,17 @@
 		key_type: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bls377::Public, Error&gt;;
+
+	<span class="doccomment">/// Generate a new (ecdsa,bls377) key pair for the given key type and an optional seed.
+	///
+	/// Returns an `ecdsa_bls377::Public` key of the generated key pair or an `Err` if
+	/// something failed during key generation.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt;;
 
 	<span class="doccomment">/// Generate a bls381 signature for a given message.
 	///
@@ -970,6 +1048,22 @@
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt;;
 
+	<span class="doccomment">/// Generate a (ecdsa,bls377) signature pair for a given message.
+	///
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
+	/// them to a private key that exists in the keystore.
+	///
+	/// Returns an [`ecdsa_bls377::Signature`] or `None` in case the given `key_type`
+	/// and `public` combination doesn&#39;t exist in the keystore.
+	/// An `Err` will be returned if generating the signature itself failed.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_sign(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		msg: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt;;
+
 	<span class="doccomment">/// Insert a new secret key.
 	</span><span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 
@@ -995,6 +1089,7 @@
 	/// - bandersnatch
 	/// - bls381
 	/// - bls377
+	/// - (ecdsa,bls377) paired keys
 	///
 	/// To support more schemes you can overwrite this method.
 	///
@@ -1044,6 +1139,13 @@
 					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">&quot;Invalid public key format&quot;</span>.into()))<span class="question-mark">?</span>;
 				<span class="self">self</span>.bls377_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
 			},
+			<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+			</span>ecdsa_bls377::CRYPTO_ID =&gt; {
+				<span class="kw">let </span>public = ecdsa_bls377::Public::from_slice(public)
+					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">&quot;Invalid public key format&quot;</span>.into()))<span class="question-mark">?</span>;
+				<span class="self">self</span>.ecdsa_bls377_sign(id, <span class="kw-2">&amp;</span>public, msg)<span class="question-mark">?</span>.map(|s| s.encode())
+			},
+
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::KeyNotSupported(id)),
 		};
 		<span class="prelude-val">Ok</span>(signature)
@@ -1207,6 +1309,11 @@
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_public_keys(id)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 	</span><span class="kw">fn </span>bls381_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1222,6 +1329,15 @@
 		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bls377::Public, Error&gt; {
 		(<span class="kw-2">**</span><span class="self">self</span>).bls377_generate_new(key_type, seed)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		seed: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ecdsa_bls377::Public, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_generate_new(key_type, seed)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
@@ -1242,6 +1358,16 @@
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bls377::Signature&gt;, Error&gt; {
 		(<span class="kw-2">**</span><span class="self">self</span>).bls377_sign(key_type, public, msg)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_sign(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		msg: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_sign(key_type, public, msg)
 	}
 
 	<span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {

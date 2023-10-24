@@ -582,6 +582,8 @@
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -634,6 +636,8 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>bls381;
 <span class="kw">pub mod </span>ecdsa;
+<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="kw">pub mod </span>ecdsa_bls377;
 <span class="kw">pub mod </span>ed25519;
 <span class="kw">pub mod </span>sr25519;
 <span class="kw">mod </span>traits;

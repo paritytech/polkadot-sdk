@@ -660,6 +660,10 @@
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -695,12 +699,12 @@
 <span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
 
-<span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
+<span class="kw">use </span>sp_runtime_interface::pass_by::{<span class="self">self</span>, PassBy, PassByInner};
 <span class="kw">use </span>sp_std::convert::TryFrom;
 
 <span class="doccomment">/// ECDSA and BLS12-377 paired crypto scheme
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
-</span><span class="kw">pub mod </span>ecdsa_n_bls377 {
+</span><span class="kw">pub mod </span>ecdsa_bls377 {
 	<span class="kw">use crate</span>::{bls377, crypto::CryptoTypeId, ecdsa};
 
 	<span class="doccomment">/// An identifier used to match public keys against BLS12-377 keys
@@ -711,12 +715,12 @@
 	<span class="kw">const </span>SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	<span class="doccomment">/// (ECDSA, BLS12-377) key-pair pair.
+	<span class="doccomment">/// (ECDSA,BLS12-377) key-pair pair.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub type </span>Pair = <span class="kw">super</span>::Pair&lt;ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN&gt;;
-	<span class="doccomment">/// (ECDSA, BLS12-377) public key pair.
+	<span class="doccomment">/// (ECDSA,BLS12-377) public key pair.
 	</span><span class="kw">pub type </span>Public = <span class="kw">super</span>::Public&lt;PUBLIC_KEY_LEN&gt;;
-	<span class="doccomment">/// (ECDSA, BLS12-377) signature pair.
+	<span class="doccomment">/// (ECDSA,BLS12-377) signature pair.
 	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;SIGNATURE_LEN&gt;;
 
 	<span class="kw">impl </span><span class="kw">super</span>::CryptoType <span class="kw">for </span>Public {
@@ -813,6 +817,10 @@
 	}
 }
 
+<span class="kw">impl</span>&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt; PassBy <span class="kw">for </span>Public&lt;LEFT_PLUS_RIGHT_LEN&gt; {
+	<span class="kw">type </span>PassBy = pass_by::Inner&lt;<span class="self">Self</span>, [u8; LEFT_PLUS_RIGHT_LEN]&gt;;
+}
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">impl</span>&lt;
 		LeftPair: PairT,
@@ -906,7 +914,7 @@
 <span class="kw">impl</span>&lt;T: ByteArray&gt; SignatureBound <span class="kw">for </span>T {}
 
 <span class="doccomment">/// A pair of signatures of different types
-</span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+</span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Signature&lt;<span class="kw">const </span>LEFT_PLUS_RIGHT_LEN: usize&gt;([u8; LEFT_PLUS_RIGHT_LEN]);
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
@@ -1109,12 +1117,12 @@
 	}
 }
 
-<span class="comment">// Test set exercising the (ECDSA, BLS12-377) implementation
+<span class="comment">// Test set exercising the (ECDSA,BLS12-377) implementation
 </span><span class="attr">#[cfg(all(test, feature = <span class="string">&quot;bls-experimental&quot;</span>))]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::crypto::DEV_PHRASE;
-	<span class="kw">use </span>ecdsa_n_bls377::{Pair, Signature};
+	<span class="kw">use </span>ecdsa_bls377::{Pair, Signature};
 
 	<span class="kw">use crate</span>::{bls377, ecdsa};
 	<span class="attr">#[test]
