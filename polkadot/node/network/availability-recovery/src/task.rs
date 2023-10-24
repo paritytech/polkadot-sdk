@@ -20,11 +20,11 @@
 
 use crate::{
 	futures_undead::FuturesUndead,
-	is_chunk_valid, is_unavailable,
 	metrics::{Metrics, REGULAR_CHUNK_LABEL, SYSTEMATIC_CHUNK_LABEL},
 	ErasureTask, LOG_TARGET,
 };
 use futures::{channel::oneshot, SinkExt};
+use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
 use polkadot_node_network_protocol::request_response::{
@@ -35,7 +35,9 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeTxMessage},
 	overseer, RecoveryError,
 };
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, ChunkIndex, Hash, ValidatorIndex};
+use polkadot_primitives::{
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, Hash, HashT, ValidatorIndex,
+};
 use rand::seq::SliceRandom;
 use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
 use std::{
@@ -68,6 +70,44 @@ pub const SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 0;
 /// (validator,chunk) pair, if the error was not fatal. Added so that we don't get stuck in an
 /// infinite retry loop.
 pub const REGULAR_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 5;
+
+const fn is_unavailable(
+	received_chunks: usize,
+	requesting_chunks: usize,
+	unrequested_validators: usize,
+	threshold: usize,
+) -> bool {
+	received_chunks + requesting_chunks + unrequested_validators < threshold
+}
+
+/// Check validity of a chunk.
+fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
+	let anticipated_hash =
+		match branch_hash(&params.erasure_root, chunk.proof(), chunk.index.0 as usize) {
+			Ok(hash) => hash,
+			Err(e) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					candidate_hash = ?params.candidate_hash,
+					chunk_index = ?chunk.index,
+					error = ?e,
+					"Invalid Merkle proof",
+				);
+				return false
+			},
+		};
+	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
+	if anticipated_hash != erasure_chunk_hash {
+		gum::debug!(
+			target: LOG_TARGET,
+			candidate_hash = ?params.candidate_hash,
+			chunk_index = ?chunk.index,
+			"Merkle proof mismatch"
+		);
+		return false
+	}
+	true
+}
 
 #[async_trait::async_trait]
 /// Common trait for runnable recovery strategies.

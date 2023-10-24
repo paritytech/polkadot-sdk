@@ -40,14 +40,13 @@ use task::{
 	FetchSystematicChunksParams,
 };
 
-use fatality::Nested;
 use polkadot_erasure_coding::{
-	branch_hash, branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
+	branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
 	Error as ErasureEncodingError,
 };
 use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
 
-use error::{Error, Result};
+use error::{log_error, Error, FatalError, Result};
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, IncomingRequestReceiver},
 	UnifiedReputationChange as Rep,
@@ -58,14 +57,14 @@ use polkadot_node_subsystem::{
 	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage, ChainApiMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
-	SubsystemContext, SubsystemError, SubsystemResult,
+	SubsystemContext, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	request_session_info, runtime::request_client_features, ChunkIndexCacheRegistry,
 };
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HashT,
-	SessionIndex, SessionInfo, ValidatorIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, SessionIndex,
+	SessionInfo, ValidatorIndex,
 };
 
 mod error;
@@ -134,44 +133,6 @@ pub enum ErasureTask {
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
 	/// the Merkle tree.
 	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>),
-}
-
-const fn is_unavailable(
-	received_chunks: usize,
-	requesting_chunks: usize,
-	unrequested_validators: usize,
-	threshold: usize,
-) -> bool {
-	received_chunks + requesting_chunks + unrequested_validators < threshold
-}
-
-/// Check validity of a chunk.
-fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
-	let anticipated_hash =
-		match branch_hash(&params.erasure_root, chunk.proof(), chunk.index.0 as usize) {
-			Ok(hash) => hash,
-			Err(e) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					candidate_hash = ?params.candidate_hash,
-					chunk_index = ?chunk.index,
-					error = ?e,
-					"Invalid Merkle proof",
-				);
-				return false
-			},
-		};
-	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
-	if anticipated_hash != erasure_chunk_hash {
-		gum::debug!(
-			target: LOG_TARGET,
-			candidate_hash = ?params.candidate_hash,
-			chunk_index = ?chunk.index,
-			"Merkle proof mismatch"
-		);
-		return false
-	}
-	true
 }
 
 /// Re-encode the data into erasure chunks in order to verify
@@ -336,9 +297,10 @@ impl<Context> AvailabilityRecoverySubsystem {
 }
 
 /// Handles a signal from the overseer.
-async fn handle_signal(state: &mut State, signal: OverseerSignal) -> SubsystemResult<bool> {
+/// Returns true if subsystem receives a deadly signal.
+async fn handle_signal(state: &mut State, signal: OverseerSignal) -> bool {
 	match signal {
-		OverseerSignal::Conclude => Ok(true),
+		OverseerSignal::Conclude => true,
 		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate { activated, .. }) => {
 			// if activated is non-empty, set state.live_block to the highest block in `activated`
 			if let Some(activated) = activated {
@@ -347,9 +309,9 @@ async fn handle_signal(state: &mut State, signal: OverseerSignal) -> SubsystemRe
 				}
 			}
 
-			Ok(false)
+			false
 		},
-		OverseerSignal::BlockFinalized(_, _) => Ok(false),
+		OverseerSignal::BlockFinalized(_, _) => false,
 	}
 }
 
@@ -386,15 +348,8 @@ async fn launch_recovery_task<Context>(
 		awaiting: vec![response_sender],
 	});
 
-	if let Err(e) = ctx.spawn("recovery-task", Box::pin(remote)) {
-		gum::warn!(
-			target: LOG_TARGET,
-			err = ?e,
-			"Failed to spawn a recovery task",
-		);
-	}
-
-	Ok(())
+	ctx.spawn("recovery-task", Box::pin(remote))
+		.map_err(|err| Error::SpawnTask(err))
 }
 
 /// Handles an availability recovery request.
@@ -419,14 +374,7 @@ async fn handle_recover<Context>(
 	if let Some(result) =
 		state.availability_lru.get(&candidate_hash).cloned().map(|v| v.into_result())
 	{
-		if let Err(e) = response_sender.send(result) {
-			gum::warn!(
-				target: LOG_TARGET,
-				err = ?e,
-				"Error responding with an availability recovery result",
-			);
-		}
-		return Ok(())
+		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender)
 	}
 
 	if let Some(i) =
@@ -584,11 +532,11 @@ async fn handle_recover<Context>(
 			.await
 		},
 		None => {
-			gum::warn!(target: LOG_TARGET, "SessionInfo is `None` at {:?}", state.live_block);
 			response_sender
 				.send(Err(RecoveryError::Unavailable))
 				.map_err(|_| Error::CanceledResponseSender)?;
-			Ok(())
+
+			Err(Error::SessionInfoUnavailable(state.live_block.1))
 		},
 	}
 }
@@ -719,7 +667,7 @@ impl AvailabilityRecoverySubsystem {
 		}
 	}
 
-	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
+	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
 		let mut state = State::default();
 		let Self { mut req_receiver, metrics, recovery_strategy_kind, bypass_availability_store } =
 			self;
@@ -757,52 +705,42 @@ impl AvailabilityRecoverySubsystem {
 		loop {
 			let recv_req = req_receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse();
 			pin_mut!(recv_req);
-			futures::select! {
+			let res = futures::select! {
 				erasure_task = erasure_task_rx.next() => {
 					match erasure_task {
 						Some(task) => {
-							let send_result = to_pool
+							to_pool
 								.next()
 								.expect("Pool size is `NonZeroUsize`; qed")
 								.send(task)
 								.await
-								.map_err(|_| RecoveryError::ChannelClosed);
-
-							if let Err(err) = send_result {
-								gum::warn!(
-									target: LOG_TARGET,
-									?err,
-									"Failed to send erasure coding task",
-								);
-							}
+								.map_err(|_| RecoveryError::ChannelClosed)
 						},
 						None => {
-							gum::debug!(
-								target: LOG_TARGET,
-								"Erasure task channel closed",
-							);
-
-							return Err(SubsystemError::with_origin("availability-recovery", RecoveryError::ChannelClosed))
+							Err(RecoveryError::ChannelClosed)
 						}
-					}
+					}.map_err(Into::into)
 				}
-				v = ctx.recv().fuse() => {
-					match v? {
-						FromOrchestra::Signal(signal) => if handle_signal(
-							&mut state,
-							signal,
-						).await? {
-							return Ok(());
-						}
-						FromOrchestra::Communication { msg } => {
-							match msg {
-								AvailabilityRecoveryMessage::RecoverAvailableData(
-									receipt,
-									session_index,
-									maybe_backing_group,
-									response_sender,
-								) => {
-									if let Err(e) = handle_recover(
+				signal = ctx.recv().fuse() => {
+					match signal {
+						Ok(signal) => {
+							match signal {
+								FromOrchestra::Signal(signal) => if handle_signal(
+									&mut state,
+									signal,
+								).await {
+									return Ok(());
+								} else {
+									Ok(())
+								},
+								FromOrchestra::Communication {
+									msg: AvailabilityRecoveryMessage::RecoverAvailableData(
+										receipt,
+										session_index,
+										maybe_backing_group,
+										response_sender,
+									)
+								} => handle_recover(
 										&mut state,
 										&mut ctx,
 										receipt,
@@ -813,20 +751,14 @@ impl AvailabilityRecoverySubsystem {
 										erasure_task_tx.clone(),
 										recovery_strategy_kind.clone(),
 										bypass_availability_store
-									).await {
-										gum::warn!(
-											target: LOG_TARGET,
-											err = ?e,
-											"Error handling a recovery request",
-										);
-									}
-								}
+									).await
 							}
-						}
+						},
+						Err(e) => Err(Error::SubsystemReceive(e))
 					}
 				}
 				in_req = recv_req => {
-					match in_req.into_nested().map_err(|fatal| SubsystemError::with_origin("availability-recovery", fatal))? {
+					match in_req {
 						Ok(req) => {
 							if bypass_availability_store {
 								gum::debug!(
@@ -834,40 +766,42 @@ impl AvailabilityRecoverySubsystem {
 									"Skipping request to availability-store.",
 								);
 								let _ = req.send_response(None.into());
-								continue
-							}
-							match query_full_data(&mut ctx, req.payload.candidate_hash).await {
-								Ok(res) => {
-									let _ = req.send_response(res.into());
-								}
-								Err(e) => {
-									gum::debug!(
-										target: LOG_TARGET,
-										err = ?e,
-										"Failed to query available data.",
-									);
-
-									let _ = req.send_response(None.into());
+								Ok(())
+							} else {
+								match query_full_data(&mut ctx, req.payload.candidate_hash).await {
+									Ok(res) => {
+										let _ = req.send_response(res.into());
+										Ok(())
+									}
+									Err(e) => {
+										let _ = req.send_response(None.into());
+										Err(e)
+									}
 								}
 							}
 						}
-						Err(jfyi) => {
-							gum::debug!(
-								target: LOG_TARGET,
-								error = ?jfyi,
-								"Decoding incoming request failed"
-							);
-							continue
-						}
+						Err(e) => Err(Error::IncomingRequest(e))
 					}
 				}
 				output = state.ongoing_recoveries.select_next_some() => {
+					let mut res = Ok(());
 					if let Some((candidate_hash, result)) = output {
+						if let Err(ref e) = result {
+							res = Err(Error::Recovery(e.clone()));
+						}
+
 						if let Ok(recovery) = CachedRecovery::try_from(result) {
 							state.availability_lru.insert(candidate_hash, recovery);
 						}
 					}
+
+					res
 				}
+			};
+
+			// Only bubble up fatal errors, but log all of them.
+			if let Err(e) = res {
+				log_error(Err(e))?;
 			}
 		}
 	}
