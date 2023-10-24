@@ -64,6 +64,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn trigger_defensive(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
+			frame_support::defensive!("root_testing::trigger_defensive was called.");
 			Self::deposit_event(Event::DefensiveTestCall);
 			Ok(())
 		}
