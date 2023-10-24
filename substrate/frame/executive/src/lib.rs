@@ -388,7 +388,7 @@ where
 				Err(err) => {
 					log::error!(
 						target: LOG_TARGET,
-						"failed to decode the value at key: {err}",
+						"failed to decode the state: {err}",
 					);
 
 					return Err("failed to decode a value from the storage".into())
