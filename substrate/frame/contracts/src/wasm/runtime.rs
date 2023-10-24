@@ -2685,7 +2685,7 @@ pub mod env {
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
-	/// This is equivalent to dispatching `pallet_xcm::send` through call_runtime, except that
+	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
 	/// the function is called directly instead of being dispatched.
 	///
 	/// # Parameters
@@ -2694,6 +2694,7 @@ pub mod env {
 	///   is placed.
 	/// - `call_ptr`: the pointer into the linear memory where the message is placed.
 	/// - `call_len`: the length of the message in bytes.
+        ///
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
@@ -2721,7 +2722,7 @@ pub mod env {
 			Ok(_) => Ok(ReturnCode::Success),
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
-					ctx.ext.append_debug_buffer("call failed with: ");
+					ctx.ext.append_debug_buffer("seal0::xcm_send failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
 				Ok(ReturnCode::CallRuntimeFailed)

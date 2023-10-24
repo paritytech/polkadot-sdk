@@ -33,12 +33,10 @@
 		)
 		(call $seal_return
 			(i32.const 0)	;; flags
-			(i32.const 0)	;; returned value
+			(i32.const 0)	;; ptr to returned value
 			(i32.const 4)	;; length of returned value
 		)
 	)
 
 	(func (export "deploy"))
 )
-
-

@@ -36,7 +36,3 @@
 
 	(func (export "deploy"))
 )
-
-
-
-

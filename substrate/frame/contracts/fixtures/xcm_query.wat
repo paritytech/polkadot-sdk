@@ -13,10 +13,10 @@
 		;; Receive the encoded call
 		(call $seal_input
 			(i32.const 4)	;; Pointer to the input buffer
-			(i32.const 0)	;; Size of the length buffer
+			(i32.const 0)	;; Pointer to the buffer length (before call) and to the copied data length (after call)
 		)
 		;; Input data layout.
-		;; [0..4) - size of the call
+		;; [0..4) - size of the input buffer
 		;; [4..12) - timeout
 		;; [12..49) - match_querier
 
@@ -30,13 +30,10 @@
 		)
 		(call $seal_return
 			(i32.const 0)	;; flags
-			(i32.const 49)	;; returned value
+			(i32.const 49)	;; Pointer to returned value
 			(i32.const 8)	;; length of returned value
 		)
 	)
 
 	(func (export "deploy"))
 )
-
-
-
