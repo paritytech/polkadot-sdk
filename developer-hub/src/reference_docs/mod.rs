@@ -37,3 +37,9 @@ pub mod wasm_meta_protocol;
 /// Learn about the differences between smart contracts and a FRAME-based runtime. They are both
 /// "code stored onchain", but how do they differ?
 pub mod runtime_vs_smart_contract;
+
+/// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
+pub mod origin_account_abstraction;
+
+/// Learn about how to write safe and defensive code in your FRAME runtime.
+pub mod safe_defensive_programming;

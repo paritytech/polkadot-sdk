@@ -8,18 +8,19 @@ authors.workspace = true
 edition.workspace = true
 # This crate is not publish-able to crates.io for now because of docify.
 publish = false
-version = "1.0.0"
-
-[package.metadata.docs.rs]
-rustdoc-args = [
-    "--html-in-header",
-    ".cargo/registry/src/github.com-1ecc6299db9ec823/katex-doc-0.1.0/katex.html",
-]
+version = "0.0.1"
 
 [dependencies]
+# Needed for all FRAME-based code
+parity-scale-codec = { version = "3.0.0", default-features = false }
+scale-info = { version = "2.6.0", default-features = false }
+frame = { path = "../substrate/frame" }
+
+# How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
 docify = "0.2.4"
 
+# Polkadot SDK docs, typically all should only be scope such that we can link to their doc item.
 node-cli = { path = "../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
 chain-spec-builder = { path = "../substrate/bin/utils/chain-spec-builder" }
@@ -43,7 +44,6 @@ sp-core = { path = "../substrate/primitives/core" }
 
 substrate-wasm-builder = { path = "../substrate/utils/wasm-builder" }
 
-frame = { path = "../substrate/frame" }
 pallet-default-config-example = { path = "../substrate/frame/examples/default-config" }
 
 [dev-dependencies]

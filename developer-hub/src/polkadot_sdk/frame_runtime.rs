@@ -29,15 +29,19 @@
 //!
 //! ## Pallets
 //!
-//! A pallet is analogous to a _module_ in the runtime, which can itself be composed of multiple
-//! components, most notable of which are:
+//! A pallet is a unit of encapsulated logic. It has a clearly defined responsibility and can be
+//! linked to other pallets. Each pallet should try to only care about its own responsibilities and
+//! make as few assumptions about the general runtime as possible. A pallet is analogous to a
+//! _module_ in the runtime.
+//!
+//! Pallets themselves are composed of *parts/components*, most notable of which are:
 //!
 //! - Storage
 //! - Dispatchables
 //! - Events
 //! - Errors
 //!
-//! TODO: link to dispatch and state ref doc, if any.
+//! TODO: "dispatchables" need to be defined.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
 //! [`frame::deps::frame_support::pallet_macros`]
@@ -45,7 +49,7 @@
 //! ### Example
 //!
 //! The following examples showcases a minimal pallet.
-#![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
+#![doc = docify::embed_run!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
 //! ## Runtime
 //!
@@ -60,7 +64,7 @@
 //!
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
 //! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
-#![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
+#![doc = docify::embed_run!("src/polkadot_sdk/frame_runtime.rs", runtime)]
 //!
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
 

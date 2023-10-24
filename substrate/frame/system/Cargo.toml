@@ -26,6 +26,8 @@ sp-std = { path = "../../primitives/std", default-features = false}
 sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
 
+docify = { version = "0.2.4" }
+
 [dev-dependencies]
 criterion = "0.4.0"
 sp-externalities = { path = "../../primitives/externalities" }

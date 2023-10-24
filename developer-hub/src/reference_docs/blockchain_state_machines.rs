@@ -5,8 +5,9 @@
 //!
 //! Recall that a blockchain's main purpose is to help a permissionless set of entities to agree on
 //! a shared data-set, and how it evolves. This is called the **State**, also referred to as
-//! "onchain" data. The state is where the account balance of each user is, for example, stored, and
-//! there is a canonical version of it that everyone agrees upon.
+//! "onchain" data, or *Storage* in the context of FRAME. The state is where the account balance of
+//! each user is, for example, stored, and there is a canonical version of it that everyone agrees
+//! upon.
 //!
 //! Then, recall that a typical blockchain system will alter its state through execution of blocks.
 //! *The component that dictates how this state alteration can happen is called the state transition

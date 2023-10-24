@@ -67,6 +67,14 @@ pub use frame_support::pallet;
 /// The logging library of the runtime. Can be normally like the classic `log` crate.
 pub use log;
 
+/// A list of all macros used within the main [`pallet`] macro.
+///
+/// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
+/// }`. They are mainly provided for documentation and IDE support.
+pub mod pallet_macros {
+	pub use frame_support::pallet_macros::*;
+}
+
 /// The main prelude of FRAME.
 ///
 /// This prelude should almost always be the first non-import line of code in any pallet or runtime.
@@ -162,8 +170,8 @@ pub mod runtime {
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
-		// TODO: this is a temporary hack
-		pub use frame_support::{self};
+		/// Macro to implement runtime APIs.
+		pub use sp_api::impl_runtime_apis;
 
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
@@ -187,9 +195,6 @@ pub mod runtime {
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_runtime::ApplyExtrinsicResult;
-
-		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};

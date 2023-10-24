@@ -4277,7 +4277,7 @@ dependencies = [
 
 [[package]]
 name = "developer-hub"
-version = "1.0.0"
+version = "0.0.1"
 dependencies = [
  "chain-spec-builder",
  "cumulus-pallet-aura-ext",
@@ -5463,6 +5463,7 @@ version = "4.0.0-dev"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
+ "docify",
  "frame-support",
  "log",
  "parity-scale-codec",

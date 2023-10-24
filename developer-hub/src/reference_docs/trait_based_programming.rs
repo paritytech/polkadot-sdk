@@ -108,6 +108,9 @@
 //! - <https://github.com/paritytech/substrate/issues/13836>
 //! - <https://www.youtube.com/watch?v=6cp10jVWNl4>
 //! - <https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config>
+#![allow(unused)]
+
+use frame::traits::Get;
 
 #[docify::export]
 mod basic {
@@ -118,7 +121,7 @@ mod basic {
 	type MinTransfer = frame::traits::ConstU128<10>;
 
 	impl Pallet {
-		fn transfer(from: AccountId, to: AccountId, amount: Balance) {
+		fn transfer(_from: AccountId, _to: AccountId, _amount: Balance) {
 			todo!()
 		}
 	}
@@ -126,8 +129,6 @@ mod basic {
 
 #[docify::export]
 mod generic {
-	use super::*;
-
 	struct Pallet<AccountId, Balance, MinTransfer> {
 		_marker: std::marker::PhantomData<(AccountId, Balance, MinTransfer)>,
 	}
@@ -138,7 +139,7 @@ mod generic {
 		MinTransfer: frame::traits::Get<Balance>,
 		AccountId: From<[u8; 32]>,
 	{
-		fn transfer(from: AccountId, to: AccountId, amount: Balance) {
+		fn transfer(_from: AccountId, _to: AccountId, amount: Balance) {
 			assert!(amount >= MinTransfer::get());
 			unimplemented!();
 		}
@@ -157,7 +158,7 @@ mod trait_based {
 
 	struct Pallet<T: Config>(std::marker::PhantomData<T>);
 	impl<T: Config> Pallet<T> {
-		fn transfer(from: T::AccountId, to: T::AccountId, amount: T::Balance) {
+		fn transfer(_from: T::AccountId, _to: T::AccountId, amount: T::Balance) {
 			assert!(amount >= T::MinTransfer::get());
 			unimplemented!();
 		}
@@ -179,7 +180,7 @@ mod with_system {
 
 	pub struct Pallet<T: Config>(std::marker::PhantomData<T>);
 	impl<T: Config> Pallet<T> {
-		fn transfer(from: T::AccountId, to: T::AccountId, amount: T::Balance) {
+		fn transfer(_from: T::AccountId, _to: T::AccountId, amount: T::Balance) {
 			assert!(amount >= T::MinTransfer::get());
 			unimplemented!();
 		}
@@ -210,9 +211,9 @@ mod fully_qualified_complicated {
 	struct Pallet<T: Config>(std::marker::PhantomData<T>);
 	impl<T: Config> Pallet<T> {
 		fn transfer(
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: <<T as Config>::Currency as CurrencyTrait>::Balance,
+			_from: T::AccountId,
+			_to: T::AccountId,
+			_amount: <<T as Config>::Currency as CurrencyTrait>::Balance,
 		) {
 			unimplemented!();
 		}
