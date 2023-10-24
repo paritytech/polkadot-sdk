@@ -31,7 +31,11 @@ pub fn generate_cargo_keys() {
 				Cow::from(sha)
 			},
 			Ok(o) => {
-				println!("cargo:warning=Git command failed with status: {}", o.status);
+				let stderr = String::from_utf8_lossy(&o.stderr).trim().to_owned();
+				println!(
+					"cargo:warning=Git command failed with status '{}' with message: '{}'",
+					o.status, stderr,
+				);
 				Cow::from("unknown")
 			},
 			Err(err) => {
