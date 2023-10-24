@@ -24,10 +24,110 @@ use super::get_collator_keys_from_seed;
 
 /// Specialized `ChainSpec` for the Glutton parachain runtime.
 pub type GluttonChainSpec =
+	sc_service::GenericChainSpec<glutton_runtime::RuntimeGenesisConfig, Extensions>;
+pub type GluttonWestendChainSpec =
 	sc_service::GenericChainSpec<glutton_westend_runtime::RuntimeGenesisConfig, Extensions>;
 
-pub fn glutton_westend_development_config(para_id: ParaId) -> GluttonChainSpec {
+pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 	GluttonChainSpec::from_genesis(
+		// Name
+		"Glutton Development",
+		// ID
+		"glutton_dev",
+		ChainType::Local,
+		move || glutton_genesis(para_id, vec![get_collator_keys_from_seed::<AuraId>("Alice")]),
+		Vec::new(),
+		None,
+		None,
+		None,
+		None,
+		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
+	)
+}
+
+pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
+	GluttonChainSpec::from_genesis(
+		// Name
+		"Glutton Local",
+		// ID
+		"glutton_local",
+		ChainType::Local,
+		move || {
+			glutton_genesis(
+				para_id,
+				vec![
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				],
+			)
+		},
+		Vec::new(),
+		None,
+		None,
+		None,
+		None,
+		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
+	)
+}
+
+pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("ss58Format".into(), 2.into());
+
+	GluttonChainSpec::from_genesis(
+		// Name
+		format!("Glutton {}", para_id).as_str(),
+		// ID
+		format!("glutton-kusama-{}", para_id).as_str(),
+		ChainType::Live,
+		move || {
+			glutton_genesis(
+				para_id,
+				vec![
+					get_collator_keys_from_seed::<AuraId>("Alice"),
+					get_collator_keys_from_seed::<AuraId>("Bob"),
+				],
+			)
+		},
+		Vec::new(),
+		None,
+		// Protocol ID
+		Some(format!("glutton-kusama-{}", para_id).as_str()),
+		None,
+		Some(properties),
+		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
+	)
+}
+
+fn glutton_genesis(
+	parachain_id: ParaId,
+	collators: Vec<AuraId>,
+) -> glutton_runtime::RuntimeGenesisConfig {
+	glutton_runtime::RuntimeGenesisConfig {
+		system: glutton_runtime::SystemConfig {
+			code: glutton_runtime::WASM_BINARY
+				.expect("WASM binary was not build, please build it!")
+				.to_vec(),
+			..Default::default()
+		},
+		parachain_info: glutton_runtime::ParachainInfoConfig { parachain_id, ..Default::default() },
+		parachain_system: Default::default(),
+		glutton: glutton_runtime::GluttonConfig {
+			compute: Default::default(),
+			storage: Default::default(),
+			trash_data_count: Default::default(),
+			..Default::default()
+		},
+		aura: glutton_runtime::AuraConfig { authorities: collators },
+		aura_ext: Default::default(),
+		sudo: glutton_runtime::SudoConfig {
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+		},
+	}
+}
+
+pub fn glutton_westend_development_config(para_id: ParaId) -> GluttonWestendChainSpec {
+	GluttonWestendChainSpec::from_genesis(
 		// Name
 		"Glutton Development",
 		// ID
@@ -45,8 +145,8 @@ pub fn glutton_westend_development_config(para_id: ParaId) -> GluttonChainSpec {
 	)
 }
 
-pub fn glutton_westend_local_config(para_id: ParaId) -> GluttonChainSpec {
-	GluttonChainSpec::from_genesis(
+pub fn glutton_westend_local_config(para_id: ParaId) -> GluttonWestendChainSpec {
+	GluttonWestendChainSpec::from_genesis(
 		// Name
 		"Glutton Westend Local",
 		// ID
@@ -70,11 +170,11 @@ pub fn glutton_westend_local_config(para_id: ParaId) -> GluttonChainSpec {
 	)
 }
 
-pub fn glutton_westend_config(para_id: ParaId) -> GluttonChainSpec {
+pub fn glutton_westend_config(para_id: ParaId) -> GluttonWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 2.into());
 
-	GluttonChainSpec::from_genesis(
+	GluttonWestendChainSpec::from_genesis(
 		// Name
 		format!("Glutton Westend {}", para_id).as_str(),
 		// ID
