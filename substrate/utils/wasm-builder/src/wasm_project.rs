@@ -800,7 +800,6 @@ fn copy_bloaty_blob(
 		.join(inner_profile.directory())
 		.join(format!("{}.wasm", in_name));
 
-	dbg!(&in_path);
 	let bloaty_path = project.join(format!("{}.wasm", out_name));
 	fs::copy(in_path, &bloaty_path).expect("Copying the bloaty file to the project dir.");
 	WasmBinaryBloaty(bloaty_path)
