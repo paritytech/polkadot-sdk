@@ -1926,39 +1926,52 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		todo!("apply slash from pending slashes of a delegatee")
 	}
 
-	fn migrate(
-		staker: &Self::AccountId,
-		delegator: &Self::AccountId,
+	fn delegatee_migrate(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
 	) -> sp_runtime::DispatchResult {
-		ensure!(staker != delegator, Error::<T>::InvalidDelegation);
+		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
+
+		// ensure proxy delegator has at least minimum balance to keep the account alive.
+		ensure!(
+			T::Currency::free_balance(proxy_delegator) >= T::Currency::minimum_balance(),
+			Error::<T>::NotEnoughFunds
+		);
 
 		// ensure staker is a nominator
-		let status = Self::status(staker)?;
+		let status = Self::status(new_delegatee)?;
 		match status {
 			StakerStatus::Nominator(_) => (),
 			_ => return Err(Error::<T>::InvalidDelegation.into()),
 		}
 
-		let ledger = Self::ledger(Stash(staker.clone()))?;
+		let ledger = Self::ledger(Stash(new_delegatee.clone()))?;
 		let stake_amount = ledger.total;
 
 		// unlock funds from staker
 		use frame_support::traits::LockableCurrency;
-		T::Currency::remove_lock(crate::STAKING_ID, staker);
+		T::Currency::remove_lock(crate::STAKING_ID, new_delegatee);
 
 		// try transferring the staked amount. This should never fail but if it does, it indicates
 		// bad state and we abort.
-		T::Currency::transfer(staker, delegator, stake_amount, ExistenceRequirement::AllowDeath)
-			.map_err(|_| Error::<T>::BadState)?;
+		T::Currency::transfer(
+			new_delegatee,
+			proxy_delegator,
+			stake_amount,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
 
 		// delegate from new delegator to staker.
-		delegation::delegate::<T>(delegator, staker, stake_amount)
+		delegation::accept_delegations::<T>(new_delegatee, payee)?;
+		delegation::delegate::<T>(proxy_delegator, new_delegatee, stake_amount)
 	}
 
-	fn delegation_swap(
-		delegatee: &Self::AccountId,
-		new_delegator: &Self::AccountId,
+	fn delegator_migrate(
 		existing_delegator: &Self::AccountId,
+		new_delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);

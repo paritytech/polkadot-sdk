@@ -6579,4 +6579,100 @@ mod delegation_stake {
 			assert!(is_disabled(11));
 		});
 	}
+
+	#[test]
+	fn rewards_work_for_delegatee() {
+		ExtBuilder::default().build_and_execute(|| {});
+	}
+
+	#[test]
+	fn delegatee_migrate_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given: a nominator 101 that wants to become a delegatee
+
+			let wannabe_delegatee: AccountId = 101;
+			// we will also need a proxy delegator to migrate. This needs to be funded with ED.
+			let proxy_delegator: AccountId = 200;
+			Balances::make_free_balance_be(&proxy_delegator, Balances::minimum_balance());
+
+			// 101 is a nominator for validator 11, 21
+			assert_eq!(
+				Staking::status(&wannabe_delegatee).unwrap(),
+				StakerStatus::Nominator(vec![11, 21])
+			);
+
+			// current staked value is 500
+			assert_eq!(Staking::ledger(wannabe_delegatee.into()).unwrap().total, 500);
+
+			// When: 101 wants to become a delegatee
+
+			// 101 needs another account that will act as delegator to it.
+
+			assert_ok!(Staking::delegatee_migrate(&wannabe_delegatee, &proxy_delegator, &199));
+
+			// Then: 101 is now a delegatee with 200 as its delegator
+			assert_eq!(Staking::status(&wannabe_delegatee).unwrap(), StakerStatus::Delegatee);
+			assert_eq!(
+				Staking::status(&proxy_delegator).unwrap(),
+				StakerStatus::Delegator(wannabe_delegatee)
+			);
+			// nothing changes in staked value
+			assert_eq!(Staking::ledger(wannabe_delegatee.into()).unwrap().total, 500);
+			// delegated balance is 500
+			assert_eq!(delegation::delegated_balance::<Test>(&wannabe_delegatee), 500);
+			// delegator's record is updated
+			assert_eq!(<Delegators<Test>>::get(proxy_delegator).unwrap(), (wannabe_delegatee, 500));
+		});
+	}
+
+	#[test]
+	fn delegator_migrate_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given: a recently migrated delegatee
+
+			let delegatee: AccountId = 101;
+			let proxy_delegator: AccountId = 200;
+			Balances::make_free_balance_be(&proxy_delegator, Balances::minimum_balance());
+			// migrates to delegatee
+			assert_ok!(Staking::delegatee_migrate(&delegatee, &proxy_delegator, &199));
+			let ledger = Staking::ledger(delegatee.into()).unwrap();
+			let delegated_balance = delegation::delegated_balance::<Test>(&delegatee);
+			let balance_proxy_delegator = Balances::free_balance(&proxy_delegator);
+			// total delegated stake by delegator is 500
+			assert_eq!(<Delegators<Test>>::get(proxy_delegator).unwrap(), (delegatee, 500));
+
+			// When: we migrate funds to individual delegators
+
+			// lets say this stake of 500 needs to be migrated to actual delegators 201..=210 with
+			// each getting 50 tokens
+			for delegator in 201..=210 {
+				// fund individual delegators with minimum balance
+				let _ = Balances::make_free_balance_be(&delegator, Balances::minimum_balance());
+				// migrate funds from proxy delegator to individual delegators
+				assert_ok!(Staking::delegator_migrate(
+					&proxy_delegator,
+					&delegator,
+					&delegatee,
+					50
+				));
+				assert_eq!(
+					Staking::status(&delegator).unwrap(),
+					StakerStatus::Delegator(delegatee)
+				);
+				assert_eq!(<Delegators<Test>>::get(proxy_delegator).unwrap(), (delegatee, 50));
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					50
+				);
+			}
+
+			// Then: verify the state of the system
+			assert_eq!(Balances::free_balance(&proxy_delegator), balance_proxy_delegator - 500);
+			assert_eq!(Staking::ledger(delegatee.into()).unwrap(), ledger);
+			assert_eq!(delegation::delegated_balance::<Test>(&delegatee), delegated_balance);
+
+			// todo(ank4n): add try state checks and a default delegatee to verify against existing
+			// tests.
+		});
+	}
 }

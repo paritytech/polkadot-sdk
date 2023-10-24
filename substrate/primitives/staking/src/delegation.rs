@@ -83,20 +83,26 @@ pub trait DelegatedStakeInterface: StakingInterface {
 	/// Migrate a nominator account into a delegatee by moving its funds to delegator account and
 	/// delegating these funds back to delegatee.
 	///
+	/// Also takes input a payee which will be the new reward destination for the new delegatee.
+	///
 	/// This is useful for migrating old pool accounts to use delegation by providing a pool
 	/// delegator account. This pool delegator account funds can then lazily move funds to actual
-	/// delegators using [`Self::delegation_swap`].
-	fn migrate(delegatee: &Self::AccountId, delegator: &Self::AccountId) -> DispatchResult;
+	/// delegators using [`Self::delegator_migrate`].
+	fn delegatee_migrate(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
 
 	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
 	/// the same.
 	///
 	/// This is useful for migrating old pool accounts using direct staking to lazily move
 	/// delegators to the new delegated pool account.
-	fn delegation_swap(
-		delegatee: &Self::AccountId,
+	fn delegator_migrate(
 		delegator_from: &Self::AccountId,
 		delegator_to: &Self::AccountId,
+		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 }
