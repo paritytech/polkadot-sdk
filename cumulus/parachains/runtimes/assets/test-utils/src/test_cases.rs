@@ -1502,7 +1502,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 			// pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
-				Box::new(dest.clone().into_versioned()),
+				Box::new(dest.into_versioned()),
 				Box::new(dest_beneficiary.into_versioned()),
 				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
 				0,
