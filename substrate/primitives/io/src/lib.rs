@@ -1207,7 +1207,7 @@ pub trait Crypto {
 			.expect("`bls377_generate` failed")
 	}
 
-	/// Generate an `(ecdsa, bls12-377)` key for the given key type using an optional `seed` and
+	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.

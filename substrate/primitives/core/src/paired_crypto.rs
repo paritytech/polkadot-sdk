@@ -49,12 +49,12 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	/// (ECDSA, BLS12-377) key-pair pair.
+	/// (ECDSA,BLS12-377) key-pair pair.
 	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN>;
-	/// (ECDSA, BLS12-377) public key pair.
+	/// (ECDSA,BLS12-377) public key pair.
 	pub type Public = super::Public<PUBLIC_KEY_LEN>;
-	/// (ECDSA, BLS12-377) signature pair.
+	/// (ECDSA,BLS12-377) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN>;
 
 	impl super::CryptoType for Public {
@@ -451,7 +451,7 @@ where
 	}
 }
 
-// Test set exercising the (ECDSA, BLS12-377) implementation
+// Test set exercising the (ECDSA,BLS12-377) implementation
 #[cfg(all(test, feature = "bls-experimental"))]
 mod test {
 	use super::*;
