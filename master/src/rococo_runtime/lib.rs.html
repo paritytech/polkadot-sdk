@@ -2236,6 +2236,8 @@
 <a href="#2236" id="2236">2236</a>
 <a href="#2237" id="2237">2237</a>
 <a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2314,6 +2316,7 @@
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_grandpa::{fg_primitives, AuthorityId <span class="kw">as </span>GrandpaId};
+<span class="kw">use </span>pallet_identity::simple::IdentityInfo;
 <span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
 <span class="kw">use </span>pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
@@ -2848,6 +2851,7 @@
 	<span class="kw">type </span>SubAccountDeposit = SubAccountDeposit;
 	<span class="kw">type </span>MaxSubAccounts = MaxSubAccounts;
 	<span class="kw">type </span>MaxAdditionalFields = MaxAdditionalFields;
+	<span class="kw">type </span>IdentityInformation = IdentityInfo&lt;MaxAdditionalFields&gt;;
 	<span class="kw">type </span>MaxRegistrars = MaxRegistrars;
 	<span class="kw">type </span>Slashed = Treasury;
 	<span class="kw">type </span>ForceOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, GeneralAdmin&gt;;

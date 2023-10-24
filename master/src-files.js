@@ -163,7 +163,7 @@ var srcIndex = JSON.parse('{\
 "pallet_fast_unstake":["",[],["lib.rs","migrations.rs","types.rs","weights.rs"]],\
 "pallet_glutton":["",[],["lib.rs","weights.rs"]],\
 "pallet_grandpa":["",[["migrations",[],["v4.rs"]]],["default_weights.rs","equivocation.rs","lib.rs","migrations.rs"]],\
-"pallet_identity":["",[],["lib.rs","types.rs","weights.rs"]],\
+"pallet_identity":["",[],["lib.rs","simple.rs","types.rs","weights.rs"]],\
 "pallet_im_online":["",[],["lib.rs","migration.rs","weights.rs"]],\
 "pallet_indices":["",[],["lib.rs","weights.rs"]],\
 "pallet_insecure_randomness_collective_flip":["",[],["lib.rs"]],\
