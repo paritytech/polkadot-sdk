@@ -23,13 +23,12 @@ use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
-	fmt,
+	fmt, io,
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-use tokio::{io, runtime::Runtime};
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -198,7 +197,7 @@ impl fmt::Display for WorkerKind {
 
 // The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
-pub fn worker_event_loop<F, Fut>(
+pub fn worker_event_loop<F>(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
@@ -207,8 +206,7 @@ pub fn worker_event_loop<F, Fut>(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] security_status: &SecurityStatus,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, PathBuf) -> Fut,
-	Fut: futures::Future<Output = io::Result<Never>>,
+	F: FnMut(UnixStream, PathBuf) -> io::Result<Never>,
 {
 	let worker_pid = std::process::id();
 	gum::debug!(
@@ -262,7 +260,7 @@ pub fn worker_event_loop<F, Fut>(
 	}
 
 	// Connect to the socket.
-	let stream = || -> std::io::Result<UnixStream> {
+	let stream = || -> io::Result<UnixStream> {
 		let stream = UnixStream::connect(&socket_path)?;
 		let _ = std::fs::remove_file(&socket_path);
 		Ok(stream)
@@ -362,18 +360,11 @@ pub fn worker_event_loop<F, Fut>(
 	}
 
 	// Run the main worker loop.
-	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
-	let err = rt
-		.block_on(event_loop(stream, worker_dir_path))
+	let err = event_loop(stream, worker_dir_path)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
 	worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
-
-	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
-	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
-	// but may be in the future.
-	rt.shutdown_background();
 }
 
 /// Provide a consistent message on worker shutdown.
@@ -454,7 +445,7 @@ fn kill_parent_node_in_emergency() {
 /// The motivation for this module is to coordinate worker threads without using async Rust.
 pub mod thread {
 	use std::{
-		panic,
+		io, panic,
 		sync::{Arc, Condvar, Mutex},
 		thread,
 		time::Duration,
@@ -495,7 +486,7 @@ pub mod thread {
 		f: F,
 		cond: Cond,
 		outcome: WaitOutcome,
-	) -> std::io::Result<thread::JoinHandle<R>>
+	) -> io::Result<thread::JoinHandle<R>>
 	where
 		F: FnOnce() -> R,
 		F: Send + 'static + panic::UnwindSafe,
@@ -513,7 +504,7 @@ pub mod thread {
 		cond: Cond,
 		outcome: WaitOutcome,
 		stack_size: usize,
-	) -> std::io::Result<thread::JoinHandle<R>>
+	) -> io::Result<thread::JoinHandle<R>>
 	where
 		F: FnOnce() -> R,
 		F: Send + 'static + panic::UnwindSafe,

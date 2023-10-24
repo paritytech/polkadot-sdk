@@ -78,7 +78,7 @@ pub fn unshare_user_namespace_and_change_root(
 		}}
 	}
 
-	gum::debug!(
+	gum::trace!(
 		target: LOG_TARGET,
 		%worker_kind,
 		%worker_pid,
@@ -175,6 +175,13 @@ pub fn unshare_user_namespace_and_change_root(
 /// Require env vars to have been removed when spawning the process, to prevent malicious code from
 /// accessing them.
 pub fn check_env_vars_were_cleared(worker_kind: WorkerKind, worker_pid: u32) -> bool {
+	gum::trace!(
+		target: LOG_TARGET,
+		%worker_kind,
+		%worker_pid,
+		"clearing env vars in worker",
+	);
+
 	let mut ok = true;
 
 	for (key, value) in std::env::vars_os() {

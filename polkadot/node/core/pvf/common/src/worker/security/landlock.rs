@@ -32,9 +32,7 @@ use crate::{
 	LOG_TARGET,
 };
 use landlock::*;
-use std::{
-	path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 /// Landlock ABI version. We use ABI V1 because:
 ///
@@ -103,7 +101,7 @@ pub fn enable_for_worker(
 			panic!("this should only be passed for checking pivot_root; qed"),
 	};
 
-	gum::debug!(
+	gum::trace!(
 		target: LOG_TARGET,
 		%worker_kind,
 		%worker_pid,

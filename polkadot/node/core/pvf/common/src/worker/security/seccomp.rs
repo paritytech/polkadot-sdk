@@ -106,7 +106,7 @@ pub fn enable_for_worker(
 	worker_pid: u32,
 	worker_dir_path: &Path,
 ) -> Result<()> {
-	gum::debug!(
+	gum::trace!(
 		target: LOG_TARGET,
 		%worker_kind,
 		%worker_pid,

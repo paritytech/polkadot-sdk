@@ -12258,7 +12258,6 @@ dependencies = [
  "sp-tracing",
  "tempfile",
  "thiserror",
- "tokio",
  "tracing-gum",
 ]
 
@@ -12276,7 +12275,6 @@ dependencies = [
  "sp-core",
  "sp-maybe-compressed-blob",
  "sp-tracing",
- "tokio",
  "tracing-gum",
 ]
 
@@ -12299,7 +12297,6 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-tracing",
  "tikv-jemalloc-ctl",
- "tokio",
  "tracing-gum",
 ]
 

@@ -208,7 +208,8 @@ async fn ensure_parallel_execution() {
 async fn execute_queue_doesnt_stall_if_workers_died() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.execute_workers_max_num = 5;
-	}).await;
+	})
+	.await;
 
 	// Here we spawn 8 validation jobs for the `halt` PVF and share those between 5 workers. The
 	// first five jobs should timeout and the workers killed. For the next 3 jobs a new batch of
@@ -245,7 +246,8 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.execute_workers_max_num = 2;
-	}).await;
+	})
+	.await;
 
 	let executor_params_1 = ExecutorParams::default();
 	let executor_params_2 = ExecutorParams::from(&[ExecutorParam::StackLogicalMax(1024)][..]);
@@ -354,7 +356,8 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 async fn prepare_can_run_serially() {
 	let host = TestHost::new_with_config(|cfg| {
 		cfg.prepare_workers_hard_max_num = 1;
-	}).await;
+	})
+	.await;
 
 	let _stats = host
 		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())

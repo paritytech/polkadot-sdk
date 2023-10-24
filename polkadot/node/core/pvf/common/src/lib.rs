@@ -32,10 +32,9 @@ pub use sp_tracing;
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use std::{
-	io::{Read, Write},
+	io::{self, Read, Write},
 	mem,
 };
-use tokio::io;
 
 #[cfg(feature = "test-utils")]
 pub mod tests {
