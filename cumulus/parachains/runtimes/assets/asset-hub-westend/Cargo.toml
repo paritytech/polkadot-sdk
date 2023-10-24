@@ -9,7 +9,7 @@ description = "Westend variant of Asset Hub parachain runtime"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -194,6 +194,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",

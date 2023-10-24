@@ -233,7 +233,7 @@ fn verify_dmq_mqc_head_is_externally_accessible() {
 }
 
 #[test]
-fn verify_fee_increment_and_decrement() {
+fn verify_fee_increase_and_decrease() {
 	let a = ParaId::from(123);
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 16777216;

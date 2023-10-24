@@ -27,11 +27,11 @@ cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-feat
 cumulus-pallet-dmp-queue = { path = "../../../pallets/dmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../../common", default-features = false }
+parachain-info = { path = "../../pallets/parachain-info", default-features = false }
 assets-common = { path = "../assets/common", default-features = false }
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent", default-features = false }
 cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder", default-features = false }
-parachain-info = { path = "../../pallets/parachain-info", default-features = false }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
@@ -49,6 +49,7 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 default = [ "std" ]
 std = [
 	"assets-common/std",
+	"codec/std",
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
