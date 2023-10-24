@@ -225,7 +225,7 @@ For the top-level pallet docs, consider the following template:
 //!
 //! ## Pallet API
 //!
-//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat 
+//! <Reminder: inside the [`pallet`] module, a template that leads the reader to the relevant items is auto-generated. There is no need to repeat
 //! things like "See Config trait for ...", which are generated inside [`pallet`] here anyways. You can use the line below as-is:>
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its
@@ -349,3 +349,7 @@ Consider the fact that, similar to dispatchables, these docs will be part of the
 and might be used by wallets and explorers.
 
 Specifically for `error`, explain why the error has happened, and what can be done in order to avoid it.
+
+## Documenting Changes/PR
+
+See [PRDoc](./prdoc.md).
