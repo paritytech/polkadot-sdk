@@ -22,8 +22,7 @@ use enumflags2::BitFlags;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
-		nonfungibles_v2::Inspect,
-		tokens::nonfungibles_v2::{Create, Destroy, Mutate},
+		tokens::nonfungibles_v2::{Create, Destroy, Inspect, Mutate},
 		Currency, Get,
 	},
 };
