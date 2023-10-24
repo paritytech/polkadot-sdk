@@ -44,7 +44,6 @@ const migrateIdentityOf = async (key, data, api) => {
 	api.registry.register({
 		IdentityInfoNew: {
 		_fallback: 'IdentityInfoTo198',
-		additional: 'Vec<IdentityInfoAdditional>',
 		display: 'Data',
 		legal: 'Data',
 		web: 'Data',
@@ -52,13 +51,14 @@ const migrateIdentityOf = async (key, data, api) => {
 		email: 'Data',
 		pgpFingerprint: 'Option<H160>',
 		image: 'Data',
-		twitter: 'Data'
+		twitter: 'Data',
+		discord: 'Data',
 		},
 		RegistrationNew: {
 		_fallback: 'RegistrationTo198',
 		judgements: 'Vec<RegistrationJudgement>',
 		deposit: 'Balance',
-		info: 'IdentityInfo'
+		info: 'IdentityInfoNew'
 		},
 	});
 
@@ -72,15 +72,50 @@ const migrateIdentityOf = async (key, data, api) => {
 	// Migrate `IdentitOf` data to its new format
 	if (HexkeyToMigrate === storageItem) {
 		console.log("Migrating 'IdentityOf' storage item...");
-		console.log("Value", data.toHex())
 
 		let decoded = api.createType('Registration', data.toU8a(true));
-		console.log("Decoded", decoded.toJSON());
 
-		// TODO: Migrate data to new format
+		let discord = { none: null };
 
-		let decodedNew = api.createType('RegistrationNew', data.toU8a(true));
-		console.log("DecodedNew", decoded.toJSON());
+		// Look for `Discord` key
+		let decodedJson = decoded.toJSON();
+
+		decodedJson.info.additional.forEach(([key, data]) => {
+			let keyString = hexToString(key.raw)
+			let dataString = hexToString(data.raw)
+
+			if (keyString === "Discord" || keyString === "discord") {
+				console.log("Discord", dataString)
+				discord = { raw: data.raw };
+			}
+		});
+
+		// Migrate data to new format
+		let decodedNew = api.createType(
+			'RegistrationNew',
+			{
+				judgements: decodedJson.judgements,
+				deposit: decodedJson.deposit,
+				info: {
+					display: decodedJson.info.display,
+					legal: decodedJson.info.legal,
+					web: decodedJson.info.web,
+					riot: decodedJson.info.riot,
+					email: decodedJson.info.email,
+					pgpFingerprint: decodedJson.info.pgpFingerprint,
+					image: decodedJson.info.image,
+					twitter: decodedJson.info.twitter,
+					discord: discord,
+				}
+			}
+		);
+		if (discord.raw) {
+			console.log("==================================================");
+			console.log("Decoded", decoded.toJSON());
+			console.log("DecodedNew", decodedNew.toJSON());
+			console.log("==================================================\n");
+		}
+		data = decodedNew;
 	}
 
 	return data;
