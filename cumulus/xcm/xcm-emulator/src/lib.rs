@@ -60,7 +60,6 @@ pub use xcm::v3::prelude::{
 	XcmHash, X1,
 };
 pub use xcm_executor::traits::ConvertLocation;
-
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 thread_local! {
@@ -351,6 +350,8 @@ macro_rules! decl_test_relay_chains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
+				$(on_initialize = $on_initialize_fn:path,)?
+				$(on_finalize = $on_finalize_fn:path,)?
 			}
 		),
 		+
@@ -360,7 +361,14 @@ macro_rules! decl_test_relay_chains {
 			#[derive(Clone)]
 			pub struct $name;
 
+			use $crate::NetworkComponent;
+
 			impl $crate::Chain for $name {
+				Self::execute_with(|| {
+					let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+					$(<$on_initalize_fn>::on_initialize(relay_block_number);)?
+				})
+
 				type Runtime = $runtime::Runtime;
 				type RuntimeCall = $runtime::RuntimeCall;
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
@@ -400,6 +408,11 @@ macro_rules! decl_test_relay_chains {
 
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 			$crate::__impl_check_assertion!($name);
+
+			Self::execute_with(|| {
+					let block_number = <Self as $crate::Chain>::System::block_number();
+					$(<$on_finalize>::on_finalize(relay_block_number);)?
+				})
 		)+
 	};
 }
@@ -576,6 +589,8 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
+				$(on_initialize = $on_initialize_fn:path,)?
+				$(on_finalize = $on_finalize_fn:path,)?
 			}
 		),
 		+
@@ -615,12 +630,27 @@ macro_rules! decl_test_parachains {
 				// and have them ready for the next block
 				fn init() {
 					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					// Execute on_initialize hook
+					Self::on_initialze();
 					// Set the last block head for later use in the next block
 					Self::set_last_head();
 					// Initialize a new block
 					Self::new_block();
 					// Finalize the new block
 					Self::finalize_block();
+					// Execute on_finalize hook
+					Self::on_finalize();
+				}
+
+				fn on_initialize() {
+    				use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+
+    				Self::ext_wrapper(|| {
+        				let block_number = <Self as Chain>::System::block_number();
+						$(
+            				<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::$on_initialize_fn(block_number);
+        				)?
+    				});
 				}
 
 				fn new_block() {
@@ -645,7 +675,6 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
@@ -665,7 +694,6 @@ macro_rules! decl_test_parachains {
 					Self::set_last_head();
 				}
 
-
 				fn set_last_head() {
 					use $crate::{Chain, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
 
@@ -681,6 +709,18 @@ macro_rules! decl_test_parachains {
 						);
 					});
 				}
+
+				fn on_finalize() {
+    				use $crate::{Chain, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
+
+    				let block_number = <Self as Chain>::System::block_number();
+    				$(
+						Self::ext_wrapper(|| {
+            				<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::$on_finalize_fn(block_number);
+        				});
+					)?
+				}
+
 			}
 
 			$crate::paste::paste! {
