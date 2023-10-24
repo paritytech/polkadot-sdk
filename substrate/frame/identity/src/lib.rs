@@ -990,7 +990,8 @@ pub mod pallet {
 			// `take` any storage items keyed by `target`
 			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
 			let registrars = id.judgements.len() as u32;
-			let fields = id.info.additional.len() as u32;
+			#[allow(deprecated)]
+			let fields = id.info.additional() as u32;
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
 			// check witness data
 			let actual_subs = sub_ids.len() as u32;
@@ -1030,8 +1031,9 @@ pub mod pallet {
 				|registration| -> Result<BalanceOf<T>, DispatchError> {
 					let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
 					// Calculate what deposit should be
+					#[allow(deprecated)]
 					let field_deposit = T::FieldDeposit::get()
-						.saturating_mul(BalanceOf::<T>::from(reg.info.additional.len() as u32));
+						.saturating_mul(BalanceOf::<T>::from(reg.info.additional() as u32));
 					let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
 
 					// Update account

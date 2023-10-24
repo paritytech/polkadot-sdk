@@ -561,7 +561,7 @@ mod benchmarks {
 			T::ReapOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		// set identity
-		let info = create_identity_info::<T>(1);
+		let info = T::IdentityInformation::create_identity_info(1);
 		Identity::<T>::set_identity(
 			RawOrigin::Signed(target.clone()).into(),
 			Box::new(info.clone()),
@@ -608,7 +608,7 @@ mod benchmarks {
 			Registration {
 				judgements: BoundedVec::default(),
 				deposit: Zero::zero(),
-				info: create_identity_info::<T>(additional_fields),
+				info: T::IdentityInformation::create_identity_info(additional_fields),
 			},
 		);
 

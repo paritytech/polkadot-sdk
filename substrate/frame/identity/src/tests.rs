@@ -777,7 +777,7 @@ fn pallet_locks_and_unlocks() {
 			Identity::set_fields(
 				three_as_origin.clone(),
 				0,
-				IdentityFields(IdentityField::Display | IdentityField::Legal)
+				IdentityFields(SimpleIdentityField::Display | SimpleIdentityField::Legal)
 			),
 			Error::<Test>::PalletLocked
 		);
