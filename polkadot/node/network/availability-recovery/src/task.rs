@@ -354,7 +354,18 @@ impl State {
 			ValidatorIndex,
 			Result<Option<ErasureChunk>, RequestError>,
 		)>,
-		can_conclude: impl Fn(usize, usize, usize, usize) -> bool,
+		// Function that returns `true` when this strategy can conclude. Either if we got enough
+		// chunks or if it's impossible.
+		can_conclude: impl Fn(
+			// Number of validators left in the queue
+			usize,
+			// Number of in flight requests
+			usize,
+			// Number of valid chunks received so far
+			usize,
+			// Number of valid chunks received in this iteration
+			usize,
+		) -> bool,
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
 

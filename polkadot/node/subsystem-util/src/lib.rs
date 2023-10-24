@@ -463,7 +463,7 @@ impl ChunkIndexCacheRegistry {
 		validator_index: ValidatorIndex,
 	) -> Option<ChunkIndex> {
 		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
-			Some(Self::compute_chunk_index_for_validator(
+			Some(Self::chunk_index_for_validator(
 				maybe_client_features.as_ref(),
 				shuffle,
 				para_id,
@@ -482,11 +482,8 @@ impl ChunkIndexCacheRegistry {
 		para_id: ParaId,
 	) -> Option<Vec<ChunkIndex>> {
 		if let Some((shuffle, maybe_client_features)) = self.0.get(&(block_number, session_index)) {
-			let core_start_index = Self::compute_para_start_index(
-				maybe_client_features.as_ref(),
-				shuffle.len(),
-				para_id,
-			);
+			let core_start_index =
+				Self::para_start_index(maybe_client_features.as_ref(), shuffle.len(), para_id);
 
 			let chunk_indices = shuffle
 				.clone()
@@ -576,7 +573,7 @@ impl ChunkIndexCacheRegistry {
 	}
 
 	/// Return the availability chunk start index for this para.
-	fn compute_para_start_index(
+	fn para_start_index(
 		maybe_client_features: Option<&ClientFeatures>,
 		n_validators: usize,
 		para_id: ParaId,
@@ -596,14 +593,14 @@ impl ChunkIndexCacheRegistry {
 		0
 	}
 
-	fn compute_chunk_index_for_validator(
+	fn chunk_index_for_validator(
 		maybe_client_features: Option<&ClientFeatures>,
 		shuffle: &Vec<ChunkIndex>,
 		para_id: ParaId,
 		validator_index: ValidatorIndex,
 	) -> ChunkIndex {
 		let core_start_index =
-			Self::compute_para_start_index(maybe_client_features, shuffle.len(), para_id);
+			Self::para_start_index(maybe_client_features, shuffle.len(), para_id);
 
 		let chunk_index = shuffle[(core_start_index +
 			usize::try_from(validator_index.0)
@@ -630,7 +627,7 @@ pub fn availability_chunk_index(
 		n_validators,
 	);
 
-	ChunkIndexCacheRegistry::compute_chunk_index_for_validator(
+	ChunkIndexCacheRegistry::chunk_index_for_validator(
 		maybe_client_features,
 		&shuffle,
 		para_id,
