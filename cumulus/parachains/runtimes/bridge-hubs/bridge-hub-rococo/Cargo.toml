@@ -74,8 +74,10 @@ parachains-common = { path = "../../../common", default-features = false }
 
 # Bridges
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
 bp-asset-hub-wococo = { path = "../../../../../bridges/primitives/chain-asset-hub-wococo", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
+bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 bp-bridge-hub-wococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
@@ -84,6 +86,7 @@ bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", d
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
 bp-rococo = { path = "../../../../../bridges/primitives/chain-rococo", default-features = false }
+bp-westend = { path = "../../../../../bridges/primitives/chain-westend", default-features = false }
 bp-wococo = { path = "../../../../../bridges/primitives/chain-wococo", default-features = false }
 pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
@@ -101,8 +104,10 @@ sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 default = [ "std" ]
 std = [
 	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-westend/std",
 	"bp-asset-hub-wococo/std",
 	"bp-bridge-hub-rococo/std",
+	"bp-bridge-hub-westend/std",
 	"bp-bridge-hub-wococo/std",
 	"bp-header-chain/std",
 	"bp-messages/std",
@@ -111,6 +116,7 @@ std = [
 	"bp-relayers/std",
 	"bp-rococo/std",
 	"bp-runtime/std",
+	"bp-westend/std",
 	"bp-wococo/std",
 	"bridge-runtime-common/std",
 	"codec/std",

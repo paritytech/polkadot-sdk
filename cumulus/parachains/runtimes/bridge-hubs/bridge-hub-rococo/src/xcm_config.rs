@@ -19,13 +19,9 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFlavor, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
-		RequiredStakeForStakeAndSlash,
-	},
-	bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter,
-	bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter,
+use crate::bridge_common_config::{
+	BridgeGrandpaRococoInstance, BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance,
+	DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -81,6 +77,7 @@ impl Get<NetworkId> for RelayNetwork {
 		match Flavor::get() {
 			RuntimeFlavor::Rococo => NetworkId::Rococo,
 			RuntimeFlavor::Wococo => NetworkId::Wococo,
+			RuntimeFlavor::Westend => NetworkId::Westend,
 		}
 	}
 }
@@ -201,6 +198,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					Runtime,
 					BridgeGrandpaRococoInstance,
 				>::initialize { .. }) |
+				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaWestendInstance,
+				>::initialize { .. }) |
 				RuntimeCall::BridgeWococoGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWococoInstance,
@@ -283,7 +284,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeesToAccount<Self, WaivedLocations, AccountId, TreasuryAccount>;
-	type MessageExporter = BridgeHubRococoOrBridgeHubWococoSwitchExporter;
+	type MessageExporter = FlavoredMessageExporter;
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
@@ -322,6 +323,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.
+										 // TODO: flavor?
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::BridgeHubRococoXcmWeight<RuntimeCall>,
 		RuntimeCall,
@@ -350,10 +352,10 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Hacky switch implementation, because we have just one runtime for Rococo and Wococo BridgeHub,
-/// so it means we have just one XcmConfig
-pub struct BridgeHubRococoOrBridgeHubWococoSwitchExporter;
-impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
+/// Switch implementation for `ExportXcm`, because we have just one runtime for Rococo,Wococo and
+/// Westend BridgeHub.
+pub struct FlavoredMessageExporter;
+impl ExportXcm for FlavoredMessageExporter {
 	type Ticket = (NetworkId, (sp_std::prelude::Vec<u8>, XcmHash));
 
 	fn validate(
@@ -363,33 +365,103 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 		destination: &mut Option<InteriorMultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Rococo, result.0), result.1)),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::validate(
-				network,
-				channel,
-				universal_source,
-				destination,
-				message,
-			)
-			.map(|result| ((Wococo, result.0), result.1)),
-			_ => unimplemented!("Unsupported network: {:?}", network),
+		let flavor = Flavor::get();
+		match flavor {
+			RuntimeFlavor::Rococo => match network {
+				Westend =>
+					crate::bridge_hub_rococo_config::ToBridgeHubWestendHaulBlobExporter::validate(
+						network,
+						channel,
+						universal_source,
+						destination,
+						message,
+					)
+					.map(|result| ((Westend, result.0), result.1)),
+				Wococo =>
+					crate::bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter::validate(
+						network,
+						channel,
+						universal_source,
+						destination,
+						message,
+					)
+					.map(|result| ((Wococo, result.0), result.1)),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_validate", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
+			RuntimeFlavor::Wococo => match network {
+				Rococo =>
+					crate::bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter::validate(
+						network,
+						channel,
+						universal_source,
+						destination,
+						message,
+					)
+					.map(|result| ((Rococo, result.0), result.1)),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_validate", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
+			RuntimeFlavor::Westend => match network {
+				Rococo =>
+					crate::bridge_hub_westend_config::ToBridgeHubRococoHaulBlobExporter::validate(
+						network,
+						channel,
+						universal_source,
+						destination,
+						message,
+					)
+					.map(|result| ((Rococo, result.0), result.1)),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_validate", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
 		}
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		let (network, ticket) = ticket;
-		match network {
-			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
-			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
-			_ => unimplemented!("Unsupported network: {:?}", network),
+		let flavor = Flavor::get();
+		match flavor {
+			RuntimeFlavor::Rococo => match network {
+				Westend =>
+					crate::bridge_hub_rococo_config::ToBridgeHubWestendHaulBlobExporter::deliver(
+						ticket,
+					),
+				Wococo =>
+					crate::bridge_hub_rococo_config::ToBridgeHubWococoHaulBlobExporter::deliver(
+						ticket,
+					),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_delivery", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
+			RuntimeFlavor::Wococo => match network {
+				Rococo =>
+					crate::bridge_hub_wococo_config::ToBridgeHubRococoHaulBlobExporter::deliver(
+						ticket,
+					),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_delivery", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
+			RuntimeFlavor::Westend => match network {
+				Rococo =>
+					crate::bridge_hub_westend_config::ToBridgeHubRococoHaulBlobExporter::deliver(
+						ticket,
+					),
+				_ => {
+					log::warn!(target: "xcm::export_xcm_delivery", "Unsupported network: {:?} for flavor: {:?}", network, flavor);
+					unimplemented!("Unsupported network: {:?} for flavor: {:?}", network, flavor)
+				},
+			},
 		}
 	}
 }
