@@ -457,7 +457,6 @@ pub mod pallet {
 				Ordering::Less => {
 					let to_unreserve = old_deposit - new_deposit;
 					// Must unreserve a bit.
-					// TODO: Check this
 					let released = T::Currency::release_all(
 						&HoldReason::Candidacy.into(),
 						&who,
@@ -579,7 +578,6 @@ pub mod pallet {
 						// can't fail anymore.
 						let SeatHolder { deposit, .. } = runners_up.remove(index);
 
-						// TODO: check this
 						let released = T::Currency::release_all(
 							&HoldReason::ReleaseForRunnerUp.into(),
 							&who,
@@ -598,16 +596,12 @@ pub mod pallet {
 							.binary_search_by(|(c, _)| c.cmp(&who))
 							.map_err(|_| Error::<T>::InvalidRenouncing)?;
 						let (_removed, deposit) = candidates.remove(index);
-						let _remainder = T::Currency::release(
+						let _released = T::Currency::release(
 							&HoldReason::ReleaseForCandidate.into(),
 							&who,
 							deposit,
 							Precision::Exact,
 						);
-						// TODO: This is not the _remainder as `unreserve` but  the inner of Ok has
-						// the opposite meaning (i.e. it is the amount released, rather than the
-						// amount not released, if any).
-						debug_assert!(_remainder.expect("").is_zero());
 						Self::deposit_event(Event::Renounced { candidate: who });
 						Ok(())
 					})?;
@@ -2288,7 +2282,7 @@ mod tests {
 			// User has 100 free and 50 reserved.
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 2, 150));
 			// TODO: check this
-			assert_ok!(Balances::reserves(&2, 50));
+			assert_ok!(Balances::hold(&HoldReason::Candidacy.into(), &2, 50));
 			// User tries to vote with 150 tokens.
 			assert_ok!(vote(RuntimeOrigin::signed(2), vec![4, 5], 150));
 			// We truncate to only their free balance, after reserving additional for voting.
