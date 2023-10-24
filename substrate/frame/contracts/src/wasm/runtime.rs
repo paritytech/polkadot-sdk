@@ -27,8 +27,8 @@ use crate::{
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, traits::Get,
-	weights::Weight,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
+	traits::Get, weights::Weight,
 };
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
 use pallet_contracts_proc_macro::define_env;
@@ -123,6 +123,12 @@ pub enum ReturnCode {
 	/// The `xcm_query` was executed but returned an error.
 	XcmQueryFailed = 15,
 }
+
+parameter_types! {
+	/// Getter types used by [`crate::api_doc::Current::call_runtime`]
+	const CallRuntimeFailed: ReturnCode = ReturnCode::CallRuntimeFailed;
+	/// Getter types used by [`crate::api_doc::Current::xcm_execute`]
+	const XcmExecutionFailed: ReturnCode = ReturnCode::XcmExecutionFailed;
 }
 
 impl From<ExecReturnValue> for ReturnCode {
@@ -569,7 +575,10 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	}
 
 	/// Charge, Run and adjust gas, for executing the given dispatchable.
-	fn call_dispatchable<F: FnOnce(&E) -> DispatchResultWithPostInfo>(
+	fn call_dispatchable<
+		ErrorReturnCode: Get<ReturnCode>,
+		F: FnOnce(&E) -> DispatchResultWithPostInfo,
+	>(
 		&mut self,
 		dispatch_info: DispatchInfo,
 		run: F,
@@ -586,7 +595,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 					self.ext.append_debug_buffer("call failed with: ");
 					self.ext.append_debug_buffer(e.into());
 				};
-				Ok(ReturnCode::CallRuntimeFailed)
+				Ok(ErrorReturnCode::get())
 			},
 		}
 	}
@@ -2645,7 +2654,9 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		ctx.call_dispatchable(call.get_dispatch_info(), |ext| ext.call_runtime(call))
+		ctx.call_dispatchable::<CallRuntimeFailed, _>(call.get_dispatch_info(), |ext| {
+			ext.call_runtime(call)
+		})
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
@@ -2680,7 +2691,7 @@ pub mod env {
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
-		ctx.call_dispatchable(dispatch_info, |ext| {
+		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ext| {
 			<<E::T as Config>::Xcm as Xcm<E::T>>::execute(
 				ext.address(),
 				message,
