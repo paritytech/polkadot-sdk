@@ -107,13 +107,13 @@ pub struct StorageInfo {
 	pub max_size: Option<u32>,
 }
 
-// Uses strings instead of bytes for the debug output.
+// Use strings instead of bytes for the debug output.
 impl core::fmt::Debug for StorageInfo {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("StorageInfo")
 			.field("pallet_name", &sp_std::str::from_utf8(&self.pallet_name))
 			.field("storage_name", &sp_std::str::from_utf8(&self.storage_name))
-			.field("prefix", &sp_std::str::from_utf8(&self.prefix))
+			.field("prefix", &array_bytes::bytes2hex("0x", &self.prefix))
 			.field("max_values", &self.max_values)
 			.field("max_size", &self.max_size)
 			.finish()
