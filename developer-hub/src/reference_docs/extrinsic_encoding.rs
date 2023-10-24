@@ -28,6 +28,10 @@
 //! )
 //! ```
 //!
+//! For clarity, the actual implementation
+//! [is here](https://github.com/paritytech/polkadot-sdk/blob/35eb133baab93d3f2f179df216b2cc175d7dcaf2/substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs#L296)
+//! at the time of writing.
+//!
 //! Let's look at how each of these details is constructed:
 //!
 //! ## compact_encoded_length
