@@ -77,7 +77,7 @@ impl<T: Config> DelegationRegister<T> {
 
 /// Returns total balance that is delegated to this account.
 pub(crate) fn delegated_balance<T: Config>(delegatee: &T::AccountId) -> BalanceOf<T> {
-	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |register| register.balance)
+	<Delegatees<T>>::get(delegatee).map_or_else(|| 0u32.into(), |register| register.effective_balance())
 }
 
 /// Returns true if this account is a registered delegatee.

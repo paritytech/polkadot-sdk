@@ -6466,4 +6466,117 @@ mod delegation_stake {
 			);
 		})
 	}
+
+	#[test]
+	fn delegatees_are_slashed_lazily() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given: a direct nominator and a delegatee to a validator
+			let delegatee: AccountId = 99;
+			let reporter: AccountId = 2023;
+			assert_ok!(Staking::accept_delegations(&delegatee, &199));
+
+			// add more delegations
+			for delegator in 200..210 {
+				let _ = Balances::make_free_balance_be(&(delegator), 1000);
+				assert_ok!(Staking::delegate(&delegator, &delegatee, 100));
+				assert_ok!(Staking::update_bond(&delegatee));
+			}
+
+			// nominate 11
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(delegatee), vec![11]));
+
+			start_active_era(1);
+			let slash_percent = Perbill::from_percent(5);
+			let initial_exposure = Staking::eras_stakers(active_era(), 11);
+			// 101 and delegatee is a nominator for 11
+			assert_eq!(
+				initial_exposure.others.iter().map(|e| e.who).collect::<Vec<_>>(),
+				vec![101, delegatee]
+			);
+
+			// staked values;
+			let nominator_stake = Staking::ledger(101.into()).unwrap().active;
+			let nominator_balance = balances(&101).0;
+			let delegatee_stake = Staking::ledger(delegatee.into()).unwrap().active;
+			let delegatee_balance = delegation::delegated_balance::<Test>(&delegatee);
+			let validator_stake = Staking::ledger(11.into()).unwrap().active;
+			let validator_balance = balances(&11).0;
+			let exposed_stake = initial_exposure.total;
+			let exposed_validator = initial_exposure.own;
+			let exposed_nominator = initial_exposure.others.first().unwrap().value;
+			let exposed_delegatee = initial_exposure.others.get(1).unwrap().value;
+
+			// 11 goes offline
+			on_offence_now(
+				&[OffenceDetails {
+					offender: (11, initial_exposure.clone()),
+					reporters: vec![reporter],
+				}],
+				&[slash_percent],
+			);
+
+			// everyone's stakes must have been decreased.
+			assert!(Staking::ledger(delegatee.into()).unwrap().active < delegatee_stake);
+			assert!(Staking::ledger(101.into()).unwrap().active < nominator_stake);
+			assert!(Staking::ledger(11.into()).unwrap().active < validator_stake);
+
+			let slash_amount = slash_percent * exposed_stake;
+			let validator_share =
+				Perbill::from_rational(exposed_validator, exposed_stake) * slash_amount;
+			let nominator_share =
+				Perbill::from_rational(exposed_nominator, exposed_stake) * slash_amount;
+			let delegatee_share =
+				Perbill::from_rational(exposed_delegatee, exposed_stake) * slash_amount;
+
+			// calculation of slash reward based on the slash amount. For first offence, it is 50%
+			// of slash reward fraction (10%).
+			let slash_reward = |slash_value: Balance| {
+				Perbill::from_percent(50) * (Perbill::from_percent(10) * slash_value)
+			};
+
+			// all three slash amounts need to be positive for the test to make sense.
+			assert!(validator_share > 0);
+			assert!(nominator_share > 0);
+			assert!(delegatee_share > 0);
+
+			// all three stakes must have been decreased pro-rata.
+			assert_eq!(
+				Staking::ledger(delegatee.into()).unwrap().active,
+				delegatee_stake - delegatee_share
+			);
+			assert_eq!(
+				Staking::ledger(101.into()).unwrap().active,
+				nominator_stake - nominator_share
+			);
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap().active,
+				validator_stake - validator_share
+			);
+			assert_eq!(
+				delegation::delegated_balance::<Test>(&delegatee), /* for delegatee, we look at
+				                                                    * delegated balance. */
+				delegatee_balance - delegatee_share,
+			);
+			assert_eq!(<Delegatees<Test>>::get(delegatee).unwrap().pending_slash, delegatee_share);
+			assert_eq!(
+				balances(&101).0, // free balance
+				nominator_balance - nominator_share,
+			);
+			assert_eq!(
+				balances(&11).0, // free balance
+				validator_balance - validator_share,
+			);
+
+			// reporter gets the full reward even though delegatee is lazily slashed
+			assert_eq!(
+				balances(&reporter).0, // free balance
+				slash_reward(validator_share) +
+					slash_reward(nominator_share) +
+					slash_reward(delegatee_share),
+			);
+
+			// Because slashing happened.
+			assert!(is_disabled(11));
+		});
+	}
 }
