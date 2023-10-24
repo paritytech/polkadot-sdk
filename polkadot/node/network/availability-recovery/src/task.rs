@@ -62,14 +62,14 @@ const TIMEOUT_START_NEW_REQUESTS: Duration = CHUNK_REQUEST_TIMEOUT;
 #[cfg(test)]
 const TIMEOUT_START_NEW_REQUESTS: Duration = Duration::from_millis(100);
 
-/// The maximum number of times systematic chunk recovery will retry making a request for a given
+/// The maximum number of times systematic chunk recovery will try making a request for a given
 /// (validator,chunk) pair, if the error was not fatal. Added so that we don't get stuck in an
 /// infinite retry loop.
-pub const SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 0;
-/// The maximum number of times regular chunk recovery will retry making a request for a given
+pub const SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT: u32 = 2;
+/// The maximum number of times regular chunk recovery will try making a request for a given
 /// (validator,chunk) pair, if the error was not fatal. Added so that we don't get stuck in an
 /// infinite retry loop.
-pub const REGULAR_CHUNKS_REQ_RETRY_THRESHOLD: u32 = 5;
+pub const REGULAR_CHUNKS_REQ_RETRY_LIMIT: u32 = 5;
 
 const fn is_unavailable(
 	received_chunks: usize,
@@ -355,7 +355,7 @@ impl State {
 			ValidatorIndex,
 			Result<Option<ErasureChunk>, RequestError>,
 		)>,
-		can_conclude: impl Fn(usize, usize, usize, usize, usize) -> bool,
+		can_conclude: impl Fn(usize, usize, usize, usize) -> bool,
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
 
@@ -429,8 +429,8 @@ impl State {
 								"Chunk fetching response was invalid",
 							);
 
-							// Record that we got an invalid chunk so that subsequent strategies
-							// don't try requesting this again.
+							// Record that we got an invalid chunk so that this or subsequent
+							// strategies don't try requesting this again.
 							self.record_error_fatal(chunk_index, validator_index);
 						},
 						RequestError::NetworkError(err) => {
@@ -467,7 +467,6 @@ impl State {
 				validators.len(),
 				requesting_chunks.total_len(),
 				self.chunk_count(),
-				error_count,
 				total_received_responses - error_count,
 			) {
 				gum::debug!(
@@ -901,11 +900,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// don't have the data from previous strategies.
 		self.validators.retain(|(c_index, v_index)| {
 			!state.received_chunks.contains_key(c_index) &&
-				state.can_retry_request(
-					*c_index,
-					*v_index,
-					SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD,
-				)
+				state.can_retry_request(*c_index, *v_index, SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT)
 		});
 
 		systematic_chunk_count -= self.validators.len();
@@ -936,7 +931,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					total_requesting = %self.requesting_chunks.total_len(),
 					n_validators = %common_params.n_validators,
 					systematic_threshold = ?self.threshold,
-					"Data recovery is not possible",
+					"Data recovery from systematic chunks is not possible",
 				);
 
 				return Err(RecoveryError::Unavailable)
@@ -970,14 +965,13 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				.wait_for_chunks(
 					SYSTEMATIC_CHUNK_LABEL,
 					common_params,
-					SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD,
+					SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
 					|unrequested_validators,
 					 in_flight_reqs,
 					 // Don't use this chunk count, as it may contain non-systematic chunks.
 					 _chunk_count,
-					 error_count,
 					 success_responses| {
 						let chunk_count = systematic_chunk_count + success_responses;
 						let is_unavailable = Self::is_unavailable(
@@ -987,31 +981,12 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							self.threshold,
 						);
 
-						error_count > (SYSTEMATIC_CHUNKS_REQ_RETRY_THRESHOLD as usize) ||
-							chunk_count >= self.threshold ||
-							is_unavailable
+						chunk_count >= self.threshold || is_unavailable
 					},
 				)
 				.await;
 
 			systematic_chunk_count += total_responses - error_count;
-
-			// We can't afford any errors, as we need all the systematic chunks for this to work.
-			if error_count > 0 {
-				gum::debug!(
-					target: LOG_TARGET,
-					candidate_hash = ?common_params.candidate_hash,
-					erasure_root = ?common_params.erasure_root,
-					received = %systematic_chunk_count,
-					requesting = %self.requesting_chunks.len(),
-					total_requesting = %self.requesting_chunks.total_len(),
-					n_validators = %common_params.n_validators,
-					systematic_threshold = ?self.threshold,
-					"Systematic chunk recovery is not possible. Got an error while requesting a chunk",
-				);
-
-				return Err(RecoveryError::Unavailable)
-			}
 		}
 	}
 }
@@ -1192,7 +1167,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// don't have the data from previous strategies.
 		self.validators.retain(|(c_index, v_index)| {
 			!state.received_chunks.contains_key(c_index) &&
-				state.can_retry_request(*c_index, *v_index, REGULAR_CHUNKS_REQ_RETRY_THRESHOLD)
+				state.can_retry_request(*c_index, *v_index, REGULAR_CHUNKS_REQ_RETRY_LIMIT)
 		});
 
 		// Safe to `take` here, as we're consuming `self` anyway and we're not using the
@@ -1258,14 +1233,10 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				.wait_for_chunks(
 					REGULAR_CHUNK_LABEL,
 					common_params,
-					REGULAR_CHUNKS_REQ_RETRY_THRESHOLD,
+					REGULAR_CHUNKS_REQ_RETRY_LIMIT,
 					&mut validators_queue,
 					&mut self.requesting_chunks,
-					|unrequested_validators,
-					 in_flight_reqs,
-					 chunk_count,
-					 _error_count,
-					 _success_responses| {
+					|unrequested_validators, in_flight_reqs, chunk_count, _success_responses| {
 						chunk_count >= common_params.threshold ||
 							Self::is_unavailable(
 								unrequested_validators,
@@ -1640,7 +1611,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
-							|_, _, _, _, _| false,
+							|_, _, _, _| false,
 						)
 						.await;
 					assert_eq!(total_responses, 0);
@@ -1695,7 +1666,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
-							|_, _, _, _, _| false,
+							|_, _, _, _| false,
 						)
 						.await;
 					assert_eq!(total_responses, 5);
@@ -1724,7 +1695,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
-							|_, _, _, _, _| false,
+							|_, _, _, _| false,
 						)
 						.await;
 					assert_eq!(total_responses, 1);
@@ -1745,7 +1716,7 @@ mod tests {
 							retry_threshold,
 							&mut validators,
 							&mut ongoing_reqs,
-							|_, _, _, _, _| true,
+							|_, _, _, _| true,
 						)
 						.await;
 					assert_eq!(total_responses, 0);

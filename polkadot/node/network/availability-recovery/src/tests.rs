@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::task::REGULAR_CHUNKS_REQ_RETRY_THRESHOLD;
+use crate::task::{REGULAR_CHUNKS_REQ_RETRY_LIMIT, SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT};
 
 use super::*;
 use std::{sync::Arc, time::Duration};
@@ -1515,15 +1515,17 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
 		if systematic_recovery {
-			test_state
-				.test_chunk_requests(
-					candidate_hash,
-					&mut virtual_overseer,
-					test_state.systematic_threshold(),
-					|_| Has::timeout(),
-					true,
-				)
-				.await;
+			for _ in 0..SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT {
+				test_state
+					.test_chunk_requests(
+						candidate_hash,
+						&mut virtual_overseer,
+						test_state.systematic_threshold(),
+						|_| Has::timeout(),
+						true,
+					)
+					.await;
+			}
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 		}
 
@@ -1537,7 +1539,8 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 			)
 			.await;
 
-		// We get to go another round! Actually, we get to go an infinite number of times.
+		// We get to go another round! Actually, we get to go `REGULAR_CHUNKS_REQ_RETRY_LIMIT`
+		// number of times.
 		test_state
 			.test_chunk_requests(
 				candidate_hash,
@@ -1694,33 +1697,34 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 				&mut virtual_overseer,
 				n,
 				|_| Has::DoesNotReturn,
-				false,
+				systematic_recovery,
 			)
 			.await;
 
 		future::join(
 			async {
 				Delay::new(Duration::from_millis(10)).await;
-				// Now retrieval should be able to recover.
+				// Now retrieval should be able progress.
 				std::mem::drop(senders);
 			},
 			async {
-				if systematic_recovery {
-					test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
-				}
 				test_state
 					.test_chunk_requests(
 						candidate_hash,
 						&mut virtual_overseer,
 						// Should start over:
-						test_state.validators.len(),
+						n,
 						|_| Has::timeout(),
-						false,
+						systematic_recovery,
 					)
 					.await
 			},
 		)
 		.await;
+
+		if systematic_recovery {
+			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+		}
 
 		// we get to go another round!
 		test_state
@@ -2047,7 +2051,7 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 				)
 				.await;
 
-			// Falls back to regular recovery.
+			// Falls back to regular recovery, since one validator returned a fatal error.
 			test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
 			test_state
@@ -2173,9 +2177,13 @@ fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffli
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn number_of_request_retries_is_bounded(
+	#[case] systematic_recovery: bool,
+	#[case] should_fail: bool,
+) {
 	let mut test_state = TestState::default();
 	// We need the number of validators to be evenly divisible by the threshold for this test to be
 	// easier to write.
@@ -2194,8 +2202,22 @@ fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
 	test_state.chunks = chunks;
 	test_state.candidate.descriptor.erasure_root = erasure_root;
 
-	let subsystem =
-		AvailabilityRecoverySubsystem::with_chunks_only(request_receiver(), Metrics::new_dummy());
+	let (subsystem, retry_limit) = match systematic_recovery {
+		false => (
+			AvailabilityRecoverySubsystem::with_chunks_only(
+				request_receiver(),
+				Metrics::new_dummy(),
+			),
+			REGULAR_CHUNKS_REQ_RETRY_LIMIT,
+		),
+		true => (
+			AvailabilityRecoverySubsystem::with_systematic_chunks(
+				request_receiver(),
+				Metrics::new_dummy(),
+			),
+			SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
+		),
+	};
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		overseer_signal(
@@ -2226,16 +2248,21 @@ fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
-		// Network errors are considered non-fatal for regular chunk recovery but should be retried
-		// `REGULAR_CHUNKS_REQ_RETRY_THRESHOLD` times.
-		for _ in 1..REGULAR_CHUNKS_REQ_RETRY_THRESHOLD {
+		let validator_count_per_iteration = if systematic_recovery {
+			test_state.systematic_threshold()
+		} else {
+			test_state.chunks.len()
+		};
+
+		// Network errors are considered non-fatal but should be retried a limited number of times.
+		for _ in 1..retry_limit {
 			test_state
 				.test_chunk_requests(
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
-					test_state.chunks.len(),
+					validator_count_per_iteration,
 					|_| Has::timeout(),
-					false,
+					systematic_recovery,
 				)
 				.await;
 		}
@@ -2245,9 +2272,9 @@ fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
 				.test_chunk_requests(
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
-					test_state.chunks.len(),
+					validator_count_per_iteration,
 					|_| Has::timeout(),
-					false,
+					systematic_recovery,
 				)
 				.await;
 
@@ -2259,7 +2286,7 @@ fn number_of_request_retries_is_bounded(#[case] should_fail: bool) {
 					&mut virtual_overseer,
 					test_state.threshold(),
 					|_| Has::Yes,
-					false,
+					systematic_recovery,
 				)
 				.await;
 
