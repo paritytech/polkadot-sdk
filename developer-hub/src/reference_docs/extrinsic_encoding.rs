@@ -1,18 +1,24 @@
 //! # Constructing and Signing Extrinsics
 //!
-//! Substrate is configurable enough that extrinsics can take any format, in theory. In practice,
-//! runtimes tend to use our [`sp_runtime::generic::UncheckedExtrinsic`] type to represent extrinsics.
-//! In Polkadot, this is configured
+//! Extrinsics are payloads that are stored in blocks which are responsible for altering the state
+//! of a blockchain via the [_state transition function_][crate::reference_docs::blockchain_state_machines].
+//!
+//! Substrate is configurable enough that extrinsics can take any format. In practice, runtimes
+//! tend to use our [`sp_runtime::generic::UncheckedExtrinsic`] type to represent extrinsics,
+//! because it's generic enough to cater for most (if not all) use cases. In Polkadot, this is configured
 //! [here](https://github.com/polkadot-fellows/runtimes/blob/94b2798b69ba6779764e20a50f056e48db78ebef/relay/polkadot/src/lib.rs#L1478)
 //! at the time of writing.
 //!
-//! What follows is a description of how extrinsics based on this type are encoded into bytes. These
-//! bytes can then be submitted to a chain for inclusion in a block (this is how we make changes to
-//! the state of a chain), and are ultimately stored in the body of a block.
+//! What follows is a description of how extrinsics based on this
+//! [`sp_runtime::generic::UncheckedExtrinsic`] type are encoded into bytes. Specifically, we are
+//! looking at how extrinsics with a format version of 4 are encoded. This version is itself a part
+//! of the payload, and if it changes, it indicates that something about the encoding may have
+//! changed.
 //!
 //! # Encoding an Extrinsic
 //!
-//! At a high level, all extrinsics are formed from concatenating some details together, ie:
+//! At a high level, all extrinsics compatible with [`sp_runtime::generic::UncheckedExtrinsic`]
+//! are formed from concatenating some details together, as in the following pseudo-code:
 //!
 //! ```text
 //! extrinsic_bytes = concat(
@@ -22,12 +28,12 @@
 //! )
 //! ```
 //!
-//! Let's look at how each of these details is constructed.
+//! Let's look at how each of these details is constructed:
 //!
 //! ## compact_encoded_length
 //!
-//! This is a SCALE compact encoded integer which is equal to the length, in bytes, of the rest of
-//! the extrinsic details.
+//! This is a [SCALE compact encoded][frame::deps::codec::Compact] integer which is equal to the
+//! length, in bytes, of the rest of the extrinsic details.
 //!
 //! To obtain this value, we must encode and concatenate together the rest of the extrinsic details
 //! first, and then obtain the byte length of these. We can then compact encode that length, and
@@ -59,31 +65,34 @@
 //!
 //! ### from_address
 //!
-//! This is the SCALE encoded address of the sender of the extrinsic. This address must correspond
-//! to the account ID (public key) whose private key will be used to sign the extrinsic. The exact
-//! type of the address can vary across different chains.
+//! This is the [SCALE encoded][frame::deps::codec] address of the sender of the extrinsic. The
+//! address is the first generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], and so
+//! can vary from chain to chain.
 //!
 //! The address type used on the Polkadot relay chain is [`sp_runtime::MultiAddress<AccountId32>`],
 //! where `AccountId32` is defined [here][`sp_core::crypto::AccountId32`]. When constructing a
-//! signed extrinsic to be submitted to a node, you'll always use the [`sp_runtime::MultiAddress::Id`]
-//! variant.
+//! signed extrinsic to be submitted to a Polkadot node, you'll always use the
+//! [`sp_runtime::MultiAddress::Id`] variant.
 //!
 //! ### signature
 //!
-//! This is the SCALE encoded signature. The signature is obtained by signing the _signed payload_
-//! bytes (see below on how this is constructed) using the private key associated with the address,
-//! and a signing algorithm that can vary across different chains.
+//! This is the [SCALE encoded][frame::deps::codec] signature. The signature type is configured via
+//! the third generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], which determines the
+//! shape of the signature and signing algorithm that should be used.
+//!
+//! The signature is obtained by signing the _signed payload_ bytes (see below on how this is
+//! constructed) using the private key associated with the address and correct algorithm.
 //!
 //! The signature type used on the Polkadot relay chain is [`sp_runtime::MultiSignature`]; the
 //! variants there are the types of signature that can be provided.
 //!
 //! ### signed_extensions_extra
 //!
-//! This is the concatenation of the SCALE encoded bytes representing each of the
-//! [_signed extensions_][sp_runtime::traits::SignedExtension] that the chain is configured with,
-//! in the order that they are configured for that chain. Signed extensions are, briefly, a means
-//! for different chains to extend the "basic" extrinsic format with custom data that can be checked
-//! by the runtime.
+//! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing each of
+//! the [_signed extensions_][sp_runtime::traits::SignedExtension], and are configured by the
+//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Signed extensions are,
+//! briefly, a means for different chains to extend the "basic" extrinsic format with custom data
+//! that can be checked by the runtime.
 //!
 //! When it comes to constructing an extrinsic, each signed extension has two things that we are
 //! interested in here:
@@ -106,7 +115,10 @@
 //!
 //! ## call_data
 //!
-//! This data defines exactly which call is made by the extrinsic, and with what arguments, ie:
+//! This data defines exactly which call is made by the extrinsic, and with what arguments. These
+//! are determined by the second generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`].
+//!
+//! In pseudo-code, a call looks like this:
 //!
 //! ```text
 //! call_data = concat(
