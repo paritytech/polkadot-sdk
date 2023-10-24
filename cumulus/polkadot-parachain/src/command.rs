@@ -347,9 +347,9 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-kusama-local-";
 	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-kusama-genesis-";
 
-	const GLUTTON_PARA_DEV_PREFIX: &str = "glutton-westend-dev-";
-	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-westend-local-";
-	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-westend-genesis-";
+	const GLUTTON_WESTEND_PARA_DEV_PREFIX: &str = "glutton-westend-dev-";
+	const GLUTTON_WESTEND_PARA_LOCAL_PREFIX: &str = "glutton-westend-local-";
+	const GLUTTON_WESTEND_PARA_GENESIS_PREFIX: &str = "glutton-westend-genesis-";
 
 	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
@@ -369,6 +369,15 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
 		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
 		(&id[..GLUTTON_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
+	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
+		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+		(&id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
 	} else {
 		(id, id, None)
 	};
