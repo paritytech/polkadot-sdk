@@ -25,7 +25,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use sp_runtime::Perbill;
+use frame_support::sp_runtime::Perbill;
 
 pub use pallet::*;
 
@@ -46,7 +46,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config<I>, I: 'static = ()> {
+	pub enum Event<T: Config> {
 		/// Event dispatched when the trigger_defensive extrinsic is called.
 		DefensiveTestCall{}
 	}
