@@ -129,18 +129,16 @@ pub mod pallet {
 			if let Some(pending_change) = <PendingChange<T>>::get() {
 				// emit signal if we're at the block that scheduled the change
 				if block_number == pending_change.scheduled_at {
+					let next_authorities = pending_change.next_authorities.to_vec();
 					if let Some(median) = pending_change.forced {
 						Self::deposit_log(ConsensusLog::ForcedChange(
 							median,
-							ScheduledChange {
-								delay: pending_change.delay,
-								next_authorities: pending_change.next_authorities.to_vec(),
-							},
+							ScheduledChange { delay: pending_change.delay, next_authorities },
 						))
 					} else {
 						Self::deposit_log(ConsensusLog::ScheduledChange(ScheduledChange {
 							delay: pending_change.delay,
-							next_authorities: pending_change.next_authorities.to_vec(),
+							next_authorities,
 						}));
 					}
 				}
@@ -149,7 +147,7 @@ pub mod pallet {
 				if block_number == pending_change.scheduled_at + pending_change.delay {
 					Self::set_grandpa_authorities(&pending_change.next_authorities);
 					Self::deposit_event(Event::NewAuthorities {
-						authority_set: pending_change.next_authorities.to_vec(),
+						authority_set: pending_change.next_authorities.into_inner(),
 					});
 					<PendingChange<T>>::kill();
 				}

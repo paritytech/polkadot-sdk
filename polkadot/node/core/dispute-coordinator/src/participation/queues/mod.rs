@@ -277,6 +277,11 @@ impl Queues {
 			match self.priority.entry(comparator) {
 				Entry::Occupied(_) => req.discard_timer(),
 				Entry::Vacant(vac) => {
+					gum::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?req.candidate_hash(),
+						"Added to priority participation queue"
+					);
 					vac.insert(req);
 				},
 			}
@@ -295,6 +300,11 @@ impl Queues {
 			match self.best_effort.entry(comparator) {
 				Entry::Occupied(_) => req.discard_timer(),
 				Entry::Vacant(vac) => {
+					gum::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?req.candidate_hash(),
+						"Added to best effort participation queue"
+					);
 					vac.insert(req);
 				},
 			}

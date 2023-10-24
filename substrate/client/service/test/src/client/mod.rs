@@ -39,7 +39,6 @@ use sp_runtime::{
 };
 use sp_state_machine::{backend::Backend as _, InMemoryBackend, OverlayedChanges, StateMachine};
 use sp_storage::{ChildInfo, StorageKey};
-use sp_trie::{LayoutV0, TrieConfiguration};
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::TestAPI;
 use substrate_test_runtime_client::{
@@ -62,22 +61,17 @@ fn construct_block(
 	backend: &InMemoryBackend<BlakeTwo256>,
 	number: BlockNumber,
 	parent_hash: Hash,
-	state_root: Hash,
 	txs: Vec<Transfer>,
-) -> (Vec<u8>, Hash) {
+) -> Vec<u8> {
 	let transactions = txs.into_iter().map(|tx| tx.into_unchecked_extrinsic()).collect::<Vec<_>>();
-
-	let iter = transactions.iter().map(Encode::encode);
-	let extrinsics_root = LayoutV0::<BlakeTwo256>::ordered_trie_root(iter).into();
 
 	let mut header = Header {
 		parent_hash,
 		number,
-		state_root,
-		extrinsics_root,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
 		digest: Digest { logs: vec![] },
 	};
-	let hash = header.hash();
 	let mut overlay = OverlayedChanges::default();
 	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(backend);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
@@ -124,19 +118,16 @@ fn construct_block(
 	.unwrap();
 	header = Header::decode(&mut &ret_data[..]).unwrap();
 
-	(vec![].and(&Block { header, extrinsics: transactions }), hash)
+	vec![].and(&Block { header, extrinsics: transactions })
 }
 
-fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> (Vec<u8>, Hash) {
+fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> Vec<u8> {
 	construct_block(
 		backend,
 		1,
 		genesis_hash,
-		array_bytes::hex_n_into_unchecked(
-			"25e5b37074063ab75c889326246640729b40d0c86932edc527bc80db0e04fe5c",
-		),
 		vec![Transfer {
-			from: AccountKeyring::Alice.into(),
+			from: AccountKeyring::One.into(),
 			to: AccountKeyring::Two.into(),
 			amount: 69 * DOLLARS,
 			nonce: 0,
@@ -175,7 +166,7 @@ fn construct_genesis_should_work_with_native() {
 	let genesis_hash = insert_genesis_block(&mut storage);
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
-	let (b1data, _b1hash) = block1(genesis_hash, &backend);
+	let b1data = block1(genesis_hash, &backend);
 	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
@@ -206,7 +197,7 @@ fn construct_genesis_should_work_with_wasm() {
 	let genesis_hash = insert_genesis_block(&mut storage);
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
-	let (b1data, _b1hash) = block1(genesis_hash, &backend);
+	let b1data = block1(genesis_hash, &backend);
 	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
