@@ -30,7 +30,7 @@ variables:
   RUSTY_CACHIER_COMPRESSION_METHOD: zstd
   NEXTEST_FAILURE_OUTPUT: immediate-final
   NEXTEST_SUCCESS_OUTPUT: final
-  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.68"
+  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.71"
   DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:

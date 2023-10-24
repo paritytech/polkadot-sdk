@@ -7,6 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+cfg-if = "1.0"
 cpu-time = "1.0.0"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../../gum" }
@@ -28,7 +29,7 @@ sp-io = { path = "../../../../../substrate/primitives/io" }
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-landlock = "0.2.0"
+landlock = "0.3.0"
 
 [dev-dependencies]
 assert_matches = "1.4.0"
@@ -36,6 +37,5 @@ tempfile = "3.3.0"
 
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.
-# Also used for building the puppet worker.
 test-utils = []
 jemalloc-allocator = []

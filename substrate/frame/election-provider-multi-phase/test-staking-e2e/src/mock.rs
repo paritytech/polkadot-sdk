@@ -65,8 +65,7 @@ type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type Extrinsic = testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
-	pub enum Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
@@ -89,15 +88,8 @@ pub(crate) type Moment = u32;
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
-
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -122,6 +114,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = traits::ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type WeightInfo = ();
 }

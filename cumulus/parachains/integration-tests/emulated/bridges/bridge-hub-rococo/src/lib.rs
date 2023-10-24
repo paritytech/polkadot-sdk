@@ -17,12 +17,13 @@ pub use bp_messages::LaneId;
 pub use frame_support::assert_ok;
 pub use integration_tests_common::{
 	constants::{
-		asset_hub_kusama::ED as ASSET_HUB_ROCOCO_ED, kusama::ED as ROCOCO_ED, PROOF_SIZE_THRESHOLD,
-		REF_TIME_THRESHOLD, XCM_V3,
+		bridge_hub_rococo::ED as BRIDGE_HUB_ROCOCO_ED, rococo::ED as ROCOCO_ED,
+		PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 	},
+	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubRococo, BridgeHubWococo,
-	PenpalRococoA, Rococo, RococoPallet,
+	AssetHubRococo, AssetHubRococoReceiver, AssetHubWococo, BridgeHubRococo, BridgeHubRococoPallet,
+	BridgeHubRococoSender, BridgeHubWococo, PenpalRococoA, Rococo, RococoPallet,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{
@@ -63,5 +64,4 @@ pub fn relay_test_args(amount: Balance) -> TestArgs {
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "runtime-benchmarks"))]
 mod tests;

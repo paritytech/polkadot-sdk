@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use schnellru::{ByLength, LruMap};
 use std::sync::Arc;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -30,13 +29,13 @@ use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{
 		v1::{self, AvailableDataFetchingRequest},
-		vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 use polkadot_primitives::CollatorPair;
 
@@ -44,7 +43,6 @@ use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::NetworkStateInfo;
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_runtime::traits::Block as BlockT;
 
 use cumulus_primitives_core::relay_chain::{Block, Hash as PHash};
 use cumulus_relay_chain_interface::RelayChainError;
@@ -63,9 +61,8 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Receiver for collation request protocol v1.
 	pub collation_req_receiver_v1: IncomingRequestReceiver<v1::CollationFetchingRequest>,
-	/// Receiver for collation request protocol vstaging.
-	pub collation_req_receiver_vstaging:
-		IncomingRequestReceiver<vstaging::CollationFetchingRequest>,
+	/// Receiver for collation request protocol v2.
+	pub collation_req_receiver_v2: IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	/// Receiver for availability request protocol
 	pub available_data_req_receiver: IncomingRequestReceiver<AvailableDataFetchingRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -88,7 +85,7 @@ fn build_overseer(
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
-		collation_req_receiver_vstaging,
+		collation_req_receiver_v2,
 		available_data_req_receiver,
 		registry,
 		spawner,
@@ -121,7 +118,7 @@ fn build_overseer(
 				peer_id: network_service.local_peer_id(),
 				collator_pair,
 				request_receiver_v1: collation_req_receiver_v1,
-				request_receiver_vstaging: collation_req_receiver_vstaging,
+				request_receiver_v2: collation_req_receiver_v2,
 				metrics: Metrics::register(registry)?,
 			};
 			CollatorProtocolSubsystem::new(side)
@@ -158,7 +155,6 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
@@ -210,8 +206,6 @@ pub struct NewMinimalNode {
 	pub task_manager: TaskManager,
 	/// Overseer handle to interact with subsystems
 	pub overseer_handle: Handle,
-	/// Network service
-	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
 }
 
 /// Glues together the [`Overseer`] and `BlockchainEvents` by forwarding

@@ -26,11 +26,10 @@ pub mod genesismap;
 pub mod substrate_test_pallet;
 
 use codec::{Decode, Encode};
-#[cfg(not(feature = "disable-genesis-builder"))]
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -397,6 +396,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxHolds = ConstU32<1>;
 }
 
@@ -722,7 +722,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[cfg(not(feature = "disable-genesis-builder"))]
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
@@ -1203,7 +1202,6 @@ mod tests {
 		})
 	}
 
-	#[cfg(not(feature = "disable-genesis-builder"))]
 	mod genesis_builder_tests {
 		use super::*;
 		use crate::genesismap::GenesisStorageBuilder;

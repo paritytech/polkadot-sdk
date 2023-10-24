@@ -8,9 +8,11 @@ license.workspace = true
 
 [dependencies]
 always-assert = "0.1"
+cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
+is_executable = "1.0.1"
 libc = "0.2.139"
 pin-project = "1.0.9"
 rand = "0.8.5"
@@ -33,18 +35,22 @@ sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-comp
 polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true }
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
 
-[build-dependencies]
-substrate-build-script-utils = { path = "../../../../substrate/utils/build-script-utils" }
-
 [dev-dependencies]
 assert_matches = "1.4.0"
+criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "async_tokio"] }
 hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
-# For the puppet worker, depend on ourselves with the test-utils feature.
+# For benches and integration tests, depend on ourselves with the test-utils
+# feature.
 polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
+rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }
 halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
+
+[[bench]]
+name = "host_prepare_rococo_runtime"
+harness = false
 
 [features]
 ci-only-tests = []
