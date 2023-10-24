@@ -838,7 +838,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime
 
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_wococo::WococoNetwork;
-	type Bridges = xcm_config::bridging::to_wococo::NetworkExportTable;
+	type Bridges = xcm_config::bridging::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
@@ -869,7 +869,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
-	type Bridges = xcm_config::bridging::to_rococo::NetworkExportTable;
+	type Bridges = xcm_config::bridging::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;

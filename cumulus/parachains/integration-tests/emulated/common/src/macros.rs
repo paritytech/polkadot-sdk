@@ -36,9 +36,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					let beneficiary: MultiLocation =
 						$crate::AccountId32 { network: None, id: receiver.clone().into() }.into();
 
-					dbg!(&origin);
-					dbg!(&para_destination);
-
 					// Send XCM message from Origin Parachain
 					// We are only testing the limited teleport version, which should be ok since success will
 					// depend only on a proper `XcmConfig` at destination.

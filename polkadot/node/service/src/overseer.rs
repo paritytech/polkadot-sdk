@@ -40,7 +40,6 @@ use polkadot_overseer::{
 	metrics::Metrics as OverseerMetrics, InitializedOverseerBuilder, MetricsTrait, Overseer,
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
-use schnellru::{ByLength, LruMap};
 
 use polkadot_primitives::runtime_api::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
@@ -342,7 +341,6 @@ where
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_api_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(metrics)
 		.spawner(spawner);
 
@@ -379,8 +377,6 @@ pub trait OverseerGen {
 	// but the amount of generic arguments that would be required as
 	// as consequence make this rather annoying to implement and use.
 }
-
-use polkadot_overseer::KNOWN_LEAVES_CACHE_SIZE;
 
 /// The regular set of subsystems.
 pub struct RealOverseerGen;

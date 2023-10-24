@@ -29,7 +29,7 @@ use futures::{
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage, ChainApiMessage},
-	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, LeafStatus, OverseerSignal, PerLeafSpan,
+	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, OverseerSignal, PerLeafSpan,
 	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
@@ -308,16 +308,6 @@ async fn handle_active_leaves_update<Sender>(
 where
 	Sender: overseer::BitfieldSigningSenderTrait,
 {
-	if let LeafStatus::Stale = leaf.status {
-		gum::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?leaf.hash,
-			block_number =  ?leaf.number,
-			"Skip bitfield signing for stale leaf"
-		);
-		return Ok(())
-	}
-
 	let span = PerLeafSpan::new(leaf.span, "bitfield-signing");
 	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
