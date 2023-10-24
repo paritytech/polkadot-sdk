@@ -314,11 +314,9 @@ pub type SignedExtra = (
 
 /// All migrations of the runtime, aside from the ones declared in the pallets.
 ///
-/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`. Add other migration types
-/// before `EnsureStateDecodes` as needed -- this is only for testing, and
-// should come last.
+/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
 #[allow(unused_parens)]
-type Migrations = (frame_support::migration::EnsureStateDecodes<AllPalletsWithSystem>);
+type Migrations = ();
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
