@@ -14,7 +14,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 log = "0.4.17"
 serde = { version = "1.0.188", features = ["derive"] }
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core", default-features = false}
 sp-runtime = { path = "../../../primitives/runtime", default-features = false}

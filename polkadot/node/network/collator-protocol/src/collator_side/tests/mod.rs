@@ -40,7 +40,7 @@ use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	jaeger,
 	messages::{AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
@@ -49,6 +49,7 @@ use polkadot_primitives::{
 	ScheduledCore, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
+use test_helpers::mock::new_leaf;
 
 mod prospective_parachains;
 
@@ -197,7 +198,7 @@ impl TestState {
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				relay_parent,
-				RuntimeApiRequest::StagingAsyncBackingParams(tx)
+				RuntimeApiRequest::AsyncBackingParams(tx)
 			)) => {
 				assert_eq!(relay_parent, self.relay_parent);
 				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -211,7 +212,7 @@ type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocol
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
 	req_v1_cfg: sc_network::config::RequestResponseConfig,
-	req_vstaging_cfg: sc_network::config::RequestResponseConfig,
+	req_v2_cfg: sc_network::config::RequestResponseConfig,
 }
 
 fn test_harness<T: Future<Output = TestHarness>>(
@@ -235,7 +236,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 
 	let (collation_req_receiver, req_v1_cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (collation_req_vstaging_receiver, req_vstaging_cfg) =
+	let (collation_req_v2_receiver, req_v2_cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	let subsystem = async {
 		run_inner(
@@ -243,7 +244,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 			local_peer_id,
 			collator_pair,
 			collation_req_receiver,
-			collation_req_vstaging_receiver,
+			collation_req_v2_receiver,
 			Default::default(),
 			reputation,
 			REPUTATION_CHANGE_TEST_INTERVAL,
@@ -252,7 +253,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 		.unwrap();
 	};
 
-	let test_fut = test(TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg });
+	let test_fut = test(TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg });
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);
@@ -310,12 +311,10 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-			hash: test_state.relay_parent,
-			number: 1,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		})),
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+			test_state.relay_parent,
+			1,
+		))),
 	)
 	.await;
 
@@ -331,7 +330,7 @@ async fn setup_system(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			relay_parent,
-			RuntimeApiRequest::StagingAsyncBackingParams(tx)
+			RuntimeApiRequest::AsyncBackingParams(tx)
 		)) => {
 			assert_eq!(relay_parent, test_state.relay_parent);
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
@@ -546,7 +545,7 @@ async fn expect_declare_msg(
 
 /// Check that the next received message is a collation advertisement message.
 ///
-/// Expects vstaging message if `expected_candidate_hashes` is `Some`, v1 otherwise.
+/// Expects v2 message if `expected_candidate_hashes` is `Some`, v1 otherwise.
 async fn expect_advertise_collation_msg(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: &PeerId,
@@ -580,13 +579,13 @@ async fn expect_advertise_collation_msg(
 					},
 					(
 						Some(candidate_hashes),
-						Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
+						Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 							wire_message,
 						)),
 					) => {
 						assert_matches!(
 							wire_message,
-							protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+							protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 								relay_parent,
 								candidate_hash,
 								..
@@ -635,7 +634,7 @@ fn advertise_and_send_collation() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v1_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -790,7 +789,7 @@ fn advertise_and_send_collation() {
 				None,
 			)
 			.await;
-			TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
 		},
 	);
 }
@@ -808,7 +807,7 @@ fn delay_reputation_change() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v1_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -904,15 +903,15 @@ fn delay_reputation_change() {
 				);
 			}
 
-			TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
 		},
 	);
 }
 
-/// Tests that collator side works with vstaging network protocol
+/// Tests that collator side works with v2 network protocol
 /// before async backing is enabled.
 #[test]
-fn advertise_collation_vstaging_protocol() {
+fn advertise_collation_v2_protocol() {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -942,21 +941,16 @@ fn advertise_collation_vstaging_protocol() {
 				Some(validators[0].clone()),
 			)
 			.await;
-			// The rest with vstaging.
+			// The rest with v2.
 			for (val, peer) in validators.iter().zip(peer_ids.iter()).skip(1) {
-				connect_peer(
-					virtual_overseer,
-					*peer,
-					CollationVersion::VStaging,
-					Some(val.clone()),
-				)
-				.await;
+				connect_peer(virtual_overseer, *peer, CollationVersion::V2, Some(val.clone()))
+					.await;
 			}
 
 			// Declare messages.
 			expect_declare_msg(virtual_overseer, &test_state, &peer_ids[0]).await;
 			for peer_id in peer_ids.iter().skip(1) {
-				prospective_parachains::expect_declare_msg_vstaging(
+				prospective_parachains::expect_declare_msg_v2(
 					virtual_overseer,
 					&test_state,
 					&peer_id,
@@ -982,7 +976,7 @@ fn advertise_collation_vstaging_protocol() {
 					virtual_overseer,
 					peer_id,
 					test_state.relay_parent,
-					Some(vec![candidate.hash()]), // This is `Some`, advertisement is vstaging.
+					Some(vec![candidate.hash()]), // This is `Some`, advertisement is v2.
 				)
 				.await;
 			}
@@ -1406,7 +1400,7 @@ fn connect_to_buffered_groups() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_cfg = test_harness.req_v1_cfg;
-			let req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let req_v2_cfg = test_harness.req_v2_cfg;
 
 			setup_system(&mut virtual_overseer, &test_state).await;
 
@@ -1511,7 +1505,7 @@ fn connect_to_buffered_groups() {
 				}
 			);
 
-			TestHarness { virtual_overseer, req_v1_cfg: req_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg: req_cfg, req_v2_cfg }
 		},
 	);
 }

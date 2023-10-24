@@ -14,9 +14,9 @@
 // limitations under the License.
 
 use super::*;
-use cumulus_primitives_core::XcmpMessageHandler;
+use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{assert_noop, assert_ok};
-use mock::{new_test_ext, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
+use mock::{new_test_ext, ParachainSystem, RuntimeCall, RuntimeOrigin, Test, XcmpQueue};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
@@ -324,13 +324,14 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	let dest = (Parent, X1(Parachain(5555)));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
-	assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
-
-	// check wrapper were consumed
-	assert_eq!(None, dest_wrapper.take());
-	assert_eq!(None, msg_wrapper.take());
 
 	new_test_ext().execute_with(|| {
+		assert!(<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).is_ok());
+
+		// check wrapper were consumed
+		assert_eq!(None, dest_wrapper.take());
+		assert_eq!(None, msg_wrapper.take());
+
 		// another try with router chain with asserting sender
 		assert_eq!(
 			Err(SendError::Transport("NoChannel")),
@@ -339,5 +340,105 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 				message
 			)
 		);
+	});
+}
+
+#[test]
+fn xcmp_queue_send_xcm_works() {
+	new_test_ext().execute_with(|| {
+		let sibling_para_id = ParaId::from(12345);
+		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+		let msg = Xcm(vec![ClearOrigin]);
+
+		// try to send without opened HRMP channel to the sibling_para_id
+		assert_eq!(
+			send_xcm::<XcmpQueue>(dest, msg.clone()),
+			Err(SendError::Transport("NoChannel")),
+		);
+
+		// open HRMP channel to the sibling_para_id
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
+
+		// check empty outbound queue
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+
+		// now send works
+		assert_ok!(send_xcm::<XcmpQueue>(dest, msg));
+
+		// check outbound queue contains message/page for sibling_para_id
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX)
+			.iter()
+			.any(|(para_id, _)| para_id == &sibling_para_id));
+	})
+}
+
+#[test]
+fn verify_fee_factor_increase_and_decrease() {
+	use cumulus_primitives_core::AbridgedHrmpChannel;
+	use sp_runtime::FixedU128;
+
+	let sibling_para_id = ParaId::from(12345);
+	let destination = (Parent, Parachain(sibling_para_id.into())).into();
+	let xcm = Xcm(vec![ClearOrigin; 100]);
+	let versioned_xcm = VersionedXcm::from(xcm.clone());
+	let mut xcmp_message = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
+	xcmp_message.extend(versioned_xcm.encode());
+
+	new_test_ext().execute_with(|| {
+		let initial = InitialFactor::get();
+		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
+
+		// Open channel so messages can actually be sent
+		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+			sibling_para_id,
+			AbridgedHrmpChannel {
+				max_capacity: 10,
+				max_total_size: 1000,
+				max_message_size: 104,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+
+		// Fee factor is only increased in `send_fragment`, which is called by `send_xcm`.
+		// When queue is not congested, fee factor doesn't change.
+		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 104
+		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 208
+		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 312
+		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 416
+		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
+
+		// Sending the message right now is cheap
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination, xcm.clone())
+			.expect("message can be sent; qed");
+		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed"); };
+		assert_eq!(delivery_fee_amount, 402_000_000);
+
+		let smaller_xcm = Xcm(vec![ClearOrigin; 30]);
+
+		// When we get to half of `max_total_size`, because `THRESHOLD_FACTOR` is 2,
+		// then the fee factor starts to increase.
+		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 520
+		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), FixedU128::from_float(1.05));
+
+		for _ in 0..12 { // We finish at size 929
+			assert_ok!(send_xcm::<XcmpQueue>(destination, smaller_xcm.clone()));
+		}
+		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) > FixedU128::from_float(1.88));
+
+		// Sending the message right now is expensive
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination, xcm.clone())
+			.expect("message can be sent; qed");
+		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else { unreachable!("asset is fungible; qed"); };
+		assert_eq!(delivery_fee_amount, 758_030_955);
+
+		// Fee factor only decreases in `take_outbound_messages`
+		for _ in 0..5 { // We take 5 100 byte pages
+			XcmpQueue::take_outbound_messages(1);
+		}
+		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.72));
+		XcmpQueue::take_outbound_messages(1);
+		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) < FixedU128::from_float(1.63));
 	});
 }

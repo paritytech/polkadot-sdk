@@ -79,7 +79,7 @@ game, so we are not too woried about colluding approval voters getting away slas
 maintained anyway. There is however a separate problem, from colluding approval-voters, that is "lazy" approval voters.
 If it were easy and reliable for approval-voters to reconsider their vote, in case of an actual dispute, then they don't
 have a direct incentive (apart from playing a part in securing the network) to properly run the validation function at
-all - they could just always vote "valid" totally risk free. (While they would alwasy risk a slash by voting invalid.)
+all - they could just always vote "valid" totally risk free. (While they would always risk a slash by voting invalid.)
 
 
 So we do want to fetch approval votes from approval-voting. Importing votes is most efficient when batched. At the same
@@ -125,7 +125,7 @@ moment the dispute concludes! Two concerns that come to mind, are easily address
    enough: We are worried about lazy approval checkers, the system does not need to be perfect. It should be enough if
    there is some risk of getting caught.
 2. We are not worried about the dispute not concluding, as nodes will always send their own vote, regardless of it being
-   an explict or an already existing approval-vote.
+   an explicit or an already existing approval-vote.
 
 Conclusion: As long as we make sure, if our own approval vote gets imported (which would prevent dispute participation)
 to also distribute it via dispute-distribution, disputes can conclude. To mitigate raciness with approval-voting
@@ -307,7 +307,7 @@ spam, then spam slots for the disputed candidate hash are cleared. This decremen
 which had voted invalid.
 
 To keep spam slots from filling up unnecessarily we want to clear spam slots whenever a candidate is seen to be backed
-or included. Fortunately this behavior is acheived by clearing slots on vote import as described above. Because on chain
+or included. Fortunately this behavior is achieved by clearing slots on vote import as described above. Because on chain
 backing votes are processed when a block backing the disputed candidate is discovered, spam slots are cleared for every
 backed candidate. Included candidates have also been seen as backed on the same fork, so decrementing spam slots is
 handled in that case as well.
@@ -422,7 +422,7 @@ from them, so they would be an easy DoS target.
 
 In summary: The availability system was designed for raising disputes in a meaningful and secure way after availability
 was reached. Trying to raise disputes before does not meaningfully contribute to the systems security/might even weaken
-it as attackers are warned before availability is reached, while at the same time adding signficant amount of
+it as attackers are warned before availability is reached, while at the same time adding significant amount of
 complexity. We therefore punt on such disputes and concentrate on disputes the system was designed to handle.
 
 ### No Disputes for Already Finalized Blocks

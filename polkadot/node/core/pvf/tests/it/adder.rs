@@ -100,7 +100,7 @@ async fn execute_bad_block_on_parent() {
 
 	let host = TestHost::new();
 
-	let _ret = host
+	let _err = host
 		.validate_candidate(
 			adder::wasm_binary_unwrap(),
 			ValidationParams {
@@ -144,4 +144,38 @@ async fn stress_spawn() {
 	}
 
 	futures::future::join_all((0..100).map(|_| execute(host.clone()))).await;
+}
+
+// With one worker, run multiple execution jobs serially. They should not conflict.
+#[tokio::test]
+async fn execute_can_run_serially() {
+	let host = std::sync::Arc::new(TestHost::new_with_config(|cfg| {
+		cfg.execute_workers_max_num = 1;
+	}));
+
+	async fn execute(host: std::sync::Arc<TestHost>) {
+		let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+		let block_data = BlockData { state: 0, add: 512 };
+		let ret = host
+			.validate_candidate(
+				adder::wasm_binary_unwrap(),
+				ValidationParams {
+					parent_head: GenericHeadData(parent_head.encode()),
+					block_data: GenericBlockData(block_data.encode()),
+					relay_parent_number: 1,
+					relay_parent_storage_root: Default::default(),
+				},
+				Default::default(),
+			)
+			.await
+			.unwrap();
+
+		let new_head = HeadData::decode(&mut &ret.head_data.0[..]).unwrap();
+
+		assert_eq!(new_head.number, 1);
+		assert_eq!(new_head.parent_hash, parent_head.hash());
+		assert_eq!(new_head.post_state, hash_state(512));
+	}
+
+	futures::future::join_all((0..5).map(|_| execute(host.clone()))).await;
 }
