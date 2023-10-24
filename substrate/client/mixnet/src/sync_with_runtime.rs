@@ -27,7 +27,7 @@ use mixnet::core::{
 	SessionPhase as CoreSessionPhase, SessionStatus as CoreSessionStatus,
 };
 use multiaddr::{multiaddr, Multiaddr, Protocol};
-use sp_api::{ApiError, ApiRef};
+use sp_api::ApiError;
 use sp_mixnet::{
 	runtime_api::MixnetApi,
 	types::{
@@ -35,7 +35,6 @@ use sp_mixnet::{
 		SessionPhase as RuntimeSessionPhase, SessionStatus as RuntimeSessionStatus,
 	},
 };
-use sp_runtime::traits::Block;
 
 const LOG_TARGET: &str = "mixnet";
 
@@ -175,12 +174,8 @@ fn maybe_set_mixnodes(
 	});
 }
 
-pub fn sync_with_runtime<B, A>(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: ApiRef<A>, hash: B::Hash)
-where
-	B: Block,
-	A: MixnetApi<B>,
-{
-	let session_status = match api.session_status(hash) {
+pub fn sync_with_runtime(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: &dyn MixnetApi) {
+	let session_status = match api.session_status() {
 		Ok(session_status) => session_status,
 		Err(err) => {
 			debug!(target: LOG_TARGET, "Error getting session status from runtime: {err}");
@@ -189,8 +184,8 @@ where
 	};
 	mixnet.set_session_status(to_core_session_status(session_status));
 
-	maybe_set_mixnodes(mixnet, RelSessionIndex::Prev, &|| api.prev_mixnodes(hash));
-	maybe_set_mixnodes(mixnet, RelSessionIndex::Current, &|| api.current_mixnodes(hash));
+	maybe_set_mixnodes(mixnet, RelSessionIndex::Prev, &|| api.prev_mixnodes());
+	maybe_set_mixnodes(mixnet, RelSessionIndex::Current, &|| api.current_mixnodes());
 }
 
 #[cfg(test)]

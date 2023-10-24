@@ -49,7 +49,7 @@ use sc_network::{
 use sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
 };
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{RuntimeInstanceBuilder, CallApiAt};
 use sp_consensus::SyncOracle;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_mixnet::{runtime_api::MixnetApi, types::Mixnode};
@@ -156,8 +156,7 @@ pub async fn run<B, C, S, N, P>(
 	keystore: Option<KeystorePtr>,
 ) where
 	B: Block,
-	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
-	C::Api: MixnetApi<B>,
+	C: BlockchainEvents<B> + HeaderBackend<B> + CallApiAt<B>,
 	S: SyncOracle,
 	N: NetworkStateInfo + NetworkEventStream + NetworkNotification + NetworkPeers,
 	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
@@ -217,8 +216,8 @@ pub async fn run<B, C, S, N, P>(
 				// To avoid trying to connect to old mixnodes, ignore finality notifications while
 				// offline or major syncing. This is a bit racy but should be good enough.
 				if !sync.is_offline() && !sync.is_major_syncing() {
-					let api = client.runtime_api();
-					sync_with_runtime(&mut mixnet, api, notification.hash);
+					let api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context().build();
+					sync_with_runtime(&mut mixnet, &api);
 					request_manager.update_session_status(
 						&mut mixnet, &packet_dispatcher, &config.substrate);
 				}
@@ -226,11 +225,11 @@ pub async fn run<B, C, S, N, P>(
 
 			notification = next_import_notification => {
 				if notification.is_new_best && (*notification.header.number() >= min_register_block) {
-					let mut api = client.runtime_api();
-					api.register_extension(KeystoreExt(keystore.clone().expect(
-						"Import notification stream only setup if we have a keystore")));
-					api.register_extension(offchain_transaction_pool_factory
-						.offchain_transaction_pool(notification.hash));
+					let api = RuntimeInstanceBuilder::create(client.clone(), notification.hash).off_chain_context()
+					.register_extension(KeystoreExt(keystore.clone().expect(
+						"Import notification stream only setup if we have a keystore")))
+					.register_extension(offchain_transaction_pool_factory
+						.offchain_transaction_pool(notification.hash)).build();
 					let session_index = mixnet.session_status().current_index;
 					let mixnode = Mixnode {
 						kx_public: *mixnet.next_kx_public(),
@@ -238,7 +237,7 @@ pub async fn run<B, C, S, N, P>(
 						external_addresses: network.external_addresses().into_iter()
 							.map(|addr| addr.to_string().into_bytes()).collect(),
 					};
-					match api.maybe_register(notification.hash, session_index, mixnode) {
+					match api.maybe_register(session_index, mixnode) {
 						Ok(true) => min_register_block = notification.header.number().saturating_add(
 							MIN_BLOCKS_BETWEEN_REGISTRATION_ATTEMPTS.into()),
 						Ok(false) => (),
