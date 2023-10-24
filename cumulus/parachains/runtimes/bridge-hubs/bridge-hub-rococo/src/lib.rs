@@ -982,6 +982,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block> for Runtime {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
+			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
