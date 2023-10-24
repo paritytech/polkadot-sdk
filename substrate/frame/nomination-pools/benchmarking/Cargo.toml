@@ -43,6 +43,7 @@ sp-io = { path = "../../../primitives/io" }
 default = [ "std" ]
 
 std = [
+	"codec/std",
 	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
@@ -52,6 +53,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
+	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
