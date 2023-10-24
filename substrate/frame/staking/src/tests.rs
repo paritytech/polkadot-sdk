@@ -6290,7 +6290,7 @@ mod delegation_stake {
 				);
 
 				// update stake
-				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee, 100,));
+				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee));
 
 				// stake is now reflected in staking ledger
 				assert_eq!(
@@ -6360,7 +6360,7 @@ mod delegation_stake {
 				assert_ok!(<Staking as DelegatedStakeInterface>::delegate(
 					&delegator, &delegatee, 100
 				));
-				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee, 100));
+				assert_ok!(<Staking as DelegatedStakeInterface>::update_bond(&delegatee));
 			}
 
 			// when: some delegators unbond their stake

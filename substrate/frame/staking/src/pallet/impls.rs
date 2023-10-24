@@ -1873,20 +1873,25 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		delegation::delegate::<T>(delegator, delegatee, value)
 	}
 
-	fn update_bond(
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
-		let is_first_bond = !Ledger::<T>::contains_key(&delegatee);
+	fn update_bond(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+		let delegated_balance = delegation::delegated_balance::<T>(delegatee);
 
-		if is_first_bond {
-			Self::bond(
-				RawOrigin::Signed(delegatee.clone()).into(),
-				value,
-				RewardDestination::Account(delegation::get_payee::<T>(delegatee)?),
-			)
-		} else {
-			Self::bond_extra(RawOrigin::Signed(delegatee.clone()).into(), value)
+		match Self::ledger(Stash(delegatee.clone())) {
+			Ok(ledger) => {
+				let unstaked_delegated_balance = delegated_balance.saturating_sub(ledger.total);
+				Self::bond_extra(
+					RawOrigin::Signed(delegatee.clone()).into(),
+					unstaked_delegated_balance,
+				)
+			},
+			Err(_) => {
+				// If the ledger is not found, it means this is the first bond
+				Self::bond(
+					RawOrigin::Signed(delegatee.clone()).into(),
+					delegated_balance,
+					RewardDestination::Account(delegation::get_payee::<T>(delegatee)?),
+				)
+			},
 		}
 	}
 

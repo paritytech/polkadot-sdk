@@ -28,13 +28,15 @@ use sp_runtime::{DispatchError, DispatchResult};
 pub trait DelegatedStakeInterface: StakingInterface {
 	/// Set intention to accept delegations.
 	///
-	/// The caller would be Delegatee. Also takes input where the reward should be paid out.
+	/// Takes payee as input which determines where reward should be paid out.
+	///
+	/// Once executed, the account is registered as a `Delegatee`.
 	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> DispatchResult;
 
-	/// Stop accepting new delegations.
+	/// Stop accepting new delegations on this account.
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
 
-	/// Remove yourself as Delegatee.
+	/// Remove oneself as Delegatee.
 	///
 	/// This will only succeed if all delegations to this delegatee are removed.
 	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult;
@@ -49,7 +51,8 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	fn update_bond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;
+	/// Update bond whenever there is a new delegate funds that are not staked.
+	fn update_bond(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Unbond some funds from a delegatee.
 	///
