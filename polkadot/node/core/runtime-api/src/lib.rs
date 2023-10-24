@@ -166,6 +166,8 @@ where
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			SubmitReportDisputeLost(_, _, _, _) => {},
+			DisabledValidators(relay_parent, disabled_validators) =>
+				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
 			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
 				.cache_para_backing_state((relay_parent, para_id), constraints),
@@ -296,6 +298,8 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
+			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
+				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
@@ -565,11 +569,17 @@ where
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
 			sender
 		),
+		Request::DisabledValidators(sender) => query!(
+			DisabledValidators,
+			disabled_validators(),
+			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+			sender
+		),
 		Request::ParaBackingState(para, sender) => {
 			query!(
 				ParaBackingState,
 				para_backing_state(para),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
@@ -577,7 +587,7 @@ where
 			query!(
 				AsyncBackingParams,
 				async_backing_params(),
-				ver = Request::STAGING_BACKING_STATE,
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},

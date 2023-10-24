@@ -15,7 +15,7 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-clap = { version = "4.4.4", features = ["derive"], optional = true }
+clap = { version = "4.4.6", features = ["derive"], optional = true }
 log = "0.4.17"
 thiserror = "1.0.48"
 futures = "0.3.21"
@@ -23,7 +23,6 @@ pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
 service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true }
-polkadot-performance-test = { path = "../node/test/performance-test", optional = true }
 
 sp-core = { path = "../../substrate/primitives/core" }
 sp-io = { path = "../../substrate/primitives/io" }
@@ -34,6 +33,7 @@ try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", option
 sc-cli = { path = "../../substrate/client/cli", optional = true }
 sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
+polkadot-node-primitives = { path = "../node/primitives" }
 sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -57,7 +57,6 @@ cli = [
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"polkadot-node-metrics/runtime-benchmarks",
-	"polkadot-performance-test?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
 ]
@@ -65,7 +64,6 @@ full-node = [ "service/full-node" ]
 try-runtime = [ "service/try-runtime", "try-runtime-cli/try-runtime" ]
 fast-runtime = [ "service/fast-runtime" ]
 pyroscope = [ "pyro", "pyroscope_pprofrs" ]
-hostperfcheck = [ "polkadot-performance-test" ]
 
 # Configure the native runtimes to use.
 westend-native = [ "service/westend-native" ]

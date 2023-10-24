@@ -9,7 +9,7 @@ description = "Asset Hub Polkadot parachain runtime"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -56,7 +56,6 @@ pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchma
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants", default-features = false}
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
@@ -185,7 +184,6 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
-	"polkadot-runtime-constants/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",

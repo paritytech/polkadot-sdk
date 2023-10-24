@@ -2,13 +2,14 @@
 name = "rococo-runtime"
 build = "build.rs"
 version = "1.0.0"
+description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.188", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
@@ -52,6 +53,7 @@ pallet-collective = { path = "../../../substrate/frame/collective", default-feat
 pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting", default-features = false }
 pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false }
+pallet-asset-rate = {  path = "../../../substrate/frame/asset-rate", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
@@ -72,7 +74,7 @@ pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-featur
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"] }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
@@ -110,7 +112,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 tokio = { version = "1.24.2", features = ["macros"] }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
 default = [ "std" ]
@@ -131,6 +133,7 @@ std = [
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
+	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -196,6 +199,7 @@ std = [
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-version/std",
+	"substrate-wasm-builder",
 	"tx-pool-api/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -206,6 +210,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
@@ -257,6 +262,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
@@ -307,3 +313,8 @@ try-runtime = [
 fast-runtime = []
 
 runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+
+# A feature that should be enabled when the runtime should be build for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller like logging for example.
+on-chain-release-build = [ "sp-api/disable-logging" ]
