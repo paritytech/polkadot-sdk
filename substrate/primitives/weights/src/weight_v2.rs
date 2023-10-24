@@ -18,7 +18,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
-use sp_debug_derive::RuntimeDebug;
 
 use super::*;
 

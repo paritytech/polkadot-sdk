@@ -53,11 +53,9 @@ where
 			Some(max) if info.weight.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic weight ({}, {}) is greater than the max extrinsic weight ({}, {})",
-					info.weight.ref_time(),
-					info.weight.proof_size(),
-					max.ref_time(),
-					max.proof_size(),
+					"Extrinsic {} is greater than the max extrinsic {}",
+					info.weight,
+					max,
 				);
 
 				Err(InvalidTransaction::ExhaustsResources.into())
@@ -267,13 +265,13 @@ where
 			})
 		}
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Used block weight: {:?}",
 			crate::BlockWeight::<T>::get(),
 		);
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Used block length: {:?}",
 			Pallet::<T>::all_extrinsics_len(),
