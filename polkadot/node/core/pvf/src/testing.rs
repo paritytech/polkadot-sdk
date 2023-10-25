@@ -64,34 +64,28 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
 	fn maybe_build_workers(build_prep: bool, build_exec: bool) {
-		let build_args = match (build_prep, build_exec) {
-			(true, true) => "build --bin polkadot-prepare-worker --bin polkadot-execute-worker",
-			(true, false) => "build --bin polkadot-prepare-worker",
-			(false, true) => "build --bin polkadot-execute-worker",
-			(false, false) => "",
-		};
+		let mut build_args = vec!["build"];
+		if build_prep {
+			build_args.push("--bin=polkadot-prepare-worker");
+		}
+		if build_exec {
+			build_args.push("--bin=polkadot-execute-worker");
+		}
 
-		if build_args.len() > 0 {
+		if build_prep || build_exec {
 			eprintln!("Building workers...");
 
-			let mut wd = std::env::current_exe().unwrap();
-			while !wd.ends_with("polkadot-sdk") {
-				wd.pop();
+			let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+			if !dir.ends_with("polkadot-sdk") {
+				dir.pop();
 			}
 
-			let child = match std::process::Command::new("cargo")
-				.args(build_args.split(' '))
+			std::process::Command::new("cargo")
+				.args(build_args)
 				.stdout(std::process::Stdio::piped())
-				.current_dir(wd)
-				.spawn()
-			{
-				Ok(child) => child,
-				Err(err) => panic!("Failed to start cargo build: {}", err),
-			};
-
-			if let Err(err) = child.wait_with_output() {
-				panic!("Failed to build workers: {}", err);
-			}
+				.current_dir(dir)
+				.status()
+				.expect("Failed to run the build program");
 		}
 	}
 
@@ -110,25 +104,25 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 		// Check that the workers are valid.
 
 		if !prepare_worker_path.is_executable() {
-			eprintln!("WARNING: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			eprintln!("Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 			build_prep = true;
 		}
 
 		if !execute_worker_path.is_executable() {
-			eprintln!("WARNING: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			eprintln!("Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
 			build_exec = true;
 		}
 
 		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("WARNING: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+				eprintln!("Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
 				build_prep = true;
 			}
 		}
 
 		if let Ok(ver) = get_worker_version(&execute_worker_path) {
 			if ver != NODE_VERSION {
-				eprintln!("WARNING: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+				eprintln!("Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
 				build_exec = true;
 			}
 		}
