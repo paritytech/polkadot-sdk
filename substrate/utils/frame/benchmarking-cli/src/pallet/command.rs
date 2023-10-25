@@ -755,8 +755,9 @@ fn list_benchmark(
 		Vec<(String, String)>,
 	)>,
 ) {
-	// Sort by pallet and function name.
+	// Sort and de-dub by pallet and function name.
 	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
+	benchmarks_to_run.dedup_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa) == (pb, sb));
 
 	println!("pallet, benchmark");
 	for (pallet, extrinsic, _, _) in benchmarks_to_run {
