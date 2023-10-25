@@ -364,6 +364,7 @@ impl<T: Config> Pallet<T> {
 				let core_idx = CoreIndex(idx);
 				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
 					let mut i = 0;
+					let mut num_dropped = 0;
 					while i < core_claimqueue.len() {
 						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
@@ -374,25 +375,24 @@ impl<T: Config> Pallet<T> {
 						} else {
 							None
 						};
-						i += 1;
 
-						let dropped = match maybe_dropped {
-							Some(dropped) => dropped,
-							None => continue,
-						};
+						if let Some(dropped) = maybe_dropped {
+							num_dropped += 1;
+							T::AssignmentProvider::report_processed(dropped.assignment);
+						} else {
+							i += 1;
+						}
+					}
 
-						i -= 1;
-
-						T::AssignmentProvider::report_processed(dropped.assignment);
+					for _ in 0..num_dropped {
 						// For all claims dropped due to TTL, attempt to pop a new entry to
 						// the back of the claimqueue.
-						match T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-							Some(assignment) => {
-								let AssignmentProviderConfig { ttl, .. } =
-									T::AssignmentProvider::get_provider_config(core_idx);
-								core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
-							},
-							None => (),
+						if let Some(assignment) =
+							T::AssignmentProvider::pop_assignment_for_core(core_idx)
+						{
+							let AssignmentProviderConfig { ttl, .. } =
+								T::AssignmentProvider::get_provider_config(core_idx);
+							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
