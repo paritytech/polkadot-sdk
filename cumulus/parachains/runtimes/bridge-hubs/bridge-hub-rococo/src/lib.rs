@@ -547,12 +547,13 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type MessageQueue = MessageQueue;
 	type MaxMessagePayloadSize = MaxMessagePayloadSize;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type OwnParaId = ParachainInfo;
 	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	type Balance = Balance;
 	type DeliveryFeePerGas = DeliveryFeePerGas;
 	type DeliveryRefundPerGas = DeliveryRefundPerGas;
 	type DeliveryReward = DeliveryReward;
-	type WeightInfo = ();
+	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 }
 
 #[cfg(not(feature = "beacon-spec-mainnet"))]
@@ -742,6 +743,7 @@ mod benches {
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 		// Ethereum Bridge
 		[snowbridge_inbound_queue, EthereumInboundQueue]
+		[snowbridge_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_control, EthereumControl]
 		[snowbridge_ethereum_beacon_client, EthereumBeaconClient]
 	);
