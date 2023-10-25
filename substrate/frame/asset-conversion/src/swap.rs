@@ -138,7 +138,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 				keep_alive,
 			)
 		})?;
-		Ok(amount_out.into())
+		Ok(amount_out)
 	}
 
 	fn swap_tokens_for_exact_tokens(
@@ -159,7 +159,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 				keep_alive,
 			)
 		})?;
-		Ok(amount_in.into())
+		Ok(amount_in)
 	}
 }
 

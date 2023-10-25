@@ -770,7 +770,7 @@ pub mod pallet {
 		) -> Result<CreditOf<T>, (CreditOf<T>, DispatchError)> {
 			let amount_in = credit_in.peek();
 			let inspect_path = |credit_asset| {
-				ensure!(path.get(0).map_or(false, |a| *a == credit_asset), Error::<T>::InvalidPath);
+				ensure!(path.first().map_or(false, |a| *a == credit_asset), Error::<T>::InvalidPath);
 				ensure!(!amount_in.is_zero(), Error::<T>::ZeroAmount);
 				ensure!(amount_out_min.map_or(true, |a| !a.is_zero()), Error::<T>::ZeroAmount);
 
@@ -815,7 +815,7 @@ pub mod pallet {
 		) -> Result<(CreditOf<T>, CreditOf<T>), (CreditOf<T>, DispatchError)> {
 			let amount_in_max = credit_in.peek();
 			let inspect_path = |credit_asset| {
-				ensure!(path.get(0).map_or(false, |a| a == &credit_asset), Error::<T>::InvalidPath);
+				ensure!(path.first().map_or(false, |a| a == &credit_asset), Error::<T>::InvalidPath);
 				ensure!(amount_in_max > Zero::zero(), Error::<T>::ZeroAmount);
 				ensure!(amount_out > Zero::zero(), Error::<T>::ZeroAmount);
 
@@ -883,11 +883,11 @@ pub mod pallet {
 			let resolve_path = || -> Result<CreditOf<T>, DispatchError> {
 				for pos in 0..=path.len() {
 					if let Some([(asset1, _), (asset2, amount_out)]) = path.get(pos..=pos + 1) {
-						let pool_from = T::PoolLocator::pool_address(&asset1, &asset2)
+						let pool_from = T::PoolLocator::pool_address(asset1, asset2)
 							.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 						if let Some((asset3, _)) = path.get(pos + 2) {
-							let pool_to = T::PoolLocator::pool_address(&asset2, &asset3)
+							let pool_to = T::PoolLocator::pool_address(asset2, asset3)
 								.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 							T::Assets::transfer(
@@ -904,7 +904,7 @@ pub mod pallet {
 						}
 					}
 				}
-				return Err(Error::<T>::InvalidPath.into())
+				Err(Error::<T>::InvalidPath.into())
 			};
 
 			let credit_out = match resolve_path() {
@@ -913,7 +913,7 @@ pub mod pallet {
 			};
 
 			let pool_to = if let Some([(asset1, _), (asset2, _)]) = path.get(0..2) {
-				match T::PoolLocator::pool_address(&asset1, &asset2) {
+				match T::PoolLocator::pool_address(asset1, asset2) {
 					Ok(address) => address,
 					Err(_) => return Err((credit_in, Error::<T>::InvalidAssetPair.into())),
 				}
@@ -1121,7 +1121,7 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				return Err(Error::<T>::ZeroLiquidity.into())
+				return Err(Error::<T>::ZeroLiquidity)
 			}
 
 			let amount_in_with_fee = amount_in
@@ -1156,11 +1156,11 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				Err(Error::<T>::ZeroLiquidity.into())?
+				Err(Error::<T>::ZeroLiquidity)?
 			}
 
 			if amount_out >= reserve_out {
-				Err(Error::<T>::AmountOutTooHigh.into())?
+				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
 			let numerator = reserve_in
@@ -1193,7 +1193,7 @@ pub mod pallet {
 			let mut pools = BTreeSet::<T::PoolId>::new();
 			for assets_pair in path.windows(2) {
 				if let [asset1, asset2] = assets_pair {
-					let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+					let pool_id = T::PoolLocator::pool_id(asset1, asset2)
 						.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 					let new_element = pools.insert(pool_id);
