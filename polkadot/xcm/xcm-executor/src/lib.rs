@@ -258,6 +258,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 impl<Config: config::Config> AssetTransferSupport for XcmExecutor<Config> {
 	type IsReserve = Config::IsReserve;
 	type IsTeleporter = Config::IsTeleporter;
+	type AssetTransactor = Config::AssetTransactor;
 }
 
 #[derive(Debug)]

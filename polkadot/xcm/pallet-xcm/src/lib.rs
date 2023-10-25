@@ -53,7 +53,7 @@ pub use pallet::*;
 use xcm_executor::{
 	traits::{
 		CheckSuspension, ClaimAssets, ConvertLocation, DropAssets, MatchesFungible, OnResponse,
-		QueryHandler, QueryResponseStatus, VersionChangeNotifier, WeightBounds,
+		QueryHandler, QueryResponseStatus, TransactAsset, VersionChangeNotifier, WeightBounds,
 	},
 	Assets,
 };
@@ -429,6 +429,8 @@ pub mod pallet {
 		DestinationNotInvertible,
 		/// The assets to be sent are empty.
 		Empty,
+		/// Could not check-out the assets for teleportation to the destination chain.
+		CannotCheckOutTeleport,
 		/// Could not re-anchor the assets to declare the fees for the destination chain.
 		CannotReanchor,
 		/// Too many assets have been attempted for transfer.
@@ -1647,11 +1649,27 @@ impl<T: Config> Pallet<T> {
 			.clone()
 			.reanchored(&dest, context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		// XcmContext irrelevant in teleports checks
+		let dummy_context =
+			XcmContext { origin: None, message_id: Default::default(), topic: None };
+		// We should check that the asset can actually be teleported out (for this to
+		// be in error, there would need to be an accounting violation by ourselves,
+		// so it's unlikely, but we don't want to allow that kind of bug to leak into
+		// a trusted chain.
+		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::can_check_out(
+			&dest,
+			&fees,
+			&dummy_context,
+		)
+		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+		<T::XcmExecutor as AssetTransferSupport>::AssetTransactor::check_out(
+			&dest,
+			&fees,
+			&dummy_context,
+		);
+
 		let fees: MultiAssets = fees.into();
-
-		// FIXME: this should also handle `checking_account` in `XcmExecutor::AssetTransactor` but
-		// we can't access it here rignt now.
-
 		let local_execute_xcm = Xcm(vec![
 			// withdraw fees
 			WithdrawAsset(fees.clone()),

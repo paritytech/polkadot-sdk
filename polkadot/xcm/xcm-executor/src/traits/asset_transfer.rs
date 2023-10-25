@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::traits::TransactAsset;
 use frame_support::traits::ContainsPair;
 use scale_info::TypeInfo;
 use sp_runtime::codec::{Decode, Encode};
@@ -51,6 +52,9 @@ pub trait AssetTransferSupport {
 	/// Combinations of (Asset, Location) pairs which we trust as teleporters. Meaning teleports are
 	/// to be used for assets matching this filter.
 	type IsTeleporter: ContainsPair<MultiAsset, MultiLocation>;
+
+	/// How to withdraw and deposit an asset.
+	type AssetTransactor: TransactAsset;
 
 	/// Determine transfer type to be used for transferring `asset` from local chain to `dest`.
 	fn determine_for(asset: &MultiAsset, dest: &MultiLocation) -> Result<TransferType, Error> {
