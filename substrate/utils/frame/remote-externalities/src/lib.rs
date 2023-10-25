@@ -621,16 +621,17 @@ where
 	/// map them to values one by one.
 	///
 	/// This can work with public nodes. But, expect it to be darn slow.
-	pub(crate) async fn rpc_get_pairs_paged(
+	pub(crate) async fn rpc_get_pairs(
 		&self,
 		prefix: StorageKey,
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
+		parallel: u16,
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
 		let keys = self
-			.rpc_get_keys_paged(prefix.clone(), at)
+			.rpc_get_keys_parallel(prefix.clone(), at, parallel)
 			.await?
 			.into_iter()
 			.collect::<Vec<_>>();
@@ -935,7 +936,7 @@ where
 		for prefix in &config.hashed_prefixes {
 			let now = std::time::Instant::now();
 			let additional_key_values =
-				self.rpc_get_pairs_paged(StorageKey(prefix.to_vec()), at, pending_ext).await?;
+				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext, 16).await?;
 			let elapsed = now.elapsed();
 			log::info!(
 				target: LOG_TARGET,
