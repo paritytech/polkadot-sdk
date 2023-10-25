@@ -5054,7 +5054,7 @@ dependencies = [
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/davxy/fflonk?branch=davxy-patch#3fc27ad5f680aa009ec06a1cb0fbd59f2825945f"
+source = "git+https://github.com/w3f/fflonk#e141d4b6f42fb481aefe1b479788694945b6940d"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -8548,6 +8548,7 @@ dependencies = [
  "sp-consensus-grandpa",
  "sp-consensus-sassafras",
  "sp-core",
+ "sp-crypto-ec-utils 0.4.0",
  "sp-inherents",
  "sp-keyring",
  "sp-runtime",
