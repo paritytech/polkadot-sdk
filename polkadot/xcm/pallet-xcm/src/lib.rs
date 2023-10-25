@@ -1288,41 +1288,32 @@ impl<T: Config> Pallet<T> {
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
 		};
 
-		let explicit_withdraw_fee_on_dest;
+		let prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>;
 		if fees_transfer_type == assets_transfer_type {
 			// Same reserve location (fees not teleportable), we can batch together fees and assets
 			// in same reserve-based-transfer.
 			assets.push(fees.clone());
-			// no need to withdraw fee on dest, fees batched with assets will be available in
-			// holding
-			explicit_withdraw_fee_on_dest = false;
+			// no need for custom prefund messages, fees are batched with assets
+			prefund_fees_messages = None;
 		} else {
 			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
 			// branch above). The reason for this is that we'd need to send XCMs to separate chains
 			// with no guarantee of delivery order on final destination; therefore we cannot
 			// guarantee to have fees in place on final destination chain to pay for assets
 			// transfer.
-			match (&fees_transfer_type, &assets_transfer_type) {
-				(TransferType::RemoteReserve(_), _) | (_, TransferType::RemoteReserve(_)) =>
+			if let TransferType::RemoteReserve(_) = assets_transfer_type {
+				return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
+			}
+			// build fees transfer instructions to be added to assets transfers XCM programs
+			prefund_fees_messages = Some(match fees_transfer_type {
+				TransferType::LocalReserve =>
+					Self::prefund_local_reserve_fees_messages(dest, fees.clone())?,
+				TransferType::DestinationReserve =>
+					Self::prefund_destination_reserve_fees_messages(dest, fees.clone())?,
+				TransferType::Teleport => Self::prefund_teleport_fees_messages(dest, fees.clone())?,
+				TransferType::RemoteReserve(_) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
-				_ => (),
-			};
-
-			// execute fees transfer - do it in a separate asset transfer call to keep code logic
-			// simple: first send over fees, then assets with `jit_withdraw=true`
-			Self::build_and_execute_xcm_transfer_type(
-				origin_location,
-				dest,
-				beneficiary,
-				vec![fees.clone()],
-				fees_transfer_type,
-				fees.clone(),
-				false,
-				weight_limit.clone(),
-			)?;
-			// fees are deposited to beneficiary in call above, when transferring rest of assets,
-			// withdraw fee to holding on destination so it can be used for `BuyExecution`
-			explicit_withdraw_fee_on_dest = true;
+			});
 		};
 
 		// Fees have been prefunded/transferred (or batched together with assets to be transferred
@@ -1334,7 +1325,7 @@ impl<T: Config> Pallet<T> {
 			assets,
 			assets_transfer_type,
 			fees,
-			explicit_withdraw_fee_on_dest,
+			prefund_fees_messages,
 			weight_limit,
 		)
 	}
@@ -1372,114 +1363,242 @@ impl<T: Config> Pallet<T> {
 			assets,
 			TransferType::Teleport,
 			fees,
-			false,
+			None,
 			weight_limit,
 		)
 	}
 
 	fn build_and_execute_xcm_transfer_type(
-		origin: impl Into<MultiLocation>,
+		origin: MultiLocation,
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		transfer_type: TransferType,
 		fees: MultiAsset,
-		explicit_withdraw_fee_on_dest: bool,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
-		let mut message = match transfer_type {
-			TransferType::LocalReserve => Self::local_reserve_transfer_message(
-				dest,
-				beneficiary,
-				assets,
-				fees,
-				explicit_withdraw_fee_on_dest,
-				weight_limit,
-			),
-			TransferType::DestinationReserve => Self::destination_reserve_transfer_message(
-				dest,
-				beneficiary,
-				assets,
-				fees,
-				explicit_withdraw_fee_on_dest,
-				weight_limit,
-			),
-			TransferType::RemoteReserve(reserve) => Self::remote_reserve_transfer_message(
-				reserve,
-				dest,
-				beneficiary,
-				assets,
-				fees,
-				weight_limit,
+		let (mut local_xcm, remote_xcm) = match transfer_type {
+			TransferType::LocalReserve => {
+				let (local, remote) = Self::local_reserve_transfer_messages(
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					prefund_fees_messages,
+					weight_limit,
+				)?;
+				(local, Some(remote))
+			},
+			TransferType::DestinationReserve => {
+				let (local, remote) = Self::destination_reserve_transfer_messages(
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					prefund_fees_messages,
+					weight_limit,
+				)?;
+				(local, Some(remote))
+			},
+			TransferType::RemoteReserve(reserve) => (
+				Self::remote_reserve_transfer_message(
+					reserve,
+					dest,
+					beneficiary,
+					assets,
+					fees,
+					weight_limit,
+				)?,
+				None,
 			),
 			TransferType::Teleport =>
-				Self::teleport_asset_message(dest, beneficiary, assets, fees, weight_limit),
-		}?;
+				(Self::teleport_asset_message(dest, beneficiary, assets, fees, weight_limit)?, None),
+		};
 		let weight =
-			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
-		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome = T::XcmExecutor::execute_xcm_in_credit(origin, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
+			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
+		let hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
+		let outcome =
+			T::XcmExecutor::execute_xcm_in_credit(origin, local_xcm, hash, weight, weight);
+		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+		if let Some(remote_xcm) = remote_xcm {
+			outcome.ensure_complete().map_err(|_| Error::<T>::FeesNotMet)?;
+			let interior: Junctions = origin.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let message_id =
+				Self::send_xcm(interior, dest, remote_xcm.clone()).map_err(Error::<T>::from)?;
+			let e = Event::Sent { origin, destination: dest, message: remote_xcm, message_id };
+			Self::deposit_event(e);
+		}
 		Ok(())
 	}
 
-	fn local_reserve_transfer_message(
+	fn prefund_local_reserve_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let context = T::UniversalLocation::get();
+		let reanchored_fees = fees
+			.clone()
+			.reanchored(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		let local_execute_xcm = Xcm(vec![
+			// move `fees` to `dest`s local sovereign account
+			TransferAsset { assets: fees.into(), beneficiary: dest },
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// let (dest) chain know `fees` are in its SA on reserve
+			ReserveAssetDeposited(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn local_reserve_transfer_messages(
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		mut fees: MultiAsset,
-		explicit_withdraw_fee_on_dest: bool,
+		fees: MultiAsset,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
-	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		// max assets is `assets` ( + potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
+		let assets: MultiAssets = assets.into();
 		let context = T::UniversalLocation::get();
-		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
-		let mut max_assets = assets.len() as u32;
-		let mut xcm_on_dest = Vec::with_capacity(3);
-		if explicit_withdraw_fee_on_dest {
-			// also deposit `fees` which are not included in `assets`
-			max_assets += 1;
-			xcm_on_dest.push(WithdrawAsset(fees.clone().into()));
-		};
-		xcm_on_dest.push(BuyExecution { fees, weight_limit });
-		xcm_on_dest.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
-		let xcm_on_dest = Xcm(xcm_on_dest);
-		Ok(Xcm(vec![
-			SetFeesMode { jit_withdraw: true },
-			TransferReserveAsset { assets: assets.into(), dest, xcm: xcm_on_dest },
-		]))
+		let reanchored_fees =
+			fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let mut reanchored_assets = assets.clone();
+		reanchored_assets
+			.reanchor(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
+			.unwrap_or_default();
+
+		let local_execute_xcm = Xcm(
+			// JIT withdraw fees for local execution
+			[SetFeesMode { jit_withdraw: true }]
+				.into_iter()
+				// run any necessary local prefund fees instructions
+				.chain(prefund_local_xcm.into_iter())
+				// move `assets` to `dest`s local sovereign account
+				.chain([TransferAsset { assets, beneficiary: dest }].into_iter())
+				.collect(),
+		);
+		let xcm_on_dest = Xcm(
+			// run any necessary remote prefund fees instructions
+			prefund_remote_xcm
+				.into_iter()
+				.chain(
+					[
+						// let (dest) chain know assets are in its SA on reserve
+						ReserveAssetDeposited(reanchored_assets),
+						// following instructions are not exec'ed on behalf of origin chain anymore
+						ClearOrigin,
+						// buy exec using `fees` in holding deposited in top instruction here
+						BuyExecution { fees: reanchored_fees, weight_limit },
+						// deposit all assets in holding to `beneficiary` account(s)
+						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
-	fn destination_reserve_transfer_message(
+	fn prefund_destination_reserve_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let context = T::UniversalLocation::get();
+		let reanchored_fees = fees
+			.clone()
+			.reanchored(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+		let fees: MultiAssets = fees.into();
+
+		let local_execute_xcm = Xcm(vec![
+			// withdraw reserve-based fees (derivatives)
+			WithdrawAsset(fees.clone()),
+			// burn derivatives
+			BurnAsset(fees),
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// withdraw `fees` from origin chain's sovereign account
+			WithdrawAsset(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
+	}
+
+	fn destination_reserve_transfer_messages(
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		mut fees: MultiAsset,
-		explicit_withdraw_fee_on_dest: bool,
+		fees: MultiAsset,
+		prefund_fees_messages: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
-	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		// max assets is `assets` ( + potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + prefund_fees_messages.as_ref().map(|_| 1).unwrap_or(0);
+		let assets: MultiAssets = assets.into();
 		let context = T::UniversalLocation::get();
-		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
-		let mut max_assets = assets.len() as u32;
+		let reanchored_fees =
+			fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let mut reanchored_assets = assets.clone();
+		reanchored_assets
+			.reanchor(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
 
-		let mut xcm_on_dest = Vec::with_capacity(3);
-		if explicit_withdraw_fee_on_dest {
-			// also deposit `fees` which are not included in `assets`
-			max_assets += 1;
-			xcm_on_dest.push(WithdrawAsset(fees.clone().into()));
-		};
-		xcm_on_dest.push(BuyExecution { fees, weight_limit });
-		xcm_on_dest.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
-		let xcm_on_dest = Xcm(xcm_on_dest);
-		Ok(Xcm(vec![
-			WithdrawAsset(assets.into()),
-			InitiateReserveWithdraw {
-				assets: Wild(AllCounted(max_assets)),
-				reserve: dest,
-				xcm: xcm_on_dest,
-			},
-		]))
+		let (prefund_local_xcm, prefund_remote_xcm) = prefund_fees_messages
+			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
+			// default is empty vec, so no prefund instructions required
+			.unwrap_or_default();
+
+		let local_execute_xcm = Xcm(
+			// JIT withdraw fees for local execution
+			[SetFeesMode { jit_withdraw: true }]
+				.into_iter()
+				// run any necessary local prefund fees instructions
+				.chain(prefund_local_xcm.into_iter())
+				// move `assets` to `dest`s local sovereign account
+				.chain(
+					[
+						// withdraw reserve-based assets
+						WithdrawAsset(assets.clone()),
+						// burn reserve-based assets
+						BurnAsset(assets),
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		let xcm_on_dest = Xcm(
+			// run any necessary remote prefund fees instructions
+			prefund_remote_xcm
+				.into_iter()
+				.chain(
+					[
+						// withdraw `assets` from origin chain's sovereign account
+						WithdrawAsset(reanchored_assets),
+						// following instructions are not exec'ed on behalf of origin chain anymore
+						ClearOrigin,
+						// buy exec using `fees` in holding deposited in top instruction here
+						BuyExecution { fees: reanchored_fees, weight_limit },
+						// deposit all assets in holding to `beneficiary` account(s)
+						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+					]
+					.into_iter(),
+				)
+				.collect(),
+		);
+		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
+	// function assumes fees and assets have the same remote reserve
 	fn remote_reserve_transfer_message(
 		reserve: MultiLocation,
 		dest: MultiLocation,
@@ -1517,6 +1636,33 @@ impl<T: Config> Pallet<T> {
 				xcm: xcm_on_reserve,
 			},
 		]))
+	}
+
+	fn prefund_teleport_fees_messages(
+		dest: MultiLocation,
+		fees: MultiAsset,
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
+		let context = T::UniversalLocation::get();
+		let reanchored_fees = fees
+			.clone()
+			.reanchored(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+		let fees: MultiAssets = fees.into();
+
+		// FIXME: this should also handle `checking_account` in `XcmExecutor::AssetTransactor` but
+		// we can't access it here rignt now.
+
+		let local_execute_xcm = Xcm(vec![
+			// withdraw fees
+			WithdrawAsset(fees.clone()),
+			// burn fees
+			BurnAsset(fees),
+		]);
+		let xcm_on_dest = Xcm(vec![
+			// (dest) chain receive teleported assets burned on origin chain
+			ReceiveTeleportedAsset(reanchored_fees.into()),
+		]);
+		Ok((local_execute_xcm, xcm_on_dest))
 	}
 
 	fn teleport_asset_message(
