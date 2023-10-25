@@ -33,8 +33,6 @@ const migrateIdentityOf = async (key, data, api) => {
 
 	// Migrate `IdentitOf` data to its new format
 	if (HexkeyToMigrate === storageItem) {
-		console.log("Migrating 'IdentityOf' storage item...");
-
 		let decoded = api.createType('Registration', data.toU8a(true));
 
 		// Default value for `discord` field
@@ -51,7 +49,7 @@ const migrateIdentityOf = async (key, data, api) => {
 			}
 		});
 
-		// Migrate data to new format:
+		// Migrate data to the new format:
 		// - remove `additional` field
 		// - add `discord` field
 		// - set `deposit` to 0
@@ -74,13 +72,10 @@ const migrateIdentityOf = async (key, data, api) => {
 			}
 		);
 
-		if (discord.raw) {
-			console.log("------------------ MIGRATION ---------------------");
-			console.log("Discord", hexToString(data.raw))
-			console.log("Original", decoded.toJSON());
-			console.log("Migration", decodedNew.toJSON());
-			console.log("--------------------------------------------------\n");
-		}
+		console.log("\n------------- 'IdentityOf' migration  ------------");
+		console.log("Original", decoded.toJSON());
+		console.log("Migration", decodedNew.toJSON());
+
 		data = u8aToHex(decodedNew.toU8a(true));
 	}
 
