@@ -659,7 +659,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::Currency::free_balance(stash) >= balance,
+					<Pallet<T>>::stakeable_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
