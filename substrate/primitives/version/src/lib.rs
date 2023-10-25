@@ -212,7 +212,7 @@ pub struct RuntimeVersion {
 	/// either through an alteration in its user-level semantics, a parameter
 	/// added/removed, a parameter type changed, or a call/pallet changing its index. An alteration
 	/// of the user level semantics is for example when the call was before `transfer` and now is
-	/// `transfer_all`, the semantics of the call changed completley.
+	/// `transfer_all`, the semantics of the call changed completely.
 	///
 	/// Removing a pallet or a call doesn't require a *bump* as long as no pallet or call is put at
 	/// the same index. Removing doesn't require a bump as the chain will reject a transaction
