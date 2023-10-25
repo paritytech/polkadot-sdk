@@ -1155,6 +1155,7 @@ mod tests {
 			// 1 block before current lease expires but there are upcoming leases so refund is not
 			// allowed.
 			run_to_block(19);
+			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
 				Error::<Test>::NotAllowed
@@ -1163,6 +1164,7 @@ mod tests {
 
 			// 1 block before new lease begins. Still not allowed.
 			run_to_block(29);
+			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
 				Error::<Test>::NotAllowed
@@ -1171,6 +1173,7 @@ mod tests {
 
 			// 3 blocks before the lease ends and no upcoming leases
 			run_to_block(37);
+			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			// EarliestRefundPeriod is 2 blocks, so this should still fail.
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
@@ -1180,6 +1183,7 @@ mod tests {
 
 			// 2 blocks before lease ends, should be able to refund deposit now.
 			run_to_block(38);
+			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_ok!(Slots::early_lease_refund(RuntimeOrigin::signed(1), ParaId::from(1)));
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
@@ -1187,6 +1191,7 @@ mod tests {
 			assert_eq!(Slots::required_deposit(1.into(), &1), 2);
 
 			run_to_block(40);
+			assert!(Slots::lease(ParaId::from(1)).is_empty());
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			// lease ended so required deposit is now zero.
