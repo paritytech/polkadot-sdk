@@ -181,7 +181,7 @@ pub struct RuntimeVersion {
 	/// Wasm runtime unless all of `spec_name`, `spec_version` and `authoring_version` are the same
 	/// between Wasm and native.
 	///
-	/// This number should always only increase.
+	/// This number should never decrease.
 	pub spec_version: u32,
 
 	/// Version of the implementation of the specification.
@@ -223,7 +223,7 @@ pub struct RuntimeVersion {
 	/// Adding a new pallet or call also doesn't require a *bump* as long as they also don't reuse
 	/// any previously used index.
 	///
-	/// This number should always only increase.
+	/// This number should never decrease.
 	pub transaction_version: u32,
 
 	/// Version of the state implementation used by this runtime.
