@@ -73,7 +73,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
-pub mod simple;
+pub mod legacy;
 #[cfg(test)]
 mod tests;
 mod types;

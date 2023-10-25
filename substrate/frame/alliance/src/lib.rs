@@ -112,7 +112,7 @@ use frame_support::{
 	},
 	weights::Weight,
 };
-use pallet_identity::simple::IdentityField;
+use pallet_identity::legacy::IdentityField;
 use scale_info::TypeInfo;
 
 pub use pallet::*;

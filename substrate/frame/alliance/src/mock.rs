@@ -31,7 +31,7 @@ pub use frame_support::{
 	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_identity::{simple::IdentityInfo, Data, Judgement};
+use pallet_identity::{legacy::IdentityInfo, Data, Judgement};
 
 pub use crate as pallet_alliance;
 
