@@ -132,7 +132,7 @@ fn test_xcm_execute_filtered_call() {
 	let contract_addr = instantiate_test_contract("xcm_execute");
 
 	ParaA::execute_with(|| {
-		// `remark`  should be rejected, as CallFilter is not allowed by our CallFilter.
+		// `remark`  should be rejected, as it is not allowed by our CallFilter.
 		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 		let message: Xcm<parachain::RuntimeCall> = Xcm(vec![Transact {
 			origin_kind: OriginKind::Native,
