@@ -8578,7 +8578,6 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
- "pallet-skip-feeless-payment",
  "pallet-sudo",
  "pallet-template",
  "pallet-timestamp",
