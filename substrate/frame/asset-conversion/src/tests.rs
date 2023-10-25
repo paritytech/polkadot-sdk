@@ -85,7 +85,7 @@ fn balance(owner: u128, token_id: NativeOrWithId<u32>) -> u128 {
 }
 
 fn pool_balance(owner: u128, token_id: u32) -> u128 {
-	<<Test as Config>::PoolAssets>::balance(token_id, &owner)
+	<<Test as Config>::PoolAssets>::balance(token_id, owner)
 }
 
 fn get_native_ed() -> u128 {
@@ -542,9 +542,9 @@ fn can_remove_liquidity() {
 		assert_ok!(Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			user,
-			10000000000 + ed_token_1.clone()
+			10000000000 + ed_token_1
 		));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 100000 + ed_token_2.clone()));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 100000 + ed_token_2));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
@@ -588,9 +588,9 @@ fn can_remove_liquidity() {
 
 		assert_eq!(
 			balance(user, token_1.clone()),
-			10000000000 - 1000000000 + 899991000 + ed_token_1.clone()
+			10000000000 - 1000000000 + 899991000 + ed_token_1
 		);
-		assert_eq!(balance(user, token_2.clone()), 89999 + ed_token_2.clone());
+		assert_eq!(balance(user, token_2.clone()), 89999 + ed_token_2);
 		assert_eq!(pool_balance(user, lp_token), 0);
 	});
 }
@@ -1675,7 +1675,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		// causes an account removal for native token 1 locate in the middle of a swap path
 		let amount_in = AssetConversion::balance_path_from_amount_out(
 			110,
-			vec![token_3.clone(), token_1.clone()].try_into().unwrap(),
+			vec![token_3.clone(), token_1.clone()],
 		)
 		.unwrap()
 		.first()
@@ -1697,7 +1697,7 @@ fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
 		// causes an account removal for asset token 2 locate in the middle of a swap path
 		let amount_in = AssetConversion::balance_path_from_amount_out(
 			110,
-			vec![token_1.clone(), token_2.clone()].try_into().unwrap(),
+			vec![token_1.clone(), token_2.clone()],
 		)
 		.unwrap()
 		.first()
@@ -2133,15 +2133,15 @@ fn swap_transactional() {
 			<Test as Config>::PoolLocator::address(&(token_1.clone(), token_3.clone())).unwrap();
 
 		assert_eq!(Balances::balance(&pool_1), liquidity1);
-		assert_eq!(Assets::balance(2, &pool_1), liquidity2);
+		assert_eq!(Assets::balance(2, pool_1), liquidity2);
 		assert_eq!(Balances::balance(&pool_2), liquidity1);
-		assert_eq!(Assets::balance(3, &pool_2), liquidity2);
+		assert_eq!(Assets::balance(3, pool_2), liquidity2);
 
 		// the amount that would cause a transfer from the last pool in the path to fail
 		let expected_out = liquidity2 - asset_ed + 1;
 		let amount_in = AssetConversion::balance_path_from_amount_out(
 			expected_out,
-			vec![token_2.clone(), token_1.clone(), token_3.clone()].try_into().unwrap(),
+			vec![token_2.clone(), token_1.clone(), token_3.clone()],
 		)
 		.unwrap()
 		.first()
@@ -2205,9 +2205,9 @@ fn swap_transactional() {
 		);
 
 		assert_eq!(Balances::balance(&pool_1), liquidity1);
-		assert_eq!(Assets::balance(2, &pool_1), liquidity2);
+		assert_eq!(Assets::balance(2, pool_1), liquidity2);
 		assert_eq!(Balances::balance(&pool_2), liquidity1);
-		assert_eq!(Assets::balance(3, &pool_2), liquidity2);
+		assert_eq!(Assets::balance(3, pool_2), liquidity2);
 	})
 }
 
@@ -2314,7 +2314,7 @@ fn swap_credit_insufficient_amount_bounds() {
 		.unwrap_err();
 		assert_eq!(
 			error,
-			(expected_credit_in.into(), Error::<Test>::ProvidedMinimumNotSufficientForSwap.into())
+			(expected_credit_in, Error::<Test>::ProvidedMinimumNotSufficientForSwap.into())
 		);
 
 		// provided `credit_in` is not sufficient to swap for desired `amount_out`
