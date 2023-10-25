@@ -344,6 +344,7 @@ pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
 
 pub struct ExtBuilder {
 	nominate: bool,
+	delegate: bool,
 	validator_count: u32,
 	minimum_validator_count: u32,
 	invulnerables: Vec<AccountId>,
@@ -361,6 +362,7 @@ impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
 			nominate: true,
+			delegate: true,
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
@@ -385,6 +387,12 @@ impl ExtBuilder {
 		self.nominate = nominate;
 		self
 	}
+
+	pub fn delegate(mut self, delegate: bool) -> Self {
+		self.delegate = delegate;
+		self
+	}
+
 	pub fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
 		self
@@ -476,6 +484,9 @@ impl ExtBuilder {
 				// optional nominator
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
+				// delegators
+				(151, self.balance_factor * 2000),
+				(152, self.balance_factor * 2000),
 				// aux accounts
 				(60, self.balance_factor),
 				(61, self.balance_factor * 2000),
@@ -490,6 +501,9 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut stakers = vec![];
+		let nominator_stake = self.balance_factor * 500;
+		let nominator_targets = vec![11, 21];
+
 		if self.has_stakers {
 			stakers = vec![
 				// (stash, ctrl, stake, status)
@@ -506,8 +520,8 @@ impl ExtBuilder {
 				stakers.push((
 					101,
 					101,
-					self.balance_factor * 500,
-					StakerStatus::<AccountId>::Nominator(vec![11, 21]),
+					nominator_stake,
+					StakerStatus::<AccountId>::Nominator(nominator_targets.clone()),
 				))
 			}
 			// replace any of the status if needed.
@@ -569,6 +583,12 @@ impl ExtBuilder {
 				Session::on_initialize(1);
 				<Staking as Hooks<u64>>::on_initialize(1);
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
+
+				// if we have stakers set, and have both nomination + delegation enabled, we set up
+				// some default delegations.
+				if self.has_stakers && self.nominate && self.delegate {
+					setup_delegations(150, 160, vec![151, 152], nominator_stake, nominator_targets);
+				}
 			});
 		}
 
@@ -582,6 +602,33 @@ impl ExtBuilder {
 			Staking::do_try_state(System::block_number()).unwrap();
 		});
 	}
+}
+
+fn setup_delegations(
+	delegatee: AccountId,
+	reward_acc: AccountId,
+	delegators: Vec<AccountId>,
+	value: Balance,
+	targets: Vec<AccountId>,
+) {
+	use sp_staking::delegation::DelegatedStakeInterface;
+
+	// create delegatee
+	assert_ok!(Staking::accept_delegations(&delegatee, &reward_acc));
+
+	// delegate to delegatee
+	delegators.into_iter().for_each(|delegator| {
+		assert_ok!(Staking::delegate(&delegator, &delegatee, value));
+	});
+
+	// update bond of delegatee
+	assert_ok!(Staking::update_bond(&delegatee));
+
+	// setup nominations
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(delegatee), targets));
+
+	// clear delegation events
+	System::reset_events();
 }
 
 pub(crate) fn active_era() -> EraIndex {

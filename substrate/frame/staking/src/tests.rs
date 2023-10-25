@@ -291,7 +291,8 @@ fn change_controller_already_paired_once_stash() {
 
 #[test]
 fn rewards_should_work() {
-	ExtBuilder::default().nominate(true).session_per_era(3).build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().nominate(true).delegate(false).session_per_era(3).build_and_execute(|| {
 		let init_balance_11 = Balances::total_balance(&11);
 		let init_balance_21 = Balances::total_balance(&21);
 		let init_balance_101 = Balances::total_balance(&101);
@@ -2677,7 +2678,8 @@ fn garbage_collection_after_slashing() {
 fn garbage_collection_on_window_pruning() {
 	// ensures that `ValidatorSlashInEra` and `NominatorSlashInEra` are cleared after
 	// `BondingDuration`.
-	ExtBuilder::default().build_and_execute(|| {
+	// fixme(ank4n): See if I can enable delegate here.
+	ExtBuilder::default().delegate(false).build_and_execute(|| {
 		mock::start_active_era(1);
 
 		assert_eq!(Balances::free_balance(11), 1000);
@@ -2856,67 +2858,72 @@ fn slashes_are_summed_across_spans() {
 
 #[test]
 fn deferred_slashes_are_deferred() {
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
-		mock::start_active_era(1);
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		// fixme(ank4n): See if I can enable delegate here.
+		.delegate(false)
+		.build_and_execute(|| {
+			mock::start_active_era(1);
 
-		assert_eq!(Balances::free_balance(11), 1000);
+			assert_eq!(Balances::free_balance(11), 1000);
 
-		let exposure = Staking::eras_stakers(active_era(), 11);
-		assert_eq!(Balances::free_balance(101), 2000);
-		let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+			let exposure = Staking::eras_stakers(active_era(), 11);
+			assert_eq!(Balances::free_balance(101), 2000);
+			let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
-		System::reset_events();
+			System::reset_events();
 
-		on_offence_now(
-			&[OffenceDetails {
-				offender: (11, Staking::eras_stakers(active_era(), 11)),
-				reporters: vec![],
-			}],
-			&[Perbill::from_percent(10)],
-		);
+			on_offence_now(
+				&[OffenceDetails {
+					offender: (11, Staking::eras_stakers(active_era(), 11)),
+					reporters: vec![],
+				}],
+				&[Perbill::from_percent(10)],
+			);
 
-		// nominations are not removed regardless of the deferring.
-		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
+			// nominations are not removed regardless of the deferring.
+			assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
 
-		assert_eq!(Balances::free_balance(11), 1000);
-		assert_eq!(Balances::free_balance(101), 2000);
+			assert_eq!(Balances::free_balance(11), 1000);
+			assert_eq!(Balances::free_balance(101), 2000);
 
-		mock::start_active_era(2);
+			mock::start_active_era(2);
 
-		assert_eq!(Balances::free_balance(11), 1000);
-		assert_eq!(Balances::free_balance(101), 2000);
+			assert_eq!(Balances::free_balance(11), 1000);
+			assert_eq!(Balances::free_balance(101), 2000);
 
-		mock::start_active_era(3);
+			mock::start_active_era(3);
 
-		assert_eq!(Balances::free_balance(11), 1000);
-		assert_eq!(Balances::free_balance(101), 2000);
+			assert_eq!(Balances::free_balance(11), 1000);
+			assert_eq!(Balances::free_balance(101), 2000);
 
-		// at the start of era 4, slashes from era 1 are processed,
-		// after being deferred for at least 2 full eras.
-		mock::start_active_era(4);
+			// at the start of era 4, slashes from era 1 are processed,
+			// after being deferred for at least 2 full eras.
+			mock::start_active_era(4);
 
-		assert_eq!(Balances::free_balance(11), 900);
-		assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
+			assert_eq!(Balances::free_balance(11), 900);
+			assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
 
-		assert!(matches!(
-			staking_events_since_last_call().as_slice(),
-			&[
-				Event::Chilled { stash: 11 },
-				Event::ForceEra { mode: Forcing::ForceNew },
-				Event::SlashReported { validator: 11, slash_era: 1, .. },
-				Event::StakersElected,
-				Event::ForceEra { mode: Forcing::NotForcing },
-				..,
-				Event::Slashed { staker: 11, amount: 100 },
-				Event::Slashed { staker: 101, amount: 12 }
-			]
-		));
-	})
+			assert!(matches!(
+				staking_events_since_last_call().as_slice(),
+				&[
+					Event::Chilled { stash: 11 },
+					Event::ForceEra { mode: Forcing::ForceNew },
+					Event::SlashReported { validator: 11, slash_era: 1, .. },
+					Event::StakersElected,
+					Event::ForceEra { mode: Forcing::NotForcing },
+					..,
+					Event::Slashed { staker: 11, amount: 100 },
+					Event::Slashed { staker: 101, amount: 12 }
+				]
+			));
+		})
 }
 
 #[test]
 fn retroactive_deferred_slashes_two_eras_before() {
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).slash_defer_duration(2).build_and_execute(|| {
 		assert_eq!(BondingDuration::get(), 3);
 
 		mock::start_active_era(1);
@@ -2952,7 +2959,8 @@ fn retroactive_deferred_slashes_two_eras_before() {
 
 #[test]
 fn retroactive_deferred_slashes_one_before() {
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).slash_defer_duration(2).build_and_execute(|| {
 		assert_eq!(BondingDuration::get(), 3);
 
 		mock::start_active_era(1);
@@ -2998,7 +3006,8 @@ fn retroactive_deferred_slashes_one_before() {
 #[test]
 fn staker_cannot_bail_deferred_slash() {
 	// as long as SlashDeferDuration is less than BondingDuration, this should not be possible.
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).slash_defer_duration(2).build_and_execute(|| {
 		mock::start_active_era(1);
 
 		assert_eq!(Balances::free_balance(11), 1000);
@@ -3073,7 +3082,8 @@ fn staker_cannot_bail_deferred_slash() {
 
 #[test]
 fn remove_deferred() {
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).slash_defer_duration(2).build_and_execute(|| {
 		mock::start_active_era(1);
 
 		assert_eq!(Balances::free_balance(11), 1000);
@@ -3214,7 +3224,8 @@ fn remove_multi_deferred() {
 
 #[test]
 fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_validator() {
-	ExtBuilder::default().build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).build_and_execute(|| {
 		mock::start_active_era(1);
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -3280,7 +3291,8 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 
 #[test]
 fn non_slashable_offence_doesnt_disable_validator() {
-	ExtBuilder::default().build_and_execute(|| {
+	// fixme(ank4n): fix the test with delegation enabled.
+	ExtBuilder::default().delegate(false).build_and_execute(|| {
 		mock::start_active_era(1);
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -3337,7 +3349,8 @@ fn non_slashable_offence_doesnt_disable_validator() {
 
 #[test]
 fn slashing_independent_of_disabling_validator() {
-	ExtBuilder::default().build_and_execute(|| {
+	// fixme(ank4n): fix test with delegate enabled.
+	ExtBuilder::default().delegate(false).build_and_execute(|| {
 		mock::start_active_era(1);
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -3508,7 +3521,7 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 	// * rewards get paid until history_depth for both validators and nominators
 	// * an invalid era to claim doesn't update last_reward
 	// * double claim of one era fails
-	ExtBuilder::default().nominate(true).build_and_execute(|| {
+	ExtBuilder::default().nominate(true).delegate(false).build_and_execute(|| {
 		// Consumed weight for all payout_stakers dispatches that fail
 		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
 
@@ -4544,11 +4557,11 @@ mod election_data_provider {
 		// it is selected as part of the npos voters.
 		ExtBuilder::default().has_stakers(true).nominate(true).build_and_execute(|| {
 			assert_eq!(MinNominatorBond::<Test>::get(), 1);
-			assert_eq!(<Test as Config>::VoterList::count(), 4);
+			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, Default::default(),));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
-			assert_eq!(<Test as Config>::VoterList::count(), 5);
+			assert_eq!(<Test as Config>::VoterList::count(), 6);
 
 			let voters_before =
 				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
@@ -4560,7 +4573,7 @@ mod election_data_provider {
 			assert_eq!(MinNominatorBond::<Test>::get(), 10);
 			// voter list still considers nominator 4 for voting, even though its active stake is
 			// lower than `MinNominatorBond`.
-			assert_eq!(<Test as Config>::VoterList::count(), 5);
+			assert_eq!(<Test as Config>::VoterList::count(), 6);
 
 			let voters =
 				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
@@ -4577,6 +4590,7 @@ mod election_data_provider {
 		ExtBuilder::default()
 			.has_stakers(true)
 			.nominate(true)
+			.delegate(false)
 			.add_staker(61, 61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
 			.build_and_execute(|| {
 				assert_eq!(Staking::weight_of(&101), 500);
@@ -4687,8 +4701,9 @@ mod election_data_provider {
 		ExtBuilder::default()
 			.set_status(41, StakerStatus::Validator)
 			.build_and_execute(|| {
-				// sum of all nominators who'd be voters (1), plus the self-votes (4).
-				assert_eq!(<Test as Config>::VoterList::count(), 5);
+				// sum of all nominators who'd be voters (2), plus the self-votes (4).
+				let voter_count: u32 = 6;
+				assert_eq!(<Test as Config>::VoterList::count(), voter_count);
 
 				let bounds_builder = ElectionBoundsBuilder::default();
 
@@ -4702,10 +4717,12 @@ mod election_data_provider {
 
 				// if voter count limit is equal..
 				assert_eq!(
-					Staking::electing_voters(bounds_builder.voters_count(5.into()).build().voters)
-						.unwrap()
-						.len(),
-					5
+					Staking::electing_voters(
+						bounds_builder.voters_count(voter_count.into()).build().voters
+					)
+					.unwrap()
+					.len(),
+					voter_count as usize
 				);
 
 				// if voter count limit is more.
@@ -4713,7 +4730,7 @@ mod election_data_provider {
 					Staking::electing_voters(bounds_builder.voters_count(55.into()).build().voters)
 						.unwrap()
 						.len(),
-					5
+					voter_count as usize
 				);
 
 				// if target count limit is more..
@@ -5004,6 +5021,7 @@ fn chill_other_works() {
 		.balance_factor(100)
 		.min_nominator_bond(1_000)
 		.min_validator_bond(1_500)
+		.delegate(false)
 		.build_and_execute(|| {
 			let initial_validators = Validators::<Test>::count();
 			let initial_nominators = Nominators::<Test>::count();
@@ -5155,7 +5173,7 @@ fn capped_stakers_works() {
 		let validator_count = Validators::<Test>::count();
 		assert_eq!(validator_count, 3);
 		let nominator_count = Nominators::<Test>::count();
-		assert_eq!(nominator_count, 1);
+		assert_eq!(nominator_count, 2);
 
 		// Change the maximums
 		let max = 10;
@@ -5402,6 +5420,7 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
+		.delegate(false)
 		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![1]))
 		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
 		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
@@ -5448,7 +5467,7 @@ mod sorted_list_provider {
 
 			assert_eq!(
 				<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-				vec![11, 21, 31, 101]
+				vec![11, 21, 31, 101, 150]
 			);
 
 			// when account 101 renominates
@@ -5459,7 +5478,7 @@ mod sorted_list_provider {
 			// and the list is the same
 			assert_eq!(
 				<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
-				vec![11, 21, 31, 101]
+				vec![11, 21, 31, 101, 150]
 			);
 		});
 	}
@@ -6307,7 +6326,7 @@ mod delegation_stake {
 
 			// Then: verify delegation is bonded correctly
 			assert_eq!(Staking::payee(delegatee.into()), RewardDestination::Account(reward_acc));
-			assert_eq!(Staking::status(&delegatee).unwrap(), StakerStatus::Delegatee);
+			assert_eq!(Staking::status(&delegatee).unwrap(), StakerStatus::Delegatee(vec![]));
 
 			assert!(matches!(
 				Staking::ledger(StakingAccount::Stash(delegatee)).unwrap(),
@@ -6469,7 +6488,7 @@ mod delegation_stake {
 
 	#[test]
 	fn delegatees_are_slashed_lazily() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().delegate(false).build_and_execute(|| {
 			// Given: a direct nominator and a delegatee to a validator
 			let delegatee: AccountId = 99;
 			let reporter: AccountId = 2023;
@@ -6611,7 +6630,10 @@ mod delegation_stake {
 			assert_ok!(Staking::delegatee_migrate(&wannabe_delegatee, &proxy_delegator, &199));
 
 			// Then: 101 is now a delegatee with 200 as its delegator
-			assert_eq!(Staking::status(&wannabe_delegatee).unwrap(), StakerStatus::Delegatee);
+			assert_eq!(
+				Staking::status(&wannabe_delegatee).unwrap(),
+				StakerStatus::Delegatee(vec![11, 21])
+			);
 			assert_eq!(
 				Staking::status(&proxy_delegator).unwrap(),
 				StakerStatus::Delegator(wannabe_delegatee)
@@ -6684,9 +6706,6 @@ mod delegation_stake {
 			// verify delegatee state
 			assert_eq!(Staking::ledger(delegatee.into()).unwrap(), ledger);
 			assert_eq!(delegation::delegated_balance::<Test>(&delegatee), delegated_balance);
-
-			// todo(ank4n): add try state checks and a default delegatee to verify against existing
-			// tests.
 		});
 	}
 }

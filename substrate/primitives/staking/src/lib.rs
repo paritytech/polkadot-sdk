@@ -70,7 +70,7 @@ pub enum StakerStatus<AccountId> {
 	/// A delegatee is similar to nominator but with some restrictions. They can never use their
 	/// free balance to bond their ledger. Only a keyless account such as a pool account created by
 	/// another runtime pallet (and hence trusted) can be a delegatee.
-	Delegatee,
+	Delegatee(Vec<AccountId>),
 	/// Staker delegates to another account.
 	Delegator(AccountId),
 }

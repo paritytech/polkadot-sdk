@@ -1801,24 +1801,31 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			return Err(Error::<T>::NotStash.into())
 		}
 
-		if Delegatees::<T>::contains_key(who) {
-			// Technically a delegatee can be idle too but since only a trusted runtime code can
-			// create a delegatee, we don't care if it is idle and always consider it as a
-			// delegatee.
-			return Ok(StakerStatus::Delegatee)
-		};
-
+		let is_delegatee = Delegatees::<T>::contains_key(who);
 		let is_validator = Validators::<T>::contains_key(&who);
 		let is_nominator = Nominators::<T>::get(&who);
 
-		match (is_validator, is_nominator.is_some()) {
-			(false, false) => Ok(StakerStatus::Idle),
-			(true, false) => Ok(StakerStatus::Validator),
-			(false, true) => Ok(StakerStatus::Nominator(
+		match (is_validator, is_nominator.is_some(), is_delegatee) {
+			(false, false, false) => Ok(StakerStatus::Idle),
+			// Technically a delegatee can be idle too but since only a trusted runtime code can
+			// create a delegatee, we don't care if it is idle and always consider it as a
+			// delegatee.
+			// fixme(ank4n): is this correct?
+			(false, false, true) => Ok(StakerStatus::Delegatee(vec![])),
+			(true, false, false) => Ok(StakerStatus::Validator),
+			(false, true, false) => Ok(StakerStatus::Nominator(
 				is_nominator.expect("is checked above; qed").targets.into_inner(),
 			)),
-			(true, true) => {
+			// A delegatee who is nominating
+			(false, true, true) => Ok(StakerStatus::Delegatee(
+				is_nominator.expect("is checked above; qed").targets.into_inner(),
+			)),
+			(true, true, _) => {
 				defensive!("cannot be both validators and nominator");
+				Err(Error::<T>::BadState.into())
+			},
+			(true, false, true) => {
+				defensive!("cannot be a validator and delegatee");
 				Err(Error::<T>::BadState.into())
 			},
 		}
@@ -1976,8 +1983,11 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	) -> sp_runtime::DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
-		// ledger for delegatee account should always be bonded by stash.
-		ensure!(Self::status(delegatee)? == StakerStatus::Delegatee, Error::<T>::NotDelegatee);
+		// ensure delegatee exists.
+		match Self::status(delegatee) {
+			Ok(StakerStatus::Delegatee(_)) => (),
+			_ => return Err(Error::<T>::NotDelegatee.into()),
+		}
 
 		// remove delegation of `value` from `existing_delegator`.
 		delegation::withdraw::<T>(delegatee, existing_delegator, value)?;
