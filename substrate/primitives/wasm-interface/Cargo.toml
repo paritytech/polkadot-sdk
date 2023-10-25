@@ -23,5 +23,5 @@ sp-std = { path = "../std", default-features = false}
 
 [features]
 default = [ "std" ]
-std = [ "codec/std", "log", "sp-std/std", "wasmtime" ]
+std = [ "codec/std", "log/std", "sp-std/std", "wasmtime" ]
 wasmtime = [ "anyhow", "dep:wasmtime" ]
