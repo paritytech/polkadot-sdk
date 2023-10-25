@@ -68,11 +68,6 @@ pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: D
 		})
 		.expect("expected instruction ClearOrigin")
 		.match_next_inst(|instr| match instr {
-			SetFeesMode { .. } => Ok(()),
-			_ => Err(ProcessMessageError::BadFormat),
-		})
-		.expect("expected instruction SetFeesMode")
-		.match_next_inst(|instr| match instr {
 			BuyExecution { .. } => Ok(()),
 			_ => Err(ProcessMessageError::BadFormat),
 		})

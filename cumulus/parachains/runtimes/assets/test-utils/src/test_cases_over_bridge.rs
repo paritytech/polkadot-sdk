@@ -170,7 +170,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			// Make sure sender has enough funds for paying delivery fees
 			// TODO: Get this fee via weighing the corresponding message
-			let delivery_fees = 1324173226;
+			let delivery_fees = 1324039894;
 			<pallet_balances::Pallet<Runtime>>::mint_into(&alice_account, delivery_fees.into())
 				.unwrap();
 
@@ -434,7 +434,6 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				DescendOrigin(descend_origin),
 				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
-				SetFeesMode { jit_withdraw: false },
 				BuyExecution {
 					fees: MultiAsset {
 						id: Concrete(foreign_asset_id_multilocation),

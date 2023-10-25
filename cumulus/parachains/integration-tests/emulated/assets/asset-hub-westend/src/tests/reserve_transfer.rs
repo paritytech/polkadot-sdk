@@ -175,9 +175,13 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 
 	let delivery_fees = AssetHubWestend::execute_with(|| {
-		xcm_helpers::reserve_transfer_localreserve_assets_delivery_fees::<
-			<XcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+		xcm_helpers::transfer_assets_delivery_fees::<<XcmConfig as xcm_executor::Config>::XcmSender>(
+			test.args.assets.clone(),
+			0,
+			test.args.weight_limit,
+			test.args.beneficiary,
+			test.args.dest,
+		)
 	});
 
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);

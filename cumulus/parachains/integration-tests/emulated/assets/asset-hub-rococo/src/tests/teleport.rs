@@ -174,7 +174,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Rococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -221,7 +221,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -262,7 +262,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -295,7 +295,7 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Rococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -342,7 +342,7 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -380,7 +380,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	test.assert();
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
+		xcm_helpers::transfer_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});

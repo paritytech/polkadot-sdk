@@ -90,7 +90,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					let para_receiver_balance_after =
 						<$receiver_para as $crate::Chain>::account_data_of(receiver.clone()).free;
 					let delivery_fees = <$sender_para>::execute_with(|| {
-						asset_test_utils::xcm_helpers::teleport_assets_delivery_fees::<
+						asset_test_utils::xcm_helpers::transfer_assets_delivery_fees::<
 							<$sender_xcm_config as xcm_executor::Config>::XcmSender,
 						>($assets.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
 					});
