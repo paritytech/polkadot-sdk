@@ -936,9 +936,7 @@ pub mod bridging {
 			];
 
 			pub AllowedReserveTransferAssetsToEthereum: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
-				// allow send only WOC
 				Wild(AllOf { fun: WildFungible, id: Concrete(EthereumGatewayLocation::get()) }), // TODO check
-				// and nothing else
 			];
 
 			/// Universal aliases
