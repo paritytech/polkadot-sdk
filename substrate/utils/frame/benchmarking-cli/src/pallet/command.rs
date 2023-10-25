@@ -748,13 +748,16 @@ impl CliConfiguration for PalletCmd {
 
 /// List the benchmarks available in the runtime, in a CSV friendly format.
 fn list_benchmark(
-	benchmarks_to_run: Vec<(
+	mut benchmarks_to_run: Vec<(
 		Vec<u8>,
 		Vec<u8>,
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
 	)>,
 ) {
+	// Sort by pallet and storage name.
+	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
+
 	println!("pallet, benchmark");
 	for (pallet, extrinsic, _, _) in benchmarks_to_run {
 		println!("{}, {}", String::from_utf8_lossy(&pallet), String::from_utf8_lossy(&extrinsic));
