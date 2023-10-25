@@ -58,19 +58,6 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 	};
 
-	let log_try_state = quote::quote! {
-		let pallet_name = <
-			<T as #frame_system::Config>::PalletInfo
-			as
-			#frame_support::traits::PalletInfo
-		>::name::<Self>().expect("No name found for the pallet! This usually means that the pallet wasn't added to `construct_runtime!`.");
-		#frame_support::__private::log::info!(
-			target: #frame_support::LOG_TARGET,
-			"🩺 Running try-state checks for pallet {:?}",
-			pallet_name,
-		);
-	};
-
 	let hooks_impl = if def.hooks.is_none() {
 		let frame_system = &def.frame_system;
 		quote::quote! {
@@ -271,7 +258,17 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 				n: #frame_system::pallet_prelude::BlockNumberFor::<T>,
 				_s: #frame_support::traits::TryStateSelect
 			) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
-				#log_try_state
+				let pallet_name = <
+					<T as #frame_system::Config>::PalletInfo
+					as
+					#frame_support::traits::PalletInfo
+				>::name::<Self>().expect("No name found for the pallet! This usually means that the pallet wasn't added to `construct_runtime!`.");
+
+				#frame_support::__private::log::info!(
+					target: #frame_support::LOG_TARGET,
+					"🩺 Running {:?} try-state checks",
+					pallet_name,
+				);
 				<
 					Self as #frame_support::traits::Hooks<
 						#frame_system::pallet_prelude::BlockNumberFor::<T>
@@ -283,8 +280,8 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 						#frame_support::traits::PalletInfo
 					>::name::<Self>().unwrap_or("<unknown pallet name>");
 					#frame_support::__private::log::error!(
-						target: "try-runtime",
-						"try_state check failed for pallet {:?}: {:?}",
+						target: #frame_support::LOG_TARGET,
+						"❌ {:?} try_state checks failed: {:?}",
 						pallet_name,
 						err
 					);
