@@ -328,7 +328,6 @@ mod tests {
 	use super::*;
 	use futures::executor::block_on;
 	use libp2p::{Multiaddr, PeerId};
-	use sc_block_builder::BlockBuilderProvider as _;
 	use sc_client_api::Backend as _;
 	use sc_network::{config::MultiaddrWithPeerId, types::ProtocolName, ReputationChange};
 	use sc_transaction_pool::BasicPool;

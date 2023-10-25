@@ -741,7 +741,6 @@ async fn correct_beefy_payload() {
 #[tokio::test]
 async fn beefy_importing_justifications() {
 	use futures::{future::poll_fn, task::Poll};
-	use sc_block_builder::BlockBuilderProvider;
 	use sc_client_api::BlockBackend;
 
 	sp_tracing::try_init_simple();

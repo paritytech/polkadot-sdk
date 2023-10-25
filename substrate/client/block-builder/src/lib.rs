@@ -31,50 +31,30 @@ use codec::Encode;
 use sp_api::{
 	ApiExt, ApiRef, Core, ProvideRuntimeApi, StorageChanges, StorageProof, TransactionOutcome,
 };
-use sp_blockchain::{ApplyExtrinsicFailed, Error};
+use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
 	Digest,
 };
+use std::{sync::Arc, marker::PhantomData};
 
 use sc_client_api::backend;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
 
-/// Used as parameter to [`BlockBuilderProvider`] to express if proof recording should be enabled.
-///
-/// When `RecordProof::Yes` is given, all accessed trie nodes should be saved. These recorded
-/// trie nodes can be used by a third party to proof this proposal without having access to the
-/// full storage.
-#[derive(Copy, Clone, PartialEq)]
-pub enum RecordProof {
-	/// `Yes`, record a proof.
-	Yes,
-	/// `No`, don't record any proof.
-	No,
+pub struct BlockBuilderBuilder<B, C> {
+	client: Arc<C>,
+	enable_proof_recording: bool,
+	_phantom: PhantomData<B>,
 }
 
-impl RecordProof {
-	/// Returns if `Self` == `Yes`.
-	pub fn yes(&self) -> bool {
-		matches!(self, Self::Yes)
-	}
-}
-
-/// Will return [`RecordProof::No`] as default value.
-impl Default for RecordProof {
-	fn default() -> Self {
-		Self::No
-	}
-}
-
-impl From<bool> for RecordProof {
-	fn from(val: bool) -> Self {
-		if val {
-			Self::Yes
-		} else {
-			Self::No
+impl<B, C> BlockBuilderBuilder<B, C> {
+	pub fn new(client: Arc<C>) -> Self {
+		Self {
+			client,
+			enable_proof_recording: false,
+			_phantom: PhantomData,
 		}
 	}
 }
@@ -99,33 +79,6 @@ impl<Block: BlockT> BuiltBlock<Block> {
 	pub fn into_inner(self) -> (Block, StorageChanges<Block>, Option<StorageProof>) {
 		(self.block, self.storage_changes, self.proof)
 	}
-}
-
-/// Block builder provider
-pub trait BlockBuilderProvider<B, Block, RA>
-where
-	Block: BlockT,
-	B: backend::Backend<Block>,
-	Self: Sized,
-	RA: ProvideRuntimeApi<Block>,
-{
-	/// Create a new block, built on top of `parent`.
-	///
-	/// When proof recording is enabled, all accessed trie nodes are saved.
-	/// These recorded trie nodes can be used by a third party to proof the
-	/// output of this block builder without having access to the full storage.
-	fn new_block_at<R: Into<RecordProof>>(
-		&self,
-		parent: Block::Hash,
-		inherent_digests: Digest,
-		record_proof: R,
-	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
-
-	/// Create a new block, built on the head of the chain.
-	fn new_block(
-		&self,
-		inherent_digests: Digest,
-	) -> sp_blockchain::Result<BlockBuilder<Block, RA, B>>;
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.

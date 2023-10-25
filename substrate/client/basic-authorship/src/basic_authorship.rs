@@ -28,7 +28,7 @@ use futures::{
 	select,
 };
 use log::{debug, error, info, trace, warn};
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_client_api::backend;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
@@ -181,12 +181,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: BlockBuilderProvider<B, Block, C>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
 	fn init_with_now(
@@ -222,12 +217,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: BlockBuilderProvider<B, Block, C>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -261,12 +251,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: BlockBuilderProvider<B, Block, C>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -318,12 +303,7 @@ where
 	A: TransactionPool<Block = Block>,
 	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: BlockBuilderProvider<B, Block, C>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {

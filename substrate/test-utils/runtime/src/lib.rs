@@ -1020,7 +1020,6 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
-	use sc_block_builder::BlockBuilderProvider;
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};

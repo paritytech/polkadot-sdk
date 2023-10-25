@@ -17,7 +17,7 @@
 
 //! Contains the core benchmarking logic.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{Error, Result};
 use sc_client_api::Backend as ClientBackend;
 use sp_api::{ApiExt, Core, ProvideRuntimeApi};
@@ -73,9 +73,7 @@ impl<Block, BA, C> Benchmark<Block, BA, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 	BA: ClientBackend<Block>,
-	C: BlockBuilderProvider<BA, Block, C>
-		+ ProvideRuntimeApi<Block>
-		+ sp_blockchain::HeaderBackend<Block>,
+	C: ProvideRuntimeApi<Block> + sp_blockchain::HeaderBackend<Block>,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
 	/// Create a new [`Self`] from the arguments.

@@ -20,7 +20,6 @@ use super::*;
 use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use jsonrpsee::types::EmptyServerParams as EmptyParams;
-use sc_block_builder::BlockBuilderProvider;
 use sp_consensus::BlockOrigin;
 use sp_rpc::list::ListOrValue;
 use substrate_test_runtime_client::{

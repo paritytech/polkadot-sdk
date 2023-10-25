@@ -26,7 +26,6 @@ use cumulus_test_runtime::{
 };
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_primitives::HeadData;
-use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::UsageProvider;
 use sc_consensus::{
 	block_import::{BlockImportParams, ForkChoiceStrategy},

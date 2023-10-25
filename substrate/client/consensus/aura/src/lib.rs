@@ -548,7 +548,6 @@ where
 mod tests {
 	use super::*;
 	use parking_lot::Mutex;
-	use sc_block_builder::BlockBuilderProvider;
 	use sc_client_api::BlockchainEvents;
 	use sc_consensus::BoxJustificationImport;
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};

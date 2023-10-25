@@ -18,7 +18,7 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::Backend as ClientBackend;
 use sc_service::Configuration;
@@ -108,9 +108,7 @@ impl OverheadCmd {
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		BA: ClientBackend<Block>,
-		C: BlockBuilderProvider<BA, Block, C>
-			+ ProvideRuntimeApi<Block>
-			+ sp_blockchain::HeaderBackend<Block>,
+		C: ProvideRuntimeApi<Block> + sp_blockchain::HeaderBackend<Block>,
 		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	{
 		if ext_builder.pallet() != "system" || ext_builder.extrinsic() != "remark" {

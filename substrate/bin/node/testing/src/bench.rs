@@ -39,7 +39,6 @@ use kitchensink_runtime::{
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 use node_primitives::Block;
-use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::execution_extensions::ExecutionExtensions;
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};

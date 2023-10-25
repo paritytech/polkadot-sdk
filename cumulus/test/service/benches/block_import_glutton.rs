@@ -27,7 +27,7 @@ use sp_arithmetic::{
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::{BlockBuilderProvider, RecordProof};
+use sc_block_builder::RecordProof;
 use sp_keyring::Sr25519Keyring::Alice;
 
 use cumulus_test_service::bench_utils as utils;

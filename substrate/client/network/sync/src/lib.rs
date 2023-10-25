@@ -2402,7 +2402,6 @@ mod test {
 	use super::*;
 	use crate::service::network::NetworkServiceProvider;
 	use futures::executor::block_on;
-	use sc_block_builder::BlockBuilderProvider;
 	use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 	use sp_blockchain::HeaderBackend;
 	use substrate_test_runtime_client::{

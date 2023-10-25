@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::Backend as ClientBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -94,9 +94,7 @@ impl ExtrinsicCmd {
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		BA: ClientBackend<Block>,
-		C: BlockBuilderProvider<BA, Block, C>
-			+ ProvideRuntimeApi<Block>
-			+ sp_blockchain::HeaderBackend<Block>,
+		C: ProvideRuntimeApi<Block> + sp_blockchain::HeaderBackend<Block>,
 		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	{
 		// Short circuit if --list was specified.

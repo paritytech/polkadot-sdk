@@ -18,7 +18,7 @@
 //! Contains the [`BlockCmd`] as entry point for the CLI to execute
 //! the *block* benchmark.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, BlockBackend, StorageProvider, UsageProvider};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -84,8 +84,7 @@ impl BlockCmd {
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		BA: ClientBackend<Block>,
-		C: BlockBuilderProvider<BA, Block, C>
-			+ BlockBackend<Block>
+		C: BlockBackend<Block>
 			+ ProvideRuntimeApi<Block>
 			+ StorageProvider<Block, BA>
 			+ UsageProvider<Block>

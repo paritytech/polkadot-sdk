@@ -27,7 +27,6 @@ use jsonrpsee::{
 	types::{error::CallError, EmptyServerParams as EmptyParams},
 	RpcModule,
 };
-use sc_block_builder::BlockBuilderProvider;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_runtime::SaturatedConversion;

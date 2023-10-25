@@ -322,7 +322,6 @@ mod tests {
 	use crate::{AuthoritySetChanges, GrandpaJustification};
 	use parity_scale_codec::Encode;
 	use rand::prelude::*;
-	use sc_block_builder::BlockBuilderProvider;
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::BlockOrigin;
 	use sp_consensus_grandpa::GRANDPA_ENGINE_ID;

@@ -31,7 +31,6 @@ use jsonrpsee::{
 	types::{error::CallError, EmptyServerParams as EmptyParams},
 	RpcModule,
 };
-use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
 use sp_api::BlockT;

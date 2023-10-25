@@ -31,7 +31,6 @@ use substrate_test_runtime_client::{
 };
 
 use codec::Encode;
-use sc_block_builder::BlockBuilderProvider;
 use sp_consensus::SelectChain;
 use substrate_test_runtime_client::sc_executor::WasmExecutor;
 
