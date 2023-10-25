@@ -561,7 +561,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin,
 			&destination.into(),
-			FeeReason::Export(network),
+			FeeReason::Export { network, destination },
 		);
 		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);

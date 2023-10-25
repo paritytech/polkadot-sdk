@@ -855,7 +855,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					destination,
 					xcm,
 				)?;
-				self.take_fee(fee, FeeReason::Export(network))?;
+				self.take_fee(fee, FeeReason::Export { network, destination })?;
 				Config::MessageExporter::deliver(ticket)?;
 				Ok(())
 			},

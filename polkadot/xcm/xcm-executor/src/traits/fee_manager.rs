@@ -32,7 +32,7 @@ pub enum FeeReason {
 	/// When the `QueryPallet` instruction is called.
 	QueryPallet,
 	/// When the `ExportMessage` instruction is called (and includes the network ID).
-	Export(NetworkId),
+	Export { network: NetworkId, destination: InteriorMultiLocation },
 	/// The `charge_fees` API.
 	ChargeFees,
 	/// When the `LockAsset` instruction is called.

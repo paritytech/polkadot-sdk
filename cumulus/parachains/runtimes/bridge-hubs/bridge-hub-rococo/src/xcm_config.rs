@@ -24,9 +24,18 @@ use crate::{
 		BridgeGrandpaRococoInstance, BridgeGrandpaWococoInstance, DeliveryRewardInBalance,
 		RequiredStakeForStakeAndSlash,
 	},
-	bridge_hub_rococo_config::{ToBridgeHubWococoHaulBlobExporter, WococoGlobalConsensusNetwork},
-	bridge_hub_wococo_config::{RococoGlobalConsensusNetwork, ToBridgeHubRococoHaulBlobExporter},
+	bridge_hub_rococo_config::{
+		AssetHubRococoParaId, BridgeHubWococoChainId, BridgeHubWococoMessagesLane,
+		ToBridgeHubWococoHaulBlobExporter, WococoGlobalConsensusNetwork,
+	},
+	bridge_hub_wococo_config::{
+		AssetHubWococoParaId, BridgeHubRococoChainId, BridgeHubRococoMessagesLane,
+		RococoGlobalConsensusNetwork, ToBridgeHubRococoHaulBlobExporter,
+	},
 };
+use bp_messages::LaneId;
+use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
+use bp_runtime::ChainId;
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing},
@@ -43,18 +52,20 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::SystemParachains;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
+use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmExportFeeToAccount, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	try_deposit_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{ExportXcm, WithOriginFilter},
+	traits::{ExportXcm, FeeReason, HandleFee, TransactAsset, WithOriginFilter},
 	XcmExecutor,
 };
 
@@ -284,20 +295,20 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		// Just showcasing that we can direct fees from different bridges to different accounts.
-		// We use the `TreasuryAccount` as the receiver account in any case by design.
 		(
-			XcmExportFeeToAccount<
-				Self::AssetTransactor,
-				RococoGlobalConsensusNetwork,
-				AccountId,
-				TreasuryAccount,
-			>,
-			XcmExportFeeToAccount<
+			XcmExportFeeToRelayerRewardAccounts<
 				Self::AssetTransactor,
 				WococoGlobalConsensusNetwork,
-				AccountId,
-				TreasuryAccount,
+				AssetHubWococoParaId,
+				BridgeHubWococoChainId,
+				BridgeHubWococoMessagesLane,
+			>,
+			XcmExportFeeToRelayerRewardAccounts<
+				Self::AssetTransactor,
+				RococoGlobalConsensusNetwork,
+				AssetHubRococoParaId,
+				BridgeHubRococoChainId,
+				BridgeHubRococoMessagesLane,
 			>,
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
@@ -410,5 +421,91 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}
+	}
+}
+
+/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
+/// into the accounts that are used for paying the relayer rewards.
+pub struct XcmExportFeeToRelayerRewardAccounts<
+	AssetTransactor,
+	DestNetwork,
+	DestParaId,
+	DestBridgeHubId,
+	BridgeLaneId,
+>(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgeHubId, BridgeLaneId)>);
+
+impl<
+		AssetTransactor: TransactAsset,
+		DestNetwork: Get<NetworkId>,
+		DestParaId: Get<cumulus_primitives_core::ParaId>,
+		DestBridgeHubId: Get<ChainId>,
+		BridgeLaneId: Get<LaneId>,
+	> HandleFee
+	for XcmExportFeeToRelayerRewardAccounts<
+		AssetTransactor,
+		DestNetwork,
+		DestParaId,
+		DestBridgeHubId,
+		BridgeLaneId,
+	>
+{
+	fn handle_fee(
+		fee: MultiAssets,
+		maybe_context: Option<&XcmContext>,
+		reason: FeeReason,
+	) -> MultiAssets {
+		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
+				if bridged_network == DestNetwork::get() &&
+					destination == X1(Parachain(DestParaId::get().into())))
+		{
+			let source_para_account = PayRewardFromAccount::<
+				pallet_balances::Pallet<Runtime>,
+				AccountId,
+			>::rewards_account(RewardsAccountParams::new(
+				BridgeLaneId::get(),
+				DestBridgeHubId::get(),
+				RewardsAccountOwner::ThisChain,
+			));
+
+			let dest_para_account = PayRewardFromAccount::<
+				pallet_balances::Pallet<Runtime>,
+				AccountId,
+			>::rewards_account(RewardsAccountParams::new(
+				BridgeLaneId::get(),
+				DestBridgeHubId::get(),
+				RewardsAccountOwner::BridgedChain,
+			));
+
+			for asset in fee.into_inner() {
+				match asset.fun {
+					Fungible(total_fee) => {
+						let source_fee = total_fee / 2;
+						try_deposit_fee::<AssetTransactor, _>(
+							MultiAsset { id: asset.id, fun: Fungible(source_fee) }.into(),
+							maybe_context,
+							source_para_account.clone(),
+						);
+
+						let dest_fee = total_fee - source_fee;
+						try_deposit_fee::<AssetTransactor, _>(
+							MultiAsset { id: asset.id, fun: Fungible(dest_fee) }.into(),
+							maybe_context,
+							dest_para_account.clone(),
+						);
+					},
+					NonFungible(_) => {
+						try_deposit_fee::<AssetTransactor, _>(
+							asset.into(),
+							maybe_context,
+							source_para_account.clone(),
+						);
+					},
+				}
+			}
+
+			return MultiAssets::new()
+		}
+
+		fee
 	}
 }
