@@ -184,23 +184,7 @@ pub trait StorageValue<T: FullCodec> {
 	/// ignored by this function.
 	///
 	/// # Example
-	///
-	/// ```text
-	/// type Store = StorageValue<Prefix, BTreeSet<u32>>;
-	///
-	/// TestExternalities::default().execute_with(|| {
-	/// 	Store::append(4);
-	/// 	Store::append(4); // duplicate value
-	/// 	Store::append(5);
-	///
-	/// 		let length_with_dup_items = 3;
-	/// 		let length_without_dup_items = 2;
-	///
-	/// 	assert_eq!(Store::decode_non_dedup_len().unwrap(), length_with_dup_items);
-	///  	assert_eq!(Store::get().unwrap().len(), length_without_dup_items);
-	/// });
-	/// ```
-	///
+	#[doc = docify::embed!("src/storage/mod.rs", btree_set_decode_non_dedup_len)]
 	/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values
 	/// in the storage (in this case, the number `4` is counted twice).
 	fn decode_non_dedup_len() -> Option<usize>
@@ -1530,7 +1514,6 @@ impl<T: Encode> StorageAppend<T> for Vec<T> {}
 impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
 
 // Blanket implementation StorageDecodeNonDedupLength
 // for all types that are StorageDecodeLength.
@@ -2097,11 +2080,12 @@ mod test {
 		});
 	}
 
-	#[crate::storage_alias]
-	type Store = StorageValue<Prefix, BTreeSet<u32>>;
-
+	#[docify::export]
 	#[test]
 	fn btree_set_decode_non_dedup_len() {
+		#[crate::storage_alias]
+		type Store = StorageValue<Prefix, BTreeSet<u32>>;
+
 		TestExternalities::default().execute_with(|| {
 			Store::append(4);
 			Store::append(4); // duplicate value
