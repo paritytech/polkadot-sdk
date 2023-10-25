@@ -623,7 +623,7 @@ impl pallet_identity::Config for Runtime {
 	// Should be `EnsureRoot` until the parachain launches with Identity state. Then, it will be
 	// `EnsureSigned<Self::AccountId>` to allow deposit migration.
 	type ReapOrigin = EnsureRoot<Self::AccountId>;
-	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime>;
+	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
 	type LockerOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }

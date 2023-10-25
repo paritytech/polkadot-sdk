@@ -18,16 +18,33 @@ use crate::xcm_config;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use pallet_identity::OnReapIdentity;
+use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
 use rococo_runtime_constants::currency::*;
+use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, /* v2::OriginKind, */ VersionedMultiLocation, VersionedXcm};
+use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
+
+/// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
+/// remote calls.
+#[derive(Encode, Decode, RuntimeDebug)]
+enum PeopleRuntimePallets<AccountId: Encode> {
+	#[codec(index = 50)]
+	Identity(IdentityCalls<AccountId>),
+}
+
+/// Call encoding for the calls needed from the Identity pallet.
+#[derive(Encode, Decode, RuntimeDebug)]
+enum IdentityCalls<AccountId: Encode> {
+	#[codec(index = 16)]
+	PokeDeposit(AccountId),
+}
 
 /// Type that implements `OnReapIdentity` that will send the deposit needed to store the same
 /// information on a parachain, sends the deposit there, and then updates it.
-pub struct ToParachainIdentityReaper<T>(PhantomData<T>);
-impl<T> ToParachainIdentityReaper<T> {
+pub struct ToParachainIdentityReaper<Runtime, AccountId>(PhantomData<(Runtime, AccountId)>);
+impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 	/// Calculate the balance needed on the remote chain based on the `IdentityInfo` and `Subs` on
 	/// this chain. The total includes:
 	///
@@ -56,20 +73,22 @@ impl<T> ToParachainIdentityReaper<T> {
 	}
 }
 
-impl<AccountId, T> OnReapIdentity<AccountId> for ToParachainIdentityReaper<T>
+impl<Runtime, AccountId> OnReapIdentity<AccountId> for ToParachainIdentityReaper<Runtime, AccountId>
 where
-	T: frame_system::Config + pallet_xcm::Config,
-	AccountId: Into<[u8; 32]> + Clone,
+	Runtime: frame_system::Config + pallet_xcm::Config,
+	AccountId: Into<[u8; 32]> + Clone + Encode,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
+		use crate::impls::IdentityCalls::PokeDeposit;
+
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
 		// define asset / destination from relay perspective
 		let roc: MultiAssets =
 			vec![MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) }]
 				.into();
-		// todo: people chain para id
-		let destination: MultiLocation = MultiLocation::new(0, Parachain(1000));
+		// TODO: confirm people chain para id. Tentatively 1004.
+		let destination: MultiLocation = MultiLocation::new(0, Parachain(1004));
 
 		// Do `check_out` accounting since the XCM Executor's `InitiateTeleport` doesn't support
 		// unpaid teleports.
@@ -81,7 +100,7 @@ where
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
-		.map_err(|_| pallet_xcm::Error::<T>::InvalidAsset)?;
+		.map_err(|_| pallet_xcm::Error::<Runtime>::InvalidAsset)?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
 			&roc.inner().first().unwrap(), // <- safe unwrap since we just set `roc`.
@@ -95,6 +114,8 @@ where
 			fun: Fungible(total_to_send),
 		}]
 		.into();
+
+		let poke = PeopleRuntimePallets::<AccountId>::Identity(PokeDeposit(who.clone()));
 
 		// Actual program to execute on People Chain.
 		let program: Xcm<()> = Xcm(vec![
@@ -110,17 +131,16 @@ where
 					.into_location()
 					.into(),
 			},
-			// // Poke the deposit to reserve the appropriate amount on the parachain.
-			// Transact {
-			// 	origin_kind: OriginKind::Superuser,
-			// 	require_weight_at_most: Weight {ref_time: 2_000_000_000, proof_size: 16_384},
-			// 	// Need People Chain runtime to encode call.
-			// 	call: DoubleEncoded { encoded: /* pallet_identity::poke_deposit(who) */ },
-			// },
+			// Poke the deposit to reserve the appropriate amount on the parachain.
+			Transact {
+				origin_kind: OriginKind::Superuser,
+				require_weight_at_most: Weight::from_parts(2_000_000_000, 16_384),
+				call: poke.encode().into(),
+			},
 		]);
 
 		// send
-		let _ = <pallet_xcm::Pallet<T>>::send(
+		let _ = <pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
 			Box::new(VersionedMultiLocation::V3(destination)),
 			Box::new(VersionedXcm::V3(program)),
