@@ -1,0 +1,29 @@
+title: Adds syntax for marking calls feeless
+
+doc:
+  - audience: Core Dev
+    description: |
+      1. Adds an attribute `#[pallet::feeless_if]` that can be optionally attached to a `pallet::call`.
+      2. Adds a signed extension SkipCheckIfFeeless<T: SignedExtension> that wraps a transaction 
+      payment processor to skip payment fess for all such calls.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: "frame-support-procedural"
+    semver: minor
+  - name: "pallet-skip-feeless-payment"
+    semver: major
+  - pallet-example-kitchensink
+    semver: patch
+  - kitchensink-runtime
+    semver: major
+  - node-testing
+    semver: patch
+  - node-cli
+    semver: patch
+
+host_functions: []
