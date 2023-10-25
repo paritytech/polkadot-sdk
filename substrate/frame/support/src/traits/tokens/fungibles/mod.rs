@@ -26,6 +26,7 @@ mod lifetime;
 pub mod metadata;
 mod regular;
 pub mod roles;
+mod union_of;
 
 pub use enumerable::Inspect as InspectEnumerable;
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
@@ -38,3 +39,4 @@ pub use lifetime::{Create, Destroy};
 pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };
+pub use union_of::UnionOf;
