@@ -30,7 +30,6 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
-use libc::printf;
 use nix::sys::resource::{Resource, Usage, UsageWho};
 use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
@@ -48,8 +47,15 @@ use polkadot_node_core_pvf_common::{
 	worker_dir, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
-use std::{fs, io::{Read, Write}, os::unix::net::UnixStream, path::PathBuf, process, sync::Arc, time::Duration};
-use std::fmt::format;
+use std::{
+	fs,
+	io::{Read, Write},
+	os::unix::net::UnixStream,
+	path::PathBuf,
+	process,
+	sync::Arc,
+	time::Duration,
+};
 use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
@@ -285,7 +291,7 @@ async fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(&output.0, &executor_params)?;
+					runtime_construction_check(output.as_ref(), &executor_params)?;
 					Ok(output)
 				});
 			}
@@ -380,8 +386,6 @@ async fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	let mut f = fs::File::create("/Users/joaopedrosantos/parity/polkadot-sdk/polkadot/node/core/pvf/tests/it/log.txt").unwrap();
-	f.write_all(format!("cpu_tv {}, timeout {}", cpu_tv.as_secs(), timeout).as_bytes()).unwrap();
 	if cpu_tv.as_secs() >= timeout {
 		return Err(PrepareError::TimedOut)
 	}
