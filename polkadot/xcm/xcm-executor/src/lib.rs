@@ -435,22 +435,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		r
 	}
 
-	fn subsume_asset(&mut self, asset: MultiAsset) -> Result<(), XcmError> {
-		// worst-case, holding.len becomes 2 * holding_limit.
-		ensure!(self.holding.len() < self.holding_limit * 2, XcmError::HoldingWouldOverflow);
-		self.holding.subsume(asset);
-		Ok(())
-	}
-
-	fn subsume_assets(&mut self, assets: Assets) -> Result<(), XcmError> {
-		// worst-case, holding.len becomes 2 * holding_limit.
-		// this guarantees that if holding.len() == holding_limit and you have holding_limit more
-		// items (which has a best case outcome of holding.len() == holding_limit), then you'll
-		// be guaranteed of making the operation.
-		let worst_case_holding_len = self.holding.len() + assets.len();
-		ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
-		self.holding.subsume_assets(assets);
-		Ok(())
+	fn ensure_can_subsume_assets(&self, assets_length: usize) -> Result<(), XcmError> {
+        // worst-case, holding.len becomes 2 * holding_limit.
+        // this guarantees that if holding.len() == holding_limit and you have more than
+		// `holding_limit` items (which has a best case outcome of holding.len() == holding_limit),
+		// then the operation is guaranteed to succeed.
+        let worst_case_holding_len = self.holding.len() + assets_length;
+        ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
+        Ok(())
 	}
 
 	/// Refund any unused weight.
@@ -459,7 +451,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		if current_surplus.any_gt(Weight::zero()) {
 			self.total_refunded.saturating_accrue(current_surplus);
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				self.subsume_asset(w)?;
+				self.ensure_can_subsume_assets(1)?;
+				self.holding.subsume_assets(w.into());
 			}
 		}
 		Ok(())
@@ -477,44 +470,37 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		match instr {
 			WithdrawAsset(assets) => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| {
-					// Take `assets` from the origin account (on-chain) and place in holding.
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					for asset in assets.into_inner().into_iter() {
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.ensure_can_subsume_assets(assets.len())?;
+				Config::TransactionalProcessor::process(|| {
+					// Take `assets` from the origin account (on-chain)...
+					for asset in assets.inner() {
 						Config::AssetTransactor::withdraw_asset(
-							&asset,
+							asset,
 							&origin,
 							Some(&self.context),
 						)?;
-						self.subsume_asset(asset)?;
 					}
 					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
-				}
-				result
+				}).and_then(|_| {
+					// ...and place into holding.
+					self.holding.subsume_assets(assets.into());
+					Ok(())
+				})
 			},
 			ReserveAssetDeposited(assets) => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| {
-					// check whether we trust origin to be our reserve location for this asset.
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					for asset in assets.into_inner().into_iter() {
-						// Must ensure that we recognise the asset as being managed by the origin.
-						ensure!(
-							Config::IsReserve::contains(&asset, &origin),
-							XcmError::UntrustedReserveLocation
-						);
-						self.subsume_asset(asset)?;
-					}
-					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
+				// check whether we trust origin to be our reserve location for this asset.
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.ensure_can_subsume_assets(assets.len())?;
+				for asset in assets.inner() {
+					// Must ensure that we recognise the asset as being managed by the origin.
+					ensure!(
+						Config::IsReserve::contains(asset, &origin),
+						XcmError::UntrustedReserveLocation
+					);
 				}
-				result
+				self.holding.subsume_assets(assets.into());
+				Ok(())
 			},
 			TransferAsset { assets, beneficiary } => {
 				Config::TransactionalProcessor::process(|| {
@@ -554,9 +540,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			ReceiveTeleportedAsset(assets) => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| {
-					let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.ensure_can_subsume_assets(assets.len())?;
+				Config::TransactionalProcessor::process(|| {
 					// check whether we trust origin to teleport this asset to us via config trait.
 					for asset in assets.inner() {
 						// We only trust the origin to send us assets that they identify as their
@@ -570,17 +556,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// trusted chains, so it's unlikely, but we don't want to punish a possibly
 						// innocent chain/user).
 						Config::AssetTransactor::can_check_in(&origin, asset, &self.context)?;
-					}
-					for asset in assets.into_inner().into_iter() {
-						Config::AssetTransactor::check_in(&origin, &asset, &self.context);
-						self.subsume_asset(asset)?;
+						Config::AssetTransactor::check_in(&origin, asset, &self.context);
 					}
 					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
-				}
-				result
+				}).and_then(|_| {
+					self.holding.subsume_assets(assets.into());
+					Ok(())
+				})
 			},
 			Transact { origin_kind, require_weight_at_most, mut call } => {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
@@ -767,7 +749,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							.try_take(fees.into())
 							.map_err(|_| XcmError::NotHoldingFees)?;
 						let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
-						self.subsume_assets(unspent)?;
+						self.holding.subsume_assets(unspent);
 					}
 					Ok(())
 				});
@@ -799,21 +781,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
-				let old_holding = self.holding.clone();
-				let result = Config::TransactionalProcessor::process(|| {
-					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-					let ok =
-						Config::AssetClaims::claim_assets(origin, &ticket, &assets, &self.context);
-					ensure!(ok, XcmError::UnknownClaim);
-					for asset in assets.into_inner().into_iter() {
-						self.subsume_asset(asset)?;
-					}
-					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					self.holding = old_holding;
-				}
-				result
+				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.ensure_can_subsume_assets(assets.len())?;
+				let ok =
+					Config::AssetClaims::claim_assets(origin, &ticket, &assets, &self.context);
+				ensure!(ok, XcmError::UnknownClaim);
+				self.holding.subsume_assets(assets.into());
+				Ok(())
 			},
 			Trap(code) => Err(XcmError::Trap(code)),
 			SubscribeVersion { query_id, max_response_weight } => {
