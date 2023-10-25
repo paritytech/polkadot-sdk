@@ -171,7 +171,6 @@ fn reserve_transfer_assets_with_paid_router_works() {
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
-					SetFeesMode { jit_withdraw: false },
 					buy_execution((Parent, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
 				]),
@@ -290,7 +289,6 @@ fn do_test_and_verify_reserve_transfer_assets_local_ar_local_fr<Call: FnOnce()>(
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
-					SetFeesMode { jit_withdraw: false },
 					buy_limited_execution((Parent, SEND_AMOUNT), expected_weight_limit),
 					DepositAsset {
 						assets: AllCounted(1).into(),
@@ -460,7 +458,6 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 					Xcm(vec![
 						ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: false },
 						buy_limited_execution((Parent, FEE_AMOUNT), Unlimited),
 						DepositAsset { assets: AllCounted(1).into(), beneficiary },
 					])
@@ -473,9 +470,9 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 					Xcm(vec![
 						WithdrawAsset(expected_asset.into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: true },
+						WithdrawAsset(expected_fee.clone().into()),
 						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+						DepositAsset { assets: AllCounted(2).into(), beneficiary },
 					])
 				)
 			]
@@ -638,7 +635,6 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 					Xcm(vec![
 						WithdrawAsset(expected_fee.clone().into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: false },
 						buy_limited_execution(expected_fee.clone(), Unlimited),
 						DepositAsset { assets: AllCounted(1).into(), beneficiary },
 					])
@@ -652,9 +648,9 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 					Xcm(vec![
 						ReserveAssetDeposited(expected_asset.into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: true },
+						WithdrawAsset(expected_fee.clone().into()),
 						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+						DepositAsset { assets: AllCounted(2).into(), beneficiary },
 					])
 				)
 			]
@@ -741,7 +737,6 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 				Xcm(vec![
 					WithdrawAsset(expected_assets.clone()),
 					ClearOrigin,
-					SetFeesMode { jit_withdraw: false },
 					buy_limited_execution(expected_assets.get(0).unwrap().clone(), Unlimited),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary },
 				]),
@@ -1172,9 +1167,9 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 					Xcm(vec![
 						ReserveAssetDeposited(expected_asset.into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: true },
+						WithdrawAsset(expected_fee.clone().into()),
 						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+						DepositAsset { assets: AllCounted(2).into(), beneficiary },
 					])
 				)
 			]
@@ -1303,9 +1298,9 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 					Xcm(vec![
 						WithdrawAsset(expected_asset.into()),
 						ClearOrigin,
-						SetFeesMode { jit_withdraw: true },
+						WithdrawAsset(expected_fee.clone().into()),
 						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
+						DepositAsset { assets: AllCounted(2).into(), beneficiary },
 					])
 				)
 			]

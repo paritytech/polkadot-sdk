@@ -1288,21 +1288,20 @@ impl<T: Config> Pallet<T> {
 			Self::validate_assets_and_find_reserve(&assets, &dest)?
 		};
 
-		let jit_withdraw_fee_on_dest;
+		let explicit_withdraw_fee_on_dest;
 		if fees_transfer_type == assets_transfer_type {
 			// Same reserve location (fees not teleportable), we can batch together fees and assets
 			// in same reserve-based-transfer.
 			assets.push(fees.clone());
-			// no need to jit withdraw fee, fees batched with assets will be available in holding
-			jit_withdraw_fee_on_dest = false;
+			// no need to withdraw fee on dest, fees batched with assets will be available in
+			// holding
+			explicit_withdraw_fee_on_dest = false;
 		} else {
 			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered by
 			// branch above). The reason for this is that we'd need to send XCMs to separate chains
 			// with no guarantee of delivery order on final destination; therefore we cannot
 			// guarantee to have fees in place on final destination chain to pay for assets
 			// transfer.
-			if let TransferType::RemoteReserve(_) = assets_transfer_type {}
-			// Disallow (for now) different _remote_ reserves for assets and fees.
 			match (&fees_transfer_type, &assets_transfer_type) {
 				(TransferType::RemoteReserve(_), _) | (_, TransferType::RemoteReserve(_)) =>
 					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
@@ -1322,8 +1321,8 @@ impl<T: Config> Pallet<T> {
 				weight_limit.clone(),
 			)?;
 			// fees are deposited to beneficiary in call above, when transferring rest of assets,
-			// jit withdraw fee on destination
-			jit_withdraw_fee_on_dest = true;
+			// withdraw fee to holding on destination so it can be used for `BuyExecution`
+			explicit_withdraw_fee_on_dest = true;
 		};
 
 		// Fees have been prefunded/transferred (or batched together with assets to be transferred
@@ -1335,7 +1334,7 @@ impl<T: Config> Pallet<T> {
 			assets,
 			assets_transfer_type,
 			fees,
-			jit_withdraw_fee_on_dest,
+			explicit_withdraw_fee_on_dest,
 			weight_limit,
 		)
 	}
@@ -1385,7 +1384,7 @@ impl<T: Config> Pallet<T> {
 		assets: Vec<MultiAsset>,
 		transfer_type: TransferType,
 		fees: MultiAsset,
-		jit_withdraw_fee_on_dest: bool,
+		explicit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let mut message = match transfer_type {
@@ -1394,7 +1393,7 @@ impl<T: Config> Pallet<T> {
 				beneficiary,
 				assets,
 				fees,
-				jit_withdraw_fee_on_dest,
+				explicit_withdraw_fee_on_dest,
 				weight_limit,
 			),
 			TransferType::DestinationReserve => Self::destination_reserve_transfer_message(
@@ -1402,7 +1401,7 @@ impl<T: Config> Pallet<T> {
 				beneficiary,
 				assets,
 				fees,
-				jit_withdraw_fee_on_dest,
+				explicit_withdraw_fee_on_dest,
 				weight_limit,
 			),
 			TransferType::RemoteReserve(reserve) => Self::remote_reserve_transfer_message(
@@ -1429,17 +1428,21 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		mut fees: MultiAsset,
-		jit_withdraw_fee_on_dest: bool,
+		explicit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
 		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
-		let xcm_on_dest = Xcm(vec![
-			SetFeesMode { jit_withdraw: jit_withdraw_fee_on_dest },
-			BuyExecution { fees, weight_limit },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
+		let mut max_assets = assets.len() as u32;
+		let mut xcm_on_dest = Vec::with_capacity(3);
+		if explicit_withdraw_fee_on_dest {
+			// also deposit `fees` which are not included in `assets`
+			max_assets += 1;
+			xcm_on_dest.push(WithdrawAsset(fees.clone().into()));
+		};
+		xcm_on_dest.push(BuyExecution { fees, weight_limit });
+		xcm_on_dest.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+		let xcm_on_dest = Xcm(xcm_on_dest);
 		Ok(Xcm(vec![
 			SetFeesMode { jit_withdraw: true },
 			TransferReserveAsset { assets: assets.into(), dest, xcm: xcm_on_dest },
@@ -1451,17 +1454,22 @@ impl<T: Config> Pallet<T> {
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
 		mut fees: MultiAsset,
-		jit_withdraw_fee_on_dest: bool,
+		explicit_withdraw_fee_on_dest: bool,
 		weight_limit: WeightLimit,
 	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
 		let context = T::UniversalLocation::get();
 		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
-		let xcm_on_dest = Xcm(vec![
-			SetFeesMode { jit_withdraw: jit_withdraw_fee_on_dest },
-			BuyExecution { fees, weight_limit },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
-		]);
+		let mut max_assets = assets.len() as u32;
+
+		let mut xcm_on_dest = Vec::with_capacity(3);
+		if explicit_withdraw_fee_on_dest {
+			// also deposit `fees` which are not included in `assets`
+			max_assets += 1;
+			xcm_on_dest.push(WithdrawAsset(fees.clone().into()));
+		};
+		xcm_on_dest.push(BuyExecution { fees, weight_limit });
+		xcm_on_dest.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+		let xcm_on_dest = Xcm(xcm_on_dest);
 		Ok(Xcm(vec![
 			WithdrawAsset(assets.into()),
 			InitiateReserveWithdraw {
