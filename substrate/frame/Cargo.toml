@@ -9,6 +9,8 @@ repository.workspace = true
 description = "The single package to get you started with building frame pallets and runtimes"
 
 [package.metadata.docs.rs]
+# enable `experimental` feature for docs
+features = ["experimental"]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
