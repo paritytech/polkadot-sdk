@@ -446,56 +446,8 @@ where
 		block: B::Hash,
 		parallel: u16,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		const MAX_PARALLEL: u16 = 4096;
-		const POW_OF_SIXTEEN: [u16; 3] = [1, 16, 256];
-
-		// round to power of 16, up to MAX_PARALLEL
-		fn round(n: u16) -> (u16, usize) {
-			if n <= 1 {
-				return (1, 0)
-			} else if n <= 16 {
-				return (16, 1)
-			}
-
-			let mut pow: u16 = 16;
-			let mut exp: usize = 1;
-
-			while pow < n {
-				if pow == MAX_PARALLEL {
-					break
-				}
-
-				pow = pow.saturating_mul(16);
-				exp += 1;
-			}
-
-			debug_assert!(pow <= MAX_PARALLEL);
-
-			// FIXME eagr: lack of a better idea for threshold
-			if n * 4 <= pow {
-				(pow / 16, exp - 1)
-			} else {
-				(pow, exp)
-			}
-		}
-
-		fn extension(n: u16, len: usize) -> Vec<u8> {
-			let mut ext = vec![0; len];
-			for i in 0..len {
-				ext[i] = (n / POW_OF_SIXTEEN[i] % 16) as u8;
-			}
-			ext
-		}
-
-		let (parallel, len) = round(parallel);
-
-		let batch = (0..parallel).into_iter().map(|i| {
-			let mut prefix = prefix.as_ref().to_vec();
-			prefix.extend(extension(i, len));
-			let prefix = StorageKey(prefix);
-
-			self.rpc_get_keys_paged(prefix, block)
-		});
+		let prefixes = extend_prefix(&prefix, parallel);
+		let batch = prefixes.into_iter().map(|prefix| self.rpc_get_keys_paged(prefix, block));
 
 		let keys = futures::future::join_all(batch)
 			.await
@@ -836,6 +788,64 @@ where
 
 		Ok(child_keys)
 	}
+}
+
+// Create a batch of storage key prefixes each starting with `prefix`, meant to be used for key
+// scraping. Given the prefix 00, the return can be 000-00F or 0000-00FF, depending on `size`.
+// `size` will be rounded to power of 16 if not already, so is the returned batch size.
+fn extend_prefix(prefix: &StorageKey, size: u16) -> Vec<StorageKey> {
+	const MAX_EXT_LEN: usize = 3;
+	const MAX_BATCH_SIZE: u16 = 16u16.pow(MAX_EXT_LEN as u32);
+	const POW_OF_SIXTEEN: [u16; MAX_EXT_LEN] = [1, 16, 256];
+
+	// round to power of 16
+	// up to MAX_BATCH_SIZE
+	fn round(n: u16) -> (u16, usize) {
+		if n <= 1 {
+			return (1, 0)
+		} else if n <= 16 {
+			return (16, 1)
+		}
+
+		let mut pow: u16 = 16;
+		let mut exp: usize = 1;
+
+		while pow < n {
+			if pow == MAX_BATCH_SIZE {
+				break
+			}
+
+			pow = pow.saturating_mul(16);
+			exp += 1;
+		}
+
+		debug_assert!(pow <= MAX_BATCH_SIZE);
+		debug_assert!(exp <= MAX_EXT_LEN);
+
+		// round down if below threshold
+		if n * 4 <= pow {
+			(pow / 16, exp - 1)
+		} else {
+			(pow, exp)
+		}
+	}
+
+	let (size, len) = round(size);
+	let mut ext = vec![0; len];
+
+	(0..size)
+		.map(|idx| {
+			// 0-f | 00-ff | 000-fff
+			// relatively static, use OnceCell if turned out to be hot
+			for i in 0..len {
+				ext[len - i - 1] = (idx / POW_OF_SIXTEEN[i] % 16) as u8;
+			}
+
+			let mut prefix = prefix.as_ref().to_vec();
+			prefix.extend(&ext);
+			StorageKey(prefix)
+		})
+		.collect()
 }
 
 impl<B: BlockT + DeserializeOwned> Builder<B>
@@ -1518,5 +1528,35 @@ mod remote_tests {
 			.await
 			.unwrap()
 			.execute_with(|| {});
+	}
+
+	#[test]
+	fn prefixes_for_scraping_keys() {
+		let prefix = StorageKey(vec![0, 0]);
+
+		assert_eq!(extend_prefix(&prefix, 0), vec![StorageKey(vec![0, 0])]);
+		assert_eq!(extend_prefix(&prefix, 1), vec![StorageKey(vec![0, 0])]);
+		assert_eq!(extend_prefix(&prefix, 16), (0..16).map(|i| StorageKey(vec![0, 0, i])).collect::<Vec<_>>());
+
+		let prefixes = extend_prefix(&prefix, 256);
+		assert_eq!(prefixes, (0..256u32).map(|i| StorageKey(vec![0, 0, (i / 16 % 16) as u8, (i % 16) as u8])).collect::<Vec<_>>());
+		assert_eq!(prefixes[0], StorageKey(vec![0, 0, 0, 0]));
+		assert_eq!(prefixes[1], StorageKey(vec![0, 0, 0, 1]));
+		assert_eq!(prefixes[15], StorageKey(vec![0, 0, 0, 15]));
+		assert_eq!(prefixes[16], StorageKey(vec![0, 0, 1, 0]));
+		assert_eq!(prefixes[254], StorageKey(vec![0, 0, 15, 14]));
+		assert_eq!(prefixes[255], StorageKey(vec![0, 0, 15, 15]));
+
+		let prefixes = extend_prefix(&prefix, 4096);
+		assert_eq!(prefixes, (0..4096u32).map(|i| StorageKey(vec![0, 0, (i / 256 % 16) as u8, (i / 16 % 16) as u8, (i % 16) as u8])).collect::<Vec<_>>());
+		assert_eq!(prefixes[0], StorageKey(vec![0, 0, 0, 0, 0]));
+		assert_eq!(prefixes[1], StorageKey(vec![0, 0, 0, 0, 1]));
+		assert_eq!(prefixes[4094], StorageKey(vec![0, 0, 15, 15, 14]));
+		assert_eq!(prefixes[4095], StorageKey(vec![0, 0, 15, 15, 15]));
+
+		// rounding
+		assert_eq!(extend_prefix(&prefix, 2), extend_prefix(&prefix, 16));
+		assert_eq!(extend_prefix(&prefix, 65), extend_prefix(&prefix, 256));
+		assert_eq!(extend_prefix(&prefix, 1025), extend_prefix(&prefix, 4096));
 	}
 }
