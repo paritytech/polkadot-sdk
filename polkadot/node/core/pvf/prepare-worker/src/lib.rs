@@ -48,7 +48,6 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	fs,
 	io::{Read, Write},
 	os::unix::net::UnixStream,
 	path::PathBuf,
@@ -291,7 +290,10 @@ async fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.as_ref(), &executor_params)?;
+					#[cfg(target_os = "linux")]
+					runtime_construction_check(output.0.as_ref(), &executor_params)?;
+					#[cfg(not(target_os = "linux"))]
+					runtime_construction_check(output.as_ref(), executor_params.as_ref())?;
 					Ok(output)
 				});
 			}
