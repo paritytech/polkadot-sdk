@@ -30,7 +30,9 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
+use libc::printf;
 use nix::sys::resource::{Resource, Usage, UsageWho};
+use os_pipe::{self, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -39,21 +41,15 @@ use polkadot_node_core_pvf_common::{
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
 	pvf::PvfPrepData,
 	worker::{
+		stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		worker_event_loop, WorkerKind,
 	},
 	worker_dir, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
-use std::{
-	io::{Read, Write},
-	os::unix::net::UnixStream,
-	path::PathBuf,
-	process,
-	sync::Arc,
-	time::Duration,
-};
-use os_pipe::PipeWriter;
+use std::{fs, io::{Read, Write}, os::unix::net::UnixStream, path::PathBuf, process, sync::Arc, time::Duration};
+use std::fmt::format;
 use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
@@ -139,7 +135,7 @@ pub fn worker_entrypoint(
 		worker_version,
 		&security_status,
 		|mut stream, worker_dir_path| async move {
-			let worker_pid = std::process::id();
+			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
 			loop {
@@ -163,7 +159,8 @@ pub fn worker_entrypoint(
 					// error
 					-1 => Err(PrepareError::Panic(String::from("error forking"))),
 					// child
-					0 =>
+					0 => {
+						drop(stream);
 						handle_child_process(
 							pvf,
 							pipe_writer,
@@ -171,7 +168,8 @@ pub fn worker_entrypoint(
 							prepare_job_kind,
 							executor_params,
 						)
-						.await,
+						.await
+					},
 					// parent
 					_ => {
 						// the read end will wait until all ends have been closed,
@@ -246,7 +244,7 @@ struct Response {
 /// - If success, pipe back `Response`.
 async fn handle_child_process(
 	pvf: PvfPrepData,
-	mut pipe_write: os_pipe::PipeWriter,
+	pipe_write: os_pipe::PipeWriter,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
@@ -256,7 +254,10 @@ async fn handle_child_process(
 		Resource::RLIMIT_CPU,
 		preparation_timeout.as_secs(),
 		preparation_timeout.as_secs(),
-	).unwrap_or_else(|err|send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
+	)
+	.unwrap_or_else(|err| {
+		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+	});
 
 	// Conditional variable to notify us when a thread is done.
 	let condvar = thread::get_condvar();
@@ -293,14 +294,15 @@ async fn handle_child_process(
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 	)
-	.unwrap_or_else(|err|
-		send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
+	.unwrap_or_else(|err| {
+		send_child_response(&pipe_write, Err(PrepareError::Panic(err.to_string())))
+	});
 
 	// There's only one thread that can trigger the condvar, so ignore the condvar outcome and
 	// simply join. We don't have to be concerned with timeouts, setrlimit will kill the process.
-	let result = prepare_thread.join()
-		.unwrap_or_else(|err|
-							send_child_response(pipe_write, Err(PrepareError::Panic(err.to_string()))));
+	let result = prepare_thread.join().unwrap_or_else(|err| {
+		send_child_response(&pipe_write, Err(PrepareError::Panic(stringify_panic_payload(err))))
+	});
 
 	let response: Result<Response, PrepareError> = match result {
 		Ok(ok) => {
@@ -329,10 +331,8 @@ async fn handle_child_process(
 		Err(err) => Err(err),
 	};
 
-	send_child_response(pipe_write, response);
+	send_child_response(&pipe_write, response);
 }
-
-
 
 /// Waits for child process to finish and handle child response from pipe.
 ///
@@ -350,7 +350,8 @@ async fn handle_child_process(
 ///
 /// # Returns
 ///
-/// - If the child send response without an error, this function returns `Ok(PrepareStats)` containing memory and CPU usage statistics.
+/// - If the child send response without an error, this function returns `Ok(PrepareStats)`
+///   containing memory and CPU usage statistics.
 ///
 /// - If the child send response with an error, it returns a `PrepareError`.
 ///
@@ -375,10 +376,13 @@ async fn handle_parent_process(
 
 	// Using `getrusage` is needed to check whether `setrlimit` was triggered.
 	// As `getrusage` returns resource usage from all terminated child processes,
-	// it is necessary to subtract the usage before the current child process to isolate its cpu time
-	let cpu_tv = (get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before));
+	// it is necessary to subtract the usage before the current child process to isolate its cpu
+	// time
+	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 
-	if cpu_tv >= timeout {
+	let mut f = fs::File::create("/Users/joaopedrosantos/parity/polkadot-sdk/polkadot/node/core/pvf/tests/it/log.txt").unwrap();
+	f.write_all(format!("cpu_tv {}, timeout {}", cpu_tv.as_secs(), timeout).as_bytes()).unwrap();
+	if cpu_tv.as_secs() >= timeout {
 		return Err(PrepareError::TimedOut)
 	}
 
@@ -411,34 +415,31 @@ async fn handle_parent_process(
 
 					Ok(PrepareStats {
 						memory_stats: response.memory_stats,
-						cpu_time_elapsed: Duration::from_secs(cpu_tv as u64),
+						cpu_time_elapsed: cpu_tv,
 					})
 				},
 			}
 		},
-		_ => {
-			Err(PrepareError::Panic("child finished with unknown status".to_string()))
-		},
+		_ => Err(PrepareError::Panic("child finished with unknown status".to_string())),
 	}
 }
 
-/// Calculate the total CPU time from the given `nix::sys::Usage` structure, returned from `nix::sys::resource::getrusage`,
-/// and calculates the total CPU time spent, including both user and system time.
+/// Calculate the total CPU time from the given `usage` structure, returned from
+/// [`nix::sys::resource::getrusage`], and calculates the total CPU time spent, including both user
+/// and system time.
 ///
 /// # Arguments
 ///
-/// - `rusage`: A `nix::sys::Usage` structure, contains resource usage information.
+/// - `rusage`: Contains resource usage information.
 ///
 /// # Returns
 ///
 /// Returns a `Duration` representing the total CPU time.
 fn get_total_cpu_usage(rusage: Usage) -> Duration {
-	let millis = (((rusage.user_time().tv_sec() +
-		rusage.system_time().tv_sec()) * 1_000_000) +
-		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64)
-		as u64;
+	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
+		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
 
-	return Duration::from_millis(millis)
+	return Duration::from_micros(micros)
 }
 
 /// Write response to the pipe and exit process after.
@@ -448,7 +449,7 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 /// - `pipe_write`: A `os_pipe::PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(mut pipe_write: PipeWriter, response: Result<Response, PrepareError>) -> ! {
+fn send_child_response(mut pipe_write: &PipeWriter, response: Result<Response, PrepareError>) -> ! {
 	pipe_write
 		.write_all(response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
