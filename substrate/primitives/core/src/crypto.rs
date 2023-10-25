@@ -19,14 +19,14 @@
 
 use crate::{ed25519, sr25519};
 #[cfg(feature = "std")]
-use bip39::{Language, Mnemonic, MnemonicType};
+use bip39::MnemonicType;
+#[cfg(feature = "full_crypto")]
+use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "std")]
 use rand::{rngs::OsRng, RngCore};
-#[cfg(feature = "std")]
 use regex::Regex;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
 #[doc(hidden)]
@@ -77,7 +77,6 @@ impl<S, T: UncheckedFrom<S>> UncheckedInto<T> for S {
 /// An error with the interpretation of a secret.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "full_crypto")]
 pub enum SecretStringError {
 	/// The overall format was invalid (e.g. the seed phrase contained symbols).
 	#[cfg_attr(feature = "std", error("Invalid format"))]
@@ -412,7 +411,6 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 	DEFAULT_VERSION.store(new_default.into(), core::sync::atomic::Ordering::Relaxed);
 }
 
-#[cfg(feature = "std")]
 lazy_static::lazy_static! {
 	static ref SS58_REGEX: Regex = Regex::new(r"^(?P<ss58>[\w\d ]+)?(?P<path>(//?[^/]+)*)$")
 		.expect("constructed from known-good static value; qed");
@@ -798,7 +796,7 @@ mod dummy {
 /// assert_eq!("0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a", suri.phrase.expose_secret());
 /// assert!(suri.password.is_none());
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "full_crypto")]
 pub struct SecretUri {
 	/// The phrase to derive the private key.
 	///
@@ -810,7 +808,7 @@ pub struct SecretUri {
 	pub junctions: Vec<DeriveJunction>,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "full_crypto")]
 impl sp_std::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
@@ -878,7 +876,6 @@ pub trait Pair: CryptoType + Sized {
 	}
 
 	/// Returns the KeyPair from the English BIP39 seed `phrase`, or an error if it's invalid.
-	#[cfg(feature = "std")]
 	fn from_phrase(
 		phrase: &str,
 		password: Option<&str>,
@@ -954,7 +951,6 @@ pub trait Pair: CryptoType + Sized {
 	/// Notably, integer junction indices may be legally prefixed with arbitrary number of zeros.
 	/// Similarly an empty password (ending the SURI with `///`) is perfectly valid and will
 	/// generally be equivalent to no password at all.
-	#[cfg(feature = "std")]
 	fn from_string_with_seed(
 		s: &str,
 		password_override: Option<&str>,
@@ -988,7 +984,6 @@ pub trait Pair: CryptoType + Sized {
 	/// Interprets the string `s` in order to generate a key pair.
 	///
 	/// See [`from_string_with_seed`](Pair::from_string_with_seed) for more extensive documentation.
-	#[cfg(feature = "std")]
 	fn from_string(s: &str, password_override: Option<&str>) -> Result<Self, SecretStringError> {
 		Self::from_string_with_seed(s, password_override).map(|x| x.0)
 	}

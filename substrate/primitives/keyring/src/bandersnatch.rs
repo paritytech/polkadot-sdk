@@ -25,7 +25,7 @@ use sp_core::{
 };
 
 use lazy_static::lazy_static;
-use std::{collections::HashMap, ops::Deref, sync::Mutex};
+use sp_std::{collections::HashMap, ops::Deref, sync::Mutex};
 
 /// Set of test accounts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
