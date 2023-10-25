@@ -97,15 +97,34 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Migrations to apply on runtime upgrade.
+/// All migrations that will run on the next runtime upgrade.
+///
+/// This contains the combined migrations of the last 10 releases. It allows to skip runtime
+/// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
 pub type Migrations = (
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3<Runtime>,
-	pallet_contracts::Migration<Runtime>,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	migrations::V1_04_00,
+	migrations::V1_05_00,
+	migrations::Unreleased,
 );
+
+/// The runtime migrations per release.
+#[allow(deprecated, missing_docs)]
+pub mod migrations {
+	use super::*;
+
+	pub type V1_04_00 = ();
+
+	pub type V1_05_00 = ();
+
+	pub type Unreleased = (
+		cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+		pallet_contracts::Migration<Runtime>,
+	);
+}
 
 type EventRecord = frame_system::EventRecord<
 	<Runtime as frame_system::Config>::RuntimeEvent,

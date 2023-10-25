@@ -917,24 +917,6 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Migrations to apply on runtime upgrade.
-pub type Migrations = (
-	// v9420
-	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	migrations::NativeAssetParents0ToParents1Migration<Runtime>,
-	// unreleased
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-	// unreleased
-	InitStorageVersions,
-	// unreleased
-	DeleteUndecodableStorage,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-);
-
 /// Asset Hub Westend has some undecodable storage, delete it.
 /// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
 ///
@@ -1002,6 +984,41 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 
 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
 	}
+}
+
+/// All migrations that will run on the next runtime upgrade.
+///
+/// This contains the combined migrations of the last 10 releases. It allows to skip runtime
+/// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
+pub type Migrations = (
+	migrations::V0_09_20,
+	migrations::V1_04_00,
+	migrations::V1_05_00,
+	migrations::Unreleased,
+);
+
+/// The runtime migrations per release.
+#[allow(deprecated, missing_docs)]
+pub mod migrations {
+	use super::*;
+
+	pub type V0_09_20 = (
+		pallet_nfts::migration::v1::MigrateToV1<Runtime>,
+	);
+
+	pub type V1_04_00 = ();
+
+	pub type V1_05_00 = ();
+
+	pub type Unreleased = (
+		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+		migrations::NativeAssetParents0ToParents1Migration<Runtime>,
+		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+		InitStorageVersions,
+		DeleteUndecodableStorage,
+		cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	);
 }
 
 /// Migration to initialize storage versions for pallets added after genesis.
