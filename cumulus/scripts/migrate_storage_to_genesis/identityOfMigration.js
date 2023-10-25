@@ -1,45 +1,7 @@
 const { u8aToHex, hexToString } = require('@polkadot/util');
 const { xxhashAsHex } = require('@polkadot/util-crypto');
 
-// yarn migrate -c wss://rococo-rpc.polkadot.io -f asset-hub-kusama.json -p Identity -m ./identityOfMigration.js
-
-// const queryIdentityOf = async (api) => {
-// 	let allEntries = await api.query.identity.identityOf.entries();
-
-// 	let totalIdentities = 0;
-// 	let identitiesWithAdditional = 0;
-// 	let additionalKeys = {}
-
-// 	allEntries.forEach(([a, b]) => {
-// 		JSON.parse(b).info.additional.forEach(([key, data]) => {
-// 			identitiesWithAdditional += 1;
-
-// 			let keyString = hexToString(key.raw)
-// 			let dataString = hexToString(data.raw)
-
-// 			// console.log(keyString, dataString)
-
-// 			if (additionalKeys[keyString] !== undefined) {
-// 				additionalKeys[keyString] += 1
-// 			} else {
-// 				additionalKeys[keyString] = 1
-// 			}
-// 		});
-// 		totalIdentities += 1;
-// 	});
-
-// 	console.log("-------------------------------------------");
-// 	console.log("Total Identities: ", totalIdentities);
-// 	console.log("With additional:  ", identitiesWithAdditional);
-// 	console.log("Additional Keys:  ", additionalKeys);
-// 	console.log("-------------------------------------------");
-// }
-
 const migrateIdentityOf = async (key, data, api) => {
-	// Print `IdentityOf` summary
-	// await queryIdentityOf(api);
-
-	// From https://github.com/polkadot-js/api/blob/master/packages/types/src/interfaces/identity/definitions.ts
 	// Register the new `Registration` format type
 	api.registry.register({
 		IdentityInfoNew: {
@@ -75,27 +37,29 @@ const migrateIdentityOf = async (key, data, api) => {
 
 		let decoded = api.createType('Registration', data.toU8a(true));
 
+		// Default value for `discord` field
 		let discord = { none: null };
 
-		// Look for `Discord` key
 		let decodedJson = decoded.toJSON();
 
+		// Look for `Discord` key in `additional` field
 		decodedJson.info.additional.forEach(([key, data]) => {
 			let keyString = hexToString(key.raw)
-			let dataString = hexToString(data.raw)
 
 			if (keyString === "Discord" || keyString === "discord") {
-				console.log("Discord", dataString)
 				discord = { raw: data.raw };
 			}
 		});
 
-		// Migrate data to new format
+		// Migrate data to new format:
+		// - remove `additional` field
+		// - add `discord` field
+		// - set `deposit` to 0
 		let decodedNew = api.createType(
 			'RegistrationNew',
 			{
 				judgements: decodedJson.judgements,
-				deposit: decodedJson.deposit,
+				deposit: 0,
 				info: {
 					display: decodedJson.info.display,
 					legal: decodedJson.info.legal,
@@ -109,13 +73,15 @@ const migrateIdentityOf = async (key, data, api) => {
 				}
 			}
 		);
+
 		if (discord.raw) {
-			console.log("==================================================");
-			console.log("Decoded", decoded.toJSON());
-			console.log("DecodedNew", decodedNew.toJSON());
-			console.log("==================================================\n");
+			console.log("------------------ MIGRATION ---------------------");
+			console.log("Discord", hexToString(data.raw))
+			console.log("Original", decoded.toJSON());
+			console.log("Migration", decodedNew.toJSON());
+			console.log("--------------------------------------------------\n");
 		}
-		data = decodedNew;
+		data = u8aToHex(decodedNew.toU8a(true));
 	}
 
 	return data;

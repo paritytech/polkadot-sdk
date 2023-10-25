@@ -1,7 +1,7 @@
 {
   "name": "migrate_storage_to_genesis",
   "version": "1.0.0",
-  "description": "query storage from a pallet and add it to a new raw_chain_spec.json",
+  "description": "query storage from a pallet and add it to a new chain_spec_raw.json",
   "main": "index.js",
   "scripts": {
     "migrate": "node index.js"

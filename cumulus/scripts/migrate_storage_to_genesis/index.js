@@ -23,6 +23,7 @@ const connect = async (endpoint) => {
 	return await ApiPromise.create({ provider: wsProvider });
 }
 
+// Migrate data using the migration function
 const migrateData = async (path, key, data, api) => {
 	let absolutePath = resolve('.', path);
 	let migrationFunction;
@@ -80,6 +81,7 @@ const editChainSpec = (filePath, jsonData, storageKeyValues) => {
 	fs.writeJSONSync(filePath, jsonData, { spaces: 2 });
 }
 
+// Run the script
 const run = async () => {
 	const argv = yargs
 	.option('chain', {
