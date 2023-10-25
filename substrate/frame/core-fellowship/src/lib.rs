@@ -315,7 +315,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into());
+				return Ok(Pays::No.into())
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())

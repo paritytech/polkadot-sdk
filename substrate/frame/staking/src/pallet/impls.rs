@@ -194,10 +194,9 @@ impl<T: Config> Pallet<T> {
 			.retain(|&x| x >= current_era.saturating_sub(history_depth));
 
 		match ledger.claimed_rewards.binary_search(&era) {
-			Ok(_) => {
+			Ok(_) =>
 				return Err(Error::<T>::AlreadyClaimed
-					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
-			},
+					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))),
 			Err(pos) => ledger
 				.claimed_rewards
 				.try_insert(pos, era)
@@ -227,7 +226,7 @@ impl<T: Config> Pallet<T> {
 
 		// Nothing to do if they have no reward points.
 		if validator_reward_points.is_zero() {
-			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
 		}
 
 		// This is the fraction of the total reward that the validator and the
@@ -326,9 +325,8 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) => {
-				Some(T::Currency::deposit_creating(&dest_account, amount))
-			},
+			RewardDestination::Account(dest_account) =>
+				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
 		};
 		maybe_imbalance
@@ -360,14 +358,14 @@ impl<T: Config> Pallet<T> {
 				_ => {
 					// Either `Forcing::ForceNone`,
 					// or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-					return None;
+					return None
 				},
 			}
 
 			// New era.
 			let maybe_new_era_validators = Self::try_trigger_new_era(session_index, is_genesis);
-			if maybe_new_era_validators.is_some()
-				&& matches!(ForceEra::<T>::get(), Forcing::ForceNew)
+			if maybe_new_era_validators.is_some() &&
+				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
 			{
 				Self::set_force_era(Forcing::NotForcing);
 			}
@@ -573,7 +571,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			Self::deposit_event(Event::StakingElectionFailed);
-			return None;
+			return None
 		}
 
 		Self::deposit_event(Event::StakersElected);
@@ -800,8 +798,8 @@ impl<T: Config> Pallet<T> {
 		let mut min_active_stake = u64::MAX;
 
 		let mut sorted_voters = T::VoterList::iter();
-		while all_voters.len() < final_predicted_len as usize
-			&& voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_voters.len() < final_predicted_len as usize &&
+			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
 			let voter = match sorted_voters.next() {
 				Some(voter) => {
@@ -815,7 +813,7 @@ impl<T: Config> Pallet<T> {
 			// if voter weight is zero, do not consider this voter for the snapshot.
 			if voter_weight.is_zero() {
 				log!(debug, "voter's active balance is 0. skip this voter.");
-				continue;
+				continue
 			}
 
 			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
@@ -830,7 +828,7 @@ impl<T: Config> Pallet<T> {
 						Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 							size: voters_size_tracker.size as u32,
 						});
-						break;
+						break
 					}
 
 					all_voters.push(voter);
@@ -855,7 +853,7 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 						size: voters_size_tracker.size as u32,
 					});
-					break;
+					break
 				}
 				all_voters.push(self_vote);
 				validators_taken.saturating_inc();
@@ -908,8 +906,8 @@ impl<T: Config> Pallet<T> {
 		let mut targets_seen = 0;
 
 		let mut targets_iter = T::TargetList::iter();
-		while all_targets.len() < final_predicted_len as usize
-			&& targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_targets.len() < final_predicted_len as usize &&
+			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
 			let target = match targets_iter.next() {
 				Some(target) => {
@@ -924,7 +922,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::SnapshotTargetsSizeExceeded {
 					size: targets_size_tracker.size as u32,
 				});
-				break;
+				break
 			}
 
 			if Validators::<T>::contains_key(&target) {
@@ -1078,7 +1076,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(T::TargetList::count() as u32).into()) {
-			return Err("Target snapshot too big");
+			return Err("Target snapshot too big")
 		}
 
 		debug_assert!(!bounds.exhausted(
@@ -1327,7 +1325,7 @@ where
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
 				// This offence need not be re-submitted.
-				return consumed_weight;
+				return consumed_weight
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
@@ -1368,7 +1366,7 @@ where
 
 			// Skip if the validator is invulnerable.
 			if invulnerables.contains(stash) {
-				continue;
+				continue
 			}
 
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
@@ -1714,7 +1712,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
 		if !StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
-			return Err(Error::<T>::NotStash.into());
+			return Err(Error::<T>::NotStash.into())
 		}
 
 		let is_validator = Validators::<T>::contains_key(&who);
@@ -1775,8 +1773,8 @@ impl<T: Config> Pallet<T> {
 
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
-			<T as Config>::VoterList::count()
-				== Nominators::<T>::count() + Validators::<T>::count(),
+			<T as Config>::VoterList::count() ==
+				Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count"
 		);
 		ensure!(
@@ -1804,10 +1802,9 @@ impl<T: Config> Pallet<T> {
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
 				ensure!(
-					expo.total
-						== expo.own
-							+ expo
-								.others
+					expo.total ==
+						expo.own +
+							expo.others
 								.iter()
 								.map(|e| e.value)
 								.fold(Zero::zero(), |acc, x| acc + x),
@@ -1846,11 +1843,10 @@ impl<T: Config> Pallet<T> {
 						match len {
 							0 => { /* not supporting this validator at all. */ },
 							1 => sum += individual[0].value,
-							_ => {
+							_ =>
 								return Err(
 									"nominator cannot back a validator more than once.".into()
-								)
-							},
+								),
 						};
 						Ok(())
 					})

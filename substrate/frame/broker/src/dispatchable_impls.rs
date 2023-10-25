@@ -269,9 +269,7 @@ impl<T: Config> Pallet<T> {
 					let assigned = match AllowedRenewals::<T>::get(renewal_id) {
 						Some(AllowedRenewalRecord { completion: Partial(w), price: p })
 							if price == p =>
-						{
-							w
-						},
+							w,
 						_ => CoreMask::void(),
 					} | region_id.mask;
 					let workload =

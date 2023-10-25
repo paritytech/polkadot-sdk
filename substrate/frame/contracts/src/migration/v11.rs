@@ -115,7 +115,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 				"Injecting {len} entries to deletion queue to test migration"
 			);
 			fill_old_queue::<T>(len as usize);
-			return Ok(len.encode());
+			return Ok(len.encode())
 		}
 
 		Ok((old_queue.len() as u32).encode())

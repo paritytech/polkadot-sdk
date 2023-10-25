@@ -317,7 +317,7 @@ pub mod pallet {
 
 			// Check authority index is valid
 			if registration.authority_index >= T::MaxAuthorities::get() {
-				return InvalidTransaction::BadProof.into();
+				return InvalidTransaction::BadProof.into()
 			}
 			let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
 			else {
@@ -326,7 +326,7 @@ pub mod pallet {
 
 			// Check the authority hasn't registered a mixnode yet
 			if Self::already_registered(registration.session_index, registration.authority_index) {
-				return InvalidTransaction::Stale.into();
+				return InvalidTransaction::Stale.into()
 			}
 
 			// Check signature. Note that we don't use regular signed transactions for registration
@@ -336,7 +336,7 @@ pub mod pallet {
 				authority_id.verify(&encoded_registration, signature)
 			});
 			if !signature_ok {
-				return InvalidTransaction::BadProof.into();
+				return InvalidTransaction::BadProof.into()
 			}
 
 			ValidTransaction::with_tag_prefix("MixnetRegistration")
@@ -427,7 +427,7 @@ impl<T: Config> Pallet<T> {
 		// registering
 		let block_in_session = block_number.saturating_sub(CurrentSessionStartBlock::<T>::get());
 		if block_in_session < T::NumRegisterStartSlackBlocks::get() {
-			return false;
+			return false
 		}
 
 		let (Some(end_block), _weight) =
@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
 		if remaining_blocks.is_zero() {
 			// Into the slack time at the end of the session. Not necessarily too late;
 			// registrations are accepted right up until the session ends.
-			return true;
+			return true
 		}
 
 		// Want uniform distribution over the remaining blocks, so pick this block with probability
@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
 				"Session {session_index} registration attempted, \
 				but current session is {current_session_index}",
 			);
-			return false;
+			return false
 		}
 
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -502,7 +502,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Waiting for the session to progress further before registering",
 			);
-			return false;
+			return false
 		}
 
 		let Some((authority_index, authority_id)) = Self::next_local_authority() else {
@@ -518,7 +518,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Already registered a mixnode for the next session",
 			);
-			return false;
+			return false
 		}
 
 		let registration =

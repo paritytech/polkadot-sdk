@@ -40,7 +40,7 @@ pub mod v1 {
 
 			if StorageVersion::get::<Pallet<T>>() != 0 {
 				log::warn!("skipping v1, should be removed");
-				return weight;
+				return weight
 			}
 
 			weight.saturating_accrue(T::DbWeight::get().writes(1));

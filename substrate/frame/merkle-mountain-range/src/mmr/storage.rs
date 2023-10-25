@@ -82,7 +82,7 @@ where
 		);
 		// Try to retrieve the element from Off-chain DB.
 		if let Some(elem) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key) {
-			return Ok(codec::Decode::decode(&mut &*elem).ok());
+			return Ok(codec::Decode::decode(&mut &*elem).ok())
 		}
 
 		// Fall through to searching node using fork-specific key.
@@ -117,7 +117,7 @@ where
 
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		if elems.is_empty() {
-			return Ok(());
+			return Ok(())
 		}
 
 		trace!(
@@ -129,7 +129,7 @@ where
 		let size = NodesUtils::new(leaves).size();
 
 		if pos != size {
-			return Err(mmr_lib::Error::InconsistentStore);
+			return Err(mmr_lib::Error::InconsistentStore)
 		}
 
 		let new_size = size + elems.len() as NodeIndex;
