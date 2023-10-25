@@ -1339,11 +1339,6 @@ mod tests {
 		receiver_future: impl FnOnce(UnboundedReceiver<AllMessages>) -> RecvFut,
 		test: impl FnOnce(TestSubsystemSender) -> TestFut,
 	) {
-		let _ = env_logger::builder()
-			.is_test(true)
-			.filter(Some("polkadot_availability_recovery"), log::LevelFilter::Trace)
-			.try_init();
-
 		let (sender, receiver) = sender_receiver();
 
 		let test_fut = test(sender);
