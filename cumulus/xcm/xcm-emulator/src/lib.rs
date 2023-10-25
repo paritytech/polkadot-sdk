@@ -209,12 +209,18 @@ pub trait NetworkComponent {
 	}
 }
 
+pub trait OnHooks {
+	fn on_initialize(n: BlockNumber) -> Weight;
+	fn on_finalize(n: BlockNumber);
+}
+
 pub trait Chain: TestExt + NetworkComponent {
 	type Runtime: SystemConfig;
 	type RuntimeCall;
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
+	type Hooks: OnHooks;
 
 	fn account_id_of(seed: &str) -> AccountId {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
@@ -363,16 +369,12 @@ macro_rules! decl_test_relay_chains {
 			use $crate::NetworkComponent;
 
 			impl $crate::Chain for $name {
-				Self::execute_with(|| {
-					let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-					$(<$on_initalize_fn>::on_initialize(relay_block_number);)?
-				})
-
 				type Runtime = $runtime::Runtime;
 				type RuntimeCall = $runtime::RuntimeCall;
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Hooks = $on_hooks;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -404,13 +406,14 @@ macro_rules! decl_test_relay_chains {
 					)?
 				}
 			}
+			let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+			<$name as Chain>::Hooks::on_initialize(relay_block_number);
 
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 			$crate::__impl_check_assertion!($name);
 
 			let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
-			on_initialize(relay_block_number.clone());
-			$(on_finalize(relay_block_number);)?
+			<$name as Chain>::Hooks::on_finalize(relay_block_number)
 		)+
 	};
 }
@@ -587,8 +590,7 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
-				on_initialize = $($on_initialize_fn:expr,)?
-				$(on_finalize = $on_finalize_fn:expr,)?
+				hooks = $on_hooks:ident,
 			}
 		),
 		+
@@ -604,6 +606,7 @@ macro_rules! decl_test_parachains {
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Hooks = $on_hooks;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -708,11 +711,14 @@ macro_rules! decl_test_parachains {
 				}
 			}
 
-			on_initialize_fn(block_number)
-			$(on_finialize(block_number),)?
+			let block_number = <Self as $crate::Chain>::System::block_number();
+			<$name as Hooks>::on_initialize(block_number);
 
 			$crate::__impl_test_ext_for_parachain!($name, $genesis, $on_init);
 			$crate::__impl_check_assertion!($name);
+
+			let block_number = <Self as $crate::Chain>::System::block_number();
+			<$name as Hooks>::on_finalize(block_number);
 		)+
 	};
 }
