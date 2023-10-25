@@ -18,7 +18,6 @@ pub mod mocks;
 pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
-pub mod xcm_utils;
 
 use crate::tests::mock_network::primitives::{AccountId, UNITS};
 use sp_runtime::BuildStorage;

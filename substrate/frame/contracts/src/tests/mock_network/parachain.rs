@@ -20,7 +20,6 @@ mod contracts_config;
 use crate::tests::mock_network::{
 	mocks::msg_queue::pallet as mock_msg_queue,
 	primitives::{AccountId, AssetIdForAssets, Balance},
-	xcm_utils::ForeignChainAliasAccount,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -33,7 +32,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_xcm::XcmPassthrough;
-use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 
@@ -43,14 +41,12 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin,
 	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
 pub type SovereignAccountOf = (
-	ForeignChainAliasAccount<AccountId>,
-	SiblingParachainConvertsVia<Sibling, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
 );
