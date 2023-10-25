@@ -37,10 +37,12 @@ rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
 default = [ "std" ]
 std = [
 	"aes-gcm",
+	"aes-gcm?/std",
 	"codec/std",
 	"curve25519-dalek",
 	"ed25519-dalek",
 	"hkdf",
+	"hkdf?/std",
 	"rand",
 	"scale-info/std",
 	"sha2",

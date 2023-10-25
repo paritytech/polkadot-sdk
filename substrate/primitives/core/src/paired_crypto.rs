@@ -33,12 +33,12 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use sp_runtime_interface::pass_by::PassByInner;
+use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 use sp_std::convert::TryFrom;
 
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
-pub mod ecdsa_n_bls377 {
+pub mod ecdsa_bls377 {
 	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 
 	/// An identifier used to match public keys against BLS12-377 keys
@@ -49,12 +49,12 @@ pub mod ecdsa_n_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	/// (ECDSA, BLS12-377) key-pair pair.
+	/// (ECDSA,BLS12-377) key-pair pair.
 	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN>;
-	/// (ECDSA, BLS12-377) public key pair.
+	/// (ECDSA,BLS12-377) public key pair.
 	pub type Public = super::Public<PUBLIC_KEY_LEN>;
-	/// (ECDSA, BLS12-377) signature pair.
+	/// (ECDSA,BLS12-377) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN>;
 
 	impl super::CryptoType for Public {
@@ -151,6 +151,10 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> PassByInner for Public<LEFT_PLUS_RIGHT_LE
 	}
 }
 
+impl<const LEFT_PLUS_RIGHT_LEN: usize> PassBy for Public<LEFT_PLUS_RIGHT_LEN> {
+	type PassBy = pass_by::Inner<Self, [u8; LEFT_PLUS_RIGHT_LEN]>;
+}
+
 #[cfg(feature = "full_crypto")]
 impl<
 		LeftPair: PairT,
@@ -244,7 +248,7 @@ pub trait SignatureBound: ByteArray {}
 impl<T: ByteArray> SignatureBound for T {}
 
 /// A pair of signatures of different types
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 pub struct Signature<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
 
 #[cfg(feature = "full_crypto")]
@@ -447,12 +451,12 @@ where
 	}
 }
 
-// Test set exercising the (ECDSA, BLS12-377) implementation
+// Test set exercising the (ECDSA,BLS12-377) implementation
 #[cfg(all(test, feature = "bls-experimental"))]
 mod test {
 	use super::*;
 	use crate::crypto::DEV_PHRASE;
-	use ecdsa_n_bls377::{Pair, Signature};
+	use ecdsa_bls377::{Pair, Signature};
 
 	use crate::{bls377, ecdsa};
 	#[test]
