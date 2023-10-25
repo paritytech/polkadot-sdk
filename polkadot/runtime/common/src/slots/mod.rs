@@ -251,14 +251,20 @@ pub mod pallet {
 		///
 		/// Can only be called by the parachain manager.
 		#[pallet::call_index(3)]
-		// fixme(ank4n) weights and better errors
 		#[pallet::weight(T::WeightInfo::early_lease_refund())]
 		pub fn early_lease_refund(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			ensure!(
-				who == T::Registrar::manager_of(para).ok_or(Error::<T>::NoPermission)?,
-				Error::<T>::NoPermission
-			);
+			// ensure caller is ForceOrigin or the manager of the parachain.
+			ensure_signed(origin.clone())
+				.map_err(|e| e.into())
+				.and_then(|who| -> DispatchResult {
+					ensure!(Some(who) == T::Registrar::manager_of(para), Error::<T>::NoPermission);
+					Ok(())
+				})
+				.or_else(|_| -> DispatchResult {
+					T::ForceOrigin::ensure_origin(origin)
+						.map(|_| ())
+						.map_err(|_| Error::<T>::NoPermission.into())
+				})?;
 
 			// check if lease is ending soon.
 			let now = frame_system::Pallet::<T>::block_number();
@@ -268,7 +274,7 @@ pub mod pallet {
 
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
-			ensure!(leases.len() == 1, Error::<T>::LeaseError);
+			ensure!(leases.len() == 1, Error::<T>::NotAllowed);
 
 			if let Some((who, value)) = &leases[0] {
 				// unreserve the deposit for the soon to be ending lease.
@@ -385,7 +391,6 @@ impl<T: Config> Pallet<T> {
 	/// Returns how much deposit should be taken from the leaser for the current lease period of the
 	/// parachain. This is the maximum of all upcoming leases for the parachain with the same
 	/// leaser.
-	// Fixme: use this code for migration of ReservedAmounts.
 	fn required_deposit(para: ParaId, leaser: &T::AccountId) -> BalanceOf<T> {
 		Leases::<T>::get(para)
 			.into_iter()
@@ -781,14 +786,17 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 1, 1, 1));
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
+			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1).unwrap(), 1);
 
 			run_to_block(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
+			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1).unwrap(), 1);
 
 			run_to_block(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
+			assert_eq!(ReservedAmounts::<Test>::get(ParaId::from(1), 1), None);
 
 			assert_eq!(
 				TestRegistrar::<Test>::operations(),
@@ -1116,6 +1124,84 @@ mod tests {
 			assert_eq!(Slots::lease_period_index(2 * lpl - 1 + offset), Some((1, false)));
 			assert_eq!(Slots::lease_period_index(2 * lpl + offset), Some((2, true)));
 			assert_eq!(Slots::lease_period_index(2 * lpl + offset + 1), Some((2, false)));
+		});
+	}
+
+	#[test]
+	fn early_lease_refund_works() {
+		new_test_ext().execute_with(|| {
+			run_to_block(1);
+
+			assert_ok!(TestRegistrar::<Test>::register(
+				1,
+				ParaId::from(1_u32),
+				dummy_head_data(),
+				dummy_validation_code()
+			));
+
+			// lease out two slots with interruption.
+			assert_ok!(Slots::lease_out(1.into(), &1, 3, 1, 1));
+			assert_ok!(Slots::lease_out(1.into(), &1, 2, 3, 1));
+
+			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
+			assert_eq!(Slots::required_deposit(1.into(), &1), 3);
+
+			// only force origin or para manager can call this
+			assert_noop!(
+				Slots::early_lease_refund(RuntimeOrigin::signed(2), ParaId::from(1)),
+				Error::<Test>::NoPermission
+			);
+
+			// 1 block before current lease expires but there are upcoming leases so refund is not
+			// allowed.
+			run_to_block(19);
+			assert_noop!(
+				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
+				Error::<Test>::NotAllowed
+			);
+			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
+
+			// 1 block before new lease begins. Still not allowed.
+			run_to_block(29);
+			assert_noop!(
+				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
+				Error::<Test>::NotAllowed
+			);
+			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
+
+			// 3 blocks before the lease ends and no upcoming leases
+			run_to_block(37);
+			// EarliestRefundPeriod is 2 blocks, so this should still fail.
+			assert_noop!(
+				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
+				Error::<Test>::NotAllowed
+			);
+			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
+
+			// 2 blocks before lease ends, should be able to refund deposit now.
+			run_to_block(38);
+			assert_ok!(Slots::early_lease_refund(RuntimeOrigin::signed(1), ParaId::from(1)));
+			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
+			assert_eq!(Balances::reserved_balance(1), 0);
+			// required deposit is still two since lease period is not over yet.
+			assert_eq!(Slots::required_deposit(1.into(), &1), 2);
+
+			run_to_block(40);
+			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
+			assert_eq!(Balances::reserved_balance(1), 0);
+			// lease ended so required deposit is now zero.
+			assert_eq!(Slots::required_deposit(1.into(), &1), 0);
+
+			assert_eq!(
+				TestRegistrar::<Test>::operations(),
+				vec![
+					// (para_id, block, is_parachain)
+					(1.into(), 10, true),
+					(1.into(), 20, false),
+					(1.into(), 30, true),
+					(1.into(), 40, false)
+				]
+			);
 		});
 	}
 }
