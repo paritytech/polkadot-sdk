@@ -928,6 +928,77 @@
 <a href="#928" id="928">928</a>
 <a href="#929" id="929">929</a>
 <a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -978,13 +1049,13 @@
 </span><span class="kw">pub struct </span>WasmBinaryBloaty(PathBuf);
 
 <span class="kw">impl </span>WasmBinaryBloaty {
-	<span class="doccomment">/// Returns the escaped path to the bloaty wasm binary.
-	</span><span class="kw">pub fn </span>wasm_binary_bloaty_path_escaped(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+	<span class="doccomment">/// Returns the escaped path to the bloaty binary.
+	</span><span class="kw">pub fn </span>bloaty_path_escaped(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
 		<span class="self">self</span>.<span class="number">0</span>.display().to_string().escape_default().to_string()
 	}
 
-	<span class="doccomment">/// Returns the path to the wasm binary.
-	</span><span class="kw">pub fn </span>wasm_binary_bloaty_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
+	<span class="doccomment">/// Returns the path to the binary.
+	</span><span class="kw">pub fn </span>bloaty_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
 	</span>}
 }
@@ -1040,78 +1111,112 @@
 ///
 /// # Returns
 ///
-/// The path to the compact WASM binary and the bloaty WASM binary.
+/// The path to the compact runtime binary and the bloaty runtime binary.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_and_compile(
 	project_cargo_toml: <span class="kw-2">&amp;</span>Path,
 	default_rustflags: <span class="kw-2">&amp;</span>str,
 	cargo_cmd: CargoCommandVersioned,
 	features_to_enable: Vec&lt;String&gt;,
-	wasm_binary_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	bloaty_blob_out_name_override: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	check_for_runtime_version_section: bool,
 ) -&gt; (<span class="prelude-ty">Option</span>&lt;WasmBinary&gt;, WasmBinaryBloaty) {
-	<span class="kw">let </span>wasm_workspace_root = get_wasm_workspace_root();
-	<span class="kw">let </span>wasm_workspace = wasm_workspace_root.join(<span class="string">&quot;wbuild&quot;</span>);
+	<span class="kw">let </span>runtime_workspace_root = get_wasm_workspace_root();
+	<span class="kw">let </span>runtime_workspace = runtime_workspace_root.join(<span class="string">&quot;wbuild&quot;</span>);
 
 	<span class="kw">let </span>crate_metadata = crate_metadata(project_cargo_toml);
 
 	<span class="kw">let </span>project = create_project(
 		project_cargo_toml,
-		<span class="kw-2">&amp;</span>wasm_workspace,
+		<span class="kw-2">&amp;</span>runtime_workspace,
 		<span class="kw-2">&amp;</span>crate_metadata,
 		crate_metadata.workspace_root.as_ref(),
 		features_to_enable,
 	);
 
-	<span class="kw">let </span>profile = build_project(<span class="kw-2">&amp;</span>project, default_rustflags, cargo_cmd);
-	<span class="kw">let </span>(wasm_binary, wasm_binary_compressed, bloaty) =
-		compact_wasm_file(<span class="kw-2">&amp;</span>project, profile, project_cargo_toml, wasm_binary_name);
+	<span class="kw">let </span>build_config = BuildConfiguration::detect(<span class="kw-2">&amp;</span>project);
+
+	<span class="comment">// Build the bloaty runtime blob
+	</span>build_bloaty_blob(<span class="kw-2">&amp;</span>build_config.blob_build_profile, <span class="kw-2">&amp;</span>project, default_rustflags, cargo_cmd);
+
+	<span class="comment">// Get the name of the bloaty runtime blob.
+	</span><span class="kw">let </span>bloaty_blob_default_name = get_blob_name(project_cargo_toml);
+	<span class="kw">let </span>bloaty_blob_out_name =
+		bloaty_blob_out_name_override.unwrap_or_else(|| bloaty_blob_default_name.clone());
+
+	<span class="kw">let </span>bloaty_blob_binary = copy_bloaty_blob(
+		<span class="kw-2">&amp;</span>project,
+		<span class="kw-2">&amp;</span>build_config.blob_build_profile,
+		<span class="kw-2">&amp;</span>bloaty_blob_default_name,
+		<span class="kw-2">&amp;</span>bloaty_blob_out_name,
+	);
+
+	<span class="comment">// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
+	//
+	// This is because, by default the inner profile will be set to `Release` even when the outer
+	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
+	// development activities.
+	</span><span class="kw">let </span>(compact_blob_path, compact_compressed_blob_path) =
+		<span class="kw">if </span>build_config.outer_build_profile.wants_compact() {
+			<span class="kw">let </span>compact_blob_path = compact_wasm(
+				<span class="kw-2">&amp;</span>project,
+				<span class="kw-2">&amp;</span>build_config.blob_build_profile,
+				project_cargo_toml,
+				<span class="kw-2">&amp;</span>bloaty_blob_out_name,
+			);
+			<span class="kw">let </span>compact_compressed_blob_path = compact_blob_path
+				.as_ref()
+				.and_then(|p| try_compress_blob(<span class="kw-2">&amp;</span>p.<span class="number">0</span>, <span class="kw-2">&amp;</span>bloaty_blob_out_name));
+			(compact_blob_path, compact_compressed_blob_path)
+		} <span class="kw">else </span>{
+			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+		};
 
 	<span class="kw">if </span>check_for_runtime_version_section {
-		ensure_runtime_version_wasm_section_exists(bloaty.wasm_binary_bloaty_path());
+		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
 	}
 
-	wasm_binary
+	compact_blob_path
 		.as_ref()
-		.map(|wasm_binary| copy_wasm_to_target_directory(project_cargo_toml, wasm_binary));
+		.map(|wasm_binary| copy_blob_to_target_directory(project_cargo_toml, wasm_binary));
 
-	wasm_binary_compressed.as_ref().map(|wasm_binary_compressed| {
-		copy_wasm_to_target_directory(project_cargo_toml, wasm_binary_compressed)
+	compact_compressed_blob_path.as_ref().map(|wasm_binary_compressed| {
+		copy_blob_to_target_directory(project_cargo_toml, wasm_binary_compressed)
 	});
 
-	<span class="kw">let </span>final_wasm_binary = wasm_binary_compressed.or(wasm_binary);
+	<span class="kw">let </span>final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
 
 	generate_rerun_if_changed_instructions(
 		project_cargo_toml,
 		<span class="kw-2">&amp;</span>project,
-		<span class="kw-2">&amp;</span>wasm_workspace,
-		final_wasm_binary.as_ref(),
-		<span class="kw-2">&amp;</span>bloaty,
+		<span class="kw-2">&amp;</span>runtime_workspace,
+		final_blob_binary.as_ref(),
+		<span class="kw-2">&amp;</span>bloaty_blob_binary,
 	);
 
-	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = adjust_mtime(<span class="kw-2">&amp;</span>bloaty, final_wasm_binary.as_ref()) {
-		<span class="macro">build_helper::warning!</span>(<span class="string">&quot;Error while adjusting the mtime of the wasm binaries: {}&quot;</span>, err)
+	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = adjust_mtime(<span class="kw-2">&amp;</span>bloaty_blob_binary, final_blob_binary.as_ref()) {
+		<span class="macro">build_helper::warning!</span>(<span class="string">&quot;Error while adjusting the mtime of the blob binaries: {}&quot;</span>, err)
 	}
 
-	(final_wasm_binary, bloaty)
+	(final_blob_binary, bloaty_blob_binary)
 }
 
-<span class="doccomment">/// Ensures that the `runtime_version` wasm section exists in the given wasm file.
+<span class="doccomment">/// Ensures that the `runtime_version` section exists in the given blob.
 ///
 /// If the section can not be found, it will print an error and exit the builder.
-</span><span class="kw">fn </span>ensure_runtime_version_wasm_section_exists(wasm: <span class="kw-2">&amp;</span>Path) {
-	<span class="kw">let </span>wasm_blob = fs::read(wasm).expect(<span class="string">&quot;`{wasm}` was just written and should exist; qed&quot;</span>);
+</span><span class="kw">fn </span>ensure_runtime_version_wasm_section_exists(blob_path: <span class="kw-2">&amp;</span>Path) {
+	<span class="kw">let </span>blob = fs::read(blob_path).expect(<span class="string">&quot;`{blob_path}` was just written and should exist; qed&quot;</span>);
 
-	<span class="kw">let </span>module: Module = <span class="kw">match </span>deserialize_buffer(<span class="kw-2">&amp;</span>wasm_blob) {
+	<span class="kw">let </span>module: Module = <span class="kw">match </span>deserialize_buffer(<span class="kw-2">&amp;</span>blob) {
 		<span class="prelude-val">Ok</span>(m) =&gt; m,
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">println!</span>(<span class="string">&quot;Failed to deserialize `{}`: {e:?}&quot;</span>, wasm.display());
+			<span class="macro">println!</span>(<span class="string">&quot;Failed to deserialize `{}`: {e:?}&quot;</span>, blob_path.display());
 			process::exit(<span class="number">1</span>);
 		},
 	};
 
 	<span class="kw">if </span>!module.custom_sections().any(|cs| cs.name() == <span class="string">&quot;runtime_version&quot;</span>) {
 		<span class="macro">println!</span>(
-			<span class="string">&quot;Couldn&#39;t find the `runtime_version` wasm section. \
+			<span class="string">&quot;Couldn&#39;t find the `runtime_version` section. \
 				  Please ensure that you are using the `sp_version::runtime_version` attribute macro!&quot;
 		</span>);
 		process::exit(<span class="number">1</span>);
@@ -1138,7 +1243,7 @@
 	</span><span class="kw">let </span>metadata = fs::metadata(invoked_timestamp)<span class="question-mark">?</span>;
 	<span class="kw">let </span>mtime = filetime::FileTime::from_last_modification_time(<span class="kw-2">&amp;</span>metadata);
 
-	filetime::set_file_mtime(bloaty_wasm.wasm_binary_bloaty_path(), mtime)<span class="question-mark">?</span>;
+	filetime::set_file_mtime(bloaty_wasm.bloaty_path(), mtime)<span class="question-mark">?</span>;
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(binary) = compressed_or_compact_wasm.as_ref() {
 		filetime::set_file_mtime(binary.wasm_binary_path(), mtime)<span class="question-mark">?</span>;
 	}
@@ -1209,8 +1314,8 @@
 		.expect(<span class="string">&quot;Package name exists; qed&quot;</span>)
 }
 
-<span class="doccomment">/// Returns the name for the wasm binary.
-</span><span class="kw">fn </span>get_wasm_binary_name(cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; String {
+<span class="doccomment">/// Returns the name for the blob binary.
+</span><span class="kw">fn </span>get_blob_name(cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; String {
 	get_crate_name(cargo_manifest).replace(<span class="string">&#39;-&#39;</span>, <span class="string">&quot;_&quot;</span>)
 }
 
@@ -1431,7 +1536,7 @@
 ) -&gt; PathBuf {
 	<span class="kw">let </span>crate_name = get_crate_name(project_cargo_toml);
 	<span class="kw">let </span>crate_path = project_cargo_toml.parent().expect(<span class="string">&quot;Parent path exists; qed&quot;</span>);
-	<span class="kw">let </span>wasm_binary = get_wasm_binary_name(project_cargo_toml);
+	<span class="kw">let </span>wasm_binary = get_blob_name(project_cargo_toml);
 	<span class="kw">let </span>wasm_project_folder = wasm_workspace.join(<span class="kw-2">&amp;</span>crate_name);
 
 	fs::create_dir_all(wasm_project_folder.join(<span class="string">&quot;src&quot;</span>))
@@ -1469,8 +1574,8 @@
 	wasm_project_folder
 }
 
-<span class="doccomment">/// The cargo profile that is used to build the wasm project.
-</span><span class="attr">#[derive(Debug, EnumIter)]
+<span class="doccomment">/// A rustc profile.
+</span><span class="attr">#[derive(Clone, Debug, EnumIter)]
 </span><span class="kw">enum </span>Profile {
 	<span class="doccomment">/// The `--profile dev` profile.
 	</span>Debug,
@@ -1481,17 +1586,63 @@
 }
 
 <span class="kw">impl </span>Profile {
-	<span class="doccomment">/// Create a profile by detecting which profile is used for the main build.
+	<span class="doccomment">/// The name of the profile as supplied to the cargo `--profile` cli option.
+	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;dev&quot;</span>,
+			<span class="self">Self</span>::Release =&gt; <span class="string">&quot;release&quot;</span>,
+			<span class="self">Self</span>::Production =&gt; <span class="string">&quot;production&quot;</span>,
+		}
+	}
+
+	<span class="doccomment">/// The sub directory within `target` where cargo places the build output.
+	///
+	/// # Note
+	///
+	/// Usually this is the same as [`Self::name`] with the exception of the debug
+	/// profile which is called `dev`.
+	</span><span class="kw">fn </span>directory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;debug&quot;</span>,
+			<span class="kw">_ </span>=&gt; <span class="self">self</span>.name(),
+		}
+	}
+
+	<span class="doccomment">/// Whether the resulting binary should be compacted and compressed.
+	</span><span class="kw">fn </span>wants_compact(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		!<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Debug)
+	}
+}
+
+<span class="doccomment">/// The build configuration for this build.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>BuildConfiguration {
+	<span class="doccomment">/// The profile that is used to build the outer project.
+	</span><span class="kw">pub </span>outer_build_profile: Profile,
+	<span class="doccomment">/// The profile to use to build the runtime blob.
+	</span><span class="kw">pub </span>blob_build_profile: Profile,
+}
+
+<span class="kw">impl </span>BuildConfiguration {
+	<span class="doccomment">/// Create a [`BuildConfiguration`] by detecting which profile is used for the main build and
+	/// checking any env var overrides.
 	///
 	/// We cannot easily determine the profile that is used by the main cargo invocation
 	/// because the `PROFILE` environment variable won&#39;t contain any custom profiles like
 	/// &quot;production&quot;. It would only contain the builtin profile where the custom profile
 	/// inherits from. This is why we inspect the build path to learn which profile is used.
 	///
+	/// When not overriden by a env variable we always default to building wasm with the `Release`
+	/// profile even when the main build uses the debug build. This is because wasm built with the
+	/// `Debug` profile is too slow for normal development activities and almost never intended.
+	///
+	/// When cargo is building in `--profile dev`, user likely intends to compile fast, so we don&#39;t
+	/// bother producing compact or compressed blobs.
+	///
 	/// # Note
 	///
 	/// Can be overriden by setting [`crate::WASM_BUILD_TYPE_ENV`].
-	</span><span class="kw">fn </span>detect(wasm_project: <span class="kw-2">&amp;</span>Path) -&gt; Profile {
+	</span><span class="kw">fn </span>detect(wasm_project: <span class="kw-2">&amp;</span>Path) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>(name, overriden) = <span class="kw">if let </span><span class="prelude-val">Ok</span>(name) = env::var(<span class="kw">crate</span>::WASM_BUILD_TYPE_ENV) {
 			(name, <span class="bool-val">true</span>)
 		} <span class="kw">else </span>{
@@ -1515,7 +1666,8 @@
 				.to_string();
 			(name, <span class="bool-val">false</span>)
 		};
-		<span class="kw">match </span>(Profile::iter().find(|p| p.directory() == name), overriden) {
+		<span class="kw">let </span>outer_build_profile = Profile::iter().find(|p| p.directory() == name);
+		<span class="kw">let </span>blob_build_profile = <span class="kw">match </span>(outer_build_profile.clone(), overriden) {
 			<span class="comment">// When not overriden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
@@ -1545,34 +1697,11 @@
 				);
 				process::exit(<span class="number">1</span>);
 			},
+		};
+		BuildConfiguration {
+			outer_build_profile: outer_build_profile.unwrap_or(Profile::Release),
+			blob_build_profile,
 		}
-	}
-
-	<span class="doccomment">/// The name of the profile as supplied to the cargo `--profile` cli option.
-	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;dev&quot;</span>,
-			<span class="self">Self</span>::Release =&gt; <span class="string">&quot;release&quot;</span>,
-			<span class="self">Self</span>::Production =&gt; <span class="string">&quot;production&quot;</span>,
-		}
-	}
-
-	<span class="doccomment">/// The sub directory within `target` where cargo places the build output.
-	///
-	/// # Note
-	///
-	/// Usually this is the same as [`Self::name`] with the exception of the debug
-	/// profile which is called `dev`.
-	</span><span class="kw">fn </span>directory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;debug&quot;</span>,
-			<span class="kw">_ </span>=&gt; <span class="self">self</span>.name(),
-		}
-	}
-
-	<span class="doccomment">/// Whether the resulting binary should be compacted and compressed.
-	</span><span class="kw">fn </span>wants_compact(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		!<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Debug)
 	}
 }
 
@@ -1581,12 +1710,13 @@
 	env::var(OFFLINE).map_or(<span class="bool-val">false</span>, |v| v == <span class="string">&quot;true&quot;</span>)
 }
 
-<span class="doccomment">/// Build the project to create the WASM binary.
-</span><span class="kw">fn </span>build_project(
+<span class="doccomment">/// Build the project and create the bloaty runtime blob.
+</span><span class="kw">fn </span>build_bloaty_blob(
+	blob_build_profile: <span class="kw-2">&amp;</span>Profile,
 	project: <span class="kw-2">&amp;</span>Path,
 	default_rustflags: <span class="kw-2">&amp;</span>str,
 	cargo_cmd: CargoCommandVersioned,
-) -&gt; Profile {
+) {
 	<span class="kw">let </span>manifest_path = project.join(<span class="string">&quot;Cargo.toml&quot;</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>build_cmd = cargo_cmd.command();
 
@@ -1615,9 +1745,8 @@
 		build_cmd.arg(<span class="string">&quot;--color=always&quot;</span>);
 	}
 
-	<span class="kw">let </span>profile = Profile::detect(project);
 	build_cmd.arg(<span class="string">&quot;--profile&quot;</span>);
-	build_cmd.arg(profile.name());
+	build_cmd.arg(blob_build_profile.name());
 
 	<span class="kw">if </span>offline_build() {
 		build_cmd.arg(<span class="string">&quot;--offline&quot;</span>);
@@ -1627,69 +1756,82 @@
 	<span class="macro">println!</span>(<span class="string">&quot;{} {:?}&quot;</span>, colorize_info_message(<span class="string">&quot;Executing build command:&quot;</span>), build_cmd);
 	<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, colorize_info_message(<span class="string">&quot;Using rustc version:&quot;</span>), cargo_cmd.rustc_version());
 
-	<span class="kw">match </span>build_cmd.status().map(|s| s.success()) {
-		<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; profile,
-		<span class="comment">// Use `process.exit(1)` to have a clean error output.
-		</span><span class="kw">_ </span>=&gt; process::exit(<span class="number">1</span>),
+	<span class="comment">// Use `process::exit(1)` to have a clean error output.
+	</span><span class="kw">if </span>build_cmd.status().map(|s| s.success()).is_err() {
+		process::exit(<span class="number">1</span>);
 	}
 }
 
-<span class="doccomment">/// Compact the WASM binary using `wasm-gc` and compress it using zstd.
-</span><span class="kw">fn </span>compact_wasm_file(
+<span class="kw">fn </span>compact_wasm(
 	project: <span class="kw-2">&amp;</span>Path,
-	profile: Profile,
+	inner_profile: <span class="kw-2">&amp;</span>Profile,
 	cargo_manifest: <span class="kw-2">&amp;</span>Path,
-	out_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-) -&gt; (<span class="prelude-ty">Option</span>&lt;WasmBinary&gt;, <span class="prelude-ty">Option</span>&lt;WasmBinary&gt;, WasmBinaryBloaty) {
-	<span class="kw">let </span>default_out_name = get_wasm_binary_name(cargo_manifest);
-	<span class="kw">let </span>out_name = out_name.unwrap_or_else(|| default_out_name.clone());
+	out_name: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Option</span>&lt;WasmBinary&gt; {
+	<span class="kw">let </span>default_out_name = get_blob_name(cargo_manifest);
 	<span class="kw">let </span>in_path = project
 		.join(<span class="string">&quot;target/wasm32-unknown-unknown&quot;</span>)
-		.join(profile.directory())
+		.join(inner_profile.directory())
 		.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, default_out_name));
 
-	<span class="kw">let </span>(wasm_compact_path, wasm_compact_compressed_path) = <span class="kw">if </span>profile.wants_compact() {
-		<span class="kw">let </span>wasm_compact_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.wasm&quot;</span>, out_name,));
-		wasm_opt::OptimizationOptions::new_opt_level_0()
-			.mvp_features_only()
-			.debug_info(<span class="bool-val">true</span>)
-			.add_pass(wasm_opt::Pass::StripDwarf)
-			.run(<span class="kw-2">&amp;</span>in_path, <span class="kw-2">&amp;</span>wasm_compact_path)
-			.expect(<span class="string">&quot;Failed to compact generated WASM binary.&quot;</span>);
+	<span class="kw">let </span>wasm_compact_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.wasm&quot;</span>, out_name));
+	<span class="kw">let </span>start = std::time::Instant::now();
+	wasm_opt::OptimizationOptions::new_opt_level_0()
+		.mvp_features_only()
+		.debug_info(<span class="bool-val">true</span>)
+		.add_pass(wasm_opt::Pass::StripDwarf)
+		.run(<span class="kw-2">&amp;</span>in_path, <span class="kw-2">&amp;</span>wasm_compact_path)
+		.expect(<span class="string">&quot;Failed to compact generated WASM binary.&quot;</span>);
+	<span class="macro">println!</span>(
+		<span class="string">&quot;{} {}&quot;</span>,
+		colorize_info_message(<span class="string">&quot;Compacted wasm in&quot;</span>),
+		colorize_info_message(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, start.elapsed()).as_str())
+	);
+	<span class="prelude-val">Some</span>(WasmBinary(wasm_compact_path))
+}
 
-		<span class="kw">let </span>wasm_compact_compressed_path =
-			project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.compressed.wasm&quot;</span>, out_name));
-		<span class="kw">if </span>compress_wasm(<span class="kw-2">&amp;</span>wasm_compact_path, <span class="kw-2">&amp;</span>wasm_compact_compressed_path) {
-			(<span class="prelude-val">Some</span>(WasmBinary(wasm_compact_path)), <span class="prelude-val">Some</span>(WasmBinary(wasm_compact_compressed_path)))
-		} <span class="kw">else </span>{
-			(<span class="prelude-val">Some</span>(WasmBinary(wasm_compact_path)), <span class="prelude-val">None</span>)
-		}
-	} <span class="kw">else </span>{
-		(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-	};
+<span class="kw">fn </span>copy_bloaty_blob(
+	project: <span class="kw-2">&amp;</span>Path,
+	inner_profile: <span class="kw-2">&amp;</span>Profile,
+	in_name: <span class="kw-2">&amp;</span>str,
+	out_name: <span class="kw-2">&amp;</span>str,
+) -&gt; WasmBinaryBloaty {
+	<span class="kw">let </span>in_path = project
+		.join(<span class="string">&quot;target/wasm32-unknown-unknown&quot;</span>)
+		.join(inner_profile.directory())
+		.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, in_name));
 
 	<span class="kw">let </span>bloaty_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, out_name));
 	fs::copy(in_path, <span class="kw-2">&amp;</span>bloaty_path).expect(<span class="string">&quot;Copying the bloaty file to the project dir.&quot;</span>);
-
-	(wasm_compact_path, wasm_compact_compressed_path, WasmBinaryBloaty(bloaty_path))
+	WasmBinaryBloaty(bloaty_path)
 }
 
-<span class="kw">fn </span>compress_wasm(wasm_binary_path: <span class="kw-2">&amp;</span>Path, compressed_binary_out_path: <span class="kw-2">&amp;</span>Path) -&gt; bool {
+<span class="kw">fn </span>try_compress_blob(compact_blob_path: <span class="kw-2">&amp;</span>Path, out_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;WasmBinary&gt; {
 	<span class="kw">use </span>sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
-	<span class="kw">let </span>data = fs::read(wasm_binary_path).expect(<span class="string">&quot;Failed to read WASM binary&quot;</span>);
+	<span class="kw">let </span>project = compact_blob_path.parent().expect(<span class="string">&quot;blob path should have a parent directory&quot;</span>);
+	<span class="kw">let </span>compact_compressed_blob_path =
+		project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.compressed.wasm&quot;</span>, out_name));
+
+	<span class="kw">let </span>start = std::time::Instant::now();
+	<span class="kw">let </span>data = fs::read(compact_blob_path).expect(<span class="string">&quot;Failed to read WASM binary&quot;</span>);
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(compressed) = sp_maybe_compressed_blob::compress(<span class="kw-2">&amp;</span>data, CODE_BLOB_BOMB_LIMIT) {
-		fs::write(compressed_binary_out_path, <span class="kw-2">&amp;</span>compressed[..])
+		fs::write(<span class="kw-2">&amp;</span>compact_compressed_blob_path, <span class="kw-2">&amp;</span>compressed[..])
 			.expect(<span class="string">&quot;Failed to write WASM binary&quot;</span>);
 
-		<span class="bool-val">true
-	</span>} <span class="kw">else </span>{
+		<span class="macro">println!</span>(
+			<span class="string">&quot;{} {}&quot;</span>,
+			colorize_info_message(<span class="string">&quot;Compressed blob in&quot;</span>),
+			colorize_info_message(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, start.elapsed()).as_str())
+		);
+		<span class="prelude-val">Some</span>(WasmBinary(compact_compressed_blob_path))
+	} <span class="kw">else </span>{
 		<span class="macro">build_helper::warning!</span>(
-			<span class="string">&quot;Writing uncompressed wasm. Exceeded maximum size {}&quot;</span>,
+			<span class="string">&quot;Writing uncompressed blob. Exceeded maximum size {}&quot;</span>,
 			CODE_BLOB_BOMB_LIMIT,
 		);
-
-		<span class="bool-val">false
+		<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, colorize_info_message(<span class="string">&quot;Skipping blob compression&quot;</span>));
+		<span class="prelude-val">None
 	</span>}
 }
 
@@ -1799,7 +1941,7 @@
 	</span>packages.iter().for_each(package_rerun_if_changed);
 
 	compressed_or_compact_wasm.map(|w| rerun_if_changed(w.wasm_binary_path()));
-	rerun_if_changed(bloaty_wasm.wasm_binary_bloaty_path());
+	rerun_if_changed(bloaty_wasm.bloaty_path());
 
 	<span class="comment">// Register our env variables
 	</span><span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::SKIP_BUILD_ENV);
@@ -1832,9 +1974,9 @@
 		.for_each(rerun_if_changed);
 }
 
-<span class="doccomment">/// Copy the WASM binary to the target directory set in `WASM_TARGET_DIRECTORY` environment
+<span class="doccomment">/// Copy the blob binary to the target directory set in `WASM_TARGET_DIRECTORY` environment
 /// variable. If the variable is not set, this is a no-op.
-</span><span class="kw">fn </span>copy_wasm_to_target_directory(cargo_manifest: <span class="kw-2">&amp;</span>Path, wasm_binary: <span class="kw-2">&amp;</span>WasmBinary) {
+</span><span class="kw">fn </span>copy_blob_to_target_directory(cargo_manifest: <span class="kw-2">&amp;</span>Path, blob_binary: <span class="kw-2">&amp;</span>WasmBinary) {
 	<span class="kw">let </span>target_dir = <span class="kw">match </span>env::var(<span class="kw">crate</span>::WASM_TARGET_DIRECTORY) {
 		<span class="prelude-val">Ok</span>(path) =&gt; PathBuf::from(path),
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span>,
@@ -1853,9 +1995,9 @@
 	fs::create_dir_all(<span class="kw-2">&amp;</span>target_dir).expect(<span class="string">&quot;Creates `WASM_TARGET_DIRECTORY`.&quot;</span>);
 
 	fs::copy(
-		wasm_binary.wasm_binary_path(),
-		target_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, get_wasm_binary_name(cargo_manifest))),
+		blob_binary.wasm_binary_path(),
+		target_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, get_blob_name(cargo_manifest))),
 	)
-	.expect(<span class="string">&quot;Copies WASM binary to `WASM_TARGET_DIRECTORY`.&quot;</span>);
+	.expect(<span class="string">&quot;Copies blob binary to `WASM_TARGET_DIRECTORY`.&quot;</span>);
 }
 </code></pre></div></section></main></body></html>

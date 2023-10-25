@@ -565,9 +565,9 @@
 	);
 
 	<span class="kw">let </span>(wasm_binary, wasm_binary_bloaty) = <span class="kw">if let </span><span class="prelude-val">Some</span>(wasm_binary) = wasm_binary {
-		(wasm_binary.wasm_binary_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} <span class="kw">else </span>{
-		(bloaty.wasm_binary_bloaty_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
 
 	<span class="kw">crate</span>::write_file_if_changed(
