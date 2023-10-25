@@ -869,10 +869,11 @@ pub type UncheckedExtrinsic =
 ///
 /// This contains the combined migrations of the last 10 releases. It allows to skip runtime
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
 pub type Migrations = (
 	migrations::V0_09_20,
 	migrations::V1_04_00,
-	migrations::Unreleased,
+	migrations::Unreleased
 );
 
 /// The runtime migrations per release.
@@ -880,9 +881,7 @@ pub type Migrations = (
 pub mod migrations {
 	use super::*;
 
-	pub type V0_09_20 = (
-		pallet_nfts::migration::v1::MigrateToV1<Runtime>,
-	);
+	pub type V0_09_20 = (pallet_nfts::migration::v1::MigrateToV1<Runtime>,);
 
 	pub type V1_04_00 = ();
 

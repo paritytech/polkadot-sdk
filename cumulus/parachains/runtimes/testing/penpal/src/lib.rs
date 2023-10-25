@@ -128,9 +128,10 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
+#[rustfmt::skip]
 pub type Migrations = (
 	migrations::V1_04_00,
-	migrations::Unreleased,
+	migrations::Unreleased
 );
 
 /// The runtime migrations per release.

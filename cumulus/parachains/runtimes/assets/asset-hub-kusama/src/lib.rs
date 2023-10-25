@@ -893,14 +893,14 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-
 /// All migrations that will run on the next runtime upgrade.
 ///
 /// This contains the combined migrations of the last 10 releases. It allows to skip runtime
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
 pub type Migrations = (
 	migrations::V1_04_00,
-	migrations::Unreleased,
+	migrations::Unreleased
 );
 
 /// The runtime migrations per release.
@@ -910,9 +910,7 @@ pub mod migrations {
 
 	pub type V1_04_00 = ();
 
-	pub type Unreleased = (
-		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	);
+	pub type Unreleased = (pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,);
 }
 
 /// Executive: handles dispatch to the various modules.
