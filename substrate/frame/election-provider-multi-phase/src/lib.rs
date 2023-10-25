@@ -1278,7 +1278,7 @@ pub mod pallet {
 	/// Snapshot data of the round.
 	///
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
-	/// Note: This storage type must only be mutated through[`SnapshotWrapper`].
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot)]
 	pub type Snapshot<T: Config> = StorageValue<_, RoundSnapshot<T::AccountId, VoterOf<T>>>;
@@ -1286,7 +1286,7 @@ pub mod pallet {
 	/// Desired number of targets to elect for this round.
 	///
 	/// Only exists when [`Snapshot`] is present.
-	/// Note: This storage type must only be mutated through[`SnapshotWrapper`].
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn desired_targets)]
 	pub type DesiredTargets<T> = StorageValue<_, u32>;
@@ -1294,7 +1294,7 @@ pub mod pallet {
 	/// The metadata of the [`RoundSnapshot`]
 	///
 	/// Only exists when [`Snapshot`] is present.
-	/// Note: This storage type must only be mutated through[`SnapshotWrapper`].
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot_metadata)]
 	pub type SnapshotMetadata<T: Config> = StorageValue<_, SolutionOrSnapshotSize>;
