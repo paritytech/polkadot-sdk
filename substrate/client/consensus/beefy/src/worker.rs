@@ -1740,7 +1740,7 @@ pub(crate) mod tests {
 		let ancestry_proof = alice_worker
 			.runtime
 			.runtime_api()
-			.generate_ancestry_proof(*hashes.last().unwrap(), block_number)
+			.generate_ancestry_proof(*hashes.last().unwrap(), block_number, None)
 			.unwrap()
 			.unwrap();
 		let proof = generate_fork_equivocation_proof_vote(

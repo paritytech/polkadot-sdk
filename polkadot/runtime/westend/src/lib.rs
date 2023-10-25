@@ -1939,6 +1939,19 @@ sp_api::impl_runtime_apis! {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
 		}
+
+		fn generate_ancestry_proof(
+			prev_best_block: BlockNumber,
+			best_known_block_number: Option<BlockNumber>
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_best_block, best_known_block_number)
+		}
+
+		fn verify_ancestry_proof(
+			ancestry_proof: sp_mmr_primitives::AncestryProof<mmr::Hash>,
+		) -> Result<(), mmr::Error> {
+			Mmr::verify_ancestry_proof(ancestry_proof)
+		}
 	}
 
 	impl pallet_beefy_mmr::BeefyMmrApi<Block, Hash> for RuntimeApi {

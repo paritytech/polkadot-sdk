@@ -468,10 +468,11 @@ sp_api::decl_runtime_apis! {
 		/// Generate MMR ancestry proof for prior mmr size
 		fn generate_ancestry_proof(
 			prev_best_block: BlockNumber,
+			best_known_block_number: Option<BlockNumber>
 		) -> Result<AncestryProof<Hash>, Error>;
 
 		/// Verifies that a claimed prev_root is in fact an ancestor of the provided mmr root
-		fn verify_ancestry_proof(ancestry_proof: AncestryProof<Hash>, root: Hash, prev_root: Hash) -> Result<(), Error>;
+		fn verify_ancestry_proof(ancestry_proof: AncestryProof<Hash>) -> Result<(), Error>;
 	}
 }
 

@@ -295,6 +295,18 @@ sp_api::impl_runtime_apis! {
 		) -> Result<(), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
+
+		fn generate_ancestry_proof(
+			_: u32,
+			_: Option<BlockNumber>,
+		) -> Result<sp_mmr_primitives::AncestryProof<Hash>, sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+		fn verify_ancestry_proof(
+			_: sp_mmr_primitives::AncestryProof<Hash>,
+		) -> Result<(), sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
 	}
 
 	impl grandpa_primitives::GrandpaApi<Block> for Runtime {

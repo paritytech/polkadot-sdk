@@ -223,7 +223,7 @@ where
 			let ancestry_proof = self
 				.runtime
 				.runtime_api()
-				.generate_ancestry_proof(correct_header.hash(), number)
+				.generate_ancestry_proof(correct_header.hash(), number, None)
 				.unwrap()
 				.unwrap();
 			let proof = ForkEquivocationProof {
@@ -249,7 +249,7 @@ where
 			let ancestry_proof = self
 				.runtime
 				.runtime_api()
-				.generate_ancestry_proof(correct_header.hash(), number)
+				.generate_ancestry_proof(correct_header.hash(), number, None)
 				.unwrap()
 				.unwrap();
 			let validator_set = self.active_validator_set_at(&correct_header)?;
