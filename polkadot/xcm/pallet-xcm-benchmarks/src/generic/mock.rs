@@ -152,14 +152,9 @@ impl pallet_balances::Config for Test {
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
-<<<<<<< HEAD
-	fn valid_destination() -> Result<Location, BenchmarkError> {
-		let valid_destination: Location =
-=======
 	type DeliveryHelper = ();
 	fn valid_destination() -> Result<Location, BenchmarkError> {
 		let valid_destination: Location =
->>>>>>> master
 			Junction::AccountId32 { network: None, id: [0u8; 32] }.into();
 
 		Ok(valid_destination)

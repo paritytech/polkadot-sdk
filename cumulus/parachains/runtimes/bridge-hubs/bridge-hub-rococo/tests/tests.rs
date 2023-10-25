@@ -18,11 +18,11 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_hub_rococo_config, bridge_hub_wococo_config,
+	bridge_common_config, bridge_hub_rococo_config, bridge_hub_wococo_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, DeliveryRewardInBalance,
-	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, RequiredStakeForStakeAndSlash,
-	Runtime, RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra,
+	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
@@ -95,12 +95,13 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 
 mod bridge_hub_rococo_tests {
 	use super::*;
-	use bridge_hub_rococo_config::{
-		WithBridgeHubWococoMessageBridge, DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
+	use bridge_common_config::{
+		BridgeGrandpaWococoInstance, BridgeParachainWococoInstance, DeliveryRewardInBalance,
+		RequiredStakeForStakeAndSlash,
 	};
-	use bridge_hub_rococo_runtime::{
-		BridgeGrandpaWococoInstance, BridgeParachainWococoInstance,
-		WithBridgeHubWococoMessagesInstance,
+	use bridge_hub_rococo_config::{
+		WithBridgeHubWococoMessageBridge, WithBridgeHubWococoMessagesInstance,
+		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
 	};
 
 	bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
@@ -186,7 +187,7 @@ mod bridge_hub_rococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeWococoMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeRococoToWococoMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),
@@ -299,12 +300,14 @@ mod bridge_hub_rococo_tests {
 
 mod bridge_hub_wococo_tests {
 	use super::*;
-	use bridge_hub_rococo_runtime::{
-		xcm_config, AllPalletsWithoutSystem, BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance, RuntimeFlavor, WithBridgeHubRococoMessagesInstance,
+	use bridge_common_config::{
+		BridgeGrandpaRococoInstance, BridgeParachainRococoInstance, DeliveryRewardInBalance,
+		RequiredStakeForStakeAndSlash,
 	};
+	use bridge_hub_rococo_runtime::{xcm_config, AllPalletsWithoutSystem, RuntimeFlavor};
 	use bridge_hub_wococo_config::{
-		WithBridgeHubRococoMessageBridge, DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,
+		WithBridgeHubRococoMessageBridge, WithBridgeHubRococoMessagesInstance,
+		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_ROCOCO,
 	};
 	use frame_support::assert_ok;
 
@@ -416,7 +419,7 @@ mod bridge_hub_wococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeRococoMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeWococoToRococoMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),

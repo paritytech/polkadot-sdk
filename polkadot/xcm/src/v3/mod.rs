@@ -74,6 +74,7 @@ pub type QueryId = u64;
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
@@ -242,6 +243,7 @@ parameter_types! {
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct PalletInfo {
 	#[codec(compact)]
 	index: u32,
@@ -288,6 +290,7 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum MaybeErrorCode {
 	Success,
 	Error(BoundedVec<u8, MaxDispatchErrorLen>),
@@ -311,6 +314,7 @@ impl Default for MaybeErrorCode {
 
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -360,6 +364,7 @@ impl TryFrom<NewResponse> for Response {
 
 /// Information regarding the composition of a query response.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: MultiLocation,
@@ -384,6 +389,7 @@ impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
 
 /// An optional weight limit.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WeightLimit {
 	/// No weight limit imposed.
 	Unlimited,
@@ -459,6 +465,7 @@ impl XcmContext {
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
