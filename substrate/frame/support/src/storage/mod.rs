@@ -182,6 +182,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// - `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
+	///
 	/// # Example
 	///
 	/// ```text
