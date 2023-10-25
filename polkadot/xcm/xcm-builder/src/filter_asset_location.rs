@@ -97,11 +97,11 @@ mod tests {
 			pub AssetZLocation: Location = Location::new(1, [GeneralIndex(3333)]);
 
 			pub OnlyAssetXOrAssetY: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetXLocation::get()) }),
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetYLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetXLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetYLocation::get()) }),
 			];
 			pub OnlyAssetZ: sp_std::vec::Vec<AssetFilter> = sp_std::vec![
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetZLocation::get()) })
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetZLocation::get()) })
 			];
 		}
 

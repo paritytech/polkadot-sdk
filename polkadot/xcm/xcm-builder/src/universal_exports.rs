@@ -618,19 +618,19 @@ mod tests {
 			];
 		}
 
-		let test_data = vec![
-			(NetworkA::get(), X1(Parachain(1000)), Some((BridgeToALocation::get(), None))),
-			(NetworkA::get(), X2(Parachain(1000), GeneralIndex(1)), None),
+		let test_data: Vec<(NetworkId, Location, Option<Location, Option<Asset>>)> = vec![
+			(NetworkA::get(), [Parachain(1000)].into(), Some((BridgeToALocation::get(), None))),
+			(NetworkA::get(), [Parachain(1000), GeneralIndex(1)], None),
 			(
 				NetworkA::get(),
-				X1(Parachain(2000)),
+				[Parachain(2000)],
 				Some((BridgeToALocation::get(), Some(PaymentForNetworkAAndParachain2000::get()))),
 			),
-			(NetworkA::get(), X2(Parachain(2000), GeneralIndex(1)), None),
-			(NetworkA::get(), X1(Parachain(3000)), None),
-			(NetworkB::get(), X1(Parachain(1000)), Some((BridgeToBLocation::get(), None))),
-			(NetworkB::get(), X1(Parachain(2000)), Some((BridgeToBLocation::get(), None))),
-			(NetworkB::get(), X1(Parachain(3000)), Some((BridgeToBLocation::get(), None))),
+			(NetworkA::get(), [Parachain(2000), GeneralIndex(1)].into(), None),
+			(NetworkA::get(), [Parachain(3000)].into(), None),
+			(NetworkB::get(), [Parachain(1000)].into(), Some((BridgeToBLocation::get(), None))),
+			(NetworkB::get(), [Parachain(2000)].into(), Some((BridgeToBLocation::get(), None))),
+			(NetworkB::get(), [Parachain(3000)].into(), Some((BridgeToBLocation::get(), None))),
 		];
 
 		for (network, remote_location, expected_result) in test_data {

@@ -43,7 +43,7 @@ use parachains_common::{
 	rococo::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
-use xcm::latest::prelude::*;
+use xcm::latest::prelude::{*, Assets as XcmAssets};
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -96,8 +96,8 @@ fn test_asset_xcm_trader() {
 				minimum_asset_balance
 			));
 
-			// get asset id as multilocation
-			let asset_multilocation =
+			// get asset id as location
+			let asset_location =
 				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap();
 
 			// Set Alice as block author, who will receive fees
@@ -116,8 +116,8 @@ fn test_asset_xcm_trader() {
 
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
-			let asset: MultiAsset =
-				(asset_multilocation, asset_amount_needed + asset_amount_extra).into();
+			let asset: Asset =
+				(asset_location, asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
@@ -126,7 +126,7 @@ fn test_asset_xcm_trader() {
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
 			// Check whether a correct amount of unused assets is returned
 			assert_ok!(
-				unused_assets.ensure_contains(&(asset_multilocation, asset_amount_extra).into())
+				unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into())
 			);
 
 			// Drop trader
@@ -184,12 +184,12 @@ fn test_asset_xcm_trader_with_refund() {
 			// We are going to buy 4e9 weight
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
+			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: Asset = (asset_location, amount_bought).into();
 
 			// Make sure buy_weight does not return an error
 			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
@@ -207,7 +207,7 @@ fn test_asset_xcm_trader_with_refund() {
 
 			assert_eq!(
 				trader.refund_weight(bought - weight_used, &ctx),
-				Some((asset_multilocation, amount_refunded).into())
+				Some((asset_location, amount_refunded).into())
 			);
 
 			// Drop trader
@@ -256,7 +256,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			// We are going to buy small amount
 			let bought = Weight::from_parts(500_000_000u64, 0);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
+			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -265,7 +265,7 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 				"we are testing what happens when the amount does not exceed ED"
 			);
 
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: Asset = (asset_location, amount_bought).into();
 
 			// Buy weight should return an error
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
@@ -308,7 +308,7 @@ fn test_that_buying_ed_refund_does_not_refund() {
 			// We are gonna buy ED
 			let bought = Weight::from_parts(ExistentialDeposit::get().try_into().unwrap(), 0);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
+			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -319,11 +319,11 @@ fn test_that_buying_ed_refund_does_not_refund() {
 
 			// We know we will have to buy at least ED, so lets make sure first it will
 			// fail with a payment of less than ED
-			let asset: MultiAsset = (asset_multilocation, amount_bought).into();
+			let asset: Asset = (asset_location, amount_bought).into();
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
 
 			// Now lets buy ED at least
-			let asset: MultiAsset = (asset_multilocation, ExistentialDeposit::get()).into();
+			let asset: Asset = (asset_location, ExistentialDeposit::get()).into();
 
 			// Buy weight should work
 			assert_ok!(trader.buy_weight(bought, asset.into(), &ctx));
@@ -384,9 +384,9 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			// lets calculate amount needed
 			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);
 
-			let asset_multilocation = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
+			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
-			let asset: MultiAsset = (asset_multilocation, asset_amount_needed).into();
+			let asset: Asset = (asset_location, asset_amount_needed).into();
 
 			// Make sure again buy_weight does return an error
 			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
@@ -416,19 +416,19 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_multilocation =
-				MultiLocation { parents: 1, interior: X2(Parachain(1234), GeneralIndex(12345)) };
+			let foreign_asset_id_location =
+				Location::new(1, [Parachain(1234), GeneralIndex(12345)]);
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
 			assert!(Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
-				.try_as::<MultiAssets>()
+				.try_as::<XcmAssets>()
 				.unwrap()
 				.is_none());
 
@@ -459,7 +459,7 @@ fn test_assets_balances_api_works() {
 			let foreign_asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_asset_id_multilocation,
+				foreign_asset_id_location,
 				AccountId::from(SOME_ASSET_ADMIN).into(),
 				false,
 				foreign_asset_minimum_asset_balance
@@ -468,7 +468,7 @@ fn test_assets_balances_api_works() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(SOME_ASSET_ADMIN)),
-				foreign_asset_id_multilocation,
+				foreign_asset_id_location,
 				AccountId::from(ALICE).into(),
 				6 * foreign_asset_minimum_asset_balance
 			));
@@ -479,12 +479,12 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_multilocation, AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
 
-			let result: MultiAssets = Runtime::query_account_balances(AccountId::from(ALICE))
+			let result: XcmAssets = Runtime::query_account_balances(AccountId::from(ALICE))
 				.unwrap()
 				.try_into()
 				.unwrap();
@@ -505,7 +505,7 @@ fn test_assets_balances_api_works() {
 				.into())));
 			// check foreign asset
 			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				Identity::convert_back(&foreign_asset_id_multilocation).unwrap(),
+				Identity::convert_back(&foreign_asset_id_location).unwrap(),
 				6 * foreign_asset_minimum_asset_balance
 			)
 				.into())));
@@ -599,11 +599,11 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	Runtime,
 	XcmConfig,
 	ForeignAssetsInstance,
-	MultiLocation,
+	Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	MultiLocation { parents: 1, interior: X2(Parachain(1313), GeneralIndex(12345)) },
+	Location::new(1, [Parachain(1313), GeneralIndex(12345)]),
 	Box::new(|| {
 		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
 	}),
@@ -618,7 +618,7 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	WeightToFee,
 	ForeignCreatorsSovereignAccountOf,
 	ForeignAssetsInstance,
-	MultiLocation,
+	Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
@@ -701,12 +701,12 @@ mod asset_hub_rococo_tests {
 			AccountId::from([73; 32]),
 			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 			// receiving WOCs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Wococo)) }, 1000000000000, 1_000_000_000),
+			(Location::new(2, [GlobalConsensus(Wococo)]), 1000000000000, 1_000_000_000),
 			bridging_to_asset_hub_wococo,
 			(
-				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)),
+				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(Wococo),
-				X1(Parachain(1000))
+				[Parachain(1000)].into()
 			)
 		)
 	}
@@ -906,12 +906,12 @@ mod asset_hub_wococo_tests {
 			AccountId::from([73; 32]),
 			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
 			// receiving ROCs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }, 1000000000000, 1_000_000_000),
+			(Location::new(2, [GlobalConsensus(Rococo)]), 1000000000000, 1_000_000_000),
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
 			(
-				X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX)),
+				[PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(Rococo),
-				X1(Parachain(1000))
+				[Parachain(1000)].into()
 			)
 		)
 	}
@@ -1027,27 +1027,27 @@ mod asset_hub_wococo_tests {
 #[test]
 fn xcm_reserve_transfer_filter_works() {
 	// prepare assets
-	let only_native_assets = || vec![MultiAsset::from((TokenLocation::get(), 1000))];
+	let only_native_assets = || vec![Asset::from((TokenLocation::get(), 1000))];
 	let only_trust_backed_assets = || {
-		vec![MultiAsset::from((
+		vec![Asset::from((
 			AssetIdForTrustBackedAssetsConvert::convert_back(&12345).unwrap(),
 			2000,
 		))]
 	};
 	let only_sibling_foreign_assets =
-		|| vec![MultiAsset::from((MultiLocation::new(1, X1(Parachain(12345))), 3000))];
+		|| vec![Asset::from((Location::new(1, [Parachain(12345)]), 3000))];
 	let only_different_global_consensus_foreign_assets = || {
-		vec![MultiAsset::from((
-			MultiLocation::new(2, X2(GlobalConsensus(Wococo), Parachain(12345))),
+		vec![Asset::from((
+			Location::new(2, [GlobalConsensus(Wococo), Parachain(12345)]),
 			4000,
 		))]
 	};
 
 	// prepare destinations
-	let relaychain = MultiLocation::parent();
-	let sibling_parachain = MultiLocation::new(1, X1(Parachain(54321)));
+	let relaychain = Location::parent();
+	let sibling_parachain = Location::new(1, [Parachain(54321)]);
 	let different_global_consensus_parachain_other_than_asset_hub_wococo =
-		MultiLocation::new(2, X2(GlobalConsensus(Kusama), Parachain(12345)));
+		Location::new(2, [GlobalConsensus(Kusama), Parachain(12345)]);
 	let bridged_asset_hub_wococo = bridging::to_wococo::AssetHubWococo::get();
 	let bridged_asset_hub_rococo = bridging::to_rococo::AssetHubRococo::get();
 
@@ -1106,7 +1106,7 @@ fn xcm_reserve_transfer_filter_works() {
 			type XcmReserveTransferFilter =
 				<Runtime as pallet_xcm::Config>::XcmReserveTransferFilter;
 
-			fn do_test(data: Vec<(MultiLocation, Vec<MultiAsset>, bool)>) {
+			fn do_test(data: Vec<(Location, Vec<Asset>, bool)>) {
 				for (dest, assets, expected_result) in data {
 					assert_eq!(
 						expected_result,

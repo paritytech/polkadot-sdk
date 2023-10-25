@@ -387,7 +387,7 @@ fn limited_reserve_transfer_asset_from_system_para_to_para() {
 	let beneficiary_id = PenpalRococoAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send)
 			.into();
 
 	let system_para_test_args = TestContext {
@@ -423,7 +423,7 @@ fn reserve_transfer_asset_from_system_para_to_para() {
 	let beneficiary_id = PenpalRococoAReceiver::get();
 	let amount_to_send = ASSET_MIN_BALANCE * 1000;
 	let assets =
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), amount_to_send)
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], amount_to_send)
 			.into();
 
 	let system_para_test_args = TestContext {

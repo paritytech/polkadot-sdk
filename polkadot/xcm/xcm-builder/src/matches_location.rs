@@ -40,7 +40,7 @@ impl<T: Get<InteriorLocation>> Contains<InteriorLocation> for StartsWith<T> {
 pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
 impl<T: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<T> {
 	fn contains(location: &Location) -> bool {
-		matches!(location.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
+		matches!(location.interior().global_consensus(), Ok(requested_network) if requested_network.eq(&T::get()))
 	}
 }
 impl<T: Get<NetworkId>> Contains<InteriorLocation> for StartsWithExplicitGlobalConsensus<T> {

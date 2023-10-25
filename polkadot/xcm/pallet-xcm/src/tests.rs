@@ -535,7 +535,7 @@ fn reserve_transfer_assets_works() {
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
 /// is increased. Verifies the correct message is sent and event is emitted.
-/// Verifies that XCM router fees (`SendXcm::validate` -> `MultiAssets`) are withdrawn from correct
+/// Verifies that XCM router fees (`SendXcm::validate` -> `Assets`) are withdrawn from correct
 /// user account and deposited to a correct target account (`XcmFeesTargetAccount`).
 #[test]
 fn reserve_transfer_assets_with_paid_router_works() {
@@ -549,13 +549,13 @@ fn reserve_transfer_assets_with_paid_router_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let xcm_router_fee_amount = Para3000PaymentAmount::get();
 		let weight = BaseXcmWeight::get() * 2;
-		let dest: MultiLocation =
+		let dest: Location =
 			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::reserve_transfer_assets(
 			RuntimeOrigin::signed(user_account.clone()),
 			Box::new(Parachain(paid_para_id).into()),
-			Box::new(dest.into()),
+			Box::new(dest.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
 		));
@@ -805,7 +805,7 @@ fn trapped_assets_can_be_claimed() {
 }
 
 #[test]
-fn fake_latest_versioned_multilocation_works() {
+fn fake_latest_versioned_location_works() {
 	use codec::Encode;
 	let remote: Location = Parachain(1000).into();
 	let versioned_remote = LatestVersionedLocation(&remote);

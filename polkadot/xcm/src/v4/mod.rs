@@ -41,6 +41,7 @@ mod traits;
 
 pub use asset::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
+	MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
@@ -64,6 +65,8 @@ pub type QueryId = u64;
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
+
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 impl<Call> Xcm<Call> {
 	/// Create an empty instance.

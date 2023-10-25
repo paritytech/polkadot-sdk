@@ -309,9 +309,9 @@ mod tests {
 
 		assert_eq!(
 			BridgeRococoToWococoMessagesPalletInstance::get(),
-			X1(PalletInstance(
+			Junctions::from([PalletInstance(
 				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX
-			))
+			)])
 		);
 	}
 }

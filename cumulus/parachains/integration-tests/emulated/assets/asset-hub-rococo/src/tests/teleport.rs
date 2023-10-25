@@ -397,7 +397,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 #[test]
 fn teleport_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_ROCOCO_ED * 100;
-	let native_asset: MultiAssets = (Parent, amount).into();
+	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubRococo,          // Origin

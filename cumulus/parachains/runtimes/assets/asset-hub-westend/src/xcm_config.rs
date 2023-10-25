@@ -41,7 +41,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use westend_runtime_constants::system_parachain;
+use westend_runtime_constants::{system_parachain, TREASURY_PALLET_ID as ParentTreasuryPalletIndex};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -241,8 +241,7 @@ impl Contains<Location> for ParentOrParentsPlurality {
 pub struct ParentTreasuryPallet;
 impl Contains<Location> for ParentTreasuryPallet {
 	fn contains(location: &Location) -> bool {
-		let pallet_index = <WestendTreasury as PalletInfoAccess>::index() as u8;
-		matches!(location.unpack(), (1, [PalletInstance(index)]) if *index == pallet_index)
+		matches!(location.unpack(), (1, [PalletInstance(index)]) if *index == ParentTreasuryPalletIndex)
 	}
 }
 

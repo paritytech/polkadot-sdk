@@ -17,7 +17,7 @@
 use codec::Encode;
 use frame_support::{
 	construct_runtime, match_types, parameter_types,
-	traits::{ConstU32, Everything, EverythingBut, Nothing},
+	traits::{ConstU32, Everything, EverythingBut, Nothing, Contains},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -194,18 +194,18 @@ impl SendXcm for TestSendXcmErrX8 {
 
 parameter_types! {
 	pub Para3000: u32 = 3000;
-	pub Para3000Location: MultiLocation = Parachain(Para3000::get()).into();
+	pub Para3000Location: Location = Parachain(Para3000::get()).into();
 	pub Para3000PaymentAmount: u128 = 1;
-	pub Para3000PaymentMultiAssets: MultiAssets = MultiAssets::from(MultiAsset::from((Here, Para3000PaymentAmount::get())));
+	pub Para3000PaymentAssets: Assets = Assets::from(Asset::from((Here, Para3000PaymentAmount::get())));
 }
 /// Sender only sends to `Parachain(3000)` destination requiring payment.
 pub struct TestPaidForPara3000SendXcm;
 impl SendXcm for TestPaidForPara3000SendXcm {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
 				return Err(SendError::NotApplicable)
@@ -215,9 +215,9 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
-		Ok((pair, Para3000PaymentMultiAssets::get()))
+		Ok((pair, Para3000PaymentAssets::get()))
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -307,10 +307,12 @@ parameter_types! {
 }
 
 pub const XCM_FEES_NOT_WAIVED_USER_ACCOUNT: [u8; 32] = [37u8; 32];
-match_types! {
-	pub type XcmFeesNotWaivedLocations: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Junction::AccountId32 {network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT})}
-	};
+
+pub struct XcmFeesNotWaivedLocations;
+impl Contains<Location> for XcmFeesNotWaivedLocations {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Junction::AccountId32 { network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT }]))
+	}
 }
 
 pub type Barrier = (

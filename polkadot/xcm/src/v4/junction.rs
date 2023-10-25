@@ -256,7 +256,7 @@ impl Junction {
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
 	pub fn into_location(self) -> Location {
-		Location { parents: 0, interior: [self].into() }
+		Location::new(0, [self])
 	}
 
 	/// Convert `self` into a `Location` containing `n` parents.
@@ -264,7 +264,7 @@ impl Junction {
 	/// Similar to `Self::into_location`, with the added ability to specify the number of parent
 	/// junctions.
 	pub fn into_exterior(self, n: u8) -> Location {
-		Location { parents: n, interior: [self].into() }
+		Location::new(n, [self])
 	}
 
 	/// Convert `self` into a `VersionedLocation` containing 0 parents.

@@ -19,7 +19,7 @@ use crate::*;
 fn relay_sets_system_para_xcm_supported_version() {
 	// Init tests variables
 	let sudo_origin = <Rococo as Chain>::RuntimeOrigin::root();
-	let system_para_destination: MultiLocation =
+	let system_para_destination: Location =
 		Rococo::child_location_of(AssetHubRococo::para_id());
 
 	// Relay Chain sets supported version for Asset Parachain

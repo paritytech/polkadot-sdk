@@ -21,10 +21,7 @@ use sp_runtime::{DispatchError, ModuleError};
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocation::get());
-	let asset_one = Box::new(MultiLocation {
-		parents: 0,
-		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
-	});
+	let asset_one = Box::new(Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())]));
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -122,21 +119,17 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocation::get());
 
-	let foreign_asset1_at_asset_hub_rococo = Box::new(MultiLocation {
-		parents: 1,
-		interior: X3(
-			Parachain(PenpalRococoA::para_id().into()),
-			PalletInstance(ASSETS_PALLET_ID),
-			GeneralIndex(ASSET_ID.into()),
-		),
-	});
+	let foreign_asset1_at_asset_hub_rococo = Box::new(Location::new(1, [
+		Parachain(PenpalRococoA::para_id().into()),
+		PalletInstance(ASSETS_PALLET_ID),
+		GeneralIndex(ASSET_ID.into()),
+	]);
 
-	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubRococo::para_id().into())) }
-			.into();
+	let assets_para_destination: VersionedLocation =
+		Location::new(1, [Parachain(AssetHubRococo::para_id().into())]).into();
 
 	let penpal_location =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalRococoA::para_id().into())) };
+		Location::new(1, [Parachain(PenpalRococoA::para_id().into())]);
 
 	// 1. Create asset on penpal:
 	PenpalRococoA::execute_with(|| {
@@ -162,13 +155,10 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		(sov_penpal_on_asset_hub_rococo.clone().into(), 1000_000_000_000_000_000 * ROCOCO_ED),
 	]);
 
-	let sov_penpal_on_asset_hub_rococo_as_location: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(AccountId32Junction {
-			network: None,
-			id: sov_penpal_on_asset_hub_rococo.clone().into(),
-		}),
-	};
+	let sov_penpal_on_asset_hub_rococo_as_location: Location = Location::new(0, [AccountId32Junction {
+		network: None,
+		id: sov_penpal_on_asset_hub_rococo.clone().into(),
+	}]);
 
 	let call_foreign_assets_create =
 		<AssetHubRococo as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
@@ -185,8 +175,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	let buy_execution_fee_amount = parachains_common::rococo::fee::WeightToFee::weight_to_fee(
 		&Weight::from_parts(10_100_000_000_000, 300_000),
 	);
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(MultiLocation { parents: 1, interior: Here }),
+	let buy_execution_fee = Asset {
+		id: AssetId(Location::new(1, []),
 		fun: Fungible(buy_execution_fee_amount),
 	};
 

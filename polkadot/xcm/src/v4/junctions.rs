@@ -241,14 +241,14 @@ impl Junctions {
 	/// This will return an error if `relative` has as many (or more) parents than there are
 	/// junctions in `self`, implying that relative refers into a different global consensus.
 	pub fn within_global(mut self, relative: Location) -> Result<Self, ()> {
-		if self.len() <= relative.parents as usize {
+		if self.len() <= relative.parent_count() as usize {
 			return Err(())
 		}
-		for _ in 0..relative.parents {
+		for _ in 0..relative.parent_count() {
 			self.take_last();
 		}
-		for j in relative.interior {
-			self.push(j).map_err(|_| ())?;
+		for j in relative.interior() {
+			self.push(*j).map_err(|_| ())?;
 		}
 		Ok(self)
 	}
@@ -267,7 +267,7 @@ impl Junctions {
 		// AUDIT NOTES:
 		// - above loop ensures that `i <= viewer.len()`.
 		// - `viewer.len()` is at most `MAX_JUNCTIONS`, so won't overflow a `u8`.
-		Location { parents: (viewer.len() - i) as u8, interior: self }
+		Location::new((viewer.len() - i) as u8, self)
 	}
 
 	/// Returns first junction, or `None` if the location is empty.
@@ -569,10 +569,10 @@ impl Junctions {
 impl TryFrom<Location> for Junctions {
 	type Error = Location;
 	fn try_from(x: Location) -> result::Result<Self, Location> {
-		if x.parents > 0 {
+		if x.parent_count() > 0 {
 			Err(x)
 		} else {
-			Ok(x.interior)
+			Ok(x.interior().clone())
 		}
 	}
 }

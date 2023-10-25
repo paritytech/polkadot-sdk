@@ -46,8 +46,8 @@ impl DescribeLocation for Tuple {
 pub struct DescribeTerminus;
 impl DescribeLocation for DescribeTerminus {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match (l.parents, &l.interior) {
-			(0, Here) => Some(Vec::new()),
+		match l.unpack() {
+			(0, []) => Some(Vec::new()),
 			_ => return None,
 		}
 	}
@@ -121,19 +121,19 @@ pub type DescribeAllTerminal = (
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match (l.parents, l.interior.first()) {
+		match (l.parent_count(), l.first_interior()) {
 			(0, Some(Parachain(index))) => {
-				let tail = l.interior.clone().split_first().0;
+				let tail = l.clone().split_first_interior().0;
 				let interior = Suffix::describe_location(&tail.into())?;
 				Some((b"ChildChain", Compact::<u32>::from(*index), interior).encode())
 			},
 			(1, Some(Parachain(index))) => {
-				let tail = l.interior.clone().split_first().0;
+				let tail = l.clone().split_first_interior().0;
 				let interior = Suffix::describe_location(&tail.into())?;
 				Some((b"SiblingChain", Compact::<u32>::from(*index), interior).encode())
 			},
 			(1, _) => {
-				let tail = l.interior.clone().into();
+				let tail = l.interior().clone().into();
 				let interior = Suffix::describe_location(&tail)?;
 				Some((b"ParentChain", interior).encode())
 			},
@@ -949,10 +949,7 @@ mod tests {
 
 	#[test]
 	fn remote_account_convert_on_para_sending_from_remote_para_treasury() {
-		let relay_treasury_to_para_location = Location {
-			parents: 1,
-			interior: [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
-		};
+		let relay_treasury_to_para_location = Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
 			&relay_treasury_to_para_location,
 		)
@@ -966,13 +963,10 @@ mod tests {
 			actual_description
 		);
 
-		let para_to_para_treasury_location = Location {
-			parents: 1,
-			interior: [
-				Parachain(1001),
-				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
-			],
-		};
+		let para_to_para_treasury_location = Location::new(1, [
+			Parachain(1001),
+			Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+		]);
 		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
 			&para_to_para_treasury_location,
 		)

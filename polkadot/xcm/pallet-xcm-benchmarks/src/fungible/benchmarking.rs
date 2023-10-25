@@ -24,7 +24,7 @@ use frame_support::{
 };
 use sp_runtime::traits::{Bounded, Zero};
 use sp_std::{prelude::*, vec};
-use xcm::latest::{prelude::*, MAX_ITEMS_IN_MULTIASSETS};
+use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
@@ -43,7 +43,7 @@ benchmarks_instance_pallet! {
 	withdraw_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let worst_case_holding = T::worst_case_holding(0);
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		// check the assets of origin.
@@ -63,7 +63,7 @@ benchmarks_instance_pallet! {
 
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let assets: Assets = vec![ asset.clone() ].into();
 		// this xcm doesn't use holding
 
@@ -95,7 +95,7 @@ benchmarks_instance_pallet! {
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		assert!(T::TransactAsset::balance(&sender_account) > sender_account_balance_before);
 		let assets: Assets = vec![asset].into();
@@ -143,7 +143,7 @@ benchmarks_instance_pallet! {
 	initiate_reserve_withdraw {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let holding = T::worst_case_holding(1);
-		let assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_MULTIASSETS).collect::<Vec<_>>().into());
+		let assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -204,7 +204,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -230,7 +230,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_reserve_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -257,7 +257,7 @@ benchmarks_instance_pallet! {
 	}
 
 	initiate_teleport {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(0);
 
 		// Add our asset to the holding.
