@@ -1,0 +1,46 @@
+[package]
+name = "polkadot-subsystem-bench"
+description = "Subsystem performance benchmark client"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+publish = false
+
+[[bin]]
+name = "subsystem-bench"
+path = "src/subsystem-bench.rs"
+
+# Prevent rustdoc error. Already documented from top-level Cargo.toml.
+doc = false
+
+[dependencies]
+polkadot-node-subsystem = { path = "../subsystem" }
+polkadot-node-subsystem-util = { path = "../subsystem-util" }
+polkadot-node-subsystem-types = { path = "../subsystem-types" }
+polkadot-node-core-backing = { path = "../core/backing" }
+polkadot-node-primitives = { path = "../primitives" }
+polkadot-primitives = { path = "../../primitives" }
+color-eyre = { version = "0.6.1", default-features = false }
+assert_matches = "1.5"
+async-trait = "0.1.57"
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sp-core = { path = "../../../substrate/primitives/core" }
+clap = { version = "4.4.6", features = ["derive"] }
+futures = "0.3.21"
+futures-timer = "3.0.2"
+gum = { package = "tracing-gum", path = "../gum" }
+erasure = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
+rand = "0.8.5"
+
+[dev-dependencies]
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
+sp-core = { path = "../../../substrate/primitives/core" }
+futures = { version = "0.3.21", features = ["thread-pool"] }
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
+
+[features]
+default = []

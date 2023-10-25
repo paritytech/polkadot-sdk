@@ -12991,6 +12991,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-subsystem-bench"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "clap 4.4.6",
+ "color-eyre",
+ "futures",
+ "futures-timer",
+ "polkadot-erasure-coding",
+ "polkadot-node-core-backing",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-types",
+ "polkadot-node-subsystem-util",
+ "polkadot-primitives",
+ "rand 0.8.5",
+ "sp-core",
+ "sp-keystore",
+ "substrate-build-script-utils",
+ "tracing-gum",
+]
+
+[[package]]
 name = "polkadot-test-client"
 version = "1.0.0"
 dependencies = [
