@@ -85,9 +85,9 @@ macro_rules! decl_worker_main {
 					std::process::exit(status)
 				},
 				"--check-can-enable-seccomp" => {
-					#[cfg(target_os = "linux")]
+					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 					let status = if security::seccomp::check_is_fully_enabled() { 0 } else { -1 };
-					#[cfg(not(target_os = "linux"))]
+					#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 					let status = -1;
 					std::process::exit(status)
 				},
@@ -336,7 +336,9 @@ pub fn worker_event_loop<F>(
 			}
 		}
 
-		#[cfg(target_os = "linux")]
+		// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
+		//       job to catch regressions. See <https://github.com/paritytech/ci_cd/issues/609>.
+		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 		if security_status.can_enable_seccomp {
 			let seccomp_status =
 				security::seccomp::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);

@@ -47,36 +47,11 @@ pub fn unshare_user_namespace_and_change_root(
 ) -> Result<(), String> {
 	use std::{env, ffi::CString, os::unix::ffi::OsStrExt, path::Path, ptr};
 
-	// The following was copied from the `cstr_core` crate.
-	//
 	// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
-	#[inline]
-	#[doc(hidden)]
-	const fn cstr_is_valid(bytes: &[u8]) -> bool {
-		if bytes.is_empty() || bytes[bytes.len() - 1] != 0 {
-			return false
-		}
-
-		let mut index = 0;
-		while index < bytes.len() - 1 {
-			if bytes[index] == 0 {
-				return false
-			}
-			index += 1;
-		}
-		true
-	}
-
-	macro_rules! cstr {
-		($e:expr) => {{
-			const STR: &[u8] = concat!($e, "\0").as_bytes();
-			const STR_VALID: bool = cstr_is_valid(STR);
-			let _ = [(); 0 - (!(STR_VALID) as usize)];
-			#[allow(unused_unsafe)]
-			unsafe {
-				core::ffi::CStr::from_bytes_with_nul_unchecked(STR)
-			}
-		}}
+	macro_rules! cstr_ptr {
+		($e:expr) => {
+			concat!($e, "\0").as_ptr().cast::<core::ffi::c_char>()
+		};
 	}
 
 	gum::trace!(
@@ -113,7 +88,7 @@ pub fn unshare_user_namespace_and_change_root(
 			// the initial mount namespace.
 			if libc::mount(
 				ptr::null(),
-				cstr!("/").as_ptr(),
+				cstr_ptr!("/"),
 				ptr::null(),
 				libc::MS_REC | libc::MS_PRIVATE,
 				ptr::null(),
@@ -146,10 +121,10 @@ pub fn unshare_user_namespace_and_change_root(
 			if libc::chdir(worker_dir_path_c.as_ptr()) < 0 {
 				return Err("chdir to worker dir path")
 			}
-			if libc::syscall(libc::SYS_pivot_root, cstr!(".").as_ptr(), cstr!(".").as_ptr()) < 0 {
+			if libc::syscall(libc::SYS_pivot_root, cstr_ptr!("."), cstr_ptr!(".")) < 0 {
 				return Err("pivot_root")
 			}
-			if libc::umount2(cstr!(".").as_ptr(), libc::MNT_DETACH) < 0 {
+			if libc::umount2(cstr_ptr!("."), libc::MNT_DETACH) < 0 {
 				return Err("umount the old root mount point")
 			}
 		}
