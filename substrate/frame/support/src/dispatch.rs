@@ -54,10 +54,17 @@ pub trait Callable<T> {
 // https://github.com/rust-lang/rust/issues/51331
 pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
 
+/// Means to checks if the dispatchable is feeless.
+/// This is automatically implemented for all dispatchables during pallet expansion.
+/// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+/// attribute, the corresponding closure is checked.
 pub trait CheckIfFeeless {
+	/// The account id type of the runtime.
 	type AccountId;
 
-	fn is_feeless(&self, account_d: &Self::AccountId) -> bool;
+	/// Checks if the dispatchable satisfies the feeless condition as defined by
+	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+	fn is_feeless(&self, account_id: &Self::AccountId) -> bool;
 }
 
 /// Origin for the System pallet.

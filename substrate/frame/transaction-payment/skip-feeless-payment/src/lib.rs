@@ -13,6 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Skip Feeless Payment Pallet
+//!
+//! This pallet allows runtimes that include it to skip payment of transaction fees for
+//! dispatchables marked by [`#[pallet::feeless_if]`](`macro@
+//! frame_support::pallet_prelude::feeless_if`).
+//!
+//! ## Overview
+
+//! It does this by wrapping an existing [`SignedExtension`] implementation (e.g.
+//! [`pallet-transaction-payment`]) and checking if the dispatchable is feeless before applying the
+//! wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
+//! event is emitted instead. Otherwise, the extension is applied as usual.
+//!
+//!
+//! ## Integration
+
+//! This pallet wraps an existing transaction payment pallet. This means you should both pallets
+//! in your `construct_runtime` macro and include this pallet's
+//! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -54,6 +74,7 @@ pub mod pallet {
 	}
 }
 
+/// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct SkipCheckIfFeeless<T: Config, S: SignedExtension>(pub S, sp_std::marker::PhantomData<T>);

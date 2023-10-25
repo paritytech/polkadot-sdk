@@ -2196,10 +2196,10 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		call_index, compact, composite_enum, config, constant,
-		disable_frame_system_supertrait_check, error, event, extra_constants, generate_deposit,
-		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
-		origin, pallet_section, storage, storage_prefix, storage_version, type_value, unbounded,
-		validate_unsigned, weight, whitelist_storage,
+		disable_frame_system_supertrait_check, error, event, extra_constants, feeless_if,
+		generate_deposit, generate_store, getter, hooks, import_section, inherent, no_default,
+		no_default_bounds, origin, pallet_section, storage, storage_prefix, storage_version,
+		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows you to define the genesis configuration for the pallet.
