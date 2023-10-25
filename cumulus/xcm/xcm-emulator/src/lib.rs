@@ -350,7 +350,7 @@ macro_rules! decl_test_relay_chains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
-				$(on_initialize = $on_initialize_fn:expr,)?
+				on_initialize = $($on_initialize_fn:expr,)?
 				$(on_finalize = $on_finalize_fn:expr,)?
 			}
 		),
@@ -409,10 +409,9 @@ macro_rules! decl_test_relay_chains {
 			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
 			$crate::__impl_check_assertion!($name);
 
-			Self::execute_with(|| {
-					let block_number = <Self as $crate::Chain>::System::block_number();
-					$(<$on_finalize>::on_finalize(relay_block_number);)?
-				})
+			let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+			on_initialize(relay_block_number.clone());
+			$(on_finalize(relay_block_number);)?
 		)+
 	};
 }
@@ -589,7 +588,7 @@ macro_rules! decl_test_parachains {
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
 				}
-				$(on_initialize = $on_initialize_fn:expr,)?
+				on_initialize = $($on_initialize_fn:expr,)?
 				$(on_finalize = $on_finalize_fn:expr,)?
 			}
 		),
@@ -630,27 +629,12 @@ macro_rules! decl_test_parachains {
 				// and have them ready for the next block
 				fn init() {
 					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
-					// Execute on_initialize hook
-					Self::on_initialze();
 					// Set the last block head for later use in the next block
 					Self::set_last_head();
 					// Initialize a new block
 					Self::new_block();
 					// Finalize the new block
 					Self::finalize_block();
-					// Execute on_finalize hook
-					Self::on_finalize();
-				}
-
-				fn on_initialize() {
-    				use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
-
-    				Self::ext_wrapper(|| {
-        				let block_number = <Self as Chain>::System::block_number();
-						$(
-            				<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::$on_initialize_fn(block_number);
-        				)?
-    				});
 				}
 
 				fn new_block() {
@@ -709,18 +693,6 @@ macro_rules! decl_test_parachains {
 						);
 					});
 				}
-
-				fn on_finalize() {
-    				use $crate::{Chain, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
-
-    				let block_number = <Self as Chain>::System::block_number();
-    				$(
-						Self::ext_wrapper(|| {
-            				<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::$on_finalize_fn(block_number);
-        				});
-					)?
-				}
-
 			}
 
 			$crate::paste::paste! {
@@ -736,6 +708,9 @@ macro_rules! decl_test_parachains {
 					)*
 				}
 			}
+
+			on_initialize_fn(block_number)
+			$(on_finialize(block_number),)?
 
 			$crate::__impl_test_ext_for_parachain!($name, $genesis, $on_init);
 			$crate::__impl_check_assertion!($name);
