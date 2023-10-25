@@ -486,7 +486,7 @@ pub mod kusama {
 }
 
 /// Sub-module for Westend setup - unimplemented
-/// See https://github.com/paritytech/parity-bridges-common/issues/2602
+/// See <https://github.com/paritytech/parity-bridges-common/issues/2602>
 pub mod westend {
 	use crate::chain_spec::bridge_hubs::rococo;
 
