@@ -429,8 +429,6 @@ pub mod pallet {
 		DestinationNotInvertible,
 		/// The assets to be sent are empty.
 		Empty,
-		/// Could not check-out the assets for teleportation to the destination chain.
-		CannotCheckOutTeleport,
 		/// Could not re-anchor the assets to declare the fees for the destination chain.
 		CannotReanchor,
 		/// Too many assets have been attempted for transfer.
@@ -446,12 +444,8 @@ pub mod pallet {
 		NoSubscription,
 		/// The location is invalid since it already has a subscription from us.
 		AlreadySubscribed,
-		/// Invalid non-concrete asset.
-		InvalidAssetNotConcrete,
-		/// Invalid asset, reserve chain could not be determined for it.
-		InvalidAssetUnknownReserve,
-		/// Invalid asset, do not support remote asset reserves with different fees reserves.
-		InvalidAssetUnsupportedReserve,
+		/// Could not check-out the assets for teleportation to the destination chain.
+		CannotCheckOutTeleport,
 		/// The owner does not own (all) of the asset that they wish to do the operation on.
 		LowBalance,
 		/// The asset owner has too many locks on the asset.
@@ -464,6 +458,12 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
+		/// Invalid non-concrete asset.
+		InvalidAssetNotConcrete,
+		/// Invalid asset, reserve chain could not be determined for it.
+		InvalidAssetUnknownReserve,
+		/// Invalid asset, do not support remote asset reserves with different fees reserves.
+		InvalidAssetUnsupportedReserve,
 		/// Too many assets with different reserve locations have been attempted for transfer.
 		TooManyReserves,
 	}
@@ -1425,9 +1425,14 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		if let Some(remote_xcm) = remote_xcm {
 			outcome.ensure_complete().map_err(|_| Error::<T>::FeesNotMet)?;
-			let interior: Junctions = origin.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
-			let message_id =
-				Self::send_xcm(interior, dest, remote_xcm.clone()).map_err(Error::<T>::from)?;
+
+			let (ticket, price) = validate_send::<T::XcmRouter>(dest, remote_xcm.clone())
+				.map_err(Error::<T>::from)?;
+			if origin != Here.into_location() {
+				Self::charge_fees(origin, price).map_err(|_| Error::<T>::FeesNotMet)?;
+			}
+			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
+
 			let e = Event::Sent { origin, destination: dest, message: remote_xcm, message_id };
 			Self::deposit_event(e);
 		}

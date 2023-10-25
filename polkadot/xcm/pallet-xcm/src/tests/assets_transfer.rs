@@ -145,27 +145,26 @@ fn reserve_transfer_assets_with_paid_router_works() {
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
 		));
-		// check event
-		assert_eq!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
-		);
 
 		// XCM_FEES_NOT_WAIVED_USER_ACCOUNT spent amount
 		assert_eq!(
 			Balances::free_balance(user_account),
 			INITIAL_BALANCE - SEND_AMOUNT - xcm_router_fee_amount
 		);
+
 		// Destination account (parachain account) has amount
 		let para_acc: AccountId = ParaId::from(paid_para_id).into_account_truncating();
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE + SEND_AMOUNT);
+
 		// XcmFeesTargetAccount where should lend xcm_router_fee_amount
 		assert_eq!(
 			Balances::free_balance(XcmFeesTargetAccount::get()),
 			INITIAL_BALANCE + xcm_router_fee_amount
 		);
+
+		let sent_xcm = sent_xcm();
 		assert_eq!(
-			sent_xcm(),
+			sent_xcm,
 			vec![(
 				Parachain(paid_para_id).into(),
 				Xcm(vec![
@@ -176,9 +175,33 @@ fn reserve_transfer_assets_with_paid_router_works() {
 				]),
 			)]
 		);
+		let inner_message = sent_xcm.into_iter().next().unwrap().1;
+		let mut last_events = last_events(5).into_iter();
 		assert_eq!(
-			last_event(),
+			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+		// balances events
+		last_events.next().unwrap();
+		last_events.next().unwrap();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: dest,
+				fees: Para3000PaymentMultiAssets::get(),
+			})
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent {
+				origin: dest,
+				destination: Parachain(paid_para_id).into(),
+				message: inner_message,
+				message_id: [
+					55, 64, 13, 96, 90, 32, 133, 17, 152, 138, 167, 156, 159, 194, 154, 181, 130,
+					98, 75, 249, 162, 253, 58, 246, 44, 117, 152, 11, 57, 102, 238, 131
+				],
+			})
 		);
 	});
 }
@@ -248,8 +271,7 @@ fn into_multiassets_checked(
 	(assets, fee_index, fee_asset, transfer_asset)
 }
 
-/// Helper function to test `reserve_transfer_assets` with local asset reserve and local fee
-/// reserve.
+/// Test `limited_reserve_transfer_assets` with local asset reserve and local fee reserve.
 ///
 /// Transferring native asset (local reserve) to some `OTHER_PARA_ID` (no teleport trust).
 /// Using native asset for fees as well.
@@ -263,27 +285,39 @@ fn into_multiassets_checked(
 ///    |     \--> sends `ReserveAssetDeposited(both), ClearOrigin, BuyExecution(fees), DepositAsset`
 ///    \------------------------------------------>
 /// ```
-fn do_test_and_verify_reserve_transfer_assets_local_ar_local_fr<Call: FnOnce()>(
-	expected_beneficiary: MultiLocation,
-	call: Call,
-	expected_weight_limit: WeightLimit,
-) {
+#[test]
+fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
+
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
+	let expected_weight_limit = weight_limit.clone();
+	let expected_beneficiary = beneficiary;
+
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 2;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
-		call();
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(Parachain(OTHER_PARA_ID).into()),
+			Box::new(beneficiary.into()),
+			Box::new((Here, SEND_AMOUNT).into()),
+			0,
+			weight_limit,
+		));
 		// Alice spent amount
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		// Destination account (parachain account) has amount
 		let para_acc: AccountId = ParaId::from(OTHER_PARA_ID).into_account_truncating();
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE + SEND_AMOUNT);
+		let sent_xcm = sent_xcm();
 		assert_eq!(
-			sent_xcm(),
+			sent_xcm,
 			vec![(
 				Parachain(OTHER_PARA_ID).into(),
 				Xcm(vec![
@@ -297,69 +331,32 @@ fn do_test_and_verify_reserve_transfer_assets_local_ar_local_fr<Call: FnOnce()>(
 				]),
 			)]
 		);
+		let inner_message = sent_xcm.into_iter().next().unwrap().1;
+		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
-			last_event(),
+			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
 		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: expected_beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent {
+				origin: expected_beneficiary,
+				destination: Parachain(OTHER_PARA_ID).into(),
+				message: inner_message,
+				message_id: [
+					53, 1, 255, 66, 147, 147, 39, 116, 107, 79, 145, 26, 237, 73, 0, 165, 70, 43,
+					122, 224, 230, 68, 62, 15, 200, 250, 105, 14, 100, 65, 100, 204
+				],
+			})
+		);
 	});
-}
-
-/// Test `reserve_transfer_assets` with local asset reserve and local fee reserve.
-///
-/// Transferring native asset (local reserve) to some `OTHER_PARA_ID` (no teleport trust).
-/// Using native asset for fees as well.
-///
-/// ```nocompile
-///    Here (source)                               OTHER_PARA_ID (destination)
-///    |  `assets` reserve
-///    |  `fees` reserve
-///    |
-///    |  1. execute `TransferReserveAsset(assets_and_fees_batched_together)`
-///    |     \--> sends `ReserveAssetDeposited(both), ClearOrigin, BuyExecution(fees), DepositAsset`
-///    \------------------------------------------>
-/// ```
-#[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-	do_test_and_verify_reserve_transfer_assets_local_ar_local_fr(
-		beneficiary,
-		|| {
-			assert_ok!(XcmPallet::reserve_transfer_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(Parachain(OTHER_PARA_ID).into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-			));
-		},
-		Unlimited,
-	);
-}
-
-/// Test `limited_reserve_transfer_assets` with local asset reserve and local fee reserve.
-///
-/// Same as test above but with limited weight.
-#[test]
-fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
-	let expected_weight_limit = weight_limit.clone();
-	do_test_and_verify_reserve_transfer_assets_local_ar_local_fr(
-		beneficiary,
-		|| {
-			assert_ok!(XcmPallet::limited_reserve_transfer_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(Parachain(OTHER_PARA_ID).into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-				weight_limit,
-			));
-		},
-		expected_weight_limit,
-	);
 }
 
 /// Test `reserve_transfer_assets` with destination asset reserve and local fee reserve.
@@ -527,7 +524,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disal
 			result,
 			Err(DispatchError::Module(ModuleError {
 				index: 4,
-				error: [15, 0, 0, 0],
+				error: [22, 0, 0, 0],
 				message: Some("InvalidAssetUnsupportedReserve")
 			}))
 		);
@@ -803,7 +800,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 			result,
 			Err(DispatchError::Module(ModuleError {
 				index: 4,
-				error: [15, 0, 0, 0],
+				error: [22, 0, 0, 0],
 				message: Some("InvalidAssetUnsupportedReserve")
 			}))
 		);
@@ -868,7 +865,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disal
 			result,
 			Err(DispatchError::Module(ModuleError {
 				index: 4,
-				error: [15, 0, 0, 0],
+				error: [22, 0, 0, 0],
 				message: Some("InvalidAssetUnsupportedReserve")
 			}))
 		);
@@ -890,7 +887,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disal
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
 #[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_works() {
+fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -942,7 +939,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 			result,
 			Err(DispatchError::Module(ModuleError {
 				index: 4,
-				error: [15, 0, 0, 0],
+				error: [22, 0, 0, 0],
 				message: Some("InvalidAssetUnsupportedReserve")
 			}))
 		);
@@ -1313,7 +1310,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `USDT_PARA_ID`.
 /// Using teleport-trusted USDT for fees.
 #[test]
-fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() {
+fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -1359,7 +1356,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_works() 
 			result,
 			Err(DispatchError::Module(ModuleError {
 				index: 4,
-				error: [15, 0, 0, 0],
+				error: [22, 0, 0, 0],
 				message: Some("InvalidAssetUnsupportedReserve")
 			}))
 		);

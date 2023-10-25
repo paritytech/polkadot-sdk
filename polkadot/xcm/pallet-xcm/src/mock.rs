@@ -186,13 +186,13 @@ impl SendXcm for TestSendXcmErrX8 {
 	type Ticket = (MultiLocation, Xcm<()>);
 	fn validate(
 		dest: &mut Option<MultiLocation>,
-		msg: &mut Option<Xcm<()>>,
+		_: &mut Option<Xcm<()>>,
 	) -> SendResult<(MultiLocation, Xcm<()>)> {
-		let (dest, msg) = (dest.take().unwrap(), msg.take().unwrap());
-		if dest.len() == 8 {
+		if dest.as_ref().unwrap().len() == 8 {
+			dest.take();
 			Err(SendError::Transport("Destination location full"))
 		} else {
-			Ok(((dest, msg), MultiAssets::new()))
+			Err(SendError::NotApplicable)
 		}
 	}
 	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
@@ -439,10 +439,12 @@ pub type Barrier = (
 	AllowSubscriptionsFrom<Everything>,
 );
 
+pub type XcmRouter = (TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = (TestPaidForPara3000SendXcm, TestSendXcm);
+	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
@@ -494,7 +496,7 @@ parameter_types! {
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmRouter = (TestSendXcmErrX8, TestPaidForPara3000SendXcm, TestSendXcm);
+	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
