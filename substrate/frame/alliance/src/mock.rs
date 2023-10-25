@@ -96,11 +96,13 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 }
 
 parameter_types! {
-	pub const BasicDeposit: u64 = 10;
-	pub const FieldDeposit: u64 = 10;
-	pub const SubAccountDeposit: u64 = 10;
+	pub const BasicDeposit: u64 = 100;
+	pub const FieldDeposit: u64 = 100;
+	pub const ByteDeposit: u64 = 10;
+	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
+	pub const MaxIdentityBytes: u32 = 1000;
 	pub const MaxRegistrars: u32 = 20;
 }
 ord_parameter_types! {
@@ -118,9 +120,11 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
 	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type MaxIdentityBytes = MaxIdentityBytes;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();

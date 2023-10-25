@@ -241,15 +241,6 @@ pub trait IdentityInformationProvider:
 	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: u64) -> bool;
 
-	/// Interface for providing the number of additional fields this identity information provider
-	/// holds, used to charge for additional storage and weight. This interface is present for
-	/// backwards compatibility reasons only and will be removed as soon as the reference identity
-	/// provider removes additional fields.
-	#[deprecated]
-	fn additional(&self) -> usize {
-		0
-	}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info(num_fields: u32) -> Self;
 }

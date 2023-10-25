@@ -119,6 +119,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type FieldDeposit: Get<BalanceOf<Self>>;
 
+		/// The amount held on deposit per encoded byte for a registered identity.
+		#[pallet::constant]
+		type ByteDeposit: Get<BalanceOf<Self>>;
+
 		/// The amount held on deposit for a registered subaccount. This should account for the fact
 		/// that one storage item's value will increase by the size of an account ID, and there will
 		/// be another trie item whose value is the size of an account ID plus 32 bytes.
@@ -133,6 +137,11 @@ pub mod pallet {
 		/// required to access an identity, but can be pretty high.
 		#[pallet::constant]
 		type MaxAdditionalFields: Get<u32>;
+
+		/// Maximum number of encoded bytes that may be stored in an ID. Needed to bound the I/O
+		/// required to access an identity, but can be pretty high.
+		#[pallet::constant]
+		type MaxIdentityBytes: Get<u32>;
 
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
@@ -240,6 +249,8 @@ pub mod pallet {
 		InvalidTarget,
 		/// Too many additional fields.
 		TooManyFields,
+		/// Identity encoded size is too high.
+		IdentitySize,
 		/// Maximum amount of registrars reached. Cannot add any more.
 		TooManyRegistrars,
 		/// Account ID is already named.
@@ -334,10 +345,9 @@ pub mod pallet {
 			info: Box<T::IdentityInformation>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			#[allow(deprecated)]
-			let extra_fields = info.additional() as u32;
-			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
-			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
+			let encoded_byte_size = info.encoded_size() as u32;
+			ensure!(encoded_byte_size <= T::MaxIdentityBytes::get(), Error::<T>::IdentitySize);
+			let byte_deposit = T::ByteDeposit::get() * <BalanceOf<T>>::from(encoded_byte_size);
 
 			let mut id = match <IdentityOf<T>>::get(&sender) {
 				Some(mut id) => {
@@ -354,7 +364,7 @@ pub mod pallet {
 			};
 
 			let old_deposit = id.deposit;
-			id.deposit = T::BasicDeposit::get() + fd;
+			id.deposit = T::BasicDeposit::get() + byte_deposit;
 			if id.deposit > old_deposit {
 				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
 			}
