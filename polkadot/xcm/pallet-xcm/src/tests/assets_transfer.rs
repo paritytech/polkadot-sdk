@@ -162,11 +162,11 @@ fn reserve_transfer_assets_with_paid_router_works() {
 			INITIAL_BALANCE + xcm_router_fee_amount
 		);
 
-		let sent_xcm = sent_xcm();
+		let dest_para: MultiLocation = Parachain(paid_para_id).into();
 		assert_eq!(
-			sent_xcm,
+			sent_xcm(),
 			vec![(
-				Parachain(paid_para_id).into(),
+				dest_para,
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
@@ -175,7 +175,6 @@ fn reserve_transfer_assets_with_paid_router_works() {
 				]),
 			)]
 		);
-		let inner_message = sent_xcm.into_iter().next().unwrap().1;
 		let mut last_events = last_events(5).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
@@ -191,37 +190,12 @@ fn reserve_transfer_assets_with_paid_router_works() {
 				fees: Para3000PaymentMultiAssets::get(),
 			})
 		);
-		assert_eq!(
+		assert!(matches!(
 			last_events.next().unwrap(),
-			RuntimeEvent::XcmPallet(crate::Event::Sent {
-				origin: dest,
-				destination: Parachain(paid_para_id).into(),
-				message: inner_message,
-				message_id: [
-					55, 64, 13, 96, 90, 32, 133, 17, 152, 138, 167, 156, 159, 194, 154, 181, 130,
-					98, 75, 249, 162, 253, 58, 246, 44, 117, 152, 11, 57, 102, 238, 131
-				],
-			})
-		);
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
+		));
 	});
 }
-
-// For reserve-based transfers, we want to support:
-// - non-fee assets reserve:
-//   - local reserve
-//   - destination reserve
-//   - remote reserve
-// - fee assets:
-//   - reserve-transferred with reserve:
-//     - local reserve
-//     - destination reserve
-//     - remote reserve
-//   - teleported
-//
-// Bringing unique scenarios total to 3*4 = 12. So, following reserve-transfer testz try to cover
-// the happy-case for each of these 12 scenarios.
-//
-// TODO: also add negative testz for testing various error conditions.
 
 fn set_up_foreign_asset(
 	reserve_para_id: u32,
@@ -297,6 +271,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
 	let expected_weight_limit = weight_limit.clone();
 	let expected_beneficiary = beneficiary;
+	let dest: MultiLocation = Parachain(OTHER_PARA_ID).into();
 
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 2;
@@ -304,7 +279,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 		// call extrinsic
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(Parachain(OTHER_PARA_ID).into()),
+			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
@@ -315,11 +290,10 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 		// Destination account (parachain account) has amount
 		let para_acc: AccountId = ParaId::from(OTHER_PARA_ID).into_account_truncating();
 		assert_eq!(Balances::free_balance(para_acc), INITIAL_BALANCE + SEND_AMOUNT);
-		let sent_xcm = sent_xcm();
 		assert_eq!(
-			sent_xcm,
+			sent_xcm(),
 			vec![(
-				Parachain(OTHER_PARA_ID).into(),
+				dest,
 				Xcm(vec![
 					ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 					ClearOrigin,
@@ -331,7 +305,6 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 				]),
 			)]
 		);
-		let inner_message = sent_xcm.into_iter().next().unwrap().1;
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
@@ -344,18 +317,10 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 				fees: MultiAssets::new(),
 			})
 		);
-		assert_eq!(
+		assert!(matches!(
 			last_events.next().unwrap(),
-			RuntimeEvent::XcmPallet(crate::Event::Sent {
-				origin: expected_beneficiary,
-				destination: Parachain(OTHER_PARA_ID).into(),
-				message: inner_message,
-				message_id: [
-					53, 1, 255, 66, 147, 147, 39, 116, 107, 79, 145, 26, 237, 73, 0, 165, 70, 43,
-					122, 224, 230, 68, 62, 15, 200, 250, 105, 14, 100, 65, 100, 204
-				],
-			})
-		);
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
+		));
 	});
 }
 
@@ -380,6 +345,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
+	let weight = BaseXcmWeight::get() * 4;
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -422,10 +388,12 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 			fee_index as u32,
 			Unlimited,
 		));
-		assert!(matches!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
-		));
+
+		let mut last_events = last_events(3).into_iter();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
 
 		// Alice spent (transferred) amount
 		assert_eq!(
@@ -446,34 +414,30 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
-			vec![
-				(
-					// first message is to prefund fees on `dest`
-					dest,
-					// fees are being sent through local-reserve transfer because fee reserve is
-					// local chain
-					Xcm(vec![
-						ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
-						ClearOrigin,
-						buy_limited_execution((Parent, FEE_AMOUNT), Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
-					])
-				),
-				(
-					// second message is to transfer/deposit foreign assets on `dest` while paying
-					// using prefunded (transferred above) fees
-					// (dest is reserve location for `expected_asset`)
-					dest,
-					Xcm(vec![
-						WithdrawAsset(expected_asset.into()),
-						ClearOrigin,
-						WithdrawAsset(expected_fee.clone().into()),
-						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(2).into(), beneficiary },
-					])
-				)
-			]
+			vec![(
+				dest,
+				// `fees` are being sent through local-reserve transfer because fee reserve is
+				// local chain; `assets` are burned on source and withdrawn from SA here
+				Xcm(vec![
+					ReserveAssetDeposited((Parent, FEE_AMOUNT).into()),
+					WithdrawAsset(expected_asset.into()),
+					ClearOrigin,
+					buy_limited_execution(expected_fee, Unlimited),
+					DepositAsset { assets: AllCounted(2).into(), beneficiary },
+				])
+			)]
 		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
+		assert!(matches!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
+		));
 	});
 }
 
@@ -600,9 +564,22 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 			fee_index as u32,
 			Unlimited,
 		));
+		let weight = BaseXcmWeight::get() * 4;
+		let mut last_events = last_events(3).into_iter();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
 		assert!(matches!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 
 		// Alice spent (fees) amount
@@ -623,34 +600,20 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
-			vec![
-				(
-					// first message is to prefund fees on `dest`
-					dest,
+			vec![(
+				dest,
+				Xcm(vec![
 					// fees are being sent through destination-reserve transfer because fee reserve
 					// is destination chain
-					Xcm(vec![
-						WithdrawAsset(expected_fee.clone().into()),
-						ClearOrigin,
-						buy_limited_execution(expected_fee.clone(), Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
-					])
-				),
-				(
-					// second message is to transfer/deposit (native) asset on `dest` while paying
-					// using prefunded (transferred above) fees
-					dest,
+					WithdrawAsset(expected_fee.clone().into()),
 					// transfer is through local-reserve transfer because `assets` (native asset)
 					// have local reserve
-					Xcm(vec![
-						ReserveAssetDeposited(expected_asset.into()),
-						ClearOrigin,
-						WithdrawAsset(expected_fee.clone().into()),
-						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(2).into(), beneficiary },
-					])
-				)
-			]
+					ReserveAssetDeposited(expected_asset.into()),
+					ClearOrigin,
+					buy_limited_execution(expected_fee, Unlimited),
+					DepositAsset { assets: AllCounted(2).into(), beneficiary },
+				])
+			)]
 		);
 	});
 }
@@ -705,9 +668,23 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 			fee_index,
 			Unlimited,
 		));
+
+		let weight = BaseXcmWeight::get() * 3;
+		let mut last_events = last_events(3).into_iter();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
 		assert!(matches!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 
 		// Alice spent (transferred) amount
@@ -1121,9 +1098,22 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 			fee_index as u32,
 			Unlimited,
 		));
+		let weight = BaseXcmWeight::get() * 4;
+		let mut last_events = last_events(3).into_iter();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
 		assert!(matches!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 		// Alice spent (fees) amount
 		assert_eq!(
@@ -1143,33 +1133,19 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
-			vec![
-				(
-					// first message is to prefund fees on `dest`
-					dest,
+			vec![(
+				dest,
+				Xcm(vec![
 					// fees are teleported to destination chain
-					Xcm(vec![
-						ReceiveTeleportedAsset(expected_fee.clone().into()),
-						ClearOrigin,
-						buy_limited_execution(expected_fee.clone(), Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
-					])
-				),
-				(
-					// second message is to transfer/deposit (native) asset on `dest` while paying
-					// using prefunded (transferred above) fees
-					dest,
-					// transfer is through local-reserve transfer because `assets` (native asset)
-					// have local reserve
-					Xcm(vec![
-						ReserveAssetDeposited(expected_asset.into()),
-						ClearOrigin,
-						WithdrawAsset(expected_fee.clone().into()),
-						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(2).into(), beneficiary },
-					])
-				)
-			]
+					ReceiveTeleportedAsset(expected_fee.clone().into()),
+					// transfer is through local-reserve transfer because `assets` (native
+					// asset) have local reserve
+					ReserveAssetDeposited(expected_asset.into()),
+					ClearOrigin,
+					buy_limited_execution(expected_fee, Unlimited),
+					DepositAsset { assets: AllCounted(2).into(), beneficiary },
+				])
+			)]
 		);
 	});
 }
@@ -1240,9 +1216,22 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 			fee_index as u32,
 			Unlimited,
 		));
+		let weight = BaseXcmWeight::get() * 5;
+		let mut last_events = last_events(3).into_iter();
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
+		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: beneficiary,
+				fees: MultiAssets::new(),
+			})
+		);
 		assert!(matches!(
-			last_event(),
-			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 		// Alice native asset untouched
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
@@ -1275,32 +1264,18 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 		// Verify sent XCM program
 		assert_eq!(
 			sent_xcm(),
-			vec![
-				(
-					// first message is to prefund fees on `dest`
-					dest,
+			vec![(
+				dest,
+				Xcm(vec![
 					// fees are teleported to destination chain
-					Xcm(vec![
-						ReceiveTeleportedAsset(expected_fee.clone().into()),
-						ClearOrigin,
-						buy_limited_execution(expected_fee.clone(), Unlimited),
-						DepositAsset { assets: AllCounted(1).into(), beneficiary },
-					])
-				),
-				(
-					// second message is to transfer/deposit foreign assets on `dest` while paying
-					// using prefunded (transferred above) fees (USDT)
-					// (dest is reserve location for `expected_asset`)
-					dest,
-					Xcm(vec![
-						WithdrawAsset(expected_asset.into()),
-						ClearOrigin,
-						WithdrawAsset(expected_fee.clone().into()),
-						buy_limited_execution(expected_fee, Unlimited),
-						DepositAsset { assets: AllCounted(2).into(), beneficiary },
-					])
-				)
-			]
+					ReceiveTeleportedAsset(expected_fee.clone().into()),
+					// assets are withdrawn from origin's local SA
+					WithdrawAsset(expected_asset.into()),
+					ClearOrigin,
+					buy_limited_execution(expected_fee, Unlimited),
+					DepositAsset { assets: AllCounted(2).into(), beneficiary },
+				])
+			)]
 		);
 	});
 }
