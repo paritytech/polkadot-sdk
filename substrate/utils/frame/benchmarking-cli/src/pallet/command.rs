@@ -755,7 +755,7 @@ fn list_benchmark(
 		Vec<(String, String)>,
 	)>,
 ) {
-	// Sort by pallet and storage name.
+	// Sort by pallet and function name.
 	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
 
 	println!("pallet, benchmark");
