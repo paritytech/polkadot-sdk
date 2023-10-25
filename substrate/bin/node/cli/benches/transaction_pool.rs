@@ -21,7 +21,6 @@ use std::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use futures::{future, StreamExt};
 use kitchensink_runtime::{constants::currency::*, BalancesCall, SudoCall};
-use node_cli as staging_node_cli;
 use node_cli::service::{create_extrinsic, fetch_nonce, FullClient, TransactionPool};
 use node_primitives::AccountId;
 use sc_service::{
@@ -36,6 +35,7 @@ use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, Transacti
 use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
