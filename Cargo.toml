@@ -546,6 +546,6 @@ zeroize = { opt-level = 3 }
 # ring = { path = "../../w3f/ring-proof/ring" }
 # common = { path = "../../w3f/ring-proof/common" }
 
-[patch."https://github.com/w3f/fflonk"]
-fflonk = { git = "https://github.com/davxy/fflonk", branch = "davxy-patch" }
+# [patch."https://github.com/w3f/fflonk"]
+# fflonk = { git = "https://github.com/davxy/fflonk", branch = "davxy-patch" }
 # fflonk = { path = "../../w3f/fflonk" }
