@@ -24,10 +24,21 @@ use sp_core::{
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
-use std::{collections::HashMap, ops::Deref};
+
+#[cfg(not(feature = "std"))]
+use sp_std::alloc::{format, string::String};
+#[cfg(not(feature = "std"))]
+use sp_std::ops::Deref;
+use sp_std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+#[cfg(feature = "std")]
+use std::{collections::BTreeMap, ops::Deref};
 
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -117,9 +128,9 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 }
 
 lazy_static! {
-	static ref PRIVATE_KEYS: HashMap<Keyring, Pair> =
+	static ref PRIVATE_KEYS: BTreeMap<Keyring, Pair> =
 		Keyring::iter().map(|i| (i, i.pair())).collect();
-	static ref PUBLIC_KEYS: HashMap<Keyring, Public> =
+	static ref PUBLIC_KEYS: BTreeMap<Keyring, Public> =
 		PRIVATE_KEYS.iter().map(|(&name, pair)| (name, pair.public())).collect();
 }
 
