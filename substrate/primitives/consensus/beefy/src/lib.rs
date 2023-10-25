@@ -404,7 +404,6 @@ where
 		}
 	}
 
-
 	if correct_header.hash() != *expected_header_hash {
 		return false
 	}

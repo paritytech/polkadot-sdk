@@ -825,7 +825,6 @@ fn report_fork_equivocation_vote_current_set_works() {
 	ext.persist_offchain_overlay();
 
 	ext.execute_with(|| {
-
 		let validator_set = Beefy::validator_set().unwrap();
 		let authorities = validator_set.validators();
 		let set_id = validator_set.id();
