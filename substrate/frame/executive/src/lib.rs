@@ -356,16 +356,6 @@ where
 	pub fn try_runtime_upgrade(
 		checks: frame_try_runtime::UpgradeCheckSelect,
 	) -> Result<Weight, TryRuntimeError> {
-		if checks.try_state() {
-			let _guard = frame_support::StorageNoopGuard::default();
-			<AllPalletsWithSystem as frame_support::traits::TryState<
-				BlockNumberFor<System>,
-			>>::try_state(
-				frame_system::Pallet::<System>::block_number(),
-				frame_try_runtime::TryStateSelect::All,
-			)?;
-		}
-
 		let weight =
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),

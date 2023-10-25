@@ -64,9 +64,9 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 			as
 			#frame_support::traits::PalletInfo
 		>::name::<Self>().expect("No name found for the pallet! This usually means that the pallet wasn't added to `construct_runtime!`.");
-		#frame_support::__private::log::debug!(
+		#frame_support::__private::log::info!(
 			target: #frame_support::LOG_TARGET,
-			"🩺 try-state pallet {:?}",
+			"🩺 Running try-state checks for pallet {:?}",
 			pallet_name,
 		);
 	};
@@ -276,7 +276,21 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 					Self as #frame_support::traits::Hooks<
 						#frame_system::pallet_prelude::BlockNumberFor::<T>
 					>
-				>::try_state(n)
+				>::try_state(n).map_err(|err| {
+					let pallet_name = <
+						<T as #frame_system::Config>::PalletInfo
+						as
+						#frame_support::traits::PalletInfo
+					>::name::<Self>().unwrap_or("<unknown pallet name>");
+					#frame_support::__private::log::error!(
+						target: "try-runtime",
+						"try_state check failed for pallet {:?}: {:?}",
+						pallet_name,
+						err
+					);
+
+					err
+				})
 			}
 		}
 	)
