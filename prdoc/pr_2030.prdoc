@@ -1,0 +1,18 @@
+title: Move migrations to versioned tuples
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The PR [paritytech/polkadot#7168](https://github.com/paritytech/polkadot/pull/7168) introduced the grouping of
+      migrations, per version, into tuples. This grouping allows better management of the migrations and make it easier
+      and safer to purge older migrations from the runtimes after a few versions have passed.
+
+      This PR upgrades the migrations of all runtimes in the SDK repository.
+
+migrations:
+  db: []
+  runtime: []
+
+crates: []
+
+host_functions: []
