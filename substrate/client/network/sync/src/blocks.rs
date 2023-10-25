@@ -498,20 +498,144 @@ mod test {
 
 		assert_eq!(
 			bc.needed_blocks(peer1, count, peer1_best, peer1_common, max_parallel, max_ahead),
-			Some(11..16)
+			Some(11..16),
 		);
 		assert_eq!(
 			bc.needed_blocks(peer2, count, peer2_best, peer2_common, max_parallel, max_ahead),
-			Some(16..21)
+			Some(16..21),
 		);
 	}
 
 	#[test]
-	fn gap_below_common_number_not_requested() {}
+	fn gap_above_common_number_requested() {
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		let best = 30;
+		// We need at least 3 ranges requested to have a gap, so to minimize the number of peers
+		// set `max_parallel = 1`
+		let max_parallel = 1;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+
+		let common = 10;
+		assert_eq!(
+			bc.needed_blocks(peer1, count, best, common, max_parallel, max_ahead),
+			Some(11..16),
+		);
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(16..21),
+		);
+		assert_eq!(
+			bc.needed_blocks(peer3, count, best, common, max_parallel, max_ahead),
+			Some(21..26),
+		);
+
+		// For some reason there is now a gap at 16..21. We just disconnect `peer2`, but it might
+		// also happen that 16..21 received first and got imported if our best is actually >= 15.
+		bc.clear_peer_download(&peer2);
+
+		// Some peer connects with common number below the gap. The gap is requested from it.
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(16..21),
+		);
+	}
+
+	#[test]
+	fn gap_below_common_number_not_requested() {
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		let best = 30;
+		// We need at least 3 ranges requested to have a gap, so to minimize the number of peers
+		// set `max_parallel = 1`
+		let max_parallel = 1;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+
+		let common = 10;
+		assert_eq!(
+			bc.needed_blocks(peer1, count, best, common, max_parallel, max_ahead),
+			Some(11..16),
+		);
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(16..21),
+		);
+		assert_eq!(
+			bc.needed_blocks(peer3, count, best, common, max_parallel, max_ahead),
+			Some(21..26),
+		);
+
+		// For some reason there is now a gap at 16..21. We just disconnect `peer2`, but it might
+		// also happen that 16..21 received first and got imported if our best is actually >= 15.
+		bc.clear_peer_download(&peer2);
+
+		// Some peer connects with common number above the gap. The gap is not requested from it.
+		let common = 23;
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(26..31), // not 16..21
+		);
+	}
+
+	#[test]
+	fn range_at_the_end_above_common_number_requested() {
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		let best = 30;
+		let max_parallel = 1;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+
+		let common = 10;
+		assert_eq!(
+			bc.needed_blocks(peer1, count, best, common, max_parallel, max_ahead),
+			Some(11..16),
+		);
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(16..21),
+		);
+	}
 
 	#[test]
 	fn range_at_the_end_below_common_number_not_requested() {
-		// A peer connects with common number below our best number. We request ranges from this
-		// peer, but not from other peers with common numbers above the ranges in question.
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 5;
+		let best = 30;
+		let max_parallel = 1;
+		let max_ahead = 200;
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+
+		let common = 10;
+		assert_eq!(
+			bc.needed_blocks(peer1, count, best, common, max_parallel, max_ahead),
+			Some(11..16),
+		);
+
+		let common = 20;
+		assert_eq!(
+			bc.needed_blocks(peer2, count, best, common, max_parallel, max_ahead),
+			Some(21..26), // not 16..21
+		);
 	}
 }
