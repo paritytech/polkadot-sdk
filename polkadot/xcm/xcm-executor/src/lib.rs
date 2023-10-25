@@ -736,27 +736,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			BuyExecution { fees, weight_limit } => {
+				// There is no need to buy any weight is `weight_limit` is `Unlimited` since it
+				// would indicate that `AllowTopLevelPaidExecutionFrom` was unused for execution
+				// and thus there is some other reason why it has been determined that this XCM
+				// should be executed.
+				let Some(weight) = Option::<Weight>::from(weight_limit) else { return Ok(()) };
 				let old_holding = self.holding.clone();
-				let old_trader = self.trader.clone();
-				let result = Config::TransactionalProcessor::process(|| {
-					// There is no need to buy any weight is `weight_limit` is `Unlimited` since it
-					// would indicate that `AllowTopLevelPaidExecutionFrom` was unused for execution
-					// and thus there is some other reason why it has been determined that this XCM
-					// should be executed.
-					if let Some(weight) = Option::<Weight>::from(weight_limit) {
-						// pay for `weight` using up to `fees` of the holding register.
-						let max_fee = self
-							.holding
-							.try_take(fees.into())
-							.map_err(|_| XcmError::NotHoldingFees)?;
-						let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
-						self.holding.subsume_assets(unspent);
-					}
+				// pay for `weight` using up to `fees` of the holding register.
+				let max_fee = self
+					.holding
+					.try_take(fees.into())
+					.map_err(|_| XcmError::NotHoldingFees)?;
+				let result = || -> Result<(), XcmError> {
+					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
+					self.holding.subsume_assets(unspent);
 					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
+				}();
+				if result.is_err() {
 					self.holding = old_holding;
-					self.trader = old_trader;
 				}
 				result
 			},
