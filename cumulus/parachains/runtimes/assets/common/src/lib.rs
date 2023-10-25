@@ -15,6 +15,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks;
 pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
