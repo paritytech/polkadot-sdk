@@ -60,7 +60,7 @@ pub trait Config {
 	type Weigher: WeightBounds<Self::RuntimeCall>;
 
 	/// The means of purchasing weight credit for XCM execution.
-	type Trader: WeightTrader + Clone;
+	type Trader: WeightTrader;
 
 	/// What to do when a response of a query is found.
 	type ResponseHandler: OnResponse;

@@ -21,7 +21,6 @@ use frame_support::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		WeightToFee as WeightToFeeT,
 	},
-	CloneNoBound,
 };
 use parity_scale_codec::Decode;
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
@@ -131,7 +130,6 @@ impl TakeRevenue for () {
 ///
 /// The constant `Get` type parameter should be the fungible ID, the amount of it required for one
 /// second of weight and the amount required for 1 MB of proof.
-#[derive(CloneNoBound)]
 pub struct FixedRateOfFungible<T: Get<(AssetId, u128, u128)>, R: TakeRevenue>(
 	Weight,
 	u128,
@@ -194,7 +192,6 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 
 /// Weight trader which uses the configured `WeightToFee` to set the right price for weight and then
 /// places any weight bought into the right account.
-#[derive(CloneNoBound)]
 pub struct UsingComponents<
 	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
 	AssetId: Get<MultiLocation>,
