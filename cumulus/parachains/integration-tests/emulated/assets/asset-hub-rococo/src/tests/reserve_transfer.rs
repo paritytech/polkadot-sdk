@@ -39,7 +39,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 
 fn system_para_dest_assertions_incomplete(_t: RelayToSystemParaTest) {
 	AssetHubRococo::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(138_943_000, 3504)),
+		Some(Weight::from_parts(57_185_000, 3504)),
 		Some(Error::UntrustedReserveLocation),
 	);
 }
@@ -52,7 +52,7 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		2_263_279_000,
+		864_610_000,
 		8_799,
 	)));
 
@@ -77,7 +77,7 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		2_263_279_000,
+		864_610_000,
 		8799,
 	)));
 
