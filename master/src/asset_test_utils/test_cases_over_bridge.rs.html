@@ -626,7 +626,6 @@
 <a href="#626" id="626">626</a>
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -811,6 +810,14 @@
 				weight_limit,
 			));
 
+			<span class="comment">// check pallet_xcm attempted
+			</span>RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::assert_pallet_xcm_event_outcome(
+				<span class="kw-2">&amp;</span>unwrap_pallet_xcm_event,
+				|outcome| {
+					<span class="macro">assert_ok!</span>(outcome.ensure_complete());
+				},
+			);
+
 			<span class="comment">// check alice account decreased by balance_to_transfer
 			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
 			</span><span class="macro">assert_eq!</span>(
@@ -823,15 +830,6 @@
 			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>reserve_account),
 				existential_deposit + balance_to_transfer.into()
-			);
-
-			<span class="comment">// check events
-			// check pallet_xcm attempted
-			</span>RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::assert_pallet_xcm_event_outcome(
-				<span class="kw-2">&amp;</span>unwrap_pallet_xcm_event,
-				|outcome| {
-					<span class="macro">assert_ok!</span>(outcome.ensure_complete());
-				},
 			);
 
 			<span class="comment">// check that xcm was sent

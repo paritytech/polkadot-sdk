@@ -280,6 +280,26 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -302,7 +322,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::common::rococo::currency::CENTS;
 <span class="kw">use </span>frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Everything, Nothing},
+	traits::{ConstU32, EitherOfDiverse, Equals, Everything, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
@@ -313,7 +333,7 @@
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
-<span class="kw">use </span>rococo_runtime_constants::system_parachain::SystemParachains;
+<span class="kw">use </span>rococo_runtime_constants::system_parachain;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -334,6 +354,7 @@
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	<span class="kw">pub const </span>ExecutiveBody: BodyId = BodyId::Executive;
 	<span class="kw">pub </span>TreasuryAccount: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = <span class="prelude-val">Some</span>(TREASURY_PALLET_ID.into_account_truncating());
+	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 <span class="doccomment">/// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -422,8 +443,12 @@
 					<span class="comment">// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
-					<span class="comment">// Parent and its pluralities (i.e. governance bodies) get free execution.
-					</span>AllowExplicitUnpaidExecutionFrom&lt;ParentOrParentsPlurality&gt;,
+					<span class="comment">// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
+					// get free execution.
+					</span>AllowExplicitUnpaidExecutionFrom&lt;(
+						ParentOrParentsPlurality,
+						Equals&lt;RelayTreasuryLocation&gt;,
+					)&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
 					</span>AllowSubscriptionsFrom&lt;ParentOrSiblings&gt;,
 				),
@@ -433,6 +458,26 @@
 		),
 	&gt;,
 &gt;;
+
+<span class="macro">match_types! </span>{
+	<span class="kw">pub type </span>SystemParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		MultiLocation {
+			parents: <span class="number">1</span>,
+			interior: X1(Parachain(
+				system_parachain::ASSET_HUB_ID |
+				system_parachain::BRIDGE_HUB_ID |
+				system_parachain::CONTRACTS_ID |
+				system_parachain::ENCOINTER_ID
+			)),
+		}
+	};
+}
+
+<span class="doccomment">/// Locations that will not be charged fees in the executor,
+/// either execution or delivery.
+/// We only waive fees for system functions, which these locations represent.
+</span><span class="kw">pub type </span>WaivedLocations =
+	(RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;, Equals&lt;RelayTreasuryLocation&gt;);
 
 <span class="kw">pub type </span>TrustedTeleporter = ConcreteAssetFromSystem&lt;RelayLocation&gt;;
 
@@ -456,12 +501,7 @@
 	<span class="kw">type </span>MaxAssetsIntoHolding = ConstU32&lt;<span class="number">8</span>&gt;;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;
-		<span class="self">Self</span>,
-		RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;,
-		AccountId,
-		TreasuryAccount,
-	&gt;;
+	<span class="kw">type </span>FeeManager = XcmFeesToAccount&lt;<span class="self">Self</span>, WaivedLocations, AccountId, TreasuryAccount&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;

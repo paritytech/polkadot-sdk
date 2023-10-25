@@ -1387,6 +1387,7 @@
 <a href="#1387" id="1387">1387</a>
 <a href="#1388" id="1388">1388</a>
 <a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1482,6 +1483,7 @@
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_safe_xcm_version(XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
+		.with_tracing()
 		.build()
 		.execute_with(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>alice = [<span class="number">0u8</span>; <span class="number">32</span>];
@@ -1500,7 +1502,7 @@
 
 			<span class="kw">let </span>native_asset_id = MultiLocation::parent();
 			<span class="kw">let </span>buy_execution_fee_amount_eta =
-				WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">90_000_000_000</span>, <span class="number">0</span>));
+				WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">90_000_000_000</span>, <span class="number">1024</span>));
 			<span class="kw">let </span>native_asset_amount_unit = existential_deposit;
 			<span class="kw">let </span>native_asset_amount_received =
 				native_asset_amount_unit * <span class="number">10</span>.into() + buy_execution_fee_amount_eta.into();
@@ -1517,7 +1519,7 @@
 						id: Concrete(native_asset_id),
 						fun: Fungible(buy_execution_fee_amount_eta),
 					},
-					weight_limit: Limited(Weight::from_parts(<span class="number">303531000</span>, <span class="number">65536</span>)),
+					weight_limit: Limited(Weight::from_parts(<span class="number">3035310000</span>, <span class="number">65536</span>)),
 				},
 				DepositAsset {
 					assets: Wild(AllCounted(<span class="number">1</span>)),

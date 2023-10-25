@@ -242,18 +242,6 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -317,16 +305,8 @@
 	<span class="kw">fn </span>withdraw_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::&lt;Runtime&gt;::withdraw_asset())
 	}
-	<span class="comment">// Currently there is no trusted reserve (`IsReserve = ()`),
-	// but we need this hack for `pallet_xcm::reserve_transfer_assets`
-	// (TODO) fix https://github.com/paritytech/polkadot/pull/7424
-	// (TODO) fix https://github.com/paritytech/polkadot/pull/7546
-	</span><span class="kw">fn </span>reserve_asset_deposited(_assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		<span class="comment">// TODO: if we change `IsReserve = ...` then use this line...
-		// TODO: or if remote weight estimation is fixed, then remove
-		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		</span><span class="kw">let </span>hardcoded_weight = Weight::from_parts(<span class="number">1_000_000_000_u64</span>, <span class="number">0</span>);
-		hardcoded_weight.min(XcmFungibleWeight::&lt;Runtime&gt;::reserve_asset_deposited())
+	<span class="kw">fn </span>reserve_asset_deposited(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
+		assets.weigh_multi_assets(XcmFungibleWeight::&lt;Runtime&gt;::reserve_asset_deposited())
 	}
 	<span class="kw">fn </span>receive_teleported_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::&lt;Runtime&gt;::receive_teleported_asset())
@@ -381,12 +361,8 @@
 	<span class="kw">fn </span>report_error(_query_response_info: <span class="kw-2">&amp;</span>QueryResponseInfo) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::report_error()
 	}
-
 	<span class="kw">fn </span>deposit_asset(assets: <span class="kw-2">&amp;</span>MultiAssetFilter, _dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
-		<span class="comment">// Hardcoded till the XCM pallet is fixed
-		</span><span class="kw">let </span>hardcoded_weight = Weight::from_parts(<span class="number">1_000_000_000_u64</span>, <span class="number">0</span>);
-		<span class="kw">let </span>weight = assets.weigh_multi_assets(XcmFungibleWeight::&lt;Runtime&gt;::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_multi_assets(XcmFungibleWeight::&lt;Runtime&gt;::deposit_asset())
 	}
 	<span class="kw">fn </span>deposit_reserve_asset(
 		assets: <span class="kw-2">&amp;</span>MultiAssetFilter,
