@@ -72,11 +72,14 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	type Query = QueryKind::Query;
-	fn module_prefix() -> &'static [u8] {
+	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
+	}
+	fn prefix_hash() -> [u8; 32] {
+		Prefix::prefix_hash()
 	}
 	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
 		QueryKind::from_optional_value_to_query(v)
@@ -96,8 +99,8 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn module_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageNMap<Key, Value>>::module_prefix()
+	fn pallet_prefix() -> &'static [u8] {
+		<Self as crate::storage::generator::StorageNMap<Key, Value>>::pallet_prefix()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		<Self as crate::storage::generator::StorageNMap<Key, Value>>::storage_prefix()
@@ -581,7 +584,7 @@ where
 {
 	fn storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -607,7 +610,7 @@ where
 {
 	fn partial_storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),

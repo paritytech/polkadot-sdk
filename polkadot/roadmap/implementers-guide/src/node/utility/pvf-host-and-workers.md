@@ -121,10 +121,10 @@ So what are we actually worried about? Things that come to mind:
 
 ### Restricting file-system access
 
-A basic security mechanism is to make sure that any thread directly interfacing
-with untrusted code does not have access to the file-system. This provides some
-protection against attackers accessing sensitive data or modifying data on the
-host machine.
+A basic security mechanism is to make sure that any process directly interfacing
+with untrusted code does not have unnecessary access to the file-system. This
+provides some protection against attackers accessing sensitive data or modifying
+data on the host machine.
 
 ### Clearing env vars
 

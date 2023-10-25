@@ -102,7 +102,7 @@ mod cost {
 mod benefit {
 	use sc_network::ReputationChange as Rep;
 	pub(super) const VOTE_MESSAGE: Rep = Rep::new(100, "BEEFY: Round vote message");
-	pub(super) const KNOWN_VOTE_MESSAGE: Rep = Rep::new(50, "BEEFY: Known vote");
+	pub(super) const NOT_INTERESTED: Rep = Rep::new(10, "BEEFY: Not interested in round");
 	pub(super) const VALIDATED_PROOF: Rep = Rep::new(100, "BEEFY: Justification");
 }
 

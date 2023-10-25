@@ -7,11 +7,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-polkadot-runtime = { path = "../../../runtime/polkadot" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../runtime/kusama" }
 westend-runtime = { path = "../../../runtime/westend" }
-polkadot-runtime-constants = { path = "../../../runtime/polkadot/constants" }
-kusama-runtime-constants = { path = "../../../runtime/kusama/constants" }
 westend-runtime-constants = { path = "../../../runtime/westend/constants" }
 
 pallet-bags-list-remote-tests = { path = "../../../../substrate/frame/bags-list/remote-tests" }
@@ -19,6 +15,6 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 frame-system = { path = "../../../../substrate/frame/system" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 
-clap = { version = "4.4.4", features = ["derive"] }
+clap = { version = "4.4.6", features = ["derive"] }
 log = "0.4.17"
 tokio = { version = "1.24.2", features = ["macros"] }
