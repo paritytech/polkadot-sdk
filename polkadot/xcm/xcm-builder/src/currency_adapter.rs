@@ -23,7 +23,7 @@ use sp_std::{marker::PhantomData, result};
 use xcm::latest::{Asset, Error as XcmError, Location, Result, XcmContext};
 use xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},
-	HoldingAssets,
+	AssetsInHolding,
 };
 
 /// Asset transaction errors.
@@ -209,7 +209,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> result::Result<HoldingAssets, XcmError> {
+	) -> result::Result<AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::currency_adapter", "withdraw_asset what: {:?}, who: {:?}", what, who);
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
@@ -225,7 +225,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<HoldingAssets, XcmError> {
+	) -> result::Result<AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::currency_adapter", "internal_transfer_asset asset: {:?}, from: {:?}, to: {:?}", asset, from, to);
 		let amount = Matcher::matches_fungible(asset).ok_or(Error::AssetNotHandled)?;
 		let from =

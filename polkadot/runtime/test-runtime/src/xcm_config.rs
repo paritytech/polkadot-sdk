@@ -27,7 +27,7 @@ use xcm_builder::{
 };
 use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
-	HoldingAssets,
+	AssetsInHolding,
 };
 
 parameter_types! {
@@ -72,7 +72,7 @@ impl TransactAsset for DummyAssetTransactor {
 		_what: &Asset,
 		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		let asset: Asset = (Parent, 100_000).into();
 		Ok(asset.into())
 	}
@@ -87,10 +87,10 @@ impl WeightTrader for DummyWeightTrader {
 	fn buy_weight(
 		&mut self,
 		_weight: Weight,
-		_payment: HoldingAssets,
+		_payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
-		Ok(HoldingAssets::default())
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
 	}
 }
 

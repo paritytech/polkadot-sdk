@@ -125,8 +125,8 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
-		//   ..)}`
+		// - foreign assets from our consensus should be: `Location::new(1, [Parachain(xyz),
+		//   ..])`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
 		//   be accepted here
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
@@ -638,7 +638,7 @@ where
 			.into(),
 		}
 	}
-	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<Location> {
+	fn asset_id(asset_id: u32) -> sp_std::boxed::Box<Location> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))
 	}
 }

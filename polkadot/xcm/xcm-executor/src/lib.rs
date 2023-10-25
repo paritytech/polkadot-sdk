@@ -36,7 +36,7 @@ use traits::{
 };
 
 mod assets;
-pub use assets::HoldingAssets;
+pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
 
@@ -56,7 +56,7 @@ environmental::environmental!(recursion_count: u8);
 
 /// The XCM executor.
 pub struct XcmExecutor<Config: config::Config> {
-	holding: HoldingAssets,
+	holding: AssetsInHolding,
 	holding_limit: usize,
 	context: XcmContext,
 	original_origin: Location,
@@ -81,10 +81,10 @@ pub struct XcmExecutor<Config: config::Config> {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<Config: config::Config> XcmExecutor<Config> {
-	pub fn holding(&self) -> &HoldingAssets {
+	pub fn holding(&self) -> &AssetsInHolding {
 		&self.holding
 	}
-	pub fn set_holding(&mut self, v: HoldingAssets) {
+	pub fn set_holding(&mut self, v: AssetsInHolding) {
 		self.holding = v
 	}
 	pub fn holding_limit(&self) -> &usize {
@@ -278,7 +278,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn new(origin: impl Into<Location>, message_id: XcmHash) -> Self {
 		let origin = origin.into();
 		Self {
-			holding: HoldingAssets::new(),
+			holding: AssetsInHolding::new(),
 			holding_limit: Config::MaxAssetsIntoHolding::get() as usize,
 			context: XcmContext { origin: Some(origin.clone()), message_id, topic: None },
 			original_origin: origin,
@@ -439,7 +439,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	fn subsume_assets(&mut self, assets: HoldingAssets) -> Result<(), XcmError> {
+	fn subsume_assets(&mut self, assets: AssetsInHolding) -> Result<(), XcmError> {
 		// worst-case, holding.len becomes 2 * holding_limit.
 		// this guarantees that if holding.len() == holding_limit and you have holding_limit more
 		// items (which has a best case outcome of holding.len() == holding_limit), then you'll
@@ -1026,9 +1026,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// NOTE: Any assets which were unable to be reanchored are introduced into `failed_bin`.
 	fn reanchored(
-		mut assets: HoldingAssets,
+		mut assets: AssetsInHolding,
 		dest: &Location,
-		maybe_failed_bin: Option<&mut HoldingAssets>,
+		maybe_failed_bin: Option<&mut AssetsInHolding>,
 	) -> Assets {
 		let reanchor_context = Config::UniversalLocation::get();
 		assets.reanchor(dest, &reanchor_context, maybe_failed_bin);

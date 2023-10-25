@@ -42,7 +42,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}",
@@ -289,7 +289,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"withdraw_asset what: {:?}, who: {:?}",
@@ -386,7 +386,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -402,7 +402,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		FungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::internal_transfer_asset(
 			what, from, to, context
 		)

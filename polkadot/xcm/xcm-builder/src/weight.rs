@@ -31,7 +31,7 @@ use xcm::{
 };
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
-	HoldingAssets,
+	AssetsInHolding,
 };
 
 pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
@@ -146,9 +146,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: HoldingAssets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::weight",
 			"FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}",
@@ -221,9 +221,9 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: HoldingAssets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;

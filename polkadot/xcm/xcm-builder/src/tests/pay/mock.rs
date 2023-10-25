@@ -184,10 +184,10 @@ impl WeightTrader for DummyWeightTrader {
 	fn buy_weight(
 		&mut self,
 		_weight: Weight,
-		_payment: xcm_executor::HoldingAssets,
+		_payment: xcm_executor::AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::HoldingAssets, XcmError> {
-		Ok(xcm_executor::HoldingAssets::default())
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		Ok(xcm_executor::AssetsInHolding::default())
 	}
 }
 

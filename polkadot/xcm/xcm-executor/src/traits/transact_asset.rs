@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HoldingAssets;
+use crate::AssetsInHolding;
 use sp_std::result::Result;
 use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
@@ -99,7 +99,7 @@ pub trait TransactAsset {
 		_what: &Asset,
 		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -117,7 +117,7 @@ pub trait TransactAsset {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		Err(XcmError::Unimplemented)
 	}
 
@@ -130,7 +130,7 @@ pub trait TransactAsset {
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		match Self::internal_transfer_asset(asset, from, to, context) {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
 				let assets = Self::withdraw_asset(asset, from, Some(context))?;
@@ -216,7 +216,7 @@ impl TransactAsset for Tuple {
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		for_tuples!( #(
 			match Tuple::withdraw_asset(what, who, maybe_context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
@@ -238,7 +238,7 @@ impl TransactAsset for Tuple {
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		for_tuples!( #(
 			match Tuple::internal_transfer_asset(what, from, to, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
@@ -287,7 +287,7 @@ mod tests {
 			_what: &Asset,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> Result<HoldingAssets, XcmError> {
+		) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::AssetNotFound)
 		}
 
@@ -296,7 +296,7 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<HoldingAssets, XcmError> {
+		) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::AssetNotFound)
 		}
 	}
@@ -323,7 +323,7 @@ mod tests {
 			_what: &Asset,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> Result<HoldingAssets, XcmError> {
+		) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::Overflow)
 		}
 
@@ -332,7 +332,7 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<HoldingAssets, XcmError> {
+		) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::Overflow)
 		}
 	}
@@ -359,8 +359,8 @@ mod tests {
 			_what: &Asset,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> Result<HoldingAssets, XcmError> {
-			Ok(HoldingAssets::default())
+		) -> Result<AssetsInHolding, XcmError> {
+			Ok(AssetsInHolding::default())
 		}
 
 		fn internal_transfer_asset(
@@ -368,8 +368,8 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<HoldingAssets, XcmError> {
-			Ok(HoldingAssets::default())
+		) -> Result<AssetsInHolding, XcmError> {
+			Ok(AssetsInHolding::default())
 		}
 	}
 

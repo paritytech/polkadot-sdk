@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HoldingAssets;
+use crate::AssetsInHolding;
 use sp_std::result::Result;
 use xcm::latest::{prelude::*, Weight};
 
@@ -52,9 +52,9 @@ pub trait WeightTrader: Sized {
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: HoldingAssets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError>;
+	) -> Result<AssetsInHolding, XcmError>;
 
 	/// Attempt a refund of `weight` into some asset. The caller does not guarantee that the weight
 	/// was purchased using `buy_weight`.
@@ -74,9 +74,9 @@ impl WeightTrader for Tuple {
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: HoldingAssets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		let mut too_expensive_error_found = false;
 		let mut last_error = None;
 		for_tuples!( #(

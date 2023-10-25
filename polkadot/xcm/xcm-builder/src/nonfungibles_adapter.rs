@@ -44,7 +44,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"transfer_asset what: {:?}, from: {:?}, to: {:?}, context: {:?}",
@@ -231,7 +231,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"withdraw_asset what: {:?}, who: {:?}, maybe_context: {:?}",
@@ -330,7 +330,7 @@ impl<
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -346,7 +346,7 @@ impl<
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
 		NonFungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::transfer_asset(
 			what, from, to, context,
 		)

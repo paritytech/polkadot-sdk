@@ -49,7 +49,7 @@ pub use xcm_executor::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
 		FeeReason, LockError, OnResponse, TransactAsset,
 	},
-	Config, HoldingAssets,
+	Config, AssetsInHolding,
 };
 
 pub enum TestOrigin {
@@ -232,9 +232,9 @@ impl ExportXcm for TestMessageExporter {
 }
 
 thread_local! {
-	pub static ASSETS: RefCell<BTreeMap<Location, HoldingAssets>> = RefCell::new(BTreeMap::new());
+	pub static ASSETS: RefCell<BTreeMap<Location, AssetsInHolding>> = RefCell::new(BTreeMap::new());
 }
-pub fn assets(who: impl Into<Location>) -> HoldingAssets {
+pub fn assets(who: impl Into<Location>) -> AssetsInHolding {
 	ASSETS.with(|a| a.borrow().get(&who.into()).cloned()).unwrap_or_default()
 }
 pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
@@ -244,7 +244,7 @@ pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
 	ASSETS.with(|a| {
 		a.borrow_mut()
 			.entry(who.into())
-			.or_insert(HoldingAssets::new())
+			.or_insert(AssetsInHolding::new())
 			.subsume(what.into())
 	});
 }
@@ -267,7 +267,7 @@ impl TransactAsset for TestAssetTransactor {
 		what: &Asset,
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		ASSETS.with(|a| {
 			a.borrow_mut()
 				.get_mut(who)
@@ -539,8 +539,8 @@ pub enum LockTraceItem {
 thread_local! {
 	pub static NEXT_INDEX: RefCell<u32> = RefCell::new(0);
 	pub static LOCK_TRACE: RefCell<Vec<LockTraceItem>> = RefCell::new(Vec::new());
-	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(Location, Location), HoldingAssets>> = RefCell::new(BTreeMap::new());
-	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(Location, Location), HoldingAssets>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_UNLOCKS: RefCell<BTreeMap<(Location, Location), AssetsInHolding>> = RefCell::new(BTreeMap::new());
+	pub static ALLOWED_REQUEST_UNLOCKS: RefCell<BTreeMap<(Location, Location), AssetsInHolding>> = RefCell::new(BTreeMap::new());
 }
 
 pub fn take_lock_trace() -> Vec<LockTraceItem> {
@@ -668,7 +668,7 @@ impl AssetLock for TestAssetLock {
 }
 
 thread_local! {
-	pub static EXCHANGE_ASSETS: RefCell<HoldingAssets> = RefCell::new(HoldingAssets::new());
+	pub static EXCHANGE_ASSETS: RefCell<AssetsInHolding> = RefCell::new(AssetsInHolding::new());
 }
 pub fn set_exchange_assets(assets: impl Into<Assets>) {
 	EXCHANGE_ASSETS.with(|a| a.replace(assets.into().into()));
@@ -680,14 +680,14 @@ pub struct TestAssetExchange;
 impl AssetExchange for TestAssetExchange {
 	fn exchange_asset(
 		_origin: Option<&Location>,
-		give: HoldingAssets,
+		give: AssetsInHolding,
 		want: &Assets,
 		maximal: bool,
-	) -> Result<HoldingAssets, HoldingAssets> {
+	) -> Result<AssetsInHolding, AssetsInHolding> {
 		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
 		ensure!(have.contains_assets(want), give);
 		let get = if maximal {
-			std::mem::replace(&mut have, HoldingAssets::new())
+			std::mem::replace(&mut have, AssetsInHolding::new())
 		} else {
 			have.saturating_take(want.clone().into())
 		};

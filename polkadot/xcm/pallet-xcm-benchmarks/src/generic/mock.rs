@@ -27,7 +27,7 @@ use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{
-		HoldingAssets, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
+		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
 		TestUniversalAliases,
 	},
 	AliasForeignAccountId32, AllowUnpaidExecutionFrom,
@@ -92,7 +92,7 @@ impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
 		_: &Asset,
 		_: &Location,
 		_: Option<&XcmContext>,
-	) -> Result<HoldingAssets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		unreachable!();
 	}
 }

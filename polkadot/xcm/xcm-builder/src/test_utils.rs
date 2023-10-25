@@ -27,7 +27,7 @@ pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, ConvertOrigin, Enact, LockError, OnResponse, TransactAsset,
 	},
-	Config, HoldingAssets,
+	Config, AssetsInHolding,
 };
 
 parameter_types! {
@@ -69,7 +69,7 @@ parameter_types! {
 pub struct TestAssetTrap;
 
 impl DropAssets for TestAssetTrap {
-	fn drop_assets(origin: &Location, assets: HoldingAssets, _context: &XcmContext) -> Weight {
+	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		let mut t: Vec<(Location, Assets)> = TrappedAssets::get();
 		t.push((origin.clone(), assets.into()));
 		TrappedAssets::set(t);
@@ -103,10 +103,10 @@ pub struct TestAssetExchanger;
 impl AssetExchange for TestAssetExchanger {
 	fn exchange_asset(
 		_origin: Option<&Location>,
-		_give: HoldingAssets,
+		_give: AssetsInHolding,
 		want: &Assets,
 		_maximal: bool,
-	) -> Result<HoldingAssets, HoldingAssets> {
+	) -> Result<AssetsInHolding, AssetsInHolding> {
 		Ok(want.clone().into())
 	}
 }

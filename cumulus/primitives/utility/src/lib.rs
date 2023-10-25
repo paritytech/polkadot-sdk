@@ -126,9 +126,9 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: xcm_executor::HoldingAssets,
+		payment: xcm_executor::AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<xcm_executor::HoldingAssets, XcmError> {
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 
 		// Make sure we dont enter twice
@@ -300,7 +300,7 @@ mod tests {
 		},
 	};
 	use sp_runtime::DispatchError;
-	use xcm_executor::{traits::Error, HoldingAssets};
+	use xcm_executor::{traits::Error, AssetsInHolding};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
@@ -512,7 +512,7 @@ mod tests {
 
 		// prepare test data
 		let asset: Asset = (Here, AMOUNT).into();
-		let payment = HoldingAssets::from(asset);
+		let payment = AssetsInHolding::from(asset);
 		let weight_to_buy = Weight::from_parts(1_000, 1_000);
 
 		// lets do first call (success)

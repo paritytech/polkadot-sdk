@@ -14,28 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HoldingAssets;
+use crate::AssetsInHolding;
 use core::marker::PhantomData;
 use frame_support::traits::Contains;
 use xcm::latest::{Assets, Location, Weight, XcmContext};
 
-/// Define a handler for when some non-empty `HoldingAssets` value should be dropped.
+/// Define a handler for when some non-empty `AssetsInHolding` value should be dropped.
 pub trait DropAssets {
 	/// Handler for receiving dropped assets. Returns the weight consumed by this operation.
-	fn drop_assets(origin: &Location, assets: HoldingAssets, context: &XcmContext) -> Weight;
+	fn drop_assets(origin: &Location, assets: AssetsInHolding, context: &XcmContext) -> Weight;
 }
 impl DropAssets for () {
-	fn drop_assets(_origin: &Location, _assets: HoldingAssets, _context: &XcmContext) -> Weight {
+	fn drop_assets(_origin: &Location, _assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		Weight::zero()
 	}
 }
 
 /// Morph a given `DropAssets` implementation into one which can filter based on assets. This can
-/// be used to ensure that `HoldingAssets` values which hold no value are ignored.
+/// be used to ensure that `AssetsInHolding` values which hold no value are ignored.
 pub struct FilterAssets<D, A>(PhantomData<(D, A)>);
 
-impl<D: DropAssets, A: Contains<HoldingAssets>> DropAssets for FilterAssets<D, A> {
-	fn drop_assets(origin: &Location, assets: HoldingAssets, context: &XcmContext) -> Weight {
+impl<D: DropAssets, A: Contains<AssetsInHolding>> DropAssets for FilterAssets<D, A> {
+	fn drop_assets(origin: &Location, assets: AssetsInHolding, context: &XcmContext) -> Weight {
 		if A::contains(&assets) {
 			D::drop_assets(origin, assets, context)
 		} else {
@@ -50,7 +50,7 @@ impl<D: DropAssets, A: Contains<HoldingAssets>> DropAssets for FilterAssets<D, A
 pub struct FilterOrigin<D, O>(PhantomData<(D, O)>);
 
 impl<D: DropAssets, O: Contains<Location>> DropAssets for FilterOrigin<D, O> {
-	fn drop_assets(origin: &Location, assets: HoldingAssets, context: &XcmContext) -> Weight {
+	fn drop_assets(origin: &Location, assets: AssetsInHolding, context: &XcmContext) -> Weight {
 		if O::contains(origin) {
 			D::drop_assets(origin, assets, context)
 		} else {

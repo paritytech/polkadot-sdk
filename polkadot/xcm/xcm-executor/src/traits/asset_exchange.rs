@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HoldingAssets;
+use crate::AssetsInHolding;
 use xcm::prelude::*;
 
 /// A service for exchanging assets.
@@ -33,20 +33,20 @@ pub trait AssetExchange {
 	/// the case of returning an `Err`, then `give` is returned.
 	fn exchange_asset(
 		origin: Option<&Location>,
-		give: HoldingAssets,
+		give: AssetsInHolding,
 		want: &Assets,
 		maximal: bool,
-	) -> Result<HoldingAssets, HoldingAssets>;
+	) -> Result<AssetsInHolding, AssetsInHolding>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl AssetExchange for Tuple {
 	fn exchange_asset(
 		origin: Option<&Location>,
-		give: HoldingAssets,
+		give: AssetsInHolding,
 		want: &Assets,
 		maximal: bool,
-	) -> Result<HoldingAssets, HoldingAssets> {
+	) -> Result<AssetsInHolding, AssetsInHolding> {
 		for_tuples!( #(
 			let give = match Tuple::exchange_asset(origin, give, want, maximal) {
 				Ok(r) => return Ok(r),

@@ -53,7 +53,7 @@ use xcm_executor::{
 		CheckSuspension, ClaimAssets, ConvertLocation, DropAssets, MatchesFungible, OnResponse,
 		QueryHandler, QueryResponseStatus, VersionChangeNotifier, WeightBounds,
 	},
-	HoldingAssets,
+	AssetsInHolding,
 };
 
 pub trait WeightInfo {
@@ -1857,7 +1857,7 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 }
 
 impl<T: Config> DropAssets for Pallet<T> {
-	fn drop_assets(origin: &Location, assets: HoldingAssets, _context: &XcmContext) -> Weight {
+	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		if assets.is_empty() {
 			return Weight::zero()
 		}
