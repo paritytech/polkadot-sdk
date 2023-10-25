@@ -35,7 +35,7 @@ use frame_support::{
 		CallMetadata, Contains, Defensive, GetCallMetadata, PalletInfoAccess, SafeModeNotify,
 	},
 	weights::Weight,
-	DefaultNoBound,
+	DefaultNoBound, StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
@@ -513,7 +513,7 @@ impl<T: Config> Pallet<T> {
 	fn hold(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error<T>> {
 		let block = <frame_system::Pallet<T>>::block_number();
 		if !T::Currency::balance_on_hold(&HoldReason::EnterOrExtend.into(), &who).is_zero() {
-			return Err(Error::<T>::AlreadyDeposited.into())
+			return Err(Error::<T>::AlreadyDeposited.into());
 		}
 
 		T::Currency::hold(&HoldReason::EnterOrExtend.into(), &who, amount)
@@ -537,7 +537,7 @@ impl<T: Config> Pallet<T> {
 		let CallMetadata { pallet_name, .. } = call.get_call_metadata();
 		// SAFETY: The `SafeMode` pallet is always allowed.
 		if pallet_name == <Pallet<T> as PalletInfoAccess>::name() {
-			return true
+			return true;
 		}
 
 		if Self::is_entered() {

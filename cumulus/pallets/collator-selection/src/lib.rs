@@ -87,7 +87,7 @@ pub mod pallet {
 			Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency,
 			ValidatorRegistration,
 		},
-		BoundedVec, DefaultNoBound, PalletId,
+		BoundedVec, DefaultNoBound, PalletId, StorageValue as _,
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};
 	use pallet_session::SessionManager;
@@ -320,8 +320,8 @@ pub mod pallet {
 			// don't wipe out the collator set
 			if new.is_empty() {
 				ensure!(
-					Candidates::<T>::decode_len().unwrap_or_default() >=
-						T::MinEligibleCollators::get() as usize,
+					Candidates::<T>::decode_len().unwrap_or_default()
+						>= T::MinEligibleCollators::get() as usize,
 					Error::<T>::TooFewEligibleCollators
 				);
 			}
@@ -346,7 +346,7 @@ pub mod pallet {
 							Self::deposit_event(Event::InvalidInvulnerableSkipped {
 								account_id: account_id.clone(),
 							});
-							continue
+							continue;
 						}
 						// else condition passes; key is registered
 					},
@@ -355,7 +355,7 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidInvulnerableSkipped {
 							account_id: account_id.clone(),
 						});
-						continue
+						continue;
 					},
 				}
 

@@ -30,7 +30,7 @@ use sp_runtime::{
 // Logger module to track execution.
 #[frame_support::pallet]
 pub mod logger {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, storage::TryAppendValue};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]

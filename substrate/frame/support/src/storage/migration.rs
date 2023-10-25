@@ -85,7 +85,7 @@ impl<T: Decode + Sized> Iterator for StorageIterator<T> {
 					}
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -156,7 +156,7 @@ impl<K: Decode + Sized, T: Decode + Sized, H: ReversibleStorageHasher> Iterator
 					}
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -368,7 +368,7 @@ pub fn move_pallet(old_pallet_name: &[u8], new_pallet_name: &[u8]) {
 /// NOTE: The value at the key `from_prefix` is not moved.
 pub fn move_prefix(from_prefix: &[u8], to_prefix: &[u8]) {
 	if from_prefix == to_prefix {
-		return
+		return;
 	}
 
 	let iter = PrefixIterator::<_> {
@@ -393,6 +393,7 @@ mod tests {
 	use crate::{
 		hash::StorageHasher,
 		pallet_prelude::{StorageMap, StorageValue, Twox128, Twox64Concat},
+		storage::StorageValue as _,
 	};
 	use sp_io::TestExternalities;
 

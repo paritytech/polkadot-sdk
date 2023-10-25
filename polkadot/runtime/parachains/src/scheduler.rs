@@ -37,7 +37,7 @@
 //! availability cores over time.
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
 						if let Some(entry) = maybe_entry {
 							if entry.ttl < now {
 								dropped_claims.push(Some(entry.para_id()));
-								return false
+								return false;
 							}
 						}
 						true
@@ -437,13 +437,13 @@ impl<T: Config> Pallet<T> {
 		let session_start_block = <SessionStartBlock<T>>::get();
 
 		if at < session_start_block {
-			return None
+			return None;
 		}
 
 		let validator_groups = ValidatorGroups::<T>::get();
 
 		if core.0 as usize >= validator_groups.len() {
-			return None
+			return None;
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
@@ -629,7 +629,7 @@ impl<T: Config> Pallet<T> {
 		// This can only happen on new sessions at which we move all assignments back to the
 		// provider. Hence, there's nothing we need to do here.
 		if ValidatorGroups::<T>::get().is_empty() {
-			return
+			return;
 		}
 		let n_lookahead = Self::claimqueue_lookahead();
 		let n_session_cores = T::AssignmentProvider::session_core_count();
@@ -651,7 +651,7 @@ impl<T: Config> Pallet<T> {
 					Self::add_to_claimqueue(core_idx, entry);
 					// The claim has been added back into the claimqueue.
 					// Do not pop another assignment for the core.
-					continue
+					continue;
 				} else {
 					// Consider timed out assignments for on demand parachains as concluded for
 					// the assignment provider
@@ -661,8 +661,8 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// We  consider occupied cores to be part of the claimqueue
-			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32) +
-				if Self::is_core_occupied(core_idx) { 1 } else { 0 };
+			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32)
+				+ if Self::is_core_occupied(core_idx) { 1 } else { 0 };
 			for _ in n_lookahead_used..n_lookahead {
 				let concluded_para = concluded_paras.remove(&core_idx);
 				if let Some(assignment) =

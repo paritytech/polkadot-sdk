@@ -26,6 +26,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	StorageValue as _,
 };
 use pallet_session::historical as pallet_session_historical;
 use pallet_staking::FixedNominationsQuota;

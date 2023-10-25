@@ -56,6 +56,7 @@ use frame_support::{
 	},
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
+	StorageValue as _,
 };
 pub use pallet::*;
 pub use payment::*;
@@ -246,8 +247,8 @@ where
 		let diff = Multiplier::saturating_from_rational(diff_abs, max_limiting_dimension.max(1));
 		let diff_squared = diff.saturating_mul(diff);
 
-		let v_squared_2 = adjustment_variable.saturating_mul(adjustment_variable) /
-			Multiplier::saturating_from_integer(2);
+		let v_squared_2 = adjustment_variable.saturating_mul(adjustment_variable)
+			/ Multiplier::saturating_from_integer(2);
 
 		let first_term = adjustment_variable.saturating_mul(diff);
 		let second_term = v_squared_2.saturating_mul(diff_squared);
@@ -422,15 +423,15 @@ pub mod pallet {
 			// at most be maximum block weight. Make sure that this can fit in a multiplier without
 			// loss.
 			assert!(
-				<Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-					Multiplier::checked_from_integer::<u128>(
+				<Multiplier as sp_runtime::traits::Bounded>::max_value()
+					>= Multiplier::checked_from_integer::<u128>(
 						T::BlockWeights::get().max_block.ref_time().try_into().unwrap()
 					)
 					.unwrap(),
 			);
 
-			let target = T::FeeMultiplierUpdate::target() *
-				T::BlockWeights::get().get(DispatchClass::Normal).max_total.expect(
+			let target = T::FeeMultiplierUpdate::target()
+				* T::BlockWeights::get().get(DispatchClass::Normal).max_total.expect(
 					"Setting `max_total` for `Normal` dispatch class is not compatible with \
 					`transaction-payment` pallet.",
 				);
@@ -439,7 +440,7 @@ pub mod pallet {
 			if addition == Weight::zero() {
 				// this is most likely because in a test setup we set everything to ()
 				// or to `ConstFeeMultiplier`.
-				return
+				return;
 			}
 
 			// This is the minimum value of the multiplier. Make sure that if we collapse to this

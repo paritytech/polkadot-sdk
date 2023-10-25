@@ -21,6 +21,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{

@@ -27,6 +27,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, Get, Randomness, ReservableCurrency},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
@@ -342,10 +343,10 @@ impl<T: Config> Auctioneer<BlockNumberFor<T>> for Pallet<T> {
 			let sample_length = T::SampleLength::get().max(One::one());
 			let sample = after_early_end / sample_length;
 			let sub_sample = after_early_end % sample_length;
-			return AuctionStatus::EndingPeriod(sample, sub_sample)
+			return AuctionStatus::EndingPeriod(sample, sub_sample);
 		} else {
 			// This is safe because of the comparison operator above
-			return AuctionStatus::VrfDelay(after_early_end - ending_period)
+			return AuctionStatus::VrfDelay(after_early_end - ending_period);
 		}
 	}
 
@@ -495,8 +496,8 @@ impl<T: Config> Pallet<T> {
 			let mut outgoing_winner = Some((bidder.clone(), para, amount));
 			swap(&mut current_winning[range_index], &mut outgoing_winner);
 			if let Some((who, para, _amount)) = outgoing_winner {
-				if auction_status.is_starting() &&
-					current_winning
+				if auction_status.is_starting()
+					&& current_winning
 						.iter()
 						.filter_map(Option::as_ref)
 						.all(|&(ref other, other_para, _)| other != &who || other_para != para)
@@ -546,8 +547,8 @@ impl<T: Config> Pallet<T> {
 						&mut raw_offset.as_ref(),
 					)
 					.expect("secure hashes should always be bigger than the block number; qed");
-					let offset = (raw_offset_block_number % ending_period) /
-						T::SampleLength::get().max(One::one());
+					let offset = (raw_offset_block_number % ending_period)
+						/ T::SampleLength::get().max(One::one());
 
 					let auction_counter = AuctionCounter::<T>::get();
 					Self::deposit_event(Event::<T>::WinningOffset {
@@ -562,7 +563,7 @@ impl<T: Config> Pallet<T> {
 					#[allow(deprecated)]
 					Winning::<T>::remove_all(None);
 					AuctionInfo::<T>::kill();
-					return Some((res, lease_period_index))
+					return Some((res, lease_period_index));
 				}
 			}
 		}
@@ -595,9 +596,9 @@ impl<T: Config> Pallet<T> {
 			let period_count = LeasePeriodOf::<T>::from(range.len() as u32);
 
 			match T::Leaser::lease_out(para, &leaser, amount, period_begin, period_count) {
-				Err(LeaseError::ReserveFailed) |
-				Err(LeaseError::AlreadyEnded) |
-				Err(LeaseError::NoLeasePeriod) => {
+				Err(LeaseError::ReserveFailed)
+				| Err(LeaseError::AlreadyEnded)
+				| Err(LeaseError::NoLeasePeriod) => {
 					// Should never happen since we just unreserved this amount (and our offset is
 					// from the present period). But if it does, there's not much we can do.
 				},
@@ -786,11 +787,11 @@ mod tests {
 				let (current_lease_period, _) =
 					Self::lease_period_index(now).ok_or(LeaseError::NoLeasePeriod)?;
 				if period_begin < current_lease_period {
-					return Err(LeaseError::AlreadyEnded)
+					return Err(LeaseError::AlreadyEnded);
 				}
 				for period in period_begin..(period_begin + period_count) {
 					if leases.contains_key(&(para, period)) {
-						return Err(LeaseError::AlreadyLeased)
+						return Err(LeaseError::AlreadyLeased);
 					}
 					leases.insert((para, period), LeaseData { leaser: *leaser, amount });
 				}

@@ -45,6 +45,7 @@ use xcm_executor::traits::{ConvertOrigin, Properties};
 
 use frame_support::{
 	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -678,7 +679,7 @@ pub mod pallet {
 					if Self::request_version_notify(dest).is_ok() {
 						// TODO: correct weights.
 						weight_used.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-						break
+						break;
 					}
 				}
 			}
@@ -721,8 +722,9 @@ pub mod pallet {
 						timeout,
 						maybe_match_querier: Some(MultiLocation::here().into()),
 					},
-					VersionNotifier { origin, is_active } =>
-						QueryStatus::VersionNotifier { origin, is_active },
+					VersionNotifier { origin, is_active } => {
+						QueryStatus::VersionNotifier { origin, is_active }
+					},
 					Ready { response, at } => QueryStatus::Ready { response, at },
 				}
 			}
@@ -1311,7 +1313,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(sv_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -1325,7 +1327,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(vn_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -1347,7 +1349,7 @@ impl<T: Config> Pallet<T> {
 						// We don't early return here since we need to be certain that we
 						// make some progress.
 						weight_used.saturating_accrue(vnt_already_notified_weight);
-						continue
+						continue;
 					},
 				};
 				let response = Response::Version(xcm_version);
@@ -1373,7 +1375,7 @@ impl<T: Config> Pallet<T> {
 				weight_used.saturating_accrue(vnt_notify_weight);
 				if weight_used.any_gte(weight_cutoff) {
 					let last = Some(iter.last_raw_key().into());
-					return (weight_used, Some(NotifyCurrentTargets(last)))
+					return (weight_used, Some(NotifyCurrentTargets(last)));
 				}
 			}
 			stage = MigrateAndNotifyOldTargets;
@@ -1391,9 +1393,9 @@ impl<T: Config> Pallet<T> {
 							});
 							weight_used.saturating_accrue(vnt_migrate_fail_weight);
 							if weight_used.any_gte(weight_cutoff) {
-								return (weight_used, Some(stage))
+								return (weight_used, Some(stage));
 							}
-							continue
+							continue;
 						},
 					};
 
@@ -1434,7 +1436,7 @@ impl<T: Config> Pallet<T> {
 						weight_used.saturating_accrue(vnt_notify_migrate_weight);
 					}
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -1881,7 +1883,7 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 impl<T: Config> DropAssets for Pallet<T> {
 	fn drop_assets(origin: &MultiLocation, assets: Assets, _context: &XcmContext) -> Weight {
 		if assets.is_empty() {
-			return Weight::zero()
+			return Weight::zero();
 		}
 		let versioned = VersionedMultiAssets::from(MultiAssets::from(assets));
 		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
@@ -1901,11 +1903,12 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 	) -> bool {
 		let mut versioned = VersionedMultiAssets::from(assets.clone());
 		match (ticket.parents, &ticket.interior) {
-			(0, X1(GeneralIndex(i))) =>
+			(0, X1(GeneralIndex(i))) => {
 				versioned = match versioned.into_version(*i as u32) {
 					Ok(v) => v,
 					Err(()) => return false,
-				},
+				}
+			},
 			(0, Here) => (),
 			_ => return false,
 		};
@@ -1916,7 +1919,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			n => AssetTraps::<T>::insert(hash, n - 1),
 		}
 		Self::deposit_event(Event::AssetsClaimed { hash, origin: *origin, assets: versioned });
-		return true
+		return true;
 	}
 }
 
@@ -1927,15 +1930,17 @@ impl<T: Config> OnResponse for Pallet<T> {
 		querier: Option<&MultiLocation>,
 	) -> bool {
 		match Queries::<T>::get(query_id) {
-			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) =>
-				MultiLocation::try_from(responder).map_or(false, |r| origin == &r) &&
-					maybe_match_querier.map_or(true, |match_querier| {
+			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) => {
+				MultiLocation::try_from(responder).map_or(false, |r| origin == &r)
+					&& maybe_match_querier.map_or(true, |match_querier| {
 						MultiLocation::try_from(match_querier).map_or(false, |match_querier| {
 							querier.map_or(false, |q| q == &match_querier)
 						})
-					}),
-			Some(QueryStatus::VersionNotifier { origin: r, .. }) =>
-				MultiLocation::try_from(r).map_or(false, |r| origin == &r),
+					})
+			},
+			Some(QueryStatus::VersionNotifier { origin: r, .. }) => {
+				MultiLocation::try_from(r).map_or(false, |r| origin == &r)
+			},
 			_ => false,
 		}
 	}
@@ -1962,7 +1967,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							query_id,
 							expected_location: Some(o),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 					_ => {
 						Self::deposit_event(Event::InvalidResponder {
@@ -1971,7 +1976,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_location: None,
 						});
 						// TODO #3735: Correct weight for this.
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				// TODO #3735: Check max_weight is correct.
@@ -2002,7 +2007,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						Ok(mq) => mq,
 						Err(_) => {
 							Self::deposit_event(Event::InvalidQuerierVersion { origin, query_id });
-							return Weight::zero()
+							return Weight::zero();
 						},
 					};
 					if querier.map_or(true, |q| q != &match_querier) {
@@ -2012,14 +2017,14 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_querier: match_querier,
 							maybe_actual_querier: querier.cloned(),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					}
 				}
 				let responder = match MultiLocation::try_from(responder) {
 					Ok(r) => r,
 					Err(_) => {
 						Self::deposit_event(Event::InvalidResponderVersion { origin, query_id });
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				if origin != responder {
@@ -2028,7 +2033,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						query_id,
 						expected_location: Some(responder),
 					});
-					return Weight::zero()
+					return Weight::zero();
 				}
 				return match maybe_notify {
 					Some((pallet_index, call_index)) => {
@@ -2050,7 +2055,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 									max_budgeted_weight: max_weight,
 								};
 								Self::deposit_event(e);
-								return Weight::zero()
+								return Weight::zero();
 							}
 							let dispatch_origin = Origin::Response(origin).into();
 							match call.dispatch(dispatch_origin) {
@@ -2087,7 +2092,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						Queries::<T>::insert(query_id, QueryStatus::Ready { response, at });
 						Weight::zero()
 					},
-				}
+				};
 			},
 			_ => {
 				let e = Event::UnexpectedResponse { origin, query_id };

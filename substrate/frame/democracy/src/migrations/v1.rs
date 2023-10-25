@@ -18,7 +18,12 @@
 //! Storage migrations for the preimage pallet.
 
 use crate::*;
-use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, BoundedVec};
+use frame_support::{
+	pallet_prelude::*,
+	storage_alias,
+	traits::OnRuntimeUpgrade,
+	BoundedVec, // StorageValue as _,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::H256;
 
@@ -80,7 +85,7 @@ pub mod v1 {
 					"skipping on_runtime_upgrade: executed on wrong storage version.\
 				Expected version 0"
 				);
-				return weight
+				return weight;
 			}
 
 			ReferendumInfoOf::<T>::translate(
@@ -88,16 +93,18 @@ pub mod v1 {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 					log::info!(target: TARGET, "migrating referendum #{:?}", &index);
 					Some(match old {
-						ReferendumInfo::Ongoing(status) =>
+						ReferendumInfo::Ongoing(status) => {
 							ReferendumInfo::Ongoing(ReferendumStatus {
 								end: status.end,
 								proposal: Bounded::from_legacy_hash(status.proposal),
 								threshold: status.threshold,
 								delay: status.delay,
 								tally: status.tally,
-							}),
-						ReferendumInfo::Finished { approved, end } =>
-							ReferendumInfo::Finished { approved, end },
+							})
+						},
+						ReferendumInfo::Finished { approved, end } => {
+							ReferendumInfo::Finished { approved, end }
+						},
 					})
 				},
 			);

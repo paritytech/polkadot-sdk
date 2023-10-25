@@ -28,6 +28,7 @@ use crate::{
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::limits::BlockWeights;
 use parity_scale_codec::{Decode, Encode};
@@ -159,16 +160,16 @@ pub mod pallet {
 			// - DMP
 			// - UMP
 			// - HRMP
-			let total_weight = configuration::Pallet::<T>::initializer_initialize(now) +
-				shared::Pallet::<T>::initializer_initialize(now) +
-				paras::Pallet::<T>::initializer_initialize(now) +
-				scheduler::Pallet::<T>::initializer_initialize(now) +
-				inclusion::Pallet::<T>::initializer_initialize(now) +
-				session_info::Pallet::<T>::initializer_initialize(now) +
-				T::DisputesHandler::initializer_initialize(now) +
-				T::SlashingHandler::initializer_initialize(now) +
-				dmp::Pallet::<T>::initializer_initialize(now) +
-				hrmp::Pallet::<T>::initializer_initialize(now);
+			let total_weight = configuration::Pallet::<T>::initializer_initialize(now)
+				+ shared::Pallet::<T>::initializer_initialize(now)
+				+ paras::Pallet::<T>::initializer_initialize(now)
+				+ scheduler::Pallet::<T>::initializer_initialize(now)
+				+ inclusion::Pallet::<T>::initializer_initialize(now)
+				+ session_info::Pallet::<T>::initializer_initialize(now)
+				+ T::DisputesHandler::initializer_initialize(now)
+				+ T::SlashingHandler::initializer_initialize(now)
+				+ dmp::Pallet::<T>::initializer_initialize(now)
+				+ hrmp::Pallet::<T>::initializer_initialize(now);
 
 			HasInitialized::<T>::set(Some(()));
 

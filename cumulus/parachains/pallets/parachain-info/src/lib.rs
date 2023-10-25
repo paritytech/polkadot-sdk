@@ -23,7 +23,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use cumulus_primitives_core::ParaId;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]

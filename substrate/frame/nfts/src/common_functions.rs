@@ -18,7 +18,7 @@
 //! Various pieces of common functionality.
 
 use crate::*;
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the owner of the item, if the item exists.
@@ -43,7 +43,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		if signature.verify(&**data, &signer) {
-			return Ok(())
+			return Ok(());
 		}
 
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

@@ -46,7 +46,7 @@ use sp_trie::{
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter,
+	Parameter, StorageValue as _,
 };
 
 use crate::{self as pallet_session, Pallet as Session};
@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
 			let up_to = sp_std::cmp::min(up_to, end);
 
 			if up_to < start {
-				return // out of bounds. harmless.
+				return; // out of bounds. harmless.
 			}
 
 			(start..up_to).for_each(HistoricalSessions::<T>::remove);
@@ -351,7 +351,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 					let count = <Session<T>>::validators().len() as ValidatorCount;
 
 					if count != proof.validator_count {
-						return None
+						return None;
 					}
 
 					Some((owner, id))
@@ -361,7 +361,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 			let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
 
 			if count != proof.validator_count {
-				return None
+				return None;
 			}
 
 			let trie = ProvingTrie::<T>::from_nodes(root, &proof.trie_nodes);

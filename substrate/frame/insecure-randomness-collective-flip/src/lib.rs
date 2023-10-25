@@ -73,7 +73,7 @@
 use safe_mix::TripletMix;
 
 use codec::Encode;
-use frame_support::{pallet_prelude::Weight, traits::Randomness};
+use frame_support::{pallet_prelude::Weight, traits::Randomness, StorageValue as _};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{Hash, Saturating};
 

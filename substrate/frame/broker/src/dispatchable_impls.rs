@@ -19,6 +19,7 @@ use super::*;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	StorageValue as _,
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::Convert;
@@ -268,7 +269,9 @@ impl<T: Config> Pallet<T> {
 					let assigned = match AllowedRenewals::<T>::get(renewal_id) {
 						Some(AllowedRenewalRecord { completion: Partial(w), price: p })
 							if price == p =>
-							w,
+						{
+							w
+						},
 						_ => CoreMask::void(),
 					} | region_id.mask;
 					let workload =

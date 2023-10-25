@@ -86,7 +86,7 @@ fn num_chunks(bytes: u32) -> u32 {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -210,7 +210,7 @@ pub mod pallet {
 			let mut index = 0;
 			<BlockTransactions<T>>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
 				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunk_count;
 				index = transactions.len() as u32;
@@ -254,7 +254,7 @@ pub mod pallet {
 			let mut index = 0;
 			<BlockTransactions<T>>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
-					return Err(Error::<T>::TooManyTransactions)
+					return Err(Error::<T>::TooManyTransactions);
 				}
 				let chunks = num_chunks(info.size);
 				let total_chunks = transactions.last().map_or(0, |t| t.block_chunks) + chunks;

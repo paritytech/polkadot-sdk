@@ -19,7 +19,7 @@
 
 use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, StorageValue as _};
 use frame_system::RawOrigin;
 use sp_transaction_storage_proof::registration::build_proof;
 

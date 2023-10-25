@@ -241,7 +241,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, DefensiveResult, Get, OnUnbalanced, ReservableCurrency},
 	weights::Weight,
-	DefaultNoBound, EqNoBound, PartialEqNoBound,
+	DefaultNoBound, EqNoBound, PartialEqNoBound, StorageValue as _,
 };
 use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
@@ -1616,14 +1616,14 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if <Snapshot<T>>::exists() &&
-			<SnapshotMetadata<T>>::exists() &&
-			<DesiredTargets<T>>::exists()
+		if <Snapshot<T>>::exists()
+			&& <SnapshotMetadata<T>>::exists()
+			&& <DesiredTargets<T>>::exists()
 		{
 			Ok(())
-		} else if !<Snapshot<T>>::exists() &&
-			!<SnapshotMetadata<T>>::exists() &&
-			!<DesiredTargets<T>>::exists()
+		} else if !<Snapshot<T>>::exists()
+			&& !<SnapshotMetadata<T>>::exists()
+			&& !<DesiredTargets<T>>::exists()
 		{
 			Ok(())
 		} else {
@@ -1644,7 +1644,7 @@ impl<T: Config> Pallet<T> {
 			if submission.is_none() {
 				return Err(
 					"All signed submissions indices must be part of the submissions map".into()
-				)
+				);
 			}
 
 			if i == 0 {
@@ -1652,8 +1652,8 @@ impl<T: Config> Pallet<T> {
 			} else {
 				if last_score.strict_threshold_better(indice.0, Perbill::zero()) {
 					return Err(
-						"Signed submission indices vector must be ordered by election score".into()
-					)
+						"Signed submission indices vector must be ordered by election score".into(),
+					);
 				}
 				last_score = indice.0;
 			}
@@ -1661,21 +1661,22 @@ impl<T: Config> Pallet<T> {
 
 		if <SignedSubmissionsMap<T>>::iter().nth(indices.len()).is_some() {
 			return Err(
-				"Signed submissions map length should be the same as the indices vec length".into()
-			)
+				"Signed submissions map length should be the same as the indices vec length".into(),
+			);
 		}
 
 		match <SignedSubmissionNextIndex<T>>::get() {
 			0 => Ok(()),
-			next =>
+			next => {
 				if <SignedSubmissionsMap<T>>::get(next).is_some() {
 					return Err(
 						"The next submissions index should not be in the submissions maps already"
 							.into(),
-					)
+					);
 				} else {
 					Ok(())
-				},
+				}
+			},
 		}
 	}
 
@@ -1684,12 +1685,13 @@ impl<T: Config> Pallet<T> {
 	fn try_state_phase_off() -> Result<(), TryRuntimeError> {
 		match Self::current_phase().is_off() {
 			false => Ok(()),
-			true =>
+			true => {
 				if <Snapshot<T>>::get().is_some() {
 					Err("Snapshot must be none when in Phase::Off".into())
 				} else {
 					Ok(())
-				},
+				}
+			},
 		}
 	}
 }
@@ -2687,8 +2689,8 @@ mod tests {
 
 		let mut active = 1;
 		while weight_with(active)
-			.all_lte(<Runtime as frame_system::Config>::BlockWeights::get().max_block) ||
-			active == all_voters
+			.all_lte(<Runtime as frame_system::Config>::BlockWeights::get().max_block)
+			|| active == all_voters
 		{
 			active += 1;
 		}

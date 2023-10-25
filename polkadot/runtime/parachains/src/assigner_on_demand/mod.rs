@@ -44,6 +44,7 @@ use frame_support::{
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		WithdrawReasons,
 	},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 use primitives::{CoreIndex, Id as ParaId};
@@ -207,7 +208,7 @@ pub mod pallet {
 						Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet {
 							traffic: new_traffic,
 						});
-						return T::DbWeight::get().reads_writes(2, 1)
+						return T::DbWeight::get().reads_writes(2, 1);
 					}
 				},
 				Err(SpotTrafficCalculationErr::QueueCapacityIsZero) => {
@@ -346,7 +347,7 @@ where
 		match res {
 			Ok(_) => {
 				Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced { para_id, spot_price });
-				return Ok(())
+				return Ok(());
 			},
 			Err(err) => return Err(err),
 		}
@@ -383,19 +384,19 @@ where
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
 		// Return early if queue has no capacity.
 		if queue_capacity == 0 {
-			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero)
+			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero);
 		}
 
 		// Return early if queue size is greater than capacity.
 		if queue_size > queue_capacity {
-			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity)
+			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity);
 		}
 
 		// (queue_size / queue_capacity) - target_queue_utilisation
 		let queue_util_ratio = FixedU128::from_rational(queue_size.into(), queue_capacity.into());
 		let positive = queue_util_ratio >= target_queue_utilisation.into();
-		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into()) -
-			queue_util_ratio.min(target_queue_utilisation.into());
+		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into())
+			- queue_util_ratio.min(target_queue_utilisation.into());
 
 		// variability * queue_util_diff
 		let var_times_qud = queue_util_diff.saturating_mul(variability.into());
@@ -469,7 +470,7 @@ where
 					target: LOG_TARGET,
 					"Failed to fetch the on demand queue size, returning the max size."
 				);
-				return config.on_demand_queue_max_size
+				return config.on_demand_queue_max_size;
 			},
 		}
 	}
@@ -509,13 +510,14 @@ where
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_idx: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {
-			Some(affinity) =>
+			Some(affinity) => {
 				if affinity.core_idx == core_idx {
 					*maybe_affinity = Some(CoreAffinityCount {
 						core_idx,
 						count: affinity.count.saturating_add(1),
 					});
-				},
+				}
+			},
 			None => {
 				*maybe_affinity = Some(CoreAffinityCount { core_idx, count: 1 });
 			},
@@ -565,14 +567,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			}
 			// Record no longer valid para_ids.
 			invalidated_para_id_indexes.push(index);
-			return false
+			return false;
 		});
 
 		// Collect the popped value.
 		let popped = pos.and_then(|p: usize| {
 			if let Some(assignment) = queue.remove(p) {
 				Pallet::<T>::increase_affinity(assignment.para_id, core_idx);
-				return Some(assignment)
+				return Some(assignment);
 			};
 			None
 		});

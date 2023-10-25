@@ -1031,7 +1031,7 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1047,14 +1047,14 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1129,12 +1129,12 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 					Ok(item) => return Some(item),
 					Err(e) => {
 						log::error!("key failed to decode at {:?}: {:?}", self.previous_key, e);
-						continue
+						continue;
 					},
 				}
 			}
 
-			return None
+			return None;
 		}
 	}
 }
@@ -1244,7 +1244,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1259,14 +1259,14 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1388,7 +1388,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 				},
 				None => {
 					log::error!("old key failed to decode at {:?}", previous_key);
-					continue
+					continue;
 				},
 			}
 		}
@@ -1493,12 +1493,12 @@ pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	/// This might fail if bounds are not respected.
 	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()>;
 }
-
-impl<T, I, StorageValueT> TryAppendValue<T, I> for StorageValueT
+/*
+impl<T, I> TryAppendValue<T, I> for ValueT
 where
 	I: Encode,
 	T: FullCodec + StorageTryAppend<I>,
-	StorageValueT: generator::StorageValue<T>,
+
 {
 	fn try_append<LikeI: EncodeLike<I>>(item: LikeI) -> Result<(), ()> {
 		let bound = T::bound();
@@ -1514,7 +1514,7 @@ where
 		}
 	}
 }
-
+*/
 /// Storage map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.
@@ -1611,10 +1611,13 @@ pub fn storage_prefix(pallet_name: &[u8], storage_name: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{assert_ok, hash::Identity, pallet_prelude::NMapKey, Twox128};
+	use crate::{
+		assert_ok, hash::Identity, pallet_prelude::NMapKey, storage::types::StorageValue,
+		traits::StorageInstance, Twox128,
+	};
 	use bounded_vec::BoundedVec;
-	use frame_support::traits::ConstU32;
-	use generator::StorageValue as _;
+	use frame_support::{traits::ConstU32, StorageValue as _};
+	// use generator::;
 	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
@@ -1697,6 +1700,7 @@ mod test {
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
+			/*
 			struct Storage;
 			impl generator::StorageValue<Digest> for Storage {
 				type Query = Digest;
@@ -1720,11 +1724,21 @@ mod test {
 				fn storage_value_final_key() -> [u8; 32] {
 					storage_prefix(Self::pallet_prefix(), Self::storage_prefix())
 				}
+			}*/
+			struct Prefix;
+			impl StorageInstance for Prefix {
+				fn pallet_prefix() -> &'static str {
+					"MyModule"
+				}
+				const STORAGE_PREFIX: &'static str = "Storage";
 			}
 
-			Storage::append(DigestItem::Other(Vec::new()));
+			type df = StorageValue<Prefix, Digest>;
+			df::append(DigestItem::Other(Vec::new()));
 
-			let value = unhashed::get_raw(&Storage::storage_value_final_key()).unwrap();
+			let value =
+				unhashed::get_raw(&storage_prefix(df::pallet_prefix(), df::storage_prefix()))
+					.unwrap();
 
 			let expected = Digest { logs: vec![DigestItem::Other(Vec::new())] };
 			assert_eq!(Digest::decode(&mut &value[..]).unwrap(), expected);

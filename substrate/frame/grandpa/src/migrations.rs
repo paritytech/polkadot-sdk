@@ -18,6 +18,7 @@
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade},
 	weights::Weight,
+	StorageValue as _,
 };
 
 use crate::{Config, CurrentSetId, SetIdSession, LOG_TARGET};
@@ -45,7 +46,7 @@ impl<T: Config> OnRuntimeUpgrade for CleanupSetIdSessionMap<T> {
 				"CleanupSetIdSessionMap migration was aborted since there are too many entries to cleanup."
 			);
 
-			return T::DbWeight::get().reads(1)
+			return T::DbWeight::get().reads(1);
 		}
 
 		cleanup_set_id_sesion_map::<T>()

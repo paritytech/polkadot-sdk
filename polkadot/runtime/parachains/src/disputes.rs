@@ -20,7 +20,7 @@ use crate::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
-use frame_support::{ensure, weights::Weight};
+use frame_support::{ensure, weights::Weight, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;
@@ -156,8 +156,9 @@ where
 		(None, Some(_)) => Ordering::Greater,
 		(Some(_), None) => Ordering::Less,
 		// For local disputes, prioritize those that occur at an earlier height.
-		(Some(a_height), Some(b_height)) =>
-			a_height.cmp(&b_height).then_with(|| a.candidate_hash.cmp(&b.candidate_hash)),
+		(Some(a_height), Some(b_height)) => {
+			a_height.cmp(&b_height).then_with(|| a.candidate_hash.cmp(&b.candidate_hash))
+		},
 		// Prioritize earlier remote disputes using session as rough proxy.
 		(None, None) => {
 			let session_ord = a.session.cmp(&b.session);
@@ -677,8 +678,9 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 				// We allow backing statements to be imported after an
 				// explicit "for" vote, but not the other way around.
 				match (kind.is_backing(), self.backers.contains(&validator)) {
-					(true, true) | (false, false) =>
-						return Err(VoteImportError::DuplicateStatement),
+					(true, true) | (false, false) => {
+						return Err(VoteImportError::DuplicateStatement)
+					},
 					(false, true) => return Err(VoteImportError::MaliciousBacker),
 					(true, false) => {},
 				}
@@ -784,8 +786,8 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 					.validators_for
 					.iter_ones()
 					.filter(|i| {
-						self.pre_state.validators_for.get(*i).map_or(false, |b| !*b) ||
-							new_backing_vote(&ValidatorIndex(*i as _))
+						self.pre_state.validators_for.get(*i).map_or(false, |b| !*b)
+							|| new_backing_vote(&ValidatorIndex(*i as _))
 					})
 					.map(|i| ValidatorIndex(i as _))
 					.collect()
@@ -868,7 +870,7 @@ impl<T: Config> Pallet<T> {
 		let config = <configuration::Pallet<T>>::config();
 
 		if notification.session_index <= config.dispute_period + 1 {
-			return
+			return;
 		}
 
 		let pruning_target = notification.session_index - config.dispute_period - 1;
@@ -958,7 +960,7 @@ impl<T: Config> Pallet<T> {
 		let dispute_state = {
 			if let Some(dispute_state) = <Disputes<T>>::get(&set.session, &set.candidate_hash) {
 				if dispute_state.concluded_at.as_ref().map_or(false, |c| c < &oldest_accepted) {
-					return StatementSetFilter::RemoveAll
+					return StatementSetFilter::RemoveAll;
 				}
 
 				dispute_state
@@ -985,7 +987,7 @@ impl<T: Config> Pallet<T> {
 				let validator_public = match session_info.validators.get(*validator_index) {
 					None => {
 						filter.remove_index(i);
-						continue
+						continue;
 					},
 					Some(v) => v,
 				};
@@ -996,7 +998,7 @@ impl<T: Config> Pallet<T> {
 					Ok(u) => u,
 					Err(_) => {
 						filter.remove_index(i);
-						continue
+						continue;
 					},
 				};
 
@@ -1018,7 +1020,7 @@ impl<T: Config> Pallet<T> {
 				) {
 					importer.undo(undo);
 					filter.remove_index(i);
-					continue
+					continue;
 				};
 			}
 
@@ -1026,17 +1028,17 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Reject disputes which don't have at least one vote on each side.
-		if summary.state.validators_for.count_ones() == 0 ||
-			summary.state.validators_against.count_ones() == 0
+		if summary.state.validators_for.count_ones() == 0
+			|| summary.state.validators_against.count_ones() == 0
 		{
-			return StatementSetFilter::RemoveAll
+			return StatementSetFilter::RemoveAll;
 		}
 
 		// Reject disputes containing less votes than needed for confirmation.
-		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() <=
-			byzantine_threshold(summary.state.validators_for.len())
+		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones()
+			<= byzantine_threshold(summary.state.validators_for.len())
 		{
-			return StatementSetFilter::RemoveAll
+			return StatementSetFilter::RemoveAll;
 		}
 
 		filter
@@ -1104,15 +1106,15 @@ impl<T: Config> Pallet<T> {
 
 		// Reject disputes which don't have at least one vote on each side.
 		ensure!(
-			summary.state.validators_for.count_ones() > 0 &&
-				summary.state.validators_against.count_ones() > 0,
+			summary.state.validators_for.count_ones() > 0
+				&& summary.state.validators_against.count_ones() > 0,
 			Error::<T>::SingleSidedDispute,
 		);
 
 		// Reject disputes containing less votes than needed for confirmation.
 		ensure!(
-			(summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() >
-				byzantine_threshold(summary.state.validators_for.len()),
+			(summary.state.validators_for.clone() | &summary.state.validators_against).count_ones()
+				> byzantine_threshold(summary.state.validators_for.len()),
 			Error::<T>::UnconfirmedDispute,
 		);
 		let backers = summary.backers;
@@ -1201,7 +1203,7 @@ impl<T: Config> Pallet<T> {
 		included_in: BlockNumberFor<T>,
 	) {
 		if included_in.is_zero() {
-			return
+			return;
 		}
 
 		let revert_to = included_in - One::one();
@@ -1262,22 +1264,27 @@ fn check_signature(
 	validator_signature: &ValidatorSignature,
 ) -> Result<(), ()> {
 	let payload = match *statement {
-		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
-			ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload(),
-		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) =>
+		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) => {
+			ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload()
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) => {
 			CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: inclusion_parent,
-			}),
-		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
+			})
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) => {
 			CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: inclusion_parent,
-			}),
-		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-			ApprovalVote(candidate_hash).signing_payload(session),
-		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
-			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),
+			})
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) => {
+			ApprovalVote(candidate_hash).signing_payload(session)
+		},
+		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) => {
+			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload()
+		},
 	};
 
 	let start = get_current_time();

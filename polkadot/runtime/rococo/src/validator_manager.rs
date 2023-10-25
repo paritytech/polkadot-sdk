@@ -16,6 +16,7 @@
 
 //! A pallet for managing validators on Rococo.
 
+use frame_support::StorageValue as _;
 use sp_staking::SessionIndex;
 use sp_std::vec::Vec;
 
@@ -102,7 +103,7 @@ pub mod pallet {
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 		if new_index <= 1 {
-			return None
+			return None;
 		}
 
 		let mut validators = Session::<T>::validators();

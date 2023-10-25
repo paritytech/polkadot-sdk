@@ -38,6 +38,7 @@ use frame_support::{
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
 	pallet_prelude::*,
 	traits::Randomness,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
@@ -295,7 +296,7 @@ impl<T: Config> Pallet<T> {
 			Ok(None) => return None,
 			Err(_) => {
 				log::warn!(target: LOG_TARGET, "ParachainsInherentData failed to decode");
-				return None
+				return None;
 			},
 		};
 		match Self::process_inherent_data(
@@ -514,7 +515,7 @@ impl<T: Config> Pallet<T> {
 			};
 
 			// The relay chain we are currently on is invalid. Proceed no further on parachains.
-			return Ok((processed, Some(checked_disputes_sets_consumed_weight).into()))
+			return Ok((processed, Some(checked_disputes_sets_consumed_weight).into()));
 		}
 
 		// Contains the disputes that are concluded in the current session only,
@@ -677,7 +678,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 	weight_limit: Weight,
 ) -> (Weight, Vec<usize>) {
 	if selectables.is_empty() {
-		return (Weight::zero(), Vec::new())
+		return (Weight::zero(), Vec::new());
 	}
 	// all indices that are not part of the preferred set
 	let mut indices = (0..selectables.len())
@@ -694,7 +695,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 		if let Some(item) = selectables.get(preferred_idx) {
 			let updated = weight_acc.saturating_add(weight_fn(item));
 			if updated.any_gt(weight_limit) {
-				continue
+				continue;
 			}
 			weight_acc = updated;
 			picked_indices.push(preferred_idx);
@@ -707,7 +708,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 		let updated = weight_acc.saturating_add(weight_fn(item));
 
 		if updated.any_gt(weight_limit) {
-			continue
+			continue;
 		}
 		weight_acc = updated;
 
@@ -752,7 +753,7 @@ fn apply_weight_limit<T: Config + inclusion::Config>(
 
 	// candidates + bitfields fit into the block
 	if max_consumable_weight.all_gte(total) {
-		return total
+		return total;
 	}
 
 	// Prefer code upgrades, they tend to be large and hence stand no chance to be picked
@@ -784,7 +785,7 @@ fn apply_weight_limit<T: Config + inclusion::Config>(
 		// fill the remaining space with candidates
 		let total_consumed = acc_candidate_weight.saturating_add(total_bitfields_weight);
 
-		return total_consumed
+		return total_consumed;
 	}
 
 	candidates.clear();
@@ -832,7 +833,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 		// This is a system logic error that should never occur, but we want to handle it gracefully
 		// so we just drop all bitfields
 		log::error!(target: LOG_TARGET, "BUG: disputed_bitfield != expected_bits");
-		return vec![]
+		return vec![];
 	}
 
 	let all_zeros = BitVec::<u8, bitvec::order::Lsb0>::repeat(false, expected_bits);
@@ -846,18 +847,18 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				unchecked_bitfield.unchecked_payload().0.len(),
 				expected_bits,
 			);
-			continue
+			continue;
 		}
 
-		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone() !=
-			all_zeros
+		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
+			!= all_zeros
 		{
 			log::trace!(
 				target: LOG_TARGET,
 				"bitfield contains disputed cores: {:?}",
 				unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
 			);
-			continue
+			continue;
 		}
 
 		let validator_index = unchecked_bitfield.unchecked_validator_index();
@@ -869,7 +870,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				last_index.as_ref().map(|x| x.0),
 				validator_index.0
 			);
-			continue
+			continue;
 		}
 
 		if unchecked_bitfield.unchecked_validator_index().0 as usize >= validators.len() {
@@ -879,7 +880,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				validator_index.0,
 				validators.len(),
 			);
-			continue
+			continue;
 		}
 
 		let validator_public = &validators[validator_index.0 as usize];

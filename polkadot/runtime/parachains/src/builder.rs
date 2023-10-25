@@ -26,7 +26,7 @@ use crate::{
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use primitives::{
 	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,

@@ -21,7 +21,7 @@ use frame_support::{
 	storage_alias,
 	traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
 	weights::Weight,
-	Twox64Concat,
+	StorageValue as _, Twox64Concat,
 };
 use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
 use sp_std::vec::Vec;
@@ -65,7 +65,7 @@ pub mod v1 {
 		fn on_runtime_upgrade() -> Weight {
 			if Pallet::<T>::on_chain_storage_version() > 0 {
 				log::info!(target: LOG_TARGET, "pallet_offences::MigrateToV1 should be removed");
-				return T::DbWeight::get().reads(1)
+				return T::DbWeight::get().reads(1);
 			}
 
 			let keys_removed = v0::ReportsByKindIndex::<T>::clear(u32::MAX, None).unique as u64;

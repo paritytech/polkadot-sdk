@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, OneSessionHandler},
 	weights::Weight,
-	BoundedSlice, BoundedVec, Parameter,
+	BoundedSlice, BoundedVec, Parameter, StorageValue as _,
 };
 use frame_system::{
 	ensure_none, ensure_signed,
@@ -352,11 +352,11 @@ impl<T: Config> Pallet<T> {
 
 	fn initialize(authorities: &Vec<T::BeefyId>) -> Result<(), ()> {
 		if authorities.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if !<Authorities<T>>::get().is_empty() {
-			return Err(())
+			return Err(());
 		}
 
 		let bounded_authorities =

@@ -51,6 +51,7 @@ use frame_support::{
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	StorageValue as _,
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_primitives::CodeUploadReturnValue;
@@ -101,7 +102,10 @@ pub mod test_utils {
 		ContractInfoOf, Nonce, PristineCode,
 	};
 	use codec::{Encode, MaxEncodedLen};
-	use frame_support::traits::fungible::{InspectHold, Mutate};
+	use frame_support::{
+		traits::fungible::{InspectHold, Mutate},
+		StorageValue as _,
+	};
 
 	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: CodeHash<Test>) {
 		let nonce = <Nonce<Test>>::mutate(|counter| {
@@ -151,8 +155,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: CodeHash<Test>) -> usize {
 		// Assert that code_info is stored

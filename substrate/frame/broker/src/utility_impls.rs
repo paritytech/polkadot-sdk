@@ -23,6 +23,7 @@ use frame_support::{
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
 		OnUnbalanced,
 	},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::{
@@ -105,7 +106,7 @@ impl<T: Config> Pallet<T> {
 			region_id.begin = last_committed_timeslice + 1;
 			if region_id.begin >= region.end {
 				Self::deposit_event(Event::RegionDropped { region_id, duration });
-				return Ok(None)
+				return Ok(None);
 			}
 		} else {
 			Workplan::<T>::mutate_extant((region_id.begin, region_id.core), |p| {

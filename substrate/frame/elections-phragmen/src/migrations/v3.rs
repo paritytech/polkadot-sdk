@@ -21,7 +21,8 @@ use super::super::LOG_TARGET;
 use crate::{Config, Pallet};
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
-	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, Twox64Concat,
+	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, StorageValue as _,
+	Twox64Concat,
 };
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;

@@ -27,7 +27,7 @@ use crate::{
 use sp_runtime::TryRuntimeError;
 
 use codec::{Decode, Encode};
-use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
+use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound, StorageValue as _};
 use sp_std::{marker::PhantomData, prelude::*};
 mod old {
 	use super::*;
@@ -115,7 +115,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 				"Injecting {len} entries to deletion queue to test migration"
 			);
 			fill_old_queue::<T>(len as usize);
-			return Ok(len.encode())
+			return Ok(len.encode());
 		}
 
 		Ok((old_queue.len() as u32).encode())

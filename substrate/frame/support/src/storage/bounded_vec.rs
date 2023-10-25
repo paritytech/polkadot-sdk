@@ -36,6 +36,7 @@ impl<T, S: Get<u32>> StorageTryAppend<T> for BoundedVec<T, S> {
 pub mod test {
 	use super::*;
 	use crate::{traits::ConstU32, Twox128};
+	use frame_support::StorageValue as _;
 	use sp_io::TestExternalities;
 	use sp_runtime::bounded_vec;
 

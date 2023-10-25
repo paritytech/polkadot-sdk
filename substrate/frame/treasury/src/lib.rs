@@ -91,14 +91,14 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
+	storage::TryAppendValue,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	PalletId,
+	PalletId, StorageValue as _,
 };
-
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -864,7 +864,7 @@ pub mod pallet {
 				// spend has expired and no further status update is expected.
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			let payment_id = match spend.status {
@@ -881,11 +881,11 @@ pub mod pallet {
 				Status::Success | Status::Unknown => {
 					Spends::<T, I>::remove(index);
 					Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 				Status::InProgress => return Err(Error::<T, I>::Inconclusive.into()),
 			}
-			return Ok(Pays::Yes.into())
+			return Ok(Pays::Yes.into());
 		}
 
 		/// Void previously approved spend.

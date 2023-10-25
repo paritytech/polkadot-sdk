@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::FindAuthor;
+use frame_support::{traits::FindAuthor, StorageValue as _};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 	pub fn author() -> Option<T::AccountId> {
 		// Check the memorized storage value.
 		if let Some(author) = <Author<T>>::get() {
-			return Some(author)
+			return Some(author);
 		}
 
 		let digest = <frame_system::Pallet<T>>::digest();
@@ -134,7 +134,7 @@ mod tests {
 		{
 			for (id, mut data) in digests {
 				if id == TEST_ID {
-					return u64::decode(&mut data).ok()
+					return u64::decode(&mut data).ok();
 				}
 			}
 

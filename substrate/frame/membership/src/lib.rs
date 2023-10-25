@@ -25,7 +25,7 @@
 
 use frame_support::{
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
@@ -221,7 +221,7 @@ pub mod pallet {
 			let add = T::Lookup::lookup(add)?;
 
 			if remove == add {
-				return Ok(())
+				return Ok(());
 			}
 
 			let mut members = <Members<T, I>>::get();

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
+use frame_support::{pallet_prelude::*, weights::WeightMeter, StorageValue as _};
 use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},
 	FixedPointNumber,

@@ -21,7 +21,7 @@ use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Transfer},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 use frame_system::RawOrigin::Root;
 use sp_runtime::traits::Get;

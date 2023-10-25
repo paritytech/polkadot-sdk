@@ -24,6 +24,7 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
 	traits::{Currency, Get, ReservableCurrency},
+	StorageValue as _,
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
@@ -309,7 +310,7 @@ pub mod pallet {
 			// early, since swapping the same id would otherwise be a noop.
 			if id == other {
 				PendingSwap::<T>::remove(id);
-				return Ok(())
+				return Ok(());
 			}
 
 			// Sanity check that `id` is even a para.
@@ -321,23 +322,23 @@ pub mod pallet {
 					paras::Pallet::<T>::lifecycle(other).ok_or(Error::<T>::NotRegistered)?;
 				// identify which is a lease holding parachain and which is a parathread (on-demand
 				// parachain)
-				if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parathread
+				if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parathread
 				{
 					Self::do_thread_and_chain_swap(id, other);
-				} else if id_lifecycle == ParaLifecycle::Parathread &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parathread
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					Self::do_thread_and_chain_swap(other, id);
-				} else if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					// If both chains are currently parachains, there is nothing funny we
 					// need to do for their lifecycle management, just swap the underlying
 					// data.
 					T::OnSwap::on_swap(id, other);
 				} else {
-					return Err(Error::<T>::CannotSwap.into())
+					return Err(Error::<T>::CannotSwap.into());
 				}
 				Self::deposit_event(Event::<T>::Swapped { para_id: id, other_id: other });
 				PendingSwap::<T>::remove(other);
@@ -1010,8 +1011,8 @@ mod tests {
 			assert!(Parachains::is_parathread(para_id));
 			assert_eq!(
 				Balances::reserved_balance(&1),
-				<Test as Config>::ParaDeposit::get() +
-					64 * <Test as Config>::DataDepositPerByte::get()
+				<Test as Config>::ParaDeposit::get()
+					+ 64 * <Test as Config>::DataDepositPerByte::get()
 			);
 		});
 	}
@@ -1488,7 +1489,7 @@ mod benchmarking {
 			frame_system::Origin::<T>::Root.into(),
 			validation_code,
 		));
-		return para
+		return para;
 	}
 
 	fn para_origin(id: u32) -> ParaOrigin {

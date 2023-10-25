@@ -58,6 +58,7 @@ use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::ensure_signed;
 use log::info;
@@ -137,7 +138,7 @@ impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy
 pub mod pallet {
 	// Import various types used to declare pallet in scope.
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	/// Our pallet's configuration trait. All our types and constants go in here. If the
@@ -524,7 +525,7 @@ where
 	) -> TransactionValidity {
 		// if the transaction is too big, just drop it.
 		if len > 200 {
-			return InvalidTransaction::ExhaustsResources.into()
+			return InvalidTransaction::ExhaustsResources.into();
 		}
 
 		// check for `set_dummy`

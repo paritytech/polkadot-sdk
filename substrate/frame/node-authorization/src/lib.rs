@@ -44,6 +44,7 @@ mod tests;
 
 pub mod weights;
 
+use frame_support::StorageValue as _;
 pub use pallet::*;
 use sp_core::OpaquePeerId as PeerId;
 use sp_runtime::traits::StaticLookup;
@@ -271,7 +272,7 @@ pub mod pallet {
 			ensure!(add.0.len() < T::MaxPeerIdLength::get() as usize, Error::<T>::PeerIdTooLong);
 
 			if remove == add {
-				return Ok(())
+				return Ok(());
 			}
 
 			let mut nodes = WellKnownNodes::<T>::get();
@@ -395,7 +396,7 @@ pub mod pallet {
 
 			for add_node in connections.iter() {
 				if *add_node == node {
-					continue
+					continue;
 				}
 				nodes.insert(add_node.clone());
 			}

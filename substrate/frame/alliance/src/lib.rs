@@ -95,7 +95,7 @@ mod types;
 pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
@@ -1100,7 +1100,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let res = judgement(who);
 		if res.is_err() {
 			if let Some(parent) = T::IdentityVerifier::super_account_id(who) {
-				return judgement(&parent)
+				return judgement(&parent);
 			}
 		}
 		res

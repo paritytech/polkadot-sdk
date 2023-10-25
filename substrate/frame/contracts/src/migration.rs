@@ -71,6 +71,7 @@ use codec::{Codec, Decode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{ConstU32, OnRuntimeUpgrade},
+	StorageValue as _,
 };
 use sp_runtime::Saturating;
 use sp_std::marker::PhantomData;
@@ -250,7 +251,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 			);
 			T::Migrations::post_upgrade_step(in_progress_version, state)?;
 			if matches!(status, MigrateResult::Completed) {
-				break
+				break;
 			}
 		}
 
@@ -272,7 +273,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				"{name}: No Migration performed storage_version = latest_version = {:?}",
 				&storage_version
 			);
-			return T::WeightInfo::on_runtime_upgrade_noop()
+			return T::WeightInfo::on_runtime_upgrade_noop();
 		}
 
 		// In case a migration is already in progress we create the next migration
@@ -284,7 +285,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 				&storage_version
 			);
 
-			return T::WeightInfo::on_runtime_upgrade_in_progress()
+			return T::WeightInfo::on_runtime_upgrade_in_progress();
 		}
 
 		log::info!(
@@ -332,7 +333,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		if !TEST_ALL_STEPS {
-			return Ok(())
+			return Ok(());
 		}
 
 		log::info!(target: LOG_TARGET, "=== POST UPGRADE CHECKS ===");
@@ -391,7 +392,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		let mut weight_left = weight_limit;
 
 		if weight_left.checked_reduce(T::WeightInfo::migrate()).is_none() {
-			return (MigrateResult::NoMigrationPerformed, Weight::zero())
+			return (MigrateResult::NoMigrationPerformed, Weight::zero());
 		}
 
 		MigrationInProgress::<T>::mutate_exists(|progress| {

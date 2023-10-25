@@ -25,7 +25,7 @@
 
 use frame_support::{
 	traits::{Get, OneSessionHandler},
-	WeakBoundedVec,
+	StorageValue as _, WeakBoundedVec,
 };
 use sp_authority_discovery::AuthorityId;
 use sp_std::prelude::*;

@@ -30,7 +30,7 @@ use std::cell::RefCell;
 
 #[frame_support::pallet(dev_mode)]
 mod pallet_test {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -60,7 +60,7 @@ mod pallet_test {
 		}
 
 		pub fn always_error(_origin: OriginFor<T>) -> DispatchResult {
-			return Err("I always fail".into())
+			return Err("I always fail".into());
 		}
 	}
 }
@@ -126,7 +126,7 @@ thread_local! {
 mod benchmarks {
 	use super::{new_test_ext, pallet_test::Value, Test, VALUES_PER_COMPONENT};
 	use crate::{account, BenchmarkError, BenchmarkParameter, BenchmarkResult, BenchmarkingSetup};
-	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
+	use frame_support::{assert_err, assert_ok, ensure, traits::Get, StorageValue as _};
 	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
 	use sp_std::prelude::*;

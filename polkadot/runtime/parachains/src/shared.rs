@@ -19,7 +19,7 @@
 //! To avoid cyclic dependencies, it is important that this pallet is not
 //! dependent on any of the other pallets.
 
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
 use sp_runtime::traits::AtLeast32BitUnsigned;
@@ -100,7 +100,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 
 		if let Some(prev) = prev {
 			if prev > number {
-				return None
+				return None;
 			}
 		}
 
