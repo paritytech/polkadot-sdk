@@ -29,7 +29,7 @@ sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.3.0"
-seccompiler = "0.3.0"
+seccompiler = "0.4.0"
 thiserror = "1.0.31"
 
 [dev-dependencies]

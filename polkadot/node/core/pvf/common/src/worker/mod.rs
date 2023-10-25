@@ -320,7 +320,7 @@ pub fn worker_event_loop<F>(
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
+					"could not fully enable landlock: {:?}. This should not happen, please report an issue",
 					landlock_status
 				);
 			}
@@ -339,7 +339,7 @@ pub fn worker_event_loop<F>(
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					"could not fully enable seccomp: {:?}. This should not happen, please report to the Polkadot devs",
+					"could not fully enable seccomp: {:?}. This should not happen, please report an issue",
 					seccomp_status
 				);
 			}

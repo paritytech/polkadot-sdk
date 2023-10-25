@@ -24,6 +24,7 @@
 //!   - Use Landlock to remove all unnecessary FS access rights.
 //!   - Unshare the user and mount namespaces.
 //!   - Change the root directory to a worker-specific temporary directory.
+//! - Restrict networking by blocking socket creation and io_uring.
 //! - Remove env vars
 
 use crate::{worker::WorkerKind, LOG_TARGET};

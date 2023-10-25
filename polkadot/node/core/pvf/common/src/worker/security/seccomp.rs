@@ -25,11 +25,6 @@
 //! - `io_uring` - allows for networking and needs to be blocked. See below for a discussion on the
 //!   safety of doing this.
 //!
-//! - `connect`ing to sockets - the above two points are enough for networking. However, it is
-//!   possible to [connect to abstract unix
-//!   sockets](https://lore.kernel.org/landlock/20231023.ahphah4Wii4v@digikod.net/T/#u) to do some
-//!   kinds of sandbox escapes, so we also block the `connect` syscall.
-//!
 //! # Safety of blocking io_uring
 //!
 //! `io_uring` is just a way of issuing system calls in an async manner, and there is nothing
@@ -139,13 +134,13 @@ pub fn try_restrict() -> Result<()> {
 	blacklisted_rules.insert(libc::SYS_socketpair, vec![]);
 	blacklisted_rules.insert(libc::SYS_socket, vec![]);
 
+	// Prevent connecting to sockets for extra safety.
+	blacklisted_rules.insert(libc::SYS_connect, vec![]);
+
 	// Restrict io_uring.
 	blacklisted_rules.insert(libc::SYS_io_uring_setup, vec![]);
 	blacklisted_rules.insert(libc::SYS_io_uring_enter, vec![]);
 	blacklisted_rules.insert(libc::SYS_io_uring_register, vec![]);
-
-	// Restrict connecting to abstract unix sockets.
-	blacklisted_rules.insert(libc::SYS_connect, vec![]);
 
 	let filter = SeccompFilter::new(
 		blacklisted_rules,
@@ -190,6 +185,11 @@ mod tests {
 				TcpListener::bind("127.0.0.1:0"),
 				Err(err) if matches!(err.kind(), ErrorKind::PermissionDenied)
 			));
+
+			// Other syscalls should still work.
+			unsafe {
+				assert!(libc::getppid() > 0);
+			}
 		});
 
 		assert!(handle.join().is_ok());
