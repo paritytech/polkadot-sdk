@@ -130,15 +130,22 @@ impl<B: BlockT> BlockCollection<B> {
 				let next = downloading_iter.next();
 				break match (prev, next) {
 					// If we are already downloading this range, request it from `max_parallel`
-					// peers (`max_parallel` = 5 by default)
+					// peers (`max_parallel = 5` by default).
+					// Do not request already downloading range from peers with common number above
+					// the range start.
 					(Some((start, &BlockRangeState::Downloading { ref len, downloading })), _)
-						if downloading < max_parallel =>
+						if downloading < max_parallel && *start >= first_different =>
 						(*start..*start + *len, downloading),
-					// If there is a gap between ranges requested, download this gap
-					(Some((start, r)), Some((next_start, _))) if *start + r.len() < *next_start =>
+					// If there is a gap between ranges requested, download this gap unless the peer
+					// has common number above the gap start
+					(Some((start, r)), Some((next_start, _)))
+						if *start + r.len() < *next_start &&
+							*start + r.len() >= first_different =>
 						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0),
-					// Download `count` blocks after the last range requested
-					(Some((start, r)), None) => (*start + r.len()..*start + r.len() + count, 0),
+					// Download `count` blocks after the last range requested unless the peer
+					// has common number above this new range
+					(Some((start, r)), None) if *start + r.len() >= first_different =>
+						(*start + r.len()..*start + r.len() + count, 0),
 					// If there are no ranges currently requested, download `count` blocks after
 					// `common` number
 					(None, None) => (first_different..first_different + count, 0),
@@ -374,10 +381,10 @@ mod test {
 		bc.blocks.insert(114305, BlockRangeState::Complete(blocks));
 
 		let peer0 = PeerId::random();
-		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 000, 1, 200), Some(1..100));
-		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 600, 1, 200), None); // too far ahead
+		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), Some(1..100));
+		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), None); // too far ahead
 		assert_eq!(
-			bc.needed_blocks(peer0, 128, 10000, 600, 1, 200000),
+			bc.needed_blocks(peer0, 128, 10000, 0, 1, 200000),
 			Some(100 + 128..100 + 128 + 128)
 		);
 	}
