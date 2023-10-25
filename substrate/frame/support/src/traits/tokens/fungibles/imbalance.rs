@@ -93,6 +93,11 @@ impl<
 		Self { asset, amount, _phantom: PhantomData }
 	}
 
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		sp_std::mem::forget(imbalance);
+	}
+
 	pub fn drop_zero(self) -> Result<(), Self> {
 		if self.amount.is_zero() {
 			sp_std::mem::forget(self);
