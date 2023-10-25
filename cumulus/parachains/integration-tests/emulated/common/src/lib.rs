@@ -115,9 +115,6 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 		}
-		on_initialize = {
-			asset_hub_westend_runtime::AuraExt::on_initialize(1);
-		}
 	},
 	pub struct PenpalWestendA {
 		genesis = penpal::genesis(penpal::PARA_ID_A),
