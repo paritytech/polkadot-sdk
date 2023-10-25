@@ -6637,17 +6637,17 @@ mod delegation_stake {
 			assert_ok!(Staking::delegatee_migrate(&delegatee, &proxy_delegator, &199));
 			let ledger = Staking::ledger(delegatee.into()).unwrap();
 			let delegated_balance = delegation::delegated_balance::<Test>(&delegatee);
-			let balance_proxy_delegator = Balances::free_balance(&proxy_delegator);
 			// total delegated stake by delegator is 500
 			assert_eq!(<Delegators<Test>>::get(proxy_delegator).unwrap(), (delegatee, 500));
-
-			// When: we migrate funds to individual delegators
 
 			// lets say this stake of 500 needs to be migrated to actual delegators 201..=210 with
 			// each getting 50 tokens
 			for delegator in 201..=210 {
 				// fund individual delegators with minimum balance
 				let _ = Balances::make_free_balance_be(&delegator, Balances::minimum_balance());
+
+				// When: we migrate funds to individual delegators
+
 				// migrate funds from proxy delegator to individual delegators
 				assert_ok!(Staking::delegator_migrate(
 					&proxy_delegator,
@@ -6655,19 +6655,33 @@ mod delegation_stake {
 					&delegatee,
 					50
 				));
+
+				// Then: verify the state of the system
+
+				// verify new delegator state
 				assert_eq!(
 					Staking::status(&delegator).unwrap(),
 					StakerStatus::Delegator(delegatee)
 				);
-				assert_eq!(<Delegators<Test>>::get(proxy_delegator).unwrap(), (delegatee, 50));
+				assert_eq!(<Delegators<Test>>::get(delegator).unwrap(), (delegatee, 50));
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
 					50
 				);
+
+				// verify proxy delegator state
+				let expected_proxy_delegator_balance = 500 - 50 * (delegator as Balance - 200);
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
+					expected_proxy_delegator_balance
+				);
+				assert_eq!(
+					<Delegators<Test>>::get(proxy_delegator).map(|t| t.1).unwrap_or_default(),
+					expected_proxy_delegator_balance
+				);
 			}
 
-			// Then: verify the state of the system
-			assert_eq!(Balances::free_balance(&proxy_delegator), balance_proxy_delegator - 500);
+			// verify delegatee state
 			assert_eq!(Staking::ledger(delegatee.into()).unwrap(), ledger);
 			assert_eq!(delegation::delegated_balance::<Test>(&delegatee), delegated_balance);
 

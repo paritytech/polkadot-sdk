@@ -1982,6 +1982,15 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		// remove delegation of `value` from `existing_delegator`.
 		delegation::withdraw::<T>(delegatee, existing_delegator, value)?;
 
+		// transfer the withdrawn value to `new_delegator`.
+		T::Currency::transfer(
+			existing_delegator,
+			new_delegator,
+			value,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
 		// add the above removed delegation to `new_delegator`.
 		delegation::delegate::<T>(new_delegator, delegatee, value)
 	}
