@@ -3,6 +3,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+description = "Pallet to queue outbound and inbound XCMP messages."
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
