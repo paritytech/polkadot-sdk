@@ -17,10 +17,9 @@
 use super::*;
 
 use crate::{
-	assigner::{mock_helpers::GenesisConfigBuilder, UnifiedAssignmentType},
-	assigner_parachains::ParachainsAssignment,
+	assigner_parachains::{mock_helpers::GenesisConfigBuilder, ParachainsAssignment},
 	initializer::SessionChangeNotification,
-	mock::{new_test_ext, Assigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test},
+	mock::{new_test_ext, ParachainsAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
@@ -83,8 +82,7 @@ fn run_to_block(
 fn parachains_assigner_pop_assignment_is_always_some() {
 	let core_index = CoreIndex(0);
 	let para_id = ParaId::from(10);
-	let expected_assignment =
-		UnifiedAssignmentType::<Test>::LegacyAuction(ParachainsAssignment::new(para_id));
+	let expected_assignment = ParachainsAssignment::new(para_id);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register the para_id as a lease holding parachain
@@ -96,7 +94,7 @@ fn parachains_assigner_pop_assignment_is_always_some() {
 
 		for _ in 0..20 {
 			assert!(
-				Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+				ParachainsAssigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
 			);
 		}
 
@@ -104,7 +102,7 @@ fn parachains_assigner_pop_assignment_is_always_some() {
 
 		for _ in 0..20 {
 			assert!(
-				Assigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+				ParachainsAssigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
 			);
 		}
 	});

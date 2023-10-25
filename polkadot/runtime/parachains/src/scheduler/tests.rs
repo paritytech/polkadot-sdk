@@ -298,7 +298,7 @@ fn session_change_takes_only_max_per_core() {
 	let genesis_config = genesis_config(&config);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		// Simulate 2 cores between bulk and on-demand usage
+		// Simulate 2 cores between all usage types
 		MockAssigner::set_core_count(2);
 
 		run_to_block(1, |number| match number {
@@ -495,7 +495,7 @@ fn schedule_schedules_including_just_freed() {
 		{
 			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
-			// cores 0 and 1 are occupied by on-demand claims. core 2 was free.
+			// cores 0 and 1 are occupied by claims. core 2 was free.
 			assert_eq!(scheduled.len(), 1);
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
@@ -959,7 +959,7 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 			let cores = Scheduler::availability_cores();
 			match &cores[0] {
 				CoreOccupied::Paras(entry) => assert_eq!(entry, &entry_a),
-				_ => panic!("with no chains, only core should be an on-demand core"),
+				_ => panic!("There should only be one test assigner core"),
 			}
 
 			assert!(Scheduler::next_up_on_available(CoreIndex(0)).is_none());
@@ -1019,7 +1019,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 				CoreOccupied::Paras(entry) => {
 					assert_eq!(entry.assignment, assignment_a.clone());
 				},
-				_ => panic!("with no chains, only core should be an on-demand core"),
+				_ => panic!("There should only be a single test assigner core"),
 			}
 
 			// There's nothing more to pop for core 0 from the assignment provider.
