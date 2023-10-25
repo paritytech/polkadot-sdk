@@ -452,7 +452,8 @@ async fn handle_to_host(
 /// This tries to prepare the PVF by compiling the WASM blob within a timeout set in
 /// `PvfPrepData`.
 ///
-/// If the prepare job failed previously, we may retry it under certain conditions.
+/// We don't retry artifacts that previously failed preparation. We don't expect multiple
+/// pre-checking requests.
 async fn handle_precheck_pvf(
 	artifacts: &mut Artifacts,
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,
@@ -470,8 +471,7 @@ async fn handle_precheck_pvf(
 			ArtifactState::Preparing { waiting_for_response, num_failures: _ } =>
 				waiting_for_response.push(result_sender),
 			ArtifactState::FailedToProcess { error, .. } => {
-				// Do not retry failed preparation if another pre-check request comes in. We do not
-				// retry pre-checking, anyway.
+				// Do not retry an artifact that previously failed preparation.
 				let _ = result_sender.send(PrepareResult::Err(error.clone()));
 			},
 		}
@@ -770,7 +770,7 @@ async fn handle_prepare_done(
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
 
-			gum::warn!(
+			gum::error!(
 				target: LOG_TARGET,
 				?artifact_id,
 				time_failed = ?last_time_failed,
@@ -852,7 +852,7 @@ async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 				gum::trace!(
 					target: LOG_TARGET,
 					?result,
-					"Sweeping the artifact file {}",
+					"Sweeped the artifact file {}",
 					condemned.display(),
 				);
 			},
