@@ -18,32 +18,44 @@
 
 pub mod security;
 
-use crate::LOG_TARGET;
+use crate::{SecurityStatus, LOG_TARGET};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
+	fmt,
+	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-use tokio::{io, net::UnixStream, runtime::Runtime};
+use tokio::{io, runtime::Runtime};
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr $(,)*) => {
+	($expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
+		fn get_full_version() -> String {
+			format!("{}-{}", $worker_version, $worker_version_hash)
+		}
+
 		fn print_help(expected_command: &str) {
 			println!("{} {}", expected_command, $worker_version);
+			println!("commit: {}", $worker_version_hash);
 			println!();
 			println!("PVF worker that is called by polkadot.");
 		}
 
 		fn main() {
+			#[cfg(target_os = "linux")]
+			use $crate::worker::security;
+
 			// TODO: Remove this dependency, and `pub use sp_tracing` in `lib.rs`.
 			// See <https://github.com/paritytech/polkadot/issues/7117>.
 			$crate::sp_tracing::try_init_simple();
+
+			let worker_pid = std::process::id();
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
@@ -60,10 +72,48 @@ macro_rules! decl_worker_main {
 					println!("{}", $worker_version);
 					return
 				},
+				// Useful for debugging. --version is used for version checks.
+				"--full-version" => {
+					println!("{}", get_full_version());
+					return
+				},
+
+				"--check-can-enable-landlock" => {
+					#[cfg(target_os = "linux")]
+					let status = if security::landlock::check_is_fully_enabled() { 0 } else { -1 };
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+				"--check-can-unshare-user-namespace-and-change-root" => {
+					#[cfg(target_os = "linux")]
+					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
+						$crate::worker::WorkerKind::CheckPivotRoot,
+						worker_pid,
+						// We're not accessing any files, so we can try to pivot_root in the temp
+						// dir without conflicts with other processes.
+						&std::env::temp_dir(),
+					) {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("not available on macos");
+						-1
+					};
+					std::process::exit(status)
+				},
+
 				"test-sleep" => {
 					std::thread::sleep(std::time::Duration::from_secs(5));
 					return
 				},
+
 				subcommand => {
 					// Must be passed for compatibility with the single-binary test workers.
 					if subcommand != $expected_command {
@@ -75,18 +125,52 @@ macro_rules! decl_worker_main {
 				},
 			}
 
+			let mut socket_path = None;
+			let mut worker_dir_path = None;
 			let mut node_version = None;
-			let mut socket_path: &str = "";
+			let mut can_enable_landlock = false;
+			let mut can_unshare_user_namespace_and_change_root = false;
 
-			for i in (2..args.len()).step_by(2) {
+			let mut i = 2;
+			while i < args.len() {
 				match args[i].as_ref() {
-					"--socket-path" => socket_path = args[i + 1].as_str(),
-					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
+					"--socket-path" => {
+						socket_path = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--worker-dir-path" => {
+						worker_dir_path = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--node-impl-version" => {
+						node_version = Some(args[i + 1].as_str());
+						i += 1
+					},
+					"--can-enable-landlock" => can_enable_landlock = true,
+					"--can-unshare-user-namespace-and-change-root" =>
+						can_unshare_user_namespace_and_change_root = true,
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
+				i += 1;
 			}
+			let socket_path = socket_path.expect("the --socket-path argument is required");
+			let worker_dir_path =
+				worker_dir_path.expect("the --worker-dir-path argument is required");
 
-			$entrypoint(&socket_path, node_version, Some($worker_version));
+			let socket_path = std::path::Path::new(socket_path).to_owned();
+			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+			let security_status = $crate::SecurityStatus {
+				can_enable_landlock,
+				can_unshare_user_namespace_and_change_root,
+			};
+
+			$entrypoint(
+				socket_path,
+				worker_dir_path,
+				node_version,
+				Some($worker_version),
+				security_status,
+			);
 		}
 	};
 }
@@ -95,61 +179,180 @@ macro_rules! decl_worker_main {
 /// child process.
 pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
 
-/// Interprets the given bytes as a path. Returns `None` if the given bytes do not constitute a
-/// a proper utf-8 string.
-pub fn bytes_to_path(bytes: &[u8]) -> Option<PathBuf> {
-	std::str::from_utf8(bytes).ok().map(PathBuf::from)
+#[derive(Debug, Clone, Copy)]
+pub enum WorkerKind {
+	Prepare,
+	Execute,
+	CheckPivotRoot,
+}
+
+impl fmt::Display for WorkerKind {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Prepare => write!(f, "prepare"),
+			Self::Execute => write!(f, "execute"),
+			Self::CheckPivotRoot => write!(f, "check pivot root"),
+		}
+	}
 }
 
 // The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
 pub fn worker_event_loop<F, Fut>(
-	debug_id: &'static str,
-	socket_path: &str,
+	worker_kind: WorkerKind,
+	socket_path: PathBuf,
+	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] security_status: &SecurityStatus,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream) -> Fut,
+	F: FnMut(UnixStream, PathBuf) -> Fut,
 	Fut: futures::Future<Output = io::Result<Never>>,
 {
 	let worker_pid = std::process::id();
-	gum::debug!(target: LOG_TARGET, %worker_pid, "starting pvf worker ({})", debug_id);
+	gum::debug!(
+		target: LOG_TARGET,
+		%worker_pid,
+		?socket_path,
+		?worker_dir_path,
+		?security_status,
+		"starting pvf worker ({})",
+		worker_kind
+	);
 
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, worker_version) {
 		if node_version != worker_version {
 			gum::error!(
 				target: LOG_TARGET,
+				%worker_kind,
 				%worker_pid,
 				%node_version,
 				%worker_version,
 				"Node and worker version mismatch, node needs restarting, forcing shutdown",
 			);
 			kill_parent_node_in_emergency();
-			let err = io::Error::new(io::ErrorKind::Unsupported, "Version mismatch");
-			worker_shutdown_message(debug_id, worker_pid, err);
+			worker_shutdown_message(worker_kind, worker_pid, "Version mismatch");
 			return
 		}
 	}
 
-	remove_env_vars(debug_id);
+	// Make sure that we can read the worker dir path, and log its contents.
+	let entries = || -> Result<Vec<_>, io::Error> {
+		std::fs::read_dir(&worker_dir_path)?
+			.map(|res| res.map(|e| e.file_name()))
+			.collect()
+	}();
+	match entries {
+		Ok(entries) =>
+			gum::trace!(target: LOG_TARGET, %worker_pid, ?worker_dir_path, "content of worker dir: {:?}", entries),
+		Err(err) => {
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				?worker_dir_path,
+				"Could not read worker dir: {}",
+				err.to_string()
+			);
+			worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
+			return
+		},
+	}
+
+	// Connect to the socket.
+	let stream = || -> std::io::Result<UnixStream> {
+		let stream = UnixStream::connect(&socket_path)?;
+		let _ = std::fs::remove_file(&socket_path);
+		Ok(stream)
+	}();
+	let stream = match stream {
+		Ok(s) => s,
+		Err(err) => {
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				"{}",
+				err
+			);
+			worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
+			return
+		},
+	};
+
+	// Enable some security features.
+	{
+		// Call based on whether we can change root. Error out if it should work but fails.
+		//
+		// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
+		// runtime). `unshare(2)`:
+		//
+		//       > CLONE_NEWUSER requires that the calling process is not threaded.
+		#[cfg(target_os = "linux")]
+		if security_status.can_unshare_user_namespace_and_change_root {
+			if let Err(err) = security::unshare_user_namespace_and_change_root(
+				worker_kind,
+				worker_pid,
+				&worker_dir_path,
+			) {
+				// The filesystem may be in an inconsistent state, bail out.
+				gum::error!(
+					target: LOG_TARGET,
+					%worker_kind,
+					%worker_pid,
+					?worker_dir_path,
+					"Could not change root to be the worker cache path: {}",
+					err
+				);
+				worker_shutdown_message(worker_kind, worker_pid, &err);
+				return
+			}
+			worker_dir_path = std::path::Path::new("/").to_owned();
+		}
+
+		#[cfg(target_os = "linux")]
+		if security_status.can_enable_landlock {
+			let landlock_status =
+				security::landlock::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
+			if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
+				// We previously were able to enable, so this should never happen.
+				//
+				// TODO: Make this a real error in secure-mode. See:
+				// <https://github.com/paritytech/polkadot-sdk/issues/1444>
+				gum::error!(
+					target: LOG_TARGET,
+					%worker_kind,
+					%worker_pid,
+					"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
+					landlock_status
+				);
+			}
+		}
+
+		if !security::check_env_vars_were_cleared(worker_kind, worker_pid) {
+			let err = "not all env vars were cleared when spawning the process";
+			gum::error!(
+				target: LOG_TARGET,
+				%worker_kind,
+				%worker_pid,
+				"{}",
+				err
+			);
+			worker_shutdown_message(worker_kind, worker_pid, err);
+			return
+		}
+	}
 
 	// Run the main worker loop.
 	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
 	let err = rt
-		.block_on(async move {
-			let stream = UnixStream::connect(socket_path).await?;
-			let _ = tokio::fs::remove_file(socket_path).await;
-
-			let result = event_loop(stream).await;
-
-			result
-		})
+		.block_on(event_loop(stream, worker_dir_path))
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
-	worker_shutdown_message(debug_id, worker_pid, err);
+	worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
 
 	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
 	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
@@ -157,51 +360,9 @@ pub fn worker_event_loop<F, Fut>(
 	rt.shutdown_background();
 }
 
-/// Delete all env vars to prevent malicious code from accessing them.
-fn remove_env_vars(debug_id: &'static str) {
-	for (key, value) in std::env::vars_os() {
-		// TODO: *theoretically* the value (or mere presence) of `RUST_LOG` can be a source of
-		// randomness for malicious code. In the future we can remove it also and log in the host;
-		// see <https://github.com/paritytech/polkadot/issues/7117>.
-		if key == "RUST_LOG" {
-			continue
-		}
-
-		// In case of a key or value that would cause [`env::remove_var` to
-		// panic](https://doc.rust-lang.org/std/env/fn.remove_var.html#panics), we first log a
-		// warning and then proceed to attempt to remove the env var.
-		let mut err_reasons = vec![];
-		let (key_str, value_str) = (key.to_str(), value.to_str());
-		if key.is_empty() {
-			err_reasons.push("key is empty");
-		}
-		if key_str.is_some_and(|s| s.contains('=')) {
-			err_reasons.push("key contains '='");
-		}
-		if key_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("key contains null character");
-		}
-		if value_str.is_some_and(|s| s.contains('\0')) {
-			err_reasons.push("value contains null character");
-		}
-		if !err_reasons.is_empty() {
-			gum::warn!(
-				target: LOG_TARGET,
-				%debug_id,
-				?key,
-				?value,
-				"Attempting to remove badly-formatted env var, this may cause the PVF worker to crash. Please remove it yourself. Reasons: {:?}",
-				err_reasons
-			);
-		}
-
-		std::env::remove_var(key);
-	}
-}
-
 /// Provide a consistent message on worker shutdown.
-fn worker_shutdown_message(debug_id: &'static str, worker_pid: u32, err: io::Error) {
-	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {:?}", debug_id, err);
+fn worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: &str) {
+	gum::debug!(target: LOG_TARGET, %worker_pid, "quitting pvf worker ({}): {}", worker_kind, err);
 }
 
 /// Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up
@@ -305,7 +466,7 @@ pub mod thread {
 		Arc::new((Mutex::new(WaitOutcome::Pending), Condvar::new()))
 	}
 
-	/// Runs a worker thread. Will first enable security features, and afterwards notify the threads
+	/// Runs a worker thread. Will run the requested function, and afterwards notify the threads
 	/// waiting on the condvar. Catches panics during execution and resumes the panics after
 	/// triggering the condvar, so that the waiting thread is notified on panics.
 	///

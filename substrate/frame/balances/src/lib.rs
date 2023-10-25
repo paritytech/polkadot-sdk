@@ -207,7 +207,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision},
+		traits::{fungible::Credit, tokens::Precision, VariantCount},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -216,7 +216,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::ConstU64};
 
 		pub struct TestDefaultConfig;
 
@@ -227,16 +227,23 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+			#[inject_runtime_type]
+			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
+			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = ();
 
-			type MaxLocks = ();
-			type MaxReserves = ();
-			type MaxFreezes = ();
-			type MaxHolds = ();
+			type DustRemoval = ();
+
+			type MaxLocks = ConstU32<100>;
+			type MaxReserves = ConstU32<100>;
+			type MaxFreezes = ConstU32<100>;
+			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -248,6 +255,14 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
+
+		/// The overarching freeze reason.
+		#[pallet::no_default_bounds]
+		type RuntimeFreezeReason: VariantCount;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -266,7 +281,7 @@ pub mod pallet {
 			+ FixedPointOperand;
 
 		/// Handler for the unbalanced reduction when removing a dust account.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DustRemoval: OnUnbalanced<CreditOf<Self, I>>;
 
 		/// The minimum amount required to keep an account open. MUST BE GREATER THAN ZERO!
@@ -278,7 +293,7 @@ pub mod pallet {
 		///
 		/// Bottom line: Do yourself a favour and make it at least one!
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type ExistentialDeposit: Get<Self::Balance>;
 
 		/// The means of storing the balances of an account.
@@ -290,12 +305,8 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
-		/// The overarching hold reason.
-		#[pallet::no_default]
-		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
-
 		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
@@ -538,6 +549,19 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
+			);
+
+			assert!(
+				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
+				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
+				T::MaxHolds::get(),
+				<T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT
+			);
+
+			assert!(
+				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
+				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
+				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
 		}
 	}

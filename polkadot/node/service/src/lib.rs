@@ -749,11 +749,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		Some(backoff)
 	};
 
-	// Warn the user that BEEFY is still experimental for Polkadot.
-	if enable_beefy && config.chain_spec.is_polkadot() {
-		gum::warn!("BEEFY is still experimental, usage on Polkadot network is discouraged.");
-	}
-
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
@@ -854,7 +849,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (collation_req_vstaging_receiver, cfg) =
+	let (collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -862,7 +857,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	net_config.add_request_response_protocol(cfg);
 	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (candidate_req_vstaging_receiver, cfg) =
+	let (candidate_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
@@ -1051,10 +1046,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					pov_req_receiver,
 					chunk_req_receiver,
 					collation_req_v1_receiver,
-					collation_req_vstaging_receiver,
+					collation_req_v2_receiver,
 					available_data_req_receiver,
 					statement_req_receiver,
-					candidate_req_vstaging_receiver,
+					candidate_req_v2_receiver,
 					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,

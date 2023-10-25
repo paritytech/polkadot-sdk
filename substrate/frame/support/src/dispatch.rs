@@ -390,7 +390,7 @@ impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
 }
 
 /// A struct holding value for each `DispatchClass`.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct PerDispatchClass<T> {
 	/// Value for `Normal` extrinsics.
 	normal: T,
