@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 log = { version = "0.4.19", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2", default-features = false}
 smallvec = "1.11.0"
 
@@ -29,20 +29,18 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
-kusama-runtime-constants = { path = "../../../polkadot/runtime/kusama/constants", default-features = false}
-polkadot-runtime-constants = { path = "../../../polkadot/runtime/polkadot/constants", default-features = false}
 rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false}
 westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false }
+parachain-info = { path = "../pallets/parachain-info", default-features = false }
 
 [dev-dependencies]
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}
@@ -54,21 +52,23 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 [features]
 default = [ "std" ]
 std = [
+	"codec/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
-	"kusama-runtime-constants/std",
 	"log/std",
+	"num-traits/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"parachain-info/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
-	"polkadot-runtime-constants/std",
 	"rococo-runtime-constants/std",
+	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -76,7 +76,6 @@ std = [
 	"sp-std/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
-	"xcm-executor/std",
 	"xcm/std",
 ]
 
@@ -91,5 +90,4 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]

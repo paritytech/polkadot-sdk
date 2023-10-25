@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{ItemFn, Result};
@@ -23,7 +23,7 @@ use syn::{ItemFn, Result};
 pub fn transactional(_attr: TokenStream, input: TokenStream) -> Result<TokenStream> {
 	let ItemFn { attrs, vis, sig, block } = syn::parse(input)?;
 
-	let crate_ = generate_crate_access_2018("frame-support")?;
+	let crate_ = generate_access_from_frame_or_crate("frame-support")?;
 	let output = quote! {
 		#(#attrs)*
 		#vis #sig {
@@ -45,7 +45,7 @@ pub fn transactional(_attr: TokenStream, input: TokenStream) -> Result<TokenStre
 pub fn require_transactional(_attr: TokenStream, input: TokenStream) -> Result<TokenStream> {
 	let ItemFn { attrs, vis, sig, block } = syn::parse(input)?;
 
-	let crate_ = generate_crate_access_2018("frame-support")?;
+	let crate_ = generate_access_from_frame_or_crate("frame-support")?;
 	let output = quote! {
 		#(#attrs)*
 		#vis #sig {

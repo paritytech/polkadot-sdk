@@ -14,25 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions that are used on Rococo to bridge with Wococo.
+//! Bridge definitions used on BridgeHub with the Rococo flavor.
 
 use crate::{
-	BridgeParachainWococoInstance, BridgeWococoMessages, ParachainInfo, Runtime,
-	WithBridgeHubWococoMessagesInstance, XcmRouter,
+	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
+	weights, AccountId, BridgeRococoToWococoMessages, ParachainInfo, Runtime, RuntimeEvent,
+	RuntimeOrigin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
 	messages,
 	messages::{
-		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
+		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
-	messages_xcm_extension::{SenderAndLane, XcmBlobHauler, XcmBlobHaulerAdapter},
+	messages_xcm_extension::{
+		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
+		XcmBlobMessageDispatch,
+	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundableMessagesLane,
-		RefundableParachain,
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
 	},
 };
+
+use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
 use xcm::{
@@ -47,16 +54,42 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WOCOCO_CHAIN_ID;
-	pub BridgeWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWococoMessages as PalletInfoAccess>::index() as u8));
+	pub BridgeRococoToWococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoToWococoMessages as PalletInfoAccess>::index() as u8));
 	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WococoGlobalConsensusNetwork: NetworkId = NetworkId::Wococo;
 	pub ActiveOutboundLanesToBridgeHubWococo: &'static [bp_messages::LaneId] = &[DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO];
-	pub PriorityBoostPerMessage: u64 = 921_900_294;
+	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
+	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 
 	pub FromAssetHubRococoToAssetHubWococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(1000))).into(),
+		ParentThen(X1(Parachain(AssetHubRococoParaId::get().into()))).into(),
 		DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO,
 	);
+
+	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
+
+	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+}
+
+fn build_congestion_message<Call>(is_congested: bool) -> sp_std::vec::Vec<Instruction<Call>> {
+	sp_std::vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			require_weight_at_most:
+				bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+			call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
+				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: Default::default(),
+					is_congested,
+				}
+			)
+			.encode()
+			.into(),
+		}
+	]
 }
 
 /// Proof of messages, coming from Wococo.
@@ -70,10 +103,10 @@ pub type ToWococoBridgeHubMessagesDeliveryProof =
 pub type OnBridgeHubRococoBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,
 	BridgeHubRococoUniversalLocation,
-	BridgeWococoMessagesPalletInstance,
+	BridgeRococoToWococoMessagesPalletInstance,
 >;
 
-/// Export XCM messages to be relayed to the otherside
+/// Export XCM messages to be relayed to the other side
 pub type ToBridgeHubWococoHaulBlobExporter = HaulBlobExporter<
 	XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>,
 	WococoGlobalConsensusNetwork,
@@ -86,16 +119,19 @@ impl XcmBlobHauler for ToBridgeHubWococoXcmBlobHauler {
 	type SenderAndLane = FromAssetHubRococoToAssetHubWococoRoute;
 
 	type ToSourceChainSender = crate::XcmRouter;
-	type CongestedMessage = ();
-	type UncongestedMessage = ();
+	type CongestedMessage = CongestedMessage;
+	type UncongestedMessage = UncongestedMessage;
 }
 pub const DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO: LaneId = LaneId([0, 0, 0, 1]);
+
+/// On messages delivered callback.
+pub type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubWococoXcmBlobHauler>;
 
 /// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWococo
 pub struct WithBridgeHubWococoMessageBridge;
 impl MessageBridge for WithBridgeHubWococoMessageBridge {
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubRococo;
 	type BridgedChain = BridgeHubWococo;
 	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
@@ -132,17 +168,19 @@ impl UnderlyingChainProvider for BridgeHubRococo {
 }
 
 impl ThisChainWithMessages for BridgeHubRococo {
-	type RuntimeOrigin = crate::RuntimeOrigin;
+	type RuntimeOrigin = RuntimeOrigin;
 }
 
 /// Signed extension that refunds relayers that are delivering messages from the Wococo parachain.
-pub type BridgeRefundBridgeHubWococoMessages = RefundBridgedParachainMessages<
-	Runtime,
-	RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
-	RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
-	ActualFeeRefund<Runtime>,
-	PriorityBoostPerMessage,
-	StrBridgeRefundBridgeHubWococoMessages,
+pub type BridgeRefundBridgeHubWococoMessages = RefundSignedExtensionAdapter<
+	RefundBridgedParachainMessages<
+		Runtime,
+		RefundableParachain<BridgeParachainWococoInstance, bp_bridge_hub_wococo::BridgeHubWococo>,
+		RefundableMessagesLane<WithBridgeHubWococoMessagesInstance, BridgeHubWococoMessagesLane>,
+		ActualFeeRefund<Runtime>,
+		PriorityBoostPerMessage,
+		StrBridgeRefundBridgeHubWococoMessages,
+	>,
 >;
 bp_runtime::generate_static_str_provider!(BridgeRefundBridgeHubWococoMessages);
 
@@ -150,10 +188,47 @@ parameter_types! {
 	pub const BridgeHubWococoMessagesLane: bp_messages::LaneId = DEFAULT_XCM_LANE_TO_BRIDGE_HUB_WOCOCO;
 }
 
+/// Add XCM messages support for BridgeHubRococo to support Rococo->Wococo XCM messages
+pub type WithBridgeHubWococoMessagesInstance = pallet_bridge_messages::Instance1;
+impl pallet_bridge_messages::Config<WithBridgeHubWococoMessagesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_messages_rococo_to_wococo::WeightInfo<Runtime>;
+	type BridgedChainId = BridgeHubWococoChainId;
+	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWococo;
+	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
+	type MaxUnconfirmedMessagesAtInboundLane = MaxUnconfirmedMessagesAtInboundLane;
+
+	type MaximalOutboundPayloadSize = ToBridgeHubWococoMaximalOutboundPayloadSize;
+	type OutboundPayload = XcmAsPlainPayload;
+
+	type InboundPayload = XcmAsPlainPayload;
+	type InboundRelayer = AccountId;
+	type DeliveryPayments = ();
+
+	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
+	type LaneMessageVerifier = ToBridgeHubWococoMessageVerifier;
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		Runtime,
+		WithBridgeHubWococoMessagesInstance,
+		DeliveryRewardInBalance,
+	>;
+
+	type SourceHeaderChain = SourceHeaderChainAdapter<WithBridgeHubWococoMessageBridge>;
+	type MessageDispatch = XcmBlobMessageDispatch<
+		OnBridgeHubRococoBlobDispatcher,
+		Self::WeightInfo,
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<
+			AssetHubRococoParaId,
+			Runtime,
+		>,
+	>;
+	type OnMessagesDelivered = OnMessagesDelivered;
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::BridgeGrandpaWococoInstance;
+	use crate::bridge_common_config::BridgeGrandpaWococoInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -162,6 +237,18 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
+	use parachains_common::{rococo, Balance};
+
+	/// Every additional message in the message delivery transaction boosts its priority.
+	/// So the priority of transaction with `N+1` messages is larger than priority of
+	/// transaction with `N` messages by the `PriorityBoostPerMessage`.
+	///
+	/// Economically, it is an equivalent of adding tip to the transaction with `N` messages.
+	/// The `FEE_BOOST_PER_MESSAGE` constant is the value of this tip.
+	///
+	/// We want this tip to be large enough (delivery transactions with more messages = less
+	/// operational costs and a faster bridge), so this value should be significant.
+	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
 
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
@@ -207,11 +294,24 @@ mod tests {
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME,
 				with_bridged_chain_grandpa_pallet_name: bp_wococo::WITH_WOCOCO_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_wococo::WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
+
+		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+			Runtime,
+			WithBridgeHubWococoMessagesInstance,
+			PriorityBoostPerMessage,
+		>(FEE_BOOST_PER_MESSAGE);
+
+		assert_eq!(
+			BridgeRococoToWococoMessagesPalletInstance::get(),
+			X1(PalletInstance(
+				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX
+			))
+		);
 	}
 }

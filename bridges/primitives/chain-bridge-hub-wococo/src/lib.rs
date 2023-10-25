@@ -26,7 +26,6 @@ use bp_runtime::{
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::Vec;
 
 /// BridgeHubWococo parachain.
 #[derive(RuntimeDebug)]
@@ -63,11 +62,15 @@ impl Parachain for BridgeHubWococo {
 pub const BRIDGE_HUB_WOCOCO_PARACHAIN_ID: u32 = 1014;
 
 /// Name of the With-BridgeHubWococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_WOCOCO_MESSAGES_PALLET_NAME: &str = "BridgeWococoMessages";
+pub const WITH_BRIDGE_HUB_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_NAME: &str =
+	"BridgeRococoToWococoMessages";
 
 /// Name of the With-BridgeHubWococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 pub const WITH_BRIDGE_HUB_WOCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
+
+/// Pallet index of `BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>`.
+pub const WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 45;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_wococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_wococo);

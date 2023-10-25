@@ -19,6 +19,7 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
 sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
 pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
@@ -30,10 +31,6 @@ polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", de
 polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
 polkadot-primitives = { path = "../../../../../polkadot/primitives", default-features = false}
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-polkadot-runtime = { path = "../../../../../polkadot/runtime/polkadot" }
-polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../polkadot/runtime/kusama" }
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants" }
 rococo-runtime = { path = "../../../../../polkadot/runtime/rococo" }
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants" }
 westend-runtime = { path = "../../../../../polkadot/runtime/westend" }
@@ -47,6 +44,7 @@ cumulus-primitives-core = { path = "../../../../primitives/core" }
 penpal-runtime = { path = "../../../runtimes/testing/penpal" }
 asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
 asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
+asset-hub-rococo-runtime = { path = "../../../runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
 collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
 bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
@@ -64,6 +62,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
 runtime-benchmarks = [
 	"asset-hub-kusama-runtime/runtime-benchmarks",
 	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
@@ -73,8 +72,8 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"kusama-runtime/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -85,7 +84,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
 	"rococo-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
