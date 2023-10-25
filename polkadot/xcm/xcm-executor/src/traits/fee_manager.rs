@@ -78,6 +78,7 @@ impl HandleFee for Tuple {
 
 /// Handle stuff to do with taking fees in certain XCM instructions.
 pub trait FeeManager {
+	/// Separate component that handles the fees that are not waived.
 	type HandleFee: HandleFee;
 
 	/// Determine if a fee should be waived.
