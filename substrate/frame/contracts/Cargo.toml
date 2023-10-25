@@ -9,7 +9,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for WASM contracts"
 readme = "README.md"
-include = ["src/**/*", "build.rs", "README.md", "CHANGELOG.md"]
+include = ["src/**/*", "benchmarks/**", "build.rs", "README.md", "CHANGELOG.md"]
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

@@ -55,6 +55,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 [features]
 default = [ "std" ]
 std = [
+	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
