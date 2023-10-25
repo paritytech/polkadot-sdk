@@ -64,7 +64,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn early_lease_refund() -> Weight {
-		Weight::zero()
+		todo!()
 	}
 }
 
@@ -244,7 +244,7 @@ pub mod pallet {
 
 		/// Try to refund the lease deposit before the actual end of the lease.
 		///
-		/// This is only allowed if lease is ending within `T:EarliestRefundPeriod` and the
+		/// This is only allowed if lease is ending within [`Config::EarliestRefundPeriod`] and the
 		/// parachain has no new lease periods coming up. This is useful for parachains who want to
 		/// get access to their funds they used in the last lease and rebid using same for the
 		/// next lease.
