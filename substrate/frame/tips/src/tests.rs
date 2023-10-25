@@ -685,7 +685,7 @@ fn equal_entries_invariant() {
 		// Invariant violated
 		assert_eq!(
 			Tips::do_try_state(),
-			Err(Other("Equal length of entries in 'Tips' and 'Reasons` Storage"))
+			Err(Other("Equal length of entries in `Tips` and `Reasons` Storage"))
 		);
 	})
 }
