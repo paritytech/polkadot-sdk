@@ -18,25 +18,48 @@
 //! Asset Conversion pallet benchmarking.
 
 use super::*;
-use frame_benchmarking::{benchmarks, whitelisted_caller};
+use crate::Pallet as AssetConversion;
+use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::{Inspect as InspectFungible, Mutate as MutateFungible, Unbalanced},
+		fungible::NativeOrWithId,
 		fungibles::{Create, Inspect, Mutate},
 	},
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_core::Get;
-use sp_runtime::traits::{Bounded, StaticLookup};
-use sp_std::{ops::Div, prelude::*};
+use sp_runtime::traits::StaticLookup;
+use sp_std::{marker::PhantomData, prelude::*};
 
-use crate::Pallet as AssetConversion;
+/// Benchmark Helper
+pub trait BenchmarkHelper<AssetKind> {
+	/// Returns a valid assets pair for the pool creation.
+	fn create_pair(seed1: u32, seed2: u32) -> (AssetKind, AssetKind);
+}
+
+impl<AssetKind> BenchmarkHelper<AssetKind> for ()
+where
+	AssetKind: From<u32>,
+{
+	fn create_pair(seed1: u32, seed2: u32) -> (AssetKind, AssetKind) {
+		(seed1.into(), seed2.into())
+	}
+}
+
+/// Factory for creating a valid asset pairs with [`NativeOrWithId::Native`] always leading in the
+/// pair.
+pub struct NativeOrWithIdFactory<AssetId>(PhantomData<AssetId>);
+impl<AssetId: From<u32> + Ord> BenchmarkHelper<NativeOrWithId<AssetId>>
+	for NativeOrWithIdFactory<AssetId>
+{
+	fn create_pair(_seed1: u32, seed2: u32) -> (NativeOrWithId<AssetId>, NativeOrWithId<AssetId>) {
+		(NativeOrWithId::Native, NativeOrWithId::WithId(seed2.into()))
+	}
+}
 
 const INITIAL_ASSET_BALANCE: u128 = 1_000_000_000_000;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
-	<<T as Config>::Currency as InspectFungible<<T as frame_system::Config>::AccountId>>::Balance;
 
 fn get_lp_token_id<T: Config>() -> T::PoolAssetId
 where
@@ -46,36 +69,40 @@ where
 	(next_id - 1).into()
 }
 
-fn create_asset<T: Config>(asset: &T::MultiAssetId) -> (T::AccountId, AccountIdLookupOf<T>)
+fn create_asset<T: Config>(asset: &T::AssetKind) -> (T::AccountId, AccountIdLookupOf<T>)
 where
 	T::Balance: From<u128>,
-	T::Currency: Unbalanced<T::AccountId>,
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 {
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
-	if let MultiAssetIdConversionResult::Converted(asset_id) =
-		T::MultiAssetIdConverter::try_convert(asset)
-	{
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value().div(1000u32.into()));
-		assert_ok!(T::Assets::create(asset_id.clone(), caller.clone(), true, 1.into()));
-		assert_ok!(T::Assets::mint_into(asset_id, &caller, INITIAL_ASSET_BALANCE.into()));
+	if !T::Assets::asset_exists(asset.clone()) {
+		assert_ok!(T::Assets::create(asset.clone(), caller.clone(), true, 1.into()));
 	}
+	assert_ok!(T::Assets::mint_into(asset.clone(), &caller, INITIAL_ASSET_BALANCE.into()));
+
 	(caller, caller_lookup)
 }
 
 fn create_asset_and_pool<T: Config>(
-	asset1: &T::MultiAssetId,
-	asset2: &T::MultiAssetId,
+	asset1: &T::AssetKind,
+	asset2: &T::AssetKind,
 ) -> (T::PoolAssetId, T::AccountId, AccountIdLookupOf<T>)
 where
 	T::Balance: From<u128>,
-	T::Currency: Unbalanced<T::AccountId>,
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 	T::PoolAssetId: Into<u32>,
 {
+	let fee_asset = T::PoolSetupFeeAsset::get();
+	let (_, _) = create_asset::<T>(&fee_asset);
 	let (_, _) = create_asset::<T>(asset1);
 	let (caller, caller_lookup) = create_asset::<T>(asset2);
+
+	assert_ok!(T::Assets::mint_into(
+		fee_asset.clone(),
+		&caller,
+		T::PoolSetupFee::get() + T::Assets::minimum_balance(fee_asset)
+	));
 
 	assert_ok!(AssetConversion::<T>::create_pool(
 		SystemOrigin::Signed(caller.clone()).into(),
@@ -95,65 +122,75 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
-benchmarks! {
-	where_clause {
-		where
-			T::Currency: Unbalanced<T::AccountId>,
-			T::Balance: From<u128> + Into<u128>,
-			T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
-			T::PoolAssetId: Into<u32>,
-	}
+#[benchmarks(where T::Balance: From<u128> + Into<u128>, T::Assets: Create<T::AccountId> + Mutate<T::AccountId>, T::PoolAssetId: Into<u32>,)]
+mod benchmarks {
+	use super::*;
 
-	create_pool {
-		let asset1 = T::MultiAssetIdConverter::get_native();
-		let asset2 = T::BenchmarkHelper::multiasset_id(0);
+	#[benchmark]
+	fn create_pool() {
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+		let (_, _) = create_asset::<T>(&asset1);
 		let (caller, _) = create_asset::<T>(&asset2);
-	}: _(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()))
-	verify {
+
+		assert_ok!(T::Assets::mint_into(
+			T::PoolSetupFeeAsset::get(),
+			&caller,
+			T::PoolSetupFee::get() + T::Assets::minimum_balance(T::PoolSetupFeeAsset::get())
+		));
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()));
+
 		let lp_token = get_lp_token_id::<T>();
-		let pool_id = (asset1.clone(), asset2.clone());
-		assert_last_event::<T>(Event::PoolCreated {
-			creator: caller.clone(),
-			pool_account: AssetConversion::<T>::get_pool_account(&pool_id),
-			pool_id,
-			lp_token,
-		}.into());
+		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
+		let pool_account = T::PoolLocator::address(&pool_id).unwrap();
+		assert_last_event::<T>(
+			Event::PoolCreated { creator: caller.clone(), pool_account, pool_id, lp_token }.into(),
+		);
 	}
 
-	add_liquidity {
-		let asset1 = T::MultiAssetIdConverter::get_native();
-		let asset2 = T::BenchmarkHelper::multiasset_id(0);
+	#[benchmark]
+	fn add_liquidity() {
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
 		let (lp_token, caller, _) = create_asset_and_pool::<T>(&asset1, &asset2);
-		let ed: u128 = T::Currency::minimum_balance().into();
+		let ed: u128 = T::Assets::minimum_balance(asset1.clone()).into();
 		let add_amount = 1000 + ed;
-	}: _(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()), add_amount.into(), 1000.into(), 0.into(), 0.into(), caller.clone())
-	verify {
-		let pool_id = (asset1.clone(), asset2.clone());
-		let lp_minted = AssetConversion::<T>::calc_lp_amount_for_zero_supply(&add_amount.into(), &1000.into()).unwrap().into();
-		assert_eq!(
-			T::PoolAssets::balance(lp_token, &caller),
-			lp_minted.into()
+
+		#[extrinsic_call]
+		_(
+			SystemOrigin::Signed(caller.clone()),
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
+			add_amount.into(),
+			1000.into(),
+			0.into(),
+			0.into(),
+			caller.clone(),
 		);
-		assert_eq!(
-			T::Currency::balance(&AssetConversion::<T>::get_pool_account(&pool_id)),
-			add_amount.into()
-		);
-		assert_eq!(
-			T::Assets::balance(T::BenchmarkHelper::asset_id(0), &AssetConversion::<T>::get_pool_account(&pool_id)),
-			1000.into()
-		);
+
+		let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).unwrap();
+		let lp_minted =
+			AssetConversion::<T>::calc_lp_amount_for_zero_supply(&add_amount.into(), &1000.into())
+				.unwrap()
+				.into();
+		assert_eq!(T::PoolAssets::balance(lp_token, &caller), lp_minted.into());
+		assert_eq!(T::Assets::balance(asset1, &pool_account), add_amount.into());
+		assert_eq!(T::Assets::balance(asset2, &pool_account), 1000.into());
 	}
 
-	remove_liquidity {
-		let asset1 = T::MultiAssetIdConverter::get_native();
-		let asset2 = T::BenchmarkHelper::multiasset_id(0);
+	#[benchmark]
+	fn remove_liquidity() {
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
 		let (lp_token, caller, _) = create_asset_and_pool::<T>(&asset1, &asset2);
-		let ed: u128 = T::Currency::minimum_balance().into();
+		let ed: u128 = T::Assets::minimum_balance(asset1.clone()).into();
 		let add_amount = 100 * ed;
-		let lp_minted = AssetConversion::<T>::calc_lp_amount_for_zero_supply(&add_amount.into(), &1000.into()).unwrap().into();
+		let lp_minted =
+			AssetConversion::<T>::calc_lp_amount_for_zero_supply(&add_amount.into(), &1000.into())
+				.unwrap()
+				.into();
 		let remove_lp_amount = lp_minted.checked_div(10).unwrap();
 
-		AssetConversion::<T>::add_liquidity(
+		assert_ok!(AssetConversion::<T>::add_liquidity(
 			SystemOrigin::Signed(caller.clone()).into(),
 			Box::new(asset1.clone()),
 			Box::new(asset2.clone()),
@@ -162,213 +199,151 @@ benchmarks! {
 			0.into(),
 			0.into(),
 			caller.clone(),
-		)?;
-		let total_supply = <T::PoolAssets as Inspect<T::AccountId>>::total_issuance(lp_token.clone());
-	}: _(SystemOrigin::Signed(caller.clone()), Box::new(asset1), Box::new(asset2), remove_lp_amount.into(), 0.into(), 0.into(), caller.clone())
-	verify {
-		let new_total_supply = <T::PoolAssets as Inspect<T::AccountId>>::total_issuance(lp_token.clone());
-		assert_eq!(
-			new_total_supply,
-			total_supply - remove_lp_amount.into()
+		));
+		let total_supply =
+			<T::PoolAssets as Inspect<T::AccountId>>::total_issuance(lp_token.clone());
+
+		#[extrinsic_call]
+		_(
+			SystemOrigin::Signed(caller.clone()),
+			Box::new(asset1),
+			Box::new(asset2),
+			remove_lp_amount.into(),
+			0.into(),
+			0.into(),
+			caller.clone(),
 		);
+
+		let new_total_supply =
+			<T::PoolAssets as Inspect<T::AccountId>>::total_issuance(lp_token.clone());
+		assert_eq!(new_total_supply, total_supply - remove_lp_amount.into());
 	}
 
-	swap_exact_tokens_for_tokens {
-		let native = T::MultiAssetIdConverter::get_native();
-		let asset1 = T::BenchmarkHelper::multiasset_id(1);
-		let asset2 = T::BenchmarkHelper::multiasset_id(2);
-		let (_, caller, _) = create_asset_and_pool::<T>(&native, &asset1);
-		let (_, _) = create_asset::<T>(&asset2);
-		let ed: u128 = T::Currency::minimum_balance().into();
+	#[benchmark]
+	fn swap_exact_tokens_for_tokens() {
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+		let (_, asset3) = T::BenchmarkHelper::create_pair(1, 2);
+		let (_, asset4) = T::BenchmarkHelper::create_pair(2, 3);
 
-		AssetConversion::<T>::add_liquidity(
+		let (_, caller, _) = create_asset_and_pool::<T>(&asset1, &asset2);
+		let ed: u128 = T::Assets::minimum_balance(asset1.clone()).into();
+
+		assert_ok!(AssetConversion::<T>::add_liquidity(
 			SystemOrigin::Signed(caller.clone()).into(),
-			Box::new(native.clone()),
 			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
 			(100 * ed).into(),
 			200.into(),
-			0.into(),
+			1.into(),
 			0.into(),
 			caller.clone(),
-		)?;
+		));
 
-		let path;
-		let swap_amount;
-		// if we only allow the native-asset pools, then the worst case scenario would be to swap
-		// asset1-native-asset2
-		if !T::AllowMultiAssetPools::get() {
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(native.clone()),
-				Box::new(asset2.clone())
-			)?;
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(native.clone()),
-				Box::new(asset2.clone()),
-				(500 * ed).into(),
-				1000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			path = vec![
-				Box::new(asset1.clone()),
-				Box::new(native.clone()),
-				Box::new(asset2.clone())
-			];
-			swap_amount = 100.into();
-		} else {
-			let asset3 = T::BenchmarkHelper::multiasset_id(3);
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone())
-			)?;
-			let (_, _) = create_asset::<T>(&asset3);
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone())
-			)?;
+		let (_, _, _) = create_asset_and_pool::<T>(&asset2, &asset3);
+		assert_ok!(AssetConversion::<T>::add_liquidity(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset2.clone()),
+			Box::new(asset3.clone()),
+			200.into(),
+			2000.into(),
+			1.into(),
+			0.into(),
+			caller.clone(),
+		));
 
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone()),
-				200.into(),
-				2000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone()),
-				2000.into(),
-				2000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			path = vec![
-				Box::new(native.clone()),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone())
-			];
-			swap_amount = ed.into();
-		}
-		let native_balance = T::Currency::balance(&caller);
-		let asset1_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(1), &caller);
-	}: _(SystemOrigin::Signed(caller.clone()), path, swap_amount, 1.into(), caller.clone(), false)
-	verify {
-		if !T::AllowMultiAssetPools::get() {
-			let new_asset1_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(1), &caller);
-			assert_eq!(new_asset1_balance, asset1_balance - 100.into());
-		} else {
-			let new_native_balance = T::Currency::balance(&caller);
-			assert_eq!(new_native_balance, native_balance - ed.into());
-		}
+		let (_, _, _) = create_asset_and_pool::<T>(&asset3, &asset4);
+		assert_ok!(AssetConversion::<T>::add_liquidity(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset3.clone()),
+			Box::new(asset4.clone()),
+			2000.into(),
+			2000.into(),
+			1.into(),
+			1.into(),
+			caller.clone(),
+		));
+		let path = vec![
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
+			Box::new(asset3.clone()),
+			Box::new(asset4.clone()),
+		];
+
+		let swap_amount = ed.into();
+		let asset1_balance = T::Assets::balance(asset1.clone(), &caller);
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(caller.clone()), path, swap_amount, 1.into(), caller.clone(), false);
+
+		let new_asset1_balance = T::Assets::balance(asset1, &caller);
+		assert_eq!(new_asset1_balance, asset1_balance - ed.into());
 	}
 
-	swap_tokens_for_exact_tokens {
-		let native = T::MultiAssetIdConverter::get_native();
-		let asset1 = T::BenchmarkHelper::multiasset_id(1);
-		let asset2 = T::BenchmarkHelper::multiasset_id(2);
-		let (_, caller, _) = create_asset_and_pool::<T>(&native, &asset1);
-		let (_, _) = create_asset::<T>(&asset2);
-		let ed: u128 = T::Currency::minimum_balance().into();
+	#[benchmark]
+	fn swap_tokens_for_exact_tokens() {
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+		let (_, asset3) = T::BenchmarkHelper::create_pair(1, 2);
+		let (_, asset4) = T::BenchmarkHelper::create_pair(2, 3);
 
-		AssetConversion::<T>::add_liquidity(
+		let (_, caller, _) = create_asset_and_pool::<T>(&asset1, &asset2);
+		let ed: u128 = T::Assets::minimum_balance(asset1.clone()).into();
+
+		assert_ok!(AssetConversion::<T>::add_liquidity(
 			SystemOrigin::Signed(caller.clone()).into(),
-			Box::new(native.clone()),
 			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
 			(1000 * ed).into(),
 			500.into(),
-			0.into(),
+			1.into(),
 			0.into(),
 			caller.clone(),
-		)?;
+		));
 
-		let path;
-		// if we only allow the native-asset pools, then the worst case scenario would be to swap
-		// asset1-native-asset2
-		if !T::AllowMultiAssetPools::get() {
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(native.clone()),
-				Box::new(asset2.clone())
-			)?;
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(native.clone()),
-				Box::new(asset2.clone()),
-				(500 * ed).into(),
-				1000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			path = vec![
-				Box::new(asset1.clone()),
-				Box::new(native.clone()),
-				Box::new(asset2.clone())
-			];
-		} else {
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone())
-			)?;
-			let asset3 = T::BenchmarkHelper::multiasset_id(3);
-			let (_, _) = create_asset::<T>(&asset3);
-			AssetConversion::<T>::create_pool(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone())
-			)?;
+		let (_, _, _) = create_asset_and_pool::<T>(&asset2, &asset3);
+		assert_ok!(AssetConversion::<T>::add_liquidity(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset2.clone()),
+			Box::new(asset3.clone()),
+			2000.into(),
+			2000.into(),
+			1.into(),
+			0.into(),
+			caller.clone(),
+		));
 
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone()),
-				2000.into(),
-				2000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			AssetConversion::<T>::add_liquidity(
-				SystemOrigin::Signed(caller.clone()).into(),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone()),
-				2000.into(),
-				2000.into(),
-				0.into(),
-				0.into(),
-				caller.clone(),
-			)?;
-			path = vec![
-				Box::new(native.clone()),
-				Box::new(asset1.clone()),
-				Box::new(asset2.clone()),
-				Box::new(asset3.clone())
-			];
-		}
+		let (_, _, _) = create_asset_and_pool::<T>(&asset3, &asset4);
+		assert_ok!(AssetConversion::<T>::add_liquidity(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset3.clone()),
+			Box::new(asset4.clone()),
+			2000.into(),
+			2000.into(),
+			1.into(),
+			0.into(),
+			caller.clone(),
+		));
 
-		let asset2_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(2), &caller);
-		let asset3_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(3), &caller);
-	}: _(SystemOrigin::Signed(caller.clone()), path.clone(), 100.into(), (1000 * ed).into(), caller.clone(), false)
-	verify {
-		if !T::AllowMultiAssetPools::get() {
-			let new_asset2_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(2), &caller);
-			assert_eq!(new_asset2_balance, asset2_balance + 100.into());
-		} else {
-			let new_asset3_balance = T::Assets::balance(T::BenchmarkHelper::asset_id(3), &caller);
-			assert_eq!(new_asset3_balance, asset3_balance + 100.into());
-		}
+		let path = vec![
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
+			Box::new(asset3.clone()),
+			Box::new(asset4.clone()),
+		];
+
+		let asset4_balance = T::Assets::balance(asset4.clone(), &caller);
+
+		#[extrinsic_call]
+		_(
+			SystemOrigin::Signed(caller.clone()),
+			path.clone(),
+			100.into(),
+			(1000 * ed).into(),
+			caller.clone(),
+			false,
+		);
+
+		let new_asset4_balance = T::Assets::balance(asset4, &caller);
+		assert_eq!(new_asset4_balance, asset4_balance + 100.into());
 	}
 
 	impl_benchmark_test_suite!(AssetConversion, crate::mock::new_test_ext(), crate::mock::Test);
