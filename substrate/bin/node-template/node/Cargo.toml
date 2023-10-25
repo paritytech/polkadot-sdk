@@ -42,7 +42,6 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
-pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -75,7 +74,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"node-template-runtime/runtime-benchmarks",
-	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -84,7 +82,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-system/try-runtime",
 	"node-template-runtime/try-runtime",
-	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
