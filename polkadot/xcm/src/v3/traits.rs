@@ -29,6 +29,7 @@ use super::*;
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -262,6 +263,7 @@ impl From<Error> for Outcome {
 
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete(Weight),
@@ -410,6 +412,7 @@ impl<C> ExecuteXcm<C> for () {
 
 /// Error result value when attempting to send an XCM message.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum SendError {
 	/// The message and destination combination was not recognized as being reachable.
 	///

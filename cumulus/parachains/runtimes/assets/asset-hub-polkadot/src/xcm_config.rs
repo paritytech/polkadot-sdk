@@ -16,19 +16,21 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ForeignAssets,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue, CENTS,
 };
-use assets_common::matching::{
-	FromSiblingParachain, IsForeignConcreteAsset, StartsWith, StartsWithExplicitGlobalConsensus,
-};
+use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset};
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::AssetFeeAsExistentialDepositMultiplier};
+use parachains_common::{
+	impls::ToStakingPot,
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+};
 use polkadot_parachain_primitives::primitives::Sibling;
+use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::ConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -36,10 +38,11 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungiblesAdapter, HashedDescription, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	LocalMint, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -366,7 +369,7 @@ pub type Barrier = TrailingSetTopicAsId<
 			// Allow XCMs with some computed origins to pass through.
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then
+					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
@@ -394,6 +397,15 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+///
+/// - DOT with the parent Relay Chain and sibling system parachains; and
+/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+pub type TrustedTeleporters = (
+	ConcreteAssetFromSystem<DotLocation>,
+	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -404,13 +416,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Asset Hub acting _as_ a reserve location for DOT and assets created under `pallet-assets`.
 	// For DOT, users must use teleport where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	// We allow:
-	// - teleportation of DOT
-	// - teleportation of sibling parachain's assets (as ForeignCreators)
-	type IsTeleporter = (
-		NativeAsset,
-		IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
-	);
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -453,11 +459,21 @@ impl xcm_executor::Config for XcmConfig {
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(DotLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+}
+
+pub type PriceForParentDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>,
+	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

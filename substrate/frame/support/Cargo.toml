@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 serde = { version = "1.0.188", default-features = false, features = ["alloc", "derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-metadata = { version = "16.0.0", default-features = false, features = ["current"] }
 sp-api = { path = "../../primitives/api", default-features = false, features = [ "frame-metadata" ] }
 sp-std = { path = "../../primitives/std", default-features = false}
@@ -30,7 +30,7 @@ sp-weights = { path = "../../primitives/weights", default-features = false}
 sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false}
 sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false}
 tt-call = "1.0.8"
-macro_magic = "0.4.2"
+macro_magic = "0.5.0"
 frame-support-procedural = { path = "procedural", default-features = false}
 paste = "1.0"
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true}
@@ -66,6 +66,7 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"serde/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
