@@ -433,13 +433,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	fn ensure_can_subsume_assets(&self, assets_length: usize) -> Result<(), XcmError> {
-        // worst-case, holding.len becomes 2 * holding_limit.
-        // this guarantees that if holding.len() == holding_limit and you have more than
+		// worst-case, holding.len becomes 2 * holding_limit.
+		// this guarantees that if holding.len() == holding_limit and you have more than
 		// `holding_limit` items (which has a best case outcome of holding.len() == holding_limit),
 		// then the operation is guaranteed to succeed.
-        let worst_case_holding_len = self.holding.len() + assets_length;
-        ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
-        Ok(())
+		let worst_case_holding_len = self.holding.len() + assets_length;
+		ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
+		Ok(())
 	}
 
 	/// Refund any unused weight.
@@ -479,7 +479,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						)?;
 					}
 					Ok(())
-				}).and_then(|_| {
+				})
+				.and_then(|_| {
 					// ...and place into holding.
 					self.holding.subsume_assets(assets.into());
 					Ok(())
@@ -556,7 +557,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						Config::AssetTransactor::check_in(&origin, asset, &self.context);
 					}
 					Ok(())
-				}).and_then(|_| {
+				})
+				.and_then(|_| {
 					self.holding.subsume_assets(assets.into());
 					Ok(())
 				})
@@ -653,11 +655,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
 					for asset in deposited.assets_iter() {
-						Config::AssetTransactor::deposit_asset(
-							&asset,
-							&dest,
-							Some(&self.context),
-						)?;
+						Config::AssetTransactor::deposit_asset(&asset, &dest, Some(&self.context))?;
 					}
 					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
 					// cannot be reanchored  because we have already called `deposit_asset` on all
@@ -743,10 +741,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let Some(weight) = Option::<Weight>::from(weight_limit) else { return Ok(()) };
 				let old_holding = self.holding.clone();
 				// pay for `weight` using up to `fees` of the holding register.
-				let max_fee = self
-					.holding
-					.try_take(fees.into())
-					.map_err(|_| XcmError::NotHoldingFees)?;
+				let max_fee =
+					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				let result = || -> Result<(), XcmError> {
 					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					self.holding.subsume_assets(unspent);
@@ -781,8 +777,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			ClaimAsset { assets, ticket } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
-				let ok =
-					Config::AssetClaims::claim_assets(origin, &ticket, &assets, &self.context);
+				let ok = Config::AssetClaims::claim_assets(origin, &ticket, &assets, &self.context);
 				ensure!(ok, XcmError::UnknownClaim);
 				self.holding.subsume_assets(assets.into());
 				Ok(())
