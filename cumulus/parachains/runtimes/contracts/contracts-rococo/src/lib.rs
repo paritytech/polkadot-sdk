@@ -95,13 +95,29 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Migrations to apply on runtime upgrade.
+/// All migrations that will run on the next runtime upgrade.
+///
+/// This contains the combined migrations of the last 10 releases. It allows to skip runtime
+/// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
 pub type Migrations = (
-	cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
-	pallet_contracts::Migration<Runtime>,
+	migrations::V1_04_00,
+	migrations::Unreleased,
 );
+
+/// The runtime migrations per release.
+#[allow(deprecated, missing_docs)]
+pub mod migrations {
+	use super::*;
+
+	pub type V1_04_00 = ();
+
+	pub type Unreleased = (
+		cumulus_pallet_dmp_queue::migration::Migration<Runtime>,
+		cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+		cumulus_pallet_xcmp_queue::migration::Migration<Runtime>,
+		pallet_contracts::Migration<Runtime>,
+	);
+}
 
 type EventRecord = frame_system::EventRecord<
 	<Runtime as frame_system::Config>::RuntimeEvent,
