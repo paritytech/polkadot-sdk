@@ -760,6 +760,10 @@
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1510,13 +1514,17 @@ not created by a node that was compiled with the flag&quot;</span>;
 
 <span class="doccomment">/// List the benchmarks available in the runtime, in a CSV friendly format.
 </span><span class="kw">fn </span>list_benchmark(
-	benchmarks_to_run: Vec&lt;(
+	<span class="kw-2">mut </span>benchmarks_to_run: Vec&lt;(
 		Vec&lt;u8&gt;,
 		Vec&lt;u8&gt;,
 		Vec&lt;(BenchmarkParameter, u32, u32)&gt;,
 		Vec&lt;(String, String)&gt;,
 	)&gt;,
 ) {
+	<span class="comment">// Sort and de-dub by pallet and function name.
+	</span>benchmarks_to_run.sort_by(|(pa, sa, <span class="kw">_</span>, <span class="kw">_</span>), (pb, sb, <span class="kw">_</span>, <span class="kw">_</span>)| (pa, sa).cmp(<span class="kw-2">&amp;</span>(pb, sb)));
+	benchmarks_to_run.dedup_by(|(pa, sa, <span class="kw">_</span>, <span class="kw">_</span>), (pb, sb, <span class="kw">_</span>, <span class="kw">_</span>)| (pa, sa) == (pb, sb));
+
 	<span class="macro">println!</span>(<span class="string">&quot;pallet, benchmark&quot;</span>);
 	<span class="kw">for </span>(pallet, extrinsic, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>benchmarks_to_run {
 		<span class="macro">println!</span>(<span class="string">&quot;{}, {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>pallet), String::from_utf8_lossy(<span class="kw-2">&amp;</span>extrinsic));
