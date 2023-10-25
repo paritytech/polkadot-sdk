@@ -163,6 +163,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ConstU32<1>;
+	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
