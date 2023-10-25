@@ -93,14 +93,17 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	// Storage: `Benchmark::Override` (r:0 w:0)
-	// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	// Storage: UNKNOWN KEY `0x48297505634037ef48c848c99c0b1f1b` (r:1 w:0)
+	// Proof: UNKNOWN KEY `0x48297505634037ef48c848c99c0b1f1b` (r:1 w:0)
+	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
+	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	pub fn reserve_asset_deposited() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
-		Weight::from_parts(18_446_744_073_709_551_000, 0)
+		//  Measured:  `39`
+		//  Estimated: `3504`
+		// Minimum execution time: 7_006_000 picoseconds.
+		Weight::from_parts(7_185_000, 3504)
+			.saturating_add(T::DbWeight::get().reads(2))
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
