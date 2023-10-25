@@ -62,6 +62,39 @@ pub fn validate_candidate(
 pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
+
+	fn maybe_build_workers(build_prep: bool, build_exec: bool) {
+		let build_args = match (build_prep, build_exec) {
+			(true, true) => "build --bin polkadot-prepare-worker --bin polkadot-execute-worker",
+			(true, false) => "build --bin polkadot-prepare-worker",
+			(false, true) => "build --bin polkadot-execute-worker",
+			(false, false) => "",
+		};
+
+		if build_args.len() > 0 {
+			eprintln!("Building workers...");
+
+			let mut wd = std::env::current_exe().unwrap();
+			while !wd.ends_with("polkadot-sdk") {
+				wd.pop();
+			}
+
+			let child = match std::process::Command::new("cargo")
+				.args(build_args.split(' '))
+				.stdout(std::process::Stdio::piped())
+				.current_dir(wd)
+				.spawn()
+			{
+				Ok(child) => child,
+				Err(err) => panic!("Failed to start cargo build: {}", err),
+			};
+
+			if let Err(err) = child.wait_with_output() {
+				panic!("Failed to build workers: {}", err);
+			}
+		}
+	}
+
 	let mutex = WORKER_PATHS.get_or_init(|| {
 		let mut workers_path = std::env::current_exe().unwrap();
 		workers_path.pop();
@@ -71,21 +104,36 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 		let mut execute_worker_path = workers_path.clone();
 		execute_worker_path.push(EXECUTE_BINARY_NAME);
 
+		let mut build_prep = false;
+		let mut build_exec = false;
+
 		// Check that the workers are valid.
-		if !prepare_worker_path.is_executable() || !execute_worker_path.is_executable() {
-			panic!("ERROR: Workers do not exist or are not executable. Workers directory: {:?}", workers_path);
+
+		if !prepare_worker_path.is_executable() {
+			eprintln!("WARNING: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			build_prep = true;
 		}
 
-		let worker_version =
-			get_worker_version(&prepare_worker_path).expect("checked for worker existence");
-		if worker_version != NODE_VERSION {
-			panic!("ERROR: Prepare worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+		if !execute_worker_path.is_executable() {
+			eprintln!("WARNING: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+			build_exec = true;
 		}
-		let worker_version =
-			get_worker_version(&execute_worker_path).expect("checked for worker existence");
-		if worker_version != NODE_VERSION {
-			panic!("ERROR: Execute worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+
+		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
+			if ver != NODE_VERSION {
+				eprintln!("WARNING: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+				build_prep = true;
+			}
 		}
+
+		if let Ok(ver) = get_worker_version(&execute_worker_path) {
+			if ver != NODE_VERSION {
+				eprintln!("WARNING: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+				build_exec = true;
+			}
+		}
+
+		maybe_build_workers(build_prep, build_exec);
 
 		// We don't want to check against the commit hash because we'd have to always rebuild
 		// the calling crate on every commit.
