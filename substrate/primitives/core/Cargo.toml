@@ -116,7 +116,9 @@ std = [
 	"thiserror",
 	"tiny-bip39",
 	"tracing",
+	"w3f-bls?/std",
 	"zeroize/alloc",
+	"zeroize/std",
 ]
 
 # Serde support without relying on std features.
