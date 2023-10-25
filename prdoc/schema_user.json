@@ -104,7 +104,7 @@
           "title": "Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself."},
 
           {"const": "Runtime Dev",
-          "title": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not he meta-protocol (client)."},
+          "title": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not the meta-protocol (client)."},
 
           {"const": "Node Operator",
           "title": "Those who don't write any code and only run code."},
