@@ -21,21 +21,20 @@ use pallet_identity::OnReapIdentity;
 use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
 use rococo_runtime_constants::currency::*;
-use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
 /// remote calls.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode)]
 enum PeopleRuntimePallets<AccountId: Encode> {
 	#[codec(index = 50)]
 	Identity(IdentityCalls<AccountId>),
 }
 
 /// Call encoding for the calls needed from the Identity pallet.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode)]
 enum IdentityCalls<AccountId: Encode> {
 	#[codec(index = 16)]
 	PokeDeposit(AccountId),
