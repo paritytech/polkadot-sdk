@@ -48,6 +48,7 @@ impl WasmBuilderSelectProject {
 			file_name: None,
 			project_cargo_toml: get_manifest_dir().join("Cargo.toml"),
 			features_to_enable: Vec::new(),
+			features_to_disable: Vec::new(),
 			disable_runtime_version_section_check: false,
 		}
 	}
@@ -64,6 +65,7 @@ impl WasmBuilderSelectProject {
 				file_name: None,
 				project_cargo_toml: path,
 				features_to_enable: Vec::new(),
+				features_to_disable: Vec::new(),
 				disable_runtime_version_section_check: false,
 			})
 		} else {
@@ -95,6 +97,8 @@ pub struct WasmBuilder {
 	project_cargo_toml: PathBuf,
 	/// Features that should be enabled when building the wasm binary.
 	features_to_enable: Vec<String>,
+	/// Features that should NOT be enabled when building the wasm binary.
+	features_to_disable: Vec<String>,
 	/// Should the builder not check that the `runtime_version` section exists in the wasm binary?
 	disable_runtime_version_section_check: bool,
 }
@@ -147,6 +151,14 @@ impl WasmBuilder {
 		self
 	}
 
+	/// Disable the given feature when building the wasm binary.
+	///
+	/// `feature` does not need to be a valid feature that is defined in the project `Cargo.toml`.
+	pub fn disable_feature(mut self, feature: impl Into<String>) -> Self {
+		self.features_to_disable.push(feature.into());
+		self
+	}
+
 	/// Disable the check for the `runtime_version` wasm section.
 	///
 	/// By default the `wasm-builder` will ensure that the `runtime_version` section will
@@ -179,6 +191,7 @@ impl WasmBuilder {
 			self.project_cargo_toml,
 			self.rust_flags.into_iter().map(|f| format!("{} ", f)).collect(),
 			self.features_to_enable,
+			self.features_to_disable,
 			self.file_name,
 			!self.disable_runtime_version_section_check,
 		);
@@ -252,6 +265,7 @@ fn build_project(
 	project_cargo_toml: PathBuf,
 	default_rustflags: String,
 	features_to_enable: Vec<String>,
+	features_to_disable: Vec<String>,
 	wasm_binary_name: Option<String>,
 	check_for_runtime_version_section: bool,
 ) {
@@ -268,6 +282,7 @@ fn build_project(
 		&default_rustflags,
 		cargo_cmd,
 		features_to_enable,
+		features_to_disable,
 		wasm_binary_name,
 		check_for_runtime_version_section,
 	);

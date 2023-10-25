@@ -116,6 +116,7 @@ pub(crate) fn create_and_compile(
 	default_rustflags: &str,
 	cargo_cmd: CargoCommandVersioned,
 	features_to_enable: Vec<String>,
+	features_to_disable: Vec<String>,
 	bloaty_blob_out_name_override: Option<String>,
 	check_for_runtime_version_section: bool,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
@@ -130,6 +131,7 @@ pub(crate) fn create_and_compile(
 		&crate_metadata,
 		crate_metadata.workspace_root.as_ref(),
 		features_to_enable,
+		features_to_disable,
 	);
 
 	let build_config = BuildConfiguration::detect(&project);
@@ -532,6 +534,7 @@ fn create_project(
 	crate_metadata: &Metadata,
 	workspace_root_path: &Path,
 	features_to_enable: Vec<String>,
+	features_to_disable: Vec<String>,
 ) -> PathBuf {
 	let crate_name = get_crate_name(project_cargo_toml);
 	let crate_path = project_cargo_toml.parent().expect("Parent path exists; qed");
@@ -550,6 +553,9 @@ fn create_project(
 
 	let mut enabled_features = enabled_features.into_iter().collect::<HashSet<_>>();
 	enabled_features.extend(features_to_enable.into_iter());
+	for feature_to_disable in &features_to_disable {
+		enabled_features.remove(feature_to_disable);
+	}
 
 	create_project_cargo_toml(
 		&wasm_project_folder,
