@@ -31,6 +31,6 @@ fn pallet_ui() {
 	std::env::set_var("RUSTFLAGS", "--deny warnings");
 
 	let t = trybuild::TestCases::new();
-	t.compile_fail("tests/pallet_ui/event_type_invalid_bound_no_frame_crate.rs");
-	// t.pass("tests/pallet_ui/pass/*.rs");
+	t.compile_fail("tests/pallet_ui/*.rs");
+	t.pass("tests/pallet_ui/pass/*.rs");
 }
