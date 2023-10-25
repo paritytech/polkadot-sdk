@@ -154,11 +154,11 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 				if error_count > 0 {
 					log::error!(
 						target: "try-runtime",
-						"{} pallets exited with `try_state` errors while executing `try_state` checks.",
+						"{} pallets exited with errors while executing try_state checks.",
 						error_count
 					);
 
-					return Err("Detected errors while executing `try_state` checks. Check the logs for more info.".into())
+					return Err("Detected errors while executing try_state checks. See logs for more info.".into())
 				}
 
 				Ok(())
