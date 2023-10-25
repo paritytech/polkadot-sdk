@@ -12,7 +12,7 @@ derivative = { version = "2.2.0", default-features = false, features = [ "use_co
 impl-trait-for-tuples = "0.2.2"
 log = { version = "0.4.17", default-features = false }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = [ "derive", "max-encoded-len" ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false, features = ["serde"] }
 serde = { version = "1.0.188", default-features = false, features = ["alloc", "derive"] }
 xcm-procedural = { path = "procedural" }
@@ -29,6 +29,7 @@ wasm-api = []
 std = [
 	"bounded-collections/std",
 	"environmental/std",
+	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde/std",
