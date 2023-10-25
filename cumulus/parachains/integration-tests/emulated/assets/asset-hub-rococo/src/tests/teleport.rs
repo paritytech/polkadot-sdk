@@ -68,7 +68,7 @@ fn relay_dest_assertions_fail(_t: SystemParaToRelayTest) {
 	Rococo::assert_ump_queue_processed(
 		false,
 		Some(AssetHubRococo::para_id()),
-		Some(Weight::from_parts(148_433_000, 3_593)),
+		Some(Weight::from_parts(157_718_000, 3_593)),
 	);
 }
 
@@ -76,7 +76,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		1_716_795_000,
+		720_053_000,
 		7_203,
 	)));
 
@@ -97,7 +97,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 fn para_dest_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-	AssetHubRococo::assert_dmp_queue_complete(Some(Weight::from_parts(507_650_000, 3593)));
+	AssetHubRococo::assert_dmp_queue_complete(Some(Weight::from_parts(157_718_000, 3593)));
 
 	assert_expected_events!(
 		AssetHubRococo,
