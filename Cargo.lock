@@ -6577,11 +6577,16 @@ dependencies = [
 name = "integration-tests-common"
 version = "1.0.0"
 dependencies = [
+ "asset-hub-kusama-runtime",
+ "asset-hub-polkadot-runtime",
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
  "bp-messages",
+ "bridge-hub-kusama-runtime",
+ "bridge-hub-polkadot-runtime",
  "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
+ "collectives-polkadot-runtime",
  "collectives-westend-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",

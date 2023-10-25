@@ -204,7 +204,7 @@ cargo build --release --locked --bin polkadot-parachain
 Once the executable is built, launch the parachain node via:
 
 ```bash
-CHAIN=asset-hub-westend
+CHAIN=asset-hub-westend # or asset-hub-kusama
 ./target/release/polkadot-parachain --chain $CHAIN
 ```
 

@@ -85,13 +85,16 @@ It takes around a minute to run and will produce the report as artifact you need
 
 To run it, in the _Run Workflow_ dropdown:
 1. **Use workflow from**: to ignore, leave `master` as default
-2. **The WebSocket url of the reference node**:
+2. **The WebSocket url of the reference node**: - Asset Hub Polkadot: `wss://statemint-rpc.polkadot.io`
+    - Asset Hub Kusama: `wss://statemine-rpc.polkadot.io`
     - Asset Hub Westend: `wss://westmint-rpc.polkadot.io`
 3. **A url to a Linux binary for the node containing the runtime to test**: Paste the URL of the latest
    release-candidate binary from the draft-release on Github. The binary has to previously be uploaded to S3 (Github url
    link to the binary is constantly changing)
     - E.g: https://releases.parity.io/cumulus/v0.9.270-rc3/polkadot-parachain
-4. **The name of the chain under test. Usually, you would pass a local chain**:
+4. **The name of the chain under test. Usually, you would pass a local chain**: - Asset Hub Polkadot:
+	`asset-hub-polkadot-local`
+    - Asset Hub Kusama: `asset-hub-kusama-local`
     - Asset Hub Westend: `asset-hub-westend-local`
 5. Click **Run workflow**
 
