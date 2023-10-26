@@ -75,6 +75,7 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 		if build_prep || build_exec {
 			eprintln!("Building workers...");
 
+			// ensure the build targets are available
 			let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 			if !dir.ends_with("polkadot-sdk") {
 				dir.pop();
