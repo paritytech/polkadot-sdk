@@ -172,7 +172,7 @@ pub fn glutton_westend_local_config(para_id: ParaId) -> GluttonWestendChainSpec 
 
 pub fn glutton_westend_config(para_id: ParaId) -> GluttonWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 2.into());
+	properties.insert("ss58Format".into(), 42.into());
 
 	GluttonWestendChainSpec::from_genesis(
 		// Name

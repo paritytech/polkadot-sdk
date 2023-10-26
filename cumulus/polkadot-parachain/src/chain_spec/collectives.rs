@@ -195,9 +195,9 @@ pub fn collectives_westend_session_keys(keys: AuraId) -> collectives_westend_run
 
 pub fn collectives_westend_development_config() -> CollectivesWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 0.into());
-	properties.insert("tokenSymbol".into(), "DOT".into());
-	properties.insert("tokenDecimals".into(), 10.into());
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WND".into());
+	properties.insert("tokenDecimals".into(), 12.into());
 
 	CollectivesWestendChainSpec::from_genesis(
 		// Name
@@ -235,9 +235,9 @@ pub fn collectives_westend_development_config() -> CollectivesWestendChainSpec {
 /// Collectives Westend Local Config.
 pub fn collectives_westend_local_config() -> CollectivesWestendChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 0.into());
-	properties.insert("tokenSymbol".into(), "DOT".into());
-	properties.insert("tokenDecimals".into(), 10.into());
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("tokenSymbol".into(), "WND".into());
+	properties.insert("tokenDecimals".into(), 12.into());
 
 	CollectivesWestendChainSpec::from_genesis(
 		// Name
