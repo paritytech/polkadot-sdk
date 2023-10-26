@@ -1,9 +1,10 @@
 [package]
 name = "glutton-westend-runtime"
 version = "1.0.0"
-description = "Glutton parachain runtime."
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
+description = "Glutton parachain runtime."
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
