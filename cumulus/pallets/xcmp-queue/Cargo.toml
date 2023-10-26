@@ -57,6 +57,7 @@ std = [
 	"log/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",

@@ -352,7 +352,6 @@ impl<T: Config> Pallet<T> {
 						None
 					},
 					Ok((pos_in_claimqueue, pe)) => {
-						// is this correct?
 						availability_cores[core_idx.0 as usize] = CoreOccupied::Paras(pe);
 
 						Some((*core_idx, pos_in_claimqueue))
