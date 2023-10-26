@@ -227,7 +227,7 @@ impl pallet_timestamp::Config for Runtime {
 	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
 	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+	type MinimumPeriod = ConstU64<{ SLOT_DURATION }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 

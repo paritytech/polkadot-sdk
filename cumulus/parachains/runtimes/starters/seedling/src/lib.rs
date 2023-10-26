@@ -58,7 +58,7 @@ pub use frame_support::{
 	StorageValue,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use parachains_common::{AccountId, Signature};
+use parachains_common::{AccountId, Signature, SLOT_DURATION};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -219,7 +219,7 @@ impl pallet_timestamp::Config for Runtime {
 	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
 	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ RELAY_CHAIN_SLOT_DURATION_MILLIS / 2 }>;
+	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
 
