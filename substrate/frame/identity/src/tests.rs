@@ -18,7 +18,10 @@
 // Tests for Identity Pallet
 
 use super::*;
-use crate as pallet_identity;
+use crate::{
+	self as pallet_identity,
+	simple::{IdentityField as SimpleIdentityField, IdentityInfo},
+};
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -107,6 +110,7 @@ impl pallet_identity::Config for Test {
 	type SubAccountDeposit = ConstU64<10>;
 	type MaxSubAccounts = ConstU32<2>;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
@@ -137,6 +141,43 @@ fn twenty() -> IdentityInfo<MaxAdditionalFields> {
 		legal: Data::Raw(b"The Right Ordinal Twenty, Esq.".to_vec().try_into().unwrap()),
 		..Default::default()
 	}
+}
+
+#[test]
+fn identity_fields_repr_works() {
+	// `SimpleIdentityField` sanity checks.
+	assert_eq!(SimpleIdentityField::Display as u64, 1 << 0);
+	assert_eq!(SimpleIdentityField::Legal as u64, 1 << 1);
+	assert_eq!(SimpleIdentityField::Web as u64, 1 << 2);
+	assert_eq!(SimpleIdentityField::Riot as u64, 1 << 3);
+	assert_eq!(SimpleIdentityField::Email as u64, 1 << 4);
+	assert_eq!(SimpleIdentityField::PgpFingerprint as u64, 1 << 5);
+	assert_eq!(SimpleIdentityField::Image as u64, 1 << 6);
+	assert_eq!(SimpleIdentityField::Twitter as u64, 1 << 7);
+
+	let fields = IdentityFields(
+		SimpleIdentityField::Legal |
+			SimpleIdentityField::Web |
+			SimpleIdentityField::Riot |
+			SimpleIdentityField::PgpFingerprint |
+			SimpleIdentityField::Twitter,
+	);
+
+	assert!(!fields.0.contains(SimpleIdentityField::Display));
+	assert!(fields.0.contains(SimpleIdentityField::Legal));
+	assert!(fields.0.contains(SimpleIdentityField::Web));
+	assert!(fields.0.contains(SimpleIdentityField::Riot));
+	assert!(!fields.0.contains(SimpleIdentityField::Email));
+	assert!(fields.0.contains(SimpleIdentityField::PgpFingerprint));
+	assert!(!fields.0.contains(SimpleIdentityField::Image));
+	assert!(fields.0.contains(SimpleIdentityField::Twitter));
+
+	// The `IdentityFields` inner `BitFlags::bits` is used for `Encode`/`Decode`, so we ensure that
+	// the `u64` representation matches what we expect during encode/decode operations.
+	assert_eq!(
+		fields.0.bits(),
+		0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_10101110
+	);
 }
 
 #[test]
@@ -233,7 +274,7 @@ fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
+		let fields = IdentityFields(SimpleIdentityField::Display | SimpleIdentityField::Legal);
 		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields));
 		assert_eq!(
 			Identity::registrars(),
@@ -608,15 +649,17 @@ fn setting_account_id_should_work() {
 fn test_has_identity() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
-		assert!(Identity::has_identity(&10, IdentityField::Display as u64));
-		assert!(Identity::has_identity(&10, IdentityField::Legal as u64));
+		assert!(Identity::has_identity(&10, SimpleIdentityField::Display as u64));
+		assert!(Identity::has_identity(&10, SimpleIdentityField::Legal as u64));
 		assert!(Identity::has_identity(
 			&10,
-			IdentityField::Display as u64 | IdentityField::Legal as u64
+			SimpleIdentityField::Display as u64 | SimpleIdentityField::Legal as u64
 		));
 		assert!(!Identity::has_identity(
 			&10,
-			IdentityField::Display as u64 | IdentityField::Legal as u64 | IdentityField::Web as u64
+			SimpleIdentityField::Display as u64 |
+				SimpleIdentityField::Legal as u64 |
+				SimpleIdentityField::Web as u64
 		));
 	});
 }
