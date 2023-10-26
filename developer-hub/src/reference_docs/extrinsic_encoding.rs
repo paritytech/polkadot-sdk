@@ -28,9 +28,9 @@
 //! )
 //! ```
 //!
-//! For clarity, the actual implementation
-//! [is here](https://github.com/paritytech/polkadot-sdk/blob/35eb133baab93d3f2f179df216b2cc175d7dcaf2/substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs#L296)
-//! at the time of writing.
+//! For clarity, the actual implementation in Substrate looks like this:
+//!
+#![doc = docify::embed!("../substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", unchecked_extrinsic_encode_impl)]
 //!
 //! Let's look at how each of these details is constructed:
 //!
@@ -94,9 +94,8 @@
 //!
 //! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing each of
 //! the [_signed extensions_][sp_runtime::traits::SignedExtension], and are configured by the
-//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Signed extensions are,
-//! briefly, a means for different chains to extend the "basic" extrinsic format with custom data
-//! that can be checked by the runtime.
+//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about
+//! signed extensions [here][crate::reference_docs::signed_extensions].
 //!
 //! When it comes to constructing an extrinsic, each signed extension has two things that we are
 //! interested in here:
@@ -111,7 +110,7 @@
 //! Each chain configures the set of signed extensions that it uses in its runtime configuration.
 //! At the time of writing, Polkadot configures them
 //! [here](https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25).
-//! Some of the common signed extensions are defined [here][frame::deps::frame_system].
+//! Some of the common signed extensions are defined [here][frame::deps::frame_system#signed-extensions].
 //!
 //! Information about exactly which signed extensions are present on a chain and in what order is
 //! also a part of the metadata for the chain. For V15 metadata, it can be
