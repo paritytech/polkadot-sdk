@@ -380,7 +380,7 @@ where
 		if checks.any() {
 			match AllPalletsWithSystem::try_decode_entire_state() {
 				Ok(bytes) => {
-					log::info!(
+					log::debug!(
 						target: LOG_TARGET,
 						"decoded the entire state ({bytes} bytes)",
 					);
@@ -388,10 +388,10 @@ where
 				Err(err) => {
 					log::error!(
 						target: LOG_TARGET,
-						"failed to decode the state: {err}",
+						"`try_decode_entire_state` failed: {err}",
 					);
 
-					return Err("failed to decode a value from the storage".into())
+					return Err("`try_decode_entire_state` failed".into())
 				},
 			};
 		}
