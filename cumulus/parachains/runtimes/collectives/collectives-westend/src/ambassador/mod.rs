@@ -114,7 +114,8 @@ parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
 	pub const SubmissionDeposit: Balance = 0;
 	pub const UndecidingTimeout: BlockNumber = 7 * DAYS;
-	// The Ambassador Referenda pallet account, used as a temporarily place to deposit a slashed imbalance before teleport to the treasury.
+	// The Ambassador Referenda pallet account, used as a temporary place to deposit a slashed
+	// imbalance before teleport to the treasury.
 	pub AmbassadorPalletAccount: AccountId = account::AMBASSADOR_REFERENDA_PALLET_ID.into_account_truncating();
 }
 
