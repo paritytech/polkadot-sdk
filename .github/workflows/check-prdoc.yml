@@ -11,6 +11,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GITHUB_PR: ${{ github.event.pull_request.number }}
   ENGINE: docker
+  PRDOC_DOC: https://github.com/paritytech/polkadot-sdk/blob/master/docs/prdoc.md
 
 jobs:
   check-prdoc:
@@ -49,10 +50,12 @@ jobs:
           else
             echo "PR detected as silent, no PRDoc found, exiting..."
           fi
+          echo "If you want to add a PRDoc, please refer to $PRDOC_DOC"
           exit 0
 
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
           echo "Checking for PR#${GITHUB_PR}"
+          echo "You can find more information about PRDoc at $PRDOC_DOC"
           $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR}
