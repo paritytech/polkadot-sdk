@@ -5,13 +5,6 @@ doc:
     description: |
       Changed the overweight cutoff limit from the full `Config::ServiceWeight` to a lower value that is calculated based on the weight of the functions being called.
 
-migrations:
-  db: []
-
-  runtime: []
-
 crates:
   - name: pallet-message-queue
     semver: patch
-
-host_functions: []

@@ -45,7 +45,7 @@ The `prdoc` cli documentation can be found at https://github.com/paritytech/prdo
 
 tldr:
 - `prdoc generate <NNNN>`
-- `prdoc check <NNNN>`
+- `prdoc check -n <NNNN>`
 
 where <NNNN> is the PR number.
 

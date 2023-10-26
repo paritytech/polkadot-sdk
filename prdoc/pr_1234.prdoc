@@ -10,11 +10,4 @@ doc:
       All runtimes are now configured to send these delivery fees to a treasury account.
       The fee formula is `delivery_fee_factor * (base_fee + encoded_msg_len * per_byte_fee)`.
 
-migrations:
-  db: []
-
-  runtime: []
-
-crates: []
-
-host_functions: []
+crates: [ ]

@@ -5,12 +5,6 @@ doc:
     description: |
       FRAME pallets now emit a warning when a call uses a function argument that starts with an underscore in its weight declaration.
 
-migrations:
-  db: [ ]
-  runtime: [ ]
-
-host_functions: []
-
 crates:
-- name: "frame-support-procedural"
-  semver: minor
+  - name: frame-support-procedural
+    semver: minor

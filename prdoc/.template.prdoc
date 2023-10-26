@@ -8,11 +8,4 @@ doc:
     description: |
       ...
 
-migrations:
-  db: []
-
-  runtime: []
-
-crates: []
-
-host_functions: []
+crates: [ ]

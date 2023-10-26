@@ -6,14 +6,10 @@ doc:
       Changing the `MigrateToV1` migration in the `ParachainScheduler` pallet to be truly idempotent. It is achieved by wrapping it in a `VersionedMigration`.
 
 migrations:
-  db: []
-
   runtime:
-    - pallet: "ParachainScheduler"
+    - pallet: ParachainScheduler
       description: Non-critical fixup for `MigrateToV1`.
 
 crates:
-  - name: "polkadot-runtime-parachains"
+  - name: polkadot-runtime-parachains
     semver: patch
-
-host_functions: []

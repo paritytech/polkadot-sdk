@@ -13,49 +13,40 @@
     "additionalProperties": false,
     "properties": {
       "title": {
+        "title": "Title of the change",
         "type": "string",
-        "description": "Title for the PR. This is what will show up in the documentation"
-      },
-
-      "authors": {
-        "description": "Optional: You may provide your name, github handle, or email. That can help finding your 'your' prdoc files later on",
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-
-      "tags": {
-        "description": "Optional: You may provide some tags here. This is currently not used downstream but can help you find some prdoc files later on",
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+        "description": "Title for the PR. This is what will show up in the release notes.\nif needed, you may provide a different title override for each audience in the `doc` property."
       },
 
       "doc": {
         "type": "array",
+        "title": "Documentation adapted to the audience(s)",
         "description": "Description of the PR. Provide a description for each relevant audience.\nSee the `audience` property for more documentation about audiences",
         "items": {
           "$ref": "#/$defs/doc"
         },
         "minItems": 1
       },
+
       "crates": {
-        "description": "You have the option to provide input about the semver level of your changes for each crate\n. This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.\nYou can also set it to `no change` if you know there was no significant semver change",
+        "title": "Crates",
+        "description": "You have the option to provide input about the semver level of your changes for each crate.\n This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.\nYou can also set it to `no change` if you know there was no significant semver change",
         "type": "array",
         "items": {
           "$ref": "#/$defs/crate"
         }
       },
+
       "migrations": {
-        "description": "It is important for users to be aware of migrations.\nMake sure to mention any migrations in the appropriate sub-properties",
+        "title": "Migrations (DB & Runtime)",
+        "description": "It is important for users to be aware of migrations.\nMake sure to mention any migrations in the appropriate sub-properties:\n- db\n- runtime",
         "type": "object",
         "properties": {
           "db": {
             "type": "array",
             "nullable": false,
-            "description": "List of the Database Migrations or []",
+            "title": "Database Migration",
+            "description": "List of the Database Migrations or empty array: []",
             "items": {
               "$ref": "#/$defs/migration_db"
             },
@@ -67,8 +58,9 @@
           },
           "runtime": {
             "type": "array",
+            "title": "Runtime Migration",
             "nullable": false,
-            "description": "List of the Runtime Migrations or []",
+            "description": "List of the Runtime Migrations or empty array: []",
             "minItems": 0,
             "items": {
               "$ref": "#/$defs/migration_runtime"
@@ -78,13 +70,12 @@
               "runtime"
             ]
           }
-
         }
       },
       "host_functions": {
-        "description": "Lits of the host functions involved in this PR.\nThis is used to generate the host functions documentation.",
+        "title": "Host Functions",
+        "description": "List of the host functions involved in this PR.",
         "type": "array",
-        "minItems": 0,
         "items": {
           "$ref": "#/$defs/host_function"
         }
@@ -93,28 +84,32 @@
     "required": [
       "title",
       "doc",
-      "crates",
-      "migrations",
-      "host_functions"
+      "crates"
     ],
     "$defs": {
       "audience": {
+        "description": "You may pick one or more audiences and address those users with appropriate documentation, information and warning related to the PR.",
         "oneOf": [
           {"const": "Node Dev",
-          "title": "Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself."},
+          "title": "Node Dev",
+          "description": "Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself."},
 
           {"const": "Runtime Dev",
-          "title": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not the meta-protocol (client)."},
+          "title": "Runtime Dev",
+          "description": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not the meta-protocol (client)."},
 
           {"const": "Node Operator",
-          "title": "Those who don't write any code and only run code."},
+          "title": "Node Operator",
+          "description": "Those who don't write any code and only run code."},
 
           {"const": "Runtime User",
-          "title": "Token holders who don't run anything but are involved in the network."}
+          "title": "Runtime User",
+          "description": "Token holders who don't run anything but are involved in the network."}
         ]
       },
       "crate": {
         "type": "object",
+        "description": "You have the option here to provide a semver level as hint to help with the publishing of crates.",
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -139,6 +134,7 @@
       },
       "migration_db": {
         "type": "object",
+        "description": "This property allows the documentation of database migrations.",
         "properties": {
           "name": {
             "type": "string"
@@ -155,6 +151,7 @@
       },
       "migration_runtime": {
         "type": "object",
+        "description": "This property allows the documentation of runtime migrations.",
         "properties": {
           "pallet": {
             "type": "string"
@@ -179,15 +176,13 @@
           },
           "title": {
             "type": "string",
+            "title": "Title for the audience",
             "description": "Optional title override for the PR and for the current audience"
           },
           "description": {
+            "title": "Description for the audience",
             "description": "Description of the change",
             "type": "string"
-          },
-          "notes": {
-            "description": "Optional relevant note",
-            "$ref": "#/$defs/array_of_strings"
           }
         }
       },
@@ -201,12 +196,17 @@
       "host_function": {
         "type": "object",
         "additionalProperties": false,
+        "title": "Host Functions",
         "description": "List of host functions and their descriptions",
         "properties": {
           "name": {
+            "title": "Host function name",
+            "description": "Name or identifier to find the host function in the codebase",
             "type": "string"
           },
           "description": {
+            "title": "Host function description",
+            "description": "Short description of the host function",
             "type": "string"
           },
           "notes": {
