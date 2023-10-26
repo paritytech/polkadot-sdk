@@ -1506,10 +1506,11 @@ construct_runtime! {
 		// State trie migration pallet, only temporary.
 		StateTrieMigration: pallet_state_trie_migration = 254,
 
+		// Root testing pallet.
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 249,
+
 		// Sudo.
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
-
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 249,
 	}
 }
 
