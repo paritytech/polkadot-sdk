@@ -431,9 +431,12 @@ frame-system = { workspace = true }
 		let expected_toml = r#"[workspace]
 members = ["node", "pallets/template", "runtime"]
 
+[workspace.package]
+edition = "2021"
+
 [workspace.dependencies]
-frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/substrate.git", rev = "commit_id" }
-sp-io = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", rev = "commit_id" }
+frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
+sp-io = { version = "7.0.0", git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
 
 [profile]
 
