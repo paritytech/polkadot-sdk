@@ -1423,9 +1423,79 @@ mod sanitizers {
 				// Disable Eve
 				set_disabled_validators(vec![4]);
 
+				let before = backed_candidates.clone();
+
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
 				assert!(!filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+				assert_eq!(backed_candidates, before);
+			});
+		}
+
+		#[test]
+		fn drop_single_disabled_vote() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
+
+				// Disable Alice
+				set_disabled_validators(vec![0]);
+
+				// Verify the initial state is as expected
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					true
+				);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					true
+				);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					true
+				);
+				let untouched = backed_candidates.get(1).unwrap().clone();
+
+				// Eve is disabled but no backing statement is signed by it so nothing should be
+				// filtered
+				assert!(filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+
+				// there should still be two backed candidates
+				assert_eq!(backed_candidates.len(), 2);
+				// but the first one should have only one validity vote
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 1);
+				// Validator 0 vote should be dropped, validator 1 - retained
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
+					false
+				);
+				assert_eq!(
+					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
+					true
+				);
+				// the second candidate shouldn't be modified
+				assert_eq!(*backed_candidates.get(1).unwrap(), untouched);
+			});
+		}
+
+		#[test]
+		fn drop_candidate_if_all_statements_are_from_disabled() {
+			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
+
+				// Disable Alice
+				set_disabled_validators(vec![0, 1]);
+
+				// Verify the initial state is as expected
+				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
+				let untouched = backed_candidates.get(1).unwrap().clone();
+
+				// Eve is disabled but no backing statement is signed by it so nothing should be
+				// filtered
+				assert!(filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+
+				assert_eq!(backed_candidates.len(), 1);
+				assert_eq!(*backed_candidates.get(0).unwrap(), untouched);
 			});
 		}
 	}
