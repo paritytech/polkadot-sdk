@@ -78,6 +78,7 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
+pallet-parameters = { path = "../../../substrate/frame/parameters", default-features = false }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
 pallet-tips = { path = "../../../substrate/frame/tips", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }

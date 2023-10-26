@@ -1,42 +1,38 @@
 [package]
-name = "orml-parameters"
-description = "Offer a centra place to store and configure parameters."
-repository = "https://github.com/open-web3-stack/open-runtime-module-library/tree/master/parameters"
+name = "pallet-parameters"
+description = "Pallet to store and configure parameters."
+repository.workspace = true
 license = "Apache-2.0"
 version = "0.5.0-dev"
-authors = ["Acala Developers"]
-edition = "2021"
+authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
+edition.workspace = true
 
 [dependencies]
-parity-scale-codec = {  version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
-serde = { workspace = true, optional = true }
+paste = { version = "1.0.14", default-features = false }
+serde = { version = "1.0.188", features = ["derive"], optional = true }
 
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
-
-orml-traits = { path = "../traits", version = "0.5.0-dev", default-features = false }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-sp-core = { workspace = true, features = ["std"] }
-sp-io = { workspace = true, features = ["std"] }
+sp-core = { path = "../../primitives/core", features = ["std"] }
+sp-io = { path = "../../primitives/io", features = ["std"] }
 
 [features]
 default = ["std"]
 std = [
 	"serde",
-
-	"parity-scale-codec/std",
+	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
-
-	"orml-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

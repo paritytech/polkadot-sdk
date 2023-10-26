@@ -74,6 +74,7 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
+use pallet_parameters::define_aggregrated_parameters;
 use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::simple::IdentityInfo;
@@ -1240,6 +1241,19 @@ impl pallet_asset_rate::Config for Runtime {
 	type AssetKind = <Runtime as pallet_treasury::Config>::AssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
+define_aggregrated_parameters! {
+	pub RuntimeParameters = {
+		Earning: module_earning::Parameters = 0,
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AggregratedKeyValue = RuntimeParameters;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 construct_runtime! {

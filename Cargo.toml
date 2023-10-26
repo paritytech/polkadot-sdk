@@ -286,6 +286,7 @@ members = [
 	"substrate/frame/election-provider-support/solution-type/fuzzer",
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
+	"substrate/frame/parameters",
 	"substrate/frame/examples/basic",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",

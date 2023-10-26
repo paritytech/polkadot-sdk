@@ -1,11 +1,10 @@
 #![cfg(test)]
 
-use frame_support::traits::EnsureOriginWithArg;
+use crate::define_aggregrated_parameters;
 use frame_support::{
 	construct_runtime,
-	traits::{ConstU32, ConstU64, Everything},
+	traits::{ConstU32, ConstU64, EnsureOriginWithArg, Everything},
 };
-use orml_traits::define_aggregrated_parameters;
 use sp_core::H256;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -42,7 +41,7 @@ impl frame_system::Config for Runtime {
 }
 
 pub mod pallet1 {
-	orml_traits::define_parameters! {
+	crate::define_parameters! {
 		pub Parameters = {
 			Key1: u64 = 0,
 			Key2(u32): u32 = 1,
@@ -51,7 +50,7 @@ pub mod pallet1 {
 	}
 }
 pub mod pallet2 {
-	orml_traits::define_parameters! {
+	crate::define_parameters! {
 		pub Parameters = {
 			Key1: u64 = 0,
 			Key2(u32): u32 = 2,
@@ -71,16 +70,19 @@ pub struct EnsureOriginImpl;
 impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for EnsureOriginImpl {
 	type Success = ();
 
-	fn try_origin(origin: RuntimeOrigin, key: &RuntimeParametersKey) -> Result<Self::Success, RuntimeOrigin> {
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Pallet1(_) => {
 				ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
-			}
+				return Ok(())
+			},
 			RuntimeParametersKey::Pallet2(_) => {
 				ensure_signed(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
-			}
+				return Ok(())
+			},
 		}
 	}
 
@@ -110,9 +112,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn new() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));

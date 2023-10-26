@@ -1,5 +1,5 @@
 //! # Parameters
-//! Offer a central place to store and configure parameters.
+//! Pallet to store and configure parameters.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
@@ -8,7 +8,9 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
 use frame_support::traits::EnsureOriginWithArg;
-use orml_traits::parameters::{AggregratedKeyValue, Into2, Key, RuntimeParameterStore, TryInto2};
+
+pub mod traits;
+use traits::{AggregratedKeyValue, Into2, Key, RuntimeParameterStore, TryInto2};
 
 mod mock;
 mod tests;
@@ -17,16 +19,27 @@ mod weights;
 pub use module::*;
 pub use weights::WeightInfo;
 
+/// The key type of a parameter.
+type KeyOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey;
+
+/// The value type of a parameter.
+type ValueOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue;
+
+pub struct DynamicParameter<const NAME: [u8; 8]> {
+
+}
+
 #[frame_support::pallet]
 pub mod module {
 	use super::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The key value type for parameters. Usually created by
-		/// orml_traits::parameters::define_aggregrated_parameters
+		/// [`crate::parameters::define_aggregrated_parameters`].
 		type AggregratedKeyValue: AggregratedKeyValue;
 
 		/// The origin which may update the parameter.
@@ -35,12 +48,6 @@ pub mod module {
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
 	}
-
-	type KeyOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey;
-	type ValueOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue;
-
-	#[pallet::error]
-	pub enum Error<T> {}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -60,7 +67,7 @@ pub mod module {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set parameter
+		/// Set the value of a parameter.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_parameter())]
 		pub fn set_parameter(origin: OriginFor<T>, key_value: T::AggregratedKeyValue) -> DispatchResult {
