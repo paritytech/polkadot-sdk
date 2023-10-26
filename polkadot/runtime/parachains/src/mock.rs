@@ -447,7 +447,7 @@ thread_local! {
 	pub static AVAILABILITY_REWARDS: RefCell<HashMap<ValidatorIndex, usize>>
 		= RefCell::new(HashMap::new());
 
-	pub static DISABLED_VALIDATORS: RefCell<Vec<u32>> = RefCell::new(vec![4]);
+	pub static DISABLED_VALIDATORS: RefCell<Vec<u32>> = RefCell::new(vec![]);
 }
 
 pub fn backing_rewards() -> HashMap<ValidatorIndex, usize> {
@@ -600,4 +600,8 @@ pub(crate) fn deregister_parachain(id: ParaId) {
 /// Calls `schedule_para_cleanup` in a new storage transactions, since it assumes rollback on error.
 pub(crate) fn try_deregister_parachain(id: ParaId) -> crate::DispatchResult {
 	frame_support::storage::transactional::with_storage_layer(|| Paras::schedule_para_cleanup(id))
+}
+
+pub(crate) fn set_disabled_validators(disabled: Vec<u32>) {
+	DISABLED_VALIDATORS.with(|d| *d.borrow_mut() = disabled)
 }
