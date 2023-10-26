@@ -903,6 +903,11 @@ pub mod bridging {
 				AssetHubRococo::get()
 			);
 
+			pub EtherFromEthereum: (MultiAssetFilter, MultiLocation) = (
+				Wild(AllOf { fun: WildFungible, id: Concrete(EthereumLocation::get()) }),
+				EthereumLocation::get()
+			);
+
 			/// Set up exporters configuration.
 			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
@@ -962,6 +967,7 @@ pub mod bridging {
 				(
 					// allow receive ROC from AssetHubRococo
 					xcm_builder::Case<RocFromAssetHubRococo>,
+					xcm_builder::Case<EtherFromEthereum>,
 					// and nothing else
 				),
 			>;
