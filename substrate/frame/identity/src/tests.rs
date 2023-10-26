@@ -106,11 +106,9 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type Slashed = ();
 	type BasicDeposit = ConstU64<100>;
-	type FieldDeposit = ConstU64<100>;
 	type ByteDeposit = ConstU64<10>;
 	type SubAccountDeposit = ConstU64<100>;
 	type MaxSubAccounts = ConstU32<2>;
-	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;

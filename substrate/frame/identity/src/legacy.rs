@@ -24,6 +24,9 @@ use sp_std::prelude::*;
 
 use crate::types::{Data, IdentityFields, IdentityInformationProvider, U64BitFlag};
 
+#[cfg(feature = "runtime-benchmarks")]
+const MAX_ADDITIONAL_FIELDS: usize = 2;
+
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
 #[bitflags]
@@ -131,11 +134,13 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info(num_fields: u32) -> Self {
+	fn create_identity_info() -> Self {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
-			additional: vec![(data.clone(), data.clone()); num_fields as usize].try_into().unwrap(),
+			additional: vec![(data.clone(), data.clone()); MAX_ADDITIONAL_FIELDS]
+				.try_into()
+				.unwrap(),
 			display: data.clone(),
 			legal: data.clone(),
 			web: data.clone(),

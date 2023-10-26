@@ -121,10 +121,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type BasicDeposit: Get<BalanceOf<Self>>;
 
-		/// The amount held on deposit per additional field for a registered identity.
-		#[pallet::constant]
-		type FieldDeposit: Get<BalanceOf<Self>>;
-
 		/// The amount held on deposit per encoded byte for a registered identity.
 		#[pallet::constant]
 		type ByteDeposit: Get<BalanceOf<Self>>;
@@ -138,11 +134,6 @@ pub mod pallet {
 		/// The maximum number of sub-accounts allowed per identified account.
 		#[pallet::constant]
 		type MaxSubAccounts: Get<u32>;
-
-		/// Maximum number of additional fields that may be stored in an ID. Needed to bound the I/O
-		/// required to access an identity, but can be pretty high.
-		#[pallet::constant]
-		type MaxAdditionalFields: Get<u32>;
 
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;

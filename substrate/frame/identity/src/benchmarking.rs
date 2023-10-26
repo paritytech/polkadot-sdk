@@ -79,7 +79,7 @@ fn create_sub_accounts<T: Config>(
 	// Set identity so `set_subs` does not fail.
 	if IdentityOf::<T>::get(who).is_none() {
 		let _ = T::Currency::make_free_balance_be(who, BalanceOf::<T>::max_value() / 2u32.into());
-		let info = T::IdentityInformation::create_identity_info(1);
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(who_origin.into(), Box::new(info))?;
 	}
 
@@ -130,7 +130,7 @@ mod benchmarks {
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
-		let initial_info = T::IdentityInformation::create_identity_info(1);
+		let initial_info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(initial_info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -153,7 +153,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(
 			RawOrigin::Signed(caller.clone()),
-			Box::new(T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get())),
+			Box::new(T::IdentityInformation::create_identity_info()),
 		);
 
 		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
@@ -214,7 +214,7 @@ mod benchmarks {
 		let _ = add_sub_accounts::<T>(&caller, s)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get());
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -251,7 +251,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get());
+		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -275,7 +275,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get());
+		let info = T::IdentityInformation::create_identity_info();
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -398,7 +398,7 @@ mod benchmarks {
 
 		add_registrars::<T>(r)?;
 
-		let info = T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get());
+		let info = T::IdentityInformation::create_identity_info();
 		let info_hash = T::Hashing::hash_of(&info);
 		Identity::<T>::set_identity(user_origin.clone(), Box::new(info))?;
 
@@ -430,7 +430,7 @@ mod benchmarks {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
-		let info = T::IdentityInformation::create_identity_info(T::MaxAdditionalFields::get());
+		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
 		let _ = add_sub_accounts::<T>(&target, s)?;
 
@@ -537,10 +537,9 @@ mod benchmarks {
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
-		let additional_fields = 0;
 
 		// insert identity into storage with zero deposit
-		let id = T::IdentityInformation::create_identity_info(additional_fields);
+		let id = T::IdentityInformation::create_identity_info();
 		IdentityOf::<T>::insert(
 			&target,
 			Registration {

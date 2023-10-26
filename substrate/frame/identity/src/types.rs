@@ -242,7 +242,7 @@ pub trait IdentityInformationProvider:
 	fn has_identity(&self, fields: u64) -> bool;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_identity_info(num_fields: u32) -> Self;
+	fn create_identity_info() -> Self;
 }
 
 /// Information on an identity along with judgements from registrars.
@@ -253,7 +253,7 @@ pub trait IdentityInformationProvider:
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[scale_info(skip_type_params(MaxJudgements, MaxAdditionalFields))]
+#[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<
 	Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
 	MaxJudgements: Get<u32>,

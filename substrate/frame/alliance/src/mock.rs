@@ -97,7 +97,6 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 
 parameter_types! {
 	pub const BasicDeposit: u64 = 100;
-	pub const FieldDeposit: u64 = 100;
 	pub const ByteDeposit: u64 = 10;
 	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
@@ -118,11 +117,9 @@ impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
 	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalFields = MaxAdditionalFields;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
@@ -234,20 +231,40 @@ frame_support::construct_runtime!(
 	}
 );
 
+fn test_identity_info() -> IdentityInfo<MaxAdditionalFields> {
+	IdentityInfo {
+		additional: BoundedVec::default(),
+		display: Data::Raw(b"name".to_vec().try_into().unwrap()),
+		legal: Data::default(),
+		web: Data::Raw(b"website".to_vec().try_into().unwrap()),
+		riot: Data::default(),
+		email: Data::default(),
+		pgp_fingerprint: None,
+		image: Data::default(),
+		twitter: Data::default(),
+	}
+}
+
+pub(super) fn test_identity_info_deposit() -> <Test as pallet_balances::Config>::Balance {
+	let basic_deposit: u64 = <Test as pallet_identity::Config>::BasicDeposit::get();
+	let byte_deposit: u64 = <Test as pallet_identity::Config>::ByteDeposit::get();
+	byte_deposit * test_identity_info().encoded_size() as u64 + basic_deposit
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(1, 50),
-			(2, 50),
-			(3, 50),
-			(4, 50),
-			(5, 30),
-			(6, 50),
-			(7, 50),
-			(8, 50),
-			(9, 50),
+			(1, 1000),
+			(2, 1000),
+			(3, 1000),
+			(4, 1000),
+			(5, test_identity_info_deposit() + 10),
+			(6, 1000),
+			(7, 1000),
+			(8, 1000),
+			(9, 1000),
 		],
 	}
 	.assimilate_storage(&mut t)
@@ -265,17 +282,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
 
-		let info = IdentityInfo {
-			additional: BoundedVec::default(),
-			display: Data::Raw(b"name".to_vec().try_into().unwrap()),
-			legal: Data::default(),
-			web: Data::Raw(b"website".to_vec().try_into().unwrap()),
-			riot: Data::default(),
-			email: Data::default(),
-			pgp_fingerprint: None,
-			image: Data::default(),
-			twitter: Data::default(),
-		};
+		let info = test_identity_info();
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(1), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
 			RuntimeOrigin::signed(1),
