@@ -340,11 +340,11 @@ impl<T: Config> Pallet<T> {
 					// then unreserve it.
 					let current_hold = Self::deposit_held(para, &ended_lease.0);
 
-					// Note: check reserved balance from state instead of deposit. We might
-					// have unreserved early. Since reserves are not named, we can't check if this
-					// reserve was made by slots pallet or not. An account can probably cheat by
-					// reserving amount for something else so better to store the current reserved
-					// amount at all times in state.
+					// Note: we check reserved balance from state instead of upcoming leases since
+					// we might have unreserved early. Since reserves are not named, we can't check
+					// if this reserve was made by slots pallet or not. An account can probably
+					// cheat by reserving amount for something else so better to track reserved
+					// amount at all times.
 					if let Some(rebate) = current_hold.checked_sub(&required_hold) {
 						Self::unreserve(para, &ended_lease.0, rebate);
 					}
@@ -456,7 +456,6 @@ impl<T: Config> Pallet<T> {
 	fn clear_lease_storage(para: ParaId) {
 		Leases::<T>::remove(para);
 		// Since we don't expect too many child keys here, should be fine to do this.
-		// fixme(ank4n): Use a vector of tuples instead of double map?
 		let result = ReservedAmounts::<T>::clear_prefix(para, u32::MAX, None);
 		defensive_assert!(result.maybe_cursor.is_none());
 	}
