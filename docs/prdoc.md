@@ -39,6 +39,32 @@ Users might find the following helpers convenient:
     repo](https://github.com/paritytech/polkadot-sdk/blob/master/prdoc/.template.prdoc) simply providing a PR number
   - check the validity of one or more `PRDoc` files
 
+## `prdoc` cli usage
+
+The `prdoc` cli documentation can be found at https://github.com/paritytech/prdoc#prdoc
+
+tldr:
+- `prdoc generate <NNNN>`
+- `prdoc check <NNNN>`
+
+where <NNNN> is the PR number.
+
+## Pick an audience
+
+While describing a PR, the author needs to consider which audience(s) need to be addressed.
+The list of valid audiences is described and documented in the JSON schema as follow:
+
+- `Node Dev`: Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs.
+   These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol
+   itself.
+
+- `Runtime Dev`: All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a
+   pallet. These are people who care about the protocol (WASM), not the meta-protocol (client).
+
+- `Node Operator`: Those who don't write any code and only run code.
+
+- `Runtime User`: Token holders who don't run anything but are involved in the network
+
 ## Tips
 
 The PRDoc schema is defined in each repo and usually is quite restrictive.
