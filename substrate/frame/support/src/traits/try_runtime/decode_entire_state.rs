@@ -67,7 +67,7 @@ impl TryDecodeEntireStorage for Tuple {
 }
 
 /// A value could not be decoded.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TryDecodeEntireStorageError {
 	/// The key of the undecodable value.
 	pub key: Vec<u8>,
