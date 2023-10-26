@@ -289,7 +289,7 @@ benchmarks! {
 		let transfer_amount = T::MinVestedTransfer::get();
 		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
 
-		let number_of_schedules_after_removal = T::MAX_VESTING_SCHEDULES - 1;
+		let number_of_schedules_after_removal = s - 1;
 		let expected_balance = transfer_amount.checked_mul(&number_of_schedules_after_removal.into()).unwrap();
 
 		// It will remove last vesting schedule.
