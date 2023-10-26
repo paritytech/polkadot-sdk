@@ -67,7 +67,7 @@ impl TryDecodeEntireStorage for Tuple {
 }
 
 /// A value could not be decoded.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TryDecodeEntireStorageError {
 	/// The key of the undecodable value.
 	pub key: Vec<u8>,
@@ -81,9 +81,10 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
-			"Failed to decode value at key: {}. Storage info {:?}. Raw value: {:?}",
+			"Failed to decode storage item `{}::{}` at key: {}. Raw value: {:?}",
+			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
+			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
 			array_bytes::bytes2hex("0x", &self.key),
-			self.info,
 			self.raw.as_ref().map(|r| array_bytes::bytes2hex("0x", r)),
 		)
 	}
