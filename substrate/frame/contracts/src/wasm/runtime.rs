@@ -2671,7 +2671,7 @@ pub mod env {
 	/// # Return Value
 	///
 	/// Returns `ReturnCode::Success` when the XCM was successfully executed. When the XCM
-	/// execution fails, `ReturnCode::CallRuntimeFailed` is returned.
+	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned.
 	#[unstable]
 	fn xcm_execute(
 		ctx: _,
