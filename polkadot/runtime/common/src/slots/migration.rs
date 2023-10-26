@@ -68,7 +68,8 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let mut para_leasers = sp_std::collections::btree_set::BTreeSet::<(ParaId, T::AccountId)>::new();
+			let mut para_leasers =
+				sp_std::collections::btree_set::BTreeSet::<(ParaId, T::AccountId)>::new();
 			for (para, lease_periods) in Leases::<T>::iter() {
 				lease_periods.into_iter().for_each(|maybe_lease| {
 					if let Some((who, _)) = maybe_lease {
