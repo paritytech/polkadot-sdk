@@ -1206,7 +1206,10 @@ mod sanitizers {
 	}
 
 	mod candidates {
-		use crate::scheduler::{common::Assignment, ParasEntry};
+		use crate::{
+			mock::set_disabled_validators,
+			scheduler::{common::Assignment, ParasEntry},
+		};
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1215,13 +1218,21 @@ mod sanitizers {
 		struct TestData {
 			backed_candidates: Vec<BackedCandidate>,
 			scheduled_paras: BTreeMap<primitives::Id, CoreIndex>,
-			validator_ids: Vec<ValidatorId>,
 		}
 
 		// Generate test data for the candidates and asserts that the evnironment is set as expected
 		// (check the comments for details)
 		fn get_test_data() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
+
+			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
+			// votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_relay_parent(
+				default_header().hash(),
+				Default::default(),
+				3,
+				1,
+			);
 
 			let header = default_header();
 			let relay_parent = header.hash();
@@ -1247,8 +1258,11 @@ mod sanitizers {
 				)
 				.unwrap();
 			}
+
+			// Set active validators in `shared` pallet
 			let validator_ids =
 				validators.iter().map(|v| v.public().into()).collect::<Vec<ValidatorId>>();
+			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Two scheduled parachains - ParaId(1) on CoreIndex(0) and ParaId(2) on CoreIndex(1)
 			let scheduled = (0_usize..2)
@@ -1256,7 +1270,25 @@ mod sanitizers {
 				.map(|idx| (ParaId::from(1_u32 + idx as u32), CoreIndex::from(idx as u32)))
 				.collect::<BTreeMap<_, _>>();
 
-			// Two validator groups for each core
+			// Set the validator groups in `scheduler`
+			scheduler::Pallet::<Test>::set_validator_groups(vec![
+				vec![ValidatorIndex(0), ValidatorIndex(1)],
+				vec![ValidatorIndex(2), ValidatorIndex(3)],
+			]);
+
+			// Update scheduler's claimqueue with the parachains
+			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+				(
+					CoreIndex::from(0),
+					VecDeque::from([Some(ParasEntry::new(Assignment::new(1.into()), 1))]),
+				),
+				(
+					CoreIndex::from(1),
+					VecDeque::from([Some(ParasEntry::new(Assignment::new(2.into()), 1))]),
+				),
+			]));
+
+			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
 					group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
@@ -1295,14 +1327,29 @@ mod sanitizers {
 				})
 				.collect::<Vec<_>>();
 
-			TestData { backed_candidates, scheduled_paras: scheduled, validator_ids }
+			// Some sanity checks
+			assert_eq!(
+				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
+			);
+			assert_eq!(
+				shared::Pallet::<Test>::active_validator_indices(),
+				vec![
+					ValidatorIndex(0),
+					ValidatorIndex(1),
+					ValidatorIndex(2),
+					ValidatorIndex(3),
+					ValidatorIndex(4)
+				]
+			);
+
+			TestData { backed_candidates, scheduled_paras: scheduled }
 		}
 
 		#[test]
 		fn happy_path() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled, validator_ids: _ } =
-					get_test_data();
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
 
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
@@ -1324,8 +1371,7 @@ mod sanitizers {
 		#[test]
 		fn nothing_scheduled() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: _, validator_ids: _ } =
-					get_test_data();
+				let TestData { backed_candidates, scheduled_paras: _ } = get_test_data();
 				let scheduled = &BTreeMap::new();
 				let has_concluded_invalid =
 					|_idx: usize, _backed_candidate: &BackedCandidate| -> bool { false };
@@ -1343,8 +1389,7 @@ mod sanitizers {
 		#[test]
 		fn invalid_are_filtered_out() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { backed_candidates, scheduled_paras: scheduled, validator_ids: _ } =
-					get_test_data();
+				let TestData { backed_candidates, scheduled_paras: scheduled } = get_test_data();
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -1371,81 +1416,15 @@ mod sanitizers {
 		}
 
 		#[test]
-		fn disabled() {
+		fn disabled_non_signing_validator_doesnt_get_filtered() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras: _, validator_ids } =
-					get_test_data();
+				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
 
-				shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
-				shared::Pallet::<Test>::add_allowed_relay_parent(
-					default_header().hash(),
-					Default::default(),
-					3,
-					1,
-				);
+				// Disable Eve
+				set_disabled_validators(vec![4]);
 
-				assert_ne!(shared::Pallet::<Test>::disabled_validators().len(), 0);
-
-				scheduler::Pallet::<Test>::set_validator_groups(vec![
-					vec![ValidatorIndex(0), ValidatorIndex(1)],
-					vec![ValidatorIndex(2), ValidatorIndex(3)],
-				]);
-
-				let mut claimqueue = BTreeMap::new();
-				claimqueue.insert(
-					CoreIndex::from(0),
-					VecDeque::from([Some(ParasEntry::new(Assignment::new(1.into()), 1))]),
-				);
-				claimqueue.insert(
-					CoreIndex::from(1),
-					VecDeque::from([Some(ParasEntry::new(Assignment::new(2.into()), 1))]),
-				);
-				scheduler::Pallet::<Test>::set_claimqueue(claimqueue);
-
-				assert_eq!(
-					<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
-					vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
-				);
-
-				// assert_ne!(shared::Pallet::<Test>::active_validator_indices().len(), 0);
-
-				// let group_validators = |group_index: GroupIndex| {
-				// 	match group_index {
-				// 		group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
-				// 		group_index if group_index == GroupIndex::from(1) => Some(vec![2, 3]),
-				// 		_ => panic!("Group index out of bounds for 2 parachains and 1 parathread core"),
-				// 	}
-				// 	.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
-				// };
-
-				// let mut backed_candidates = (0_usize..2)
-				// 	.into_iter()
-				// 	.map(|idx0| {
-				// 		let idx1 = idx0 + 1;
-				// 		let mut candidate = TestCandidateBuilder {
-				// 			para_id: ParaId::from(idx1),
-				// 			relay_parent,
-				// 			pov_hash: Hash::repeat_byte(idx1 as u8),
-				// 			persisted_validation_data_hash: [42u8; 32].into(),
-				// 			hrmp_watermark: RELAY_PARENT_NUM,
-				// 			..Default::default()
-				// 		}
-				// 		.build();
-
-				// 		collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
-
-				// 		let backed = back_candidate(
-				// 			candidate,
-				// 			&validators,
-				// 			group_validators(GroupIndex::from(idx0 as u32)).unwrap().as_ref(),
-				// 			&keystore,
-				// 			&signing_context,
-				// 			BackingKind::Threshold,
-				// 		);
-				// 		backed
-				// 	})
-				// 	.collect::<Vec<_>>();
-
+				// Eve is disabled but no backing statement is signed by it so nothing should be
+				// filtered
 				assert!(!filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
 			});
 		}
