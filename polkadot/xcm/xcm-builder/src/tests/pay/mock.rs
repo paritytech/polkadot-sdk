@@ -49,6 +49,10 @@ construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
@@ -56,6 +60,7 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type BlockHashCount = ConstU32<256>;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 pub type Balance = u128;

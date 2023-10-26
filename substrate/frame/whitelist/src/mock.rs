@@ -22,7 +22,7 @@
 use crate as pallet_whitelist;
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, parameter_types,
 	traits::{ConstU32, ConstU64, Nothing},
 };
 use frame_system::EnsureRoot;
@@ -43,6 +43,10 @@ construct_runtime!(
 		Preimage: pallet_preimage,
 	}
 );
+
+parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = Nothing;
@@ -68,6 +72,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {

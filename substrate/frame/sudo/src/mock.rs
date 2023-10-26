@@ -19,7 +19,10 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, ConstU64, Contains};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, ConstU64, Contains},
+};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
@@ -108,6 +111,10 @@ impl Contains<RuntimeCall> for BlockEverything {
 	}
 }
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = BlockEverything;
 	type BlockWeights = ();
@@ -132,6 +139,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 // Implement the logger module's `Config` on the Test runtime.

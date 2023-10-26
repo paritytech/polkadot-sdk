@@ -21,6 +21,7 @@
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::DispatchResult,
+	parameter_types,
 	storage::{with_transaction, TransactionOutcome::*},
 	transactional,
 };
@@ -88,6 +89,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -98,6 +103,7 @@ impl frame_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl Config for Runtime {}

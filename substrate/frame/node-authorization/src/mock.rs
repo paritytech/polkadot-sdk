@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_node_authorization;
 
 use frame_support::{
-	ord_parameter_types,
+	ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system::EnsureSignedBy;
@@ -42,6 +42,10 @@ frame_support::construct_runtime!(
 		},
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -67,6 +71,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 ord_parameter_types! {

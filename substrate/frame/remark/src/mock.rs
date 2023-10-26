@@ -18,7 +18,10 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU16, ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -35,6 +38,10 @@ frame_support::construct_runtime!(
 		Remark: pallet_remark::{ Pallet, Call, Event<T> },
 	}
 );
+
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -60,6 +67,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_remark::Config for Test {

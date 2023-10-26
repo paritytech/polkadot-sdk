@@ -187,6 +187,7 @@ mod tests {
 	parameter_types! {
 		pub BlockLength: limits::BlockLength = limits::BlockLength
 			::max(2 * 1024);
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 	}
 
 	impl frame_system::Config for Test {
@@ -213,6 +214,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}

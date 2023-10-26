@@ -117,6 +117,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2_000_000_000_000, u64::MAX),
 		);
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
@@ -142,6 +143,7 @@ impl system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 impl logger::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

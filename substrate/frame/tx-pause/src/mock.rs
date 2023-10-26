@@ -35,6 +35,7 @@ use sp_runtime::{
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
@@ -60,6 +61,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 parameter_types! {

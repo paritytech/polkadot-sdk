@@ -71,7 +71,9 @@ parameter_types! {
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();
 	pub const ReservedDmpWeight: Weight = Weight::zero();
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
+
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -96,6 +98,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;

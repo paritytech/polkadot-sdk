@@ -680,6 +680,7 @@ pub mod pallet5 {
 
 frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 );
 
 impl frame_system::Config for Runtime {
@@ -706,6 +707,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 impl pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

@@ -20,7 +20,7 @@
 #![recursion_limit = "128"]
 
 use frame_support::{
-	derive_impl,
+	derive_impl, parameter_types,
 	traits::{Contains, OriginTrait},
 };
 use sp_core::ConstU32;
@@ -170,6 +170,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for RuntimeOriginTest {
 	type BaseCallFilter = BaseCallFilter;
@@ -180,6 +184,7 @@ impl frame_system::Config for RuntimeOriginTest {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl nested::module::Config for RuntimeOriginTest {

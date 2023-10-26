@@ -97,7 +97,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame_support::{derive_impl, ConsensusEngineId};
+	use frame_support::{derive_impl, ConsensusEngineId,};
 	use sp_core::H256;
 	use sp_runtime::{
 		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,

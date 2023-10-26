@@ -144,6 +144,7 @@ parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: MessageNonce = 16;
 	pub const MaxUnconfirmedMessagesAtInboundLane: MessageNonce = 1_000;
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 impl frame_system::Config for TestRuntime {
@@ -170,6 +171,7 @@ impl frame_system::Config for TestRuntime {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_utility::Config for TestRuntime {

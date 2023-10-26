@@ -863,6 +863,7 @@ mod tests {
 			read: 10,
 			write: 100,
 		};
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 	}
 	impl frame_system::Config for Runtime {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -888,6 +889,7 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	type Balance = u64;

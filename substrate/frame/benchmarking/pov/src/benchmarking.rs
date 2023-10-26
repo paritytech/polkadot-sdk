@@ -339,6 +339,7 @@ frame_benchmarking::benchmarks! {
 
 #[cfg(test)]
 mod mock {
+	use frame_support::parameter_types;
 	use sp_runtime::{testing::H256, BuildStorage};
 
 	type AccountId = u64;
@@ -353,6 +354,10 @@ mod mock {
 			Baseline: crate::{Pallet, Call, Storage, Event<T>},
 		}
 	);
+
+	parameter_types! {
+		pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+	}
 
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -378,6 +383,7 @@ mod mock {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
+		type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 	}
 
 	impl crate::Config for Test {

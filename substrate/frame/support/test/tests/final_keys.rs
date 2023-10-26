@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use codec::Encode;
-use frame_support::{derive_impl, storage::unhashed, StoragePrefixedMap};
+use frame_support::{derive_impl, parameter_types, storage::unhashed, StoragePrefixedMap};
 use frame_system::pallet_prelude::BlockNumberFor;
 
 use sp_core::{sr25519, ConstU32};
@@ -210,6 +210,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+parameter_types! {
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -220,6 +224,7 @@ impl frame_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl no_instance::Config for Runtime {}

@@ -55,6 +55,7 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
+	pub const ExtrinsicsRootStateVersion: frame_system::StateVersion = frame_system::StateVersion::V0;
 }
 
 type Balance = u64;
@@ -83,6 +84,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtrinsicsRootStateVersion = ExtrinsicsRootStateVersion;
 }
 
 impl pallet_balances::Config for Test {
