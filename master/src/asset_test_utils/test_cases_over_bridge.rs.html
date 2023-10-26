@@ -626,6 +626,20 @@
 <a href="#626" id="626">626</a>
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -644,13 +658,12 @@
 </span><span class="doccomment">//! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
-</span><span class="kw">use </span>codec::Encode;
+</span><span class="kw">use </span><span class="kw">crate</span>::assert_matches_reserve_asset_deposited_instructions;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>cumulus_primitives_core::XcmpMessageSource;
 <span class="kw">use </span>frame_support::{
 	assert_ok,
-	traits::{
-		fungible::Mutate, Currency, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError,
-	},
+	traits::{Currency, Get, OnFinalize, OnInitialize, OriginTrait, ProcessMessageError},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
@@ -658,10 +671,13 @@
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
 	ValidatorIdOf, XcmReceivedFrom,
 };
-<span class="kw">use </span>sp_runtime::traits::StaticLookup;
+<span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedMultiAssets};
 <span class="kw">use </span>xcm_builder::{CreateMatcher, MatchXcm};
-<span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
+<span class="kw">use </span>xcm_executor::{
+	traits::{ConvertLocation, TransactAsset},
+	XcmExecutor,
+};
 
 <span class="kw">pub struct </span>TestBridgingConfig {
 	<span class="kw">pub </span>bridged_network: NetworkId,
@@ -689,6 +705,7 @@
 	prepare_configuration: <span class="kw">fn</span>() -&gt; TestBridgingConfig,
 	weight_limit: WeightLimit,
 	maybe_paid_export_message: <span class="prelude-ty">Option</span>&lt;AssetId&gt;,
+	delivery_fees_account: <span class="prelude-ty">Option</span>&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 ) <span class="kw">where
 	</span>Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -779,6 +796,11 @@
 				existential_deposit
 			);
 
+			<span class="kw">let </span>delivery_fees_account_balance_before = delivery_fees_account
+				.as_ref()
+				.map(|dfa| &lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(dfa))
+				.unwrap_or(<span class="number">0</span>.into());
+
 			<span class="comment">// local native asset (pallet_balances)
 			</span><span class="kw">let </span>asset_to_transfer = MultiAsset {
 				fun: Fungible(balance_to_transfer.into()),
@@ -794,42 +816,82 @@
 				}),
 			};
 
-			<span class="comment">// Make sure sender has enough funds for paying delivery fees
-			// TODO: Get this fee via weighing the corresponding message
-			</span><span class="kw">let </span>delivery_fees = <span class="number">1324039894</span>;
-			&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::mint_into(<span class="kw-2">&amp;</span>alice_account, delivery_fees.into())
+			<span class="kw">let </span>assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			<span class="kw">let </span><span class="kw-2">mut </span>expected_assets = assets_to_transfer.clone();
+			<span class="kw">let </span>context = XcmConfig::UniversalLocation::get();
+			expected_assets
+				.reanchor(<span class="kw-2">&amp;</span>target_location_from_different_consensus, context)
 				.unwrap();
+
+			<span class="kw">let </span>expected_beneficiary = target_destination_account;
+
+			<span class="comment">// Make sure sender has enough funds for paying delivery fees
+			</span><span class="kw">let </span>handling_delivery_fees = {
+				<span class="comment">// Probable XCM with `ReserveAssetDeposited`.
+				</span><span class="kw">let </span><span class="kw-2">mut </span>expected_reserve_asset_deposited_message = Xcm(<span class="macro">vec!</span>[
+					ReserveAssetDeposited(MultiAssets::from(expected_assets.clone())),
+					ClearOrigin,
+					BuyExecution {
+						fees: MultiAsset {
+							id: Concrete(Default::default()),
+							fun: Fungible(balance_to_transfer),
+						},
+						weight_limit: Unlimited,
+					},
+					DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: expected_beneficiary },
+					SetTopic([
+						<span class="number">220</span>, <span class="number">188</span>, <span class="number">144</span>, <span class="number">32</span>, <span class="number">213</span>, <span class="number">83</span>, <span class="number">111</span>, <span class="number">175</span>, <span class="number">44</span>, <span class="number">210</span>, <span class="number">111</span>, <span class="number">19</span>, <span class="number">90</span>, <span class="number">165</span>, <span class="number">191</span>, <span class="number">112</span>,
+						<span class="number">140</span>, <span class="number">247</span>, <span class="number">192</span>, <span class="number">124</span>, <span class="number">42</span>, <span class="number">17</span>, <span class="number">153</span>, <span class="number">141</span>, <span class="number">114</span>, <span class="number">34</span>, <span class="number">189</span>, <span class="number">20</span>, <span class="number">83</span>, <span class="number">69</span>, <span class="number">237</span>, <span class="number">173</span>,
+					]),
+				]);
+				assert_matches_reserve_asset_deposited_instructions(
+					<span class="kw-2">&amp;mut </span>expected_reserve_asset_deposited_message,
+					<span class="kw-2">&amp;</span>expected_assets,
+					<span class="kw-2">&amp;</span>expected_beneficiary,
+				);
+
+				<span class="comment">// Call `SendXcm::validate` to get delivery fees.
+				</span><span class="kw">let </span>(<span class="kw">_</span>, delivery_fees): (<span class="kw">_</span>, MultiAssets) = XcmConfig::XcmSender::validate(
+					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(target_location_from_different_consensus),
+					<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(expected_reserve_asset_deposited_message),
+				)
+				.expect(<span class="string">&quot;validate passes&quot;</span>);
+				<span class="comment">// Drip delivery fee to Alice account.
+				</span><span class="kw">let </span><span class="kw-2">mut </span>delivery_fees_added = <span class="bool-val">false</span>;
+				<span class="kw">for </span>delivery_fee <span class="kw">in </span>delivery_fees.inner() {
+					<span class="macro">assert_ok!</span>(&lt;XcmConfig::AssetTransactor <span class="kw">as </span>TransactAsset&gt;::deposit_asset(
+						<span class="kw-2">&amp;</span>delivery_fee,
+						<span class="kw-2">&amp;</span>MultiLocation {
+							parents: <span class="number">0</span>,
+							interior: X1(AccountId32 {
+								network: <span class="prelude-val">None</span>,
+								id: alice_account.clone().into(),
+							}),
+						},
+						<span class="prelude-val">None</span>,
+					));
+					delivery_fees_added = <span class="bool-val">true</span>;
+				}
+				delivery_fees_added
+			};
 
 			<span class="comment">// do pallet_xcm call reserve transfer
 			</span><span class="macro">assert_ok!</span>(&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::limited_reserve_transfer_assets(
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(alice_account.clone()),
 				Box::new(target_location_from_different_consensus.into_versioned()),
 				Box::new(target_destination_account.into_versioned()),
-				Box::new(VersionedMultiAssets::from(MultiAssets::from(asset_to_transfer))),
+				Box::new(VersionedMultiAssets::from(assets_to_transfer)),
 				<span class="number">0</span>,
 				weight_limit,
 			));
 
-			<span class="comment">// check pallet_xcm attempted
+			<span class="comment">// check events
+			// check pallet_xcm attempted
 			</span>RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::assert_pallet_xcm_event_outcome(
 				<span class="kw-2">&amp;</span>unwrap_pallet_xcm_event,
 				|outcome| {
 					<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 				},
-			);
-
-			<span class="comment">// check alice account decreased by balance_to_transfer
-			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
-			</span><span class="macro">assert_eq!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>alice_account),
-				alice_account_init_balance - balance_to_transfer.into()
-			);
-
-			<span class="comment">// check reserve account
-			// check reserve account increased by balance_to_transfer
-			</span><span class="macro">assert_eq!</span>(
-				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>reserve_account),
-				existential_deposit + balance_to_transfer.into()
 			);
 
 			<span class="comment">// check that xcm was sent
@@ -847,7 +909,6 @@
 				local_bridge_hub_para_id.into(),
 			)
 			.unwrap();
-
 			<span class="macro">assert_eq!</span>(
 				xcm_sent_message_hash,
 				<span class="prelude-val">Some</span>(xcm_sent.using_encoded(sp_io::hashing::blake2_256))
@@ -896,12 +957,41 @@
 							.split_global()
 							.expect(<span class="string">&quot;split works&quot;</span>);
 					<span class="macro">assert_eq!</span>(destination, <span class="kw-2">&amp;</span>target_location_junctions_without_global_consensus);
-					assert_matches_pallet_xcm_reserve_transfer_assets_instructions(inner_xcm);
+					assert_matches_reserve_asset_deposited_instructions(
+						inner_xcm,
+						<span class="kw-2">&amp;</span>expected_assets,
+						<span class="kw-2">&amp;</span>expected_beneficiary,
+					);
 					<span class="prelude-val">Ok</span>(())
 				},
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
 			})
 			.expect(<span class="string">&quot;contains ExportMessage&quot;</span>);
+
+			<span class="comment">// check alice account decreased by balance_to_transfer
+			</span><span class="macro">assert_eq!</span>(
+				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>alice_account),
+				alice_account_init_balance
+					.saturating_sub(existential_deposit)
+					.saturating_sub(balance_to_transfer.into())
+			);
+
+			<span class="comment">// check reserve account increased by balance_to_transfer
+			</span><span class="macro">assert_eq!</span>(
+				&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>reserve_account),
+				existential_deposit + balance_to_transfer.into()
+			);
+
+			<span class="comment">// check dedicated account increased by delivery fees (if configured)
+			</span><span class="kw">if </span>handling_delivery_fees {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(delivery_fees_account) = delivery_fees_account {
+					<span class="kw">let </span>delivery_fees_account_balance_after =
+						&lt;pallet_balances::Pallet&lt;Runtime&gt;&gt;::free_balance(<span class="kw-2">&amp;</span>delivery_fees_account);
+					<span class="macro">assert!</span>(
+						delivery_fees_account_balance_after &gt; delivery_fees_account_balance_before
+					);
+				}
+			}
 		})
 }
 
@@ -1033,15 +1123,21 @@
 				<span class="number">0</span>.into()
 			);
 
+			<span class="kw">let </span>expected_assets = MultiAssets::from(<span class="macro">vec!</span>[MultiAsset {
+				id: Concrete(foreign_asset_id_multilocation),
+				fun: Fungible(transfered_foreign_asset_id_amount),
+			}]);
+			<span class="kw">let </span>expected_beneficiary = MultiLocation {
+				parents: <span class="number">0</span>,
+				interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id: target_account.clone().into() }),
+			};
+
 			<span class="comment">// Call received XCM execution
 			</span><span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
 				DescendOrigin(bridge_instance),
 				UniversalOrigin(universal_origin),
 				DescendOrigin(descend_origin),
-				ReserveAssetDeposited(MultiAssets::from(<span class="macro">vec!</span>[MultiAsset {
-					id: Concrete(foreign_asset_id_multilocation),
-					fun: Fungible(transfered_foreign_asset_id_amount),
-				}])),
+				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
 				BuyExecution {
 					fees: MultiAsset {
@@ -1050,22 +1146,17 @@
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset {
-					assets: Wild(AllCounted(<span class="number">1</span>)),
-					beneficiary: MultiLocation {
-						parents: <span class="number">0</span>,
-						interior: X1(AccountId32 {
-							network: <span class="prelude-val">None</span>,
-							id: target_account.clone().into(),
-						}),
-					},
-				},
+				DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: expected_beneficiary },
 				SetTopic([
 					<span class="number">220</span>, <span class="number">188</span>, <span class="number">144</span>, <span class="number">32</span>, <span class="number">213</span>, <span class="number">83</span>, <span class="number">111</span>, <span class="number">175</span>, <span class="number">44</span>, <span class="number">210</span>, <span class="number">111</span>, <span class="number">19</span>, <span class="number">90</span>, <span class="number">165</span>, <span class="number">191</span>, <span class="number">112</span>, <span class="number">140</span>,
 					<span class="number">247</span>, <span class="number">192</span>, <span class="number">124</span>, <span class="number">42</span>, <span class="number">17</span>, <span class="number">153</span>, <span class="number">141</span>, <span class="number">114</span>, <span class="number">34</span>, <span class="number">189</span>, <span class="number">20</span>, <span class="number">83</span>, <span class="number">69</span>, <span class="number">237</span>, <span class="number">173</span>,
 				]),
 			]);
-			assert_matches_pallet_xcm_reserve_transfer_assets_instructions(<span class="kw-2">&amp;mut </span>xcm.clone());
+			assert_matches_reserve_asset_deposited_instructions(
+				<span class="kw-2">&amp;mut </span>xcm.clone(),
+				<span class="kw-2">&amp;</span>expected_assets,
+				<span class="kw-2">&amp;</span>expected_beneficiary,
+			);
 
 			<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
@@ -1126,55 +1217,15 @@
 		})
 }
 
-<span class="kw">fn </span>assert_matches_pallet_xcm_reserve_transfer_assets_instructions&lt;RuntimeCall&gt;(
-	xcm: <span class="kw-2">&amp;mut </span>Xcm&lt;RuntimeCall&gt;,
-) {
-	<span class="kw">let _ </span>= xcm
-		.<span class="number">0
-		</span>.matcher()
-		.skip_inst_while(|inst| !<span class="macro">matches!</span>(inst, ReserveAssetDeposited(..)))
-		.expect(<span class="string">&quot;no instruction ReserveAssetDeposited?&quot;</span>)
-		.match_next_inst(|instr| <span class="kw">match </span>instr {
-			ReserveAssetDeposited(..) =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
-		})
-		.expect(<span class="string">&quot;expected instruction ReserveAssetDeposited&quot;</span>)
-		.match_next_inst(|instr| <span class="kw">match </span>instr {
-			ClearOrigin =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
-		})
-		.expect(<span class="string">&quot;expected instruction ClearOrigin&quot;</span>)
-		.match_next_inst(|instr| <span class="kw">match </span>instr {
-			BuyExecution { .. } =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
-		})
-		.expect(<span class="string">&quot;expected instruction BuyExecution&quot;</span>)
-		.match_next_inst(|instr| <span class="kw">match </span>instr {
-			DepositAsset { .. } =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
-		})
-		.expect(<span class="string">&quot;expected instruction DepositAsset&quot;</span>);
-}
-
 <span class="kw">pub fn </span>report_bridge_status_from_xcm_bridge_router_works&lt;
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	HrmpChannelOpener,
-	HrmpChannelSource,
 	LocationToAccountId,
 	XcmBridgeHubRouterInstance,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
-	existential_deposit: BalanceOf&lt;Runtime&gt;,
-	alice_account: AccountIdOf&lt;Runtime&gt;,
-	unwrap_pallet_xcm_event: Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
-	unwrap_xcmp_queue_event: Box&lt;
-		<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;cumulus_pallet_xcmp_queue::Event&lt;Runtime&gt;&gt;,
-	&gt;,
 	prepare_configuration: <span class="kw">fn</span>() -&gt; TestBridgingConfig,
-	weight_limit: WeightLimit,
-	maybe_paid_export_message: <span class="prelude-ty">Option</span>&lt;AssetId&gt;,
 	congested_message: <span class="kw">fn</span>() -&gt; Xcm&lt;XcmConfig::RuntimeCall&gt;,
 	uncongested_message: <span class="kw">fn</span>() -&gt; Xcm&lt;XcmConfig::RuntimeCall&gt;,
 ) <span class="kw">where
@@ -1200,10 +1251,6 @@
 	&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source:
 		From&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;AccountId&gt;,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
-		Call = cumulus_pallet_parachain_system::Call&lt;Runtime&gt;,
-	&gt;,
-	HrmpChannelSource: XcmpMessageSource,
 	XcmBridgeHubRouterInstance: <span class="lifetime">&#39;static</span>,
 {
 	ExtBuilder::&lt;Runtime&gt;::default()
@@ -1212,25 +1259,6 @@
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			<span class="comment">// check transfer works
-			</span>limited_reserve_transfer_assets_for_native_asset_works::&lt;
-				Runtime,
-				AllPalletsWithoutSystem,
-				XcmConfig,
-				HrmpChannelOpener,
-				HrmpChannelSource,
-				LocationToAccountId,
-			&gt;(
-				collator_session_keys,
-				existential_deposit,
-				alice_account,
-				unwrap_pallet_xcm_event,
-				unwrap_xcmp_queue_event,
-				prepare_configuration,
-				weight_limit,
-				maybe_paid_export_message,
-			);
-
 			<span class="kw">let </span>report_bridge_status = |is_congested: bool| {
 				<span class="comment">// prepare bridge config
 				</span><span class="kw">let </span>TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
