@@ -17,6 +17,10 @@
 //! The bulk (parachain slot auction) blockspace assignment provider.
 //! This provider is tightly coupled with the configuration and paras modules.
 
+mod mock_helpers;
+#[cfg(test)]
+mod tests;
+
 use scale_info::TypeInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -44,7 +48,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 }
 
-#[derive(Debug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone)]
 pub struct ParachainsAssignment {
 	pub para_id: ParaId,
 }

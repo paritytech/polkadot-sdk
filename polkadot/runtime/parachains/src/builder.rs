@@ -15,12 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration, inclusion, initializer, paras,
+	configuration, inclusion, initializer,
+	mock::MockAssigner,
+	paras,
 	paras::ParaKind,
 	paras_inherent,
 	scheduler::{
 		self,
-		common::{Assignment, AssignmentProviderConfig},
+		common::{AssignmentProvider, AssignmentProviderConfig, V0Assignment},
 		CoreOccupied, ParasEntry,
 	},
 	session_info, shared,
@@ -663,10 +665,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		inclusion::PendingAvailability::<T>::remove_all(None);
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
-		let cores = self.max_cores();
+		let max_cores = self.max_cores();
+		MockAssigner::set_core_count(max_cores);
 		let used_cores =
 			(self.dispute_sessions.len() + self.backed_and_concluding_cores.len()) as u32;
-		assert!(used_cores <= cores);
+		assert!(used_cores <= max_cores);
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
@@ -702,13 +705,21 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.map(|i| {
 				let AssignmentProviderConfig { ttl, .. } =
 					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				CoreOccupied::Paras(ParasEntry::new(
-					Assignment::new(ParaId::from(i as u32)),
-					now + ttl,
-				))
+				// Load an assignment into provider so that one is present to pop
+				MockAssigner::add_test_assignment(V0Assignment::new(i.into()));
+				let assignment =
+					T::AssignmentProvider::pop_assignment_for_core(CoreIndex(i)).unwrap();
+				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
+
+		// Add assignments to the MockAssigner for each core. This facilitates legacy tests
+		// assuming the use of a lease holding parachain assigner.
+		for core_index in 0..max_cores {
+			// Core index == para_id in this case
+			MockAssigner::add_test_assignment(V0Assignment::new(core_index.into()));
+		}
 
 		Bench::<T> {
 			data: ParachainsInherentData {

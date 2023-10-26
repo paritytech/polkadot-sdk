@@ -106,7 +106,7 @@ pub mod pallet {
 	/// This is not to be confused with `CoreState` which is an enriched variant of this and exposed
 	/// to the node side. It also provides information about scheduled/upcoming assignments for
 	/// example and is computed on the fly in the `availability_cores` runtime call.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
 	pub enum CoreOccupied<N, A> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
@@ -160,7 +160,7 @@ pub mod pallet {
 	>>::AssignmentType;
 
 	/// Assignments as tracked in the claim queue.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
 	pub struct ParasEntry<N, A> {
 		/// The underlying `Assignment`
 		pub assignment: A,
@@ -364,34 +364,35 @@ impl<T: Config> Pallet<T> {
 				let core_idx = CoreIndex(idx);
 				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
 					let mut i = 0;
+					let mut num_dropped = 0;
 					while i < core_claimqueue.len() {
-						i += 1;
-
-						let dropped = if let Some(entry) = core_claimqueue.get(i) {
+						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
-								match core_claimqueue.remove(i) {
-									Some(dropped) => dropped,
-									_ => continue,
-								}
+								core_claimqueue.remove(i)
 							} else {
-								continue
+								None
 							}
 						} else {
-							continue
+							None
 						};
 
-						i -= 1;
+						if let Some(dropped) = maybe_dropped {
+							num_dropped += 1;
+							T::AssignmentProvider::report_processed(dropped.assignment);
+						} else {
+							i += 1;
+						}
+					}
 
-						T::AssignmentProvider::report_processed(dropped.assignment);
+					for _ in 0..num_dropped {
 						// For all claims dropped due to TTL, attempt to pop a new entry to
 						// the back of the claimqueue.
-						match T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-							Some(assignment) => {
-								let AssignmentProviderConfig { ttl, .. } =
-									T::AssignmentProvider::get_provider_config(core_idx);
-								core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
-							},
-							None => (),
+						if let Some(assignment) =
+							T::AssignmentProvider::pop_assignment_for_core(core_idx)
+						{
+							let AssignmentProviderConfig { ttl, .. } =
+								T::AssignmentProvider::get_provider_config(core_idx);
+							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
@@ -674,15 +675,6 @@ impl<T: Config> Pallet<T> {
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
-
-	/// Internal access to entries at the top of the claim queue.
-	// fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParaId, )> {
-	//     let claimqueue = ClaimQueue::<T>::get();
-
-	//     claimqueue
-	//         .iter()
-	//         .filter_map(|(core_idx, v)| v.front().cloned().flatten().map(|e| (core_idx, e)))
-	// }
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn assignment_provider_config(

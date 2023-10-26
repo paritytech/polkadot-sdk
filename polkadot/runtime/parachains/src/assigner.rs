@@ -56,8 +56,7 @@ pub mod pallet {
 }
 
 /// Assignments as of this top-level assignment provider.
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
-// Generic arguments, because instance generation of above traits breaks with generic `T` parameter.
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
 pub enum UnifiedAssignment<OnDemand, Legacy> {
 	/// Assignment came from on-demand assignment provider.
 	#[codec(index = 0)]

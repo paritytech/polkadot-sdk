@@ -43,7 +43,7 @@ pub trait Assignment {
 ///
 /// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
 /// assignment providers. This can be removed once storage has been migrated.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
 pub struct V0Assignment {
 	pub para_id: ParaId,
 }
@@ -124,6 +124,7 @@ impl AssignmentVersion {
 	}
 }
 
+#[derive(Encode, Decode, TypeInfo)]
 /// A set of variables required by the scheduler in order to operate.
 pub struct AssignmentProviderConfig<BlockNumber> {
 	/// How many times a collation can time out on availability.
