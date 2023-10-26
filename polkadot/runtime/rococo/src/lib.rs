@@ -138,7 +138,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 10020,
+	spec_version: 8888,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 22,
@@ -1096,11 +1096,11 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 
 parameter_types! {
 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-	pub const MinBid: Balance = 100 * UNITS;
-	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
-	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
-	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
-	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
+	pub const NisMinBid: Balance = 100 * UNITS;
+	pub NisMinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
+	pub const NisIntakePeriod: BlockNumber = 5 * MINUTES;
+	pub NisMaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
+	pub const NisThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
 	pub storage NisTarget: Perquintill = Perquintill::zero();
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
@@ -1115,17 +1115,17 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = NisTarget;
+	type Target = dynamic_params::NisTarget;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
-	type MinBid = MinBid;
-	type MinReceipt = MinReceipt;
-	type IntakePeriod = IntakePeriod;
-	type MaxIntakeWeight = MaxIntakeWeight;
-	type ThawThrottle = ThawThrottle;
+	type MinBid = NisMinBid;
+	type MinReceipt = dynamic_params::NisMinReceipt;
+	type IntakePeriod = NisIntakePeriod;
+	type MaxIntakeWeight = dynamic_params::NisMaxIntakeWeight;
+	type ThawThrottle = NisThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
@@ -1243,16 +1243,40 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-define_aggregrated_parameters! {
-	pub RuntimeParameters = {
-		Earning: module_earning::Parameters = 0,
+use pallet_parameters::define_parameters;
+use sp_runtime::traits::ConstBool;
+use frame_system::EnsureRootWithSuccess;
+
+/// Dynamic parameters that can be set by Root without a runtime upgrade.
+pub mod dynamic_params {
+	use super::*;
+
+	// NOTE: It would be nicer to use modules here, but this is just a PoC.
+	define_parameters! {
+		pub NisParameters = {
+			#[codec(index = 0)]
+			NisMinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64),
+
+			#[codec(index = 1)]
+			NisMaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10,
+
+			#[codec(index = 2)]
+			NisTarget: Perquintill = Perquintill::zero(),
+		},
+		pallet_parameters
+	}
+
+	define_aggregrated_parameters! {
+		pub RuntimeParameters = {
+			NonInteractiveStaking: NisParameters = 0,
+		}
 	}
 }
 
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AggregratedKeyValue = RuntimeParameters;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AggregratedKeyValue = dynamic_params::RuntimeParameters;
+	type AdminOrigin = EnsureRootWithSuccess<AccountId, ConstBool<true>>;
 	type WeightInfo = ();
 }
 
@@ -1379,11 +1403,14 @@ construct_runtime! {
 		// Validator Manager pallet.
 		ValidatorManager: validator_manager::{Pallet, Call, Storage, Event<T>} = 252,
 
+		Parameters: pallet_parameters::{Pallet, Call, Storage, Event<T>} = 253,
+
 		// State trie migration pallet, only temporary.
 		StateTrieMigration: pallet_state_trie_migration = 254,
 
 		// Sudo.
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+		
 	}
 }
 

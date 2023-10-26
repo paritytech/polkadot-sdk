@@ -6,23 +6,10 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use sp_runtime;
+	pub use sp_core;
 }
 
 use frame_support::Parameter;
-
-pub trait RuntimeParameterStore {
-	type AggregratedKeyValue: AggregratedKeyValue;
-
-	fn get<KV, K>(key: K) -> Option<K::Value>
-	where
-		KV: AggregratedKeyValue,
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedKey:
-			Into2<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
-		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue:
-			TryInto2<<KV as AggregratedKeyValue>::AggregratedValue>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
-}
 
 pub trait Key {
 	type Value;
@@ -34,33 +21,6 @@ pub trait AggregratedKeyValue: Parameter {
 	type AggregratedValue: Parameter + codec::MaxEncodedLen;
 
 	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
-}
-
-pub trait ParameterStore<KV: AggregratedKeyValue> {
-	fn get<K>(key: K) -> Option<K::Value>
-	where
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
-}
-
-pub struct ParameterStoreAdapter<PS, KV>(sp_std::marker::PhantomData<(PS, KV)>);
-
-impl<PS, KV> ParameterStore<KV> for ParameterStoreAdapter<PS, KV>
-where
-	PS: RuntimeParameterStore,
-	KV: AggregratedKeyValue,
-	<KV as AggregratedKeyValue>::AggregratedKey:
-		Into2<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
-	<KV as AggregratedKeyValue>::AggregratedValue:
-		TryFrom2<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue>,
-{
-	fn get<K>(key: K) -> Option<K::Value>
-	where
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>,
-	{
-		PS::get::<KV, K>(key)
-	}
 }
 
 // workaround for rust bug https://github.com/rust-lang/rust/issues/51445
@@ -131,9 +91,11 @@ macro_rules! define_parameters {
 	(
 		$vis:vis $name:ident = {
 			$(
-				$key_name:ident $( ($key_para: ty) )? : $value_type:ty = $index:expr
+				#[codec(index = $index:expr)]
+				$key_name:ident $( ($key_para: ty) )? : $value_type:ty = $default:expr
 			),+ $(,)?
-		}
+		},
+		$pallet:path
 	) => {
 		$crate::traits::__private::paste::item! {
 			#[derive(
@@ -212,6 +174,20 @@ macro_rules! define_parameters {
 					$crate::traits::__private::scale_info::TypeInfo
 				)]
 				$vis struct $key_name $( (pub $key_para) )?;
+
+				impl $crate::traits::__private::sp_core::Get<$value_type> for $key_name {
+					fn get() -> $value_type {
+						match $pallet::Parameters::<Runtime>::get(RuntimeParametersKey::NonInteractiveStaking([<$name Key>]::$key_name($key_name))) {
+							Some(RuntimeParametersValue::NonInteractiveStaking(
+								[<$name Value>]::$key_name(inner))) => inner,
+							Some(_) => {
+								$crate::traits::__private::frame_support::defensive!("Unexpected value type at key - returning default");
+								$default
+							},
+							None => $default,
+						}
+					}
+				}
 
 				impl $crate::traits::Key for $key_name {
 					type Value = $value_type;
