@@ -46,10 +46,7 @@ pub use ambassador::pallet_ambassador_origins;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::ParaId;
-use fellowship::{
-	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
-	FellowshipCollectiveInstance,
-};
+use fellowship::{pallet_fellowship_origins, Fellows};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -685,8 +682,6 @@ pub type UncheckedExtrinsic =
 /// All migrations executed on runtime upgrade as a nested tuple of types implementing
 /// `OnRuntimeUpgrade`. Included migrations must be idempotent.
 type Migrations = (
-	// v9420
-	import_kusama_fellowship::Migration<Runtime, FellowshipCollectiveInstance>,
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 );
