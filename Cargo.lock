@@ -351,6 +351,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bls12-381-ext"
+version = "0.4.1"
+source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ec",
+ "ark-ff",
+ "ark-models-ext",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-bw6-761"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17096,6 +17109,7 @@ dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
  "ark-bls12-381",
+ "ark-bls12-381-ext",
  "ark-bw6-761",
  "ark-ec",
  "ark-ed-on-bls12-377",

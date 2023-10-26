@@ -32,6 +32,9 @@ use utils::*;
 // #[cfg(feature = "bls12-377")]
 pub mod bls12_377;
 /// TODO
+// #[cfg(feature = "bls12-381")]
+pub mod bls12_381;
+/// TODO
 // #[cfg(feature = "ed-on-bls12-381-bandersnatch")]
 pub mod ed_on_bls12_381_bandersnatch;
 
