@@ -43,3 +43,6 @@ pub mod origin_account_abstraction;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
 pub mod safe_defensive_programming;
+
+/// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
+pub mod frame_composite_enums;

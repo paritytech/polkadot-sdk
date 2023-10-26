@@ -14,7 +14,7 @@
 //! that can be transferred.
 //!
 //! We can foremost write this as simple as the following snippet:
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", basic)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]
 //!
 //!
 //! In this example, we use arbitrary choices for `AccountId`, `Balance` and the `MinTransfer` type.
@@ -47,7 +47,7 @@
 //! `Get` trait exists.
 //!
 //! This would bring us to the second iteration of the pallet, which would look like:
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", generic)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", generic)]
 //!
 //! In this example, we managed to make all 3 of our types generic. Taking the example of the
 //! `AccountId`, one should read the above as following:
@@ -72,7 +72,7 @@
 //! > defaults for associated types, see [`pallet_default_config_example`].
 //!
 //! The last iteration of our code would look like this:
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", trait_based)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
 //!
 //! Notice how instead of having multiple generics, everything is generic over a single `<T:
 //! Config>`, and all types are fetched through `T::Foo`.
@@ -80,7 +80,7 @@
 //! Finally, imagine all pallets wanting to be generic over `AccountId`. This can be achieved by
 //! having individual `trait Configs` declare a shared `trait SystemConfig` as their
 //! [supertrait](https://doc.rust-lang.org/rust-by-example/trait/supertraits.html).
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", with_system)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
 //! In FRAME, this shared supertrait is [`frame::prelude::frame_system`].
 //!
 //! Notice how this made no difference in the syntax of the rest of the code. `T::AccountId` is
@@ -89,19 +89,19 @@
 //!
 //! Note, in some instances one would need to use what is known as the fully-qualified-syntax to
 //! access a type to help the Rust compiler disambiguate.
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
 //!
 //! This syntax can sometimes become more complicated when you are dealing with nested traits.
 //! Consider the following example, in which we fetch the `type Balance` from another trait
 //! `CurrencyTrait`.
-#![doc = docify::embed_run!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
+#![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
 //!
 //! Notice the final `type BalanceOf` and how it is defined. Using such aliases to shorten the
 //! length of fully-qualified syntax is a common pattern in FRAME.
 //!
 //! The above example is almost identical to the well-known (and somewhat notorious) `type
 //! BalanceOf` that is often used in the context of [`frame::traits::fungible`].
-#![doc = docify::embed_run!("../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
+#![doc = docify::embed!("../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
 //!
 //! ## Additional Resources
 //!
@@ -129,6 +129,8 @@ mod basic {
 
 #[docify::export]
 mod generic {
+	use super::*;
+
 	struct Pallet<AccountId, Balance, MinTransfer> {
 		_marker: std::marker::PhantomData<(AccountId, Balance, MinTransfer)>,
 	}

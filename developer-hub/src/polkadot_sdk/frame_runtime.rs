@@ -49,7 +49,7 @@
 //! ### Example
 //!
 //! The following examples showcases a minimal pallet.
-#![doc = docify::embed_run!("src/polkadot_sdk/frame_runtime.rs", pallet)]
+#![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
 //! ## Runtime
 //!
@@ -64,13 +64,13 @@
 //!
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
 //! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
-#![doc = docify::embed_run!("src/polkadot_sdk/frame_runtime.rs", runtime)]
+#![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
 //!
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
 
 #[cfg(test)]
 mod tests {
-	use frame::{prelude::*, testing_prelude::*};
+	use frame::prelude::*;
 
 	#[docify::export]
 	#[frame::pallet(dev_mode)]

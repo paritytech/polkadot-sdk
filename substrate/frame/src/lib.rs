@@ -64,6 +64,8 @@
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
+pub use frame_support::pallet_macros::{import_section, pallet_section};
+
 /// The logging library of the runtime. Can be normally like the classic `log` crate.
 pub use log;
 

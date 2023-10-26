@@ -1,25 +1,30 @@
+//! Reusable parts of the currency pallet in different versions.
+
 use frame::prelude::*;
 
-pub(crate) mod config_basic_outer {
+pub(crate) mod storage {
 	use super::*;
 
 	#[pallet_section]
-	mod config_basic {
+	pub(crate) mod storage {
 		#[docify::export]
-		#[pallet::config]
-		pub trait Config: frame_system::Config {}
+		/// Single storage item, of type `Balance`.
+		#[pallet::storage]
+		pub type TotalIssuance<T: Config> = StorageValue<_, Balance>;
+
+		#[docify::export]
+		/// A mapping from `T::AccountId` to `Balance`
+		#[pallet::storage]
+		pub type Balances<T: Config> = StorageMap<_, _, T::AccountId, Balance>;
 	}
 }
 
-pub(crate) mod config_event_outer {
+pub(crate) mod pallet {
 	use super::*;
 
 	#[pallet_section]
-	mod config_event {
-		#[pallet::config]
-		pub trait Config: frame_system::Config {
-			type RuntimeEvent: From<Event<Self>>
-				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		}
+	pub(crate) mod pallet {
+		#[pallet::pallet]
+		pub struct Pallet<T>(_);
 	}
 }
