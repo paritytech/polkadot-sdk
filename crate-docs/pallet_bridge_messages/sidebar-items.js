@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXPECTED_DEFAULT_MESSAGE_LENGTH","EXTRA_STORAGE_PROOF_SIZE","LOG_TARGET"],"fn":["ensure_able_to_receive_confirmation","ensure_able_to_receive_message","ensure_weights_are_correct"],"mod":["pallet","weights"],"struct":["StoredInboundLaneData"],"trait":["WeightInfoExt"],"type":["StoredMessagePayload"]};

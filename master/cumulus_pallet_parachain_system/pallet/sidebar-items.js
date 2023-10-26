@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["__type_value_for_upward_initial_delivery_fee_factor"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Pallet","UpwardInitialDeliveryFeeFactor"],"trait":["Config"],"type":["Module"]};

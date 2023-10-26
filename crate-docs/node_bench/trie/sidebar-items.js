@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SAMPLE_SIZE","TEST_WRITE_SIZE"],"enum":["DatabaseSize"],"fn":["pretty_print","random_vec"],"struct":["KUSAMA_STATE_DISTRIBUTION","SizePool","Storage","TrieReadBenchmark","TrieReadBenchmarkDescription","TrieWriteBenchmark","TrieWriteBenchmarkDescription"],"type":["KeyValue","KeyValues"]};

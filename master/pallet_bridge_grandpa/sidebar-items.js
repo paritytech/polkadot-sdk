@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"mod":["pallet","weights"],"struct":["StoredAuthoritySet","SubmitFinalityProofHelper","SubmitFinalityProofInfo"],"trait":["CallSubType"],"type":["BridgedBlockHash","BridgedBlockHasher","BridgedBlockId","BridgedBlockNumber","BridgedChain","BridgedHeader","BridgedStoredHeaderData","GrandpaChainHeaders"]};

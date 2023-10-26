@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InsertResult"],"struct":["GeometricDepositBase","SignedSubmission","SignedSubmissions"],"type":["BalanceOf","NegativeImbalanceOf","PositiveImbalanceOf","SignedSubmissionOf","SubmissionIndicesOf"]};
