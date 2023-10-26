@@ -264,8 +264,8 @@ pub mod pallet {
 			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 			ensure!(!Tips::<T, I>::contains_key(&hash), Error::<T, I>::AlreadyKnown);
 
-			let deposit = T::TipReportDepositBase::get()
-				+ T::DataDepositPerByte::get() * (reason.len() as u32).into();
+			let deposit = T::TipReportDepositBase::get() +
+				T::DataDepositPerByte::get() * (reason.len() as u32).into();
 			T::Currency::reserve(&finder, deposit)?;
 
 			Reasons::<T, I>::insert(&reason_hash, &reason);
@@ -532,9 +532,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Some(m) => {
 					member = members_iter.next();
 					if m < a {
-						continue;
+						continue
 					} else {
-						break true;
+						break true
 					}
 				},
 			}
@@ -638,13 +638,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// ## Invariants:
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
-	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero. 
+	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
 		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
 
-		ensure!(reasons.len() == tips.len(), TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage"));
+		ensure!(
+			reasons.len() == tips.len(),
+			TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage")
+		);
 
 		for tip in Tips::<T, I>::iter_keys() {
 			let open_tip = Tips::<T, I>::get(&tip).expect("All map keys are valid; qed");
