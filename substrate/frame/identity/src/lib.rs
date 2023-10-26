@@ -100,6 +100,9 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+/// Maximum size of an identity we can store is 4 MiB.
+const IDENTITY_MAX_SIZE: u32 = 4 * 1024 * 1024;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -140,11 +143,6 @@ pub mod pallet {
 		/// required to access an identity, but can be pretty high.
 		#[pallet::constant]
 		type MaxAdditionalFields: Get<u32>;
-
-		/// Maximum number of encoded bytes that may be stored in an ID. Needed to bound the I/O
-		/// required to access an identity, but can be pretty high.
-		#[pallet::constant]
-		type MaxIdentityBytes: Get<u32>;
 
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
@@ -352,7 +350,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			let encoded_byte_size = info.encoded_size() as u32;
-			ensure!(encoded_byte_size <= T::MaxIdentityBytes::get(), Error::<T>::IdentitySize);
+			ensure!(encoded_byte_size <= IDENTITY_MAX_SIZE, Error::<T>::IdentitySize);
 			let byte_deposit = T::ByteDeposit::get() * <BalanceOf<T>>::from(encoded_byte_size);
 
 			let mut id = match <IdentityOf<T>>::get(&sender) {

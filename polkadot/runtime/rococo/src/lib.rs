@@ -601,7 +601,6 @@ parameter_types! {
 	pub const SubAccountDeposit: Balance = 200 * CENTS;   // 53 bytes on-chain
 	pub const MaxSubAccounts: u32 = 100;
 	pub const MaxAdditionalFields: u32 = 100;
-	pub const MaxIdentityBytes: u32 = 4 * 1024 * 1024;    // 4 MiB
 	pub const MaxRegistrars: u32 = 20;
 }
 
@@ -614,7 +613,6 @@ impl pallet_identity::Config for Runtime {
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
-	type MaxIdentityBytes = MaxIdentityBytes;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
