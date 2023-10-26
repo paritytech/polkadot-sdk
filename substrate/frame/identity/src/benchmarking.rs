@@ -22,6 +22,7 @@
 use super::*;
 
 use crate::Pallet as Identity;
+use codec::Encode;
 use enumflags2::BitFlag;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
@@ -29,6 +30,7 @@ use frame_benchmarking::{
 use frame_support::{
 	ensure,
 	traits::{EnsureOrigin, Get},
+	BoundedVec,
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -525,6 +527,54 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()));
 
 		ensure!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let additional_fields = 0;
+
+		// insert identity into storage with zero deposit
+		let id = T::IdentityInformation::create_identity_info(additional_fields);
+		IdentityOf::<T>::insert(
+			&target,
+			Registration {
+				judgements: BoundedVec::default(),
+				deposit: Zero::zero(),
+				info: id.clone(),
+			},
+		);
+
+		// insert subs into storage with zero deposit
+		let sub_account = account("sub", 0, SEED);
+		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub_account]).unwrap();
+		SubsOf::<T>::insert::<
+			&T::AccountId,
+			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
+		>(&target, (Zero::zero(), subs));
+
+		// expected deposits
+		let expected_id_deposit = T::ByteDeposit::get()
+			.saturating_mul(id.encoded_size().try_into().unwrap_or_default())
+			.saturating_add(T::BasicDeposit::get());
+		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), target_lookup);
+
+		assert_last_event::<T>(
+			Event::<T>::DepositUpdated {
+				who: target,
+				identity: expected_id_deposit,
+				subs: expected_sub_deposit,
+			}
+			.into(),
+		);
 
 		Ok(())
 	}

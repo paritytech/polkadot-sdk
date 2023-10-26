@@ -68,6 +68,7 @@ pub trait WeightInfo {
 	fn rename_sub(s: u32, ) -> Weight;
 	fn remove_sub(s: u32, ) -> Weight;
 	fn quit_sub(s: u32, ) -> Weight;
+	fn poke_deposit() -> Weight;
 }
 
 /// Weights for pallet_identity using the Substrate node and recommended hardware.
@@ -345,6 +346,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `Identity::IdentityOf` (r:1 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::SubsOf` (r:1 w:1)
+	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
+	fn poke_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `628`
+		//  Estimated: `11003`
+		// Minimum execution time: 525_039_000 picoseconds.
+		Weight::from_parts(554_552_000, 0)
+			.saturating_add(Weight::from_parts(0, 11003))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }
 
 // For backwards compatibility and tests
@@ -620,5 +637,21 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(101_112, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Identity::IdentityOf` (r:1 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::SubsOf` (r:1 w:1)
+	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
+	fn poke_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `628`
+		//  Estimated: `11003`
+		// Minimum execution time: 525_039_000 picoseconds.
+		Weight::from_parts(554_552_000, 0)
+			.saturating_add(Weight::from_parts(0, 11003))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 }

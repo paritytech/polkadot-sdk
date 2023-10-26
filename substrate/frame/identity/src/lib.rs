@@ -79,7 +79,10 @@ mod tests;
 mod types;
 pub mod weights;
 
-use frame_support::traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency};
+use frame_support::{
+	pallet_prelude::DispatchResult,
+	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+};
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
@@ -289,6 +292,9 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
+		/// The deposits held for `who` were updated. `identity` is the new deposit held for
+		/// identity info, and `subs` is the new deposit held for the sub-accounts.
+		DepositUpdated { who: T::AccountId, identity: BalanceOf<T>, subs: BalanceOf<T> },
 	}
 
 	#[pallet::call]
@@ -905,6 +911,59 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		/// Update the deposits held by `target` for its identity info.
+		///
+		/// Parameters:
+		/// - `target`: The account for which to update deposits.
+		///
+		/// May be called by any signed origin.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
+			// No locked check: used for migration.
+			// anyone or root (so that the system can call it for identity migration)
+			let _ = ensure_signed_or_root(origin)?;
+			let target = T::Lookup::lookup(target)?;
+
+			// Identity Deposit
+			ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
+			let new_id_deposit = IdentityOf::<T>::try_mutate(
+				&target,
+				|registration| -> Result<BalanceOf<T>, DispatchError> {
+					let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
+					// Calculate what deposit should be
+					let encoded_byte_size = reg.info.encoded_size() as u32;
+					let byte_deposit =
+						T::ByteDeposit::get() * <BalanceOf<T>>::from(encoded_byte_size);
+					let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
+
+					// Update account
+					Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
+
+					reg.deposit = new_id_deposit;
+					Ok(new_id_deposit)
+				},
+			)?;
+
+			// Subs Deposit
+			let new_subs_deposit = SubsOf::<T>::try_mutate(
+				&target,
+				|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
+					let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+					Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
+					*current_subs_deposit = new_subs_deposit;
+					Ok(new_subs_deposit)
+				},
+			)?;
+
+			Self::deposit_event(Event::DepositUpdated {
+				who: target,
+				identity: new_id_deposit,
+				subs: new_subs_deposit,
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -922,5 +981,25 @@ impl<T: Config> Pallet<T> {
 	pub fn has_identity(who: &T::AccountId, fields: u64) -> bool {
 		IdentityOf::<T>::get(who)
 			.map_or(false, |registration| (registration.info.has_identity(fields)))
+	}
+
+	/// Calculate the deposit required for a number of `sub` accounts.
+	fn subs_deposit(subs: u32) -> BalanceOf<T> {
+		T::SubAccountDeposit::get().saturating_mul(<BalanceOf<T>>::from(subs))
+	}
+
+	/// Take the `current` deposit that `who` is holding, and update it to a `new` one.
+	fn rejig_deposit(
+		who: &T::AccountId,
+		current: BalanceOf<T>,
+		new: BalanceOf<T>,
+	) -> DispatchResult {
+		if new > current {
+			T::Currency::reserve(who, new - current)?;
+		} else if new < current {
+			let err_amount = T::Currency::unreserve(who, current - new);
+			debug_assert!(err_amount.is_zero());
+		}
+		Ok(())
 	}
 }
