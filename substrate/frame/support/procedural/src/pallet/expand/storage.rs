@@ -850,7 +850,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
 			for #pallet_ident<#type_use_gen> #completed_where_clause
 			{
-				fn try_decode_entire_state() -> Result<usize, #frame_support::traits::TryDecodeEntireStorageError> {
+				fn try_decode_entire_state() -> Result<usize, #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::TryDecodeEntireStorageError>> {
 					let pallet_name = <<T as #frame_system::Config>::PalletInfo	as frame_support::traits::PalletInfo>
 						::name::<#pallet_ident<#type_use_gen>>()
 						.expect("Every active pallet has a name in the runtime; qed");
@@ -858,16 +858,28 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode pallet: {pallet_name}");
 
 					// NOTE: for now, we have to exclude storage items that are feature gated.
+					let mut errors = #frame_support::__private::sp_std::vec::Vec::new();
 					let mut decoded = 0usize;
+
 					#(
 						#frame_support::__private::log::debug!(target: "try-decode-state", "trying to decode storage: \
 						{pallet_name}::{}", stringify!(#storage_names));
 
-						decoded +=
-							<#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state()?;
+						match <#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state() {
+							Ok(count) => {
+								decoded += count;
+							},
+							Err(err) => {
+								errors.extend(err);
+							},
+						}
 					)*
 
-					Ok(decoded)
+					if errors.is_empty() {
+						Ok(decoded)
+					} else {
+						Err(errors)
+					}
 				}
 			}
 		)

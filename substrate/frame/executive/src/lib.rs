@@ -385,11 +385,16 @@ where
 						"decoded the entire state ({bytes} bytes)",
 					);
 				},
-				Err(err) => {
+				Err(errors) => {
 					log::error!(
 						target: LOG_TARGET,
-						"`try_decode_entire_state` failed: {err}",
+						"`try_decode_entire_state` failed with {} errors",
+						errors.len(),
 					);
+
+					for (i, err) in errors.iter().enumerate() {
+						log::error!(target: LOG_TARGET, "- {i}. error: {err}");
+					}
 
 					return Err("`try_decode_entire_state` failed".into())
 				},

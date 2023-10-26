@@ -40,17 +40,29 @@ use sp_std::prelude::*;
 /// decoded bytes if `Ok(_)`.
 pub trait TryDecodeEntireStorage {
 	/// Decode the entire data under the given storage, returning `Ok(bytes_decoded)` if success.
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError>;
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>>;
 }
 
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
 impl TryDecodeEntireStorage for Tuple {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
+		let mut errors = Vec::new();
 		let mut len = 0usize;
-		for_tuples!( #( len = len.saturating_add(Tuple::try_decode_entire_state()?); )* );
-		Ok(len)
+
+		for_tuples!(#(
+			match Tuple::try_decode_entire_state() {
+				Ok(bytes) => len += bytes,
+				Err(errs) => errors.extend(errs),
+			}
+		)*);
+
+		if errors.is_empty() {
+			Ok(len)
+		} else {
+			Err(errors)
+		}
 	}
 }
 
@@ -82,7 +94,9 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 /// Basically, it decodes and sums up all the values who's key start with `info.prefix`. For values,
 /// this would be the value itself. For all sorts of maps, this should be all map items in the
 /// absence of key collision.
-fn decode_storage_info<V: Decode>(info: StorageInfo) -> Result<usize, TryDecodeEntireStorageError> {
+fn decode_storage_info<V: Decode>(
+	info: StorageInfo,
+) -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 	let mut next_key = info.prefix.clone();
 	let mut decoded = 0;
 
@@ -91,13 +105,14 @@ fn decode_storage_info<V: Decode>(info: StorageInfo) -> Result<usize, TryDecodeE
 		Some(bytes) => {
 			let len = bytes.len();
 			let _ = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
-				TryDecodeEntireStorageError {
+				vec![TryDecodeEntireStorageError {
 					key: key.to_vec(),
 					raw: Some(bytes.to_vec()),
 					info: info.clone(),
-				}
+				}]
 			})?;
-			Ok::<usize, TryDecodeEntireStorageError>(len)
+
+			Ok::<usize, Vec<_>>(len)
 		},
 	};
 
@@ -123,7 +138,7 @@ where
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let info = Self::partial_storage_info()
 			.first()
 			.cloned()
@@ -143,7 +158,7 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let info = Self::partial_storage_info()
 			.first()
 			.cloned()
@@ -170,7 +185,7 @@ impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireS
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let (map_info, counter_info) = match &Self::partial_storage_info()[..] {
 			[a, b] => (a.clone(), b.clone()),
 			_ => panic!("Counted map has two storage info items; qed"),
@@ -204,7 +219,7 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let info = Self::partial_storage_info()
 			.first()
 			.cloned()
@@ -223,7 +238,7 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let info = Self::partial_storage_info()
 			.first()
 			.cloned()
@@ -242,7 +257,7 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn try_decode_entire_state() -> Result<usize, TryDecodeEntireStorageError> {
+	fn try_decode_entire_state() -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 		let (map_info, counter_info) = match &Self::partial_storage_info()[..] {
 			[a, b] => (a.clone(), b.clone()),
 			_ => panic!("Counted NMap has two storage info items; qed"),
