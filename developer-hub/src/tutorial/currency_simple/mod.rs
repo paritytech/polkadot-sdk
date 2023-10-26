@@ -267,6 +267,8 @@
 //! to see its definition in rust-docs:
 //! [`crate::tutorial::currency_simple::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
+//!
+//!
 //! ## What Next?
 //!
 //! The following topics where used in this tutorial, but not covered in depth. It is suggested to
@@ -599,7 +601,9 @@ pub mod pallet_v2 {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
+			+ TryInto<Event<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -695,13 +699,11 @@ pub mod pallet_v2 {
 				assert_eq!(Balances::<Runtime>::get(&2), Some(150));
 				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
 
-				// when:
-				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(2), 1, 50));
-
-				// then:
-				assert_eq!(Balances::<Runtime>::get(&1), Some(100));
-				assert_eq!(Balances::<Runtime>::get(&2), Some(100));
-				assert_eq!(TotalIssuance::<Runtime>::get(), Some(200));
+				// now we can also check that an event has been deposited:
+				assert_eq!(
+					System::read_events_for_pallet::<Event<Runtime>>(),
+					vec![Event::Transferred { from: 1, to: 2, amount: 50 }]
+				);
 			});
 		}
 	}

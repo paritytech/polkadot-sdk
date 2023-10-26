@@ -12,7 +12,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 
@@ -65,7 +65,7 @@ cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-fea
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false}
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
@@ -73,6 +73,8 @@ parachain-info = { path = "../../../pallets/parachain-info", default-features = 
 parachains-common = { path = "../../../common", default-features = false }
 
 # Bridges
+bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-wococo = { path = "../../../../../bridges/primitives/chain-asset-hub-wococo", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-wococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-wococo", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
@@ -98,6 +100,8 @@ sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 [features]
 default = [ "std" ]
 std = [
+	"bp-asset-hub-rococo/std",
+	"bp-asset-hub-wococo/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-wococo/std",
 	"bp-header-chain/std",

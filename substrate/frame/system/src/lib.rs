@@ -258,8 +258,10 @@ pub mod pallet {
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
 		/// * 2s block time, and a default 5mb block size is used.
+		#[cfg(feature = "experimental")]
 		pub struct SolochainDefaultConfig;
 
+		#[cfg(feature = "experimental")]
 		#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		impl DefaultConfig for SolochainDefaultConfig {
 			type Nonce = u32;
@@ -286,7 +288,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type PalletInfo = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type BlockHashCount = frame_support::traits::ConstU32<10>;
+			type BlockHashCount = frame_support::traits::ConstU32<256>;
 			type OnSetCode = ();
 		}
 	}
@@ -465,8 +467,9 @@ pub mod pallet {
 		///
 		/// Can be executed by every `origin`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::SystemWeightInfo::remark(_remark.len() as u32))]
-		pub fn remark(_origin: OriginFor<T>, _remark: Vec<u8>) -> DispatchResultWithPostInfo {
+		#[pallet::weight(T::SystemWeightInfo::remark(remark.len() as u32))]
+		pub fn remark(_origin: OriginFor<T>, remark: Vec<u8>) -> DispatchResultWithPostInfo {
+			let _ = remark; // No need to check the weight witness.
 			Ok(().into())
 		}
 
@@ -540,16 +543,16 @@ pub mod pallet {
 		/// the prefix we are removing to accurately calculate the weight of this function.
 		#[pallet::call_index(6)]
 		#[pallet::weight((
-			T::SystemWeightInfo::kill_prefix(_subkeys.saturating_add(1)),
+			T::SystemWeightInfo::kill_prefix(subkeys.saturating_add(1)),
 			DispatchClass::Operational,
 		))]
 		pub fn kill_prefix(
 			origin: OriginFor<T>,
 			prefix: Key,
-			_subkeys: u32,
+			subkeys: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			let _ = storage::unhashed::clear_prefix(&prefix, None, None);
+			let _ = storage::unhashed::clear_prefix(&prefix, Some(subkeys), None);
 			Ok(().into())
 		}
 
@@ -1352,10 +1355,13 @@ impl<T: Config> Pallet<T> {
 	/// This will update storage entries that correspond to the specified topics.
 	/// It is expected that light-clients could subscribe to this topics.
 	///
-	/// NOTE: Events not registered at the genesis block and quietly omitted.
+	/// NOTE: Events not registered at the genesis block and `not(feature = "std")` and quietly
+	/// omitted. But, in testing (`feature = "std"`) events are deposited normally.
 	pub fn deposit_event_indexed(topics: &[T::Hash], event: T::RuntimeEvent) {
 		let block_number = Self::block_number();
-		// Don't populate events on genesis.
+
+		// Don't populate events on "real" genesis
+		#[cfg(not(feature = "std"))]
 		if block_number.is_zero() {
 			return
 		}
@@ -1538,12 +1544,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn events() -> Vec<EventRecord<T::RuntimeEvent, T::Hash>> {
-		debug_assert!(
-			!Self::block_number().is_zero(),
-			"events not registered at the genesis block"
-		);
-		// Dereferencing the events here is fine since we are not in the
-		// memory-restricted runtime.
+		// Dereferencing the events here is fine since we are not in the memory-restricted runtime.
 		Self::read_events_no_consensus().map(|e| *e).collect()
 	}
 
@@ -1562,6 +1563,21 @@ impl<T: Config> Pallet<T> {
 	pub fn read_events_no_consensus(
 	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
+	}
+
+	/// Read and return the events of a specific pallet, as denoted by `E`.
+	///
+	/// This is useful for a pallet that wishes to read only the events it has deposited into
+	/// `frame_system` using the standard `fn deposit_event`.
+	pub fn read_events_for_pallet<E>() -> Vec<E>
+	where
+		T::RuntimeEvent: TryInto<E>,
+	{
+		Events::<T>::get()
+			.into_iter()
+			.map(|er| er.event)
+			.filter_map(|e| e.try_into().ok())
+			.collect::<_>()
 	}
 
 	/// Set the block number to something in particular. Can be used as an alternative to

@@ -23,10 +23,11 @@
 #![warn(missing_docs)]
 
 use jsonrpsee::RpcModule;
-use runtime::interface::{AccountId, Block, Nonce, OpaqueBlock};
+use runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;
+use substrate_frame_rpc_system::{System, SystemApiServer};
 
 pub use sc_rpc_api::DenyUnsafe;
 
@@ -40,53 +41,26 @@ pub struct FullDeps<C, P> {
 	pub deny_unsafe: DenyUnsafe,
 }
 
-pub type OpaqueBlock1 = frame::deps::sp_runtime::generic::Block<
-	frame::deps::sp_runtime::generic::Header<u32, frame::primitives::BlakeTwo256>,
-	frame::deps::sp_runtime::OpaqueExtrinsic,
->;
-pub type OpaqueBlock2 = runtime::interface::OpaqueBlock;
-
-trait AssertSameType<A, B> {}
-impl<T> AssertSameType<T, T> for Tester<T, T> {}
-
-struct Tester<A, B>(std::marker::PhantomData<(A, B)>);
-
-impl<A, B> Tester<A, B> {
-	fn is_equal()
-	where
-		Self: AssertSameType<A, B>,
-	{
-	}
-}
-
-// Works with OpaqueBlock1, but not with 2 :(
-type OpaqueBlock = OpaqueBlock2;
-
 /// Instantiate all full RPC extensions.
 pub fn create_full<C, P>(
 	deps: FullDeps<C, P>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-	C: Send + Sync + 'static,
-	C: frame::deps::sp_api::ProvideRuntimeApi<OpaqueBlock>
+	C: Send
+		+ Sync
+		+ 'static
+		+ sp_api::ProvideRuntimeApi<OpaqueBlock>
 		+ HeaderBackend<OpaqueBlock>
 		+ HeaderMetadata<OpaqueBlock, Error = BlockChainError>
 		+ 'static,
-	C::Api: frame::deps::sp_block_builder::BlockBuilder<OpaqueBlock>,
-	// C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
+	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
-	// use substrate_frame_rpc_system::{System, SystemApiServer};
-
-	// // Tester::<u32, u64>::is_equal();
-	// Tester::<u32, u32>::is_equal();
-	// Tester::<OpaqueBlock1, OpaqueBlock2>::is_equal();
-
 	let mut module = RpcModule::new(());
-	// let FullDeps { client, pool, deny_unsafe } = deps;
+	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	// module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
-	// // NOTE: we have intentionally ignored adding tx-payments's custom RPC here.
+	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 
 	Ok(module)
 }

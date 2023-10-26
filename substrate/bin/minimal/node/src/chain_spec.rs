@@ -45,7 +45,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	))
 }
 
-/// Configure initial storage state for FRAME modules.
+/// Configure initial storage state for FRAME pallets.
 fn testnet_genesis(wasm_binary: &[u8]) -> RuntimeGenesisConfig {
 	use frame::traits::Get;
 	use runtime::interface::{Balance, MinimumBalance};

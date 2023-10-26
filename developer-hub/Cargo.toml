@@ -14,7 +14,7 @@ version = "0.0.1"
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../substrate/frame" }
+frame = { path = "../substrate/frame", features = ["runtime", "experimental"] }
 
 # How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }

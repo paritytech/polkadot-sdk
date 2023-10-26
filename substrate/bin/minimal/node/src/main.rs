@@ -26,10 +26,5 @@ mod command;
 mod rpc;
 
 fn main() -> sc_cli::Result<()> {
-	println!(
-		"{:?}, {:?}",
-		std::any::TypeId::of::<rpc::OpaqueBlock1>(),
-		std::any::TypeId::of::<rpc::OpaqueBlock2>()
-	);
 	command::run()
 }

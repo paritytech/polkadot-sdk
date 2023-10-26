@@ -149,7 +149,21 @@ fn justification_with_invalid_authority_signature_rejected() {
 }
 
 #[test]
-fn justification_with_invalid_precommit_ancestry() {
+fn justification_with_duplicate_votes_ancestry() {
+	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
+	justification.votes_ancestries.push(justification.votes_ancestries[0].clone());
+
+	assert_eq!(
+		verify_justification::<TestHeader>(
+			header_id::<TestHeader>(1),
+			&verification_context(TEST_GRANDPA_SET_ID),
+			&justification,
+		),
+		Err(JustificationVerificationError::DuplicateVotesAncestries),
+	);
+}
+#[test]
+fn justification_with_redundant_votes_ancestry() {
 	let mut justification = make_default_justification::<TestHeader>(&test_header(1));
 	justification.votes_ancestries.push(test_header(10));
 

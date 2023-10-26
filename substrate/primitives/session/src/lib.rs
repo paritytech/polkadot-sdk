@@ -30,8 +30,8 @@ use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
 use sp_std::vec::Vec;
 
-pub mod api;
-pub use api::*;
+pub mod runtime_api;
+pub use runtime_api::*;
 
 /// Number of validators in a given session.
 pub type ValidatorCount = u32;

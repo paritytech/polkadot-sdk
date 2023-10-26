@@ -42,10 +42,11 @@ sp-api = { path = "../../../primitives/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-block-builder = { path = "../../../primitives/block-builder" }
 sp-io = { path = "../../../primitives/io" }
+sp-runtime = { path = "../../../primitives/runtime" }
 
 substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
 
-frame = { path = "../../../frame", features = ["runtime"] }
+frame = { path = "../../../frame", features = ["runtime", "experimental"] }
 runtime = { package = "minimal-runtime", path = "../runtime" }
 
 [build-dependencies]

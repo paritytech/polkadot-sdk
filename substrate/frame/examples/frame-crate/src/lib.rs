@@ -27,7 +27,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
+	pub struct Pallet<T>(_);
 
 	#[pallet::event]
 	pub enum Event<T: Config> {}
@@ -46,7 +46,7 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use crate::pallet as my_pallet;
-	use frame::{prelude::*, testing_prelude::*};
+	use frame::testing_prelude::*;
 
 	construct_runtime!(
 		pub struct Runtime {
@@ -57,14 +57,7 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
-		type BaseCallFilter = frame::traits::Everything;
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-		type RuntimeEvent = RuntimeEvent;
-		type PalletInfo = PalletInfo;
-		type OnSetCode = ();
 		type Block = MockBlock<Self>;
-		type BlockHashCount = ();
 	}
 
 	impl my_pallet::Config for Runtime {
