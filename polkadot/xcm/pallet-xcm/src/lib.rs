@@ -1485,11 +1485,9 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or_default();
 
 		let local_execute_xcm = Xcm(
-			// JIT withdraw fees for local execution
-			[SetFeesMode { jit_withdraw: true }]
+			// run any necessary local prefund fees instructions
+			prefund_local_xcm
 				.into_iter()
-				// run any necessary local prefund fees instructions
-				.chain(prefund_local_xcm.into_iter())
 				// move `assets` to `dest`s local sovereign account
 				.chain([TransferAsset { assets, beneficiary: dest }].into_iter())
 				.collect(),
@@ -1566,11 +1564,9 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or_default();
 
 		let local_execute_xcm = Xcm(
-			// JIT withdraw fees for local execution
-			[SetFeesMode { jit_withdraw: true }]
+			// run any necessary local prefund fees instructions
+			prefund_local_xcm
 				.into_iter()
-				// run any necessary local prefund fees instructions
-				.chain(prefund_local_xcm.into_iter())
 				// move `assets` to `dest`s local sovereign account
 				.chain(
 					[

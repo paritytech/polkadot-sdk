@@ -134,7 +134,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let xcm_router_fee_amount = Para3000PaymentAmount::get();
-		let weight = BaseXcmWeight::get() * 2;
+		let weight = BaseXcmWeight::get();
 		let dest: MultiLocation =
 			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
@@ -274,7 +274,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 	let dest: MultiLocation = Parachain(OTHER_PARA_ID).into();
 
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let weight = BaseXcmWeight::get() * 2;
+		let weight = BaseXcmWeight::get();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
 		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
@@ -345,7 +345,7 @@ fn limited_reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserv
 /// is increased. Verifies the correct message is sent and event is emitted.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
-	let weight = BaseXcmWeight::get() * 4;
+	let weight = BaseXcmWeight::get() * 3;
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation =
 		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -564,7 +564,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 			fee_index as u32,
 			Unlimited,
 		));
-		let weight = BaseXcmWeight::get() * 4;
+		let weight = BaseXcmWeight::get() * 3;
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
@@ -669,7 +669,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 			Unlimited,
 		));
 
-		let weight = BaseXcmWeight::get() * 3;
+		let weight = BaseXcmWeight::get() * 2;
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
@@ -1098,7 +1098,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 			fee_index as u32,
 			Unlimited,
 		));
-		let weight = BaseXcmWeight::get() * 4;
+		let weight = BaseXcmWeight::get() * 3;
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
@@ -1216,7 +1216,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_wor
 			fee_index as u32,
 			Unlimited,
 		));
-		let weight = BaseXcmWeight::get() * 5;
+		let weight = BaseXcmWeight::get() * 4;
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
 			last_events.next().unwrap(),
