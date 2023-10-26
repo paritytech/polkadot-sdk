@@ -232,7 +232,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Return current authorities length.
 	pub fn authorities_len() -> usize {
-		Authorities::decode_len().unwrap_or(0)
+		Authorities::<T>::decode_len().unwrap_or(0)
 	}
 
 	/// Get the current slot from the pre-runtime digests.
