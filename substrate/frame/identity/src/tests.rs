@@ -24,6 +24,7 @@ use crate::{
 };
 
 use codec::{Decode, Encode};
+use enumflags2::BitFlag;
 use frame_support::{
 	assert_noop, assert_ok, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64, EitherOfDiverse, Get},
@@ -288,12 +289,40 @@ fn trailing_zeros_decodes_into_default_data() {
 }
 
 #[test]
+fn adding_registrar_invalid_index() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
+		assert_noop!(
+			Identity::set_fields(RuntimeOrigin::signed(3), 100, fields.0.bits()),
+			Error::<Test>::InvalidIndex
+		);
+	});
+}
+
+#[test]
+fn adding_registrar_invalid_fields() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		// If all fields can be set, there can be no invalid fields
+		if <<Test as Config>::IdentityInformation as IdentityInformationProvider>::IdentityField::all().bits() != u64::MAX {
+			assert_noop!(
+				Identity::set_fields(RuntimeOrigin::signed(3), 0, u64::MAX),
+				Error::<Test>::InvalidFields
+			);
+		}
+	});
+}
+
+#[test]
 fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
 		let fields = IdentityFields(IdentityField::Display | IdentityField::Legal);
-		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields));
+		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields.0.bits()));
 		assert_eq!(
 			Identity::registrars(),
 			vec![Some(RegistrarInfo { account: 3, fee: 10, fields })]

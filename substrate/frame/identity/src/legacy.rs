@@ -61,7 +61,9 @@ impl TypeInfo for IdentityField {
 	}
 }
 
-impl U64BitFlag for IdentityField {}
+impl U64BitFlag for IdentityField {
+	type NumericRepresentation = u64;
+}
 
 /// Information concerning the identity of the controller of an account.
 ///

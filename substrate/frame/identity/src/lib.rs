@@ -79,6 +79,8 @@ mod tests;
 mod types;
 pub mod weights;
 
+use enumflags2::BitFlags;
+
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
@@ -90,7 +92,7 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 pub use types::{
 	Data, IdentityFields, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration,
+	Registration, U64BitFlag,
 };
 
 type BalanceOf<T> =
@@ -255,6 +257,8 @@ pub mod pallet {
 		JudgementForDifferentIdentity,
 		/// Error that occurs when there is an issue paying for judgement.
 		JudgementPaymentFailed,
+		/// Invalid identity fields.
+		InvalidFields,
 	}
 
 	#[pallet::event]
@@ -660,25 +664,16 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: IdentityFields<
-				<T::IdentityInformation as IdentityInformationProvider>::IdentityField,
-			>,
+			fields: 
+				<<T::IdentityInformation as IdentityInformationProvider>::IdentityField as U64BitFlag>::NumericRepresentation,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let registrars = <Registrars<T>>::mutate(|rs| -> Result<usize, DispatchError> {
-				rs.get_mut(index as usize)
-					.and_then(|x| x.as_mut())
-					.and_then(|r| {
-						if r.account == who {
-							r.fields = fields;
-							Some(())
-						} else {
-							None
-						}
-					})
-					.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
-				Ok(rs.len())
+			let registrars = <Registrars<T>>::mutate(|registrars| -> Result<usize, DispatchError> {
+				let registrar = registrars.get_mut(index as usize).map(|r| r.as_mut()).flatten().filter(|r| r.account == who).ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
+				registrar.fields = IdentityFields(BitFlags::from_bits(fields).map_err(|_| Error::<T>::InvalidFields)?);
+
+				Ok(registrars.len())
 			})?;
 			Ok(Some(T::WeightInfo::set_fields(registrars as u32)).into())
 		}

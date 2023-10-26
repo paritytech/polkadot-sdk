@@ -54,7 +54,7 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 		let fields = IdentityFields(
 			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
 		);
-		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
+		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields.0.bits())?;
 	}
 
 	assert_eq!(Registrars::<T>::get().len(), r as usize);
@@ -370,7 +370,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), r, fields);
+		_(RawOrigin::Signed(caller), r, fields.0.bits());
 
 		let updated_registrars = Registrars::<T>::get();
 		ensure!(

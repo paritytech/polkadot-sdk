@@ -17,7 +17,10 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use enumflags2::{BitFlag, BitFlags, _internal::RawBitFlags};
+use enumflags2::{
+	BitFlag, BitFlags,
+	_internal::{BitFlagNum, RawBitFlags},
+};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -32,7 +35,9 @@ use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
 
-pub trait U64BitFlag: BitFlag + RawBitFlags<Numeric = u64> {}
+pub trait U64BitFlag: BitFlag + RawBitFlags<Numeric = Self::NumericRepresentation> {
+	type NumericRepresentation: BitFlagNum + Into<u64> + TryFrom<u64> + Encode + Decode + TypeInfo;
+}
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -337,14 +342,19 @@ where
 impl<IdField: U64BitFlag + PartialEq> Eq for IdentityFields<IdField> {}
 impl<IdField: U64BitFlag> Encode for IdentityFields<IdField> {
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		let bits: u64 = self.0.bits();
+		let bits: <IdField as U64BitFlag>::NumericRepresentation = self.0.bits();
 		bits.using_encoded(f)
 	}
 }
 impl<IdField: U64BitFlag> Decode for IdentityFields<IdField> {
 	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = u64::decode(input)?;
-		Ok(Self(<BitFlags<IdField>>::from_bits(field).map_err(|_| "invalid value")?))
+		let field = <IdField as U64BitFlag>::NumericRepresentation::decode(input)?;
+		Ok(Self(
+			<BitFlags<IdField>>::from_bits(
+				field.try_into().map_err(|_| "value couldn't convert to u64")?,
+			)
+			.map_err(|_| "invalid value")?,
+		))
 	}
 }
 impl<IdField: Clone + Debug + Eq + PartialEq + TypeInfo + U64BitFlag> TypeInfo
