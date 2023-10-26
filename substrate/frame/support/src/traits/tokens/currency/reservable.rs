@@ -23,7 +23,7 @@ use sp_core::Get;
 use super::{super::misc::BalanceStatus, Currency};
 use crate::{
 	dispatch::DispatchResult,
-	traits::{ExistenceRequirement, SignedImbalance, WithdrawReasons},
+	traits::{tokens::Preservation, ExistenceRequirement, SignedImbalance, WithdrawReasons},
 };
 use sp_runtime::DispatchError;
 
@@ -337,6 +337,9 @@ impl<
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		NamedReservable::make_free_balance_be(who, balance)
+	}
+	fn transferrable_balance(who: &AccountId, preservation: Preservation) -> Self::Balance {
+		NamedReservable::transferrable_balance(who, preservation)
 	}
 }
 impl<

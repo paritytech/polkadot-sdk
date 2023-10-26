@@ -25,7 +25,12 @@ use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
 	traits::{
-		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
+		tokens::{
+			fungible, BalanceStatus as Status,
+			Fortitude::Polite,
+			Precision::BestEffort,
+			Preservation::{self, Preserve, Protect},
+		},
 		Currency, DefensiveSaturating, ExistenceRequirement,
 		ExistenceRequirement::AllowDeath,
 		Get, Imbalance, LockIdentifier, LockableCurrency, NamedReservableCurrency,
@@ -486,6 +491,24 @@ where
 			},
 		)
 		.unwrap_or_else(|_| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+	}
+
+	fn transferrable_balance(who: &T::AccountId, preservation: Preservation) -> Self::Balance {
+		let a = Self::account(who);
+		let mut untouchable = a.frozen;
+		// If we want to keep our provider ref..
+		if preservation == Preserve
+			// ..or we don't want the account to die and our provider ref is needed for it to live..
+			|| preservation == Protect && !a.free.is_zero() &&
+				frame_system::Pallet::<T>::providers(who) == 1
+			// ..or we don't care about the account dying but our provider ref is required..
+			|| preservation == Expendable && !a.free.is_zero() &&
+				!frame_system::Pallet::<T>::can_dec_provider(who)
+		{
+			// ..then the ED needed..
+			untouchable = untouchable.max(T::ExistentialDeposit::get());
+		}
+		a.free.saturating_sub(untouchable)
 	}
 }
 
