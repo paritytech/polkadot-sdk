@@ -23,23 +23,34 @@ Polkadot runtime (e.g. C++), then it would identify itself with an accordingly d
 <code>impl_name</code>.</p>
 </div><span id="structfield.authoring_version" class="structfield small-section-header"><a href="#structfield.authoring_version" class="anchor field">§</a><code>authoring_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p><code>authoring_version</code> is the version of the authorship interface. An authoring node
 will not attempt to author blocks unless this is equal to its native runtime.</p>
-</div><span id="structfield.spec_version" class="structfield small-section-header"><a href="#structfield.spec_version" class="anchor field">§</a><code>spec_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>Version of the runtime specification. A full-node will not attempt to use its native
-runtime in substitute for the on-chain Wasm runtime unless all of <code>spec_name</code>,
-<code>spec_version</code> and <code>authoring_version</code> are the same between Wasm and native.</p>
-</div><span id="structfield.impl_version" class="structfield small-section-header"><a href="#structfield.impl_version" class="anchor field">§</a><code>impl_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>Version of the implementation of the specification. Nodes are free to ignore this; it
-serves only as an indication that the code is different; as long as the other two versions
-are the same then while the actual code may be different, it is nonetheless required to
-do the same thing.
-Non-consensus-breaking optimizations are about the only changes that could be made which
-would result in only the <code>impl_version</code> changing.</p>
+</div><span id="structfield.spec_version" class="structfield small-section-header"><a href="#structfield.spec_version" class="anchor field">§</a><code>spec_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>Version of the runtime specification.</p>
+<p>A full-node will not attempt to use its native runtime in substitute for the on-chain
+Wasm runtime unless all of <code>spec_name</code>, <code>spec_version</code> and <code>authoring_version</code> are the same
+between Wasm and native.</p>
+<p>This number should never decrease.</p>
+</div><span id="structfield.impl_version" class="structfield small-section-header"><a href="#structfield.impl_version" class="anchor field">§</a><code>impl_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>Version of the implementation of the specification.</p>
+<p>Nodes are free to ignore this; it serves only as an indication that the code is different;
+as long as the other two versions are the same then while the actual code may be different,
+it is nonetheless required to do the same thing. Non-consensus-breaking optimizations are
+about the only changes that could be made which would result in only the <code>impl_version</code>
+changing.</p>
+<p>This number can be reverted to <code>0</code> after a <a href="struct.RuntimeVersion.html#structfield.spec_version" title="field sc_executor::RuntimeVersion::spec_version"><code>spec_version</code></a> bump.</p>
 </div><span id="structfield.apis" class="structfield small-section-header"><a href="#structfield.apis" class="anchor field">§</a><code>apis: <a class="enum" href="https://doc.rust-lang.org/1.73.0/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'static, [([<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.array.html">8</a>], <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>)]&gt;</code></span><div class="docblock"><p>List of supported API “features” along with their versions.</p>
-</div><span id="structfield.transaction_version" class="structfield small-section-header"><a href="#structfield.transaction_version" class="anchor field">§</a><code>transaction_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>All existing dispatches are fully compatible when this number doesn’t change. If this
-number changes, then <code>spec_version</code> must change, also.</p>
-<p>This number must change when an existing dispatchable (module ID, dispatch ID) is changed,
+</div><span id="structfield.transaction_version" class="structfield small-section-header"><a href="#structfield.transaction_version" class="anchor field">§</a><code>transaction_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>All existing calls (dispatchables) are fully compatible when this number doesn’t change. If
+this number changes, then <a href="struct.RuntimeVersion.html#structfield.spec_version" title="field sc_executor::RuntimeVersion::spec_version"><code>spec_version</code></a> must change, also.</p>
+<p>This number must change when an existing call (pallet index, call index) is changed,
 either through an alteration in its user-level semantics, a parameter
-added/removed/changed, a dispatchable being removed, a module being removed, or a
-dispatchable/module changing its index.</p>
-<p>It need <em>not</em> change when a new module is added or when a dispatchable is added.</p>
+added/removed, a parameter type changed, or a call/pallet changing its index. An alteration
+of the user level semantics is for example when the call was before <code>transfer</code> and now is
+<code>transfer_all</code>, the semantics of the call changed completely.</p>
+<p>Removing a pallet or a call doesn’t require a <em>bump</em> as long as no pallet or call is put at
+the same index. Removing doesn’t require a bump as the chain will reject a transaction
+referencing this removed call/pallet while decoding and thus, the user isn’t at risk to
+execute any unknown call. FRAME runtime devs have control over the index of a call/pallet
+to prevent that an index gets reused.</p>
+<p>Adding a new pallet or call also doesn’t require a <em>bump</em> as long as they also don’t reuse
+any previously used index.</p>
+<p>This number should never decrease.</p>
 </div><span id="structfield.state_version" class="structfield small-section-header"><a href="#structfield.state_version" class="anchor field">§</a><code>state_version: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u8.html">u8</a></code></span><div class="docblock"><p>Version of the state implementation used by this runtime.
 Use of an incorrect version is consensus breaking.</p>
 </div><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimeVersion" class="impl"><a href="#impl-RuntimeVersion" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.RuntimeVersion.html" title="struct sc_executor::RuntimeVersion">RuntimeVersion</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.decode_with_version_hint" class="method"><h4 class="code-header">pub fn <a href="#method.decode_with_version_hint" class="fn">decode_with_version_hint</a>&lt;I&gt;(

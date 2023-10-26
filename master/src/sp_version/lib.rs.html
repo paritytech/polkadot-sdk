@@ -456,6 +456,23 @@
 <a href="#456" id="456">456</a>
 <a href="#457" id="457">457</a>
 <a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -633,17 +650,24 @@
 	/// will not attempt to author blocks unless this is equal to its native runtime.
 	</span><span class="kw">pub </span>authoring_version: u32,
 
-	<span class="doccomment">/// Version of the runtime specification. A full-node will not attempt to use its native
-	/// runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
-	/// `spec_version` and `authoring_version` are the same between Wasm and native.
+	<span class="doccomment">/// Version of the runtime specification.
+	///
+	/// A full-node will not attempt to use its native runtime in substitute for the on-chain
+	/// Wasm runtime unless all of `spec_name`, `spec_version` and `authoring_version` are the same
+	/// between Wasm and native.
+	///
+	/// This number should never decrease.
 	</span><span class="kw">pub </span>spec_version: u32,
 
-	<span class="doccomment">/// Version of the implementation of the specification. Nodes are free to ignore this; it
-	/// serves only as an indication that the code is different; as long as the other two versions
-	/// are the same then while the actual code may be different, it is nonetheless required to
-	/// do the same thing.
-	/// Non-consensus-breaking optimizations are about the only changes that could be made which
-	/// would result in only the `impl_version` changing.
+	<span class="doccomment">/// Version of the implementation of the specification.
+	///
+	/// Nodes are free to ignore this; it serves only as an indication that the code is different;
+	/// as long as the other two versions are the same then while the actual code may be different,
+	/// it is nonetheless required to do the same thing. Non-consensus-breaking optimizations are
+	/// about the only changes that could be made which would result in only the `impl_version`
+	/// changing.
+	///
+	/// This number can be reverted to `0` after a [`spec_version`](Self::spec_version) bump.
 	</span><span class="kw">pub </span>impl_version: u32,
 
 	<span class="doccomment">/// List of supported API &quot;features&quot; along with their versions.
@@ -656,15 +680,25 @@
 	)]
 	</span><span class="kw">pub </span>apis: ApisVec,
 
-	<span class="doccomment">/// All existing dispatches are fully compatible when this number doesn&#39;t change. If this
-	/// number changes, then `spec_version` must change, also.
+	<span class="doccomment">/// All existing calls (dispatchables) are fully compatible when this number doesn&#39;t change. If
+	/// this number changes, then [`spec_version`](Self::spec_version) must change, also.
 	///
-	/// This number must change when an existing dispatchable (module ID, dispatch ID) is changed,
+	/// This number must change when an existing call (pallet index, call index) is changed,
 	/// either through an alteration in its user-level semantics, a parameter
-	/// added/removed/changed, a dispatchable being removed, a module being removed, or a
-	/// dispatchable/module changing its index.
+	/// added/removed, a parameter type changed, or a call/pallet changing its index. An alteration
+	/// of the user level semantics is for example when the call was before `transfer` and now is
+	/// `transfer_all`, the semantics of the call changed completely.
 	///
-	/// It need *not* change when a new module is added or when a dispatchable is added.
+	/// Removing a pallet or a call doesn&#39;t require a *bump* as long as no pallet or call is put at
+	/// the same index. Removing doesn&#39;t require a bump as the chain will reject a transaction
+	/// referencing this removed call/pallet while decoding and thus, the user isn&#39;t at risk to
+	/// execute any unknown call. FRAME runtime devs have control over the index of a call/pallet
+	/// to prevent that an index gets reused.
+	///
+	/// Adding a new pallet or call also doesn&#39;t require a *bump* as long as they also don&#39;t reuse
+	/// any previously used index.
+	///
+	/// This number should never decrease.
 	</span><span class="kw">pub </span>transaction_version: u32,
 
 	<span class="doccomment">/// Version of the state implementation used by this runtime.

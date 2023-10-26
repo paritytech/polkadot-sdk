@@ -415,6 +415,11 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -647,6 +652,11 @@
 		}
 	}
 
+	<span class="doccomment">/// Return current authorities length.
+	</span><span class="kw">pub fn </span>authorities_len() -&gt; usize {
+		Authorities::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>)
+	}
+
 	<span class="doccomment">/// Get the current slot from the pre-runtime digests.
 	</span><span class="kw">fn </span>current_slot_from_digests() -&gt; <span class="prelude-ty">Option</span>&lt;Slot&gt; {
 		<span class="kw">let </span>digest = frame_system::Pallet::&lt;T&gt;::digest();
@@ -780,7 +790,7 @@
 		<span class="kw">for </span>(id, <span class="kw-2">mut </span>data) <span class="kw">in </span>digests.into_iter() {
 			<span class="kw">if </span>id == AURA_ENGINE_ID {
 				<span class="kw">let </span>slot = Slot::decode(<span class="kw-2">&amp;mut </span>data).ok()<span class="question-mark">?</span>;
-				<span class="kw">let </span>author_index = <span class="kw-2">*</span>slot % <span class="self">Self</span>::authorities().len() <span class="kw">as </span>u64;
+				<span class="kw">let </span>author_index = <span class="kw-2">*</span>slot % <span class="self">Self</span>::authorities_len() <span class="kw">as </span>u64;
 				<span class="kw">return </span><span class="prelude-val">Some</span>(author_index <span class="kw">as </span>u32)
 			}
 		}
