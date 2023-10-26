@@ -74,7 +74,7 @@ pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind>(
 impl<FirstAsset, AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
 	for WithFirstAsset<FirstAsset, AccountId, AssetKind>
 where
-	AssetKind: PartialEq + Clone + Encode,
+	AssetKind: Eq + Clone + Encode,
 	AccountId: Decode,
 	FirstAsset: Get<AssetKind>,
 {
@@ -98,7 +98,7 @@ pub struct Ascending<AccountId, AssetKind>(PhantomData<(AccountId, AssetKind)>);
 impl<AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
 	for Ascending<AccountId, AssetKind>
 where
-	AssetKind: PartialOrd + Clone + Encode,
+	AssetKind: Ord + Clone + Encode,
 	AccountId: Decode,
 {
 	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
