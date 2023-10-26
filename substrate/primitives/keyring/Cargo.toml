@@ -16,9 +16,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 lazy_static = { version = "1.4.0", features = [ "spin_no_std" ], default-features = false }
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
-sp-core = { path = "../core", default-features = false, features = ["full_crypto"] }
+sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
 sp-std = { path = "../std", default-features = false  }
+
+#todo: remove this (required for `cargo build --no-default-features`)
+sp-io = { path = "../io", default-features = false, optional = true }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false, optional = true }
 
 [features]
 default = [ "std" ]
@@ -27,6 +31,9 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
+
+#todo: remove this (required for `cargo build --no-default-features`)
+compile = [ "sp-io/disable_panic_handler", "sp-runtime-interface/disable_target_static_assertions" ]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still

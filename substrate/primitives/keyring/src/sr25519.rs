@@ -19,20 +19,27 @@
 
 use lazy_static::lazy_static;
 pub use sp_core::sr25519;
+#[cfg(feature = "full_crypto")]
+use sp_core::sr25519::Signature;
 use sp_core::{
-	sr25519::{Pair, Public, Signature},
+	sr25519::{Pair, Public},
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
 #[cfg(not(feature = "std"))]
-use sp_std::alloc::{format, string::String};
-#[cfg(not(feature = "std"))]
 use sp_std::ops::Deref;
-use sp_std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, ops::Deref};
+
+// todo: this requires cleanup!
+// #[cfg(not(feature = "std"))]
+// use sp_std::{alloc::string::String, format};
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
 
 /// Set of test accounts.
 #[derive(
@@ -82,6 +89,7 @@ impl Keyring {
 		self.to_raw_public().into()
 	}
 
+	#[cfg(feature = "full_crypto")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
