@@ -275,7 +275,6 @@ pub mod pallet {
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
 			ensure!(leases.len() == 1, Error::<T>::NotAllowed);
-
 			if let Some((who, value)) = &leases[0] {
 				// unreserve the deposit for the soon to be ending lease.
 				Self::unreserve(para, &who, *value);
@@ -415,7 +414,6 @@ impl<T: Config> Pallet<T> {
 		// check if new lease is coming soon.
 		let soon = now.checked_add(&T::EarliestRefundPeriod::get())?;
 		let (maybe_next_lease, _) = Self::lease_period_index(soon)?;
-
 		Some(maybe_next_lease == current_lease.checked_add(&sp_runtime::traits::One::one())?)
 	}
 
@@ -1384,6 +1382,30 @@ mod benchmarking {
 		verify {
 			T::Registrar::execute_pending_transitions();
 			assert!(T::Registrar::is_parachain(para));
+		}
+
+		early_lease_refund {
+			// early refund of soon to be expiring lease
+			let (para, _) = register_a_parathread::<T>(1);
+			let leaser: T::AccountId = account("leaser", 0, 0);
+			// go to block where we can lease things
+			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
+			T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
+			// lease out a slot
+			Slots::<T>::force_lease(T::ForceOrigin::try_successful_origin().unwrap(), para, leaser.clone(), 10u32.into(), 1u32.into(), 1u32.into())?;
+			// verify deposit is reserved
+			assert_eq!(T::Currency::reserved_balance(&leaser), 10u32.into());
+			// setup lease for period 1
+			Slots::<T>::manage_lease_period_start(1u32.into());
+			// go to block near the end of slot where we can refund things
+			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + T::LeasePeriod::get() - T::EarliestRefundPeriod::get());
+			let origin =
+				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		}: _<T::RuntimeOrigin>(origin, para)
+		verify {
+			assert_eq!(T::Currency::reserved_balance(&leaser), 0u32.into());
+			// verify lease still ongoing
+			assert_eq!(Slots::<T>::lease(para).is_empty(), false);
 		}
 
 		impl_benchmark_test_suite!(
