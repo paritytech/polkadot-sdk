@@ -2618,25 +2618,12 @@ mod test {
 
 	/// Build and import a new best block.
 	fn build_block(client: &mut Arc<TestClient>, at: Option<Hash>, fork: bool) -> Block {
-		if fork {
-			build_block_with_fork_data(client, at, Some((vec![1, 2, 3], vec![4, 5, 6])))
-		} else {
-			build_block_with_fork_data(client, at, None)
-		}
-	}
-
-	/// Build and import a new best block and the fork data.
-	fn build_block_with_fork_data(
-		client: &mut Arc<TestClient>,
-		at: Option<Hash>,
-		fork_data: Option<(Vec<u8>, Vec<u8>)>,
-	) -> Block {
 		let at = at.unwrap_or_else(|| client.info().best_hash);
 
 		let mut block_builder = client.new_block_at(at, Default::default(), false).unwrap();
 
-		if let Some((key, value)) = fork_data {
-			block_builder.push_storage_change(key, Some(value)).unwrap();
+		if fork {
+			block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
 		}
 
 		let block = block_builder.build().unwrap().block;
@@ -3378,6 +3365,11 @@ mod test {
 		assert_eq!(pending_responses.len(), 0);
 	}
 
+	/// The test demonstrates the issue discussed here:
+	/// https://github.com/paritytech/polkadot-sdk/issues/493#issuecomment-1776648354.
+	/// The issue: we currently rely on block numbers instead of block hash
+	/// to download blocks from peers. As a result, we can end up with blocks
+	/// from different forks as shown by the test.
 	#[test]
 	#[should_panic]
 	fn request_across_forks() {
@@ -3398,12 +3390,8 @@ mod test {
 				})
 				.cloned()
 				.collect::<Vec<_>>();
-			for i in 1..=10 {
-				fork_blocks.push(build_block_with_fork_data(
-					&mut client,
-					None,
-					Some((vec![2 * i], vec![2 * i + 1])),
-				));
+			for _ in 0..10 {
+				fork_blocks.push(build_block(&mut client, None, false));
 			}
 			fork_blocks
 		};
@@ -3418,12 +3406,8 @@ mod test {
 				})
 				.cloned()
 				.collect::<Vec<_>>();
-			for i in 1..=10 {
-				fork_blocks.push(build_block_with_fork_data(
-					&mut client,
-					None,
-					Some((vec![100 + 2 * i], vec![100 + 2 * i + 1])),
-				));
+			for _ in 0..10 {
+				fork_blocks.push(build_block(&mut client, None, true));
 			}
 			fork_blocks
 		};
@@ -3490,6 +3474,11 @@ mod test {
 			let peer = peer_id2;
 			log::trace!(target: LOG_TARGET, "<3> {peer} announces from fork 2");
 			send_block_announce(block.header().clone(), peer, &mut sync);
+			// TODO: when the issue is fixed, this test can be changed to test the
+			// expected behavior instead. The needed changes would be:
+			// 1. Remove the `#[should_panic]` directive
+			// 2. These should be changed to check that sync.block_requests().is_empty(), after the
+			//    block is announced.
 			let request = get_block_request(&mut sync, FromBlock::Hash(block.hash()), 1, &peer);
 			let response = create_block_response(vec![block.clone()]);
 			let res = sync.on_block_data(&peer, Some(request), response).unwrap();
