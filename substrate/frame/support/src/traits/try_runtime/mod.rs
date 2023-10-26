@@ -42,6 +42,13 @@ pub enum Select {
 	Only(Vec<Vec<u8>>),
 }
 
+impl Select {
+	/// Whether to run any checks at all.
+	pub fn any(&self) -> bool {
+		!matches!(self, Select::None)
+	}
+}
+
 impl Default for Select {
 	fn default() -> Self {
 		Select::None
@@ -111,7 +118,7 @@ impl UpgradeCheckSelect {
 		matches!(self, Self::All | Self::TryState)
 	}
 
-	/// Whether to run any checks.
+	/// Whether to run any checks at all.
 	pub fn any(&self) -> bool {
 		!matches!(self, Self::None)
 	}

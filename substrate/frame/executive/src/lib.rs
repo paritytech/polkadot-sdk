@@ -141,7 +141,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "try-runtime")]
 use ::{
 	frame_support::{
-		traits::{TryDecodeEntireStorage, TryState},
+		traits::{TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState},
 		StorageNoopGuard,
 	},
 	frame_try_runtime::{TryStateSelect, UpgradeCheckSelect},
@@ -315,11 +315,15 @@ where
 		let _guard = frame_support::StorageNoopGuard::default();
 		<AllPalletsWithSystem as frame_support::traits::TryState<
 			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select)
+		>>::try_state(*header.number(), select.clone())
 		.map_err(|e| {
 			log::error!(target: LOG_TARGET, "failure: {:?}", e);
 			e
 		})?;
+		if select.any() {
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
+		}
 		drop(_guard);
 
 		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
@@ -378,27 +382,8 @@ where
 
 		// The state must be decodable:
 		if checks.any() {
-			match AllPalletsWithSystem::try_decode_entire_state() {
-				Ok(bytes) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"decoded the entire state ({bytes} bytes)",
-					);
-				},
-				Err(errors) => {
-					log::error!(
-						target: LOG_TARGET,
-						"`try_decode_entire_state` failed with {} errors",
-						errors.len(),
-					);
-
-					for (i, err) in errors.iter().enumerate() {
-						log::error!(target: LOG_TARGET, "- {i}. error: {err}");
-					}
-
-					return Err("`try_decode_entire_state` failed".into())
-				},
-			};
+			let res = AllPalletsWithSystem::try_decode_entire_state();
+			Self::log_decode_result(res)?;
 		}
 
 		// Check all storage invariants:
@@ -410,6 +395,35 @@ where
 		}
 
 		Ok(weight)
+	}
+
+	/// Logs the result of trying to decode the entire state.
+	fn log_decode_result(
+		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+	) -> Result<(), TryRuntimeError> {
+		match res {
+			Ok(bytes) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"decoded the entire state ({bytes} bytes)",
+				);
+
+				Ok(())
+			},
+			Err(errors) => {
+				log::error!(
+					target: LOG_TARGET,
+					"`try_decode_entire_state` failed with {} errors",
+					errors.len(),
+				);
+
+				for (i, err) in errors.iter().enumerate() {
+					log::error!(target: LOG_TARGET, "- {i}. error: {err}");
+				}
+
+				Err("`try_decode_entire_state` failed".into())
+			},
+		}
 	}
 }
 
