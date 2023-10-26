@@ -50,7 +50,7 @@ mod v1 {
 				weight = weight.saturating_add(T::DbWeight::get().reads(1));
 				let mut max_deposits: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
 
-				 lease_periods.iter().for_each(|lease| {
+				lease_periods.iter().for_each(|lease| {
 					if let Some((who, amount)) = lease {
 						max_deposits
 							.entry(who.clone())
