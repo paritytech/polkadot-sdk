@@ -145,3 +145,19 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+# experimental = [
+# 	"asset-hub-kusama-runtime/experimental",
+# 	"asset-hub-polkadot-runtime/experimental",
+# 	"asset-hub-rococo-runtime/experimental",
+# 	"asset-hub-westend-runtime/experimental",
+# 	"bridge-hub-kusama-runtime/experimental",
+# 	"bridge-hub-polkadot-runtime/experimental",
+# 	"bridge-hub-rococo-runtime/experimental",
+# 	"collectives-polkadot-runtime/experimental",
+# 	"contracts-rococo-runtime/experimental",
+# 	"glutton-runtime/experimental",
+# 	"penpal-runtime/experimental",
+# 	"shell-runtime/experimental",
+# 	"seedling-runtime/experimental",
+# 	"rococo-parachain-runtime/experimental",
+# ]
