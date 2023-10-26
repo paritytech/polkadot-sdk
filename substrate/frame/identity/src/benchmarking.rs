@@ -22,6 +22,7 @@
 use super::*;
 
 use crate::Pallet as Identity;
+use enumflags2::BitFlag;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
@@ -48,14 +49,9 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
 		Identity::<T>::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, 10u32.into())?;
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
+		);
 		Identity::<T>::set_fields(RawOrigin::Signed(registrar.clone()).into(), i, fields)?;
 	}
 
@@ -81,7 +77,7 @@ fn create_sub_accounts<T: Config>(
 	// Set identity so `set_subs` does not fail.
 	if IdentityOf::<T>::get(who).is_none() {
 		let _ = T::Currency::make_free_balance_be(who, BalanceOf::<T>::max_value() / 2u32.into());
-		let info = create_identity_info::<T>(1);
+		let info = T::IdentityInformation::create_identity_info(1);
 		Identity::<T>::set_identity(who_origin.into(), Box::new(info))?;
 	}
 
@@ -100,24 +96,6 @@ fn add_sub_accounts<T: Config>(
 	Identity::<T>::set_subs(who_origin.into(), subs.clone())?;
 
 	Ok(subs)
-}
-
-// This creates an `IdentityInfo` object with `num_fields` extra fields.
-// All data is pre-populated with some arbitrary bytes.
-fn create_identity_info<T: Config>(num_fields: u32) -> IdentityInfo<T::MaxAdditionalFields> {
-	let data = Data::Raw(vec![0; 32].try_into().unwrap());
-
-	IdentityInfo {
-		additional: vec![(data.clone(), data.clone()); num_fields as usize].try_into().unwrap(),
-		display: data.clone(),
-		legal: data.clone(),
-		web: data.clone(),
-		riot: data.clone(),
-		email: data.clone(),
-		pgp_fingerprint: Some([0; 20]),
-		image: data.clone(),
-		twitter: data,
-	}
 }
 
 #[benchmarks]
@@ -153,7 +131,7 @@ mod benchmarks {
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
-		let initial_info = create_identity_info::<T>(1);
+		let initial_info = T::IdentityInformation::create_identity_info(1);
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(initial_info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -174,7 +152,10 @@ mod benchmarks {
 		}
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(create_identity_info::<T>(x)));
+		_(
+			RawOrigin::Signed(caller.clone()),
+			Box::new(T::IdentityInformation::create_identity_info(x)),
+		);
 
 		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
 		Ok(())
@@ -235,7 +216,7 @@ mod benchmarks {
 		let _ = add_sub_accounts::<T>(&caller, s)?;
 
 		// Create their main identity with x additional fields
-		let info = create_identity_info::<T>(x);
+		let info = T::IdentityInformation::create_identity_info(x);
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info.clone()))?;
 
 		// User requests judgement from all the registrars, and they approve
@@ -275,7 +256,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = create_identity_info::<T>(x);
+		let info = T::IdentityInformation::create_identity_info(x);
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -302,7 +283,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Create their main identity with x additional fields
-		let info = create_identity_info::<T>(x);
+		let info = T::IdentityInformation::create_identity_info(x);
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		Identity::<T>::set_identity(caller_origin.clone(), Box::new(info))?;
@@ -386,14 +367,9 @@ mod benchmarks {
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, caller_lookup)?;
 
-		let fields =
-			IdentityFields(
-				IdentityField::Display |
-					IdentityField::Legal | IdentityField::Web |
-					IdentityField::Riot | IdentityField::Email |
-					IdentityField::PgpFingerprint |
-					IdentityField::Image | IdentityField::Twitter,
-			);
+		let fields = IdentityFields(
+			<T::IdentityInformation as IdentityInformationProvider>::IdentityField::all(),
+		);
 
 		let registrars = Registrars::<T>::get();
 		ensure!(
@@ -431,7 +407,7 @@ mod benchmarks {
 
 		add_registrars::<T>(r)?;
 
-		let info = create_identity_info::<T>(x);
+		let info = T::IdentityInformation::create_identity_info(x);
 		let info_hash = T::Hashing::hash_of(&info);
 		Identity::<T>::set_identity(user_origin.clone(), Box::new(info))?;
 
@@ -464,7 +440,7 @@ mod benchmarks {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
-		let info = create_identity_info::<T>(x);
+		let info = T::IdentityInformation::create_identity_info(x);
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
 		let _ = add_sub_accounts::<T>(&target, s)?;
 
