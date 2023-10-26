@@ -99,7 +99,10 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-use crate::{auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError};
+use crate::{
+	auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError,
+	slots::Error as SlotsError,
+};
 
 parameter_types! {
 	pub const BlockHashCount: u32 = 250;
@@ -1699,4 +1702,137 @@ fn cant_bid_on_existing_lease_periods() {
 			100,
 		));
 	});
+}
+
+#[test]
+fn early_crowdloan_dissolve() {
+	// This test will refund a lease deposit before it ends and subsequently dissolve the crowdloan.
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own para
+		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
+
+		// Register on-demand parachain
+		let validation_code = test_validation_code(10);
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(2000),
+			test_genesis_head(10),
+			validation_code.clone(),
+		));
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+		// Para 2000 should be onboarding
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
+
+		// Start a new auction in the future
+		let duration = 99u32;
+		let lease_period_index_start = 4u32;
+		assert_ok!(Auctions::new_auction(
+			RuntimeOrigin::root(),
+			duration,
+			lease_period_index_start
+		));
+
+		// 2 sessions later 2000 is an on-demand parachain
+		run_to_session(START_SESSION_INDEX + 2);
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parathread));
+
+		// Open a crowdloan for Para 1 for slots 0-3
+		assert_ok!(Crowdloan::create(
+			signed(1),
+			ParaId::from(2000),
+			1_000_000,                    // Cap
+			lease_period_index_start + 0, // First Slot
+			lease_period_index_start + 3, // Last Slot
+			200,                          // Block End
+			None,
+		));
+		let fund = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let crowdloan_account = Crowdloan::fund_account_id(fund.fund_index);
+
+		// Bunch of contributions
+		let mut total = 0;
+		for i in 10..20 {
+			Balances::make_free_balance_be(&account_id(i), 1_000_000_000);
+			assert_ok!(Crowdloan::contribute(signed(i), ParaId::from(2000), 900 - i, None));
+			total += 900 - i;
+		}
+		// Go to end of auction where everyone won their slots
+		run_to_block(200);
+
+		// deposit for validation code and crowdloan submission.
+		assert_eq!(Balances::reserved_balance(&account_id(1)), (500 + 10 * 2 * 1) + 100);
+		// crowdloan fund is reserved
+		assert_eq!(Balances::reserved_balance(&crowdloan_account), total);
+		// Crowdloan is appropriately set
+		assert!(Crowdloan::funds(ParaId::from(2000)).is_some());
+
+		// New leases will start on block 400
+		let lease_start_block = 400;
+		run_to_block(lease_start_block);
+
+		// Slots are won by Para 1
+		assert!(!Slots::lease(ParaId::from(2000)).is_empty());
+
+		// 2 sessions later it is a parachain
+		run_to_block(lease_start_block + 20);
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
+
+		// lease is active and not near end
+		assert_noop!(
+			Slots::early_lease_refund(signed(1), ParaId::from(2000)),
+			SlotsError::<Test>::NotAllowed
+		);
+
+		// Cant dissolve yet
+		assert_noop!(
+			Crowdloan::dissolve(signed(1), ParaId::from(2000)),
+			CrowdloanError::<Test>::NotReadyToDissolve
+		);
+
+		let lease_end_block = 8 * LeasePeriod::get() + LeaseOffset::get();
+		let early_refund_start_block = lease_end_block - EarliestRefundPeriod::get();
+		// Go in future when lease is about to end
+		run_to_block(early_refund_start_block);
+
+		// try early refund
+		assert_ok!(Slots::early_lease_refund(signed(1), ParaId::from(2000)));
+
+		// Withdraw of contributions works
+		assert_eq!(Balances::free_balance(&crowdloan_account), total);
+		for i in 10..20 {
+			assert_ok!(Crowdloan::withdraw(signed(i), account_id(i), ParaId::from(2000)));
+		}
+
+		assert_eq!(Balances::free_balance(&crowdloan_account), 0);
+
+		// reserved balance before dissolve
+		assert_eq!(Balances::reserved_balance(&account_id(1)), (500 + 10 * 2 * 1) + 100);
+		// Dissolve returns the balance of the person who put a deposit for crowdloan
+		assert_ok!(Crowdloan::dissolve(signed(1), ParaId::from(2000)));
+		// Crowdloan submission deposit is returned
+		assert_eq!(Balances::reserved_balance(&account_id(1)), (500 + 10 * 2 * 1));
+
+		// run few blocks until lease is still active
+		run_to_block(early_refund_start_block + 2);
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
+
+		// lease gets over
+		run_to_block(lease_end_block);
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::DowngradingParachain));
+
+		// 2 more sessions later it is a parathread
+		run_to_block(lease_end_block + 2 * BLOCKS_PER_SESSION);
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parathread));
+
+		// Deregister parachain
+		assert_ok!(Registrar::deregister(para_origin(2000).into(), ParaId::from(2000)));
+		assert_eq!(Balances::reserved_balance(&account_id(1)), 0);
+	})
 }
