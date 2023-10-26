@@ -33,6 +33,7 @@ std = [
 	"codec/std",
 	"log/std",
 	"mmr-lib/std",
+	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
 	"sp-core/std",

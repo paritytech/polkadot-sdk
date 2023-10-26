@@ -20,8 +20,8 @@ fn system_para_to_para_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		630_092_000,
-		6_196,
+		864_610_000,
+		8_799,
 	)));
 
 	assert_expected_events!(
@@ -45,8 +45,8 @@ fn system_para_to_para_assets_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		676_119_000,
-		6196,
+		864_610_000,
+		8799,
 	)));
 
 	assert_expected_events!(
