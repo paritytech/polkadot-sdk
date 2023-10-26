@@ -263,4 +263,16 @@ impl<T: Config> Pallet<T> {
 		ActiveValidatorIndices::<T>::set(indices);
 		ActiveValidatorKeys::<T>::set(keys);
 	}
+
+	#[cfg(test)]
+	pub(crate) fn add_allowed_relay_parent(
+		relay_parent: T::Hash,
+		state_root: T::Hash,
+		number: BlockNumberFor<T>,
+		max_ancestry_len: u32,
+	) {
+		AllowedRelayParents::<T>::mutate(|tracker| {
+			tracker.update(relay_parent, state_root, number, max_ancestry_len)
+		})
+	}
 }
