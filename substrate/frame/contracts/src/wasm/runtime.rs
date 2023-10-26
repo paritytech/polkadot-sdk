@@ -2814,13 +2814,12 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use xcm_executor::traits::QueryHandler;
+		use xcm_executor::traits::{QueryHandler, QueryHandlerWeightInfo};
 
 		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
 
-		// let weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::take_response();
-		let weight = Weight::zero(); // TODO
+		let weight = <<E::T as Config>::Xcm as QueryHandler>::WeightInfo::take_response();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 
 		let response = <<E::T as Config>::Xcm>::take_response(query_id).encode();

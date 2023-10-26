@@ -41,15 +41,13 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin,
 	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
+	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
-pub type SovereignAccountOf = (
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	ParentIsPreset<AccountId>,
-);
+pub type SovereignAccountOf =
+	(AccountId32Aliases<RelayNetwork, AccountId>, ParentIsPreset<AccountId>);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
