@@ -60,6 +60,7 @@ use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
+use pallet_identity::simple::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
@@ -512,6 +513,8 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
@@ -523,8 +526,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<5>;
 }
 
 parameter_types! {
@@ -589,6 +591,7 @@ impl_opaque_keys! {
 		pub babe: Babe,
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
+		pub mixnet: Mixnet,
 	}
 }
 
@@ -1048,7 +1051,7 @@ impl pallet_democracy::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
 	type InstantOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
-	type InstantAllowed = frame_support::traits::ConstBool<true>;
+	type InstantAllowed = ConstBool<true>;
 	type FastTrackVotingPeriod = FastTrackVotingPeriod;
 	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
 	type CancellationOrigin =
@@ -1472,6 +1475,7 @@ impl pallet_identity::Config for Runtime {
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
@@ -2028,6 +2032,29 @@ impl pallet_broker::Config for Runtime {
 	type PriceAdapter = pallet_broker::Linear;
 }
 
+parameter_types! {
+	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
+	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
+	pub const MixnetNumCoverToPrevBlocks: BlockNumber = 3;
+	pub const MixnetNumRegisterStartSlackBlocks: BlockNumber = 3;
+	pub const MixnetNumRegisterEndSlackBlocks: BlockNumber = 3;
+	pub const MixnetRegistrationPriority: TransactionPriority = ImOnlineUnsignedPriority::get() - 1;
+}
+
+impl pallet_mixnet::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+	type MaxExternalAddressSize = ConstU32<128>;
+	type MaxExternalAddressesPerMixnode = ConstU32<16>;
+	type NextSessionRotation = Babe;
+	type NumCoverToCurrentBlocks = MixnetNumCoverToCurrentBlocks;
+	type NumRequestsToCurrentBlocks = MixnetNumRequestsToCurrentBlocks;
+	type NumCoverToPrevBlocks = MixnetNumCoverToPrevBlocks;
+	type NumRegisterStartSlackBlocks = MixnetNumRegisterStartSlackBlocks;
+	type NumRegisterEndSlackBlocks = MixnetNumRegisterEndSlackBlocks;
+	type RegistrationPriority = MixnetRegistrationPriority;
+	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
+}
+
 construct_runtime!(
 	pub struct Runtime
 	{
@@ -2104,6 +2131,7 @@ construct_runtime!(
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		Mixnet: pallet_mixnet,
 	}
 );
 
@@ -2660,6 +2688,24 @@ impl_runtime_apis! {
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
+		}
+	}
+
+	impl sp_mixnet::runtime_api::MixnetApi<Block> for Runtime {
+		fn session_status() -> sp_mixnet::types::SessionStatus {
+			Mixnet::session_status()
+		}
+
+		fn prev_mixnodes() -> Result<Vec<sp_mixnet::types::Mixnode>, sp_mixnet::types::MixnodesErr> {
+			Mixnet::prev_mixnodes()
+		}
+
+		fn current_mixnodes() -> Result<Vec<sp_mixnet::types::Mixnode>, sp_mixnet::types::MixnodesErr> {
+			Mixnet::current_mixnodes()
+		}
+
+		fn maybe_register(session_index: sp_mixnet::types::SessionIndex, mixnode: sp_mixnet::types::Mixnode) -> bool {
+			Mixnet::maybe_register(session_index, mixnode)
 		}
 	}
 

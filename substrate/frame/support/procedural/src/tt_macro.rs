@@ -18,7 +18,6 @@
 //! Implementation of the `create_tt_return_macro` macro
 
 use crate::COUNTER;
-use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro2::{Ident, TokenStream};
 use quote::format_ident;
 
@@ -65,9 +64,9 @@ impl syn::parse::Parse for CreateTtReturnMacroDef {
 /// macro_rules! my_tt_macro {
 ///     {
 ///         $caller:tt
-///         $(frame_support = [{ $($frame_support:ident)::* }])?
+///         $(your_tt_return = [{ $my_tt_return:path }])?
 ///     } => {
-///         frame_support::__private::tt_return! {
+///         $my_tt_return! {
 ///             $caller
 ///             foo = [{ bar }]
 ///         }
@@ -78,10 +77,6 @@ pub fn create_tt_return_macro(input: proc_macro::TokenStream) -> proc_macro::Tok
 	let CreateTtReturnMacroDef { name, args } =
 		syn::parse_macro_input!(input as CreateTtReturnMacroDef);
 
-	let frame_support = match generate_crate_access_2018("frame-support") {
-		Ok(i) => i,
-		Err(e) => return e.into_compile_error().into(),
-	};
 	let (keys, values): (Vec<_>, Vec<_>) = args.into_iter().unzip();
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	let unique_name = format_ident!("{}_{}", name, count);
@@ -92,9 +87,9 @@ pub fn create_tt_return_macro(input: proc_macro::TokenStream) -> proc_macro::Tok
 		macro_rules! #unique_name {
 			{
 				$caller:tt
-				$(frame_support = [{ $($frame_support:ident)::* }])?
+				$(your_tt_return = [{ $my_tt_macro:path }])?
 			} => {
-				#frame_support::__private::tt_return! {
+				$my_tt_return! {
 					$caller
 					#(
 						#keys = [{ #values }]
