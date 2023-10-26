@@ -46,18 +46,37 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
 		// `a` needs to be from `b` at least
 		if !a.starts_with(b) {
-			return false
+			return false;
 		}
 
 		// here we check if sibling
 		match a {
-			MultiLocation { parents: 1, interior } =>
-				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
+			MultiLocation { parents: 1, interior } => {
+				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get())))
+			},
 			_ => false,
 		}
 	}
 }
 
+pub struct FromNetwork<SelfNetworkId>(sp_std::marker::PhantomData<SelfNetworkId>);
+impl<SelfNetworkId: Get<NetworkId>> ContainsPair<MultiLocation, MultiLocation>
+	for FromNetwork<SelfNetworkId>
+{
+	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
+		// `a` needs to be from `b` at least
+		if !a.starts_with(b) {
+			return false;
+		}
+
+		match a {
+			MultiLocation { parents: 2, interior } => {
+				matches!(interior.first(), Some(GlobalConsensus(network)) if *network == SelfNetworkId::get())
+			},
+			_ => false,
+		}
+	}
+}
 /// Adapter verifies if it is allowed to receive `MultiAsset` from `MultiLocation`.
 ///
 /// Note: `MultiLocation` has to be from a different global consensus.
@@ -87,7 +106,7 @@ impl<
 					"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}",
 					origin, universal_source
 				);
-				return false
+				return false;
 			},
 		};
 
