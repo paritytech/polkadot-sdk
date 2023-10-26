@@ -1382,6 +1382,10 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
+impl pallet_root_testing::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -1504,6 +1508,8 @@ construct_runtime! {
 
 		// Sudo.
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 249,
 	}
 }
 

@@ -1254,6 +1254,10 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 }
 
+impl pallet_root_testing::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	// The deposit configuration for the singed migration. Specially if you want to allow any signed account to do the migration (see `SignedFilter`, these deposits should be high)
 	pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
@@ -1364,6 +1368,8 @@ construct_runtime! {
 
 		// Generalized message queue
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 100,
+
+		RootTesting: pallet_root_testing = 101,
 	}
 }
 

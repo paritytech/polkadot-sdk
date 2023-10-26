@@ -85,6 +85,7 @@ pallet-utility = { path = "../../../substrate/frame/utility", default-features =
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, features=["experimental"] }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
@@ -161,6 +162,7 @@ std = [
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-recovery/std",
+	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
 	"pallet-society/std",
@@ -274,6 +276,7 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
