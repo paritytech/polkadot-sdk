@@ -17,9 +17,11 @@ ark-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", defau
 ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"] }
 ark-bls12-381-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
 ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"] }
+ark-bw6-761-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
 ark-bw6-761 = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
+ark-ed-on-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
@@ -32,8 +34,10 @@ std = [
 	"ark-bls12-377/std",
 	"ark-bls12-377-ext/std",
 	"ark-bls12-381/std",
+	"ark-bw6-761-ext/std",
 	"ark-bw6-761/std",
 	"ark-ec/parallel",
+	"ark-ed-on-bls12-377-ext/std",
 	"ark-ed-on-bls12-377/std",
 	"ark-ed-on-bls12-381-bandersnatch-ext/std",
 	"ark-ed-on-bls12-381-bandersnatch/std",

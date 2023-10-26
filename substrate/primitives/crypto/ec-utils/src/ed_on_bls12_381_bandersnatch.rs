@@ -108,20 +108,21 @@ impl CurveHooks for HostHooks {
 /// and "not-compressed".
 #[runtime_interface]
 pub trait HostCalls {
-	/// Short Weierstrass projective multiplication for Ed-on-BLS12-381-Bandersnatch.
+	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
+	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
+	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::Fr]>`.
+	/// - Returns encoded:
+	///   `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
+	fn ed_on_bls12_381_bandersnatch_te_msm(
+		bases: Vec<u8>,
+		scalars: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+		msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 
-	/// Twisted Edwards projective multiplication for Ed-on-BLS12-381-Bandersnatch.
+	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// - Receives encoded:
 	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
@@ -135,7 +136,7 @@ pub trait HostCalls {
 		mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
 	}
 
-	/// Short Weierstrass multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
+	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// - Receives encoded:
 	///   - `bases`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::SWAffine]>`.
@@ -148,17 +149,16 @@ pub trait HostCalls {
 		msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
 	}
 
-	/// Twisted Edwards multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
+	/// Short Weierstrass projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::Fr]>`.
-	/// - Returns encoded:
-	///   `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
+	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
+	///   - `scalar`: `ArkScale<&[u64]>`.
+	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
+	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
+		base: Vec<u8>,
+		scalar: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
+		mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 }
