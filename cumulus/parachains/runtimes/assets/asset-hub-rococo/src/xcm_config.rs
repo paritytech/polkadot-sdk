@@ -44,11 +44,11 @@ use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllAssets, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, LocationWithAssetFilters, NetworkExportTableItem, NoChecking,
+	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
@@ -259,10 +259,6 @@ match_types! {
 	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(_) }
-	};
-	pub type WithParentsZeroOrOne: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, .. } |
-		MultiLocation { parents: 1, .. }
 	};
 }
 
@@ -683,12 +679,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	// Allow reserve based transfer to everywhere except for bridging, here we strictly check what
 	// assets are allowed.
-	type XcmReserveTransferFilter = (
-		LocationWithAssetFilters<WithParentsZeroOrOne, AllAssets>,
-		bridging::to_rococo::AllowedReserveTransferAssets,
-		bridging::to_wococo::AllowedReserveTransferAssets,
-	);
-
+	type XcmReserveTransferFilter  = Everything;
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
 		RuntimeCall,
@@ -826,13 +817,6 @@ pub mod bridging {
 				)
 			];
 
-			/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			pub AllowedReserveTransferAssetsToAssetHubWococo: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
-				// allow send only ROC
-				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
-				// and nothing else
-			];
-
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
@@ -858,12 +842,6 @@ pub mod bridging {
 					// and nothing else
 				),
 			>;
-
-		/// Allows to reserve transfer assets to `AssetHubWococo`.
-		pub type AllowedReserveTransferAssets = LocationWithAssetFilters<
-			Equals<AssetHubWococo>,
-			AllowedReserveTransferAssetsToAssetHubWococo,
-		>;
 
 		impl Contains<RuntimeCall> for ToWococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {
@@ -991,13 +969,6 @@ pub mod bridging {
 				)
 			];
 
-			/// Allowed assets for reserve transfer to `AssetHubWococo`.
-			pub AllowedReserveTransferAssetsToAssetHubRococo: sp_std::vec::Vec<MultiAssetFilter> = sp_std::vec![
-				// allow send only WOC
-				Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) }),
-				// and nothing else
-			];
-
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
@@ -1023,12 +994,6 @@ pub mod bridging {
 					// and nothing else
 				),
 			>;
-
-		/// Allows to reserve transfer assets to `AssetHubRococo`.
-		pub type AllowedReserveTransferAssets = LocationWithAssetFilters<
-			Equals<AssetHubRococo>,
-			AllowedReserveTransferAssetsToAssetHubRococo,
-		>;
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {

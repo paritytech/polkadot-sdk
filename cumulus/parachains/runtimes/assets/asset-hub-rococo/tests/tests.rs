@@ -38,7 +38,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::InspectEnumerable, Contains},
+	traits::fungibles::InspectEnumerable,
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
@@ -1144,113 +1144,6 @@ mod asset_hub_wococo_tests {
 			actual
 		);
 	}
-}
-
-/// Tests expected configuration of isolated `pallet_xcm::Config::XcmReserveTransferFilter`.
-#[test]
-fn xcm_reserve_transfer_filter_works() {
-	// prepare assets
-	let only_native_assets = || vec![MultiAsset::from((TokenLocation::get(), 1000))];
-	let only_trust_backed_assets = || {
-		vec![MultiAsset::from((
-			AssetIdForTrustBackedAssetsConvert::convert_back(&12345).unwrap(),
-			2000,
-		))]
-	};
-	let only_sibling_foreign_assets =
-		|| vec![MultiAsset::from((MultiLocation::new(1, X1(Parachain(12345))), 3000))];
-	let only_different_global_consensus_foreign_assets = || {
-		vec![MultiAsset::from((
-			MultiLocation::new(2, X2(GlobalConsensus(Wococo), Parachain(12345))),
-			4000,
-		))]
-	};
-
-	// prepare destinations
-	let relaychain = MultiLocation::parent();
-	let sibling_parachain = MultiLocation::new(1, X1(Parachain(54321)));
-	let different_global_consensus_parachain_other_than_asset_hub_wococo =
-		MultiLocation::new(2, X2(GlobalConsensus(Kusama), Parachain(12345)));
-	let bridged_asset_hub_wococo = bridging::to_wococo::AssetHubWococo::get();
-	let bridged_asset_hub_rococo = bridging::to_rococo::AssetHubRococo::get();
-
-	// prepare expected test data sets: (destination, assets, expected_result)
-	let test_data = vec![
-		(relaychain, only_native_assets(), true),
-		(relaychain, only_trust_backed_assets(), true),
-		(relaychain, only_sibling_foreign_assets(), true),
-		(relaychain, only_different_global_consensus_foreign_assets(), true),
-		(sibling_parachain, only_native_assets(), true),
-		(sibling_parachain, only_trust_backed_assets(), true),
-		(sibling_parachain, only_sibling_foreign_assets(), true),
-		(sibling_parachain, only_different_global_consensus_foreign_assets(), true),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_native_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_trust_backed_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_sibling_foreign_assets(),
-			false,
-		),
-		(
-			different_global_consensus_parachain_other_than_asset_hub_wococo,
-			only_different_global_consensus_foreign_assets(),
-			false,
-		),
-	];
-
-	let additional_test_data_for_rococo_flavor = vec![
-		(bridged_asset_hub_wococo, only_native_assets(), true),
-		(bridged_asset_hub_wococo, only_trust_backed_assets(), false),
-		(bridged_asset_hub_wococo, only_sibling_foreign_assets(), false),
-		(bridged_asset_hub_wococo, only_different_global_consensus_foreign_assets(), false),
-	];
-	let additional_test_data_for_wococo_flavor = vec![
-		(bridged_asset_hub_rococo, only_native_assets(), true),
-		(bridged_asset_hub_rococo, only_trust_backed_assets(), false),
-		(bridged_asset_hub_rococo, only_sibling_foreign_assets(), false),
-		(bridged_asset_hub_rococo, only_different_global_consensus_foreign_assets(), false),
-	];
-
-	// lets test filter with test data
-	ExtBuilder::<Runtime>::default()
-		.with_collators(collator_session_keys().collators())
-		.with_session_keys(collator_session_keys().session_keys())
-		.with_tracing()
-		.build()
-		.execute_with(|| {
-			type XcmReserveTransferFilter =
-				<Runtime as pallet_xcm::Config>::XcmReserveTransferFilter;
-
-			fn do_test(data: Vec<(MultiLocation, Vec<MultiAsset>, bool)>) {
-				for (dest, assets, expected_result) in data {
-					assert_eq!(
-						expected_result,
-						XcmReserveTransferFilter::contains(&(dest, assets.clone())),
-						"expected_result: {} for dest: {:?} and assets: {:?}",
-						expected_result,
-						dest,
-						assets
-					);
-				}
-			}
-
-			// check for Rococo flavor
-			do_test(test_data.clone());
-			do_test(additional_test_data_for_rococo_flavor);
-
-			// check for Wococo flavor
-			asset_hub_wococo_tests::set_wococo_flavor();
-			do_test(test_data);
-			do_test(additional_test_data_for_wococo_flavor);
-		})
 }
 
 #[test]
