@@ -64,7 +64,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn early_lease_refund() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 }
 
