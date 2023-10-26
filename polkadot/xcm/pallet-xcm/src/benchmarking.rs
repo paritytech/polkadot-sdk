@@ -16,15 +16,58 @@
 
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
-use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
-use frame_support::weights::Weight;
+use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
+use frame_support::{assert_ok, traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
+use pallet_assets::Pallet as AssetsPallet;
+use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
+fn create_default_asset<T: pallet_assets::Config>(
+	asset_id: T::AssetIdParameter,
+	is_sufficient: bool,
+	caller: T::AccountId,
+) {
+	let beneficiary = T::Lookup::unlookup(caller);
+	let root = frame_system::RawOrigin::Root.into();
+	assert_ok!(AssetsPallet::<T>::force_create(
+		root,
+		asset_id,
+		beneficiary,
+		is_sufficient,
+		1u32.into(),
+	));
+}
+
+fn create_default_minted_asset<T: pallet_assets::Config>(
+	asset_id: T::AssetIdParameter,
+	is_sufficient: bool,
+	amount: T::Balance,
+	caller: T::AccountId,
+) {
+	create_default_asset::<T>(asset_id, is_sufficient, caller.clone());
+	if !is_sufficient {
+		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+	}
+	let beneficiary = T::Lookup::unlookup(caller.clone());
+	assert_ok!(AssetsPallet::<T>::mint(
+		frame_system::RawOrigin::Signed(caller).into(),
+		asset_id,
+		beneficiary,
+		amount,
+	));
+}
+
 benchmarks! {
+	where_clause {
+		where
+			T: pallet_assets::Config,
+			<T as pallet_assets::Config>::AssetIdParameter: From<MultiLocation>,
+			<T as pallet_assets::Config>::Balance: From<u128> + Into<u128>,
+	}
 	send {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -62,9 +105,23 @@ benchmarks! {
 		let (assets, destination) = T::ReserveTransferableAssets::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-		let send_origin =
-			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone())
+		let caller: T::AccountId = whitelisted_caller();
+		for asset in assets.inner() {
+			let amount = match &asset.fun {
+				Fungible(amount) => *amount,
+				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
+			};
+			let id = match &asset.id {
+				Concrete(location) => *location,
+				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
+			};
+			let asset_id: T::AssetIdParameter = id.into();
+			create_default_minted_asset::<T>(asset_id.clone(), true, amount.into(), caller.clone());
+			// verify initial balance
+			assert_eq!(AssetsPallet::<T>::balance(asset_id.into(), caller.clone()), amount.into());
+		}
+		let send_origin = RawOrigin::Signed(caller.clone());
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
@@ -74,8 +131,23 @@ benchmarks! {
 		let versioned_dest: VersionedMultiLocation = destination.into();
 		let versioned_beneficiary: VersionedMultiLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
-		let versioned_assets: VersionedMultiAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+		let versioned_assets: VersionedMultiAssets = assets.clone().into();
+	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		for asset in assets.inner() {
+			let amount = match &asset.fun {
+				Fungible(amount) => *amount,
+				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
+			};
+			let id = match &asset.id {
+				Concrete(location) => *location,
+				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
+			};
+			let asset_id: T::AssetIdParameter = id.into();
+			// verify balance after transfer
+			assert_eq!(AssetsPallet::<T>::balance(asset_id.into(), caller.clone()), 0.into());
+		}
+	}
 
 	execute {
 		let execute_origin =

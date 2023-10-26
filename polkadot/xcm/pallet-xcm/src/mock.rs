@@ -35,9 +35,9 @@ use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription,
-	IsConcrete, MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
+	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription, IsConcrete,
+	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, XcmFeesToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -382,7 +382,7 @@ parameter_types! {
 pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	AccountId32Aliases<AnyNetwork, AccountId>,
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	HashedDescription<AccountId, DescribeAllTerminal>,
 );
 
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
