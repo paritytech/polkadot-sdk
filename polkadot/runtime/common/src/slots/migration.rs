@@ -45,10 +45,12 @@ mod v1 {
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
+			let mut weight = Weight::zero();
 			for (para, lease_periods) in Leases::<T>::iter() {
+				weight = weight.saturating_add(T::DbWeight::get().reads(1));
 				let mut max_deposits: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
 
-				lease_periods.iter().for_each(|lease| {
+				 lease_periods.iter().for_each(|lease| {
 					if let Some((who, amount)) = lease {
 						max_deposits
 							.entry(who.clone())
@@ -58,12 +60,13 @@ mod v1 {
 				});
 
 				max_deposits.iter().for_each(|(leaser, deposit)| {
+					weight = weight.saturating_add(T::DbWeight::get().writes(1));
 					ReservedAmounts::<T>::insert(para, leaser, deposit);
 				})
 			}
 
 			// weight: all active lease periods * rw
-			todo!("weights")
+			weight
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -80,19 +83,19 @@ mod v1 {
 
 			// for each pair assert ReservedAmount is what we expect
 			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
-				let migrated_entry = ReservedAmounts::<T>::get(para, who)
+				let lease_reserve_amount = ReservedAmounts::<T>::get(para, who)
 					.expect("Migration should have inserted this entry");
-				let expected = Pallet::<T>::required_deposit(*para, who);
+				let expected_deposit = Pallet::<T>::required_deposit(*para, who);
 				let reserved_balance = T::Currency::reserved_balance(who);
 
 				ensure!(
-					migrated_entry == expected,
+					lease_reserve_amount == expected_deposit,
 					"ReservedAmount value not same as required deposit"
 				);
-				// fixme(ank4n) if there is another reserve on the account, this might be possible.
+
 				ensure!(
-					migrated_entry == reserved_balance,
-					"ReservedAmount value not same as actual reserved balance"
+					reserved_balance >= lease_reserve_amount,
+					"ReservedAmount value should be at least the lease reserve amount"
 				);
 
 				Ok(())
