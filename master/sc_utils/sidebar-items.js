@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["id_sequence","metrics","mpsc","notification","pubsub","status_sinks"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["INHERENT_IDENTIFIER"],"struct":["MessageQueueChain","MockValidationDataInherentDataProvider","MockXcmConfig","ParachainInherentData"]};

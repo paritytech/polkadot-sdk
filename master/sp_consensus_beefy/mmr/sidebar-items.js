@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["find_mmr_root_digest"],"struct":["BeefyAuthoritySet","MmrLeaf","MmrLeafVersion","MmrRootProvider"],"trait":["BeefyDataProvider"],"type":["BeefyNextAuthoritySet"]};

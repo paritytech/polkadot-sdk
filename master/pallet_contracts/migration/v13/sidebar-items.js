@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ContractInfo","ContractInfoOf_Storage_Instance","Migration"],"type":["ContractInfoOf"]};

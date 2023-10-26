@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["claim","force_transfer","free","freeze","transfer"]};

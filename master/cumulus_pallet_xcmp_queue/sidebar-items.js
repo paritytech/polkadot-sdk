@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ChannelSignal","InboundState","OutboundState"],"mod":["bridging","delivery_fee_constants","migration","pallet","weights"],"struct":["InboundChannelDetails","OutboundChannelDetails","QueueConfigData"],"type":["OverweightIndex"]};

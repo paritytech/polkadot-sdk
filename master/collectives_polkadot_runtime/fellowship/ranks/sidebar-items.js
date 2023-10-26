@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DAN_1","DAN_2","DAN_3","DAN_4","DAN_5","DAN_6","DAN_7","DAN_8","DAN_9"]};

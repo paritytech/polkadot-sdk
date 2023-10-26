@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ExportedFunction"],"struct":["ExecReturnValue"],"trait":["CallInterceptor","CallSpan","Debugger","Tracing"],"type":["ExecResult"]};

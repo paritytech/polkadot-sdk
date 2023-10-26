@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MethodResult"],"mod":["archive","chain_head","chain_spec","transaction"],"struct":["MethodResultErr","MethodResultOk"],"type":["SubscriptionTaskExecutor"]};

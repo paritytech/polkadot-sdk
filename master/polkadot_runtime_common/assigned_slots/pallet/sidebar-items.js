@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Pallet"],"trait":["Config"],"type":["ActiveTemporarySlotCount","MaxPermanentSlots","MaxTemporarySlots","Module","PermanentSlotCount","PermanentSlots","TemporarySlotCount","TemporarySlots"]};

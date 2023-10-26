@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["add_lock","deregister","force_register","register","remove_lock","reserve","schedule_code_upgrade","set_current_head","swap"]};

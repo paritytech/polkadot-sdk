@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["V5toV6","V6ToV7"]};

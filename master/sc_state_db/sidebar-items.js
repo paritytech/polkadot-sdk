@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","IsPruned","LastCanonicalized","PinError","PruningMode","StateDbError"],"struct":["ChangeSet","CommitSet","Constraints","StateDb","StateDbSync"],"trait":["Hash","MetaDb","NodeDb"],"type":["DBValue"]};

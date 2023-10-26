@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["ed25519","sr25519","test"]};

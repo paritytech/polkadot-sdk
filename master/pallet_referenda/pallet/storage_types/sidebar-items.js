@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["DecidingCount","MetadataOf","ReferendumCount","ReferendumInfoFor","TrackQueue"]};

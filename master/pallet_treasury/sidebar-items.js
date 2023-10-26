@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["PaymentState"],"mod":["pallet","weights"],"struct":["Proposal","SpendStatus"],"trait":["SpendFunds"],"type":["AssetBalanceOf","BalanceOf","NegativeImbalanceOf","PositiveImbalanceOf","ProposalIndex","SpendIndex"]};

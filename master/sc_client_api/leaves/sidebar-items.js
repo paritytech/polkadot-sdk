@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["FinalizationOutcome","ImportOutcome","LeafSet","RemoveOutcome","Undo"]};

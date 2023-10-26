@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ChildParachainRouter","ConstantPrice","ExponentialPrice","NoPriceForMessageDelivery"],"trait":["PriceForMessageDelivery"]};

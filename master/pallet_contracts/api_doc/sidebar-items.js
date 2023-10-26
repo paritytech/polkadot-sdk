@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"trait":["Current","Version0","Version1","Version2"]};

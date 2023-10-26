@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["config_preludes","dispatchables","storage_types"],"struct":["GenesisConfig","Pallet"],"trait":["Config","DefaultConfig"],"type":["Account","BlockHash","LastRuntimeUpgrade","Module","Origin"]};

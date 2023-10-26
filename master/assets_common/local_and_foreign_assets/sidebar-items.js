@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CreditDropIndirection","DebtDropIndirection","LocalAndForeignAssets","MultiLocationConverter"],"trait":["MatchesLocalAndForeignAssetsMultiLocation"]};

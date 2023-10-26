@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"developer_hub":[["impl <a class=\"trait\" href=\"frame_support/traits/metadata/trait.PalletInfo.html\" title=\"trait frame_support::traits::metadata::PalletInfo\">PalletInfo</a> for <a class=\"struct\" href=\"developer_hub/tutorial/currency_simple/pallet_v2/tests/runtime_v2/struct.PalletInfo.html\" title=\"struct developer_hub::tutorial::currency_simple::pallet_v2::tests::runtime_v2::PalletInfo\">PalletInfo</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

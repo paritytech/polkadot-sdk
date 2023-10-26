@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AssetTraps","CurrentMigration","LockedFungibles","Queries","QueryCounter","RemoteLockedFungibles","SafeXcmVersion","SupportedVersion","VersionDiscoveryQueue","VersionNotifiers","VersionNotifyTargets","XcmExecutionSuspended"]};

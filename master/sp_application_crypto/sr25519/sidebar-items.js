@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID"],"mod":["vrf"],"struct":["AppPair","AppPublic","AppSignature","Pair","Public","Signature"]};

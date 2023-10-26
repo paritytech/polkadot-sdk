@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ExpectParentIncluded","FixedCapacityUnincludedSegment","UnincludedSegmentCapacity"],"trait":["ConsensusHook"],"type":["RequireParentIncluded"]};

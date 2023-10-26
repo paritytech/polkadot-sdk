@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["blockchain_state_machines","frame_composite_enums","glossary","origin_account_abstraction","runtime_vs_smart_contract","safe_defensive_programming","trait_based_programming","wasm_meta_protocol"]};

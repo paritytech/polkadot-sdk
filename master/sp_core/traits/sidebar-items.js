@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["CallContext"],"struct":["CodeNotFound","NoneFetchRuntimeCode","ReadRuntimeVersionExt","RuntimeCode","WrappedRuntimeCode"],"trait":["CodeExecutor","Externalities","ExternalitiesExt","FetchRuntimeCode","ReadRuntimeVersion","SpawnEssentialNamed","SpawnNamed"]};

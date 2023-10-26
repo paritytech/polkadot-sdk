@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CurrentSessionIndex","CurrentSessionStartBlock","Mixnodes","NextAuthorityIds"]};

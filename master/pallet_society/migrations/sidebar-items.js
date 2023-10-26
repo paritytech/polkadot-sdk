@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["assert_internal_consistency","from_original","from_raw_past_payouts"],"struct":["VersionUncheckedMigrateToV2"],"type":["VersionCheckedMigrateToV2"]};
