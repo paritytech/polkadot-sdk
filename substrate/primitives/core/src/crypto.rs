@@ -20,7 +20,6 @@
 use crate::{ed25519, sr25519};
 #[cfg(feature = "std")]
 use bip39::MnemonicType;
-#[cfg(feature = "full_crypto")]
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "std")]
@@ -101,7 +100,6 @@ pub enum SecretStringError {
 /// An error when deriving a key.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "full_crypto")]
 pub enum DeriveError {
 	/// A soft key was found in the path (and is unsupported).
 	#[cfg_attr(feature = "std", error("Soft key in path"))]
@@ -112,7 +110,6 @@ pub enum DeriveError {
 /// a new secret key from an existing secret key and, in the case of `SoftRaw` and `SoftIndex`
 /// a new public key from an existing public key.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Encode, Decode)]
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
 pub enum DeriveJunction {
 	/// Soft (vanilla) derivation. Public keys have a correspondent derivation.
 	Soft([u8; JUNCTION_ID_LEN]),
@@ -120,7 +117,6 @@ pub enum DeriveJunction {
 	Hard([u8; JUNCTION_ID_LEN]),
 }
 
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
 impl DeriveJunction {
 	/// Consume self to return a soft derive junction with the same chain code.
 	pub fn soften(self) -> Self {
@@ -179,7 +175,6 @@ impl DeriveJunction {
 	}
 }
 
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
 impl<T: AsRef<str>> From<T> for DeriveJunction {
 	fn from(j: T) -> DeriveJunction {
 		let j = j.as_ref();
@@ -796,7 +791,6 @@ mod dummy {
 /// assert_eq!("0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a", suri.phrase.expose_secret());
 /// assert!(suri.password.is_none());
 /// ```
-#[cfg(feature = "full_crypto")]
 pub struct SecretUri {
 	/// The phrase to derive the private key.
 	///
@@ -808,7 +802,6 @@ pub struct SecretUri {
 	pub junctions: Vec<DeriveJunction>,
 }
 
-#[cfg(feature = "full_crypto")]
 impl sp_std::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
@@ -836,7 +829,6 @@ impl sp_std::str::FromStr for SecretUri {
 /// Trait suitable for typical cryptographic PKI key pair type.
 ///
 /// For now it just specifies how to create a key from a phrase and derivation path.
-#[cfg(feature = "full_crypto")]
 pub trait Pair: CryptoType + Sized {
 	/// The type which is used to encode a public key.
 	type Public: Public + Hash;
@@ -916,9 +908,11 @@ pub trait Pair: CryptoType + Sized {
 	fn from_seed_slice(seed: &[u8]) -> Result<Self, SecretStringError>;
 
 	/// Sign a message.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Self::Signature;
 
 	/// Verify a signature on a message. Returns true if the signature is good.
+	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool;
 
 	/// Get the public key.
@@ -1041,7 +1035,6 @@ where
 /// Type which has a particular kind of crypto associated with it.
 pub trait CryptoType {
 	/// The pair key type of this crypto.
-	#[cfg(feature = "full_crypto")]
 	type Pair: Pair;
 }
 

@@ -46,7 +46,6 @@ pub use sp_debug_derive::RuntimeDebug;
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
 
-#[cfg(feature = "full_crypto")]
 pub mod hashing;
 
 #[cfg(feature = "full_crypto")]
@@ -79,7 +78,6 @@ pub use self::{
 	hash::{convert_hash, H160, H256, H512},
 	uint::{U256, U512},
 };
-#[cfg(feature = "full_crypto")]
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
 #[cfg(feature = "std")]
