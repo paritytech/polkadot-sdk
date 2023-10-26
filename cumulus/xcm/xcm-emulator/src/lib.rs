@@ -166,18 +166,13 @@ pub trait Network {
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
 	) -> ParachainInherentData;
-}
-
-pub trait NetworkComponent {
-	type Network: Network;
-
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
 		iter: I,
 	) {
 		HORIZONTAL_MESSAGES.with(|b| {
 			b.borrow_mut()
-				.get_mut(Self::Network::name())
+				.get_mut(Self::name())
 				.unwrap()
 				.push_back((to_para_id, iter.collect()))
 		});
@@ -186,7 +181,7 @@ pub trait NetworkComponent {
 	fn send_upward_message(from_para_id: u32, msg: Vec<u8>) {
 		UPWARD_MESSAGES.with(|b| {
 			b.borrow_mut()
-				.get_mut(Self::Network::name())
+				.get_mut(Self::name())
 				.unwrap()
 				.push_back((from_para_id, msg))
 		});
@@ -198,7 +193,7 @@ pub trait NetworkComponent {
 	) {
 		DOWNWARD_MESSAGES.with(|b| {
 			b.borrow_mut()
-				.get_mut(Self::Network::name())
+				.get_mut(Self::name())
 				.unwrap()
 				.push_back((to_para_id, iter.collect()))
 		});
@@ -206,16 +201,17 @@ pub trait NetworkComponent {
 
 	fn send_bridged_messages(msg: BridgeMessage) {
 		BRIDGED_MESSAGES
-			.with(|b| b.borrow_mut().get_mut(Self::Network::name()).unwrap().push_back(msg));
+			.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back(msg));
 	}
 }
 
-pub trait Chain: TestExt + NetworkComponent {
+pub trait Chain: TestExt {
 	type Runtime: SystemConfig;
 	type RuntimeCall;
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
+	type Network: Network;
 
 	fn account_id_of(seed: &str) -> AccountId {
 		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
@@ -229,6 +225,8 @@ pub trait Chain: TestExt + NetworkComponent {
 pub trait RelayChain: Chain {
 	type MessageProcessor: ProcessMessage;
 	type SovereignAccountOf: ConvertLocation<AccountIdOf<Self::Runtime>>;
+
+	fn init();
 
 	fn child_location_of(id: ParaId) -> MultiLocation {
 		(Ancestor(0), ParachainJunction(id.into())).into()
@@ -344,7 +342,6 @@ macro_rules! decl_test_relay_chains {
 				on_init = $on_init:expr,
 				runtime = $runtime:ident,
 				core = {
-					MessageProcessor: $mp:path,
 					SovereignAccountOf: $sovereign_acc_of:path,
 
 				},
@@ -358,14 +355,15 @@ macro_rules! decl_test_relay_chains {
 	) => {
 		$(
 			#[derive(Clone)]
-			pub struct $name;
+			pub struct $name<N>($crate::PhantomData<N>);
 
-			impl $crate::Chain for $name {
+			impl<N: $crate::Network> $crate::Chain for $name<N> {
 				type Runtime = $runtime::Runtime;
 				type RuntimeCall = $runtime::RuntimeCall;
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Network = N;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -379,27 +377,35 @@ macro_rules! decl_test_relay_chains {
 				}
 			}
 
-			impl $crate::RelayChain for $name {
+			impl<N: $crate::Network> $crate::RelayChain for $name<N> {
 				type SovereignAccountOf = $sovereign_acc_of;
-				type MessageProcessor = $mp;
+				type MessageProcessor = $crate::DefaultMessageProcessor<$name<N>>;
+
+				fn init() {
+					use $crate::TestExt;
+					// Initialize the thread local variable
+					$crate::paste::paste! {
+						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
+					}
+				}
 			}
 
 			$crate::paste::paste! {
-				pub trait [<$name Pallet>] {
+				pub trait [<$name RelayPallet>] {
 					$(
 						type $pallet_name;
 					)?
 				}
 
-				impl [<$name Pallet>] for $name {
+				impl<N: $crate::Network> [<$name RelayPallet>] for $name<N> {
 					$(
 						type $pallet_name = $pallet_path;
 					)?
 				}
 			}
 
-			$crate::__impl_test_ext_for_relay_chain!($name, $genesis, $on_init, $api_version);
-			$crate::__impl_check_assertion!($name);
+			$crate::__impl_test_ext_for_relay_chain!($name, N, $genesis, $on_init, $api_version);
+			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
 }
@@ -407,10 +413,11 @@ macro_rules! decl_test_relay_chains {
 #[macro_export]
 macro_rules! __impl_test_ext_for_relay_chain {
 	// entry point: generate ext name
-	($name:ident, $genesis:expr, $on_init:expr, $api_version:tt) => {
+	($name:ident, $generic:ident, $genesis:expr, $on_init:expr, $api_version:tt) => {
 		$crate::paste::paste! {
 			$crate::__impl_test_ext_for_relay_chain!(
 				@impl $name,
+				$generic,
 				$genesis,
 				$on_init,
 				[<ParachainHostV $api_version>],
@@ -420,10 +427,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 		}
 	};
 	// impl
-	(@impl $name:ident, $genesis:expr, $on_init:expr, $api_version:ident, $local_ext:ident, $global_ext:ident) => {
+	(@impl $name:ident, $generic:ident, $genesis:expr, $on_init:expr, $api_version:ident, $local_ext:ident, $global_ext:ident) => {
 		thread_local! {
 			pub static $local_ext: $crate::RefCell<$crate::TestExternalities>
-				= $crate::RefCell::new(<$name as $crate::TestExt>::build_new_ext($genesis));
+				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
 		$crate::lazy_static! {
@@ -431,9 +438,9 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
 		}
 
-		impl $crate::TestExt for $name {
+		impl<$generic: $crate::Network> $crate::TestExt for $name<$generic> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
-				use $crate::{sp_tracing, NetworkComponent, Network, Chain, TestExternalities};
+				use $crate::{sp_tracing, Network, Chain, TestExternalities};
 
 				let mut ext = TestExternalities::new(storage);
 
@@ -450,7 +457,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 			}
 
 			fn new_ext() -> $crate::TestExternalities {
-				<$name>::build_new_ext($genesis)
+				<$name<$generic>>::build_new_ext($genesis)
 			}
 
 			fn move_ext_out(id: &'static str) {
@@ -501,13 +508,13 @@ macro_rules! __impl_test_ext_for_relay_chain {
 			}
 
 			fn reset_ext() {
-				$local_ext.with(|v| *v.borrow_mut() = <$name>::build_new_ext($genesis));
+				$local_ext.with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
 			}
 
 			fn execute_with<R>(execute: impl FnOnce() -> R) -> R {
-				use $crate::{Chain, NetworkComponent, Network};
+				use $crate::{Chain, Network};
 				// Make sure the Network is initialized
-				<$name as NetworkComponent>::Network::init();
+				$generic::init();
 
 				// Execute
 				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
@@ -518,7 +525,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 						use $crate::polkadot_primitives::runtime_api::runtime_decl_for_parachain_host::$api_version;
 
 						//TODO: mark sent count & filter out sent msg
-						for para_id in<$name as NetworkComponent>::Network::para_ids() {
+						for para_id in<$generic>::para_ids() {
 							// downward messages
 							let downward_messages = <Self as $crate::Chain>::Runtime::dmq_contents(para_id.into())
 								.into_iter()
@@ -526,7 +533,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 							if downward_messages.len() == 0 {
 								continue;
 							}
-							<$name>::send_downward_messages(para_id, downward_messages.into_iter());
+							<$generic>::send_downward_messages(para_id, downward_messages.into_iter());
 
 							// Note: no need to handle horizontal messages, as the
 							// simulator directly sends them to dest (not relayed).
@@ -542,7 +549,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					})
 				});
 
-				<$name as NetworkComponent>::Network::process_messages();
+				<$generic>::process_messages();
 
 				r
 			}
@@ -583,14 +590,15 @@ macro_rules! decl_test_parachains {
 	) => {
 		$(
 			#[derive(Clone)]
-			pub struct $name;
+			pub struct $name<N>($crate::PhantomData<N>);
 
-			impl $crate::Chain for $name {
+			impl<N: $crate::Network> $crate::Chain for $name<N> {
 				type Runtime = $runtime::Runtime;
 				type RuntimeCall = $runtime::RuntimeCall;
 				type RuntimeOrigin = $runtime::RuntimeOrigin;
 				type RuntimeEvent = $runtime::RuntimeEvent;
 				type System = $crate::SystemPallet::<Self::Runtime>;
+				type Network = N;
 
 				fn account_data_of(account: $crate::AccountIdOf<Self::Runtime>) -> $crate::AccountData<$crate::Balance> {
 					<Self as $crate::TestExt>::ext_wrapper(|| $crate::SystemPallet::<Self::Runtime>::account(account).data.into())
@@ -604,7 +612,7 @@ macro_rules! decl_test_parachains {
 				}
 			}
 
-			impl $crate::Parachain for $name {
+			impl<N: $crate::Network> $crate::Parachain for $name<N> {
 				type XcmpMessageHandler = $xcmp_message_handler;
 				type DmpMessageHandler = $dmp_message_handler;
 				type LocationToAccountId = $location_to_account;
@@ -614,7 +622,11 @@ macro_rules! decl_test_parachains {
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					// Initialize the thread local variable
+					$crate::paste::paste! {
+						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
+					}
 					// Set the last block head for later use in the next block
 					Self::set_last_head();
 					// Initialize a new block
@@ -624,21 +636,21 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
 
 					let para_id = Self::para_id().into();
 
 					Self::ext_wrapper(|| {
 						// Increase Relay Chain block number
-						let mut relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+						let mut relay_block_number = N::relay_block_number();
 						relay_block_number += 1;
-						<$name as NetworkComponent>::Network::set_relay_block_number(relay_block_number);
+						N::set_relay_block_number(relay_block_number);
 
 						// Initialize a new Parachain block
 						let mut block_number = <Self as Chain>::System::block_number();
 						block_number += 1;
 						let parent_head_data = $crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
+							.get_mut(N::name())
 							.expect("network not initialized?")
 							.get(&para_id)
 							.expect("network not initialized?")
@@ -649,13 +661,13 @@ macro_rules! decl_test_parachains {
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
-							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						);
 					});
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, NetworkComponent, Parachain, TestExt};
+					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
@@ -667,7 +679,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, NetworkComponent, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -675,7 +687,7 @@ macro_rules! decl_test_parachains {
 						// Store parent head data for use later.
 						let created_header = <Self as Chain>::System::finalize();
 						$crate::LAST_HEAD.with(|b| b.borrow_mut()
-							.get_mut(<Self as NetworkComponent>::Network::name())
+							.get_mut(N::name())
 							.expect("network not initialized?")
 							.insert(para_id, HeadData(created_header.encode()))
 						);
@@ -684,21 +696,21 @@ macro_rules! decl_test_parachains {
 			}
 
 			$crate::paste::paste! {
-				pub trait [<$name Pallet>] {
+				pub trait [<$name ParaPallet>] {
 					$(
 						type $pallet_name;
 					)*
 				}
 
-				impl [<$name Pallet>] for $name {
+				impl<N: $crate::Network> [<$name ParaPallet>] for $name<N> {
 					$(
 						type $pallet_name = $pallet_path;
 					)*
 				}
 			}
 
-			$crate::__impl_test_ext_for_parachain!($name, $genesis, $on_init);
-			$crate::__impl_check_assertion!($name);
+			$crate::__impl_test_ext_for_parachain!($name, N, $genesis, $on_init);
+			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
 }
@@ -706,16 +718,16 @@ macro_rules! decl_test_parachains {
 #[macro_export]
 macro_rules! __impl_test_ext_for_parachain {
 	// entry point: generate ext name
-	($name:ident, $genesis:expr, $on_init:expr) => {
+	($name:ident, $generic:ident, $genesis:expr, $on_init:expr) => {
 		$crate::paste::paste! {
-			$crate::__impl_test_ext_for_parachain!(@impl $name, $genesis, $on_init, [<LOCAL_EXT_ $name:upper>], [<GLOBAL_EXT_ $name:upper>]);
+			$crate::__impl_test_ext_for_parachain!(@impl $name, $generic, $genesis, $on_init, [<LOCAL_EXT_ $name:upper>], [<GLOBAL_EXT_ $name:upper>]);
 		}
 	};
 	// impl
-	(@impl $name:ident, $genesis:expr, $on_init:expr, $local_ext:ident, $global_ext:ident) => {
+	(@impl $name:ident, $generic:ident, $genesis:expr, $on_init:expr, $local_ext:ident, $global_ext:ident) => {
 		thread_local! {
 			pub static $local_ext: $crate::RefCell<$crate::TestExternalities>
-				= $crate::RefCell::new(<$name as $crate::TestExt>::build_new_ext($genesis));
+				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
 		$crate::lazy_static! {
@@ -723,7 +735,7 @@ macro_rules! __impl_test_ext_for_parachain {
 				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
 		}
 
-		impl $crate::TestExt for $name {
+		impl<$generic: $crate::Network> $crate::TestExt for $name<$generic> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
 				let mut ext = $crate::TestExternalities::new(storage);
 
@@ -740,7 +752,7 @@ macro_rules! __impl_test_ext_for_parachain {
 			}
 
 			fn new_ext() -> $crate::TestExternalities {
-				<$name>::build_new_ext($genesis)
+				<$name<$generic>>::build_new_ext($genesis)
 			}
 
 			fn move_ext_out(id: &'static str) {
@@ -791,14 +803,14 @@ macro_rules! __impl_test_ext_for_parachain {
 			}
 
 			fn reset_ext() {
-				$local_ext.with(|v| *v.borrow_mut() = <$name>::build_new_ext($genesis));
+				$local_ext.with(|v| *v.borrow_mut() = <$name<$generic>>::build_new_ext($genesis));
 			}
 
 			fn execute_with<R>(execute: impl FnOnce() -> R) -> R {
-				use $crate::{Chain, Get, Hooks, NetworkComponent, Network, Parachain, Encode};
+				use $crate::{Chain, Get, Hooks, Network, Parachain, Encode};
 
 				// Make sure the Network is initialized
-				<$name as NetworkComponent>::Network::init();
+				$generic::init();
 
 				// Initialize a new block
 				Self::new_block();
@@ -809,7 +821,7 @@ macro_rules! __impl_test_ext_for_parachain {
 				// Finalize the block
 				Self::finalize_block();
 
-				let para_id = <$name>::para_id().into();
+				let para_id = <$name<$generic>>::para_id().into();
 
 				// Send messages if needed
 				$local_ext.with(|v| {
@@ -825,28 +837,31 @@ macro_rules! __impl_test_ext_for_parachain {
 						let collation_info = <Self as Parachain>::ParachainSystem::collect_collation_info(&mock_header);
 
 						// send upward messages
-						let relay_block_number = <$name as NetworkComponent>::Network::relay_block_number();
+						let relay_block_number = <$generic>::relay_block_number();
 						for msg in collation_info.upward_messages.clone() {
-							<$name>::send_upward_message(para_id, msg);
+							<$generic>::send_upward_message(para_id, msg);
 						}
 
 						// send horizontal messages
 						for msg in collation_info.horizontal_messages {
-							<$name>::send_horizontal_messages(
+							<$generic>::send_horizontal_messages(
 								msg.recipient.into(),
 								vec![(para_id.into(), relay_block_number, msg.data)].into_iter(),
 							);
 						}
 
 						// get bridge messages
-						type NetworkBridge = <<$name as NetworkComponent>::Network as $crate::Network>::Bridge;
+						// type NetworkBridge<$generic> = <$name<$generic> as $crate::Network>::Bridge;
+						type NetworkBridge<$generic> = <$generic as $crate::Network>::Bridge;
 
-						let bridge_messages = <<NetworkBridge as $crate::Bridge>::Handler as $crate::BridgeMessageHandler>::get_source_outbound_messages();
+						let bridge_messages = <<NetworkBridge<$generic> as $crate::Bridge>::Handler as $crate::BridgeMessageHandler>::get_source_outbound_messages();
 
 						// send bridged messages
 						for msg in bridge_messages {
-							<$name>::send_bridged_messages(msg);
+							<$generic>::send_bridged_messages(msg);
 						}
+
+						$crate::log::debug!(target: concat!("events::", stringify!($name)), "Entraaaaaaaa");
 
 						// log events
 						<Self as $crate::Chain>::events().iter().for_each(|event| {
@@ -861,7 +876,7 @@ macro_rules! __impl_test_ext_for_parachain {
 				// provide inbound DMP/HRMP messages through a side-channel.
 				// normally this would come through the `set_validation_data`,
 				// but we go around that.
-				<$name as NetworkComponent>::Network::process_messages();
+				<$generic>::process_messages();
 
 				r
 			}
@@ -883,8 +898,8 @@ macro_rules! decl_test_networks {
 	(
 		$(
 			pub struct $name:ident {
-				relay_chain = $relay_chain:ty,
-				parachains = vec![ $( $parachain:ty, )* ],
+				relay_chain = $relay_chain:ident,
+				parachains = vec![ $( $parachain:ident, )* ],
 				bridge = $bridge:ty
 			}
 		),
@@ -892,10 +907,11 @@ macro_rules! decl_test_networks {
 		$(,)?
 	) => {
 		$(
+			#[derive(Clone)]
 			pub struct $name;
 
 			impl $crate::Network for $name {
-				type Relay = $relay_chain;
+				type Relay = $relay_chain<Self>;
 				type Bridge = $bridge;
 
 				fn name() -> &'static str {
@@ -913,8 +929,8 @@ macro_rules! decl_test_networks {
 					$crate::BRIDGED_MESSAGES.with(|b| b.borrow_mut().remove(Self::name()));
 					$crate::LAST_HEAD.with(|b| b.borrow_mut().remove(Self::name()));
 
-					<$relay_chain>::reset_ext();
-					$( <$parachain>::reset_ext(); )*
+					<$relay_chain<Self>>::reset_ext();
+					$( <$parachain<Self>>::reset_ext(); )*
 				}
 
 				fn init() {
@@ -929,13 +945,14 @@ macro_rules! decl_test_networks {
 						$crate::PARA_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), Self::para_ids()));
 						$crate::LAST_HEAD.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashMap::new()));
 
-						$( <$parachain as $crate::Parachain>::init(); )*
+						<$relay_chain<Self> as $crate::RelayChain>::init();
+						$( <$parachain<Self> as $crate::Parachain>::init(); )*
 					}
 				}
 
 				fn para_ids() -> Vec<u32> {
 					vec![$(
-						<$parachain as $crate::Parachain>::para_id().into(),
+						<$parachain<Self> as $crate::Parachain>::para_id().into(),
 					)*]
 				}
 
@@ -973,7 +990,7 @@ macro_rules! decl_test_networks {
 					while let Some((to_para_id, messages))
 						= $crate::DOWNWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						$(
-							let para_id: u32 = <$parachain>::para_id().into();
+							let para_id: u32 = <$parachain<Self>>::para_id().into();
 
 							if $crate::PARA_IDS.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().contains(&to_para_id)) && para_id == to_para_id {
 								let mut msg_dedup: Vec<(RelayChainBlockNumber, Vec<u8>)> = Vec::new();
@@ -986,8 +1003,8 @@ macro_rules! decl_test_networks {
 									!$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap_or(&mut $crate::VecDeque::new()).contains(&(to_para_id, m.0, m.1.clone())))
 								}).collect::<Vec<(RelayChainBlockNumber, Vec<u8>)>>();
 								if msgs.len() != 0 {
-									<$parachain>::ext_wrapper(|| {
-										<$parachain as Parachain>::DmpMessageHandler::handle_dmp_messages(msgs.clone().into_iter(), $crate::Weight::max_value());
+									<$parachain<Self>>::ext_wrapper(|| {
+										<$parachain<Self> as Parachain>::DmpMessageHandler::handle_dmp_messages(msgs.clone().into_iter(), $crate::Weight::max_value());
 									});
 									$crate::log::debug!(target: concat!("dmp::", stringify!($name)) , "DMP messages processed {:?} to para_id {:?}", msgs.clone(), &to_para_id);
 									for m in msgs {
@@ -1006,11 +1023,11 @@ macro_rules! decl_test_networks {
 						= $crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						let iter = messages.iter().map(|(p, b, m)| (*p, *b, &m[..])).collect::<Vec<_>>().into_iter();
 						$(
-							let para_id: u32 = <$parachain>::para_id().into();
+							let para_id: u32 = <$parachain<Self>>::para_id().into();
 
 							if $crate::PARA_IDS.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().contains(&to_para_id)) && para_id == to_para_id {
-								<$parachain>::ext_wrapper(|| {
-									<$parachain as Parachain>::XcmpMessageHandler::handle_xcmp_messages(iter.clone(), $crate::Weight::max_value());
+								<$parachain<Self>>::ext_wrapper(|| {
+									<$parachain<Self> as Parachain>::XcmpMessageHandler::handle_xcmp_messages(iter.clone(), $crate::Weight::max_value());
 								});
 								$crate::log::debug!(target: concat!("hrmp::", stringify!($name)) , "HRMP messages processed {:?} to para_id {:?}", &messages, &to_para_id);
 							}
@@ -1023,8 +1040,8 @@ macro_rules! decl_test_networks {
 
 					while let Some((from_para_id, msg)) = $crate::UPWARD_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
 						let mut weight_meter = $crate::WeightMeter::new();
-						<$relay_chain>::ext_wrapper(|| {
-							let _ =  <$relay_chain as $crate::RelayChain>::MessageProcessor::process_message(
+						<$relay_chain<Self>>::ext_wrapper(|| {
+							let _ =  <$relay_chain<Self> as $crate::RelayChain>::MessageProcessor::process_message(
 								&msg[..],
 								from_para_id.into(),
 								&mut weight_meter,
@@ -1107,13 +1124,13 @@ macro_rules! decl_test_networks {
 				}
 			}
 
-			impl $crate::NetworkComponent for $relay_chain {
-				type Network = $name;
+			$crate::paste::paste! {
+				pub type [<$relay_chain Relay>] = $relay_chain<$name>;
 			}
 
 			$(
-				impl $crate::NetworkComponent for $parachain {
-					type Network = $name;
+				$crate::paste::paste! {
+					pub type [<$parachain Para>] = $parachain<$name>;
 				}
 			)*
 		)+
@@ -1125,9 +1142,9 @@ macro_rules! decl_test_bridges {
 	(
 		$(
 			pub struct $name:ident {
-				source = $source:ty,
-				target = $target:ty,
-				handler = $handler:ty
+				source = $source:ident,
+				target = $target:ident,
+				handler = $handler:ident
 			}
 		),
 		+
@@ -1143,10 +1160,10 @@ macro_rules! decl_test_bridges {
 				type Handler = $handler;
 
 				fn init() {
-					use $crate::{NetworkComponent, Network};
+					use $crate::{Network, Parachain};
 					// Make sure source and target `Network` have been initialized
-					<$source as NetworkComponent>::Network::init();
-					<$target as NetworkComponent>::Network::init();
+					<$source as Chain>::Network::init();
+					<$target as Chain>::Network::init();
 				}
 			}
 		)+
@@ -1155,10 +1172,11 @@ macro_rules! decl_test_bridges {
 
 #[macro_export]
 macro_rules! __impl_check_assertion {
-	($chain:ident) => {
-		impl<Origin, Destination, Hops, Args>
-			$crate::CheckAssertion<Origin, Destination, Hops, Args> for $chain
+	($chain:ident, $generic:ident) => {
+		impl<$generic, Origin, Destination, Hops, Args>
+			$crate::CheckAssertion<Origin, Destination, Hops, Args> for $chain<$generic>
 		where
+			$generic: $crate::Network,
 			Origin: $crate::Chain + Clone,
 			Destination: $crate::Chain + Clone,
 			Origin::RuntimeOrigin:
@@ -1171,9 +1189,9 @@ macro_rules! __impl_check_assertion {
 			fn check_assertion(test: $crate::Test<Origin, Destination, Hops, Args>) {
 				use $crate::TestExt;
 
-				let chain_name = std::any::type_name::<$chain>();
+				let chain_name = std::any::type_name::<$chain<$generic>>();
 
-				<$chain>::execute_with(|| {
+				<$chain<$generic>>::execute_with(|| {
 					if let Some(dispatchable) = test.hops_dispatchable.get(chain_name) {
 						$crate::assert_ok!(dispatchable(test.clone()));
 					}
@@ -1191,6 +1209,7 @@ macro_rules! assert_expected_events {
 	( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
 		let mut message: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
+		$crate::log::debug!(target: concat!("events::", stringify!($chain)), "{:?}", events);
 
 		$(
 			let mut event_received = false;

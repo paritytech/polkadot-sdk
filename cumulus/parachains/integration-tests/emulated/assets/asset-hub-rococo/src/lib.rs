@@ -28,10 +28,13 @@ pub use integration_tests_common::{
 	},
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubRococo, AssetHubRococoPallet, AssetHubRococoReceiver, AssetHubRococoSender,
-	BridgeHubRococo, BridgeHubRococoReceiver, PenpalRococoA, PenpalRococoAPallet,
-	PenpalRococoAReceiver, PenpalRococoASender, PenpalRococoB, PenpalRococoBPallet, Rococo,
-	RococoPallet, RococoReceiver, RococoSender,
+	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaPallet as AssetHubRococoPallet,
+	AssetHubRococoParaReceiver as AssetHubRococoReceiver, AssetHubRococoParaSender as AssetHubRococoSender,
+	BridgeHubRococoPara as BridgeHubRococo, BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
+	PenpalRococoAPara as PenpalRococoA, PenpalRococoAParaPallet as PenpalRococoAPallet,
+	PenpalRococoAParaReceiver as PenpalRococoAReceiver, PenpalRococoAParaSender as PenpalRococoASender,
+	PenpalRococoBPara as PenpalRococoB, PenpalRococoBParaPallet as PenpalRococoBPallet, RococoRelay as Rococo,
+	RococoRelayPallet as RococoPallet, RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

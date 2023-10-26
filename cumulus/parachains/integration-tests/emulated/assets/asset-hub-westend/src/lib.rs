@@ -30,9 +30,12 @@ pub use integration_tests_common::{
 	},
 	test_parachain_is_trusted_teleporter,
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	AssetHubWestend, AssetHubWestendPallet, AssetHubWestendReceiver, AssetHubWestendSender,
-	PenpalWestendA, PenpalWestendAPallet, PenpalWestendAReceiver, PenpalWestendASender, Westend,
-	WestendPallet, WestendReceiver, WestendSender,
+	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaPallet as AssetHubWestendPallet,
+	AssetHubWestendParaReceiver as AssetHubWestendReceiver, AssetHubWestendParaSender as AssetHubWestendSender,
+	PenpalWestendAPara as PenpalWestendA, PenpalWestendAParaPallet as PenpalWestendAPallet,
+	PenpalWestendAParaReceiver as PenpalWestendAReceiver, PenpalWestendAParaSender as PenpalWestendASender,
+	WestendRelay as Westend, WestendRelayPallet as WestendPallet, WestendRelayReceiver as WestendReceiver,
+	WestendRelaySender as WestendSender,
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm::{

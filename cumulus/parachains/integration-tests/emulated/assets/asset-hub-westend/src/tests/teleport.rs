@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(dead_code)] // <https://github.com/paritytech/cumulus/issues/3027>
-
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;

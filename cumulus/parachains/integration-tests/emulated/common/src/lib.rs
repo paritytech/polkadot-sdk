@@ -35,7 +35,7 @@ pub use cumulus_pallet_xcmp_queue;
 pub use xcm_emulator::Chain;
 use xcm_emulator::{
 	decl_test_bridges, decl_test_networks, decl_test_parachains, decl_test_relay_chains,
-	decl_test_sender_receiver_accounts_parameter_types, DefaultMessageProcessor,
+	decl_test_sender_receiver_accounts_parameter_types,
 };
 
 // Polkadot
@@ -49,7 +49,6 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = westend_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Westend>,
 			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -66,7 +65,6 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Rococo>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -82,7 +80,6 @@ decl_test_relay_chains! {
 		on_init = (),
 		runtime = rococo_runtime,
 		core = {
-			MessageProcessor: DefaultMessageProcessor<Wococo>,
 			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
 		},
 		pallets = {
@@ -281,13 +278,13 @@ decl_test_networks! {
 
 decl_test_bridges! {
 	pub struct RococoWococoMockBridge {
-		source = BridgeHubRococo,
-		target = BridgeHubWococo,
+		source = BridgeHubRococoPara,
+		target = BridgeHubWococoPara,
 		handler = RococoWococoMessageHandler
 	},
 	pub struct WococoRococoMockBridge {
-		source = BridgeHubWococo,
-		target = BridgeHubRococo,
+		source = BridgeHubWococoPara,
+		target = BridgeHubRococoPara,
 		handler = WococoRococoMessageHandler
 	}
 }
@@ -331,18 +328,18 @@ impl_assert_events_helpers_for_parachain!(PenpalRococoB);
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	// Relays
-	Westend { sender: ALICE, receiver: BOB },
-	Rococo { sender: ALICE, receiver: BOB },
-	Wococo { sender: ALICE, receiver: BOB },
+	WestendRelay { sender: ALICE, receiver: BOB },
+	RococoRelay { sender: ALICE, receiver: BOB },
+	WococoRelay { sender: ALICE, receiver: BOB },
 	// Asset Hubs
-	AssetHubWestend { sender: ALICE, receiver: BOB },
-	AssetHubRococo { sender: ALICE, receiver: BOB },
-	AssetHubWococo { sender: ALICE, receiver: BOB },
+	AssetHubWestendPara { sender: ALICE, receiver: BOB },
+	AssetHubRococoPara { sender: ALICE, receiver: BOB },
+	AssetHubWococoPara { sender: ALICE, receiver: BOB },
 	// Bridged Hubs
-	BridgeHubRococo { sender: ALICE, receiver: BOB },
-	BridgeHubWococo { sender: ALICE, receiver: BOB },
+	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
+	BridgeHubWococoPara { sender: ALICE, receiver: BOB },
 	// Penpals
-	PenpalWestendA { sender: ALICE, receiver: BOB },
-	PenpalRococoA { sender: ALICE, receiver: BOB },
-	PenpalRococoB { sender: ALICE, receiver: BOB }
+	PenpalWestendAPara { sender: ALICE, receiver: BOB },
+	PenpalRococoAPara { sender: ALICE, receiver: BOB },
+	PenpalRococoBPara { sender: ALICE, receiver: BOB }
 }
