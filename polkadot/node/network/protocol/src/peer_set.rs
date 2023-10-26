@@ -164,8 +164,6 @@ impl PeerSet {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
-				} else if version == CollationVersion::VStaging.into() {
-					Some("collation/3")
 				} else {
 					None
 				},
@@ -241,8 +239,6 @@ pub enum CollationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
-	/// Same format as V2,
-	VStaging = 3,
 }
 
 /// Marker indicating the version is unknown.

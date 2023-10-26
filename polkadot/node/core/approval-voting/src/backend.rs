@@ -66,7 +66,7 @@ pub trait Backend {
 		I: IntoIterator<Item = BackendWriteOp>;
 }
 
-/// A read only backed to enable db migration from version 1 of DB.
+/// A read only backend to enable db migration from version 1 of DB.
 pub trait V1ReadBackend: Backend {
 	/// Load a candidate entry from the DB with scheme version 1.
 	fn load_candidate_entry_v1(

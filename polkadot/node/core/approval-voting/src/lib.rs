@@ -2373,7 +2373,7 @@ where
 
 		// Since we don't account for tranche in distribution message fingerprinting, some
 		// validators can be assigned to the same core (VRF modulo vs VRF delay). These can be
-		// safely ignored ignored. However, if an assignment is for multiple cores (these are only
+		// safely ignored. However, if an assignment is for multiple cores (these are only
 		// tranche0), we cannot ignore it, because it would mean ignoring other non duplicate
 		// assignments.
 		if is_duplicate {

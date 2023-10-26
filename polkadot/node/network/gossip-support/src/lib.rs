@@ -104,7 +104,7 @@ pub struct GossipSupport<AD> {
 	/// By `PeerId`.
 	///
 	/// Needed for efficient handling of disconnect events.
-	connected_authorities_by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
+	connected_peers: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	/// Authority discovery service.
 	authority_discovery: AD,
 
@@ -130,7 +130,7 @@ where
 			failure_start: None,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
-			connected_authorities_by_peer_id: HashMap::new(),
+			connected_peers: HashMap::new(),
 			authority_discovery,
 			metrics,
 		}
@@ -407,19 +407,42 @@ where
 			}
 		}
 
-		for (peer_id, auths) in authority_ids {
-			if self.connected_authorities_by_peer_id.get(&peer_id) != Some(&auths) {
+		// peer was authority and now isn't
+		for (peer_id, current) in self.connected_peers.iter_mut() {
+			// empty -> nonempty is handled in the next loop
+			if !current.is_empty() && !authority_ids.contains_key(peer_id) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id,
-						authority_ids: auths.clone(),
+						peer_id: *peer_id,
+						authority_ids: HashSet::new(),
 					})
 					.await;
 
-				auths.iter().for_each(|a| {
+				for a in current.drain() {
+					self.connected_authorities.remove(&a);
+				}
+			}
+		}
+
+		// peer has new authority set.
+		for (peer_id, new) in authority_ids {
+			// If the peer is connected _and_ the authority IDs have changed.
+			if let Some(prev) = self.connected_peers.get(&peer_id).filter(|x| x != &&new) {
+				sender
+					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+						peer_id,
+						authority_ids: new.clone(),
+					})
+					.await;
+
+				prev.iter().for_each(|a| {
+					self.connected_authorities.remove(a);
+				});
+				new.iter().for_each(|a| {
 					self.connected_authorities.insert(a.clone(), peer_id);
 				});
-				self.connected_authorities_by_peer_id.insert(peer_id, auths);
+
+				self.connected_peers.insert(peer_id, new);
 			}
 		}
 	}
@@ -431,12 +454,13 @@ where
 					authority_ids.iter().for_each(|a| {
 						self.connected_authorities.insert(a.clone(), peer_id);
 					});
-					self.connected_authorities_by_peer_id.insert(peer_id, authority_ids);
+					self.connected_peers.insert(peer_id, authority_ids);
+				} else {
+					self.connected_peers.insert(peer_id, HashSet::new());
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				if let Some(authority_ids) = self.connected_authorities_by_peer_id.remove(&peer_id)
-				{
+				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
 					authority_ids.into_iter().for_each(|a| {
 						self.connected_authorities.remove(&a);
 					});

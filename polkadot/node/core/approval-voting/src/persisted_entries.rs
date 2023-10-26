@@ -424,7 +424,7 @@ pub struct BlockEntry {
 	// A list of candidates that has been approved, but we didn't not sign and
 	// advertise the vote yet.
 	candidates_pending_signature: BTreeMap<CandidateIndex, CandidateSigningContext>,
-	// A list of assignments for which wea already distributed the assignment.
+	// A list of assignments for which we already distributed the assignment.
 	// We use this to ensure we don't distribute multiple core assignments twice as we track
 	// individual wakeups for each core.
 	distributed_assignments: Bitfield,

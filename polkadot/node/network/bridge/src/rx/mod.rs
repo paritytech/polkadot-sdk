@@ -66,9 +66,8 @@ use super::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_collation_message_vstaging,
-	send_validation_message_v1, send_validation_message_v2, send_validation_message_vstaging,
-	Network,
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -320,15 +319,6 @@ where
 								),
 								&metrics,
 							),
-							CollationVersion::VStaging => send_collation_message_vstaging(
-								&mut network_service,
-								vec![peer],
-								&peerset_protocol_names,
-								WireMessage::<protocol_vstaging::CollationProtocol>::ViewUpdate(
-									local_view,
-								),
-								&metrics,
-							),
 						}
 					},
 				}
@@ -542,16 +532,6 @@ where
 						Some(CollationVersion::V2.into())
 					{
 						handle_peer_messages::<protocol_v2::CollationProtocol, _>(
-							remote,
-							PeerSet::Collation,
-							&mut shared.0.lock().collation_peers,
-							c_messages,
-							&metrics,
-						)
-					} else if expected_versions[PeerSet::Collation] ==
-						Some(CollationVersion::VStaging.into())
-					{
-						handle_peer_messages::<protocol_vstaging::CollationProtocol, _>(
 							remote,
 							PeerSet::Collation,
 							&mut shared.0.lock().collation_peers,
@@ -858,8 +838,6 @@ fn update_our_view<Net, Context>(
 
 	let vstaging_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::VStaging.into());
-	let vstaging_collation_peers =
-		filter_by_peer_version(&collation_peers, CollationVersion::VStaging.into());
 
 	send_validation_message_v1(
 		net,
@@ -901,13 +879,6 @@ fn update_our_view<Net, Context>(
 		metrics,
 	);
 
-	send_collation_message_vstaging(
-		net,
-		vstaging_collation_peers,
-		peerset_protocol_names,
-		WireMessage::ViewUpdate(new_view.clone()),
-		metrics,
-	);
 	let our_view = OurView::new(
 		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
 		finalized_number,

@@ -145,26 +145,6 @@ pub(crate) fn send_collation_message_v2(
 	);
 }
 
-// Helper function to send a collation vstaging message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_collation_message_vstaging(
-	net: &mut impl Network,
-	peers: Vec<PeerId>,
-	peerset_protocol_names: &PeerSetProtocolNames,
-	message: WireMessage<protocol_vstaging::CollationProtocol>,
-	metrics: &Metrics,
-) {
-	send_message(
-		net,
-		peers,
-		PeerSet::Collation,
-		CollationVersion::VStaging.into(),
-		peerset_protocol_names,
-		message,
-		metrics,
-	);
-}
-
 /// Lower level function that sends a message to the network using the main protocol version.
 ///
 /// This function is only used internally by the network-bridge, which is responsible to only send
