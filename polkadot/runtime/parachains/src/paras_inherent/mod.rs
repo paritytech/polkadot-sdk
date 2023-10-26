@@ -1091,8 +1091,8 @@ fn filter_backed_statements<T: Config>(
 		) {
 			Some(group_idx) => group_idx,
 			None => {
-						log::debug!(target: LOG_TARGET, "Can't fetch group index for core idx {:?}. Dropping the candidate.", core_idx);
-						return false
+				log::debug!(target: LOG_TARGET, "Can't fetch group index for core idx {:?}. Dropping the candidate.", core_idx);
+				return false
 			},
 		};
 
@@ -1100,7 +1100,6 @@ fn filter_backed_statements<T: Config>(
 		let validator_group = match <scheduler::Pallet<T>>::group_validators(group_idx) {
 			Some(validator_group) => validator_group,
 			None => {
-				// TODO: this should be an assert?
 				log::debug!(target: LOG_TARGET, "Can't get the validators from group {:?}. Dropping the candidate.", group_idx);
 				return false
 			}
@@ -1118,34 +1117,36 @@ fn filter_backed_statements<T: Config>(
 			})
 			.collect::<Vec<_>>();
 
-		{
-			// `validity_votes` should match `validator_indices`
-			let mut idx = 0;
-			bc.validity_votes.retain(|_| {
-				let voted_validator_index = match voted_validator_ids.get(idx) {
-					Some(validator_index) => validator_index,
-					None => {
-						log::debug!(target: LOG_TARGET, "Can't find the voted validator index {:?} in the validator group. Dropping the vote.", group_idx);
-						idx += 1;
-						return false
-					}
-				};
+		let validity_votes = std::mem::take(&mut bc.validity_votes);
+		let (validity_votes, dropped) : (Vec<(usize, ValidityAttestation)>, Vec<(usize, ValidityAttestation)>) =  validity_votes.into_iter().enumerate().partition(|(idx, _)| {
+			let voted_validator_index = match voted_validator_ids.get(*idx) {
+				Some(validator_index) => validator_index,
+				None => {
+					log::debug!(target: LOG_TARGET, "Can't find the voted validator index {:?} in the validator group. Dropping the vote.", group_idx);
+					return false
+				}
+			};
 
-				// If we are removing a validity vote - modify `validator_indices` too
-				let res = if disabled_validators.contains(voted_validator_index) {
-					bc.validator_indices.set(idx, false);
-					filtered = true;
-					false // drop the validity vote
-				} else {
-					true // keep the validity vote
-				};
-				idx += 1;
-				res
-			});
+			!disabled_validators.contains(voted_validator_index)
+		});
+
+		if !dropped.is_empty() {
+			filtered = true;
 		}
 
-		// Remove the candidate if all entries are filtered out
-		!bc.validity_votes.is_empty()
+		if validity_votes.is_empty() {
+			//everything is filtered out - remove the whole candidate
+			return false
+		}
+
+		bc.validity_votes = validity_votes.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+
+		// let removed_indecies = dropped.into_iter().map(|(idx, _)| idx).collect::<Vec<_>>();
+		for idx in dropped.into_iter().map(|(idx, _)| idx) {
+			bc.validator_indices.set(idx, false);
+		}
+
+		true
 	});
 
 	if !filtered {
