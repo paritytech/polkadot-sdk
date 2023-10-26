@@ -683,6 +683,7 @@ mod asset_hub_rococo_tests {
 			bridging_to_asset_hub_wococo,
 			WeightLimit::Unlimited,
 			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+			Some(xcm_config::TreasuryAccount::get().unwrap()),
 		)
 	}
 
@@ -717,29 +718,11 @@ mod asset_hub_rococo_tests {
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
 			LocationToAccountId,
 			ToWococoXcmRouterInstance,
 		>(
 			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
 			bridging_to_asset_hub_wococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
 				sp_std::vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -922,29 +905,11 @@ mod asset_hub_wococo_tests {
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
-			ParachainSystem,
-			XcmpQueue,
 			LocationToAccountId,
 			ToRococoXcmRouterInstance,
 		>(
 			collator_session_keys(),
-			ExistentialDeposit::get(),
-			AccountId::from(ALICE),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
 			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			WeightLimit::Unlimited,
-			Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 			|| {
 				sp_std::vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
