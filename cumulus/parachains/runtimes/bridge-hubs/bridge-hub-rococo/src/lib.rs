@@ -572,15 +572,17 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		// Bridge pallets at Rococo
+		// Bridge pallets
 		[pallet_bridge_grandpa, WococoFinality]
-		[pallet_bridge_parachains, WithinWococo]
-		[pallet_bridge_messages, RococoToWococo]
-		// Bridge pallets at Wococo
+		[pallet_bridge_grandpa, WestendFinality]
 		[pallet_bridge_grandpa, RococoFinality]
+		[pallet_bridge_parachains, WithinWococo]
+		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_parachains, WithinRococo]
+		[pallet_bridge_messages, RococoToWococo]
+		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, WococoToRococo]
-		// Bridge relayer pallets
+		[pallet_bridge_messages, WestendToRococo]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
 }
@@ -927,11 +929,15 @@ impl_runtime_apis! {
 			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 			// Change weight file names.
 			type WococoFinality = BridgeWococoGrandpa;
+			type WestendFinality = BridgeWestendGrandpa;
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
 			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance>;
 			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
+			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1067,11 +1073,15 @@ impl_runtime_apis! {
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
 			type WococoFinality = BridgeWococoGrandpa;
+			type WestendFinality = BridgeWestendGrandpa;
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinWococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWococoInstance>;
+			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainRococoInstance>;
 			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance>;
 			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
+			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -1127,6 +1137,49 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl BridgeMessagesConfig<bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						bp_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							bp_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_hub_rococo_config::FromWestendBridgeHubMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					prepare_message_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaWestendInstance,
+						bridge_hub_rococo_config::WithBridgeHubWestendMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_hub_rococo_config::ToWestendBridgeHubMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaWestendInstance,
+						bridge_hub_rococo_config::WithBridgeHubWestendMessageBridge,
+					>(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
 			impl BridgeMessagesConfig<bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
@@ -1170,6 +1223,49 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl BridgeMessagesConfig<bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
+					let bridged_chain_id = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
+					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
+						relayer,
+						bp_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							bp_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_hub_westend_config::FromRococoBridgeHubMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					prepare_message_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoInstance,
+						bridge_hub_westend_config::WithBridgeHubRococoMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Westend), Parachain(42))))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_hub_westend_config::ToRococoBridgeHubMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_parachain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoInstance,
+						bridge_hub_westend_config::WithBridgeHubRococoMessageBridge,
+					>(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
 			use bridge_runtime_common::parachains_benchmarking::prepare_parachain_heads_proof;
 			use pallet_bridge_parachains::benchmarking::Config as BridgeParachainsConfig;
 			use pallet_bridge_relayers::benchmarking::{
@@ -1194,6 +1290,30 @@ impl_runtime_apis! {
 					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
 				) {
 					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainWococoInstance>(
+						parachains,
+						parachain_head_size,
+						proof_size,
+					)
+				}
+			}
+
+			impl BridgeParachainsConfig<bridge_common_config::BridgeParachainWestendInstance> for Runtime {
+				fn parachains() -> Vec<bp_polkadot_core::parachains::ParaId> {
+					use bp_runtime::Parachain;
+					vec![bp_polkadot_core::parachains::ParaId(bp_bridge_hub_westend::BridgeHubWestend::PARACHAIN_ID)]
+				}
+
+				fn prepare_parachain_heads_proof(
+					parachains: &[bp_polkadot_core::parachains::ParaId],
+					parachain_head_size: u32,
+					proof_size: bp_runtime::StorageProofSize,
+				) -> (
+					pallet_bridge_parachains::RelayBlockNumber,
+					pallet_bridge_parachains::RelayBlockHash,
+					bp_polkadot_core::parachains::ParaHeadsProof,
+					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
+				) {
+					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainWestendInstance>(
 						parachains,
 						parachain_head_size,
 						proof_size,

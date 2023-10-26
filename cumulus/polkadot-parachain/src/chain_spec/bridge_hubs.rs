@@ -311,6 +311,10 @@ pub mod rococo {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
+			bridge_westend_grandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpaConfig {
+				owner: bridges_pallet_owner.clone(),
+				..Default::default()
+			},
 			bridge_rococo_grandpa: bridge_hub_rococo_runtime::BridgeRococoGrandpaConfig {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
@@ -322,6 +326,16 @@ pub mod rococo {
 				},
 			bridge_rococo_to_wococo_messages:
 				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+					owner: bridges_pallet_owner.clone(),
+					..Default::default()
+				},
+			bridge_rococo_to_westend_messages:
+				bridge_hub_rococo_runtime::BridgeRococoToWestendMessagesConfig {
+					owner: bridges_pallet_owner.clone(),
+					..Default::default()
+				},
+			bridge_westend_to_rococo_messages:
+				bridge_hub_rococo_runtime::BridgeWestendToRococoMessagesConfig {
 					owner: bridges_pallet_owner,
 					..Default::default()
 				},

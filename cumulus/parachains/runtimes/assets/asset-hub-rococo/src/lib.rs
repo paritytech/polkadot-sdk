@@ -897,7 +897,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 /// consensus with dynamic fees and back-pressure.
 pub type ToWestendXcmRouterInstance = pallet_assets::Instance3;
 impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtime {
-	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_wococo::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_westend::WeightInfo<Runtime>;
 
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_westend::WestendNetwork;
@@ -1038,6 +1038,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWococo]
+		[pallet_xcm_bridge_hub_router, ToWestend]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		// XCM
 		[pallet_xcm, PolkadotXcm]
@@ -1295,6 +1296,7 @@ impl_runtime_apis! {
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			type ToWococo = XcmBridgeHubRouterBench<Runtime, ToWococoXcmRouterInstance>;
+			type ToWestend = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
 			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
@@ -1341,6 +1343,19 @@ impl_runtime_apis! {
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 					xcm_config::bridging::to_wococo::AssetHubWococo::get()
+				}
+			}
+			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_westend::AssetHubWestend::get()
 				}
 			}
 			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
@@ -1493,6 +1508,7 @@ impl_runtime_apis! {
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			type ToWococo = XcmBridgeHubRouterBench<Runtime, ToWococoXcmRouterInstance>;
+			type ToWestend = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
 			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 
 			let whitelist: Vec<TrackedStorageKey> = vec![

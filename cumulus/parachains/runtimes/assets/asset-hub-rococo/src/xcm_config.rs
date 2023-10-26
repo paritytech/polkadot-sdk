@@ -1014,15 +1014,17 @@ pub mod bridging {
 	impl BridgingBenchmarksHelper {
 		pub fn prepare_universal_alias() -> Option<(MultiLocation, Junction)> {
 			let alias =
-				to_wococo::UniversalAliases::get().into_iter().find_map(|(location, junction)| {
-					match to_wococo::SiblingBridgeHubWithBridgeHubWococoInstance::get()
-						.eq(&location)
-					{
-						true => Some((location, junction)),
-						false => None,
-					}
-				});
-			assert!(alias.is_some(), "we expect here BridgeHubRococo to Polkadot mapping at least");
+				to_westend::UniversalAliases::get()
+					.into_iter()
+					.find_map(|(location, junction)| {
+						match to_westend::SiblingBridgeHubWithBridgeHubWestendInstance::get()
+							.eq(&location)
+						{
+							true => Some((location, junction)),
+							false => None,
+						}
+					});
+			assert!(alias.is_some(), "we expect here BridgeHubRococo to Westend mapping at least");
 			Some(alias.unwrap())
 		}
 	}

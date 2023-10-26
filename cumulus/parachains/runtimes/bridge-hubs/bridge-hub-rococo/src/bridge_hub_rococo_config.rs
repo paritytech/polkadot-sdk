@@ -113,6 +113,13 @@ pub type FromWococoBridgeHubMessagesProof =
 pub type ToWococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_wococo::Hash>;
 
+/// Proof of messages, coming from Westend.
+pub type FromWestendBridgeHubMessagesProof =
+	FromBridgedChainMessagesProof<bp_bridge_hub_westend::Hash>;
+/// Messages delivery proof for Rococo Bridge Hub -> Westend Bridge Hub messages.
+pub type ToWestendBridgeHubMessagesDeliveryProof =
+	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
+
 /// Dispatches received XCM messages from other bridge
 type FromWococoMessageBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,

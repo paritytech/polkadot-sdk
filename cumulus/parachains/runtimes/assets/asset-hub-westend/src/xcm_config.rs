@@ -812,4 +812,24 @@ pub mod bridging {
 		}
 	}
 
+	/// Benchmarks helper for bridging configuration.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub struct BridgingBenchmarksHelper;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BridgingBenchmarksHelper {
+		pub fn prepare_universal_alias() -> Option<(MultiLocation, Junction)> {
+			let alias =
+				to_rococo::UniversalAliases::get().into_iter().find_map(|(location, junction)| {
+					match to_rococo::SiblingBridgeHubWithBridgeHubRococoInstance::get()
+						.eq(&location)
+					{
+						true => Some((location, junction)),
+						false => None,
+					}
+				});
+			assert!(alias.is_some(), "we expect here BridgeHubWestend to Rococo mapping at least");
+			Some(alias.unwrap())
+		}
+	}
 }
