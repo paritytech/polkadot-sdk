@@ -20,12 +20,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use sp_core::crypto::{key_types, CryptoTypeId, KeyTypeId};
+pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
-#[cfg(feature = "full_crypto")]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-pub use sp_core::crypto::{DeriveJunction, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
@@ -114,6 +111,7 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
+		$crate::app_crypto_pair_not_full_crypto!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
 
@@ -161,6 +159,72 @@ macro_rules! app_crypto_pair {
 				pubkey: &Self::Public,
 			) -> bool {
 				<$pair>::verify(&sig.0, message, pubkey.as_ref())
+			}
+			fn public(&self) -> Self::Public {
+				Public(self.0.public())
+			}
+			fn to_raw_vec(&self) -> $crate::Vec<u8> {
+				self.0.to_raw_vec()
+			}
+		}
+
+		impl $crate::AppCrypto for Pair {
+			type Public = Public;
+			type Pair = Pair;
+			type Signature = Signature;
+			const ID: $crate::KeyTypeId = $key_type;
+			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
+		}
+
+		impl $crate::AppPair for Pair {
+			type Generic = $pair;
+		}
+
+		impl Pair {
+			/// Convert into wrapped generic key pair type.
+			pub fn into_inner(self) -> $pair {
+				self.0
+			}
+		}
+	};
+}
+
+/// Declares `Pair` type which is functionally equivalent to `$pair`, but is
+/// new application-specific type whose identifier is `$key_type`.
+/// Can only be used without `full_crypto` feature.
+/// `verify` and `sign` methods are not implemented.
+#[macro_export]
+macro_rules! app_crypto_pair_not_full_crypto {
+	($pair:ty, $key_type:expr, $crypto_type:expr) => {
+		$crate::wrap! {
+			/// A generic `AppPublic` wrapper type over $pair crypto; this has no specific App.
+			#[derive(Clone)]
+			pub struct Pair($pair);
+		}
+
+		impl $crate::CryptoType for Pair {
+			type Pair = Pair;
+		}
+
+		impl $crate::Pair for Pair {
+			type Public = Public;
+			type Seed = <$pair as $crate::Pair>::Seed;
+			type Signature = Signature;
+
+			$crate::app_crypto_pair_functions_if_std!($pair);
+
+			fn derive<Iter: Iterator<Item = $crate::DeriveJunction>>(
+				&self,
+				path: Iter,
+				seed: Option<Self::Seed>,
+			) -> Result<(Self, Option<Self::Seed>), $crate::DeriveError> {
+				self.0.derive(path, seed).map(|x| (Self(x.0), x.1))
+			}
+			fn from_seed(seed: &Self::Seed) -> Self {
+				Self(<$pair>::from_seed(seed))
+			}
+			fn from_seed_slice(seed: &[u8]) -> Result<Self, $crate::SecretStringError> {
+				<$pair>::from_seed_slice(seed).map(Self)
 			}
 			fn public(&self) -> Self::Public {
 				Public(self.0.public())
@@ -265,7 +329,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
 			#[derive(
-				Clone, Eq, PartialEq, Ord, PartialOrd,
+				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::RuntimeDebug,
@@ -275,10 +339,13 @@ macro_rules! app_crypto_public_not_full_crypto {
 			pub struct Public($public);
 		}
 
-		impl $crate::CryptoType for Public {}
+		impl $crate::CryptoType for Public {
+			type Pair = Pair;
+		}
 
 		impl $crate::AppCrypto for Public {
 			type Public = Public;
+			type Pair = Pair;
 			type Signature = Signature;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
@@ -447,13 +514,17 @@ macro_rules! app_crypto_signature_not_full_crypto {
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
+			#[derive(Hash)]
 			pub struct Signature($sig);
 		}
 
-		impl $crate::CryptoType for Signature {}
+		impl $crate::CryptoType for Signature {
+			type Pair = Pair;
+		}
 
 		impl $crate::AppCrypto for Signature {
 			type Public = Public;
+			type Pair = Pair;
 			type Signature = Signature;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;

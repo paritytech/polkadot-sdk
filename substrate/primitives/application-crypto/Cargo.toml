@@ -22,6 +22,9 @@ serde = { version = "1.0.188", default-features = false, optional = true, featur
 sp-std = { path = "../std", default-features = false}
 sp-io = { path = "../io", default-features = false}
 
+#todo: remove this:
+sp-runtime-interface = { path = "../runtime-interface", default-features = false, optional = true }
+
 [features]
 default = [ "std" ]
 std = [
@@ -33,6 +36,9 @@ std = [
 	"sp-io/std",
 	"sp-std/std",
 ]
+
+#todo: remove this:
+compile = [ "sp-io/disable_panic_handler", "sp-runtime-interface/disable_target_static_assertions" ]
 
 # Serde support without relying on std features.
 serde = [ "dep:serde", "scale-info/serde", "sp-core/serde" ]
