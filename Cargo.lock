@@ -9395,6 +9395,7 @@ dependencies = [
 name = "pallet-collator-selection"
 version = "3.0.0"
 dependencies = [
+ "cumulus-pallet-session-benchmarking",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -17284,6 +17285,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-state-machine",
  "sp-std",
  "sp-tracing",
