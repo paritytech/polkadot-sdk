@@ -17,89 +17,10 @@ chain_spec_command = "polkadot build-spec --chain rococo-local --disable-default
 limits = { memory = "4G", cpu = "2" }
 requests = { memory = "2G", cpu = "1" }
 
-  [[relaychain.nodes]]
+  [[relaychain.node_groups]]
   name = "alice"
-  args = [ "--alice", "-lparachain=trace,runtime=debug" ]
-
-  [[relaychain.nodes]]
-  name = "bob"
-  args = [ "--bob", "-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "charlie"
-  args = [ "--charlie", "-lparachain=debug,runtime=debug" ]
-
-  [[relaychain.nodes]]
-  name = "dave"
-  args = [ "--dave", "-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "ferdie"
-  args = [ "--ferdie", "-lparachain=debug,runtime=debug" ]
-
-  [[relaychain.nodes]]
-  name = "eve"
-  args = [ "--eve", "-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "one"
-  args = [ "--one", "-lparachain=debug,runtime=debug" ]
-
-  [[relaychain.nodes]]
-  name = "two"
-  args = [ "--two", "-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "nine"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "eleven"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "twelve"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "thirteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "fourteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "fifteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "sixteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "seventeen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "eithteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "nineteen"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "twenty"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "twentyone"
-  args = ["-lparachain=debug,runtime=debug"]
-
-  [[relaychain.nodes]]
-  name = "twentytwo"
-  args = ["-lparachain=debug,runtime=debug"]
+  args = [ "-lparachain=trace,runtime=debug" ]
+  count = 21
 
 [[parachains]]
 id = 2000
