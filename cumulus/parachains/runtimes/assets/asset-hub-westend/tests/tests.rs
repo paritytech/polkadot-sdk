@@ -677,6 +677,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		Some(xcm_config::TreasuryAccount::get().unwrap()),
 	)
 }
 #[test]
@@ -709,29 +710,11 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,
-		ParachainSystem,
-		XcmpQueue,
 		LocationToAccountId,
 		ToRococoXcmRouterInstance,
 	>(
 		collator_session_keys(),
-		ExistentialDeposit::get(),
-		AccountId::from(ALICE),
-		Box::new(|runtime_event_encoded: Vec<u8>| {
-			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-				_ => None,
-			}
-		}),
-		Box::new(|runtime_event_encoded: Vec<u8>| {
-			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-				_ => None,
-			}
-		}),
 		bridging_to_asset_hub_rococo,
-		WeightLimit::Unlimited,
-		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
 		|| {
 			sp_std::vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
