@@ -191,7 +191,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 					},
 					DepositAsset {
 						assets: Wild(AllCounted(1)),
-						beneficiary: target_destination_account.clone(),
+						beneficiary: target_destination_account,
 					},
 					SetTopic([
 						220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112,
@@ -204,7 +204,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 				// Call `SendXcm::validate` to get delivery fees.
 				let (_, delivery_fees): (_, MultiAssets) = XcmConfig::XcmSender::validate(
-					&mut Some(target_location_from_different_consensus.clone()),
+					&mut Some(target_location_from_different_consensus),
 					&mut Some(expected_reserve_asset_deposited_message),
 				)
 				.expect("validate passes");
