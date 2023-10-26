@@ -158,7 +158,10 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 						error_count
 					);
 
-					return Err("Detected errors while executing try_state checks. See logs for more info.".into())
+					return Err(
+						"Detected errors while executing try_state checks. See logs for more info."
+							.into(),
+					)
 				}
 
 				Ok(())
