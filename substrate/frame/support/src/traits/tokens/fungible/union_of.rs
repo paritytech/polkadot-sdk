@@ -31,12 +31,13 @@ use sp_runtime::{
 	traits::Convert,
 	DispatchError, DispatchResult, Either,
 	Either::{Left, Right},
+	RuntimeDebug,
 };
 use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Debug)]
+#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,
@@ -407,10 +408,10 @@ impl<
 		precision: Precision,
 	) -> Result<Self::Balance, DispatchError> {
 		match Criterion::convert(asset) {
-			Left(()) => <Left as fungible::UnbalancedHold<AccountId>>::decrease_balance_on_hold(
+			Left(()) => <Left as fungible::UnbalancedHold<AccountId>>::increase_balance_on_hold(
 				reason, who, amount, precision,
 			),
-			Right(a) => <Right as fungibles::UnbalancedHold<AccountId>>::decrease_balance_on_hold(
+			Right(a) => <Right as fungibles::UnbalancedHold<AccountId>>::increase_balance_on_hold(
 				a, reason, who, amount, precision,
 			),
 		}

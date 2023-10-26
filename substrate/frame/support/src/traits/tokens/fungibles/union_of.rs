@@ -355,10 +355,10 @@ impl<
 		precision: Precision,
 	) -> Result<Self::Balance, DispatchError> {
 		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::UnbalancedHold<AccountId>>::decrease_balance_on_hold(
+			Left(a) => <Left as fungibles::UnbalancedHold<AccountId>>::increase_balance_on_hold(
 				a, reason, who, amount, precision,
 			),
-			Right(a) => <Right as fungibles::UnbalancedHold<AccountId>>::decrease_balance_on_hold(
+			Right(a) => <Right as fungibles::UnbalancedHold<AccountId>>::increase_balance_on_hold(
 				a, reason, who, amount, precision,
 			),
 		}
