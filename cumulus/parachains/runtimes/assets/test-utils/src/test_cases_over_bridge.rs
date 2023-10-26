@@ -182,6 +182,14 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				weight_limit,
 			));
 
+			// check pallet_xcm attempted
+			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
+				&unwrap_pallet_xcm_event,
+				|outcome| {
+					assert_ok!(outcome.ensure_complete());
+				},
+			);
+
 			// check alice account decreased by balance_to_transfer
 			// TODO:check-parameter: change and assert in tests when (https://github.com/paritytech/polkadot-sdk/pull/1234) merged
 			assert_eq!(
@@ -194,15 +202,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&reserve_account),
 				existential_deposit + balance_to_transfer.into()
-			);
-
-			// check events
-			// check pallet_xcm attempted
-			RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::assert_pallet_xcm_event_outcome(
-				&unwrap_pallet_xcm_event,
-				|outcome| {
-					assert_ok!(outcome.ensure_complete());
-				},
 			);
 
 			// check that xcm was sent
