@@ -16,6 +16,8 @@
 
 //! Various traits used in configuring the executor.
 
+mod controller;
+pub use controller::*;
 mod conversion;
 pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
@@ -36,7 +38,9 @@ pub use token_matching::{
 	Error, MatchesFungible, MatchesFungibles, MatchesNonFungible, MatchesNonFungibles,
 };
 mod on_response;
-pub use on_response::{OnResponse, QueryHandler, QueryResponseStatus, VersionChangeNotifier};
+pub use on_response::{
+	OnResponse, QueryHandler, QueryHandlerWeightInfo, QueryResponseStatus, VersionChangeNotifier,
+};
 mod should_execute;
 pub use should_execute::{CheckSuspension, Properties, ShouldExecute};
 mod transact_asset;

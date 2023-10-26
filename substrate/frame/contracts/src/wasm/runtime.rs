@@ -2679,22 +2679,24 @@ pub mod env {
 		msg_ptr: u32,
 		msg_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use crate::xcm::{CallOf, WeightInfo, Xcm};
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
+		use xcm_executor::traits::{Controller, ControllerWeightInfo};
+		type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 
-		let execute_weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::execute();
+		let execute_weight = <<E::T as Config>::Xcm as Controller<_, _>>::WeightInfo::execute();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
 		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ext| {
-			<<E::T as Config>::Xcm as Xcm<E::T>>::execute(
-				ext.address(),
-				message,
+			let origin = crate::RawOrigin::Signed(ext.address().clone()).into();
+			<<E::T as Config>::Xcm>::execute(
+				origin,
+				message.into(),
 				weight.saturating_sub(execute_weight),
 			)
 		})
@@ -2723,18 +2725,19 @@ pub mod env {
 		call_ptr: u32,
 		call_len: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use crate::xcm::{WeightInfo, Xcm};
 		use xcm::{VersionedMultiLocation, VersionedXcm};
+		use xcm_executor::traits::{Controller, ControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
 
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		let weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::send();
+		let weight = <<E::T as Config>::Xcm as Controller<_, _>>::WeightInfo::send();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
 
-		match <<E::T as Config>::Xcm as Xcm<E::T>>::send(ctx.ext.address(), dest, message) {
+		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
 			Ok(_) => Ok(ReturnCode::Success),
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
@@ -2766,19 +2769,19 @@ pub mod env {
 		match_querier_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use crate::xcm::{WeightInfo, Xcm};
 		use frame_system::pallet_prelude::BlockNumberFor;
 		use xcm::VersionedMultiLocation;
+		use xcm_executor::traits::{QueryController, QueryControllerWeightInfo};
 
 		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
 		let match_querier: VersionedMultiLocation =
 			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
 
-		let weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::query();
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
 
-		match <<E::T as Config>::Xcm as Xcm<E::T>>::query(ctx.ext.address(), timeout, match_querier)
-		{
+		match <<E::T as Config>::Xcm>::query(origin, timeout, match_querier) {
 			Ok(query_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
 				Ok(ReturnCode::Success)
@@ -2811,16 +2814,17 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use crate::xcm::{WeightInfo, Xcm};
+		use xcm_executor::traits::QueryHandler;
 
-		let query_id: <<E::T as Config>::Xcm as Xcm<E::T>>::QueryId =
+		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
 
-		let weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::take_response();
+		// let weight = <<E::T as Config>::Xcm as Xcm<E::T>>::WeightInfo::take_response();
+		let weight = Weight::zero(); // TODO
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
-		//
-		let response = <<E::T as Config>::Xcm as Xcm<E::T>>::take_response(query_id);
-		ctx.write_sandbox_memory(memory, output_ptr, &response.encode())?;
+
+		let response = <<E::T as Config>::Xcm>::take_response(query_id).encode();
+		ctx.write_sandbox_memory(memory, output_ptr, &response)?;
 		Ok(ReturnCode::Success)
 	}
 

@@ -28,9 +28,17 @@ mod tests;
 pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::traits::{
-	Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency, OriginTrait,
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	pallet_prelude::*,
+	traits::{
+		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
+		OriginTrait, WithdrawReasons,
+	},
+	PalletId,
 };
+use frame_system::pallet_prelude::{BlockNumberFor, *};
+pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
@@ -41,17 +49,12 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
-use xcm_executor::traits::{ConvertOrigin, Properties};
-
-use frame_support::{
-	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
-};
-use frame_system::pallet_prelude::*;
-pub use pallet::*;
 use xcm_executor::{
 	traits::{
-		CheckSuspension, ClaimAssets, ConvertLocation, DropAssets, MatchesFungible, OnResponse,
-		QueryHandler, QueryResponseStatus, VersionChangeNotifier, WeightBounds,
+		CheckSuspension, ClaimAssets, Controller, ControllerWeightInfo, ConvertLocation,
+		ConvertOrigin, DropAssets, MatchesFungible, OnResponse, Properties, QueryController,
+		QueryControllerWeightInfo, QueryHandler, QueryHandlerWeightInfo, QueryResponseStatus,
+		VersionChangeNotifier, WeightBounds,
 	},
 	Assets,
 };
@@ -280,6 +283,86 @@ pub mod pallet {
 		/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
 		#[cfg(feature = "runtime-benchmarks")]
 		type ReachableDest: Get<Option<MultiLocation>>;
+	}
+
+	impl<T: Config> ControllerWeightInfo for Pallet<T> {
+		fn execute() -> Weight {
+			T::WeightInfo::execute()
+		}
+
+		fn send() -> Weight {
+			T::WeightInfo::send()
+		}
+	}
+
+	impl<T: Config> Controller<OriginFor<T>, <T as Config>::RuntimeCall> for Pallet<T> {
+		type WeightInfo = Self;
+		fn execute(
+			origin: OriginFor<T>,
+			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
+			max_weight: Weight,
+		) -> DispatchResultWithPostInfo {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let value = (origin_location, message);
+			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+			let (origin_location, message) = value;
+			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+				origin_location,
+				message,
+				hash,
+				max_weight,
+				max_weight,
+			);
+			let result =
+				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
+			Self::deposit_event(Event::Attempted { outcome });
+			result
+		}
+
+		fn send(
+			origin: OriginFor<T>,
+			dest: Box<VersionedMultiLocation>,
+			message: Box<VersionedXcm<()>>,
+		) -> DispatchResult {
+			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
+			let interior: Junctions =
+				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
+			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
+			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+
+			let message_id =
+				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
+			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
+			Self::deposit_event(e);
+			Ok(())
+		}
+	}
+
+	impl<T: Config> QueryControllerWeightInfo for Pallet<T> {
+		fn query() -> Weight {
+			T::WeightInfo::new_query()
+		}
+	}
+
+	impl<T: Config> QueryController<OriginFor<T>, BlockNumberFor<T>> for Pallet<T> {
+		type WeightInfo = Self;
+		fn query(
+			origin: OriginFor<T>,
+			timeout: BlockNumberFor<T>,
+			match_querier: VersionedMultiLocation,
+		) -> Result<Self::QueryId, DispatchError> {
+			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let query_id = <Self as QueryHandler>::new_query(
+				responder,
+				timeout.into(),
+				MultiLocation::try_from(match_querier)
+					.map_err(|_| Into::<DispatchError>::into(Error::<T>::BadVersion))?,
+			);
+
+			Ok(query_id)
+		}
 	}
 
 	#[pallet::event]
@@ -786,17 +869,7 @@ pub mod pallet {
 			dest: Box<VersionedMultiLocation>,
 			message: Box<VersionedXcm<()>>,
 		) -> DispatchResult {
-			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			let interior: Junctions =
-				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
-			let dest = MultiLocation::try_from(*dest).map_err(|()| Error::<T>::BadVersion)?;
-			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-
-			let message_id =
-				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
-			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
-			Self::deposit_event(e);
-			Ok(())
+			<Self as Controller<_, _>>::send(origin, dest, message)
 		}
 
 		/// Teleport some assets from the local chain to some destination chain.
@@ -919,23 +992,7 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let hash = message.using_encoded(sp_io::hashing::blake2_256);
-			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let value = (origin_location, message);
-			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::execute_xcm_in_credit(
-				origin_location,
-				message,
-				hash,
-				max_weight,
-				max_weight,
-			);
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			<Self as Controller<_, _>>::execute(origin, message, max_weight)
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1148,11 +1205,18 @@ pub mod pallet {
 /// The maximum number of distinct assets allowed to be transferred in a single helper extrinsic.
 const MAX_ASSETS_FOR_TRANSFER: usize = 2;
 
+impl<T: Config> QueryHandlerWeightInfo for Pallet<T> {
+	fn take_response() -> Weight {
+		T::WeightInfo::take_response()
+	}
+}
+
 impl<T: Config> QueryHandler for Pallet<T> {
 	type QueryId = u64;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
+	type WeightInfo = Self;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(

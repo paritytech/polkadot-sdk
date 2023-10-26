@@ -118,6 +118,10 @@ pub enum QueryResponseStatus<BlockNumber> {
 	UnexpectedVersion,
 }
 
+pub trait QueryHandlerWeightInfo {
+	fn take_response() -> Weight;
+}
+
 /// Provides methods to expect responses from XCMs and query their status.
 pub trait QueryHandler {
 	type QueryId: From<u64>
@@ -129,9 +133,10 @@ pub trait QueryHandler {
 		+ PartialEq
 		+ Debug
 		+ Copy;
-	type BlockNumber: Zero;
+	type BlockNumber: Zero + Encode;
 	type Error;
 	type UniversalLocation: Get<InteriorMultiLocation>;
+	type WeightInfo: QueryHandlerWeightInfo;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(

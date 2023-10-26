@@ -99,7 +99,6 @@ pub mod chain_extension;
 pub mod debug;
 pub mod migration;
 pub mod weights;
-pub mod xcm;
 
 #[cfg(test)]
 mod tests;
@@ -110,7 +109,6 @@ use crate::{
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
-	xcm::Xcm,
 };
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
@@ -408,9 +406,11 @@ pub mod pallet {
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
-		///
-		/// Use [`xcm::XcmAdapter`] to enable or `()` to disable.
-		type Xcm: Xcm<Self>;
+		type Xcm: xcm_executor::traits::QueryHandler
+			+ xcm_executor::traits::Controller<
+				OriginFor<Self>,
+				<Self as frame_system::Config>::RuntimeCall,
+			> + xcm_executor::traits::QueryController<OriginFor<Self>, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::hooks]

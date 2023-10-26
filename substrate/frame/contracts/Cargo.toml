@@ -50,7 +50,6 @@ sp-std = { path = "../../primitives/std", default-features = false}
 
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
-pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false}
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -60,6 +59,7 @@ pretty_assertions = "1"
 wat = "1"
 
 # Polkadot Dependencies
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false}
 xcm-simulator = {path = "../../../polkadot/xcm/xcm-simulator"}
 xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
 polkadot-runtime-parachains = {path = "../../../polkadot/runtime/parachains"}
