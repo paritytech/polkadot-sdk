@@ -8,7 +8,6 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME root testing pallet"
 readme = "README.md"
-publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
