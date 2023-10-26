@@ -31,8 +31,6 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common", def
 sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-# Needed for migration test helpers
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
 rand_core = "0.5.1"
 
 [dev-dependencies]

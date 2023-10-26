@@ -21,9 +21,8 @@ use polkadot_node_primitives::approval::v1::{
 	AssignmentCert, AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,
 };
 use polkadot_node_subsystem_util::database::Database;
+use sp_application_crypto::sp_core::H256;
 use std::{collections::HashSet, sync::Arc};
-
-use ::test_helpers::dummy_candidate_receipt;
 
 fn dummy_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
 	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
@@ -145,10 +144,14 @@ pub fn v1_to_v2_sanity_check(
 }
 
 // Fills the db with dummy data in v1 scheme.
-pub fn v1_to_v2_fill_test_data(
+pub fn v1_to_v2_fill_test_data<F>(
 	db: Arc<dyn Database>,
 	config: Config,
-) -> Result<HashSet<CandidateHash>> {
+	dummy_candidate_create: F,
+) -> Result<HashSet<CandidateHash>>
+where
+	F: Fn(H256) -> CandidateReceipt<H256>,
+{
 	let mut backend = crate::DbBackend::new(db.clone(), config);
 	let mut overlay_db = crate::OverlayedBackend::new(&backend);
 	let mut expected_candidates = HashSet::new();
@@ -161,7 +164,7 @@ pub fn v1_to_v2_fill_test_data(
 	for relay_number in 1..=RELAY_BLOCK_COUNT {
 		let relay_hash = Hash::repeat_byte(relay_number as u8);
 		let assignment_core_index = CoreIndex(relay_number);
-		let candidate = dummy_candidate_receipt(relay_hash);
+		let candidate = dummy_candidate_create(relay_hash);
 		let candidate_hash = candidate.hash();
 
 		let at_height = vec![relay_hash];

@@ -442,6 +442,7 @@ mod tests {
 		*,
 	};
 	use polkadot_node_core_approval_voting::approval_db::v2::migration_helpers::v1_to_v2_fill_test_data;
+	use test_helpers::dummy_candidate_receipt;
 
 	#[test]
 	fn test_paritydb_migrate_0_to_1() {
@@ -599,7 +600,8 @@ mod tests {
 			assert_eq!(db.num_columns(), super::columns::v3::NUM_COLUMNS as u32);
 			let db = DbAdapter::new(db, columns::v3::ORDERED_COL);
 			// Fill the approval voting column with test data.
-			v1_to_v2_fill_test_data(std::sync::Arc::new(db), approval_cfg).unwrap()
+			v1_to_v2_fill_test_data(std::sync::Arc::new(db), approval_cfg, dummy_candidate_receipt)
+				.unwrap()
 		};
 
 		try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 4).unwrap();
