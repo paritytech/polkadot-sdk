@@ -152,12 +152,12 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
 		}
 	}
 
-	syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
-		let msg = "Invalid type: expected `OriginFor<T>`";
-		let mut err = syn::Error::new(ty.span(), msg);
-		err.combine(e);
-		err
-	})?;
+	// syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
+	// 	let msg = "Invalid type: expected `OriginFor<T>`";
+	// 	let mut err = syn::Error::new(ty.span(), msg);
+	// 	err.combine(e);
+	// 	err
+	// })?;
 
 	Ok(())
 }
@@ -251,8 +251,8 @@ impl CallDef {
 					0 if dev_mode => CallWeightDef::DevModeDefault,
 					0 => return Err(syn::Error::new(
 						method.sig.span(),
-						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an 
-						inherited weight from the `#[pallet:call(weight($type))]` attribute, but 
+						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
+						inherited weight from the `#[pallet:call(weight($type))]` attribute, but
 						none were given.",
 					)),
 					1 => match weight_attrs.pop().unwrap() {

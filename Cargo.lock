@@ -4277,38 +4277,23 @@ dependencies = [
 
 [[package]]
 name = "developer-hub"
-version = "1.0.0"
+version = "0.0.1"
 dependencies = [
- "chain-spec-builder",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "docify",
  "frame",
- "kitchensink-runtime",
- "node-cli",
  "pallet-aura",
  "pallet-default-config-example",
  "pallet-timestamp",
  "parachain-info",
  "parity-scale-codec",
- "sc-cli",
- "sc-client-db",
- "sc-consensus-aura",
- "sc-consensus-babe",
- "sc-consensus-beefy",
- "sc-consensus-grandpa",
- "sc-consensus-manual-seal",
- "sc-consensus-pow",
- "sc-network",
- "sc-rpc",
- "sc-rpc-api",
  "scale-info",
  "simple-mermaid",
  "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "subkey",
  "substrate-wasm-builder",
 ]
 
@@ -5464,6 +5449,7 @@ version = "4.0.0-dev"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
+ "docify",
  "frame-support",
  "log",
  "parity-scale-codec",

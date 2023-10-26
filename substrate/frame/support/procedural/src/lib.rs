@@ -1142,6 +1142,12 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+/// TODO: document
+#[proc_macro_attribute]
+pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// Allows you to define some extra constants to be added into constant metadata.
 ///
 /// Item must be defined as:

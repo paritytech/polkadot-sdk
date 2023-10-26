@@ -29,15 +29,19 @@
 //!
 //! ## Pallets
 //!
-//! A pallet is analogous to a _module_ in the runtime, which can itself be composed of multiple
-//! components, most notable of which are:
+//! A pallet is a unit of encapsulated logic. It has a clearly defined responsibility and can be
+//! linked to other pallets. Each pallet should try to only care about its own responsibilities and
+//! make as few assumptions about the general runtime as possible. A pallet is analogous to a
+//! _module_ in the runtime.
+//!
+//! Pallets themselves are composed of *parts/components*, most notable of which are:
 //!
 //! - Storage
 //! - Dispatchables
 //! - Events
 //! - Errors
 //!
-//! TODO: link to dispatch and state ref doc, if any.
+//! TODO: "dispatchables" need to be defined.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
 //! [`frame::deps::frame_support::pallet_macros`]
@@ -66,7 +70,7 @@
 
 #[cfg(test)]
 mod tests {
-	use frame::{prelude::*, testing_prelude::*};
+	use frame::prelude::*;
 
 	#[docify::export]
 	#[frame::pallet(dev_mode)]

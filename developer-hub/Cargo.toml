@@ -8,34 +8,35 @@ authors.workspace = true
 edition.workspace = true
 # This crate is not publish-able to crates.io for now because of docify.
 publish = false
-version = "1.0.0"
-
-[package.metadata.docs.rs]
-rustdoc-args = [
-    "--html-in-header",
-    ".cargo/registry/src/github.com-1ecc6299db9ec823/katex-doc-0.1.0/katex.html",
-]
+version = "0.0.1"
 
 [dependencies]
+# Needed for all FRAME-based code
+parity-scale-codec = { version = "3.0.0", default-features = false }
+scale-info = { version = "2.6.0", default-features = false }
+frame = { path = "../substrate/frame" }
+
+# How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
 docify = "0.2.4"
 
-node-cli = { path = "../substrate/bin/node/cli" }
-kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
-chain-spec-builder = { path = "../substrate/bin/utils/chain-spec-builder" }
-subkey = { path = "../substrate/bin/utils/subkey" }
+# Polkadot SDK docs, typically all should only be scope such that we can link to their doc item.
+# node-cli = { path = "../substrate/bin/node/cli" }
+# kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
+# chain-spec-builder = { path = "../substrate/bin/utils/chain-spec-builder" }
+# subkey = { path = "../substrate/bin/utils/subkey" }
 
-sc-network = { path = "../substrate/client/network" }
-sc-rpc-api = { path = "../substrate/client/rpc-api" }
-sc-rpc = { path = "../substrate/client/rpc" }
-sc-client-db = { path = "../substrate/client/db" }
-sc-cli = { path = "../substrate/client/cli" }
-sc-consensus-aura = { path = "../substrate/client/consensus/aura" }
-sc-consensus-babe = { path = "../substrate/client/consensus/babe" }
-sc-consensus-grandpa = { path = "../substrate/client/consensus/grandpa" }
-sc-consensus-beefy = { path = "../substrate/client/consensus/beefy" }
-sc-consensus-manual-seal = { path = "../substrate/client/consensus/manual-seal" }
-sc-consensus-pow = { path = "../substrate/client/consensus/pow" }
+# sc-network = { path = "../substrate/client/network" }
+# sc-rpc-api = { path = "../substrate/client/rpc-api" }
+# sc-rpc = { path = "../substrate/client/rpc" }
+# sc-client-db = { path = "../substrate/client/db" }
+# sc-cli = { path = "../substrate/client/cli" }
+# sc-consensus-aura = { path = "../substrate/client/consensus/aura" }
+# sc-consensus-babe = { path = "../substrate/client/consensus/babe" }
+# sc-consensus-grandpa = { path = "../substrate/client/consensus/grandpa" }
+# sc-consensus-beefy = { path = "../substrate/client/consensus/beefy" }
+# sc-consensus-manual-seal = { path = "../substrate/client/consensus/manual-seal" }
+# sc-consensus-pow = { path = "../substrate/client/consensus/pow" }
 
 sp-io = { path = "../substrate/primitives/io" }
 sp-api = { path = "../substrate/primitives/api" }
@@ -44,7 +45,6 @@ sp-runtime = { path = "../substrate/primitives/runtime" }
 
 substrate-wasm-builder = { path = "../substrate/utils/wasm-builder" }
 
-frame = { path = "../substrate/frame" }
 pallet-default-config-example = { path = "../substrate/frame/examples/default-config" }
 
 [dev-dependencies]
