@@ -1130,16 +1130,17 @@ fn filter_backed_statements<T: Config>(
 						return false
 					}
 				};
-				idx += 1;
-
-				filtered = disabled_validators.contains(voted_validator_index);
 
 				// If we are removing a validity vote - modify `validator_indices` too
-				if filtered {
+				let res = if disabled_validators.contains(voted_validator_index) {
 					bc.validator_indices.set(idx, false);
-				}
-
-				!filtered
+					filtered = true;
+					false // drop the validity vote
+				} else {
+					true // keep the validity vote
+				};
+				idx += 1;
+				res
 			});
 		}
 
