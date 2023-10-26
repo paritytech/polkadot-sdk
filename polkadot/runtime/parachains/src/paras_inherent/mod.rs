@@ -1041,10 +1041,15 @@ fn filter_backed_statements<T: Config>(
 ) -> Result<bool, DispatchErrorWithPostInfo> {
 	let disabled_validators = shared::Pallet::<T>::disabled_validators();
 
+	if disabled_validators.len() == 0 {
+		// No disabled validators - nothing to do
+		return Ok(false)
+	}
+
 	// `BackedCandidate` contains `validator_indices` which are indecies within the validator group.
 	// To obtain `ValidatorIndex` from them we do the following steps:
 	// 1. Get `para_id` from `CandidateDescriptor`
-	// 2. Get the `core_idx`` for the corresponding `para_id`
+	// 2. Get the `core_idx` for the corresponding `para_id`
 	// 3. Get the validator group assigned to the corresponding core idx
 
 	// Map `para_id` to `core_idx` for step 2 from the above list
@@ -1056,6 +1061,7 @@ fn filter_backed_statements<T: Config>(
 	let mut filtered = false;
 
 	// Process all backed candidates.
+	let backed_len_before = backed_candidates.len();
 	backed_candidates.retain_mut(|bc| {
 		// Get `core_idx` assigned to the `para_id` of the candidate (step 2)
 		let core_idx = match para_id_to_core_idx.get(&bc.descriptor().para_id) {
@@ -1140,6 +1146,10 @@ fn filter_backed_statements<T: Config>(
 		// Remove the candidate if all entries are filtered out
 		!bc.validity_votes.is_empty()
 	});
+
+	if !filtered {
+		filtered = backed_len_before > backed_candidates.len();
+	}
 
 	Ok(filtered)
 }
