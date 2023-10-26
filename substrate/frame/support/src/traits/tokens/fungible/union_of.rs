@@ -34,7 +34,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 
-/// The `NativeOrWithId` enum classifies an asset as either `Native`` to the current chain or as an
+/// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
 #[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Debug)]
 pub enum NativeOrWithId<AssetId>
@@ -95,7 +95,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// - `Left` is `fungible::*` implementation that is incorporated into the resulting union.
 /// - `Right` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Criterion` determines whether the `AssetKind` belongs to the `Left` or `Right` set.
-/// - `AssetKind` is a superset type encompassing asset kinds from `Left`` and `Right` sets.
+/// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
 	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
