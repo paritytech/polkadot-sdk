@@ -2630,10 +2630,10 @@ impl_runtime_apis! {
 
 		fn system_attribute(
 			collection: u32,
-			item: u32,
+			item: Option<u32>,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::system_attribute(&collection, &item, &key)
+			<Nfts as Inspect<AccountId>>::system_attribute(&collection, item.as_ref(), &key)
 		}
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
