@@ -414,6 +414,7 @@
 <a href="#414" id="414">414</a>
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -824,8 +825,9 @@
 		<span class="kw">let </span>timestamp_slot = moment / slot_duration;
 		<span class="kw">let </span>timestamp_slot = Slot::from(timestamp_slot.saturated_into::&lt;u64&gt;());
 
-		<span class="macro">assert!</span>(
-			CurrentSlot::&lt;T&gt;::get() == timestamp_slot,
+		<span class="macro">assert_eq!</span>(
+			CurrentSlot::&lt;T&gt;::get(),
+			timestamp_slot,
 			<span class="string">&quot;Timestamp slot must match `CurrentSlot`&quot;
 		</span>);
 	}

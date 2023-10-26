@@ -383,6 +383,9 @@
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -601,7 +604,10 @@
 <span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Moment = u64;
 	<span class="kw">type </span>OnTimestampSet = Aura;
-	<span class="kw">type </span>MinimumPeriod = ConstU64&lt;<span class="number">0</span>&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;<span class="number">0</span>&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;experimental&quot;</span>))]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ parachains_common::SLOT_DURATION / <span class="number">2 </span>}&gt;;
 	<span class="kw">type </span>WeightInfo = ();
 }
 
