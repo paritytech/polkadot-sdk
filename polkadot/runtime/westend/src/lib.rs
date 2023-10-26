@@ -1275,7 +1275,7 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 28 * DAYS;
-	pub const EarliestRefundPeriod: BlockNumber = 0 * DAYS;
+	pub const EarliestRefundPeriod: BlockNumber = 1 * DAYS;
 }
 
 impl slots::Config for Runtime {
@@ -1551,6 +1551,7 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
+		slots::migration::versioned::ToV1<Runtime>,
 	);
 }
 

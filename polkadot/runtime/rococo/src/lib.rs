@@ -1019,7 +1019,7 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub LeasePeriod: BlockNumber = prod_or_fast!(1 * DAYS, 1 * DAYS, "ROC_LEASE_PERIOD");
-	pub EarliestRefundPeriod: BlockNumber = prod_or_fast!(0 * DAYS, 0 * DAYS, "ROC_EARLY_REFUND_PERIOD");
+	pub EarliestRefundPeriod: BlockNumber = prod_or_fast!(6 * HOURS, 6 * HOURS, "ROC_EARLY_REFUND_PERIOD");
 }
 
 impl slots::Config for Runtime {
@@ -1470,6 +1470,7 @@ pub mod migrations {
 		paras_registrar::migration::VersionCheckedMigrateToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+		slots::migration::versioned::ToV1<Runtime>,
 
 		// Unlock & unreserve Gov1 funds
 
