@@ -444,7 +444,7 @@ impl<T: frame_system::Config> pallet_alliance::WeightInfo for WeightInfo<T> {
 	/// Proof: `Alliance::UnscrupulousWebsites` (`max_values`: Some(1), `max_size`: Some(25702), added: 26197, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 100]`.
 	/// The range of component `l` is `[0, 255]`.
-	fn add_scrupulous_items(n: u32, l: u32, ) -> Weight {
+	fn add_unscrupulous_items(n: u32, l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `27187`
