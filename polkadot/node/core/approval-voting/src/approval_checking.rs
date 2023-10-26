@@ -25,6 +25,15 @@ use crate::{
 	time::Tick,
 };
 
+/// Result of counting the necessary tranches needed for approving a block.
+#[derive(Debug, PartialEq, Clone)]
+pub struct TranchesToApproveResult {
+	/// The required tranches for approving this block
+	pub required_tranches: RequiredTranches,
+	/// The total number of no_shows at the moment we are doing the counting.
+	pub total_observed_no_shows: usize,
+}
+
 /// The required tranches of assignments needed to determine whether a candidate is approved.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RequiredTranches {
@@ -178,6 +187,7 @@ struct State {
 	next_no_show: Option<Tick>,
 	/// The last tick at which a considered assignment was received.
 	last_assignment_tick: Option<Tick>,
+	total_observed_no_shows: usize,
 }
 
 impl State {
@@ -187,41 +197,53 @@ impl State {
 		needed_approvals: usize,
 		n_validators: usize,
 		no_show_duration: Tick,
-	) -> RequiredTranches {
+	) -> TranchesToApproveResult {
 		let covering = if self.depth == 0 { 0 } else { self.covering };
 		if self.depth != 0 && self.assignments + covering + self.uncovered >= n_validators {
-			return RequiredTranches::All
+			return TranchesToApproveResult {
+				required_tranches: RequiredTranches::All,
+				total_observed_no_shows: self.total_observed_no_shows,
+			}
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
 		// of tranches that we need to have.
 		if self.assignments >= needed_approvals && (covering + self.uncovered) == 0 {
-			return RequiredTranches::Exact {
-				needed: tranche,
-				tolerated_missing: self.covered,
-				next_no_show: self.next_no_show,
-				last_assignment_tick: self.last_assignment_tick,
+			return TranchesToApproveResult {
+				required_tranches: RequiredTranches::Exact {
+					needed: tranche,
+					tolerated_missing: self.covered,
+					next_no_show: self.next_no_show,
+					last_assignment_tick: self.last_assignment_tick,
+				},
+				total_observed_no_shows: self.total_observed_no_shows,
 			}
 		}
 
 		// We're pending more assignments and should look at more tranches.
 		let clock_drift = self.clock_drift(no_show_duration);
 		if self.depth == 0 {
-			RequiredTranches::Pending {
-				considered: tranche,
-				next_no_show: self.next_no_show,
-				// during the initial assignment-gathering phase, we want to accept assignments
-				// from any tranche. Note that honest validators will still not broadcast their
-				// assignment until it is time to do so, regardless of this value.
-				maximum_broadcast: DelayTranche::max_value(),
-				clock_drift,
+			TranchesToApproveResult {
+				required_tranches: RequiredTranches::Pending {
+					considered: tranche,
+					next_no_show: self.next_no_show,
+					// during the initial assignment-gathering phase, we want to accept assignments
+					// from any tranche. Note that honest validators will still not broadcast their
+					// assignment until it is time to do so, regardless of this value.
+					maximum_broadcast: DelayTranche::max_value(),
+					clock_drift,
+				},
+				total_observed_no_shows: self.total_observed_no_shows,
 			}
 		} else {
-			RequiredTranches::Pending {
-				considered: tranche,
-				next_no_show: self.next_no_show,
-				maximum_broadcast: tranche + (covering + self.uncovered) as DelayTranche,
-				clock_drift,
+			TranchesToApproveResult {
+				required_tranches: RequiredTranches::Pending {
+					considered: tranche,
+					next_no_show: self.next_no_show,
+					maximum_broadcast: tranche + (covering + self.uncovered) as DelayTranche,
+					clock_drift,
+				},
+				total_observed_no_shows: self.total_observed_no_shows,
 			}
 		}
 	}
@@ -276,6 +298,7 @@ impl State {
 			uncovered,
 			next_no_show,
 			last_assignment_tick,
+			total_observed_no_shows: self.total_observed_no_shows + new_no_shows,
 		}
 	}
 }
@@ -372,22 +395,20 @@ pub fn tranches_to_approve(
 	block_tick: Tick,
 	no_show_duration: Tick,
 	needed_approvals: usize,
-) -> (RequiredTranches, usize) {
+) -> TranchesToApproveResult {
 	let tick_now = tranche_now as Tick + block_tick;
 	let n_validators = approval_entry.n_validators();
 
-	let initial_state = (
-		State {
-			assignments: 0,
-			depth: 0,
-			covered: 0,
-			covering: needed_approvals,
-			uncovered: 0,
-			next_no_show: None,
-			last_assignment_tick: None,
-		},
-		0usize,
-	);
+	let initial_state = State {
+		assignments: 0,
+		depth: 0,
+		covered: 0,
+		covering: needed_approvals,
+		uncovered: 0,
+		next_no_show: None,
+		last_assignment_tick: None,
+		total_observed_no_shows: 0,
+	};
 
 	// The `ApprovalEntry` doesn't have any data for empty tranches. We still want to iterate over
 	// these empty tranches, so we create an iterator to fill the gaps.
@@ -398,7 +419,7 @@ pub fn tranches_to_approve(
 	tranches_with_gaps_filled
 		.scan(Some(initial_state), |state, (tranche, assignments)| {
 			// The `Option` here is used for early exit.
-			let (s, prev_no_shows) = state.take()?;
+			let s = state.take()?;
 
 			let clock_drift = s.clock_drift(no_show_duration);
 			let drifted_tick_now = tick_now.saturating_sub(clock_drift);
@@ -437,7 +458,7 @@ pub fn tranches_to_approve(
 			let s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick);
 			let output = s.output(tranche, needed_approvals, n_validators, no_show_duration);
 
-			*state = match output {
+			*state = match output.required_tranches {
 				RequiredTranches::Exact { .. } | RequiredTranches::All => {
 					// Wipe the state clean so the next iteration of this closure will terminate
 					// the iterator. This guarantees that we can call `last` further down to see
@@ -447,11 +468,11 @@ pub fn tranches_to_approve(
 				RequiredTranches::Pending { .. } => {
 					// Pending results are only interesting when they are the last result of the iterator
 					// i.e. we never achieve a satisfactory level of assignment.
-					Some((s, no_shows + prev_no_shows))
+					Some(s)
 				}
 			};
 
-			Some((output, no_shows + prev_no_shows))
+			Some(output)
 		})
 		.last()
 		.expect("the underlying iterator is infinite, starts at 0, and never exits early before tranche 1; qed")
@@ -685,7 +706,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: 1,
 				tolerated_missing: 0,
@@ -726,7 +747,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: Some(block_tick + no_show_duration),
@@ -771,7 +792,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 11,
 				next_no_show: None,
@@ -820,7 +841,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 1,
 				next_no_show: None,
@@ -840,7 +861,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 1,
 				next_no_show: None,
@@ -894,7 +915,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: 1,
 				tolerated_missing: 0,
@@ -914,7 +935,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: 2,
 				tolerated_missing: 1,
@@ -934,7 +955,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: None,
@@ -988,7 +1009,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: 2,
 				tolerated_missing: 1,
@@ -1011,7 +1032,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: None,
@@ -1033,7 +1054,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: 3,
 				tolerated_missing: 2,
@@ -1091,7 +1112,7 @@ mod tests {
 				no_show_duration,
 				needed_approvals,
 			)
-			.0,
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: 10,
 				next_no_show: None,
@@ -1368,10 +1389,11 @@ mod tests {
 			uncovered: 0,
 			next_no_show: None,
 			last_assignment_tick: None,
+			total_observed_no_shows: 0,
 		};
 
 		assert_eq!(
-			state.output(0, 10, 10, 20),
+			state.output(0, 10, 10, 20).required_tranches,
 			RequiredTranches::Pending {
 				considered: 0,
 				next_no_show: None,
@@ -1391,10 +1413,11 @@ mod tests {
 			uncovered: 0,
 			next_no_show: None,
 			last_assignment_tick: None,
+			total_observed_no_shows: 0,
 		};
 
 		assert_eq!(
-			state.output(0, 10, 10, 20),
+			state.output(0, 10, 10, 20).required_tranches,
 			RequiredTranches::Exact {
 				needed: 0,
 				tolerated_missing: 0,

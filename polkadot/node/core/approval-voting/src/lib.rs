@@ -99,7 +99,7 @@ mod persisted_entries;
 mod time;
 
 use crate::{
-	approval_checking::Check,
+	approval_checking::{Check, TranchesToApproveResult},
 	approval_db::v2::{Config as DatabaseConfig, DbBackend},
 	backend::{Backend, OverlayedBackend},
 	criteria::InvalidAssignmentReason,
@@ -839,17 +839,22 @@ impl State {
 		);
 
 		if let Some(approval_entry) = candidate_entry.approval_entry(&block_hash) {
-			let (required_tranches, last_no_shows) = approval_checking::tranches_to_approve(
-				approval_entry,
-				candidate_entry.approvals(),
-				tranche_now,
-				block_tick,
-				no_show_duration,
-				session_info.needed_approvals as _,
-			);
+			let TranchesToApproveResult { required_tranches, total_observed_no_shows } =
+				approval_checking::tranches_to_approve(
+					approval_entry,
+					candidate_entry.approvals(),
+					tranche_now,
+					block_tick,
+					no_show_duration,
+					session_info.needed_approvals as _,
+				);
 
-			let status =
-				ApprovalStatus { required_tranches, block_tick, tranche_now, last_no_shows };
+			let status = ApprovalStatus {
+				required_tranches,
+				block_tick,
+				tranche_now,
+				last_no_shows: total_observed_no_shows,
+			};
 
 			Some((approval_entry, status))
 		} else {
@@ -887,9 +892,18 @@ impl State {
 						.map(|cache| cache.insert(block_hash, params));
 					params
 				},
-				_ => {
+				Ok(Err(err)) => {
 					gum::error!(
 						target: LOG_TARGET,
+						?err,
+						"Could not request approval voting params from runtime using defaults"
+					);
+					ApprovalVotingParams { max_approval_coalesce_count: 1 }
+				},
+				Err(err) => {
+					gum::error!(
+						target: LOG_TARGET,
+						?err,
 						"Could not request approval voting params from runtime using defaults"
 					);
 					ApprovalVotingParams { max_approval_coalesce_count: 1 }
@@ -1764,13 +1778,34 @@ async fn get_approval_signatures_for_candidate<Context>(
 				let votes = votes
 					.into_iter()
 					.map(|(validator_index, (hash, signed_candidates_indices, signature))| {
-						let candidates_hashes =
-							candidate_indices_to_candidate_hashes.get(&hash).expect("Can't fail because it is the same hash we sent to approval-distribution; qed");
+						let candidates_hashes = candidate_indices_to_candidate_hashes.get(&hash);
+
+						if candidates_hashes.is_none() {
+							gum::warn!(
+								target: LOG_TARGET,
+								?hash,
+								"Possible bug! Could not find map of candidate_hashes for block hash received from approval-distribution"
+							);
+						}
+
 						let signed_candidates_hashes: Vec<CandidateHash> =
 							signed_candidates_indices
 								.into_iter()
-								.map(|candidate_index| {
-									*(candidates_hashes.get(&candidate_index).expect("Can't fail because we already checked the signature was valid, so we should be able to find the hash; qed"))
+								.filter_map(|candidate_index| {
+									candidates_hashes.and_then(|candidate_hashes| {
+										if let Some(candidate_hash) =
+											candidate_hashes.get(&candidate_index)
+										{
+											Some(*candidate_hash)
+										} else {
+											gum::warn!(
+												target: LOG_TARGET,
+												?candidate_index,
+												"Possible bug! Could not find candidate hash for candidate_index coming from approval-distribution"
+											);
+											None
+										}
+									})
 								})
 								.collect();
 						(validator_index, (signed_candidates_hashes, signature))
@@ -2512,7 +2547,13 @@ where
 		)
 		.check_signature(
 			&pubkey,
-			*candidate_hashes.first().expect("Checked above this is not empty; qed"),
+			if let Some(candidate_hash) = candidate_hashes.first() {
+				*candidate_hash
+			} else {
+				respond_early!(ApprovalCheckResult::Bad(ApprovalCheckError::InvalidValidatorIndex(
+					approval.validator
+				),))
+			},
 			block_entry.session(),
 			&approval.signature,
 		) {
@@ -2880,7 +2921,7 @@ async fn process_wakeup<Context>(
 			None => return Ok(Vec::new()),
 		};
 
-		let (tranches_to_approve, _last_no_shows) = approval_checking::tranches_to_approve(
+		let tranches_to_approve = approval_checking::tranches_to_approve(
 			&approval_entry,
 			candidate_entry.approvals(),
 			tranche_now,
@@ -2892,7 +2933,7 @@ async fn process_wakeup<Context>(
 		let should_trigger = should_trigger_assignment(
 			&approval_entry,
 			&candidate_entry,
-			tranches_to_approve,
+			tranches_to_approve.required_tranches,
 			tranche_now,
 		);
 
@@ -3471,17 +3512,27 @@ async fn maybe_create_signature<Context>(
 		.map(|candidate_hash| db.load_candidate_entry(candidate_hash))
 		.collect::<SubsystemResult<Vec<Option<CandidateEntry>>>>()?;
 
-	for candidate_entry in candidate_entries {
-		let mut candidate_entry = candidate_entry
-			.expect("Candidate was scheduled to be signed entry in db should exist; qed");
-		let approval_entry = candidate_entry
-			.approval_entry_mut(&block_entry.block_hash())
-			.expect("Candidate was scheduled to be signed entry in db should exist; qed");
-		approval_entry.import_approval_sig(OurApproval {
-			signature: signature.clone(),
-			signed_candidates_indices: candidates_indices.clone(),
+	for mut candidate_entry in candidate_entries {
+		// let mut candidate_entry = candidate_entry
+		// 	.expect("Candidate was scheduled to be signed entry in db should exist; qed");
+		let approval_entry = candidate_entry.as_mut().and_then(|candidate_entry| {
+			candidate_entry.approval_entry_mut(&block_entry.block_hash())
 		});
-		db.write_candidate_entry(candidate_entry);
+
+		match approval_entry {
+			Some(approval_entry) => approval_entry.import_approval_sig(OurApproval {
+				signature: signature.clone(),
+				signed_candidates_indices: candidates_indices.clone(),
+			}),
+			None => {
+				gum::error!(
+					target: LOG_TARGET,
+					candidate_entry = ?candidate_entry,
+					"Candidate scheduled for signing approval entry should not be None"
+				);
+			},
+		};
+		candidate_entry.map(|candidate_entry| db.write_candidate_entry(candidate_entry));
 	}
 
 	metrics.on_approval_produced();
