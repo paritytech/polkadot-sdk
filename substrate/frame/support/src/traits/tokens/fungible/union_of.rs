@@ -37,7 +37,7 @@ use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug)]
+#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,
@@ -75,7 +75,6 @@ impl<AssetId: Ord> PartialEq for NativeOrWithId<AssetId> {
 		self.cmp(other) == Ordering::Equal
 	}
 }
-impl<AssetId: Ord> Eq for NativeOrWithId<AssetId> {}
 
 /// Criterion for [`UnionOf`] where a set for [`NativeOrWithId::Native`] asset located from the left
 /// and for [`NativeOrWithId::WithId`] from the right.
