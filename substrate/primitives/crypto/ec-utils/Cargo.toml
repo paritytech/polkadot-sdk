@@ -13,11 +13,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ark-ec = { version = "0.4.2", default-features = false }
-ark-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false, features = ["scale-fast"] }
-ark-bls12-377 = { version = "0.4.0", features = ["curve"], default-features = false }
-ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
+ark-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
+ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"] }
+ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"] }
 ark-bw6-761 = { version = "0.4.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false, features = ["scale-fast"] }
+ark-ed-on-bls12-381-bandersnatch-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
 ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
@@ -39,3 +39,11 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-std/std",
 ]
+parallel = [
+	"ark-ec/parallel"
+]
+bls12-377 = []
+bls12-381 = []
+bw6-761 = []
+ed-ob-bls12-377 = []
+ed-on-bls12-381-bandersnatch = []

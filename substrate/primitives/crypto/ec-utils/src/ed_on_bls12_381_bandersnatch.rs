@@ -1,55 +1,91 @@
 use crate::*;
-use ark_ed_on_bls12_381_bandersnatch_ext::{
-	BandersnatchConfig as BandersnatchConfigHost, CurveHooks, EdwardsAffine as EdwardsAffineHost,
-	EdwardsConfig as EdwardsConfigHost, EdwardsProjective as EdwardsProjectiveHost,
-	SWAffine as SWAffineHost, SWConfig as SWConfigHost, SWProjective as SWProjectiveHost,
-};
+use ark_ec::CurveConfig;
+use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
+use ark_scale::scale::{Decode, Encode};
 
-pub type EdwardsAffine = EdwardsAffineHost<Host>;
-pub type EdwardsProjective = EdwardsProjectiveHost<Host>;
+/// TODO
+#[derive(Copy, Clone)]
+pub struct HostHooks;
 
-pub type SWAffine = SWAffineHost<Host>;
-pub type SWProjective = SWProjectiveHost<Host>;
+/// TODO
+pub type BandersnatchConfig = ark_ed_on_bls12_381_bandersnatch_ext::BandersnatchConfig<HostHooks>;
 
-pub type SWConfig = SWConfigHost<Host>;
-pub type EdwardsConfig = EdwardsConfigHost<Host>;
-pub type BandersnatchConfig = BandersnatchConfigHost<Host>;
+/// TODO
+pub type EdwardsConfig = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsConfig<HostHooks>;
+/// TODO
+pub type EdwardsAffine = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsAffine<HostHooks>;
+/// TODO
+pub type EdwardsProjective = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsProjective<HostHooks>;
 
-impl CurveHooks for Host {
+/// TODO
+pub type SWConfig = ark_ed_on_bls12_381_bandersnatch_ext::SWConfig<HostHooks>;
+/// TODO
+pub type SWAffine = ark_ed_on_bls12_381_bandersnatch_ext::SWAffine<HostHooks>;
+/// TODO
+pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostHooks>;
+
+impl CurveHooks for HostHooks {
 	fn ed_on_bls12_381_bandersnatch_te_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		host_calls::ed_on_bls12_381_bandersnatch_te_msm(bases, scalars)
+		bases: &[EdwardsAffine],
+		scalars: &[<EdwardsConfig as CurveConfig>::ScalarField],
+	) -> Result<EdwardsProjective, ()> {
+		let bases = ArkScale::from(bases).encode();
+		let scalars = ArkScale::from(scalars).encode();
+
+		let res =
+			host_calls::ed_on_bls12_381_bandersnatch_te_msm(bases, scalars).unwrap_or_default();
+		let res = ArkScaleProjective::<EdwardsProjective>::decode(&mut res.as_slice());
+		res.map(|v| v.0).map_err(|_| ())
 	}
-	fn ed_on_bls12_381_bandersnatch_sw_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_msm(bases, scalars)
-	}
+
 	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(base, scalar)
+		base: &EdwardsProjective,
+		scalar: &[u64],
+	) -> Result<EdwardsProjective, ()> {
+		let base = ArkScaleProjective::from(base).encode();
+		let scalar = ArkScale::from(scalar).encode();
+
+		let res = host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(base, scalar)
+			.unwrap_or_default();
+		let res = ArkScaleProjective::<EdwardsProjective>::decode(&mut res.as_slice());
+		res.map(|v| v.0).map_err(|_| ())
 	}
+
+	fn ed_on_bls12_381_bandersnatch_sw_msm(
+		bases: &[SWAffine],
+		scalars: &[<SWConfig as CurveConfig>::ScalarField],
+	) -> Result<SWProjective, ()> {
+		let bases = ArkScale::from(bases).encode();
+		let scalars = ArkScale::from(scalars).encode();
+
+		let res =
+			host_calls::ed_on_bls12_381_bandersnatch_sw_msm(bases, scalars).unwrap_or_default();
+		let res = ArkScaleProjective::<SWProjective>::decode(&mut res.as_slice());
+		res.map(|v| v.0).map_err(|_| ())
+	}
+
 	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(base, scalar)
+		base: &SWProjective,
+		scalar: &[u64],
+	) -> Result<SWProjective, ()> {
+		let base = ArkScaleProjective::from(base).encode();
+		let scalar = ArkScale::from(scalar).encode();
+
+		let res = host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(base, scalar)
+			.unwrap_or_default();
+		let res = ArkScaleProjective::<SWProjective>::decode(&mut res.as_slice());
+		res.map(|v| v.0).map_err(|_| ())
 	}
 }
 
-/// Interfaces for working with *Arkworks* ed-on-bls12-381-bandersnatch elliptic curve
+/// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve
 /// related types from within the runtime.
 ///
 /// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
 /// with `ark_scale::{ArkScale, ArkScaleProjective}`.
 ///
-/// `ArkScale`'s `Usage` generic parameter is expected to be set to `HOST_CALL`, which is
-/// a shortcut for "not-validated" and "not-compressed".
+/// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
+/// and "not-compressed".
 #[runtime_interface]
 pub trait HostCalls {
 	/// Short Weierstrass projective multiplication for Ed-on-BLS12-381-Bandersnatch.

@@ -23,16 +23,21 @@
 
 mod utils;
 
+use ark_scale::ark_serialize::{Compress, Validate};
 use sp_runtime_interface::runtime_interface;
 use sp_std::vec::Vec;
 use utils::*;
 
+/// TODO
 // #[cfg(feature = "bls12-377")]
 pub mod bls12_377;
+/// TODO
 // #[cfg(feature = "ed-on-bls12-381-bandersnatch")]
 pub mod ed_on_bls12_381_bandersnatch;
 
-pub struct Host;
+pub(crate) const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
+pub(crate) type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
+pub(crate) type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
 /// Interfaces for working with *Arkworks* elliptic curves related types from within the runtime.
 ///
@@ -43,64 +48,6 @@ pub struct Host;
 /// a shortcut for "not-validated" and "not-compressed".
 #[runtime_interface]
 pub trait EllipticCurves {
-	/// Pairing multi Miller loop for BLS12-377.
-	///
-	/// - Receives encoded:
-	///   - `a: ArkScale<Vec<ark_ec::bls12::G1Prepared::<ark_bls12_377::Config>>>`.
-	///   - `b: ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bls12_377::Config>>>`.
-	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>.
-	fn bls12_377_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
-	}
-
-	/// Pairing final exponentiation for BLS12-377.
-	///
-	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>`.
-	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bls12_377::Config>>>`.
-	fn bls12_377_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation::<ark_bls12_377::Bls12_377>(f)
-	}
-
-	/// Projective multiplication on G1 for BLS12-377.
-	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
-	fn bls12_377_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bls12_377::g1::Config>(base, scalar)
-	}
-
-	/// Projective multiplication on G2 for BLS12-377.
-	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
-	fn bls12_377_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
-	}
-
-	/// Multi scalar multiplication on G1 for BLS12-377.
-	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<&[ark_bls12_377::G1Affine]>`.
-	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
-	fn bls12_377_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
-	}
-
-	/// Multi scalar multiplication on G2 for BLS12-377.
-	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<&[ark_bls12_377::G2Affine]>`.
-	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
-	fn bls12_377_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
-	}
-
 	/// Pairing multi Miller loop for BLS12-381.
 	///
 	/// - Receives encoded:
@@ -235,59 +182,5 @@ pub trait EllipticCurves {
 	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
 	fn ed_on_bls12_377_msm(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
 		msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
-	}
-
-	/// Short Weierstrass projective multiplication for Ed-on-BLS12-381-Bandersnatch.
-	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
-	}
-
-	/// Twisted Edwards projective multiplication for Ed-on-BLS12-381-Bandersnatch.
-	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded:
-	///   `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
-	}
-
-	/// Short Weierstrass multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
-	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::SWAffine]>`.
-	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
-	}
-
-	/// Twisted Edwards multi scalar multiplication for Ed-on-BLS12-381-Bandersnatch.
-	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_381_bandersnatch::Fr]>`.
-	/// - Returns encoded:
-	///   `ArkScaleProjective<ark_ed_on_bls12_381_bandersnatch::EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
-		msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 }
