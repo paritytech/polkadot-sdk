@@ -165,7 +165,6 @@
         },
         "additionalProperties": false,
         "required": [
-          "pallet",
           "description"
         ]
       },
