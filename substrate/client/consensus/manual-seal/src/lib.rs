@@ -236,7 +236,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
 	let commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: false,
+		create_empty: true,
 		finalize: false,
 		parent_hash: None,
 		sender: None,
@@ -351,7 +351,7 @@ mod tests {
 	use sc_transaction_pool::{BasicPool, FullChainApi, Options, RevalidationType};
 	use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionSource};
 	use sp_inherents::InherentData;
-	use sp_runtime::generic::{BlockId, Digest, DigestItem};
+	use sp_runtime::generic::{Digest, DigestItem};
 	use substrate_test_runtime_client::{
 		AccountKeyring::*, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
@@ -400,10 +400,11 @@ mod tests {
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -444,7 +445,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		// assert that the background task returns ok
@@ -475,10 +476,11 @@ mod tests {
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -535,7 +537,7 @@ mod tests {
 
 		let mut finality_stream = client.finality_notification_stream();
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		// assert that the background task returns ok
@@ -571,10 +573,11 @@ mod tests {
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let genesis_hash = client.info().genesis_hash;
+		let pool_api = Arc::new(FullChainApi::new(client.clone(), None, &spawner.clone()));
 		let pool = Arc::new(BasicPool::with_revalidation_type(
 			Options::default(),
 			true.into(),
-			api(),
+			pool_api,
 			None,
 			RevalidationType::Full,
 			spawner.clone(),
@@ -602,7 +605,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 		let (tx, rx) = futures::channel::oneshot::channel();
@@ -688,7 +691,7 @@ mod tests {
 			rt.block_on(future);
 		});
 		// submit a transaction to pool.
-		let result = pool.submit_one(&BlockId::Number(0), SOURCE, uxt(Alice, 0)).await;
+		let result = pool.submit_one(genesis_hash, SOURCE, uxt(Alice, 0)).await;
 		// assert that it was successfully imported
 		assert!(result.is_ok());
 
@@ -719,7 +722,7 @@ mod tests {
 			}
 		);
 
-		assert!(pool.submit_one(&BlockId::Number(1), SOURCE, uxt(Alice, 1)).await.is_ok());
+		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Alice, 1)).await.is_ok());
 
 		let header = client.header(created_block.hash).expect("db error").expect("imported above");
 		assert_eq!(header.number, 1);
@@ -741,7 +744,7 @@ mod tests {
 			.is_ok());
 		assert_matches::assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
 
-		assert!(pool.submit_one(&BlockId::Number(1), SOURCE, uxt(Bob, 0)).await.is_ok());
+		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, 0)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();
 		assert!(sink
 			.send(EngineCommand::SealNewBlock {

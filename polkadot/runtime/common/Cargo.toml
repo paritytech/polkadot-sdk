@@ -1,6 +1,7 @@
 [package]
 name = "polkadot-runtime-common"
 version = "1.0.0"
+description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,7 +12,7 @@ bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", default-features = false, features = ["alloc"] }
 serde_derive = { version = "1.0.117" }
 static_assertions = "1.1.0"
@@ -38,6 +39,7 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-featur
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
@@ -50,6 +52,10 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true }
+
+pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -74,6 +80,7 @@ std = [
 	"inherents/std",
 	"libsecp256k1/std",
 	"log/std",
+	"pallet-asset-rate/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-election-provider-multi-phase/std",
@@ -85,6 +92,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
+	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -100,6 +108,8 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -109,6 +119,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
 	"libsecp256k1/static-context",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
@@ -117,16 +128,20 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
+	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",

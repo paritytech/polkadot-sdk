@@ -23,7 +23,6 @@ sp-runtime = { path = "../../../primitives/runtime" }
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
 substrate-rpc-client = { path = "../rpc/client" }
 futures = "0.3"
-async-recursion = "1.0.4"
 indicatif = "0.17.3"
 spinners = "4.1.0"
 tokio-retry = "0.3.0"
