@@ -16,7 +16,7 @@
 
 //! # Bridge Hub Rococo Runtime
 //!
-//! This runtime is also used for Bridge Hub Wococo and Bridge Hub Westend. We dont want to create
+//! This runtime is also used for Bridge Hub Wococo. We dont want to create
 //! another exact copy of Bridge Hub Rococo, so we injected some tweaks backed by `RuntimeFlavor`
 //! and `pub storage Flavor: RuntimeFlavor`. (For example this is needed for successful asset
 //! transfer between Asset Hub Rococo and Asset Hub Wococo, where we need to have correct
@@ -35,9 +35,9 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_common_config;
-pub mod bridge_hub_rococo_config;
-pub mod bridge_hub_westend_config;
-pub mod bridge_hub_wococo_config;
+pub mod bridge_to_rococo_config;
+pub mod bridge_to_westend_config;
+pub mod bridge_to_wococo_config;
 mod weights;
 pub mod xcm_config;
 
@@ -93,13 +93,12 @@ use parachains_common::{
 use xcm_executor::XcmExecutor;
 
 /// Enum for handling differences in the runtime configuration for BridgeHubRococo vs
-/// BridgeHubWococo vs BridgeHubWestend.
+/// BridgeHubWococo.
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy, Decode, Encode)]
 pub enum RuntimeFlavor {
 	#[default]
 	Rococo,
 	Wococo,
-	Westend,
 }
 
 /// The address format for describing accounts.
@@ -126,10 +125,9 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
 	(
-		bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages,
-		bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-		bridge_hub_wococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages,
-		bridge_hub_westend_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,
+		bridge_to_wococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages,
+		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
+		bridge_to_rococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages,
 	),
 );
 
@@ -506,20 +504,14 @@ construct_runtime!(
 		//  - BridgeWestendGrandpa
 		//  - BridgeWococoParachain
 		//  - BridgeWestendParachain
-		//  - BridgeRococoToWococoMessages
-		//  - BridgeRococoToWestendMessages
+		//  - BridgeWococoMessages
+		//  - BridgeWestendMessages
 		//  - BridgeRelayers
 		//
 		// BridgeHubWococo uses:
 		//  - BridgeRococoGrandpa
 		//  - BridgeRococoParachain
-		//  - BridgeWococoToRococoMessages
-		//  - BridgeRelayers
-		//
-		// BridgeHubWestend uses:
-		//  - BridgeRococoGrandpa
-		//  - BridgeRococoParachain
-		//  - BridgeWestendToRococoMessages
+		//  - BridgeRococoMessages
 		//  - BridgeRelayers
 
 		// GRANDPA bridge modules.
@@ -533,10 +525,9 @@ construct_runtime!(
 		BridgeWestendParachain: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
 
 		// Messaging bridge modules.
-		BridgeRococoToWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
-		BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
-		BridgeWestendToRococoMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 50,
-		BridgeRococoToWestendMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
+		BridgeRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
+		BridgeWestendMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 	}
@@ -549,7 +540,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	// Parachains
 	BridgeRococoParachain, BridgeWococoParachain, BridgeWestendParachain,
 	// Messages
-	BridgeWococoToRococoMessages, BridgeRococoToWococoMessages, BridgeRococoToWestendMessages, BridgeWestendToRococoMessages
+	BridgeRococoMessages, BridgeWococoMessages, BridgeWestendMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -582,7 +573,6 @@ mod benches {
 		[pallet_bridge_messages, RococoToWococo]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, WococoToRococo]
-		[pallet_bridge_messages, WestendToRococo]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
 }
@@ -793,7 +783,7 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::InboundMessageDetails> {
 			bridge_runtime_common::messages_api::inbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance,
+				bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance,
 			>(lane, messages)
 		}
 	}
@@ -807,7 +797,7 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::OutboundMessageDetails> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance,
+				bridge_to_wococo_config::WithBridgeHubWococoMessagesInstance,
 			>(lane, begin, end)
 		}
 	}
@@ -820,7 +810,7 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::InboundMessageDetails> {
 			bridge_runtime_common::messages_api::inbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance,
+				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 			>(lane, messages)
 		}
 	}
@@ -834,12 +824,12 @@ impl_runtime_apis! {
 		) -> Vec<bp_messages::OutboundMessageDetails> {
 			bridge_runtime_common::messages_api::outbound_message_details::<
 				Runtime,
-				bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance,
+				bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 			>(lane, begin, end)
 		}
 	}
 
-	// This is exposed by BridgeHubWococo and BridgeHubWestend
+	// This is exposed by BridgeHubWococo
 	impl bp_bridge_hub_rococo::FromBridgeHubRococoInboundLaneApi<Block> for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
@@ -850,13 +840,7 @@ impl_runtime_apis! {
 				RuntimeFlavor::Wococo => {
 					bridge_runtime_common::messages_api::inbound_message_details::<
 						Runtime,
-						bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance,
-					>(lane, messages)
-				},
-				RuntimeFlavor::Westend => {
-					bridge_runtime_common::messages_api::inbound_message_details::<
-						Runtime,
-						bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					>(lane, messages)
 				},
 				flavor @ _ => unimplemented!("Unsupported `FromBridgeHubRococoInboundLaneApi` for flavor: {:?}", flavor)
@@ -876,13 +860,7 @@ impl_runtime_apis! {
 				RuntimeFlavor::Wococo => {
 					bridge_runtime_common::messages_api::outbound_message_details::<
 						Runtime,
-						bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance,
-					>(lane, begin, end)
-				},
-				RuntimeFlavor::Westend => {
-					bridge_runtime_common::messages_api::outbound_message_details::<
-						Runtime,
-						bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					>(lane, begin, end)
 				},
 				flavor @ _ => unimplemented!("Unsupported `ToBridgeHubRococoOutboundLaneApi` for flavor: {:?}", flavor)
@@ -937,7 +915,6 @@ impl_runtime_apis! {
 			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance>;
 			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
-			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1081,7 +1058,6 @@ impl_runtime_apis! {
 			type RococoToWococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWococoMessagesInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_rococo_config::WithBridgeHubWestendMessagesInstance>;
 			type WococoToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_wococo_config::WithBridgeHubRococoMessagesInstance>;
-			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -1214,49 +1190,6 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoInstance,
 						bridge_hub_wococo_config::WithBridgeHubRococoMessageBridge,
-					>(params)
-				}
-
-				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
-					use cumulus_primitives_core::XcmpMessageSource;
-					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
-				}
-			}
-
-			impl BridgeMessagesConfig<bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance> for Runtime {
-				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
-					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_hub_westend_config::WithBridgeHubRococoMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
-					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
-						relayer,
-						bp_relayers::RewardsAccountParams::new(
-							bench_lane_id,
-							bridged_chain_id,
-							bp_relayers::RewardsAccountOwner::BridgedChain
-						)
-					).is_some()
-				}
-
-				fn prepare_message_proof(
-					params: MessageProofParams,
-				) -> (bridge_hub_westend_config::FromRococoBridgeHubMessagesProof, Weight) {
-					use cumulus_primitives_core::XcmpMessageSource;
-					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					prepare_message_proof_from_parachain::<
-						Runtime,
-						bridge_common_config::BridgeGrandpaRococoInstance,
-						bridge_hub_westend_config::WithBridgeHubRococoMessageBridge,
-					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Westend), Parachain(42))))
-				}
-
-				fn prepare_message_delivery_proof(
-					params: MessageDeliveryProofParams<AccountId>,
-				) -> bridge_hub_westend_config::ToRococoBridgeHubMessagesDeliveryProof {
-					prepare_message_delivery_proof_from_parachain::<
-						Runtime,
-						bridge_common_config::BridgeGrandpaRococoInstance,
-						bridge_hub_westend_config::WithBridgeHubRococoMessageBridge,
 					>(params)
 				}
 
@@ -1426,10 +1359,9 @@ mod tests {
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
-					bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages::default(),
-					bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-					bridge_hub_wococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages::default(),
-					bridge_hub_westend_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+					bridge_to_wococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages::default(),
+					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+					bridge_to_rococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages::default(),
 				),
 			);
 
@@ -1466,24 +1398,6 @@ mod tests {
 				assert_eq!(
 					payload.additional_signed().unwrap().encode(),
 					bhw_indirect_payload.additional_signed().unwrap().encode()
-				)
-			}
-
-			// for BridgeHubWestend
-			{
-				let bh_indirect_payload = bp_bridge_hub_westend::SignedExtension::from_params(
-					VERSION.spec_version,
-					VERSION.transaction_version,
-					bp_runtime::TransactionEra::Immortal,
-					System::block_hash(BlockNumber::zero()),
-					10,
-					10,
-					(((), ()), ((), ())),
-				);
-				assert_eq!(payload.encode(), bh_indirect_payload.encode());
-				assert_eq!(
-					payload.additional_signed().unwrap().encode(),
-					bh_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}
 		});

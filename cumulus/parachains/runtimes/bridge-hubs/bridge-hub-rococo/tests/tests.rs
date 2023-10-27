@@ -18,8 +18,7 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_hub_rococo_config, bridge_hub_westend_config,
-	bridge_hub_wococo_config,
+	bridge_common_config, bridge_to_wococo_config,  bridge_to_westend_config, bridge_to_rococo_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra,
@@ -58,10 +57,9 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(
-			bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages::default(),
-			bridge_hub_rococo_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			bridge_hub_wococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages::default(),
-			bridge_hub_westend_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+			bridge_to_wococo_config::OnBridgeHubRococoRefundBridgeHubWococoMessages::default(),
+			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+			bridge_to_rococo_config::OnBridgeHubWococoRefundBridgeHubRococoMessages::default(),
 		),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
@@ -102,11 +100,13 @@ mod bridge_hub_rococo_tests {
 		BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance, BridgeParachainWestendInstance,
 		BridgeParachainWococoInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 	};
-	use bridge_hub_rococo_config::{
-		WithBridgeHubWestendMessageBridge, WithBridgeHubWestendMessagesInstance,
+	use bridge_to_wococo_config::{
 		WithBridgeHubWococoMessageBridge, WithBridgeHubWococoMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
-		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO,
+		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO, BridgeHubWococoChainId, WococoGlobalConsensusNetwork
+	};
+	use bridge_to_westend_config::{
+		WithBridgeHubWestendMessageBridge, WithBridgeHubWestendMessagesInstance,
+		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND, BridgeHubWestendChainId, WestendGlobalConsensusNetwork
 	};
 
 	bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
@@ -203,7 +203,7 @@ mod bridge_hub_rococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeRococoToWococoMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeWococoMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),
@@ -225,7 +225,7 @@ mod bridge_hub_rococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeRococoToWestendMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeWestendMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),
@@ -248,7 +248,7 @@ mod bridge_hub_rococo_tests {
 			ParachainSystem,
 			WithBridgeHubWococoMessagesInstance,
 			RelayNetwork,
-			bridge_hub_rococo_config::WococoGlobalConsensusNetwork,
+			WococoGlobalConsensusNetwork,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -276,7 +276,7 @@ mod bridge_hub_rococo_tests {
 			ParachainSystem,
 			WithBridgeHubWococoMessagesInstance,
 			RelayNetwork,
-			bridge_hub_rococo_config::WestendGlobalConsensusNetwork,
+			WestendGlobalConsensusNetwork,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -357,7 +357,7 @@ mod bridge_hub_rococo_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			bridge_hub_rococo_config::BridgeHubWococoChainId::get(),
+			BridgeHubWococoChainId::get(),
 			Rococo,
 			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO,
 			ExistentialDeposit::get(),
@@ -380,7 +380,7 @@ mod bridge_hub_rococo_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			bridge_hub_rococo_config::BridgeHubWestendChainId::get(),
+			BridgeHubWestendChainId::get(),
 			Rococo,
 			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 			ExistentialDeposit::get(),
@@ -416,9 +416,9 @@ mod bridge_hub_wococo_tests {
 		RequiredStakeForStakeAndSlash,
 	};
 	use bridge_hub_rococo_runtime::{xcm_config, AllPalletsWithoutSystem, RuntimeFlavor};
-	use bridge_hub_wococo_config::{
+	use bridge_to_rococo_config::{
 		WithBridgeHubRococoMessageBridge, WithBridgeHubRococoMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_WOCOCO_TO_ASSET_HUB_ROCOCO,
+		XCM_LANE_FOR_ASSET_HUB_WOCOCO_TO_ASSET_HUB_ROCOCO, BridgeHubRococoChainId, RococoGlobalConsensusNetwork
 	};
 	use frame_support::assert_ok;
 
@@ -530,7 +530,7 @@ mod bridge_hub_wococo_tests {
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
 				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeWococoToRococoMessages(event)) => Some(event),
+					Ok(RuntimeEvent::BridgeRococoMessages(event)) => Some(event),
 					_ => None,
 				}
 			}),
@@ -552,7 +552,7 @@ mod bridge_hub_wococo_tests {
 			ParachainSystem,
 			WithBridgeHubRococoMessagesInstance,
 			RelayNetwork,
-			bridge_hub_wococo_config::RococoGlobalConsensusNetwork,
+			RococoGlobalConsensusNetwork,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
@@ -612,7 +612,7 @@ mod bridge_hub_wococo_tests {
 			bp_bridge_hub_wococo::BRIDGE_HUB_WOCOCO_PARACHAIN_ID,
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			bridge_hub_wococo_config::BridgeHubRococoChainId::get(),
+			BridgeHubRococoChainId::get(),
 			Wococo,
 			XCM_LANE_FOR_ASSET_HUB_WOCOCO_TO_ASSET_HUB_ROCOCO,
 			ExistentialDeposit::get(),
@@ -635,238 +635,6 @@ mod bridge_hub_wococo_tests {
 		assert!(
 			estimated <= max_expected,
 			"calculated: {:?}, max_expected: {:?}, please adjust `bp_asset_hub_wococo::BridgeHubWococoBaseFeeInWocs` value",
-			estimated,
-			max_expected
-		);
-	}
-}
-
-mod bridge_hub_westend_tests {
-	use super::*;
-	use bridge_common_config::{
-		BridgeGrandpaRococoInstance, BridgeParachainRococoInstance, DeliveryRewardInBalance,
-		RequiredStakeForStakeAndSlash,
-	};
-	use bridge_hub_rococo_runtime::{xcm_config, AllPalletsWithoutSystem, RuntimeFlavor};
-	use bridge_hub_westend_config::{
-		WithBridgeHubRococoMessageBridge, WithBridgeHubRococoMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-	};
-	use frame_support::assert_ok;
-
-	type RuntimeHelper = bridge_hub_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
-
-	pub(crate) fn set_westend_flavor() {
-		let flavor_key = xcm_config::Flavor::key().to_vec();
-		let flavor = RuntimeFlavor::Westend;
-
-		// encode `set_storage` call
-		let set_storage_call = RuntimeCall::System(frame_system::Call::<Runtime>::set_storage {
-			items: vec![(flavor_key, flavor.encode())],
-		})
-		.encode();
-
-		// estimate - storing just 1 value
-		use frame_system::WeightInfo;
-		let require_weight_at_most =
-			<Runtime as frame_system::Config>::SystemWeightInfo::set_storage(1);
-
-		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(RuntimeHelper::execute_as_governance(set_storage_call, require_weight_at_most)
-			.ensure_complete());
-
-		// check if stored
-		assert_eq!(flavor, xcm_config::Flavor::get());
-	}
-
-	bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
-		Runtime,
-		AllPalletsWithoutSystem,
-		XcmConfig,
-		CheckingAccount,
-		WeightToFee,
-		ParachainSystem,
-		collator_session_keys(),
-		ExistentialDeposit::get(),
-		Box::new(|runtime_event_encoded: Vec<u8>| {
-			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
-				_ => None,
-			}
-		}),
-		Box::new(|runtime_event_encoded: Vec<u8>| {
-			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-				_ => None,
-			}
-		}),
-		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID
-	);
-
-	#[test]
-	fn initialize_bridge_by_governance_works() {
-		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
-			Runtime,
-			BridgeGrandpaRococoInstance,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::BridgeRococoGrandpa(call).encode()),
-		)
-	}
-
-	#[test]
-	fn change_delivery_reward_by_governance_works() {
-		bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
-			Runtime,
-			DeliveryRewardInBalance,
-			u64,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
-			|| (DeliveryRewardInBalance::key().to_vec(), DeliveryRewardInBalance::get()),
-			|old_value| old_value.checked_mul(2).unwrap(),
-		)
-	}
-
-	#[test]
-	fn change_required_stake_by_governance_works() {
-		bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
-			Runtime,
-			RequiredStakeForStakeAndSlash,
-			Balance,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
-			|| {
-				(
-					RequiredStakeForStakeAndSlash::key().to_vec(),
-					RequiredStakeForStakeAndSlash::get(),
-				)
-			},
-			|old_value| old_value.checked_mul(2).unwrap(),
-		)
-	}
-
-	#[test]
-	fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
-		bridge_hub_test_utils::test_cases::handle_export_message_from_system_parachain_to_outbound_queue_works::<
-			Runtime,
-			XcmConfig,
-			WithBridgeHubRococoMessagesInstance,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			SIBLING_PARACHAIN_ID,
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::BridgeWestendToRococoMessages(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			|| ExportMessage { network: Rococo, destination: X1(Parachain(4321)), xcm: Xcm(vec![]) },
-			XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-			Some((TokenLocation::get(), ExistentialDeposit::get()).into()),
-			// value should be >= than value generated by `can_calculate_weight_for_paid_export_message_with_reserve_transfer`
-			Some((TokenLocation::get(), bp_asset_hub_westend::BridgeHubWestendBaseFeeInWocs::get()).into()),
-			set_westend_flavor,
-		)
-	}
-
-	#[test]
-	fn message_dispatch_routing_works() {
-		bridge_hub_test_utils::test_cases::message_dispatch_routing_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			WithBridgeHubRococoMessagesInstance,
-			RelayNetwork,
-			bridge_hub_westend_config::RococoGlobalConsensusNetwork,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			SIBLING_PARACHAIN_ID,
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::ParachainSystem(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			Box::new(|runtime_event_encoded: Vec<u8>| {
-				match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-					Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-					_ => None,
-				}
-			}),
-			XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-			set_westend_flavor,
-		)
-	}
-
-	#[test]
-	fn relayed_incoming_message_works() {
-		bridge_hub_test_utils::test_cases::relayed_incoming_message_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			BridgeGrandpaRococoInstance,
-			BridgeParachainRococoInstance,
-			WithBridgeHubRococoMessagesInstance,
-			WithBridgeHubRococoMessageBridge,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			SIBLING_PARACHAIN_ID,
-			Westend,
-			XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-			set_westend_flavor,
-		)
-	}
-
-	#[test]
-	pub fn complex_relay_extrinsic_works() {
-		bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			BridgeGrandpaRococoInstance,
-			BridgeParachainRococoInstance,
-			WithBridgeHubRococoMessagesInstance,
-			WithBridgeHubRococoMessageBridge,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			SIBLING_PARACHAIN_ID,
-			bridge_hub_westend_config::BridgeHubRococoChainId::get(),
-			Westend,
-			XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-			ExistentialDeposit::get(),
-			executive_init_block,
-			construct_and_apply_extrinsic,
-			set_westend_flavor,
-		);
-	}
-
-	#[test]
-	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
-			Runtime,
-			XcmConfig,
-			WeightToFee,
-		>();
-
-		// check if estimated value is sane
-		let max_expected = bp_asset_hub_westend::BridgeHubWestendBaseFeeInWocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_asset_hub_westend::BridgeHubWestendBaseFeeInWocs` value",
 			estimated,
 			max_expected
 		);
