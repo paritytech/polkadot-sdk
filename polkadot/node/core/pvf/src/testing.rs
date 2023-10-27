@@ -64,7 +64,7 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
 	fn maybe_build_workers(build_prep: bool, build_exec: bool) {
-		let mut build_args = vec!["build"];
+		let mut build_args = vec!["build", "--package=polkadot"];
 		if build_prep {
 			build_args.push("--bin=polkadot-prepare-worker");
 		}
@@ -75,16 +75,11 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 		if build_prep || build_exec {
 			eprintln!("Building workers...");
 
-			// ensure the build targets are available
-			let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-			if !dir.ends_with("polkadot-sdk") {
-				dir.pop();
-			}
-
+			let dir = env!("CARGO_MANIFEST_DIR");
 			std::process::Command::new("cargo")
 				.args(build_args)
 				.stdout(std::process::Stdio::piped())
-				.current_dir(dir)
+				.current_dir()
 				.status()
 				.expect("Failed to run the build program");
 		}
