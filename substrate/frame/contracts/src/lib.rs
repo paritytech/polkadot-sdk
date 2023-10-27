@@ -409,7 +409,7 @@ pub mod pallet {
 		type Xcm: xcm_executor::traits::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
-			BlockNumberFor<Self>
+			BlockNumberFor<Self>,
 		>;
 	}
 

@@ -45,7 +45,7 @@ use xcm_simulator::TestExt;
 
 type ParachainContracts = crate::Pallet<parachain::Runtime>;
 type QueryId = u64;
-	// <<<parachain::Runtime as crate::Config>::Xcm as pallet_xcm<parachain::Runtime> >>::QueryId;
+// <<<parachain::Runtime as crate::Config>::Xcm as pallet_xcm<parachain::Runtime> >>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {

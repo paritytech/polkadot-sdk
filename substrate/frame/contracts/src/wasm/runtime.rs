@@ -23,12 +23,15 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-use xcm::VersionedXcm;
 use bitflags::bitflags;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResult, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
-	traits::Get, weights::Weight,
+	dispatch::DispatchInfo,
+	ensure,
+	pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
+	parameter_types,
+	traits::Get,
+	weights::Weight,
 };
 use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
 use pallet_contracts_proc_macro::define_env;
@@ -39,6 +42,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
+use xcm::VersionedXcm;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
@@ -2706,13 +2710,14 @@ pub mod env {
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
-		use xcm_executor::traits::{ExecuteController, ExecuteControllerWeightInfo };
+		use xcm_executor::traits::{ExecuteController, ExecuteControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<CallOf<E::T>> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 
-		let execute_weight = <<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+		let execute_weight =
+			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
@@ -2750,11 +2755,11 @@ pub mod env {
 		dest_ptr: u32,
 		call_ptr: u32,
 		call_len: u32,
-		output_ptr: u32
+		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		println!("xcm_send");
 		use xcm::{VersionedMultiLocation, VersionedXcm};
-		use xcm_executor::traits::{SendController , SendControllerWeightInfo };
+		use xcm_executor::traits::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
@@ -2769,7 +2774,7 @@ pub mod env {
 			Ok(message_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
 				Ok(ReturnCode::Success)
-			}
+			},
 			Err(e) => {
 				if ctx.ext.append_debug_buffer("") {
 					ctx.ext.append_debug_buffer("seal0::xcm_send failed with: ");
