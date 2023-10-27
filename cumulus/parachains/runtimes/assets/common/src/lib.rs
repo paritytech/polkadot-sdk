@@ -96,7 +96,7 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 /// Type to identify a particular NFT collection.
 pub type CollectionId = u32;
 
-/// Type to identify a paritcular NFT in a collection
+/// Type to identify a particular NFT in a collection.
 pub type ItemId = u32;
 
 #[cfg(test)]
