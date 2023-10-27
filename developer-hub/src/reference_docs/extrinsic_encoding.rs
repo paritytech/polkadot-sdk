@@ -46,7 +46,7 @@
 //! ## version_and_maybe_signature
 //!
 //! If the extrinsic is _unsigned_, then `version_and_maybe_signature` will be just one byte
-//! denoting the _transaction protocol version_, which is 4.
+//! denoting the _transaction protocol version_, which is 4 (or `0b0000_0100`).
 //!
 //! If the extrinsic is _signed_ (all extrinsics submitted from users must be signed), then
 //! `version_and_maybe_signature` is obtained by concatenating some details together, ie:
@@ -76,7 +76,7 @@
 //! The address type used on the Polkadot relay chain is [`sp_runtime::MultiAddress<AccountId32>`],
 //! where `AccountId32` is defined [here][`sp_core::crypto::AccountId32`]. When constructing a
 //! signed extrinsic to be submitted to a Polkadot node, you'll always use the
-//! [`sp_runtime::MultiAddress::Id`] variant.
+//! [`sp_runtime::MultiAddress::Id`] variant to wrap your `AccountId32`.
 //!
 //! ### signature
 //!
@@ -118,10 +118,20 @@
 //!
 //! ## call_data
 //!
-//! This data defines exactly which call is made by the extrinsic, and with what arguments. These
-//! are determined by the second generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`].
+//! This is the main payload of the extrinsic, and is the data that the chain will use to determine
+//! how the state of the chain is altered. This is determined by the second generic parameter of
+//! [`sp_runtime::generic::UncheckedExtrinsic`].
 //!
-//! In pseudo-code, a call looks like this:
+//! A call can be anything that implements [`Encode`][frame::deps::codec::Encode]. In FRAME based
+//! runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
+//! pallet being called, and the inner enum represents the call being made within that pallet, and
+//! any arguments to it. Read more about the call enum [here][crate::reference_docs::frame_composite_enums].
+//!
+//! FRAME `Call` enums are automatically generated, and end up looking something like this:
+//!
+#![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", call_data)]
+//!
+//! In pseudo-code, this `Call` enum encodes equivalently to:
 //!
 //! ```text
 //! call_data = concat(
@@ -131,9 +141,12 @@
 //! )
 //! ```
 //!
-//! - `pallet_index` is a single byte denoting the index of the pallet that we are calling into.
-//! - `call_index` is a single byte denoting the index of the call that we are making the pallet.
-//! - `call_args` are the SCALE encoded bytes for each of the arguments that the call expects.
+//! - `pallet_index` is a single byte denoting the index of the pallet that we are calling into,
+//!   and is what the tag of the outermost enum will encode to.
+//! - `call_index` is a single byte denoting the index of the call that we are making the pallet,
+//!   and is what the tag of the inner enum will encode to.
+//! - `call_args` are the SCALE encoded bytes for each of the arguments that the call expects,
+//!   and are typically provided as values to the inner enum.
 //!
 //! Information about the pallets that exist for a chain (including their indexes), the calls
 //! available in each pallet (including their indexes), and the arguments required for each call
@@ -143,8 +156,8 @@
 //! # The Signed Payload Format
 //!
 //! All extrinsics submitted to a node from the outside world (also known as _transactions_) need to
-//! be _signed_. The data that needs to be signed for some extrinsic is called the _signed payload_
-//! (also called the _signed payload_), and its shape is described by the following pseudo-code:
+//! be _signed_. The data that needs to be signed for some extrinsic is called the _signed payload_,
+//! and its shape is described by the following pseudo-code:
 //!
 //! ```text
 //! signed_payload = concat(
@@ -158,14 +171,119 @@
 //! }
 //! ```
 //!
-//! In other words, we create the signed payload by concatenating the bytes representing
-//! `call_data`, `signed_extensions_extra` and `signed_extensions_additional` together. If this
-//! payload is more than 256 bytes in size, we hash it using a 256bit Blake2 hasher.
+//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as descibed
+//! above. `signed_extensions_additional` is constructed by SCALE encoding the
+//! ["additional signed" data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each
+//! signed extension that the chain is using, in order.
 //!
-//! How to construct the `call_data` and `signed_extensions_extra` has already been explained above.
-//! `signed_extensions_additional` is constructed by SCALE encoding the
-//! ["additional signed" data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each signed
-//! extension that the chain is using, in order, and concatenating the resulting bytes together.
+//! Once we've concatenated those together, we hash the result if it's greater than 256 bytes in
+//! length using a Blake2 256bit hasher.
 //!
-//! If the resulting bytes have a length greater than 256, then we hash them using a Blake2 256bit
-//! hasher, and that hash is the signed payload.
+//! The [`sp_runtime::generic::SignedPayload`] type takes care of assembling the correct payload
+//! for us, given `call_data` and a tuple of signed extensions.
+//!
+//! # Example Encoding
+//!
+//! Using [`sp_runtime::generic::UncheckedExtrinsic`], we can construct and encode an extrinsic
+//! as follows:
+//!
+#![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", encoding_example)]
+
+#[docify::export]
+pub mod call_data {
+    use parity_scale_codec::{Encode, Decode};
+
+    // The outer enum composes calls within
+    // different pallets together. We have two
+    // pallets, "PalletA" and "PalletB".
+    #[derive(Encode, Decode)]
+    pub enum Call {
+        #[codec(index = 0)]
+        PalletA(PalletACall),
+        #[codec(index = 7)]
+        PalletB(PalletBCall)
+    }
+
+    // An inner enum represents the calls within
+    // a specific pallet. "PalletA" has one call,
+    // "Foo".
+    #[derive(Encode, Decode)]
+    pub enum PalletACall {
+        #[codec(index = 0)]
+        Foo(String)
+    }
+
+    #[derive(Encode, Decode)]
+    pub enum PalletBCall {
+        #[codec(index = 0)]
+        Bar(String)
+    }
+}
+
+#[docify::export]
+pub mod encoding_example {
+    use crate::reference_docs::signed_extensions::signed_extensions_example;
+    use super::call_data::{ Call, PalletACall };
+    use sp_runtime::{MultiAddress, MultiSignature};
+    use sp_runtime::generic::{UncheckedExtrinsic, SignedPayload};
+    use sp_core::crypto::AccountId32;
+    use sp_keyring::sr25519::Keyring;
+    use parity_scale_codec::Encode;
+
+    // Define some signed extensions to use. We'll use a couple of examples
+    // from the signed extensions reference doc.
+    type SignedExtensions = (
+        signed_extensions_example::AddToPayload,
+        signed_extensions_example::AddToSignaturePayload,
+    );
+
+    // We'll use `UncheckedExtrinsic` to encode our extrinsic for us. We set
+    // the address and signature type to those used on Polkadot, use our custom
+    // `Call` type, and use our custom set of `SignedExtensions`.
+    type Extrinsic = UncheckedExtrinsic<
+        MultiAddress<AccountId32, ()>,
+        Call,
+        MultiSignature,
+        SignedExtensions
+    >;
+
+    pub fn encode_demo_extrinsic() -> Vec<u8> {
+        // The "from" address will be our Alice dev account.
+        let from_address = MultiAddress::<AccountId32, ()>::Id(Keyring::Alice.to_account_id());
+
+        // We provide some values for our expected signed extensions.
+        let signed_extensions = (
+            signed_extensions_example::AddToPayload(1),
+            signed_extensions_example::AddToSignaturePayload
+        );
+
+        // Construct our call data:
+        let call_data = Call::PalletA(PalletACall::Foo("Hello".to_string()));
+
+        // The signed payload. This takes care of encoding the call_data,
+        // signed_extensions_extra and signed_extensions_additional, and hashing
+        // the result if it's > 256 bytes:
+        let signed_payload = SignedPayload::new(
+            &call_data,
+            signed_extensions.clone(),
+        );
+
+        // Sign the signed payload with our Alice dev account's private key,
+        // and wrap the signature into the expected type:
+        let signature = {
+            let sig = Keyring::Alice.sign(&signed_payload.encode());
+            MultiSignature::Sr25519(sig)
+        };
+
+        // Now, we can build and encode our extrinsic:
+        let ext = Extrinsic::new_signed(
+            call_data,
+            from_address,
+            signature,
+            signed_extensions
+        );
+
+        let encoded_ext = ext.encode();
+        encoded_ext
+    }
+}

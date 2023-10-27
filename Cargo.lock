@@ -4293,6 +4293,7 @@ dependencies = [
  "sp-api",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "substrate-wasm-builder",
 ]
