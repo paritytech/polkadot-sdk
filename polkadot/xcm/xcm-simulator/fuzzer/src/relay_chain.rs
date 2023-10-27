@@ -91,6 +91,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -165,6 +166,8 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, T
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1).into());
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -191,9 +194,13 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 parameter_types! {

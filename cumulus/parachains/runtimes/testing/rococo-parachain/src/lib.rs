@@ -248,6 +248,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -469,6 +470,16 @@ pub type XcmRouter = WithUniqueTopic<(
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	// Relay/native token can be teleported to/from Relay.
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
+		Parent.into(),
+	));
+	// We can reserve transfer some AH local token to/from AH.
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		MultiAsset { fun: Fungible(10), id: Concrete(SystemAssetHubLocation::get()) }.into(),
+		SystemAssetHubLocation::get(),
+	));
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -492,11 +503,15 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReachableDest = ReachableDest;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

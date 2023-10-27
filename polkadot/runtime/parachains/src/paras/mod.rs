@@ -2064,7 +2064,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Submits a given PVF check statement with corresponding signature as an unsigned transaction
-	/// into the memory pool. Ultimately, that disseminates the transaction accross the network.
+	/// into the memory pool. Ultimately, that disseminates the transaction across the network.
 	///
 	/// This function expects an offchain context and cannot be callable from the on-chain logic.
 	///

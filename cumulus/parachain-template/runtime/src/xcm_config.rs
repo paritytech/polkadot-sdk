@@ -153,6 +153,13 @@ pub type XcmRouter = WithUniqueTopic<(
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
+	// Teleports are disabled
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
+	// We can reserve transfer relay/native token between us and Relay.
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
+		Parent.into(),
+	));
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -180,11 +187,15 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	type MaxLockers = ConstU32<8>;
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReachableDest = ReachableDest;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

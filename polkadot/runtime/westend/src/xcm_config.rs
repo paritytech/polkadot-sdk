@@ -122,6 +122,16 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parachain(ASSET_HUB_ID).into());
+	// Relay/native token can be teleported to/from AH.
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		MultiAsset { fun: Fungible(10), id: Concrete(Here.into()) }.into(),
+		AssetHub::get(),
+	));
+	// We can reserve transfer native token to some random parachain.
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
+		MultiAsset { fun: Fungible(10), id: Concrete(Here.into()) }.into(),
+		Parachain(4321).into(),
+	));
 }
 
 pub type TrustedTeleporters = (
@@ -262,7 +272,11 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type ReachableDest = ReachableDest;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type TeleportableAssets = TeleportableAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
