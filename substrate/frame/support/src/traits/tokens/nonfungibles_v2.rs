@@ -75,12 +75,14 @@ pub trait Inspect<AccountId> {
 		None
 	}
 
-	/// Returns the system attribute value of `item` of `collection` corresponding to `key`.
+	/// Returns the system attribute value of `item` of `collection` corresponding to `key` if
+	/// `item` is `Some`. Otherwise, returns the system attribute value of `collection`
+	/// corresponding to `key`.
 	///
 	/// By default this is `None`; no attributes are defined.
 	fn system_attribute(
 		_collection: &Self::CollectionId,
-		_item: &Self::ItemId,
+		_item: Option<&Self::ItemId>,
 		_key: &[u8],
 	) -> Option<Vec<u8>> {
 		None
@@ -113,13 +115,14 @@ pub trait Inspect<AccountId> {
 			.and_then(|v| V::decode(&mut &v[..]).ok())
 	}
 
-	/// Returns the strongly-typed system attribute value of `item` of `collection` corresponding to
-	/// `key`.
+	/// Returns the strongly-typed system attribute value of `item` corresponding to `key` if
+	/// `item` is `Some`. Otherwise, returns the strongly-typed system attribute value of
+	/// `collection` corresponding to `key`.
 	///
 	/// By default this just attempts to use `system_attribute`.
 	fn typed_system_attribute<K: Encode, V: Decode>(
 		collection: &Self::CollectionId,
-		item: &Self::ItemId,
+		item: Option<&Self::ItemId>,
 		key: &K,
 	) -> Option<V> {
 		key.using_encoded(|d| Self::system_attribute(collection, item, d))
@@ -233,7 +236,7 @@ pub trait Destroy<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing an interface for multiple collections of NFT-like items which may be
-/// minted, burned and/or have attributes set on them.
+/// minted, burned and/or have attributes and metadata set on them.
 pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	/// Mint some `item` of `collection` to be owned by `who`.
 	///
@@ -307,6 +310,29 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 		})
 	}
 
+	/// Set the metadata `data` of an `item` of `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn set_item_metadata(
+		_who: Option<&AccountId>,
+		_collection: &Self::CollectionId,
+		_item: &Self::ItemId,
+		_data: &[u8],
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
+	/// Set the metadata `data` of a `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn set_collection_metadata(
+		_who: Option<&AccountId>,
+		_collection: &Self::CollectionId,
+		_data: &[u8],
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
 	/// Clear attribute of `item` of `collection`'s `key`.
 	///
 	/// By default, this is not a supported operation.
@@ -345,6 +371,27 @@ pub trait Mutate<AccountId, ItemConfig>: Inspect<AccountId> {
 	) -> DispatchResult {
 		key.using_encoded(|k| Self::clear_collection_attribute(collection, k))
 	}
+
+	/// Clear the metadata of an `item` of `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn clear_item_metadata(
+		_who: Option<&AccountId>,
+		_collection: &Self::CollectionId,
+		_item: &Self::ItemId,
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
+
+	/// Clear the metadata of a `collection`.
+	///
+	/// By default, this is not a supported operation.
+	fn clear_collection_metadata(
+		_who: Option<&AccountId>,
+		_collection: &Self::CollectionId,
+	) -> DispatchResult {
+		Err(TokenError::Unsupported.into())
+	}
 }
 
 /// Trait for transferring non-fungible sets of items.
@@ -369,4 +416,28 @@ pub trait Transfer<AccountId>: Inspect<AccountId> {
 	fn enable_transfer(_collection: &Self::CollectionId, _item: &Self::ItemId) -> DispatchResult {
 		Err(TokenError::Unsupported.into())
 	}
+}
+
+/// Trait for trading non-fungible items.
+pub trait Trading<AccountId, ItemPrice>: Inspect<AccountId> {
+	/// Allows `buyer` to buy an `item` of `collection` if it's up for sale with a `bid_price` to
+	/// pay.
+	fn buy_item(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		buyer: &AccountId,
+		bid_price: &ItemPrice,
+	) -> DispatchResult;
+
+	/// Sets the item price for `item` to make it available for sale.
+	fn set_price(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		sender: &AccountId,
+		price: Option<ItemPrice>,
+		whitelisted_buyer: Option<AccountId>,
+	) -> DispatchResult;
+
+	/// Returns the item price of `item` or `None` if the item is not for sale.
+	fn item_price(collection: &Self::CollectionId, item: &Self::ItemId) -> Option<ItemPrice>;
 }
