@@ -869,7 +869,7 @@ fn hrmp_outbound_respects_used_bandwidth() {
 }
 
 #[test]
-fn events() {
+fn runtime_upgrade_events() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
 			if block_number > 123 {
@@ -894,12 +894,21 @@ fn events() {
 			|| {},
 			|| {
 				let events = System::events();
+
+				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
+
 				assert_eq!(
-					events[0].event,
+					events[1].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
 						relay_chain_block_num: 1234
 					})
 				);
+
+				assert!(System::digest()
+					.logs()
+					.iter()
+					.find(|d| **d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
+					.is_some());
 			},
 		);
 }
