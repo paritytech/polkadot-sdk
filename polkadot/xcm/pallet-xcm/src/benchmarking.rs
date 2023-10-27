@@ -25,7 +25,40 @@ use xcm::{latest::prelude::*, v2};
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 // existential deposit multiplier
-const ED_MULTIPLIER: u32 = 10;
+const ED_MULTIPLIER: u32 = 100;
+
+/// Pallet we're benchmarking here.
+pub struct Pallet<T: Config>(crate::Pallet<T>);
+
+/// Trait that must be implemented by runtime to be able to benchmark pallet properly.
+pub trait Config: crate::Config {
+	/// A `MultiLocation` that can be reached via `XcmRouter`. Used only in benchmarks.
+	///
+	/// If `None`, the benchmarks that depend on a reachable destination will be skipped.
+	fn reachable_dest() -> Option<MultiLocation> {
+		None
+	}
+
+	/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
+	/// be teleported to. Used only in benchmarks.
+	///
+	/// Implementation should also make sure `dest` is reachable/connected.
+	///
+	/// If `None`, the benchmarks that depend on this will be skipped.
+	fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+		None
+	}
+
+	/// A `(MultiAssets, MultiLocation)` pair representing assets and the destination they can
+	/// be reserve-transferred to. Used only in benchmarks.
+	///
+	/// Implementation should also make sure `dest` is reachable/connected.
+	///
+	/// If `None`, the benchmarks that depend on this will be skipped.
+	fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+		None
+	}
+}
 
 benchmarks! {
 	where_clause {
@@ -40,7 +73,7 @@ benchmarks! {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let msg = Xcm(vec![ClearOrigin]);
-		let versioned_dest: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_dest: VersionedMultiLocation = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
@@ -48,7 +81,7 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
 	teleport_assets {
-		let (assets, destination) = T::TeleportableAssets::get().ok_or(
+		let (assets, destination) = T::teleportable_assets_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
@@ -92,7 +125,7 @@ benchmarks! {
 	}
 
 	reserve_transfer_assets {
-		let (assets, destination) = T::ReserveTransferableAssets::get().ok_or(
+		let (assets, destination) = T::reserve_transferable_assets_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 
@@ -148,7 +181,7 @@ benchmarks! {
 	}: _<RuntimeOrigin<T>>(execute_origin, Box::new(versioned_msg), Weight::zero())
 
 	force_xcm_version {
-		let loc = T::ReachableDest::get().ok_or(
+		let loc = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 		let xcm_version = 2;
@@ -157,18 +190,18 @@ benchmarks! {
 	force_default_xcm_version {}: _(RawOrigin::Root, Some(2))
 
 	force_subscribe_version_notify {
-		let versioned_loc: VersionedMultiLocation = T::ReachableDest::get().ok_or(
+		let versioned_loc: VersionedMultiLocation = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_unsubscribe_version_notify {
-		let loc = T::ReachableDest::get().ok_or(
+		let loc = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 		let versioned_loc: VersionedMultiLocation = loc.into();
-		let _ = Pallet::<T>::request_version_notify(loc);
+		let _ = crate::Pallet::<T>::request_version_notify(loc);
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_suspension {}: _(RawOrigin::Root, true)
@@ -178,7 +211,7 @@ benchmarks! {
 		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
 		SupportedVersion::<T>::insert(old_version, loc, old_version);
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
 	}
 
 	migrate_version_notifiers {
@@ -186,22 +219,22 @@ benchmarks! {
 		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
 		VersionNotifiers::<T>::insert(old_version, loc, 0);
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
 	}
 
 	already_notified_target {
-		let loc = T::ReachableDest::get().ok_or(
+		let loc = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads(1))),
 		)?;
 		let loc = VersionedMultiLocation::from(loc);
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
 	}
 
 	notify_current_targets {
-		let loc = T::ReachableDest::get().ok_or(
+		let loc = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
 		)?;
 		let loc = VersionedMultiLocation::from(loc);
@@ -209,7 +242,7 @@ benchmarks! {
 		let old_version = current_version - 1;
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), old_version));
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
 	}
 
 	notify_target_migration_fail {
@@ -223,7 +256,7 @@ benchmarks! {
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, bad_loc, (0, Weight::zero(), current_version));
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	migrate_version_notify_targets {
@@ -232,18 +265,18 @@ benchmarks! {
 		let loc = VersionedMultiLocation::from(MultiLocation::from(Parent));
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), current_version));
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	migrate_and_notify_old_targets {
-		let loc = T::ReachableDest::get().ok_or(
+		let loc = T::reachable_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(T::DbWeight::get().reads_writes(1, 3))),
 		)?;
 		let loc = VersionedMultiLocation::from(loc);
 		let old_version = T::AdvertisedXcmVersion::get() - 1;
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), old_version));
 	}: {
-		Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	impl_benchmark_test_suite!(

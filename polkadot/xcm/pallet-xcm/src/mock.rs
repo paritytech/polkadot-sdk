@@ -498,22 +498,6 @@ parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 3;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		NativeAsset::get().into(),
-		SystemParachainLocation::get(),
-	));
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset {
-			fun: Fungible(10),
-			id: Concrete(Here.into_location()),
-		}.into(),
-		Parachain(OTHER_PARA_ID).into(),
-	));
-}
-
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -538,12 +522,6 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
 
 impl origin::Config for Test {}
@@ -552,6 +530,24 @@ impl pallet_test_notifier::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl super::benchmarking::Config for Test {
+	fn reachable_dest() -> Option<MultiLocation> {
+		Some(Parachain(1000).into())
+	}
+
+	fn teleportable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+		Some((NativeAsset::get().into(), SystemParachainLocation::get()))
+	}
+
+	fn reserve_transferable_assets_and_dest() -> Option<(MultiAssets, MultiLocation)> {
+		Some((
+			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) }.into(),
+			Parachain(OTHER_PARA_ID).into(),
+		))
+	}
 }
 
 pub(crate) fn last_event() -> RuntimeEvent {

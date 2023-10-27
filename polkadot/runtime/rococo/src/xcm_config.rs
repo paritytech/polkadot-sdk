@@ -207,21 +207,6 @@ parameter_types! {
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(ASSET_HUB_ID).into());
-	// Relay/native token can be teleported to/from AH.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(crate::EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) }.into(),
-		AssetHub::get(),
-	));
-	// We can reserve transfer native token to some random parachain.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(crate::EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) }.into(),
-		Parachain(43211234).into(),
-	));
-}
-
 /// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
@@ -276,10 +261,4 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
-	#[cfg(feature = "runtime-benchmarks")]
-	type TeleportableAssets = TeleportableAssets;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReserveTransferableAssets = ReserveTransferableAssets;
 }
