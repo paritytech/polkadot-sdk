@@ -1,11 +1,10 @@
 #![cfg(test)]
 
-use frame_support::traits::EnsureOriginWithArg;
+use crate::define_aggregrated_parameters;
 use frame_support::{
 	construct_runtime,
-	traits::{ConstU32, ConstU64, Everything},
+	traits::{ConstU32, ConstU64, EnsureOriginWithArg, Everything},
 };
-use orml_traits::define_aggregrated_parameters;
 use sp_core::H256;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -14,6 +13,7 @@ use super::*;
 use crate as parameters;
 
 pub type AccountId = u128;
+type Block = frame_system::mocking::MockBlock<Runtime>;
 
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -30,7 +30,7 @@ impl frame_system::Config for Runtime {
 	type BlockLength = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
@@ -41,29 +41,89 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = ConstU32<16>;
 }
 
-pub mod pallet1 {
-	orml_traits::define_parameters! {
-		pub Parameters = {
-			Key1: u64 = 0,
-			Key2(u32): u32 = 1,
-			Key3((u8, u8)): u128 = 2,
+impl pallet_balances::Config for Runtime {
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type Balance = u64;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ConstU64<1>;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
+	type MaxHolds = ();
+}
+
+#[docify::export]
+pub mod dynamic_params {
+	use super::*;
+
+	pub mod pallet1 {
+		use super::*;
+
+		crate::define_parameters! {
+			pub Parameters = {
+				#[codec(index = 0)]
+				Key1: u64 = 0,
+				#[codec(index = 1)]
+				Key2: u32 = 1,
+				#[codec(index = 2)]
+				Key3: u128 = 2,
+			},
+			Pallet = crate::Parameters::<Runtime>,
+			Aggregation = RuntimeParameters::Pallet1
+		}
+	}
+	pub mod pallet2 {
+		use super::*;
+
+		crate::define_parameters! {
+			pub Parameters = {
+				#[codec(index = 0)]
+				Key1: u64 = 0,
+				#[codec(index = 1)]
+				Key2: u32 = 2,
+				#[codec(index = 2)]
+				Key3: u128 = 4,
+			},
+			Pallet = crate::Parameters::<Runtime>,
+			Aggregation = RuntimeParameters::Pallet2
+		}
+	}
+
+	define_aggregrated_parameters! {
+		pub RuntimeParameters = {
+			#[codec(index = 0)]
+			Pallet1: pallet1::Parameters,
+			#[codec(index = 1)]
+			Pallet2: pallet2::Parameters,
 		}
 	}
 }
-pub mod pallet2 {
-	orml_traits::define_parameters! {
-		pub Parameters = {
-			Key1: u64 = 0,
-			Key2(u32): u32 = 2,
-			Key3((u8, u8)): u128 = 4,
-		}
-	}
+pub use dynamic_params::*;
+
+
+#[docify::export(impl_config)]
+impl Config for Runtime {
+	// Inject the aggregated parameters into the runtime:
+	type AggregratedKeyValue = RuntimeParameters;
+
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureOriginImpl;
+	type WeightInfo = ();
 }
-define_aggregrated_parameters! {
-	pub RuntimeParameters = {
-		Pallet1: pallet1::Parameters = 0,
-		Pallet2: pallet2::Parameters = 3,
-	}
+
+#[docify::export(usage)]
+impl pallet_example_basic::Config for Runtime {
+	// Use the dynamic key in the pallet config:
+	type MagicNumber = dynamic_params::pallet1::Key1;
+
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 }
 
 pub struct EnsureOriginImpl;
@@ -71,16 +131,19 @@ pub struct EnsureOriginImpl;
 impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for EnsureOriginImpl {
 	type Success = ();
 
-	fn try_origin(origin: RuntimeOrigin, key: &RuntimeParametersKey) -> Result<Self::Success, RuntimeOrigin> {
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
 		match key {
 			RuntimeParametersKey::Pallet1(_) => {
 				ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
-			}
+				return Ok(())
+			},
 			RuntimeParametersKey::Pallet2(_) => {
 				ensure_signed(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
-			}
+				return Ok(())
+			},
 		}
 	}
 
@@ -90,19 +153,12 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for EnsureOriginIm
 	}
 }
 
-impl Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type AggregratedKeyValue = RuntimeParameters;
-	type AdminOrigin = EnsureOriginImpl;
-	type WeightInfo = ();
-}
-
-type Block = frame_system::mocking::MockBlock<Runtime>;
-
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		ModuleParameters: parameters,
+		Example: pallet_example_basic,
+		Balances: pallet_balances,
 	}
 );
 
@@ -110,9 +166,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn new() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
