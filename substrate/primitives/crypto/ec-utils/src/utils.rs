@@ -34,9 +34,9 @@ use ark_scale::{
 use sp_std::vec::Vec;
 
 // SCALE encoding parameters shared by all the enabled modules
-pub(crate) const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
-pub(crate) type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
-pub(crate) type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
+const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
+type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
+type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
 #[inline(always)]
 pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
