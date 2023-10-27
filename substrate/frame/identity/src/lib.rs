@@ -664,17 +664,24 @@ pub mod pallet {
 		pub fn set_fields(
 			origin: OriginFor<T>,
 			#[pallet::compact] index: RegistrarIndex,
-			fields: 
-				<<T::IdentityInformation as IdentityInformationProvider>::IdentityField as U64BitFlag>::NumericRepresentation,
+			fields: <<T::IdentityInformation as IdentityInformationProvider>::IdentityField as U64BitFlag>::NumericRepresentation,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			let registrars = <Registrars<T>>::mutate(|registrars| -> Result<usize, DispatchError> {
-				let registrar = registrars.get_mut(index as usize).map(|r| r.as_mut()).flatten().filter(|r| r.account == who).ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
-				registrar.fields = IdentityFields(BitFlags::from_bits(fields).map_err(|_| Error::<T>::InvalidFields)?);
+			let registrars =
+				<Registrars<T>>::mutate(|registrars| -> Result<usize, DispatchError> {
+					let registrar = registrars
+						.get_mut(index as usize)
+						.map(|r| r.as_mut())
+						.flatten()
+						.filter(|r| r.account == who)
+						.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
+					registrar.fields = IdentityFields(
+						BitFlags::from_bits(fields).map_err(|_| Error::<T>::InvalidFields)?,
+					);
 
-				Ok(registrars.len())
-			})?;
+					Ok(registrars.len())
+				})?;
 			Ok(Some(T::WeightInfo::set_fields(registrars as u32)).into())
 		}
 
