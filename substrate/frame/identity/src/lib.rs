@@ -100,8 +100,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-/// Maximum size of an identity we can store is 4 MiB.
-const IDENTITY_MAX_SIZE: u32 = 4 * 1024 * 1024;
+/// Maximum size of an identity we can store is 7 KiB.
+const IDENTITY_MAX_SIZE: u32 = 7 * 1024;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -342,7 +342,8 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let encoded_byte_size = info.encoded_size() as u32;
 			ensure!(encoded_byte_size <= IDENTITY_MAX_SIZE, Error::<T>::IdentitySize);
-			let byte_deposit = T::ByteDeposit::get() * <BalanceOf<T>>::from(encoded_byte_size);
+			let byte_deposit =
+				T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
 
 			let mut id = match <IdentityOf<T>>::get(&sender) {
 				Some(mut id) => {
@@ -359,7 +360,7 @@ pub mod pallet {
 			};
 
 			let old_deposit = id.deposit;
-			id.deposit = T::BasicDeposit::get() + byte_deposit;
+			id.deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 			if id.deposit > old_deposit {
 				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
 			}
@@ -907,7 +908,7 @@ pub mod pallet {
 		/// - `target`: The account for which to update deposits.
 		///
 		/// May be called by any signed origin.
-		#[pallet::call_index(16)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::poke_deposit())]
 		pub fn poke_deposit(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
 			// No locked check: used for migration.
@@ -923,8 +924,8 @@ pub mod pallet {
 					let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
 					// Calculate what deposit should be
 					let encoded_byte_size = reg.info.encoded_size() as u32;
-					let byte_deposit =
-						T::ByteDeposit::get() * <BalanceOf<T>>::from(encoded_byte_size);
+					let byte_deposit = T::ByteDeposit::get()
+						.saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
 					let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 
 					// Update account
