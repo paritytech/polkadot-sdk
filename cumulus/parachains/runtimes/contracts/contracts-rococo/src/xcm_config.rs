@@ -228,14 +228,11 @@ parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
 	// Relay/native token can be teleported to Relay.
 	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
+		MultiAsset { fun: Fungible(crate::EXISTENTIAL_DEPOSIT), id: Concrete(Parent.into()) }.into(),
 		Parent.into(),
 	));
-	// Act as reserve for native token when sending to random parachain.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parachain(4321).into(),
-	));
+	// Reserve transfers are disabled on Contracts.
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
 }
 
 impl pallet_xcm::Config for Runtime {

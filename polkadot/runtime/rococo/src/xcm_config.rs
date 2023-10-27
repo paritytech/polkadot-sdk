@@ -218,7 +218,7 @@ parameter_types! {
 	// We can reserve transfer native token to some random parachain.
 	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
 		MultiAsset { fun: Fungible(crate::EXISTENTIAL_DEPOSIT), id: Concrete(Here.into()) }.into(),
-		Parachain(4321).into(),
+		Parachain(43211234).into(),
 	));
 }
 

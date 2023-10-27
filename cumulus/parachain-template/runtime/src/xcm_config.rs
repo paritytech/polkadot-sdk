@@ -155,11 +155,8 @@ parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
 	// Teleports are disabled
 	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
-	// We can reserve transfer relay/native token between us and Relay.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parent.into(),
-	));
+	// Reserve transfers are disabled.
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
 }
 
 impl pallet_xcm::Config for Runtime {

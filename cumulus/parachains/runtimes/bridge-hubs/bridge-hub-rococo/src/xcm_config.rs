@@ -319,7 +319,7 @@ parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
 	// Relay/native token can be teleported between BH and Relay.
 	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
+		MultiAsset { fun: Fungible(crate::EXISTENTIAL_DEPOSIT), id: Concrete(Parent.into()) }.into(),
 		Parent.into(),
 	));
 	// Reserve transfers are disabled on BH.

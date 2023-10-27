@@ -470,16 +470,8 @@ pub type XcmRouter = WithUniqueTopic<(
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parent.into());
-	// Relay/native token can be teleported to/from Relay.
-	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(Parent.into()) }.into(),
-		Parent.into(),
-	));
-	// We can reserve transfer some AH local token to/from AH.
-	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		MultiAsset { fun: Fungible(10), id: Concrete(SystemAssetHubLocation::get()) }.into(),
-		SystemAssetHubLocation::get(),
-	));
+	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = None;
+	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = None;
 }
 
 impl pallet_xcm::Config for Runtime {
