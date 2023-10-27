@@ -672,8 +672,7 @@ pub mod pallet {
 				<Registrars<T>>::mutate(|registrars| -> Result<usize, DispatchError> {
 					let registrar = registrars
 						.get_mut(index as usize)
-						.map(|r| r.as_mut())
-						.flatten()
+						.and_then(|r| r.as_mut())
 						.filter(|r| r.account == who)
 						.ok_or_else(|| DispatchError::from(Error::<T>::InvalidIndex))?;
 					registrar.fields = IdentityFields(
