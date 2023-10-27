@@ -44,7 +44,7 @@ jobs:
 
     - name: Build Summary
       run: |
-        echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
+        echo "${{ steps.srtool_build.outputs.json }}" | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
         cat ${{ matrix.runtime.name }}-srtool-digest.json
         echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
 
