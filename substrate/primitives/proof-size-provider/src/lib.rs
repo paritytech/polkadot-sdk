@@ -27,11 +27,11 @@ use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// Interface that provides access to the current storage proof size.
 #[runtime_interface]
-pub trait PovReclaimHostFunctions {
+pub trait StorageProofSize {
 	/// Returns the current storage proof size.
-	fn current_storage_proof_size(&mut self) -> u32 {
+	fn storage_proof_size(&mut self) -> u32 {
 		match self.extension::<ProofSizeExt>() {
-			Some(ext) => ext.current_storage_proof_size(),
+			Some(ext) => ext.storage_proof_size(),
 			None => 0,
 		}
 	}
@@ -46,7 +46,7 @@ mod tests {
 		TrieDBMutBuilder, TrieMut,
 	};
 
-	use crate::pov_reclaim_host_functions;
+	use crate::storage_proof_size;
 
 	const TEST_DATA: &[(&[u8], &[u8])] = &[(b"key1", &[1; 64]), (b"key2", &[2; 64])];
 
@@ -80,11 +80,11 @@ mod tests {
 		ext.register_extension(ProofSizeExt::new(recorder));
 
 		ext.execute_with(|| {
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), 0);
 			sp_io::storage::get(b"key1");
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 175);
+			assert_eq!(storage_proof_size::storage_proof_size(), 175);
 			sp_io::storage::get(b"key2");
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 275);
+			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 		});
 	}
 
@@ -93,11 +93,11 @@ mod tests {
 		let (mut ext, _) = get_prepared_test_externalities();
 
 		ext.execute_with(|| {
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), 0);
 			sp_io::storage::get(b"key1");
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), 0);
 			sp_io::storage::get(b"key2");
-			assert_eq!(pov_reclaim_host_functions::current_storage_proof_size(), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), 0);
 		});
 	}
 }

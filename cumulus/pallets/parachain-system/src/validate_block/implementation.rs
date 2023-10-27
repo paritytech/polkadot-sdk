@@ -174,8 +174,8 @@ where
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
-		cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::host_current_storage_proof_size
-			.replace_implementation(host_current_storage_proof_size),
+		sp_proof_size_provider::storage_proof_size::host_storage_proof_size
+			.replace_implementation(host_storage_proof_size),
 	);
 
 	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
@@ -315,7 +315,7 @@ fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
 }
 
-fn host_current_storage_proof_size() -> u32 {
+fn host_storage_proof_size() -> u32 {
 	recorder::with(|rec| rec.estimate_encoded_size())
 		.unwrap_or_default()
 		.try_into()

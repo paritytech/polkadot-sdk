@@ -45,7 +45,7 @@ mod local_executor {
 
 	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
 		type ExtendHostFunctions =
-			cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::HostFunctions;
+			sp_proof_size_provider::storage_proof_size::HostFunctions;
 
 		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 			cumulus_test_runtime::api::dispatch(method, data)
@@ -213,7 +213,7 @@ pub fn validate_block(
 	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
 	let executor = WasmExecutor::<(
 		sp_io::SubstrateHostFunctions,
-		cumulus_primitives_pov_reclaim::pov_reclaim_host_functions::HostFunctions,
+		sp_proof_size_provider::storage_proof_size::HostFunctions,
 	)>::builder()
 	.with_execution_method(WasmExecutionMethod::default())
 	.with_max_runtime_instances(1)

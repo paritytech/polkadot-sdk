@@ -36,5 +36,5 @@ cumulus-test-runtime = { path = "../runtime" }
 cumulus-test-service = { path = "../service" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
 cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-primitives-pov-reclaim = { path = "../../primitives/pov-reclaim" }
+sp-proof-size-provider = { path = "../../../substrate/primitives/proof-size-provider" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }

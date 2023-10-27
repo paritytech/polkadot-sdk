@@ -31,7 +31,7 @@ impl ProofSizeExt {
 		ProofSizeExt(Box::new(recorder))
 	}
 
-	pub fn current_storage_proof_size(&self) -> u32 {
+	pub fn storage_proof_size(&self) -> u32 {
 		self.0.estimate_encoded_size() as u32
 	}
 }
