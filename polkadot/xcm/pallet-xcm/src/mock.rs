@@ -489,8 +489,11 @@ parameter_types! {
 		UsdtTeleportLocation::get(),
 	));
 	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		vec![ForeignAsset::get()].into(),
-		ForeignReserveLocation::get(),
+		MultiAsset {
+			fun: Fungible(10),
+			id: Concrete(Here.into_location()),
+		}.into(),
+		Parachain(OTHER_PARA_ID).into(),
 	));
 }
 

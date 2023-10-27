@@ -17,56 +17,21 @@
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-use frame_support::{assert_ok, traits::Currency, weights::Weight};
+use frame_support::{traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
-use pallet_assets::Pallet as AssetsPallet;
-use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
-fn create_default_asset<T: pallet_assets::Config>(
-	asset_id: T::AssetIdParameter,
-	is_sufficient: bool,
-	caller: T::AccountId,
-) {
-	let beneficiary = T::Lookup::unlookup(caller);
-	let root = frame_system::RawOrigin::Root.into();
-	assert_ok!(AssetsPallet::<T>::force_create(
-		root,
-		asset_id,
-		beneficiary,
-		is_sufficient,
-		1u32.into(),
-	));
-}
-
-fn create_default_minted_asset<T: pallet_assets::Config>(
-	asset_id: T::AssetIdParameter,
-	is_sufficient: bool,
-	amount: T::Balance,
-	caller: T::AccountId,
-) {
-	create_default_asset::<T>(asset_id, is_sufficient, caller.clone());
-	if !is_sufficient {
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
-	}
-	let beneficiary = T::Lookup::unlookup(caller.clone());
-	assert_ok!(AssetsPallet::<T>::mint(
-		frame_system::RawOrigin::Signed(caller).into(),
-		asset_id,
-		beneficiary,
-		amount,
-	));
-}
+// existential deposit multiplier
+const ED_MULTIPLIER: u32 = 10;
 
 benchmarks! {
 	where_clause {
 		where
-			T: pallet_assets::Config,
-			<T as pallet_assets::Config>::AssetIdParameter: From<MultiLocation>,
-			<T as pallet_assets::Config>::Balance: From<u128> + Into<u128>,
+			T: pallet_balances::Config,
+			<T as pallet_balances::Config>::Balance: From<u128> + Into<u128>,
 	}
 	send {
 		let send_origin =
@@ -105,21 +70,28 @@ benchmarks! {
 		let (assets, destination) = T::ReserveTransferableAssets::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-		let caller: T::AccountId = whitelisted_caller();
-		for asset in assets.inner() {
-			let amount = match &asset.fun {
-				Fungible(amount) => *amount,
-				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
-			};
-			let id = match &asset.id {
-				Concrete(location) => *location,
-				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
-			};
-			let asset_id: T::AssetIdParameter = id.into();
-			create_default_minted_asset::<T>(asset_id.clone(), true, amount.into(), caller.clone());
-			// verify initial balance
-			assert_eq!(AssetsPallet::<T>::balance(asset_id.into(), caller.clone()), amount.into());
+
+		// most chains deploying `pallet-xcm` don't have `pallet-assets` so we're
+		// stuck with using native token and `pallet-balances`.
+		if assets.len() != 1 {
+			return Err(BenchmarkError::Stop("Generic benchmark supports only single native asset"))
 		}
+		let asset = assets.inner().clone().pop().unwrap();
+		let transferred_amount = match &asset.fun {
+			Fungible(amount) => *amount,
+			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
+		}.into();
+
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		assert!(balance >= transferred_amount);
+		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
@@ -134,19 +106,8 @@ benchmarks! {
 		let versioned_assets: VersionedMultiAssets = assets.clone().into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
-		for asset in assets.inner() {
-			let amount = match &asset.fun {
-				Fungible(amount) => *amount,
-				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
-			};
-			let id = match &asset.id {
-				Concrete(location) => *location,
-				_ => return Err(BenchmarkError::Stop("AssetNotFungible")),
-			};
-			let asset_id: T::AssetIdParameter = id.into();
-			// verify balance after transfer
-			assert_eq!(AssetsPallet::<T>::balance(asset_id.into(), caller.clone()), 0.into());
-		}
+		// verify balance after transfer
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance - transferred_amount);
 	}
 
 	execute {
