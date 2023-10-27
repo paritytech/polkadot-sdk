@@ -133,7 +133,7 @@ pub mod bls_crypto {
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			// `w3f-bls` library uses IETF hashing standard and as such does not exposes
+			// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash to field function.
 			// We are directly calling into the library to avoid introducing new host call.
 			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
@@ -157,7 +157,7 @@ pub mod bls_crypto {
 pub mod ecdsa_bls_crypto {
 	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
-	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair, Pair as _};
+	use sp_core::{bls377, crypto::Wraps, ecdsa, Pair as _};
 
 	app_crypto!(ecdsa_bls377, KEY_TYPE);
 
@@ -172,12 +172,30 @@ pub mod ecdsa_bls_crypto {
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			// `w3f-bls` library uses IETF hashing standard and as such does not exposes
-			// a choice of hash to field function.
-			// We are directly calling into the library to avoid introducing new host call.
-			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
+			// We can not call simply call
+			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
+			// because that invokes ecdsa default verification which perfoms blake2 hash
+			// which we don't want. As such we need to re-implement the verification
+			// of signatures part by part instead of relying on paired crypto
+			let public: &[u8] = self.as_inner_ref().as_ref();
+			let signature: &[u8] = signature.as_inner_ref().as_ref();
+			let msg_hash = <MsgHash as Hash>::hash(msg).into();
 
-			EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
+			let ecdsa_public =
+				ecdsa::Public::try_from(&public[0..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE]);
+			let ecdsa_signature =
+				ecdsa::Signature::try_from(&signature[0..ecdsa::SIGNATURE_SERIALIZED_SIZE]);
+
+			let bls_public = bls377::Public::try_from(&public[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..]);
+			let bls_signature =
+				bls377::Signature::try_from(&signature[ecdsa::SIGNATURE_SERIALIZED_SIZE..]);
+
+			return match (ecdsa_public, ecdsa_signature, bls_public, bls_signature) {
+				(Ok(ecdsa_public), Ok(ecdsa_signature), Ok(bls_public), Ok(bls_signature)) =>
+					ecdsa::Pair::verify_prehashed(&ecdsa_signature, &msg_hash, &ecdsa_public) &&
+						bls377::Pair::verify(&bls_signature, msg, &bls_public),
+				_ => false,
+			};
 		}
 	}
 }
@@ -257,6 +275,7 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 ///
 /// A vote message is a direct vote created by a BEEFY node on every voting round
 /// and is gossiped to its peers.
+/// TODO: Remove `Signature` generic type, instead get it from `Id::Signature`.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct VoteMessage<Number, Id, Signature> {
 	/// Commit to information extracted from a finalized block
@@ -505,15 +524,30 @@ mod tests {
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls_beefy_verify_works() {
 		let msg = &b"test-message"[..];
-		let (pair, _) = ecdsa_bls_crypto::Pair::generate();
+		let (ecdsa_pair, _) = ecdsa_crypto::Pair::generate();
+		let (bls_pair, _) = bls_crypto::Pair::generate();
 
-		let signature: ecdsa_bls_crypto::Signature = pair.as_inner_ref().sign(&msg).into();
+		let ecdsa_keccak_256_signature = ecdsa_pair.as_inner_ref().sign_prehashed(&keccak_256(msg));
+		let bls_signature = bls_pair.sign(&msg);
+
+		let public_vec: Vec<u8> = [
+			ecdsa_pair.public().as_inner_ref().as_ref(),
+			bls_pair.public().as_inner_ref().as_ref(),
+		]
+		.concat();
+
+		let public = ecdsa_bls_crypto::Public::try_from(&public_vec[..]).unwrap();
+		let signature_slice: Vec<u8> = [
+			<sp_core::ecdsa::Signature as AsRef<[u8]>>::as_ref(&ecdsa_keccak_256_signature),
+			<sp_core::bls377::Signature as AsRef<[u8]>>::as_ref(&bls_signature.as_inner_ref()),
+		]
+		.concat();
+		let signature = ecdsa_bls_crypto::Signature::try_from(&signature_slice[..]).unwrap();
 
 		// Verification works if same hashing function is used when signing and verifying.
-		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
+		assert!(BeefyAuthorityId::<Keccak256>::verify(&public, &signature, msg));
 
-		// Other public key doesn't work
-		let (other_pair, _) = ecdsa_bls_crypto::Pair::generate();
-		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
+		// Verification doesn't works if we verify function provided by pair_crypto implementation
+		assert!(!ecdsa_bls_crypto::Pair::verify(&signature, msg, &public));
 	}
 }
