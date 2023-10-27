@@ -30,6 +30,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, Pallet as SystemPallet};
 use sp_runtime::{
 	traits::{One, Zero},
 	transaction_validity::TransactionPriority,
+	Saturating,
 };
 
 // reexport everything from `integrity_tests` module
@@ -74,8 +75,9 @@ where
 {
 	// if there are no relayers, explicitly registered at this lane, noone gets additional
 	// priority boost
-	let lane_relayers = RelayersPallet::<R>::lane_relayers(lane_id);
-	let lane_relayers_len: BlockNumberFor<R> = (lane_relayers.len() as u32).into();
+	let lane_relayers = RelayersPallet::<R>::active_lane_relayers(lane_id);
+	let active_lane_relayers = lane_relayers.relayers();
+	let lane_relayers_len: BlockNumberFor<R> = (active_lane_relayers.len() as u32).into();
 	if lane_relayers_len.is_zero() {
 		return 0
 	}
@@ -88,17 +90,17 @@ where
 
 	// let's compute current slot number
 	let current_block_number = SystemPallet::<R>::block_number();
-	let slot = current_block_number / slot_length;
+	let slot = current_block_number.saturating_sub(*lane_relayers.enacted_at()) / slot_length;
 
 	// and then get the relayer for that slot
 	let slot_relayer = match usize::try_from(slot % lane_relayers_len) {
-		Ok(slot_relayer_index) => &lane_relayers[slot_relayer_index],
+		Ok(slot_relayer_index) => &active_lane_relayers[slot_relayer_index],
 		Err(_) => return 0,
 	};
 
 	// if message delivery transaction is submitted by the relayer, assigned to the current
 	// slot, let's boost the transaction priority
-	if relayer != slot_relayer {
+	if relayer != slot_relayer.relayer() {
 		return 0
 	}
 
@@ -482,24 +484,30 @@ mod integrity_tests {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, LaneRelayers};
+	use crate::{mock::*, ActiveLaneRelayers};
+	use bp_relayers::{ActiveLaneRelayersSet, NextLaneRelayersSet};
+	use sp_runtime::traits::ConstU32;
 
 	#[test]
 	fn compute_per_lane_priority_boost_works() {
 		run_test(|| {
 			// insert 3 relayers to the queue
 			let lane_id = LaneId::new(1, 2);
-			let relayer1 = 1_000;
-			let relayer2 = 2_000;
-			let relayer3 = 3_000;
-			LaneRelayers::<TestRuntime>::insert(
-				lane_id,
-				sp_runtime::BoundedVec::try_from(vec![relayer1, relayer2, relayer3]).unwrap(),
-			);
+			let relayer1 = 100;
+			let relayer2 = 200;
+			let relayer3 = 300;
+			let mut next_set: NextLaneRelayersSet<_, _, ConstU32<3>> =
+				NextLaneRelayersSet::empty(5);
+			assert!(next_set.try_insert(relayer1, 0));
+			assert!(next_set.try_insert(relayer2, 0));
+			assert!(next_set.try_insert(relayer3, 0));
+			let mut active_set = ActiveLaneRelayersSet::default();
+			active_set.activate_next_set(7, next_set, |_| true);
+			ActiveLaneRelayers::<TestRuntime>::insert(lane_id, active_set);
 
-			// at blocks 1..=SlotLength relayer1 gets the boost
-			System::set_block_number(0);
-			for _ in 1..SlotLength::get() {
+			// at blocks 7..=7+SlotLength relayer1 gets the boost
+			System::set_block_number(6);
+			for _ in 7..SlotLength::get() + 7 {
 				System::set_block_number(System::block_number() + 1);
 				assert_eq!(
 					compute_per_lane_priority_boost::<TestRuntime>(lane_id, &relayer1),

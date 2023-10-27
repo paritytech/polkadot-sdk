@@ -22,8 +22,8 @@
 
 use bp_messages::LaneId;
 use bp_relayers::{
-	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
-	RewardsAccountParams, StakeAndSlash,
+	ActiveLaneRelayersSet, ExplicitOrAccountParams, NextLaneRelayersSet, PaymentProcedure,
+	Registration, RelayerRewardsKeyProvider, RewardsAccountParams, StakeAndSlash,
 };
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
@@ -71,9 +71,28 @@ pub mod pallet {
 		/// Stake and slash scheme.
 		type StakeAndSlash: StakeAndSlash<Self::AccountId, BlockNumberFor<Self>, Self::Reward>;
 
-		/// Maximal number of relayers that can register themselves on a single lane.
+		/// Maximal number of relayers that can reside in the active lane relayers set on a single
+		/// lane.
+		///
+		/// Lowering this value leads to additional concurrency between relayers, potentially
+		/// making messages cheaper. So it shall not be too large.
 		#[pallet::constant]
-		type MaxRelayersPerLane: Get<u32>;
+		type MaxActiveRelayersPerLane: Get<u32>;
+		/// Maximal number of relayers that can reside in the next lane relayers set on a single
+		/// lane.
+		///
+		/// Relayers set is a bounded priority queue, where relayers with lower expected reward are
+		/// prioritized over greedier relayers. At the end of epoch, we select top
+		/// `MaxActiveRelayersPerLane` relayers from the next set and move them to the next set. To
+		/// alleviate possible spam attacks, where relayers are registering at lane with zero reward
+		/// (pushing out actual relayers with larger expected reward) and then `deregistering`
+		/// themselves right before epoch end, we make the next relayers set larger than the active
+		/// set. It would make it more expensive for attackers to fill the whole next set.
+		///
+		/// This value must be larger than or equal to the [`Self::MaxActiveRelayersPerLane`].
+		#[pallet::constant]
+		type MaxNextRelayersPerLane: Get<u32>;
+
 		/// Length of slots in chain blocks.
 		///
 		/// Registered relayer may explicitly register himself at some lane to get priority boost
@@ -499,19 +518,32 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// A set of relayers that have explicitly registered themselves at a given lane.
+	/// An active set of relayers that have explicitly registered themselves at a given lane.
 	///
 	/// Every relayer inside this set receives additional priority boost when it submits
 	/// message delivers messages at given lane. The boost only happens inside the slot,
 	/// assigned to relayer.
 	#[pallet::storage]
-	#[pallet::getter(fn lane_relayers)]
-	pub type LaneRelayers<T: Config> = StorageMap<
+	#[pallet::getter(fn active_lane_relayers)]
+	pub type ActiveLaneRelayers<T: Config> = StorageMap<
 		_,
 		Identity,
 		LaneId,
-		BoundedVec<T::AccountId, T::MaxRelayersPerLane>,
+		ActiveLaneRelayersSet<T::AccountId, BlockNumberFor<T>, T::MaxActiveRelayersPerLane>,
 		ValueQuery,
+	>;
+
+	/// A next set of relayers that have explicitly registered themselves at a given lane.
+	///
+	/// This set may replace the [`ActiveLaneRelayers`] after current epoch ends.
+	#[pallet::storage]
+	#[pallet::getter(fn next_lane_relayers)]
+	pub type NextLaneRelayers<T: Config> = StorageMap<
+		_,
+		Identity,
+		LaneId,
+		NextLaneRelayersSet<T::AccountId, BlockNumberFor<T>, T::MaxNextRelayersPerLane>,
+		OptionQuery,
 	>;
 }
 

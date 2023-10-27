@@ -216,7 +216,8 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type Reward = ThisChainBalance;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
-	type MaxRelayersPerLane = ConstU32<16>;
+	type MaxActiveRelayersPerLane = ConstU32<4>;
+	type MaxNextRelayersPerLane = ConstU32<16>;
 	type SlotLength = SlotLength;
 	type PriorityBoostPerItem = ConstU64<1>;
 	type PriorityBoostForActiveLaneRelayer = PriorityBoostForActiveLaneRelayer;

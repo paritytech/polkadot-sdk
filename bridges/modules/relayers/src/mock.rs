@@ -194,6 +194,8 @@ parameter_types! {
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(3, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000u128);
 	pub MaximumMultiplier: Multiplier = sp_runtime::traits::Bounded::max_value();
+	pub MaxActiveRelayersPerLane: u32 = 4;
+	pub MaxNextRelayersPerLane: u32 = 16;
 	pub SlotLength: u32 = 16;
 	pub PriorityBoostForActiveLaneRelayer: TransactionPriority = 1;
 }
@@ -285,7 +287,8 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type Reward = ThisChainBalance;
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
-	type MaxRelayersPerLane = ConstU32<16>;
+	type MaxActiveRelayersPerLane = MaxActiveRelayersPerLane;
+	type MaxNextRelayersPerLane = MaxNextRelayersPerLane;
 	type SlotLength = SlotLength;
 	type PriorityBoostPerItem = ConstU64<1>;
 	type PriorityBoostForActiveLaneRelayer = PriorityBoostForActiveLaneRelayer;

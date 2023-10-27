@@ -23,6 +23,10 @@ pub use extension::{
 	BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig,
 	RuntimeWithUtilityPallet,
 };
+pub use lane_relayers::{
+	ActiveLaneRegistration, ActiveLaneRelayersSet, LaneRegistration, NextLaneRelayersSet,
+	RelayerRewardAtSource,
+};
 pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
 use bp_messages::LaneId;
@@ -37,6 +41,7 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 mod extension;
+mod lane_relayers;
 mod registration;
 
 /// The owner of the sovereign account that should pay the rewards.
