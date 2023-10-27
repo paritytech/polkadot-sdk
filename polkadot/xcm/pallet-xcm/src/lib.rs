@@ -51,10 +51,11 @@ use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_executor::{
 	traits::{
-		CheckSuspension, ClaimAssets, Controller, ControllerWeightInfo, ConvertLocation,
-		ConvertOrigin, DropAssets, MatchesFungible, OnResponse, Properties, QueryController,
-		QueryControllerWeightInfo, QueryHandler, QueryHandlerWeightInfo, QueryResponseStatus,
-		VersionChangeNotifier, WeightBounds,
+		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets,
+		ExecuteController, ExecuteControllerWeightInfo, MatchesFungible, OnResponse, Properties,
+		QueryController, QueryControllerWeightInfo, QueryHandler, QueryHandlerWeightInfo,
+		QueryResponseStatus, SendController, SendControllerWeightInfo, VersionChangeNotifier,
+		WeightBounds,
 	},
 	Assets,
 };
@@ -285,17 +286,13 @@ pub mod pallet {
 		type ReachableDest: Get<Option<MultiLocation>>;
 	}
 
-	impl<T: Config> ControllerWeightInfo for Pallet<T> {
+	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
 		fn execute() -> Weight {
 			T::WeightInfo::execute()
 		}
-
-		fn send() -> Weight {
-			T::WeightInfo::send()
-		}
 	}
 
-	impl<T: Config> Controller<OriginFor<T>, <T as Config>::RuntimeCall> for Pallet<T> {
+	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall> for Pallet<T> {
 		type WeightInfo = Self;
 		fn execute(
 			origin: OriginFor<T>,
@@ -320,12 +317,21 @@ pub mod pallet {
 			Self::deposit_event(Event::Attempted { outcome });
 			result
 		}
+	}
 
+	impl<T: Config> SendControllerWeightInfo for Pallet<T> {
+		fn send() -> Weight {
+			T::WeightInfo::send()
+		}
+	}
+
+	impl<T: Config> SendController<OriginFor<T>> for Pallet<T> {
+		type WeightInfo = Self;
 		fn send(
 			origin: OriginFor<T>,
 			dest: Box<VersionedMultiLocation>,
 			message: Box<VersionedXcm<()>>,
-		) -> DispatchResult {
+		) -> Result<XcmHash, DispatchError> {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
 			let interior: Junctions =
 				origin_location.try_into().map_err(|_| Error::<T>::InvalidOrigin)?;
@@ -336,7 +342,7 @@ pub mod pallet {
 				Self::send_xcm(interior, dest, message.clone()).map_err(Error::<T>::from)?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
-			Ok(())
+			Ok(message_id)
 		}
 	}
 
@@ -869,7 +875,8 @@ pub mod pallet {
 			dest: Box<VersionedMultiLocation>,
 			message: Box<VersionedXcm<()>>,
 		) -> DispatchResult {
-			<Self as Controller<_, _>>::send(origin, dest, message)
+			<Self as SendController<_>>::send(origin, dest, message)?;
+			Ok(())
 		}
 
 		/// Teleport some assets from the local chain to some destination chain.
@@ -992,7 +999,7 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			<Self as Controller<_, _>>::execute(origin, message, max_weight)
+			<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
