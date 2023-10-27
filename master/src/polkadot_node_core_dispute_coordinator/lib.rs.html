@@ -598,6 +598,7 @@
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -627,6 +628,7 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>error::FatalError;
 <span class="kw">use </span>futures::FutureExt;
 
 <span class="kw">use </span>gum::CandidateHash;
@@ -1031,7 +1033,7 @@
 </span><span class="attr">#[overseer::contextbounds(DisputeCoordinator, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>wait_for_first_leaf&lt;Context&gt;(ctx: <span class="kw-2">&amp;mut </span>Context) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ActivatedLeaf&gt;&gt; {
 	<span class="kw">loop </span>{
-		<span class="kw">match </span>ctx.recv().<span class="kw">await</span><span class="question-mark">? </span>{
+		<span class="kw">match </span>ctx.recv().<span class="kw">await</span>.map_err(FatalError::SubsystemReceive)<span class="question-mark">? </span>{
 			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(activated) = update.activated {

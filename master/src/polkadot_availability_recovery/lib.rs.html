@@ -826,6 +826,7 @@
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1650,7 +1651,8 @@
 					target: LOG_TARGET,
 					<span class="string">&quot;Erasure task channel closed. Node shutting down ?&quot;</span>,
 				);
-			},
+				<span class="kw">break
+			</span>},
 		}
 	}
 }
