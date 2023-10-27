@@ -11,8 +11,8 @@ jobs:
       matrix:
         runtime:
           # TODO: Add parachain runtimes
-          - { name: westend, package: westend-runtime, path: relay/westend }
-          - { name: rococo, package: rococo-runtime, path: relay/rococo }
+          - { name: westend, package: westend-runtime, path: polkadot/runtime/westend }
+          - { name: rococo, package: rococo-runtime, path: polkadot/runtime/rococo }
         build_type:
           # No prefix indicates a release build
           - { prefix: "", build_opts: "--features on-chain-release-build" } 
