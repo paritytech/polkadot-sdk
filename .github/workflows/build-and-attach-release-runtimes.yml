@@ -25,32 +25,31 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
-      id: srtool_build
-      uses: chevdor/srtool-actions@v0.8.0
-      env:
-        BUILD_OPTS: ${{ matrix.build_config.opts }}
-      with:
-        chain: ${{ matrix.runtime.name }}
-        package: ${{ matrix.runtime.package }}
-        runtime_dir: ${{ matrix.runtime.path }}
-        profile: "production"
+    # - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
+    #   id: srtool_build
+    #   uses: chevdor/srtool-actions@v0.8.0
+    #   env:
+    #     BUILD_OPTS: ${{ matrix.build_config.opts }}
+    #   with:
+    #     chain: ${{ matrix.runtime.name }}
+    #     package: ${{ matrix.runtime.package }}
+    #     runtime_dir: ${{ matrix.runtime.path }}
+    #     profile: "production"
 
-    - name: Build Summary
-      run: |
-        echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
-        cat ${{ matrix.runtime.name }}-srtool-digest.json
-        echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
+    # - name: Build Summary
+    #   run: |
+    #     echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
+    #     cat ${{ matrix.runtime.name }}-srtool-digest.json
+    #     echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
 
-    - name: Set up paths and names
+    - name: Set up paths and runtime names
       id: setup
       run: |
-        echo "PACKAGE_NAME=${{ matrix.runtime.package }}" >> $GITHUB_ENV
-        RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
-        echo "RUNTIME_BLOB_NAME=$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+        RUNTIME_BLOB_NAME=$(echo ${{ matrix.runtime.package }} | sed 's/-/_/g').compact.compressed.wasm
         PREFIX=${{ matrix.build_config.type == 'debug-build' && 'DEBUG_BUILD__' || '' }}
-        echo "PREFIX=$PREFIX" >> $GITHUB_ENV
-        echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/production/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+
+        echo "RUNTIME_BLOB_NAME=$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+        echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/production/wbuild/${{ matrix.runtime.package }}/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
         echo "ASSET_NAME=$PREFIX$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
 
     - name: Upload Runtime to Release
