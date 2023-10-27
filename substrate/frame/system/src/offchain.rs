@@ -154,7 +154,7 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 	/// all available accounts and the provided accounts
 	/// in `with_filter`. If no accounts are provided,
 	/// use all accounts by default.
-	fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
+	pub fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
 		let keystore_accounts = Self::keystore_accounts();
 		match self.accounts {
 			None => Box::new(keystore_accounts),
@@ -175,6 +175,7 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 		}
 	}
 
+	/// Return all available accounts in keystore.
 	pub fn keystore_accounts() -> impl Iterator<Item = Account<T>> {
 		C::RuntimeAppPublic::all().into_iter().enumerate().map(|(index, key)| {
 			let generic_public = C::GenericPublic::from(key);
