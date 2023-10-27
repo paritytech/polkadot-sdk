@@ -6,7 +6,7 @@ edition.workspace = true
 description = "Utils for BridgeHub testing"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", workspace = true, default-features = false, features = ["derive", "max-encoded-len"] }
 log = { version = "0.4.20", default-features = false }
 
 # Substrate

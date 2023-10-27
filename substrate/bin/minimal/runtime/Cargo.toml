@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-parity-scale-codec = { version = "3.0.0", default-features = false }
-scale-info = { version = "2.6.0", default-features = false }
+parity-scale-codec = { workspace = true, default-features = false }
+scale-info = { workspace = true, default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { path = "../../../frame", default-features = false, features = ["runtime", "experimental"] }

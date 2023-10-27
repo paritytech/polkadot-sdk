@@ -458,6 +458,10 @@ members = [
 ]
 default-members = [ "polkadot", "substrate/bin/node/cli" ]
 
+[workspace.dependencies]
+scale-info = "2.10"
+parity-scale-codec = "3.6.5"
+
 [profile.release]
 # Polkadot runtime requires unwinding.
 panic = "unwind"

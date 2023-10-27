@@ -6,7 +6,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", workspace = true }
 paste = "1.0.14"
 log = { version = "0.4.20", default-features = false }
 lazy_static = "1.4.0"

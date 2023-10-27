@@ -9,10 +9,10 @@ description = "Kusama's BridgeHub parachain runtime"
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", workspace = true, default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 

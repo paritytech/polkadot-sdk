@@ -15,8 +15,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = {  version = "2.6.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }

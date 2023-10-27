@@ -8,10 +8,10 @@ license.workspace = true
 publish = false
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", workspace = true }
 honggfuzz = "0.5.55"
 arbitrary = "1.2.0"
-scale-info = { version = "2.10.0", features = ["derive"] }
+scale-info = { workspace = true, features = ["derive"] }
 
 frame-system = { path = "../../../../substrate/frame/system" }
 frame-support = { path = "../../../../substrate/frame/support" }
