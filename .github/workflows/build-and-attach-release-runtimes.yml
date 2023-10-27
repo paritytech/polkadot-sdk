@@ -14,7 +14,7 @@ jobs:
           - { name: rococo, package: rococo-runtime, path: polkadot/runtime/rococo }
           - { name: asset-hub-rococo, package: asset-hub-rococo-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-rococo }
           - { name: asset-hub-westend, package: asset-hub-westend-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-westend }
-          - { name: bridge-hub-rococo, package: bridge-hub-rococo-runtime, path: cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend }
+          - { name: bridge-hub-rococo, package: bridge-hub-rococo-runtime, path: cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo }
           - { name: contracts-rococo, package: contracts-rococo-runtime, path: cumulus/parachains/runtimes/contracts/contracts-rococo }
         build_config:
           # Release build has logging disabled and no dev features
