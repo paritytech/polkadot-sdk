@@ -319,24 +319,19 @@ pub mod rococo {
 				owner: bridges_pallet_owner.clone(),
 				..Default::default()
 			},
-			bridge_wococo_to_rococo_messages:
-				bridge_hub_rococo_runtime::BridgeWococoToRococoMessagesConfig {
+			bridge_rococo_messages:
+				bridge_hub_rococo_runtime::BridgeRococoMessagesConfig {
 					owner: bridges_pallet_owner.clone(),
 					..Default::default()
 				},
-			bridge_rococo_to_wococo_messages:
-				bridge_hub_rococo_runtime::BridgeRococoToWococoMessagesConfig {
+			bridge_wococo_messages:
+				bridge_hub_rococo_runtime::BridgeWococoMessagesConfig {
 					owner: bridges_pallet_owner.clone(),
 					..Default::default()
 				},
-			bridge_rococo_to_westend_messages:
-				bridge_hub_rococo_runtime::BridgeRococoToWestendMessagesConfig {
+			bridge_westend_messages:
+				bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
 					owner: bridges_pallet_owner.clone(),
-					..Default::default()
-				},
-			bridge_westend_to_rococo_messages:
-				bridge_hub_rococo_runtime::BridgeWestendToRococoMessagesConfig {
-					owner: bridges_pallet_owner,
 					..Default::default()
 				},
 		}
