@@ -64,13 +64,16 @@ impl std::fmt::Display for WasmExecutionMethod {
 	}
 }
 
-/// How to output the result of the sanity weight check.
+/// How to output the result of the sanity weight check and what to do when it fails.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
 #[value(rename_all = "kebab-case")]
 pub enum SanityWeightCheck {
+	/// Prints the results in the terminal and on failing returns an error.
 	Error,
+	/// Prints the results in the terminal.
 	Warning,
+	/// Sanity weight check is ignored.
 	Ignore,
 }
 
