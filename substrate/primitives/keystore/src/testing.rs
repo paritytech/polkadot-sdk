@@ -22,7 +22,7 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, bls381};
+use sp_core::{bls377, bls381, ecdsa_bls377};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -320,6 +320,30 @@ impl Keystore for MemoryKeystore {
 		msg: &[u8],
 	) -> Result<Option<bls377::Signature>, Error> {
 		self.sign::<bls377::Pair>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls377::Public> {
+		self.public_keys::<ecdsa_bls377::Pair>(key_type)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_generate_new(
+		&self,
+		key_type: KeyTypeId,
+		seed: Option<&str>,
+	) -> Result<ecdsa_bls377::Public, Error> {
+		self.generate_new::<ecdsa_bls377::Pair>(key_type, seed)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls377::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
+		self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {

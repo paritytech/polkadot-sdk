@@ -60,7 +60,6 @@ polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", d
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false}
-westend-runtime = { path = "../../../../../polkadot/runtime/westend", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
@@ -117,7 +116,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -151,7 +149,6 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"westend-runtime/try-runtime",
 ]
 std = [
 	"assets-common/std",
@@ -197,6 +194,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -213,7 +211,6 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"westend-runtime-constants/std",
-	"westend-runtime/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

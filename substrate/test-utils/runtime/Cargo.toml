@@ -81,6 +81,8 @@ std = [
 	"sc-executor/std",
 	"sc-service",
 	"scale-info/std",
+	"serde/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-block-builder/std",
