@@ -875,7 +875,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_rococo::WeightInfo<Runtime>;
 
 	type UniversalLocation = xcm_config::UniversalLocation;
-	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
+	type BridgedNetworkId = ();
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
