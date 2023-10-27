@@ -693,7 +693,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
-				let result = {
+				let result = (|| -> Result<(), XcmError> {
 					// We must do this first in order to resolve wildcards.
 					let assets = self.holding.saturating_take(assets);
 					for asset in assets.assets_iter() {
@@ -714,7 +714,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						Config::AssetTransactor::check_out(&dest, &asset, &self.context);
 					}
 					Ok(())
-				};
+				})();
 				if result.is_err() {
 					self.holding = old_holding;
 				}
