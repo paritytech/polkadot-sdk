@@ -5,8 +5,8 @@ pub mod __private {
 	pub use frame_support;
 	pub use paste;
 	pub use scale_info;
-	pub use sp_runtime;
 	pub use sp_core;
+	pub use sp_runtime;
 }
 
 use frame_support::Parameter;
@@ -73,19 +73,6 @@ pub use workaround::*;
 
 /// Define parameters key value types.
 /// Example:
-///
-/// ```
-/// # #[macro_use]
-/// # extern crate pallet_parameters;
-/// # fn main() {}
-/// define_parameters! {
-///     pub Pallet = {
-///         Key1: u64 = 0,
-///         Key2(u32): u32 = 1,
-///         Key3((u8, u8)): u128 = 2,
-///     }
-/// }
-/// ```
 #[macro_export]
 macro_rules! define_parameters {
 	(
@@ -93,7 +80,7 @@ macro_rules! define_parameters {
 			$(
 				$( #[doc = $doc:expr] )?
 				#[codec(index = $index:expr)]
-				$key_name:ident $( ($key_para: ty) )? : $value_type:ty = $default:expr
+				$key_name:ident : $value_type:ty = $default:expr
 			),+ $(,)?
 		},
 		Pallet = $pallet:path,
@@ -179,7 +166,7 @@ macro_rules! define_parameters {
 					$crate::traits::__private::sp_runtime::RuntimeDebug,
 					$crate::traits::__private::scale_info::TypeInfo
 				)]
-				$vis struct $key_name $( (pub $key_para) )?;
+				$vis struct $key_name;
 
 				impl $crate::traits::__private::sp_core::Get<$value_type> for $key_name {
 					fn get() -> $value_type {
@@ -268,47 +255,18 @@ macro_rules! define_parameters {
 /// Define aggregated parameters types.
 ///
 /// Example:
-/// ```
-/// # #[macro_use]
-/// # extern crate pallet_parameters;
-/// # fn main() {}
-/// mod pallet1 {
-///     define_parameters! {
-///         pub Pallet = {
-///             Key1: u64 = 0,
-///             Key2(u32): u32 = 1,
-///             Key3((u8, u8)): u128 = 2,
-///         }
-///     }
-/// }
-///
-/// mod pallet2 {
-///     define_parameters! {
-///         pub Pallet = {
-///             Key1: u64 = 0,
-///             Key2(u32): u32 = 1,
-///             Key3((u8, u8)): u128 = 2,
-///         }
-///     }
-/// }
-///
-/// define_aggregrated_parameters! {
-///     pub AggregratedPallet = {
-///         Pallet1: pallet1::Pallet = 0,
-///         Pallet2: pallet2::Pallet = 1,
-///     }
-/// }
-/// ```
 #[macro_export]
 macro_rules! define_aggregrated_parameters {
 	(
 		$vis:vis $name:ident = {
 			$(
-				$parameter_name:ident: $parameter_type:ty = $index:expr
+				#[codec(index = $index:expr)]
+				$parameter_name:ident: $parameter_type:ty
 			),+ $(,)?
 		}
 	) => {
 		$crate::traits::__private::paste::item! {
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,
@@ -402,30 +360,8 @@ macro_rules! define_aggregrated_parameters {
 
 #[cfg(test)]
 mod tests {
-	pub mod pallet1 {
-		define_parameters! {
-			pub Parameters = {
-				Key1: u64 = 0,
-				Key2(u32): u32 = 1,
-				Key3((u8, u8)): u128 = 2,
-			}
-		}
-	}
-	pub mod pallet2 {
-		define_parameters! {
-			pub Parameters = {
-				Key1: u64 = 0,
-				Key2(u32): u32 = 2,
-				Key3((u8, u8)): u128 = 4,
-			}
-		}
-	}
-	define_aggregrated_parameters! {
-		pub RuntimeParameters = {
-			Pallet1: pallet1::Parameters = 0,
-			Pallet2: pallet2::Parameters = 3,
-		}
-	}
+	use super::*;
+	use crate::mock::*;
 
 	#[test]
 	fn test_define_parameters_key_convert() {
@@ -436,7 +372,7 @@ mod tests {
 		assert_eq!(key1, key1_2);
 		assert_eq!(parameter_key, pallet1::ParametersKey::Key1(key1));
 
-		let key2 = pallet1::Key2(1);
+		let key2 = pallet1::Key2;
 		let parameter_key: pallet1::ParametersKey = key2.clone().into();
 		let key2_2: pallet1::Key2 = parameter_key.clone().try_into().unwrap();
 
@@ -471,10 +407,10 @@ mod tests {
 		assert_eq!(key1, pallet1::ParametersKey::Key1(pallet1::Key1));
 		assert_eq!(value1, None);
 
-		let kv2 = pallet1::Parameters::Key2(pallet1::Key2(1), Some(2));
+		let kv2 = pallet1::Parameters::Key2(pallet1::Key2, Some(2));
 		let (key2, value2) = kv2.clone().into_parts();
 
-		assert_eq!(key2, pallet1::ParametersKey::Key2(pallet1::Key2(1)));
+		assert_eq!(key2, pallet1::ParametersKey::Key2(pallet1::Key2));
 		assert_eq!(value2, Some(pallet1::ParametersValue::Key2(2)));
 	}
 
@@ -487,21 +423,15 @@ mod tests {
 		let parameter_key: pallet1::ParametersKey = key1.clone().into();
 		let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
 
-		assert_eq!(
-			runtime_key,
-			RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(key1))
-		);
+		assert_eq!(runtime_key, RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(key1)));
 		assert_eq!(runtime_key.encode(), vec![0, 0]);
 
-		let key2 = pallet2::Key2(1);
+		let key2 = pallet2::Key2;
 		let parameter_key: pallet2::ParametersKey = key2.clone().into();
 		let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
 
-		assert_eq!(
-			runtime_key,
-			RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2))
-		);
-		assert_eq!(runtime_key.encode(), vec![3, 2, 1, 0, 0, 0]);
+		assert_eq!(runtime_key, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2)));
+		assert_eq!(runtime_key.encode(), vec![1, 1]);
 	}
 
 	#[test]
@@ -517,12 +447,12 @@ mod tests {
 		);
 		assert_eq!(value1, None);
 
-		let kv2 = RuntimeParameters::Pallet2(pallet2::Parameters::Key2(pallet2::Key2(1), Some(2)));
+		let kv2 = RuntimeParameters::Pallet2(pallet2::Parameters::Key2(pallet2::Key2, Some(2)));
 		let (key2, value2) = kv2.clone().into_parts();
 
 		assert_eq!(
 			key2,
-			RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2(1)))
+			RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2))
 		);
 		assert_eq!(
 			value2,

@@ -18,6 +18,7 @@ frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
+docify = "0.2.5"
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", features = ["std"] }

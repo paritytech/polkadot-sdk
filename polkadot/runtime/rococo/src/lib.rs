@@ -74,11 +74,11 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use pallet_parameters::define_aggregrated_parameters;
 use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::simple::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_parameters::define_aggregrated_parameters;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use sp_core::{ConstU128, OpaqueMetadata, H256};
@@ -230,8 +230,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -244,7 +242,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1114,7 +1116,7 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = dynamic_params::NisTarget;
+	type Target = dynamic_params::nis::NisTarget;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
@@ -1242,45 +1244,57 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+use frame_system::EnsureRootWithSuccess;
 use pallet_parameters::define_parameters;
 use sp_runtime::traits::ConstBool;
-use frame_system::EnsureRootWithSuccess;
 
 /// Dynamic parameters that can be set by Root without a runtime upgrade.
 ///
-/// All parameters expose metadata and docs to conveniently set them.
+/// All parameters expose metadata and docs.
 pub mod dynamic_params {
 	use super::*;
 
-	// NOTE: It would be nicer to use modules here, but this is just a PoC.
-	define_parameters! {
-		pub NisParams = {
-			/// Configures [`pallet_nis::Config::Target`].
-			#[codec(index = 0)]
-			NisTarget: Perquintill = Perquintill::zero(),
-		},
-		Pallet = pallet_parameters,
-		Aggregation = RuntimeParameters::Nis
+	/// Dynamic params for [`pallet_nis`].
+	pub mod nis {
+		use super::*;
+
+		define_parameters! {
+			pub NisParams = {
+				/// Configures [`pallet_nis::Config::Target`].
+				#[codec(index = 0)]
+				NisTarget: Perquintill = Perquintill::zero(),
+			},
+			Pallet = pallet_parameters,
+			Aggregation = RuntimeParameters::Nis
+		}
 	}
 
-	define_parameters! {
-		pub PreimageParams = {
-			/// Configures [`pallet_preimage::Config::DepositBase`].
-			#[codec(index = 0)]
-			BaseDeposit: Balance = deposit(2, 64),
+	/// Dynamic params for [`pallet_preimage`].
+	pub mod preimage {
+		use super::*;
 
-			/// Configures [`pallet_preimage::Config::ByteDeposit`].
-			#[codec(index = 1)]
-			ByteDeposit: Balance = deposit(0, 1),
-		},
-		Pallet = pallet_parameters,
-		Aggregation = RuntimeParameters::Preimage
+		define_parameters! {
+			pub PreimageParams = {
+				/// Configures the base deposit of noting a preimage.
+				#[codec(index = 0)]
+				BaseDeposit: Balance = deposit(2, 64),
+
+				/// Configures the per-byte deposit of noting a preimage.
+				#[codec(index = 1)]
+				ByteDeposit: Balance = deposit(0, 1),
+			},
+			Pallet = pallet_parameters,
+			Aggregation = RuntimeParameters::Preimage
+		}
 	}
 
 	define_aggregrated_parameters! {
 		pub RuntimeParameters = {
-			Nis: NisParams = 0,
-			Preimage: PreimageParams = 1,
+			#[codec(index = 0)]
+			Nis: nis::NisParams,
+
+			#[codec(index = 1)]
+			Preimage: preimage::PreimageParams,
 		}
 	}
 }
@@ -1422,7 +1436,7 @@ construct_runtime! {
 
 		// Sudo.
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
-		
+
 	}
 }
 

@@ -40,30 +40,54 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = ConstU32<16>;
 }
 
-pub mod pallet1 {
-	crate::define_parameters! {
-		pub Parameters = {
-			Key1: u64 = 0,
-			Key2(u32): u32 = 1,
-			Key3((u8, u8)): u128 = 2,
+#[docify::export]
+pub mod dynamic_params {
+	use super::*;
+
+	#[docify::export]
+	pub mod pallet1 {
+		use super::*;
+
+		crate::define_parameters! {
+			pub Parameters = {
+				#[codec(index = 0)]
+				Key1: u64 = 0,
+				#[codec(index = 1)]
+				Key2: u32 = 1,
+				#[codec(index = 2)]
+				Key3: u128 = 2,
+			},
+			Pallet = crate,
+			Aggregation = RuntimeParameters::Pallet1
+		}
+	}
+	pub mod pallet2 {
+		use super::*;
+
+		crate::define_parameters! {
+			pub Parameters = {
+				#[codec(index = 0)]
+				Key1: u64 = 0,
+				#[codec(index = 1)]
+				Key2: u32 = 2,
+				#[codec(index = 2)]
+				Key3: u128 = 4,
+			},
+			Pallet = crate,
+			Aggregation = RuntimeParameters::Pallet2
+		}
+	}
+
+	define_aggregrated_parameters! {
+		pub RuntimeParameters = {
+			#[codec(index = 0)]
+			Pallet1: pallet1::Parameters,
+			#[codec(index = 1)]
+			Pallet2: pallet2::Parameters,
 		}
 	}
 }
-pub mod pallet2 {
-	crate::define_parameters! {
-		pub Parameters = {
-			Key1: u64 = 0,
-			Key2(u32): u32 = 2,
-			Key3((u8, u8)): u128 = 4,
-		}
-	}
-}
-define_aggregrated_parameters! {
-	pub RuntimeParameters = {
-		Pallet1: pallet1::Parameters = 0,
-		Pallet2: pallet2::Parameters = 3,
-	}
-}
+pub use dynamic_params::*;
 
 pub struct EnsureOriginImpl;
 
