@@ -1,7 +1,26 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! A set of traits that define how a pallet interface with XCM.
+
 use frame_support::pallet_prelude::*;
 use sp_weights::Weight;
 use xcm::{v3::XcmHash, VersionedMultiLocation, VersionedXcm};
 use crate::traits::QueryResponseStatus;
+
 
 /// Umbrella trait for all Controller traits.
 pub trait Controller<Origin, RuntimeCall, Timeout>: ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout> {}
@@ -33,23 +52,6 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 	) -> DispatchResultWithPostInfo;
 }
 
-impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
-	type WeightInfo = ();
-	fn execute(
-		_origin: Origin,
-		_message: Box<VersionedXcm<RuntimeCall>>,
-		_max_weight: Weight,
-	) -> DispatchResultWithPostInfo {
-		Ok(().into())
-	}
-}
-
-impl ExecuteControllerWeightInfo for () {
-	fn execute() -> Weight {
-		Weight::zero()
-	}
-}
-
 /// Weight functions needed for [`SendController`].
 pub trait SendControllerWeightInfo {
 	/// Weight for [`SendController::send`]
@@ -72,23 +74,6 @@ pub trait SendController<Origin> {
 		dest: Box<VersionedMultiLocation>,
 		message: Box<VersionedXcm<()>>,
 	) -> Result<XcmHash, DispatchError>;
-}
-
-impl<Origin> SendController<Origin> for () {
-	type WeightInfo = ();
-	fn send(
-		_origin: Origin,
-		_dest: Box<VersionedMultiLocation>,
-		_message: Box<VersionedXcm<()>>,
-	) -> Result<XcmHash, DispatchError> {
-		Ok(Default::default())
-	}
-}
-
-impl SendControllerWeightInfo for () {
-	fn send() -> Weight {
-		Weight::zero()
-	}
 }
 
 /// Weight functions needed for [`QueryController`].
@@ -125,6 +110,40 @@ pub trait QueryController<Origin, Timeout> {
 	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber>;
 }
 
+impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
+	type WeightInfo = ();
+	fn execute(
+		_origin: Origin,
+		_message: Box<VersionedXcm<RuntimeCall>>,
+		_max_weight: Weight,
+	) -> DispatchResultWithPostInfo {
+		Ok(().into())
+	}
+}
+
+impl ExecuteControllerWeightInfo for () {
+	fn execute() -> Weight {
+		Weight::zero()
+	}
+}
+
+impl<Origin> SendController<Origin> for () {
+	type WeightInfo = ();
+	fn send(
+		_origin: Origin,
+		_dest: Box<VersionedMultiLocation>,
+		_message: Box<VersionedXcm<()>>,
+	) -> Result<XcmHash, DispatchError> {
+		Ok(Default::default())
+	}
+}
+
+impl SendControllerWeightInfo for () {
+	fn send() -> Weight {
+		Weight::zero()
+	}
+}
+
 impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 	type QueryId = u64;
 	type BlockNumber = u64;
@@ -140,6 +159,7 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 		QueryResponseStatus::NotFound
 	}
 }
+
 impl QueryControllerWeightInfo for () {
 	fn query() -> Weight {
 		Weight::zero()
