@@ -44,8 +44,7 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = crate::Pallet<parachain::Runtime>;
-type QueryId = u64;
-// <<<parachain::Runtime as crate::Config>::Xcm as pallet_xcm<parachain::Runtime> >>::QueryId;
+type QueryId = <pallet_xcm::Pallet<parachain::Runtime> as QueryHandler>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
@@ -280,7 +279,7 @@ fn test_xcm_query() {
 		let query_id = QueryId::decode(&mut data).expect("Failed to decode message");
 
 		// Verify that the query exists and is pending.
-		let response = ParachainPalletXcm::take_response(query_id);
+		let response = <ParachainPalletXcm as QueryHandler>::take_response(query_id);
 		let expected_response = QueryResponseStatus::Pending { timeout };
 		assert_eq!(response, expected_response);
 	});
