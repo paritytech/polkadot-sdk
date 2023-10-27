@@ -129,7 +129,7 @@ pub trait QueryHandler {
 		+ PartialEq
 		+ Debug
 		+ Copy;
-	type BlockNumber: Zero + Encode;
+	type BlockNumber: Zero;
 	type Error;
 	type UniversalLocation: Get<InteriorMultiLocation>;
 
