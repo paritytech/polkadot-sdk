@@ -79,7 +79,7 @@ pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
 			std::process::Command::new("cargo")
 				.args(build_args)
 				.stdout(std::process::Stdio::piped())
-				.current_dir()
+				.current_dir(dir)
 				.status()
 				.expect("Failed to run the build program");
 		}
