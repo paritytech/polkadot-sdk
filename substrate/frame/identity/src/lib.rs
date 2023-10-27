@@ -407,7 +407,8 @@ pub mod pallet {
 			);
 
 			let (old_deposit, old_ids) = <SubsOf<T>>::get(&sender);
-			let new_deposit = T::SubAccountDeposit::get() * <BalanceOf<T>>::from(subs.len() as u32);
+			let new_deposit =
+				T::SubAccountDeposit::get().saturating_mul(<BalanceOf<T>>::from(subs.len() as u32));
 
 			let not_other_sub =
 				subs.iter().filter_map(|i| SuperOf::<T>::get(&i.0)).all(|i| i.0 == sender);
@@ -463,7 +464,7 @@ pub mod pallet {
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
 			let id = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
-			let deposit = id.total_deposit() + subs_deposit;
+			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
@@ -773,7 +774,7 @@ pub mod pallet {
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
 			let id = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
-			let deposit = id.total_deposit() + subs_deposit;
+			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
 			}
