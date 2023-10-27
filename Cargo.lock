@@ -16584,7 +16584,7 @@ dependencies = [
 [[package]]
 name = "simple-mermaid"
 version = "0.1.0"
-source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
+source = "git+https://github.com/kianenigma/simple-mermaid.git?rev=e48b187bcfd5cc75111acd9d241f1bd36604344b#e48b187bcfd5cc75111acd9d241f1bd36604344b"
 
 [[package]]
 name = "siphasher"
