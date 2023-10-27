@@ -9,6 +9,15 @@
 	;; size of input buffer
 	(data (i32.const 0) "\00\10")
 
+	(func $assert (param i32)
+		(block $ok
+			(br_if $ok
+				(get_local 0)
+			)
+			(unreachable)
+		)
+	)
+
 	(func (export "call")
 		;; Receive the encoded call
 		(call $seal_input
@@ -20,12 +29,15 @@
 		;; [4..12) - timeout
 		;; [12..49) - match_querier
 
-		;; Just use the call passed as input and store result to memory
-		(i32.store (i32.const 0)
-			(call $xcm_query
-				(i32.const 4)   ;; Pointer where the timeout is stored
-				(i32.const 12)	;; Pointer where the match_querier is stored
-				(i32.const 49)	;; Pointer to the where the query_id is stored
+		;; Call xcm_query with provided input.
+		(call $assert
+			(i32.eq
+				(call $xcm_query
+					(i32.const 4)   ;; Pointer where the timeout is stored
+					(i32.const 12)	;; Pointer where the match_querier is stored
+					(i32.const 49)	;; Pointer to the where the query_id is stored
+				)
+				(i32.const 0)
 			)
 		)
 

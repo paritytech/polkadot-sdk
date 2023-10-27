@@ -25,12 +25,13 @@
 			(i32.const 4)	;; Pointer to the input buffer
 			(i32.const 0)	;; Size of the length buffer
 		)
+
 		;; Input data layout.
 		;; [0..4) - size of the call
 		;; [4..7) - dest
 		;; [7..) - message
 
-		;; Call xcm_query with provided input.
+		;; Call xcm_send with provided input.
 		(call $assert
 			(i32.eq
 				(call $xcm_send
