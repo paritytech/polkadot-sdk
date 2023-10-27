@@ -17,11 +17,9 @@
 //! Bridge definitions used on BridgeHub with the Rococo flavor for bridging to BridgeHubWestend.
 
 use crate::{
-	bridge_common_config::{
-		BridgeParachainWestendInstance, DeliveryRewardInBalance,
-	},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime,
-	RuntimeEvent, RuntimeOrigin, XcmRouter,
+	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
+	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -194,7 +192,7 @@ pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtension
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
 
 /// Add XCM messages support for BridgeHubRococo to support Rococo->Westend XCM messages
-pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance4;
+pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
 impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo<Runtime>;

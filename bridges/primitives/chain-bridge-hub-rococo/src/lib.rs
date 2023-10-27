@@ -68,20 +68,16 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub const BRIDGE_HUB_ROCOCO_PARACHAIN_ID: u32 = 1013;
 
 /// Name of the With-BridgeHubRococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME: &str =
-	"BridgeWococoToRococoMessages";
-/// Name of the With-BridgeHubRococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_WESTEND_TO_ROCOCO_MESSAGES_PALLET_NAME: &str =
-	"BridgeWestendToRococoMessages";
+pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
 
 /// Name of the With-BridgeHubRococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 pub const WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
-/// Pallet index of `BridgeRococoToWococoMessages: pallet_bridge_messages::<Instance1>`.
+/// Pallet index of `BridgeWococoMessages: pallet_bridge_messages::<Instance1>`.
 pub const WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX: u8 = 46;
 
-/// Pallet index of `BridgeRococoToWestendMessages: pallet_bridge_messages::<Instance3>`.
+/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::<Instance3>`.
 pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 51;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);

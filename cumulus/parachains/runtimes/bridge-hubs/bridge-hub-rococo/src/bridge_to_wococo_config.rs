@@ -17,11 +17,9 @@
 //! Bridge definitions used on BridgeHub with the Rococo flavor for bridging to BridgeHubWococo.
 
 use crate::{
-	bridge_common_config::{
-		BridgeParachainWococoInstance, DeliveryRewardInBalance,
-	},
-	weights, AccountId, BridgeWococoMessages, ParachainInfo, Runtime,
-	RuntimeEvent, RuntimeOrigin, XcmRouter,
+	bridge_common_config::{BridgeParachainWococoInstance, DeliveryRewardInBalance},
+	weights, AccountId, BridgeWococoMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -143,7 +141,6 @@ impl MessageBridge for WithBridgeHubWococoMessageBridge {
 		bp_bridge_hub_wococo::BridgeHubWococo,
 	>;
 }
-
 
 /// Message verifier for BridgeHubWococo messages sent from BridgeHubRococo
 pub type ToBridgeHubWococoMessageVerifier =

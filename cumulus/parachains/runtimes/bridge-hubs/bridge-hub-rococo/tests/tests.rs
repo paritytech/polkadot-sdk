@@ -18,7 +18,8 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_to_wococo_config,  bridge_to_westend_config, bridge_to_rococo_config,
+	bridge_common_config, bridge_to_rococo_config, bridge_to_westend_config,
+	bridge_to_wococo_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra,
@@ -100,13 +101,14 @@ mod bridge_hub_rococo_tests {
 		BridgeGrandpaWestendInstance, BridgeGrandpaWococoInstance, BridgeParachainWestendInstance,
 		BridgeParachainWococoInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
 	};
-	use bridge_to_wococo_config::{
-		WithBridgeHubWococoMessageBridge, WithBridgeHubWococoMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO, BridgeHubWococoChainId, WococoGlobalConsensusNetwork
-	};
 	use bridge_to_westend_config::{
-		WithBridgeHubWestendMessageBridge, WithBridgeHubWestendMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND, BridgeHubWestendChainId, WestendGlobalConsensusNetwork
+		BridgeHubWestendChainId, WestendGlobalConsensusNetwork, WithBridgeHubWestendMessageBridge,
+		WithBridgeHubWestendMessagesInstance, XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+	};
+	use bridge_to_wococo_config::{
+		BridgeHubWococoChainId, WithBridgeHubWococoMessageBridge,
+		WithBridgeHubWococoMessagesInstance, WococoGlobalConsensusNetwork,
+		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WOCOCO,
 	};
 
 	bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
@@ -417,8 +419,8 @@ mod bridge_hub_wococo_tests {
 	};
 	use bridge_hub_rococo_runtime::{xcm_config, AllPalletsWithoutSystem, RuntimeFlavor};
 	use bridge_to_rococo_config::{
-		WithBridgeHubRococoMessageBridge, WithBridgeHubRococoMessagesInstance,
-		XCM_LANE_FOR_ASSET_HUB_WOCOCO_TO_ASSET_HUB_ROCOCO, BridgeHubRococoChainId, RococoGlobalConsensusNetwork
+		BridgeHubRococoChainId, RococoGlobalConsensusNetwork, WithBridgeHubRococoMessageBridge,
+		WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WOCOCO_TO_ASSET_HUB_ROCOCO,
 	};
 	use frame_support::assert_ok;
 

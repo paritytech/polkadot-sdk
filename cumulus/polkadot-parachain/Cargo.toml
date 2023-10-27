@@ -34,6 +34,7 @@ contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
 bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
 bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
+bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
@@ -114,6 +115,7 @@ runtime-benchmarks = [
 	"bridge-hub-kusama-runtime/runtime-benchmarks",
 	"bridge-hub-polkadot-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-polkadot-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -136,6 +138,7 @@ try-runtime = [
 	"bridge-hub-kusama-runtime/try-runtime",
 	"bridge-hub-polkadot-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
+	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-polkadot-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
 	"glutton-runtime/try-runtime",

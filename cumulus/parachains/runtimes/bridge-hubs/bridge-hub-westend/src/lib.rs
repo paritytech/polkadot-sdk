@@ -871,7 +871,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((WestendLocation::get(), NetworkId::Wococo, X1(Parachain(100))))
+					Ok((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(100))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
@@ -919,7 +919,7 @@ impl_runtime_apis! {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					prepare_message_proof_from_parachain::<
 						Runtime,
-						bridge_common_config::BridgeGrandpaRococoInstance,
+						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
 					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Westend), Parachain(42))))
 				}
@@ -929,7 +929,7 @@ impl_runtime_apis! {
 				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
-						bridge_common_config::BridgeGrandpaRococoInstance,
+						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
 					>(params)
 				}
@@ -947,7 +947,7 @@ impl_runtime_apis! {
 				Config as BridgeRelayersConfig,
 			};
 
-			impl BridgeParachainsConfig<bridge_common_config::BridgeParachainRococoInstance> for Runtime {
+			impl BridgeParachainsConfig<bridge_to_rococo_config::BridgeParachainRococoInstance> for Runtime {
 				fn parachains() -> Vec<bp_polkadot_core::parachains::ParaId> {
 					use bp_runtime::Parachain;
 					vec![bp_polkadot_core::parachains::ParaId(bp_bridge_hub_rococo::BridgeHubRococo::PARACHAIN_ID)]
@@ -963,7 +963,7 @@ impl_runtime_apis! {
 					bp_polkadot_core::parachains::ParaHeadsProof,
 					Vec<(bp_polkadot_core::parachains::ParaId, bp_polkadot_core::parachains::ParaHash)>,
 				) {
-					prepare_parachain_heads_proof::<Runtime, bridge_common_config::BridgeParachainRococoInstance>(
+					prepare_parachain_heads_proof::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>(
 						parachains,
 						parachain_head_size,
 						proof_size,

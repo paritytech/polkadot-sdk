@@ -61,16 +61,15 @@ impl Parachain for BridgeHubWestend {
 /// Identifier of BridgeHubWestend in the Westend relay chain.
 pub const BRIDGE_HUB_WESTEND_PARACHAIN_ID: u32 = 1002;
 
-/// Name of the With-BridgeHubWococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_ROCOCO_TO_WESTEND_MESSAGES_PALLET_NAME: &str =
-	"BridgeRococoToWestendMessages";
+/// Name of the With-BridgeHubWestend messages pallet instance that is deployed at bridged chains.
+pub const WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME: &str = "BridgeWestendMessages";
 
 /// Name of the With-BridgeHubWestend bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 pub const WITH_BRIDGE_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
-/// Pallet index of `BridgeWestendToRococoMessages: pallet_bridge_messages::<Instance3>`.
-pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 50;
+/// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
 decl_bridge_messages_runtime_apis!(bridge_hub_westend);
