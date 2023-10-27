@@ -10,14 +10,17 @@ jobs:
     strategy:
       matrix:
         runtime:
-          # TODO: Add parachain runtimes
           - { name: westend, package: westend-runtime, path: polkadot/runtime/westend }
           - { name: rococo, package: rococo-runtime, path: polkadot/runtime/rococo }
+          - { name: asset-hub-rococo, package: asset-hub-rococo-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-rococo }
+          - { name: asset-hub-westend, package: asset-hub-westend-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-westend }
+          - { name: bridge-hub-rococo, package: bridge-hub-rococo-runtime, path: cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend }
+          - { name: contracts-rococo, package: contracts-rococo-runtime, path: cumulus/parachains/runtimes/contracts/contracts-rococo }
         build_config:
-          # Release build has disabled logging and no dev features
+          # Release build has logging disabled and no dev features
           - { type: on-chain-release, opts: --features on-chain-release-build } 
-          # Debug build has logging and the try-runtime feature
-          - { type: debug-build, opts: --features try-runtime }
+          # Debug build has logging enabled and developer features
+          - { type: dev-debug-build, opts: --features try-runtime --features experimental }
 
     runs-on: ubuntu-22.04
 
@@ -46,7 +49,7 @@ jobs:
       id: setup
       run: |
         RUNTIME_BLOB_NAME=$(echo ${{ matrix.runtime.package }} | sed 's/-/_/g').compact.compressed.wasm
-        PREFIX=${{ matrix.build_config.type == 'debug-build' && 'DEBUG_BUILD__' || '' }}
+        PREFIX=${{ matrix.build_config.type == 'dev-debug-build' && 'DEV_DEBUG_BUILD__' || '' }}
 
         echo "RUNTIME_BLOB_NAME=$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
         echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/production/wbuild/${{ matrix.runtime.package }}/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
