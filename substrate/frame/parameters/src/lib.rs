@@ -29,27 +29,34 @@
 //!
 //! ## Pallet API
 //!
-//! This pallet exposes two APIs; one *inbound* side to update parameters, and one *outbound* side to access said parameters.
-//! 
-//! ### Inbound 
+//! This pallet exposes two APIs; one *inbound* side to update parameters, and one *outbound* side
+//! to access said parameters.
 //!
-//! This solely consists of the `set_parameter` extrinsic, which allows to update a parameter. Each parameter can have their own admin.
-//! 
+//! ### Inbound
+//!
+//! This solely consists of the `set_parameter` extrinsic, which allows to update a parameter. Each
+//! parameter can have their own admin.
+//!
 //! ### Outbound
 //!
-//! The outbound side is runtime facing for the most part. More general, it provides a `Get` implementation and can be used in every spot where that is accepted. Two macros are in place: `define_parameters` and `define_aggregrated_parameters` to define and expose parameters in a typed manner.
+//! The outbound side is runtime facing for the most part. More general, it provides a `Get`
+//! implementation and can be used in every spot where that is accepted. Two macros are in place:
+//! `define_parameters` and `define_aggregrated_parameters` to define and expose parameters in a
+//! typed manner.
 //!
-//! See the [`pallet`] module for more information about the interfaces this pallet exposes, including its
-//! configuration trait, dispatchables, storage items, events and errors.
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! This pallet is a good fit for updating parameters without a runtime upgrade. It allows for fine-grained control over who can update what. The only down-side is that it trades off performance with convenience and should therefore only be used in places where that is proven to be uncritical.
+//! This pallet is a good fit for updating parameters without a runtime upgrade. It allows for
+//! fine-grained control over who can update what. The only down-side is that it trades off
+//! performance with convenience and should therefore only be used in places where that is proven to
+//! be uncritical.
 //!
 //! ### Example
 //!
 //! Here is an example of how to define some parameters, including their default values:
-//! 
 #![doc = docify::embed!("src/mock.rs", dynamic_params)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
@@ -63,10 +70,14 @@
 //!
 //! ## Low Level / Implementation Details
 //!
-//! The pallet stores the parameters in a storage map and implements the matching `Get<Value>` for each `Key` type. The `Get` then accesses the `Parameters` map to retrieve the value.  
-//! An event is emitted every time that a value was updated. It is even emitted when the value is changed to the same.
+//! The pallet stores the parameters in a storage map and implements the matching `Get<Value>` for
+//! each `Key` type. The `Get` then accesses the `Parameters` map to retrieve the value. An event is
+//! emitted every time that a value was updated. It is even emitted when the value is changed to the
+//! same.
 //!
-//! The key and value types themselves are defined by macros and aggregated into a runtime wide enum. This enum is then injected into the pallet. This allows it to be used without any changed to the pallet that the parameter will be utilized by.
+//! The key and value types themselves are defined by macros and aggregated into a runtime wide
+//! enum. This enum is then injected into the pallet. This allows it to be used without any changed
+//! to the pallet that the parameter will be utilized by.
 //!
 //! ### Design Goals (optional)
 //!
@@ -76,9 +87,12 @@
 //!
 //! ### Design
 //!
-//! 1. Everything is done at runtime without the need for `const` values. `Get` allows for this - which is coincidentally an upside and a downside.  
-//! 2. The types are defined through macros, which allows to expose metadata and docs.
-//! 3. Access control is done through the `EnsureOriginWithArg` trait, that allows to pass data along to the origin check. It gets passed in the key. The implementor can then match on the key and the origin to decide whether the origin is permissioned to set the value.
+//! 1. Everything is done at runtime without the need for `const` values. `Get` allows for this -
+//! which is coincidentally an upside and a downside. 2. The types are defined through macros, which
+//! allows to expose metadata and docs. 3. Access control is done through the `EnsureOriginWithArg`
+//! trait, that allows to pass data along to the origin check. It gets passed in the key. The
+//! implementor can then match on the key and the origin to decide whether the origin is
+//! permissioned to set the value.
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;

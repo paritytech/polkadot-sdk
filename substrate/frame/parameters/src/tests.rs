@@ -11,15 +11,18 @@ use RuntimeOrigin as Origin;
 #[test]
 fn set_parameters_example() {
 	use RuntimeParameters::*;
-	
+
 	ExtBuilder::new().execute_with(|| {
 		assert_eq!(pallet1::Key3::get(), 2, "Default works");
 
 		// This gets rejected since the origin is not root.
-		assert_noop!(ModuleParameters::set_parameter(
-			Origin::signed(1),
-			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
-		), DispatchError::BadOrigin);
+		assert_noop!(
+			ModuleParameters::set_parameter(
+				Origin::signed(1),
+				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+			),
+			DispatchError::BadOrigin
+		);
 
 		assert_ok!(ModuleParameters::set_parameter(
 			Origin::root(),

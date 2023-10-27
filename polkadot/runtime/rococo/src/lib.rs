@@ -78,6 +78,7 @@ use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::simple::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_parameters::define_aggregrated_parameters;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use sp_core::{ConstU128, OpaqueMetadata, H256};
@@ -137,7 +138,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 10020,
+	spec_version: 8888,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 22,
@@ -229,8 +230,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -243,7 +242,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1095,12 +1098,11 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 
 parameter_types! {
 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-	pub const MinBid: Balance = 100 * UNITS;
-	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
-	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
-	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
-	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-	pub storage NisTarget: Perquintill = Perquintill::zero();
+	pub const NisMinBid: Balance = 100 * UNITS;
+	pub NisMinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
+	pub const NisIntakePeriod: BlockNumber = 5 * MINUTES;
+	pub NisMaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
+	pub const NisThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
 
@@ -1114,17 +1116,17 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = NisTarget;
+	type Target = dynamic_params::nis::NisTarget;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
-	type MinBid = MinBid;
-	type MinReceipt = MinReceipt;
-	type IntakePeriod = IntakePeriod;
-	type MaxIntakeWeight = MaxIntakeWeight;
-	type ThawThrottle = ThawThrottle;
+	type MinBid = NisMinBid;
+	type MinReceipt = NisMinReceipt;
+	type IntakePeriod = NisIntakePeriod;
+	type MaxIntakeWeight = NisMaxIntakeWeight;
+	type ThawThrottle = NisThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
@@ -1240,6 +1242,68 @@ impl pallet_asset_rate::Config for Runtime {
 	type AssetKind = <Runtime as pallet_treasury::Config>::AssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
+use frame_system::EnsureRootWithSuccess;
+use pallet_parameters::define_parameters;
+use sp_runtime::traits::ConstBool;
+
+/// Dynamic parameters that can be set by Root without a runtime upgrade.
+///
+/// All parameters expose metadata and docs.
+pub mod dynamic_params {
+	use super::*;
+
+	/// Dynamic params for [`pallet_nis`].
+	pub mod nis {
+		use super::*;
+
+		define_parameters! {
+			pub NisParams = {
+				/// Configures [`pallet_nis::Config::Target`].
+				#[codec(index = 0)]
+				NisTarget: Perquintill = Perquintill::zero(),
+			},
+			Pallet = pallet_parameters::Parameters::<Runtime>,
+			Aggregation = RuntimeParameters::Nis
+		}
+	}
+
+	/// Dynamic params for [`pallet_preimage`].
+	pub mod preimage {
+		use super::*;
+
+		define_parameters! {
+			pub PreimageParams = {
+				/// Configures the base deposit of noting a preimage.
+				#[codec(index = 0)]
+				BaseDeposit: Balance = deposit(2, 64),
+
+				/// Configures the per-byte deposit of noting a preimage.
+				#[codec(index = 1)]
+				ByteDeposit: Balance = deposit(0, 1),
+			},
+			Pallet = pallet_parameters::Parameters::<Runtime>,
+			Aggregation = RuntimeParameters::Preimage
+		}
+	}
+
+	define_aggregrated_parameters! {
+		pub RuntimeParameters = {
+			#[codec(index = 0)]
+			Nis: nis::NisParams,
+
+			#[codec(index = 1)]
+			Preimage: preimage::PreimageParams,
+		}
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AggregratedKeyValue = dynamic_params::RuntimeParameters;
+	type AdminOrigin = EnsureRootWithSuccess<AccountId, ConstBool<true>>;
+	type WeightInfo = ();
 }
 
 construct_runtime! {
@@ -1365,11 +1429,14 @@ construct_runtime! {
 		// Validator Manager pallet.
 		ValidatorManager: validator_manager::{Pallet, Call, Storage, Event<T>} = 252,
 
+		Parameters: pallet_parameters::{Pallet, Call, Storage, Event<T>} = 253,
+
 		// State trie migration pallet, only temporary.
 		StateTrieMigration: pallet_state_trie_migration = 254,
 
 		// Sudo.
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+
 	}
 }
 

@@ -106,7 +106,6 @@ pub mod dynamic_params {
 }
 pub use dynamic_params::*;
 
-
 #[docify::export(impl_config)]
 impl Config for Runtime {
 	// Inject the aggregated parameters into the runtime:
