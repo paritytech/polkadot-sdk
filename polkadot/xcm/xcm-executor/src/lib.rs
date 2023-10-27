@@ -973,19 +973,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			ExchangeAsset { give, want, maximal } => {
+				let old_holding = self.holding.clone();
 				let give = self.holding.saturating_take(give);
-				let r =
-					Config::AssetExchanger::exchange_asset(self.origin_ref(), give, &want, maximal);
-				let completed = r.is_ok();
-				let received = r.unwrap_or_else(|a| a);
-				for asset in received.into_assets_iter() {
-					self.holding.subsume(asset);
+				let result = (|| -> Result<(), XcmError> {
+					self.ensure_can_subsume_assets(want.len())?;
+					let exchange_result =
+						Config::AssetExchanger::exchange_asset(self.origin_ref(), give, &want, maximal);
+					if let Ok(received) = exchange_result {
+						self.holding.subsume(received.into());
+						Ok(())
+					} else {
+						Err(XcmError::NoDeal)
+					}
+				})();
+				if result.is_err() {
+					self.holding = old_holding;
 				}
-				if completed {
-					Ok(())
-				} else {
-					Err(XcmError::NoDeal)
-				}
+				result
 			},
 			SetFeesMode { jit_withdraw } => {
 				self.fees_mode = FeesMode { jit_withdraw };
