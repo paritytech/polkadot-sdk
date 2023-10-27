@@ -315,7 +315,7 @@ fn host_storage_clear(key: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), None))
 }
 
-fn host_storage_proof_size() -> u32 {
+fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size())
 		.unwrap_or_default()
 		.try_into()
