@@ -18,6 +18,10 @@
 //!
 //! Handles scheduling of bulk core time.
 
+mod mock_helpers;
+#[cfg(test)]
+mod tests;
+
 use crate::{
 	assigner_on_demand, configuration, paras,
 	scheduler::common::{
