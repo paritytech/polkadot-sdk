@@ -77,14 +77,6 @@ default:
   before_script:
     - if echo "$CI_DISABLED_JOBS" | grep -xF "$CI_JOB_NAME"; then echo "The job has been cancelled in CI settings"; exit 0; fi
 
-.kubernetes-env:
-  image: "${CI_IMAGE}"
-  before_script:
-    - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
-  tags:
-    - kubernetes-parity-build
-
 .rust-info-script:
   script:
     - rustup show
@@ -110,9 +102,6 @@ default:
   image: "${CI_IMAGE}"
   before_script:
     - !reference [.common-before-script, before_script]
-    - !reference [.prepare-env, before_script]
-    - !reference [.rust-info-script, script]
-    - !reference [.rusty-cachier, before_script]
   tags:
     - linux-docker
 

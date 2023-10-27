@@ -50,7 +50,7 @@ check-try-runtime:
 check-dependency-rules:
   stage: check
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .test-refs-no-trigger-prs-only
   variables:
     CI_IMAGE: "paritytech/tools:latest"
@@ -62,7 +62,7 @@ check-dependency-rules:
 test-rust-features:
   stage: check
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .test-refs-no-trigger-prs-only
   script:
     - git clone
@@ -75,7 +75,7 @@ job-starter:
   stage: check
   image: paritytech/tools:latest
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
   allow_failure: true
   script:
@@ -84,7 +84,7 @@ job-starter:
 check-rust-feature-propagation:
   stage: check
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
   script:
     - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
@@ -184,7 +184,7 @@ find-fail-ci-phrase:
     ASSERT_REGEX: "FAIL-CI"
     GIT_DEPTH: 1
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .test-pr-refs
   script:
     - set +e

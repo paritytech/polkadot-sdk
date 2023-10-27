@@ -41,7 +41,7 @@
     - job: build-push-image-polkadot-parachain-debug
       artifacts: true
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .zombienet-refs
   variables:
     PIPELINE_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}

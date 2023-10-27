@@ -130,7 +130,7 @@ build-rustdoc:
 build-implementers-guide:
   stage: build
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .run-immediately
     - .collect-artifacts

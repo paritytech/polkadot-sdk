@@ -3,7 +3,7 @@
 
 publish-rustdoc:
   stage: publish
-  extends: .kubernetes-env
+  extends: .docker-env
   variables:
     CI_IMAGE: node:18
     GIT_DEPTH: 100
@@ -90,7 +90,7 @@ publish-rustdoc:
 build-push-image-polkadot-parachain-debug:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -103,7 +103,7 @@ build-push-image-polkadot-parachain-debug:
 build-push-image-test-parachain:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -115,7 +115,7 @@ build-push-image-test-parachain:
 # publish-s3:
 #   stage: publish
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .publish-refs
 #   image: paritytech/awscli:latest
 #   needs:
@@ -138,7 +138,7 @@ build-push-image-test-parachain:
 # publish-benchmarks-assets-s3: &publish-benchmarks
 #   stage: publish
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .benchmarks-refs
 #   image: paritytech/awscli:latest
 #   needs:
@@ -169,7 +169,7 @@ build-push-image-test-parachain:
 build-push-image-polkadot-debug:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -182,7 +182,7 @@ build-push-image-polkadot-debug:
 build-push-image-colander:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -195,7 +195,7 @@ build-push-image-colander:
 build-push-image-malus:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -208,7 +208,7 @@ build-push-image-malus:
 build-push-image-substrate-pr:
   stage: publish
   extends:
-    - .kubernetes-env
+    - .docker-env
     - .common-refs
     - .build-push-image
   needs:
@@ -251,7 +251,7 @@ build-push-image-substrate-pr:
 #   stage: publish
 #   image: ${BUILDAH_IMAGE}
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .build-push-image-polkadot
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "web"
@@ -284,7 +284,7 @@ build-push-image-substrate-pr:
 #   # service image for zombienet
 #   stage: publish
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .build-push-image-polkadot
 #     - .zombienet-refs
 #   variables:
@@ -312,7 +312,7 @@ build-push-image-substrate-pr:
 #   # service image for Simnet
 #   stage: publish
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .build-push-image-polkadot
 #     - .zombienet-refs
 #   variables:
@@ -342,7 +342,7 @@ build-push-image-substrate-pr:
 #   # service image for zombienet
 #   stage: publish
 #   extends:
-#     - .kubernetes-env
+#     - .docker-env
 #     - .build-push-image-polkadot
 #     - .zombienet-refs
 #   variables:
