@@ -12,7 +12,7 @@ environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.20", default-features = false }
 trie-db = { version = "0.28.0", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
@@ -29,6 +29,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 
 # Polkadot
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = [ "wasm-api" ]}
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
 
 # Cumulus
@@ -54,6 +55,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 [features]
 default = [ "std" ]
 std = [
+	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
@@ -63,6 +65,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-externalities/std",
@@ -80,12 +83,14 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 

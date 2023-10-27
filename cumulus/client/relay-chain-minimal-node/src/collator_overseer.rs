@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use schnellru::{ByLength, LruMap};
 use std::sync::Arc;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -36,7 +35,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 use polkadot_primitives::CollatorPair;
 
@@ -44,7 +43,6 @@ use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::NetworkStateInfo;
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_runtime::traits::Block as BlockT;
 
 use cumulus_primitives_core::relay_chain::{Block, Hash as PHash};
 use cumulus_relay_chain_interface::RelayChainError;
@@ -157,7 +155,6 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
@@ -209,8 +206,6 @@ pub struct NewMinimalNode {
 	pub task_manager: TaskManager,
 	/// Overseer handle to interact with subsystems
 	pub overseer_handle: Handle,
-	/// Network service
-	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
 }
 
 /// Glues together the [`Overseer`] and `BlockchainEvents` by forwarding
