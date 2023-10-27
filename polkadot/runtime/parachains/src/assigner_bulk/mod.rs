@@ -18,16 +18,10 @@
 //!
 //! Handles scheduling of bulk core time.
 
-mod benchmarking;
-mod mock_helpers;
-
-#[cfg(test)]
-mod tests;
-
 use crate::{
 	assigner_on_demand, configuration, paras,
 	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion, V0Assignment,
+		Assignment, AssignmentProvider, AssignmentProviderConfig, AssignmentVersion,
 	},
 };
 
@@ -45,6 +39,7 @@ use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
+use pallet_broker::CoreAssignment;
 
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -65,6 +60,7 @@ impl WeightInfo for TestWeightInfo {}
 /// AssignmentSets as they are scheduled by block number
 ///
 /// for a particular core.
+#[derive(Encode, Decode, TypeInfo)]
 struct Schedule<N> {
 	// Original assignments
 	assignments: Vec<(CoreAssignment, PartsOf57600)>,
@@ -83,6 +79,7 @@ struct Schedule<N> {
 ///
 /// This is the state of assignments currently being served via the `AssignmentProvider` interface,
 /// as opposed to `Schedule` which is upcoming not yet served assignments.
+#[derive(Encode, Decode, TypeInfo)]
 struct CoreState<N> {
 	/// Assignments with current state.
 	///
@@ -109,6 +106,7 @@ struct CoreState<N> {
 	step: PartsOf57600,
 }
 
+#[derive(Encode, Decode, TypeInfo)]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
@@ -125,8 +123,8 @@ struct AssignmentState {
 impl<N> From<Schedule<N>> for CoreState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint } = schedule;
-		let step = if let Some(step) = assignments.iter().min_by(|a, b| a.1.cmp(b.1)) {
-			step
+		let step = if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
+			min_step_assignment.1
 		} else {
 			// Assignments empty, should not exist. In any case step size does not matter here:
 			log::debug!("assignments of a `Schedule` should never be empty.");
@@ -151,7 +149,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
+	pub trait Config: frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config {
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -178,7 +176,7 @@ pub mod pallet {
 	/// Used for updating `end_hint` of that latest schedule based on newly appended schedules.
 	#[pallet::storage]
 	pub(super) type LatestCoreSchedule<T: Config> =
-		StorageMap<_, Twox256, CoreIndex, BlockNumberFor<N>, OptionQuery>;
+		StorageMap<_, Twox256, CoreIndex, BlockNumberFor<T>, OptionQuery>;
 
 	/// Assignments which are currently active.
 	///
@@ -190,7 +188,9 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {}
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			unimplemented!("TODO: Implement")
+		}
 	}
 
 	#[pallet::call]
@@ -198,9 +198,10 @@ pub mod pallet {
 }
 
 /// Assignments as provided by our `AssignmentProvider` implementation.
-enum BulkAssignment<OnDemand> {
+#[derive(Encode, Decode, TypeInfo, Debug)]
+pub enum BulkAssignment<OnDemand> {
 	/// Assignment was an instantaneous core time assignment.
-	Instantenous(OnDemand),
+	Instantaneous(OnDemand),
 	/// Assignment was served directly from a core managed directly by bulk.
 	Bulk(ParaId),
 }
@@ -209,19 +210,19 @@ type BulkAssignmentType<T> = BulkAssignment<
 	<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 >;
 
-impl Assignment for BulkAssignment {
+impl<OnDemand: Assignment> Assignment for BulkAssignment<OnDemand> {
 	fn para_id(&self) -> ParaId {
-		match &self {
-			Self::Instantenous(on_demand) => on_demand.para_id(),
-			Self::Bulk(para_id) => para_id,
+		match self {
+			Self::Instantaneous(on_demand) => on_demand.para_id(),
+			Self::Bulk(para_id) => *para_id,
 		}
 	}
 }
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = BulkAssignment;
+	type AssignmentType = BulkAssignmentType<T>;
 
-	type OldAssignmentType = BulkAssignment;
+	type OldAssignmentType = BulkAssignmentType<T>;
 
 	const ASSIGNMENT_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
 
@@ -241,37 +242,42 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 		Workload::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
+			match core_state {
+				Some(core_state) => {
+					core_state.pos = core_state.pos % core_state.assignments.len() as u16;
+					let (a_type, a_state) = &mut core_state
+						.assignments
+						.get_mut(core_state.pos as usize)
+						.expect("We limited pos to the size of the vec one line above. qed");
 
-			core_state.pos = core_state.pos % core_state.assignments.len();
-			let (a_type, a_state) = &mut core_state
-				.assignments
-				.get(core_state.pos)
-				.expect("We limited pos to the size of the vec one line above. qed");
+					// advance:
+					a_state.remaining -= core_state.step;
+					if a_state.remaining < core_state.step {
+						// Assignment exhausted, need to move to the next and credit remaining for next
+						// round.
+						core_state.pos += 1;
+						// Reset to ratio + still remaining "credits":
+						a_state.remaining += a_state.ratio;
+					}
 
-			// advance:
-			a_state.remaining -= core_state.step;
-			if a_state.remaining < step {
-				// Assignment exhausted, need to move to the next and credit remaining for next
-				// round.
-				core_state.pos += 1;
-				// Reset to ratio + still remaining "credits":
-				a_state.remaining += a_state.ratio;
+					match a_type {
+						CoreAssignment::Idle => return None,
+						CoreAssignment::Pool =>
+							return <assigner_on_demand::Pallet<T> as AssignmentProvider<
+								BlockNumberFor<T>,
+							>>::pop_assignment_for_core(core_idx)
+							.map(|assignment| BulkAssignment::Instantaneous(assignment)),
+						CoreAssignment::Task(para_id) => return Some(BulkAssignment::Bulk((*para_id).into())),
+					}
+				},
+				None => return None,
 			}
-
-			match a_type {
-				CoreAssignment::Idle => return None,
-				CoreAssignment::Pool =>
-					return <assigner_on_demand::Pallet<T> as AssignmentProvider<
-						BlockNumberFor<T>,
-					>>::pop_assignment_for_core(core_idx),
-				CoreAssignment::Task(para_id) => return Some(BulkAssignment::Bulk(para_id)),
-			}
-		});
+		})
 	}
 
 	fn report_processed(assignment: Self::AssignmentType) {
 		match assignment {
-			BulkAssignment::Instantanous(on_demand) => <assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(on_demand),
+			BulkAssignment::Instantaneous(on_demand) => <assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(on_demand),
 			BulkAssignment::Bulk(_) => {}
 		}
 	}
@@ -312,7 +318,7 @@ impl<T: Config> Pallet<T> {
 			match workload.end_hint {
 				Some(end_hint) if end_hint < now => {
 					// Invariant: Always points to next item in `Workplan`, if such an item exists.
-					let n = end_hint.saturating_add(1);
+					let n = end_hint.saturating_add(BlockNumberFor::<T>::from(1u32));
 					// Workload expired - update to whatever is scheduled or `None` if nothing is:
 					Workplan::<T>::take((n, core_idx))
 				},
@@ -328,7 +334,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Needs update:
-		workload = update.map(|schedule| schedule.into());
+		*workload = update.map(|schedule| schedule.into());
 	}
 }
 
