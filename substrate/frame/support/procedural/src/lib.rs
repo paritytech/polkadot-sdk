@@ -891,7 +891,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into();
+		.into()
 	}
 	tokens
 }
