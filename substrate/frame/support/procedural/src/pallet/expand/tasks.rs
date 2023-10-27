@@ -94,6 +94,8 @@ impl ToTokens for TasksDef {
 		let enum_arguments = &self.enum_arguments;
 		let enum_use = quote!(#enum_ident #enum_arguments);
 		let task_fn_idents = self.tasks.iter().map(|task| &task.item.sig.ident);
+		let task_fn_idents_clone = task_fn_idents.clone();
+		let task_indices = self.tasks.iter().map(|task| &task.index_attr.meta.index);
 		let sp_std = quote!(#scrate::__private::sp_std);
 		let impl_generics = &self.item_impl.generics;
 		tokens.extend(quote! {
@@ -109,8 +111,7 @@ impl ToTokens for TasksDef {
 
 				fn task_index(&self) -> u32 {
 					match self {
-						Task::increment => 1,
-						Task::decrement => 2,
+						#(#enum_ident::#task_fn_idents_clone => #task_indices),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
