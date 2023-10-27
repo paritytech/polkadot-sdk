@@ -44,8 +44,8 @@ frame_support::parameter_types! {
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
 
 	/// Base delivery fee to `BridgeHubWestend`.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer`)
-	pub const BridgeHubWestendBaseFeeInWocs: u128 = 1214739988;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + 33%)
+	pub const BridgeHubWestendBaseFeeInWocs: u128 = 1624803349;
 }
 
 /// Identifier of AssetHubWestend in the Westend relay chain.

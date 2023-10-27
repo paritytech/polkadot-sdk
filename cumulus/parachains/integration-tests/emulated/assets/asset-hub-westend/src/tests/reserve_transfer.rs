@@ -39,7 +39,7 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 
 fn system_para_dest_assertions(_t: RelayToSystemParaTest) {
 	AssetHubWestend::assert_dmp_queue_incomplete(
-		Some(Weight::from_parts(57_185_000, 3504)),
+		Some(Weight::from_parts(31_352_000, 1489)),
 		Some(Error::UntrustedReserveLocation),
 	);
 }
