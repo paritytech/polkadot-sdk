@@ -91,13 +91,16 @@ macro_rules! define_parameters {
 	(
 		$vis:vis $name:ident = {
 			$(
+				$( #[doc = $doc:expr] )?
 				#[codec(index = $index:expr)]
 				$key_name:ident $( ($key_para: ty) )? : $value_type:ty = $default:expr
 			),+ $(,)?
 		},
-		$pallet:path
+		Pallet = $pallet:path,
+		Aggregation = $aggregated:ident::$aggregated_name:ident $(,)?
 	) => {
 		$crate::traits::__private::paste::item! {
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,
@@ -115,6 +118,7 @@ macro_rules! define_parameters {
 				)*
 			}
 
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,
@@ -132,6 +136,7 @@ macro_rules! define_parameters {
 				)*
 			}
 
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,
@@ -163,6 +168,7 @@ macro_rules! define_parameters {
 			}
 
 			$(
+				$( #[doc = $doc] )?
 				#[derive(
 					Clone,
 					PartialEq,
@@ -177,8 +183,8 @@ macro_rules! define_parameters {
 
 				impl $crate::traits::__private::sp_core::Get<$value_type> for $key_name {
 					fn get() -> $value_type {
-						match $pallet::Parameters::<Runtime>::get(RuntimeParametersKey::NonInteractiveStaking([<$name Key>]::$key_name($key_name))) {
-							Some(RuntimeParametersValue::NonInteractiveStaking(
+						match $pallet::Parameters::<Runtime>::get([<$aggregated Key>]::$aggregated_name([<$name Key>]::$key_name($key_name))) {
+							Some([<$aggregated Value>]::$aggregated_name(
 								[<$name Value>]::$key_name(inner))) => inner,
 							Some(_) => {
 								$crate::traits::__private::frame_support::defensive!("Unexpected value type at key - returning default");
@@ -211,6 +217,7 @@ macro_rules! define_parameters {
 					}
 				}
 
+				#[doc(hidden)]
 				#[derive(
 					Clone,
 					PartialEq,
@@ -319,6 +326,7 @@ macro_rules! define_aggregrated_parameters {
 				)*
 			}
 
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,
@@ -336,6 +344,7 @@ macro_rules! define_aggregrated_parameters {
 				)*
 			}
 
+			#[doc(hidden)]
 			#[derive(
 				Clone,
 				PartialEq,

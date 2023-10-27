@@ -1101,7 +1101,6 @@ parameter_types! {
 	pub const NisIntakePeriod: BlockNumber = 5 * MINUTES;
 	pub NisMaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
 	pub const NisThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-	pub storage NisTarget: Perquintill = Perquintill::zero();
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
 
@@ -1122,9 +1121,9 @@ impl pallet_nis::Config for Runtime {
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
 	type MinBid = NisMinBid;
-	type MinReceipt = dynamic_params::NisMinReceipt;
+	type MinReceipt = NisMinReceipt;
 	type IntakePeriod = NisIntakePeriod;
-	type MaxIntakeWeight = dynamic_params::NisMaxIntakeWeight;
+	type MaxIntakeWeight = NisMaxIntakeWeight;
 	type ThawThrottle = NisThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
@@ -1248,27 +1247,40 @@ use sp_runtime::traits::ConstBool;
 use frame_system::EnsureRootWithSuccess;
 
 /// Dynamic parameters that can be set by Root without a runtime upgrade.
+///
+/// All parameters expose metadata and docs to conveniently set them.
 pub mod dynamic_params {
 	use super::*;
 
 	// NOTE: It would be nicer to use modules here, but this is just a PoC.
 	define_parameters! {
-		pub NisParameters = {
+		pub NisParams = {
+			/// Configures [`pallet_nis::Config::Target`].
 			#[codec(index = 0)]
-			NisMinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64),
-
-			#[codec(index = 1)]
-			NisMaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10,
-
-			#[codec(index = 2)]
 			NisTarget: Perquintill = Perquintill::zero(),
 		},
-		pallet_parameters
+		Pallet = pallet_parameters,
+		Aggregation = RuntimeParameters::Nis
+	}
+
+	define_parameters! {
+		pub PreimageParams = {
+			/// Configures [`pallet_preimage::Config::DepositBase`].
+			#[codec(index = 0)]
+			BaseDeposit: Balance = deposit(2, 64),
+
+			/// Configures [`pallet_preimage::Config::ByteDeposit`].
+			#[codec(index = 1)]
+			ByteDeposit: Balance = deposit(0, 1),
+		},
+		Pallet = pallet_parameters,
+		Aggregation = RuntimeParameters::Preimage
 	}
 
 	define_aggregrated_parameters! {
 		pub RuntimeParameters = {
-			NonInteractiveStaking: NisParameters = 0,
+			Nis: NisParams = 0,
+			Preimage: PreimageParams = 1,
 		}
 	}
 }
