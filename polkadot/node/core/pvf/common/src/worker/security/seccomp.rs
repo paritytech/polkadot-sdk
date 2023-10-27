@@ -65,9 +65,11 @@
 //! Considering how many things would have to go wrong here, we believe it's safe to block
 //! `io_uring`.
 //!
-//! # Action on	caught syscall
+//! # Action on syscall violations
 //!
-//!	TODO
+//! When a forbidden syscall is attempted we immediately kill the process in order to prevent the
+//! attacker from doing anything else. In execution, this will result in voting against the
+//! candidate.
 
 use crate::{
 	worker::{stringify_panic_payload, WorkerKind},
