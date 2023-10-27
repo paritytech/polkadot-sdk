@@ -54,7 +54,7 @@ pub mod pallet {
 		fn increment() -> DispatchResult {
 			// Get the value and check if it can be incremented
 			let value = Value::<T>::get().unwrap_or_default();
-			if value >= 255 {
+			if value == 255 {
 				Err(Error::<T>::ValueOverflow.into())
 			} else {
 				let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
