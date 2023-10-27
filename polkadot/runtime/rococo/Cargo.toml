@@ -90,6 +90,7 @@ pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-feat
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false, optional = true }
 hex-literal = { version = "0.4.1" }
 
 runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
@@ -134,6 +135,7 @@ std = [
 	"log/std",
 	"offchain-primitives/std",
 	"pallet-asset-rate/std",
+	"pallet-assets/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -211,6 +213,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
@@ -263,6 +266,7 @@ try-runtime = [
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-asset-rate/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
