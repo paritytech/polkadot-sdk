@@ -980,7 +980,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let exchange_result =
 						Config::AssetExchanger::exchange_asset(self.origin_ref(), give, &want, maximal);
 					if let Ok(received) = exchange_result {
-						self.holding.subsume(received.into());
+						self.holding.subsume_assets(received.into());
 						Ok(())
 					} else {
 						Err(XcmError::NoDeal)
