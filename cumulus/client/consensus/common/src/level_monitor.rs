@@ -140,7 +140,7 @@ where
 							meta.parent,
 						);
 						break
-					}
+					},
 				}
 			}
 		}
