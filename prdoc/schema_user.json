@@ -153,7 +153,9 @@
         "type": "object",
         "description": "This property allows the documentation of runtime migrations.",
         "properties": {
-          "pallet": {
+          "reference": {
+            "title": "Migration reference",
+            "description": "Reference to the runtime migration",
             "type": "string"
           },
           "description": {

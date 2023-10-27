@@ -7,7 +7,7 @@ doc:
 
 migrations:
   runtime:
-    - pallet: ParachainScheduler
+    - reference: ParachainScheduler
       description: Non-critical fixup for `MigrateToV1`.
 
 crates:

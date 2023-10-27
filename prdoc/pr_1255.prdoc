@@ -14,7 +14,7 @@ doc:
 
 migrations:
   runtime:
-    - pallet: pallet-nomination-pools
+    - reference: pallet-nomination-pools
       description: One time migration of freezing ED from each of the existing pools.
 
 crates:
