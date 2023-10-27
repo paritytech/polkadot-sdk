@@ -26,6 +26,8 @@ sp-std = { path = "../../primitives/std", default-features = false}
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
+pallet-root-testing = { path = "../root-testing" }
+pallet-collective = { path = "../collective" }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io", default-features = false}
 
@@ -38,6 +40,8 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
+	"pallet-collective/std",
+	"pallet-root-testing/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -49,11 +53,14 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-collective/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"sp-runtime/try-runtime",
 ]

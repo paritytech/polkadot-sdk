@@ -384,8 +384,9 @@ pub mod pallet {
 		///
 		/// - `target`: An account that has a vesting schedule
 		/// - `schedule_index`: The vesting schedule index that should be removed
+		#[pallet::call_index(4)]
 		#[pallet::weight(
-		T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+			T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
 		)]
 		pub fn force_remove_vesting_schedule(
 			origin: OriginFor<T>,
@@ -395,6 +396,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(target)?;
 			Self::remove_vesting_schedule(&who, schedule_index)
+			//Ok(Some(T::WeightInfo::register_as_candidate(current_count as u32)).into())
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -418,7 +420,7 @@ pub mod pallet {
 		///
 		/// - `schedule1_index`: index of the first schedule to merge.
 		/// - `schedule2_index`: index of the second schedule to merge.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(
 			T::WeightInfo::not_unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
 			.max(T::WeightInfo::unlocking_merge_schedules(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES))

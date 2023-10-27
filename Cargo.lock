@@ -10874,6 +10874,8 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-collective",
+ "pallet-root-testing",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

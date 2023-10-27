@@ -197,6 +197,9 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	/// The range of component `l` is `[0, 49]`.
 	/// The range of component `s` is `[2, 28]`.
+	fn force_remove_vesting_schedule(l: u32, s: u32) -> Weight {
+		todo!()
+	}
 	fn not_unlocking_merge_schedules(l: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `378 + l * (25 ±0) + s * (36 ±0)`
