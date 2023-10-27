@@ -41,6 +41,8 @@ docify = "0.2.4"
 sp-io = { path = "../substrate/primitives/io" }
 sp-api = { path = "../substrate/primitives/api" }
 sp-core = { path = "../substrate/primitives/core" }
+sp-keyring = { path = "../substrate/primitives/keyring" }
+sp-runtime = { path = "../substrate/primitives/runtime" }
 
 substrate-wasm-builder = { path = "../substrate/utils/wasm-builder" }
 
