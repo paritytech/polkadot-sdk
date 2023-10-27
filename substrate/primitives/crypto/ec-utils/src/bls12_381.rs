@@ -18,10 +18,12 @@
 //! Elliptic Curves host functions to handle some of the *Arkworks* *BLS12-381*
 //! computationally expensive operations.
 
-use crate::*;
+use crate::utils::{ArkScale, ArkScaleProjective};
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use ark_scale::scale::{Decode, Encode};
+use sp_runtime_interface::runtime_interface;
+use sp_std::vec::Vec;
 
 /// TODO
 pub mod g1 {
@@ -153,7 +155,7 @@ pub trait HostCalls {
 	///   - `b: ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bls12_381::Config>>>`.
 	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bls12_381::Config>>>.
 	fn bls12_381_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
+		crate::utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
 	}
 
 	/// Pairing final exponentiation for BLS12-381.
@@ -161,7 +163,7 @@ pub trait HostCalls {
 	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bls12_381::Config>>>`.
 	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bls12_381::Config>>>`.
 	fn bls12_381_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation::<ark_bls12_381::Bls12_381>(f)
+		crate::utils::final_exponentiation::<ark_bls12_381::Bls12_381>(f)
 	}
 
 	/// Projective multiplication on G1 for BLS12-381.
@@ -171,7 +173,7 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
 	fn bls12_381_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bls12_381::g1::Config>(base, scalar)
+		crate::utils::mul_projective_sw::<ark_bls12_381::g1::Config>(base, scalar)
 	}
 
 	/// Projective multiplication on G2 for BLS12-381.
@@ -181,7 +183,7 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G2Projective>`.
 	fn bls12_381_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bls12_381::g2::Config>(base, scalar)
+		crate::utils::mul_projective_sw::<ark_bls12_381::g2::Config>(base, scalar)
 	}
 
 	/// Multi scalar multiplication on G1 for BLS12-381.
@@ -191,7 +193,7 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<&[ark_bls12_381::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
 	fn bls12_381_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bls12_381::g1::Config>(bases, scalars)
+		crate::utils::msm_sw::<ark_bls12_381::g1::Config>(bases, scalars)
 	}
 
 	/// Multi scalar multiplication on G2 for BLS12-381.
@@ -201,6 +203,6 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<&[ark_bls12_381::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G2Projective>`.
 	fn bls12_381_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
+		crate::utils::msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
 	}
 }

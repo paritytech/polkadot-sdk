@@ -21,29 +21,22 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod utils;
-
-use ark_scale::ark_serialize::{Compress, Validate};
-use sp_runtime_interface::runtime_interface;
-use sp_std::vec::Vec;
-use utils::*;
-
-/// TODO
-// #[cfg(feature = "bls12-377")]
+#[cfg(feature = "bls12-377")]
 pub mod bls12_377;
-/// TODO
-// #[cfg(feature = "bls12-381")]
+#[cfg(feature = "bls12-381")]
 pub mod bls12_381;
-/// TODO
-// #[cfg(feature = "bw6_761")]
+#[cfg(feature = "bw6-761")]
 pub mod bw6_761;
-/// TODO
-// #[cfg(feature = "ed-on-bls12-377")]
+#[cfg(feature = "ed-on-bls12-377")]
 pub mod ed_on_bls12_377;
-/// TODO
-// #[cfg(feature = "ed-on-bls12-381-bandersnatch")]
+#[cfg(feature = "ed-on-bls12-381-bandersnatch")]
 pub mod ed_on_bls12_381_bandersnatch;
 
-pub(crate) const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
-pub(crate) type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
-pub(crate) type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
+#[cfg(any(
+	feature = "bls12-377",
+	feature = "bls12-381",
+	feature = "bw6-761",
+	feature = "ed-on-bls12-377",
+	feature = "ed-on-bls12-381-bandersnatch",
+))]
+mod utils;

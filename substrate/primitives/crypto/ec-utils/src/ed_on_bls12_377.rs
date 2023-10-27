@@ -18,10 +18,12 @@
 //! Elliptic Curves host functions to handle some of the *Arkworks* *Ed-on-BLS12-377*
 //! computationally expensive operations.
 
-use crate::*;
+use crate::utils::{ArkScale, ArkScaleProjective};
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_377_ext::CurveHooks;
 use ark_scale::scale::{Decode, Encode};
+use sp_runtime_interface::runtime_interface;
+use sp_std::vec::Vec;
 
 /// TODO
 #[derive(Copy, Clone)]
@@ -77,7 +79,7 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_377::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
 	fn ed_on_bls12_377_te_msm(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
+		crate::utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
 	}
 
 	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-377*.
@@ -87,6 +89,6 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
 	fn ed_on_bls12_377_te_mul_projective(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
+		crate::utils::mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 }

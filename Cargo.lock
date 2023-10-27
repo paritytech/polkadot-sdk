@@ -330,7 +330,8 @@ dependencies = [
 [[package]]
 name = "ark-bls12-377-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20c7021f180a0cbea0380eba97c2af3c57074cdaffe0eef7e840e1c9f2841e55"
 dependencies = [
  "ark-bls12-377",
  "ark-ec",
@@ -353,7 +354,8 @@ dependencies = [
 [[package]]
 name = "ark-bls12-381-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1dc4b3d08f19e8ec06e949712f95b8361e43f1391d94f65e4234df03480631c"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -378,7 +380,8 @@ dependencies = [
 [[package]]
 name = "ark-bw6-761-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccee5fba47266f460067588ee1bf070a9c760bf2050c1c509982c5719aadb4f2"
 dependencies = [
  "ark-bw6-761",
  "ark-ec",
@@ -420,7 +423,8 @@ dependencies = [
 [[package]]
 name = "ark-ed-on-bls12-377-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "524a4fb7540df2e1a8c2e67a83ba1d1e6c3947f4f9342cc2359fc2e789ad731d"
 dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-377",
@@ -444,7 +448,8 @@ dependencies = [
 [[package]]
 name = "ark-ed-on-bls12-381-bandersnatch-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d15185f1acb49a07ff8cbe5f11a1adc5a93b19e211e325d826ae98e98e124346"
 dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-381-bandersnatch",
@@ -499,7 +504,8 @@ dependencies = [
 [[package]]
 name = "ark-models-ext"
 version = "0.4.1"
-source = "git+https://github.com/paritytech/ark-substrate#83fdaf1781747b72cc472886e55b866a61cfee6c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e9eab5d4b5ff2f228b763d38442adc9b084b0a465409b059fac5c2308835ec2"
 dependencies = [
  "ark-ec",
  "ark-ff",

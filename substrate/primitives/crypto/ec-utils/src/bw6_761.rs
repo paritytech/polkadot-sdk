@@ -18,10 +18,12 @@
 //! Elliptic Curves host functions to handle some of the *Arkworks* *BW6-761*
 //! computationally expensive operations.
 
-use crate::*;
+use crate::utils::{ArkScale, ArkScaleProjective};
 use ark_bw6_761_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use ark_scale::scale::{Decode, Encode};
+use sp_runtime_interface::runtime_interface;
+use sp_std::vec::Vec;
 
 /// TODO
 pub mod g1 {
@@ -144,7 +146,7 @@ pub trait HostCalls {
 	///   - `b: ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bw6_761::Config>>>`.
 	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bw6_761::Config>>>.
 	fn bw6_761_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		multi_miller_loop::<ark_bw6_761::BW6_761>(a, b)
+		crate::utils::multi_miller_loop::<ark_bw6_761::BW6_761>(a, b)
 	}
 
 	/// Pairing final exponentiation for BW6-761.
@@ -152,7 +154,7 @@ pub trait HostCalls {
 	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bw6_761::Config>>>`.
 	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bw6_761::Config>>>`.
 	fn bw6_761_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		final_exponentiation::<ark_bw6_761::BW6_761>(f)
+		crate::utils::final_exponentiation::<ark_bw6_761::BW6_761>(f)
 	}
 
 	/// Projective multiplication on G1 for BW6-761.
@@ -162,7 +164,7 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G1Projective>`.
 	fn bw6_761_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bw6_761::g1::Config>(base, scalar)
+		crate::utils::mul_projective_sw::<ark_bw6_761::g1::Config>(base, scalar)
 	}
 
 	/// Projective multiplication on G2 for BW6-761.
@@ -172,7 +174,7 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<&[u64]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G2Projective>`.
 	fn bw6_761_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_bw6_761::g2::Config>(base, scalar)
+		crate::utils::mul_projective_sw::<ark_bw6_761::g2::Config>(base, scalar)
 	}
 
 	/// Multi scalar multiplication on G1 for BW6-761.
@@ -182,7 +184,7 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<&[ark_bw6_761::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G1Projective>`.
 	fn bw6_761_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bw6_761::g1::Config>(bases, scalars)
+		crate::utils::msm_sw::<ark_bw6_761::g1::Config>(bases, scalars)
 	}
 
 	/// Multi scalar multiplication on G2 for BW6-761.
@@ -192,6 +194,6 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<&[ark_bw6_761::Fr]>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bw6_761::G2Projective>`.
 	fn bw6_761_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_bw6_761::g2::Config>(bases, scalars)
+		crate::utils::msm_sw::<ark_bw6_761::g2::Config>(bases, scalars)
 	}
 }

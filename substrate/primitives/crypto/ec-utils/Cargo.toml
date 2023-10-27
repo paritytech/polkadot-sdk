@@ -12,41 +12,74 @@ repository.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ark-ec = { version = "0.4.2", default-features = false }
-ark-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
-ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"] }
-ark-bls12-381-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
-ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"] }
-ark-bw6-761-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
-ark-bw6-761 = { version = "0.4.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
-ark-ed-on-bls12-377-ext = { git = "https://github.com/paritytech/ark-substrate", default-features = false }
-ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
-ark-scale = { version = "0.0.11", features = ["hazmat"], default-features = false }
-sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
-sp-std = { path = "../../std", default-features = false }
+ark-ec = { version = "0.4.2", default-features = false, optional = true }
+ark-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
+ark-bls12-381-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
+ark-bw6-761-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bw6-761 = { version = "0.4.0", default-features = false, optional = true }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false, optional = true }
+ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, optional = true }
+ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"], optional = true }
+sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
+sp-std = { path = "../../std", default-features = false, optional = true }
 
 [features]
 default = [ "std" ]
 std = [
-	"ark-bls12-377-ext/std",
-	"ark-bls12-377/std",
-	"ark-bls12-377-ext/std",
-	"ark-bls12-381/std",
-	"ark-bw6-761-ext/std",
-	"ark-bw6-761/std",
-	"ark-ec/parallel",
-	"ark-ed-on-bls12-377-ext/std",
-	"ark-ed-on-bls12-377/std",
-	"ark-ed-on-bls12-381-bandersnatch-ext/std",
-	"ark-ed-on-bls12-381-bandersnatch/std",
-	"ark-scale/std",
-	"sp-runtime-interface/std",
-	"sp-std/std",
+	"ark-bls12-377-ext?/std",
+	"ark-bls12-377?/std",
+	"ark-bls12-381-ext?/std",
+	"ark-bls12-381?/std",
+	"ark-bw6-761-ext?/std",
+	"ark-bw6-761?/std",
+	"ark-ec?/parallel",
+	"ark-ed-on-bls12-377-ext?/std",
+	"ark-ed-on-bls12-377?/std",
+	"ark-ed-on-bls12-381-bandersnatch-ext?/std",
+	"ark-ed-on-bls12-381-bandersnatch?/std",
+	"ark-scale?/std",
+	"sp-runtime-interface?/std",
+	"sp-std?/std",
 ]
-bls12-377 = []
-bls12-381 = []
-bw6-761 = []
-ed-ob-bls12-377 = []
-ed-on-bls12-381-bandersnatch = []
+common = [
+	"ark-ec",
+	"ark-scale",
+	"sp-runtime-interface",
+	"sp-std",
+]
+bls12-377 = [
+	"ark-bls12-377-ext",
+	"ark-bls12-377",
+	"common",
+]
+bls12-381 = [
+	"ark-bls12-381-ext",
+	"ark-bls12-381",
+	"common",
+]
+bw6-761 = [	
+	"ark-bw6-761-ext",
+	"ark-bw6-761",
+	"common",
+]
+ed-on-bls12-377 = [
+	"ark-ed-on-bls12-377-ext",
+	"ark-ed-on-bls12-377",
+	"common",
+]
+ed-on-bls12-381-bandersnatch = [	
+	"ark-ed-on-bls12-381-bandersnatch-ext",
+	"ark-ed-on-bls12-381-bandersnatch",
+	"common",
+]
+all-curves = [
+	"bls12-377",
+	"bls12-381",
+	"bw6-761",
+	"ed-on-bls12-377",
+	"ed-on-bls12-381-bandersnatch",
+]

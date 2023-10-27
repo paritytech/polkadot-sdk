@@ -18,10 +18,12 @@
 //! Elliptic Curves host functions to handle some of the *Arkworks* *Ed-on-BLS12-381-Bandersnatch*
 //! computationally expensive operations.
 
-use crate::*;
+use crate::utils::{ArkScale, ArkScaleProjective};
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
 use ark_scale::scale::{Decode, Encode};
+use sp_runtime_interface::runtime_interface;
+use sp_std::vec::Vec;
 
 /// TODO
 #[derive(Copy, Clone)]
@@ -119,7 +121,7 @@ pub trait HostCalls {
 		bases: Vec<u8>,
 		scalars: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
+		crate::utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 
 	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -133,7 +135,9 @@ pub trait HostCalls {
 		base: Vec<u8>,
 		scalar: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
+		crate::utils::mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(
+			base, scalar,
+		)
 	}
 
 	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -146,7 +150,7 @@ pub trait HostCalls {
 		bases: Vec<u8>,
 		scalars: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
+		crate::utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
 	}
 
 	/// Short Weierstrass projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -159,6 +163,6 @@ pub trait HostCalls {
 		base: Vec<u8>,
 		scalar: Vec<u8>,
 	) -> Result<Vec<u8>, ()> {
-		mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+		crate::utils::mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 }
