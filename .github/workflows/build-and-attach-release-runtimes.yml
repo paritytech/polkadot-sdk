@@ -5,6 +5,9 @@ on:
     types:
       - created
 
+env:
+  PROFILE: production
+
 jobs:
   build_and_upload:
     strategy:
@@ -37,7 +40,7 @@ jobs:
         chain: ${{ matrix.runtime.name }}
         package: ${{ matrix.runtime.package }}
         runtime_dir: ${{ matrix.runtime.path }}
-        profile: "production"
+        profile: ${{ env.PROFILE }}
 
     - name: Build Summary
       run: |
@@ -52,7 +55,7 @@ jobs:
         PREFIX=${{ matrix.build_config.type == 'dev-debug-build' && 'DEV_DEBUG_BUILD__' || '' }}
 
         echo "RUNTIME_BLOB_NAME=$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
-        echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/production/wbuild/${{ matrix.runtime.package }}/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+        echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/${{ env.PROFILE }}/wbuild/${{ matrix.runtime.package }}/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
         echo "ASSET_NAME=$PREFIX$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
 
     - name: Upload Runtime to Release
