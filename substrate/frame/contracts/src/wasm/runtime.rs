@@ -2757,7 +2757,6 @@ pub mod env {
 		call_len: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		println!("xcm_send");
 		use xcm::{VersionedMultiLocation, VersionedXcm};
 		use xcm_executor::traits::{SendController, SendControllerWeightInfo};
 

@@ -237,10 +237,7 @@ fn test_xcm_send() {
 		);
 
 		let mut data = &exec.result.unwrap().data[..];
-		let query_id: XcmHash = XcmHash::decode(&mut data).expect("Failed to decode message");
-		println!("query_id: {:?}", query_id);
-
-		// assert_return_code!(result, RuntimeReturnCode::Success);
+		XcmHash::decode(&mut data).expect("Failed to decode message");
 	});
 
 	Relay::execute_with(|| {
