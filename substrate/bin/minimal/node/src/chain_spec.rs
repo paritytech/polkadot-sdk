@@ -19,7 +19,7 @@ use runtime::{BalancesConfig, RuntimeGenesisConfig, SudoConfig, SystemConfig, WA
 use sc_service::{ChainType, Properties};
 use sp_keyring::AccountKeyring;
 
-/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
+/// This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
 fn props() -> Properties {

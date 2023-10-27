@@ -21,7 +21,7 @@
 //!
 //! # FRAME
 //!
-//! ```co_compile
+//! ```no_compile
 //!   ______   ______    ________   ___ __ __   ______
 //!  /_____/\ /_____/\  /_______/\ /__//_//_/\ /_____/\
 //!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
@@ -40,7 +40,8 @@
 //!
 //! ## Getting Started
 //!
-//! TODO: link to `developer_hub::polkadot_sdk::frame`.
+//! TODO: link to `developer_hub::polkadot_sdk::frame`. The `developer_hub` hasn't been published
+//! yet, this can be updated once it is linkable.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -77,6 +78,9 @@ pub mod prelude {
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
+	// `frame-support` will be break down https://github.com/paritytech/polkadot-sdk/issues/127 and its reexports will
+	// most likely change. These wildcard reexportings can be optimized once `frame-support` has
+	// changed.
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
