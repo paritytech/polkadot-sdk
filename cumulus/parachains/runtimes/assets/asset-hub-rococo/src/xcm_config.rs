@@ -889,6 +889,7 @@ pub mod bridging {
 
 	pub mod to_rococo {
 		use super::*;
+		use assets_common::matching::FromNetwork;
 
 		parameter_types! {
 			pub SiblingBridgeHubWithBridgeHubRococoInstance: MultiLocation = MultiLocation::new(
