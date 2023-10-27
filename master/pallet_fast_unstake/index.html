@@ -40,103 +40,103 @@ for the amount of wasted work they have inflicted on the chain.</p>
 <li>Fast-unstake with multiple participants in the queue.</li>
 </ol>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>	<span class="attr">#[test]
-	</span><span class="kw">fn </span>successful_multi_queue() {
-		ExtBuilder::default().build_and_execute(|| {
-			ErasToCheckPerBlock::&lt;T&gt;::put(BondingDuration::get() + <span class="number">1</span>);
-			CurrentEra::&lt;T&gt;::put(BondingDuration::get());
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>successful_multi_queue() {
+	ExtBuilder::default().build_and_execute(|| {
+		ErasToCheckPerBlock::&lt;T&gt;::put(BondingDuration::get() + <span class="number">1</span>);
+		CurrentEra::&lt;T&gt;::put(BondingDuration::get());
 
-			<span class="comment">// register multi accounts for fast unstake
-			</span><span class="macro">assert_ok!</span>(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(<span class="number">1</span>)));
-			<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::get(<span class="number">1</span>), <span class="prelude-val">Some</span>(Deposit::get()));
-			<span class="macro">assert_ok!</span>(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(<span class="number">3</span>)));
-			<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::get(<span class="number">3</span>), <span class="prelude-val">Some</span>(Deposit::get()));
+		<span class="comment">// register multi accounts for fast unstake
+		</span><span class="macro">assert_ok!</span>(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(<span class="number">1</span>)));
+		<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::get(<span class="number">1</span>), <span class="prelude-val">Some</span>(Deposit::get()));
+		<span class="macro">assert_ok!</span>(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(<span class="number">3</span>)));
+		<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::get(<span class="number">3</span>), <span class="prelude-val">Some</span>(Deposit::get()));
 
-			<span class="comment">// assert 2 queue items are in Queue &amp; None in Head to start with
-			</span><span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
+		<span class="comment">// assert 2 queue items are in Queue &amp; None in Head to start with
+		</span><span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
 
-			<span class="comment">// process on idle and check eras for next Queue item
-			</span>next_block(<span class="bool-val">true</span>);
+		<span class="comment">// process on idle and check eras for next Queue item
+		</span>next_block(<span class="bool-val">true</span>);
 
-			<span class="comment">// process on idle &amp; let go of current Head
-			</span>next_block(<span class="bool-val">true</span>);
+		<span class="comment">// process on idle &amp; let go of current Head
+		</span>next_block(<span class="bool-val">true</span>);
 
-			<span class="comment">// confirm Head / Queue items remaining
-			</span><span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
+		<span class="comment">// confirm Head / Queue items remaining
+		</span><span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
 
-			<span class="comment">// process on idle and check eras for next Queue item
-			</span>next_block(<span class="bool-val">true</span>);
+		<span class="comment">// process on idle and check eras for next Queue item
+		</span>next_block(<span class="bool-val">true</span>);
 
-			<span class="comment">// process on idle &amp; let go of current Head
-			</span>next_block(<span class="bool-val">true</span>);
+		<span class="comment">// process on idle &amp; let go of current Head
+		</span>next_block(<span class="bool-val">true</span>);
 
-			<span class="comment">// Head &amp; Queue should now be empty
-			</span><span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">0</span>);
+		<span class="comment">// Head &amp; Queue should now be empty
+		</span><span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(Queue::&lt;T&gt;::count(), <span class="number">0</span>);
 
-			<span class="macro">assert_eq!</span>(
-				fast_unstake_events_since_last_call(),
-				<span class="macro">vec!</span>[
-					Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>] },
-					Event::Unstaked { stash: <span class="number">1</span>, result: <span class="prelude-val">Ok</span>(()) },
-					Event::BatchFinished { size: <span class="number">1 </span>},
-					Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>] },
-					Event::Unstaked { stash: <span class="number">3</span>, result: <span class="prelude-val">Ok</span>(()) },
-					Event::BatchFinished { size: <span class="number">1 </span>},
-				]
-			);
+		<span class="macro">assert_eq!</span>(
+			fast_unstake_events_since_last_call(),
+			<span class="macro">vec!</span>[
+				Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>] },
+				Event::Unstaked { stash: <span class="number">1</span>, result: <span class="prelude-val">Ok</span>(()) },
+				Event::BatchFinished { size: <span class="number">1 </span>},
+				Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>] },
+				Event::Unstaked { stash: <span class="number">3</span>, result: <span class="prelude-val">Ok</span>(()) },
+				Event::BatchFinished { size: <span class="number">1 </span>},
+			]
+		);
 
-			assert_unstaked(<span class="kw-2">&amp;</span><span class="number">1</span>);
-			assert_unstaked(<span class="kw-2">&amp;</span><span class="number">3</span>);
-		});
-	}</code></pre></div>
+		assert_unstaked(<span class="kw-2">&amp;</span><span class="number">1</span>);
+		assert_unstaked(<span class="kw-2">&amp;</span><span class="number">3</span>);
+	});
+}</code></pre></div>
 <ol start="2">
 <li>Fast unstake failing because a nominator is exposed.</li>
 </ol>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>	<span class="attr">#[test]
-	</span><span class="kw">fn </span>exposed_nominator_cannot_unstake() {
-		ExtBuilder::default().build_and_execute(|| {
-			ErasToCheckPerBlock::&lt;T&gt;::put(<span class="number">1</span>);
-			CurrentEra::&lt;T&gt;::put(BondingDuration::get());
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>exposed_nominator_cannot_unstake() {
+	ExtBuilder::default().build_and_execute(|| {
+		ErasToCheckPerBlock::&lt;T&gt;::put(<span class="number">1</span>);
+		CurrentEra::&lt;T&gt;::put(BondingDuration::get());
 
-			<span class="comment">// create an exposed nominator in era 1
-			</span><span class="kw">let </span>exposed = <span class="number">666</span>;
-			create_exposed_nominator(exposed, <span class="number">1</span>);
+		<span class="comment">// create an exposed nominator in era 1
+		</span><span class="kw">let </span>exposed = <span class="number">666</span>;
+		create_exposed_nominator(exposed, <span class="number">1</span>);
 
-			<span class="comment">// a few blocks later, we realize they are slashed
-			</span>next_block(<span class="bool-val">true</span>);
-			<span class="macro">assert_eq!</span>(
-				Head::&lt;T&gt;::get(),
-				<span class="prelude-val">Some</span>(UnstakeRequest {
-					stashes: <span class="macro">bounded_vec!</span>[(exposed, Deposit::get())],
-					checked: <span class="macro">bounded_vec!</span>[<span class="number">3</span>]
-				})
-			);
-			next_block(<span class="bool-val">true</span>);
-			<span class="macro">assert_eq!</span>(
-				Head::&lt;T&gt;::get(),
-				<span class="prelude-val">Some</span>(UnstakeRequest {
-					stashes: <span class="macro">bounded_vec!</span>[(exposed, Deposit::get())],
-					checked: <span class="macro">bounded_vec!</span>[<span class="number">3</span>, <span class="number">2</span>]
-				})
-			);
-			next_block(<span class="bool-val">true</span>);
-			<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
+		<span class="comment">// a few blocks later, we realize they are slashed
+		</span>next_block(<span class="bool-val">true</span>);
+		<span class="macro">assert_eq!</span>(
+			Head::&lt;T&gt;::get(),
+			<span class="prelude-val">Some</span>(UnstakeRequest {
+				stashes: <span class="macro">bounded_vec!</span>[(exposed, Deposit::get())],
+				checked: <span class="macro">bounded_vec!</span>[<span class="number">3</span>]
+			})
+		);
+		next_block(<span class="bool-val">true</span>);
+		<span class="macro">assert_eq!</span>(
+			Head::&lt;T&gt;::get(),
+			<span class="prelude-val">Some</span>(UnstakeRequest {
+				stashes: <span class="macro">bounded_vec!</span>[(exposed, Deposit::get())],
+				checked: <span class="macro">bounded_vec!</span>[<span class="number">3</span>, <span class="number">2</span>]
+			})
+		);
+		next_block(<span class="bool-val">true</span>);
+		<span class="macro">assert_eq!</span>(Head::&lt;T&gt;::get(), <span class="prelude-val">None</span>);
 
-			<span class="macro">assert_eq!</span>(
-				fast_unstake_events_since_last_call(),
-				<span class="macro">vec!</span>[
-					Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>] },
-					Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">2</span>] },
-					Event::Slashed { stash: exposed, amount: Deposit::get() },
-					Event::BatchFinished { size: <span class="number">0 </span>}
-				]
-			);
-		});
-	}</code></pre></div>
+		<span class="macro">assert_eq!</span>(
+			fast_unstake_events_since_last_call(),
+			<span class="macro">vec!</span>[
+				Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">3</span>] },
+				Event::BatchChecked { eras: <span class="macro">vec!</span>[<span class="number">2</span>] },
+				Event::Slashed { stash: exposed, amount: Deposit::get() },
+				Event::BatchFinished { size: <span class="number">0 </span>}
+			]
+		);
+	});
+}</code></pre></div>
 <h3 id="pallet-api"><a href="#pallet-api">Pallet API</a></h3>
 <p>See the <a href="pallet/index.html" title="mod pallet_fast_unstake::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
 including its configuration trait, dispatchables, storage items, events and errors.</p>
