@@ -27,7 +27,7 @@ fn transacting_should_work() {
 	}]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(60, 60)));
 }
 
@@ -42,7 +42,7 @@ fn transacting_should_respect_max_weight_requirement() {
 	}]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(50, 50), XcmError::MaxWeightInvalid));
 }
 
@@ -59,7 +59,7 @@ fn transacting_should_refund_weight() {
 	}]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(40, 40)));
 }
 
@@ -88,7 +88,7 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(100, 100);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(60, 60)));
 	assert_eq!(
 		asset_list(AccountIndex64 { index: 1, network: None }),
@@ -114,7 +114,7 @@ fn report_successful_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(70, 70)));
 	let expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),
@@ -144,7 +144,7 @@ fn report_failed_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(70, 70)));
 	let expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(vec![2].into()),
@@ -170,7 +170,7 @@ fn expect_successful_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(70, 70)));
 
 	let message = Xcm::<TestCall>(vec![
@@ -183,7 +183,7 @@ fn expect_successful_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(70, 70), XcmError::ExpectationFalse));
 }
 
@@ -201,7 +201,7 @@ fn expect_failed_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(70, 70)));
 
 	let message = Xcm::<TestCall>(vec![
@@ -214,7 +214,7 @@ fn expect_failed_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(70, 70);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(70, 70), XcmError::ExpectationFalse));
 }
 
@@ -237,7 +237,7 @@ fn clear_transact_status_should_work() {
 	]);
 	let hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(80, 80);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(80, 80)));
 	let expected_msg = Xcm(vec![QueryResponse {
 		response: Response::DispatchResult(MaybeErrorCode::Success),

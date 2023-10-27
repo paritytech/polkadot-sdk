@@ -34,7 +34,7 @@ fn expect_pallet_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -50,7 +50,7 @@ fn expect_pallet_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }
 
@@ -70,7 +70,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -86,7 +86,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -102,7 +102,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -118,7 +118,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -134,7 +134,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::PalletNotFound));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -150,7 +150,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -166,7 +166,7 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
@@ -182,6 +182,6 @@ fn expect_pallet_should_fail_correctly() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 }

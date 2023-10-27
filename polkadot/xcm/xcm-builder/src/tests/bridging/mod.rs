@@ -215,7 +215,8 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 			&mut id,
 			Weight::from_parts(2_000_000_000_000, 2_000_000_000_000),
 			Weight::zero(),
-		);
+		)
+		.map_err(|_|Transport("Unable to execute"))?;
 		let local = Local::get();
 		let remote = Remote::get();
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: false };
@@ -223,7 +224,6 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete(..) => Ok(id),
 			Outcome::Incomplete(..) => Err(Transport("Error executing")),
-			Outcome::Error(..) => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -265,7 +265,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 			&mut id,
 			Weight::from_parts(2_000_000_000_000, 2_000_000_000_000),
 			Weight::zero(),
-		);
+		).map_err(|_| Transport("Unable to execute"))?;
 		let local = Local::get();
 		let remote = Remote::get();
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: true };
@@ -273,7 +273,6 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete(..) => Ok(id),
 			Outcome::Incomplete(..) => Err(Transport("Error executing")),
-			Outcome::Error(..) => Err(Transport("Unable to execute")),
 		}
 	}
 }

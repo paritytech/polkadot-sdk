@@ -225,8 +225,6 @@ pub enum Outcome {
 	/// Execution started, but did not complete successfully due to the given error; given weight
 	/// was used.
 	Incomplete { used: Weight, error: Error },
-	/// Execution did not start due to the given error.
-	Error { error: Error },
 }
 
 impl Outcome {
@@ -234,14 +232,6 @@ impl Outcome {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
 			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
-		match self {
-			Outcome::Complete { used, .. } => Ok(used),
-			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
 		}
 	}
 	/// How much weight was used by the XCM execution attempt.
@@ -249,7 +239,6 @@ impl Outcome {
 		match self {
 			Outcome::Complete { used, .. } => *used,
 			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
 		}
 	}
 }
@@ -270,8 +259,6 @@ pub enum Outcome {
 	/// Execution started, but did not complete successfully due to the given error; given weight
 	/// was used.
 	Incomplete(Weight, Error),
-	/// Execution did not start due to the given error.
-	Error(Error),
 }
 
 impl Outcome {
@@ -279,14 +266,12 @@ impl Outcome {
 		match self {
 			Outcome::Complete(_) => Ok(()),
 			Outcome::Incomplete(_, e) => Err(e),
-			Outcome::Error(e) => Err(e),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
 		match self {
 			Outcome::Complete(w) => Ok(w),
 			Outcome::Incomplete(w, _) => Ok(w),
-			Outcome::Error(e) => Err(e),
 		}
 	}
 	/// How much weight was used by the XCM execution attempt.
@@ -294,7 +279,6 @@ impl Outcome {
 		match self {
 			Outcome::Complete(w) => *w,
 			Outcome::Incomplete(w, _) => *w,
-			Outcome::Error(_) => Weight::zero(),
 		}
 	}
 }
@@ -312,21 +296,19 @@ pub trait ExecuteXcm<Call> {
 		pre: Self::Prepared,
 		id: &mut XcmHash,
 		weight_credit: Weight,
-	) -> Outcome;
+	) -> result::Result<Outcome, Error>;
 	fn prepare_and_execute(
 		origin: impl Into<MultiLocation>,
 		message: Xcm<Call>,
 		id: &mut XcmHash,
 		weight_limit: Weight,
 		weight_credit: Weight,
-	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
-		};
+	) -> result::Result<Outcome, Error> {
+		let Ok(pre) = Self::prepare(message) else { return Err(Error::WeightNotComputable) };
+
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
+			return Err(Error::WeightLimitReached(xcm_weight))
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
@@ -343,7 +325,7 @@ pub trait ExecuteXcm<Call> {
 		message: Xcm<Call>,
 		hash: XcmHash,
 		weight_limit: Weight,
-	) -> Outcome {
+	) -> result::Result<Outcome, Error> {
 		let origin = origin.into();
 		log::debug!(
 			target: "xcm::execute_xcm",
@@ -368,14 +350,11 @@ pub trait ExecuteXcm<Call> {
 		mut hash: XcmHash,
 		weight_limit: Weight,
 		weight_credit: Weight,
-	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
-		};
+	) -> result::Result<Outcome, Error> {
+		let Ok(pre) = Self::prepare(message) else { return Err(Error::WeightNotComputable) };
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
+			return Err(Error::WeightLimitReached(xcm_weight))
 		}
 		Self::execute(origin, pre, &mut hash, weight_credit)
 	}
@@ -402,7 +381,7 @@ impl<C> ExecuteXcm<C> for () {
 		_: Self::Prepared,
 		_: &mut XcmHash,
 		_: Weight,
-	) -> Outcome {
+	) -> result::Result<Outcome, Error> {
 		unreachable!()
 	}
 	fn charge_fees(_location: impl Into<MultiLocation>, _fees: MultiAssets) -> Result {

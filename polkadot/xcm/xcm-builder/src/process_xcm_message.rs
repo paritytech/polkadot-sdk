@@ -55,10 +55,10 @@ impl<
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
-			Outcome::Complete(w) => (w, Ok(true)),
-			Outcome::Incomplete(w, _) => (w, Ok(false)),
+			Ok(Outcome::Complete(w)) => (w, Ok(true)),
+			Ok(Outcome::Incomplete(w, _)) => (w, Ok(false)),
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error(_) => (required, Err(ProcessMessageError::Unsupported)),
+			Err(_) => (required, Err(ProcessMessageError::Unsupported)),
 		};
 		meter.consume(consumed);
 		result

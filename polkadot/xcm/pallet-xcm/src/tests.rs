@@ -93,7 +93,8 @@ fn report_outcome_notify_works() {
 			message,
 			hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
-		);
+		)
+		.unwrap();
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
 			last_events(2),
@@ -157,7 +158,8 @@ fn report_outcome_works() {
 			message,
 			hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
-		);
+		)
+		.unwrap();
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
 			last_event(),
@@ -207,7 +209,8 @@ fn custom_querier_works() {
 			hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
-		);
+		)
+		.unwrap();
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
 			last_event(),
@@ -233,7 +236,8 @@ fn custom_querier_works() {
 			hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
-		);
+		)
+		.unwrap();
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
 			last_event(),
@@ -258,7 +262,8 @@ fn custom_querier_works() {
 			message,
 			hash,
 			Weight::from_parts(1_000_000_000, 1_000_000_000),
-		);
+		)
+		.unwrap();
 		assert_eq!(r, Outcome::Complete(Weight::from_parts(1_000, 1_000)));
 		assert_eq!(
 			last_event(),
@@ -947,7 +952,7 @@ fn subscription_side_works() {
 		let message =
 			Xcm(vec![SubscribeVersion { query_id: 0, max_response_weight: Weight::zero() }]);
 		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
+		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight).unwrap();
 		assert_eq!(r, Outcome::Complete(weight));
 
 		let instr = QueryResponse {
@@ -1082,7 +1087,7 @@ fn subscriber_side_subscription_works() {
 			},
 		]);
 		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
+		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight).unwrap();
 		assert_eq!(r, Outcome::Complete(weight));
 		assert_eq!(take_sent_xcm(), vec![]);
 
@@ -1100,7 +1105,7 @@ fn subscriber_side_subscription_works() {
 			},
 		]);
 		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
+		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight).unwrap();
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// This message can now be sent to remote as it's v2.
@@ -1163,7 +1168,7 @@ fn auto_subscription_works() {
 			},
 		]);
 		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v3, message, hash, weight);
+		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v3, message, hash, weight).unwrap();
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// V2 messages can be sent to remote_v3 under XCM v3.
@@ -1199,7 +1204,7 @@ fn auto_subscription_works() {
 			},
 		]);
 		let hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v2, message, hash, weight);
+		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote_v2, message, hash, weight).unwrap();
 		assert_eq!(r, Outcome::Complete(weight));
 
 		// v3 messages cannot be sent to remote_v2...

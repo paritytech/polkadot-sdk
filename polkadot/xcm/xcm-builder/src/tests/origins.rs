@@ -35,7 +35,7 @@ fn universal_origin_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::InvalidLocation));
 
 	let message = Xcm(vec![
@@ -48,7 +48,7 @@ fn universal_origin_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::NotWithdrawable));
 
 	add_asset((Ancestor(2), GlobalConsensus(Kusama)), (Parent, 100));
@@ -62,7 +62,7 @@ fn universal_origin_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
 	assert_eq!(asset_list((Ancestor(2), GlobalConsensus(Kusama))), vec![]);
 }
@@ -89,7 +89,7 @@ fn export_message_should_work() {
 		message,
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 	let uni_src = (ByGenesis([0; 32]), Parachain(42), Parachain(1)).into();
 	assert_eq!(
@@ -116,7 +116,7 @@ fn unpaid_execution_should_work() {
 		message.clone(),
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::BadOrigin));
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(2),
@@ -124,7 +124,7 @@ fn unpaid_execution_should_work() {
 		hash,
 		Weight::from_parts(50, 50),
 	);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	assert_eq!(r, Err(XcmError::Barrier));
 
 	let message = Xcm(vec![UnpaidExecution {
 		weight_limit: Limited(Weight::from_parts(10, 10)),
@@ -135,6 +135,6 @@ fn unpaid_execution_should_work() {
 		message.clone(),
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	).unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }

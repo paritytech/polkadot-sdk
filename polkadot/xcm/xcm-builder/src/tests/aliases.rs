@@ -72,7 +72,8 @@ fn alias_origin_should_work() {
 		message.clone(),
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	)
+	.unwrap();
 	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NoPermission));
 
 	let r = XcmExecutor::<TestConfig>::execute_xcm(
@@ -80,6 +81,7 @@ fn alias_origin_should_work() {
 		message.clone(),
 		hash,
 		Weight::from_parts(50, 50),
-	);
+	)
+	.unwrap();
 	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }

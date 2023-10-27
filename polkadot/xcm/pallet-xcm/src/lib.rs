@@ -272,6 +272,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
+		/// Execution of an XCM message failed.
+		Failed { error: xcm::latest::Error },
 		/// A XCM message was sent.
 		Sent {
 			origin: MultiLocation,
@@ -442,6 +444,12 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
+		/// Teleporting assets failed.
+		TeleportFailure,
+		/// Reserve transferring assets failed.
+		ReserveTransportFailure,
+		///  Message execution failed.
+		ExecuteFailure,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -910,17 +918,33 @@ pub mod pallet {
 			let value = (origin_location, message);
 			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
 			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+
+			match T::XcmExecutor::execute_xcm_in_credit(
 				origin_location,
 				message,
 				hash,
 				max_weight,
 				max_weight,
-			);
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			) {
+				Ok(outcome) => {
+					let result =
+						Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute()))
+							.into());
+					Self::deposit_event(Event::Attempted { outcome });
+					result
+				},
+				Err(error) => {
+					use frame_support::dispatch::DispatchErrorWithPostInfo;
+					Self::deposit_event(Event::Failed { error });
+					Err(DispatchErrorWithPostInfo {
+						post_info: PostDispatchInfo {
+							actual_weight: Some(T::WeightInfo::execute()),
+							pays_fee: Pays::Yes,
+						},
+						error: Error::<T>::ExecuteFailure.into(),
+					})
+				},
+			}
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
@@ -1232,10 +1256,17 @@ impl<T: Config> Pallet<T> {
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
 		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
-		Ok(())
+		match T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight)
+		{
+			Ok(outcome) => {
+				Self::deposit_event(Event::Attempted { outcome });
+				Ok(())
+			},
+			Err(error) => {
+				Self::deposit_event(Event::Failed { error });
+				Err(Error::<T>::ReserveTransportFailure.into())
+			},
+		}
 	}
 
 	fn do_teleport_assets(
@@ -1277,10 +1308,17 @@ impl<T: Config> Pallet<T> {
 		let weight =
 			T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
 		let hash = message.using_encoded(sp_io::hashing::blake2_256);
-		let outcome =
-			T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight);
-		Self::deposit_event(Event::Attempted { outcome });
-		Ok(())
+		match T::XcmExecutor::execute_xcm_in_credit(origin_location, message, hash, weight, weight)
+		{
+			Ok(outcome) => {
+				Self::deposit_event(Event::Attempted { outcome });
+				Ok(())
+			},
+			Err(error) => {
+				Self::deposit_event(Event::Failed { error });
+				Err(Error::<T>::TeleportFailure.into())
+			},
+		}
 	}
 
 	/// Will always make progress, and will do its best not to use much more than `weight_cutoff`

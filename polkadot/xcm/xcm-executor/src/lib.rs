@@ -195,7 +195,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		WeighedMessage(xcm_weight, mut message): WeighedMessage<Config::RuntimeCall>,
 		id: &mut XcmHash,
 		weight_credit: Weight,
-	) -> Outcome {
+	) -> Result<Outcome, XcmError> {
 		let origin = origin.into();
 		log::trace!(
 			target: "xcm::execute_xcm_in_credit",
@@ -219,7 +219,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				message,
 				properties,
 			);
-			return Outcome::Error(XcmError::Barrier)
+			return Err(XcmError::Barrier)
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -239,7 +239,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			}
 		}
 
-		vm.post_process(xcm_weight)
+		Ok(vm.post_process(xcm_weight))
 	}
 
 	fn charge_fees(origin: impl Into<MultiLocation>, fees: MultiAssets) -> XcmResult {
