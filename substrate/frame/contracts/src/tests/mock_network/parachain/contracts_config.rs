@@ -21,7 +21,6 @@ use crate::{
 		parachain::RuntimeHoldReason,
 		primitives::{Balance, CENTS},
 	},
-	xcm::XcmAdapter,
 	Config,
 };
 use frame_support::{
@@ -98,5 +97,5 @@ impl Config for Runtime {
 	type WeightPrice = Self;
 	type Debug = ();
 	type Environment = ();
-	type Xcm = XcmAdapter<Self>;
+	type Xcm = pallet_xcm::Pallet<Self>;
 }

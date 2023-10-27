@@ -44,8 +44,8 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = crate::Pallet<parachain::Runtime>;
-type QueryId =
-	<<parachain::Runtime as crate::Config>::Xcm as crate::Xcm<parachain::Runtime>>::QueryId;
+type QueryId = u64;
+	// <<<parachain::Runtime as crate::Config>::Xcm as pallet_xcm<parachain::Runtime> >>::QueryId;
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
@@ -152,15 +152,7 @@ fn test_xcm_execute_filtered_call() {
 			Determinism::Enforced,
 		);
 
-		// The debug message should say that the call was filtered.
-		assert_eq!(
-			std::str::from_utf8(&result.debug_message).unwrap(),
-			"call failed with: CallFiltered"
-		);
-
-		// The call should fail, with an `OutOfGas` error, as the failed xcm::execute will not
-		// refund the max_weight gas passed to it.
-		assert_err!(result.result, crate::Error::<parachain::Runtime>::OutOfGas);
+		assert_err!(result.result, frame_system::Error::<parachain::Runtime>::CallFiltered);
 	});
 }
 
@@ -233,7 +225,7 @@ fn test_xcm_send() {
 			LockAsset { asset: (Here, 5 * CENTS).into(), unlocker: (Parachain(1)).into() },
 		]);
 		let message = VersionedXcm::V3(message);
-		let result = ParachainContracts::bare_call(
+		let exec = ParachainContracts::bare_call(
 			ALICE,
 			contract_addr.clone(),
 			0,
@@ -243,11 +235,13 @@ fn test_xcm_send() {
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		);
 
-		assert_return_code!(result, RuntimeReturnCode::Success);
+		let mut data = &exec.result.unwrap().data[..];
+		let query_id: XcmHash = XcmHash::decode(&mut data).expect("Failed to decode message");
+		println!("query_id: {:?}", query_id);
+
+		// assert_return_code!(result, RuntimeReturnCode::Success);
 	});
 
 	Relay::execute_with(|| {

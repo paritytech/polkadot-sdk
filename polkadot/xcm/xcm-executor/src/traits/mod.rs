@@ -39,7 +39,7 @@ pub use token_matching::{
 };
 mod on_response;
 pub use on_response::{
-	OnResponse, QueryHandler, QueryHandlerWeightInfo, QueryResponseStatus, VersionChangeNotifier,
+	OnResponse, QueryHandler, QueryResponseStatus, VersionChangeNotifier,
 };
 mod should_execute;
 pub use should_execute::{CheckSuspension, Properties, ShouldExecute};

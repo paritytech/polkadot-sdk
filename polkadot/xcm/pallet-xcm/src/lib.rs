@@ -53,7 +53,7 @@ use xcm_executor::{
 	traits::{
 		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets,
 		ExecuteController, ExecuteControllerWeightInfo, MatchesFungible, OnResponse, Properties,
-		QueryController, QueryControllerWeightInfo, QueryHandler, QueryHandlerWeightInfo,
+		QueryController, QueryControllerWeightInfo, QueryHandler,
 		QueryResponseStatus, SendController, SendControllerWeightInfo, VersionChangeNotifier,
 		WeightBounds,
 	},
@@ -350,10 +350,16 @@ pub mod pallet {
 		fn query() -> Weight {
 			T::WeightInfo::new_query()
 		}
+		fn take_response() -> Weight {
+			T::WeightInfo::take_response()
+		}
 	}
 
 	impl<T: Config> QueryController<OriginFor<T>, BlockNumberFor<T>> for Pallet<T> {
 		type WeightInfo = Self;
+		type QueryId = <Self as QueryHandler>::QueryId;
+		type BlockNumber = BlockNumberFor<T>;
+
 		fn query(
 			origin: OriginFor<T>,
 			timeout: BlockNumberFor<T>,
@@ -368,6 +374,10 @@ pub mod pallet {
 			);
 
 			Ok(query_id)
+		}
+
+		fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+			<Self as QueryHandler>::take_response(query_id)
 		}
 	}
 
@@ -1212,18 +1222,11 @@ pub mod pallet {
 /// The maximum number of distinct assets allowed to be transferred in a single helper extrinsic.
 const MAX_ASSETS_FOR_TRANSFER: usize = 2;
 
-impl<T: Config> QueryHandlerWeightInfo for Pallet<T> {
-	fn take_response() -> Weight {
-		T::WeightInfo::take_response()
-	}
-}
-
 impl<T: Config> QueryHandler for Pallet<T> {
 	type QueryId = u64;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
-	type WeightInfo = Self;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(

@@ -28,6 +28,8 @@
 				(i32.const 49)	;; Pointer to the where the query_id is stored
 			)
 		)
+
+		;; Return the the query_id
 		(call $seal_return
 			(i32.const 0)	;; flags
 			(i32.const 49)	;; Pointer to returned value
