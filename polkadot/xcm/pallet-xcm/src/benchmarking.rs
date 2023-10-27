@@ -51,9 +51,30 @@ benchmarks! {
 		let (assets, destination) = T::TeleportableAssets::get().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-		let send_origin =
-			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone())
+
+		// most chains deploying `pallet-xcm` don't have `pallet-assets` so we're
+		// stuck with using native token and `pallet-balances`.
+		if assets.len() != 1 {
+			return Err(BenchmarkError::Stop("Generic benchmark supports only single native asset"))
+		}
+		let asset = assets.inner().clone().pop().unwrap();
+		let transferred_amount = match &asset.fun {
+			Fungible(amount) => *amount,
+			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
+		}.into();
+
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		assert!(balance >= transferred_amount);
+		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
+
+		let send_origin = RawOrigin::Signed(caller.clone());
+		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location, assets.clone().into_inner())) {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
@@ -64,7 +85,11 @@ benchmarks! {
 		let versioned_beneficiary: VersionedMultiLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedMultiAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	verify {
+		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+	}
 
 	reserve_transfer_assets {
 		let (assets, destination) = T::ReserveTransferableAssets::get().ok_or(
@@ -103,11 +128,11 @@ benchmarks! {
 		let versioned_dest: VersionedMultiLocation = destination.into();
 		let versioned_beneficiary: VersionedMultiLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
-		let versioned_assets: VersionedMultiAssets = assets.clone().into();
+		let versioned_assets: VersionedMultiAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
 	verify {
-		// verify balance after transfer
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance - transferred_amount);
+		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
+		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
 	}
 
 	execute {

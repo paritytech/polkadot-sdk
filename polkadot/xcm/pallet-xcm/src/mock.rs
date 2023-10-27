@@ -320,6 +320,9 @@ impl pallet_assets::Config for Test {
 	type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
+// This child parachain is a system parachain trusted to teleport native token.
+pub const SOME_SYSTEM_PARA: u32 = 1001;
+
 // This child parachain acts as trusted reserve for its assets in tests.
 // USDT allowed to teleport to/from here.
 pub const FOREIGN_ASSET_RESERVE_PARA_ID: u32 = 2001;
@@ -340,6 +343,14 @@ pub const OTHER_PARA_ID: u32 = 2009;
 
 parameter_types! {
 	pub const RelayLocation: MultiLocation = Here.into_location();
+	pub const NativeAsset: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(Here.into_location()),
+	};
+	pub const SystemParachainLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(SOME_SYSTEM_PARA))
+	};
 	pub const ForeignReserveLocation: MultiLocation = MultiLocation {
 		parents: 0,
 		interior: X1(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
@@ -417,10 +428,11 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
 	pub TrustedLocal: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), UsdtTeleportLocation::get());
-	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (vec![Usdt::get()].into(), ForeignReserveLocation::get());
-	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (vec![ForeignAsset::get()].into(), ForeignReserveLocation::get());
-	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (vec![Usdc::get()].into(), UsdcReserveLocation::get());
+	pub TrustedSystemPara: (MultiAssetFilter, MultiLocation) = (NativeAsset::get().into(), SystemParachainLocation::get());
+	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), UsdtTeleportLocation::get());
+	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), ForeignReserveLocation::get());
+	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub XcmFeesTargetAccount: AccountId = AccountId::new([167u8; 32]);
@@ -449,7 +461,12 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
-	type IsTeleporter = (Case<TrustedLocal>, Case<TrustedUsdt>, Case<TeleportUsdtToForeign>);
+	type IsTeleporter = (
+		Case<TrustedLocal>,
+		Case<TrustedSystemPara>,
+		Case<TrustedUsdt>,
+		Case<TeleportUsdtToForeign>,
+	);
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
@@ -485,8 +502,8 @@ parameter_types! {
 parameter_types! {
 	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
 	pub TeleportableAssets: Option<(MultiAssets, MultiLocation)> = Some((
-		vec![Usdt::get()].into(),
-		UsdtTeleportLocation::get(),
+		NativeAsset::get().into(),
+		SystemParachainLocation::get(),
 	));
 	pub ReserveTransferableAssets: Option<(MultiAssets, MultiLocation)> = Some((
 		MultiAsset {
