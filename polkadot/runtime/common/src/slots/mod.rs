@@ -162,7 +162,7 @@ pub mod pallet {
 		NoPermission,
 		/// The signing account has privileges for this operation but the preconditions are not
 		/// met.
-		NotAllowed,
+		PreconditionNotMet,
 	}
 
 	#[pallet::hooks]
@@ -270,11 +270,11 @@ pub mod pallet {
 			let now = frame_system::Pallet::<T>::block_number();
 			let lease_ending_soon =
 				Self::lease_period_ending_soon(now).ok_or(Error::<T>::LeaseError)?;
-			ensure!(lease_ending_soon, Error::<T>::NotAllowed);
+			ensure!(lease_ending_soon, Error::<T>::PreconditionNotMet);
 
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
-			ensure!(leases.len() == 1, Error::<T>::NotAllowed);
+			ensure!(leases.len() == 1, Error::<T>::PreconditionNotMet);
 			if let Some((who, value)) = &leases[0] {
 				// unreserve the deposit for the soon to be ending lease.
 				Self::unreserve(para, &who, *value);
@@ -1155,7 +1155,7 @@ mod tests {
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
-				Error::<Test>::NotAllowed
+				Error::<Test>::PreconditionNotMet
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 3);
 
@@ -1164,7 +1164,7 @@ mod tests {
 			assert!(!Slots::lease(ParaId::from(1)).is_empty());
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
-				Error::<Test>::NotAllowed
+				Error::<Test>::PreconditionNotMet
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 
@@ -1174,7 +1174,7 @@ mod tests {
 			// EarliestRefundPeriod is 2 blocks, so this should still fail.
 			assert_noop!(
 				Slots::early_lease_refund(RuntimeOrigin::root(), ParaId::from(1)),
-				Error::<Test>::NotAllowed
+				Error::<Test>::PreconditionNotMet
 			);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 2);
 

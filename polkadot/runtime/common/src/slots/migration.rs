@@ -47,7 +47,7 @@ mod v1 {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::zero();
 			for (para, lease_periods) in Leases::<T>::iter() {
-				weight = weight.saturating_add(T::DbWeight::get().reads(1));
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 				let mut max_deposits: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
 
 				lease_periods.iter().for_each(|lease| {
@@ -60,12 +60,11 @@ mod v1 {
 				});
 
 				max_deposits.iter().for_each(|(leaser, deposit)| {
-					weight = weight.saturating_add(T::DbWeight::get().writes(1));
+					weight.saturating_accrue(T::DbWeight::get().writes(1));
 					ReservedAmounts::<T>::insert(para, leaser, deposit);
 				})
 			}
 
-			// weight: all active lease periods * rw
 			weight
 		}
 
