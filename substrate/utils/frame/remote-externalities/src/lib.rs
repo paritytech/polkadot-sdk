@@ -439,34 +439,37 @@ where
 		Ok(keys)
 	}
 
-	/// Get keys at `prefix` in `block` in parallel manner.
+	/// Get keys with `prefix` at `block` in a parallel manner, with `parallel` is saturated at 256.
+	/// If `parallel` is set to 1, it is the same as calling [`rpc_get_keys_paged()`].
 	async fn rpc_get_keys_parallel(
 		&self,
 		prefix: StorageKey,
 		block: B::Hash,
 		parallel: u16,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		let prefixes = extend_prefix(&prefix, parallel);
-		let batch = prefixes.into_iter().map(|prefix| self.rpc_get_keys_paged(prefix, block));
+		let mut keys: Vec<StorageKey> = Vec::with_capacity(4096);
+		for chunk in prefix_chunks(&prefix, parallel) {
+			let batch = chunk.into_iter().map(|prefix| self.rpc_get_keys_paged(prefix, block));
+			let partial = futures::future::join_all(batch)
+				.await
+				.into_iter()
+				.filter_map(|res| match res {
+					Ok(keys) => Some(keys),
+					Err(err) => {
+						log::warn!(
+							target: LOG_TARGET,
+							"{} when fetching keys at block {:?}",
+							err,
+							block,
+						);
+						None
+					},
+				})
+				.flatten()
+				.collect::<Vec<StorageKey>>();
 
-		let keys = futures::future::join_all(batch)
-			.await
-			.into_iter()
-			.filter_map(|res| match res {
-				Ok(keys) => Some(keys),
-				Err(err) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"{} when fetching keys at block {:?}",
-						err,
-						block,
-					);
-					None
-				},
-			})
-			.flatten()
-			.collect::<Vec<StorageKey>>();
-
+			keys.extend(partial)
+		}
 		Ok(keys)
 	}
 
@@ -791,62 +794,42 @@ where
 	}
 }
 
-// Create a batch of storage key prefixes each starting with `prefix`, meant to be used for key
-// scraping. Given the prefix 00, the return can be 000-00F or 0000-00FF, depending on `size`.
-// `size` will be rounded to power of 16 if not already, so is the returned batch size.
-fn extend_prefix(prefix: &StorageKey, size: u16) -> Vec<StorageKey> {
-	const MAX_EXT_LEN: usize = 3;
-	const MAX_BATCH_SIZE: u16 = 16u16.pow(MAX_EXT_LEN as u32);
-	const POW_OF_SIXTEEN: [u16; MAX_EXT_LEN] = [1, 16, 256];
+/// Meant to be used for fetching storage keys, by dividing the workload into chunks to be executed
+/// in parallel.
+fn prefix_chunks(prefix: &StorageKey, parallel: u16) -> Vec<Vec<StorageKey>> {
+	const MAX_PARALLEL: usize = 256;
+	const FACTORS: [usize; 7] = [2, 4, 8, 16, 32, 64, 128];
 
-	// round to power of 16
-	// up to MAX_BATCH_SIZE
-	fn round(n: u16) -> (u16, usize) {
-		if n <= 1 {
-			return (1, 0)
-		} else if n <= 16 {
-			return (16, 1)
-		}
-
-		let mut pow: u16 = 16;
-		let mut exp: usize = 1;
-
-		while pow < n {
-			if pow == MAX_BATCH_SIZE {
-				break
+	// round up to a factor of MAX_PARALLEL
+	fn round(n: usize) -> usize {
+		for factor in FACTORS {
+			if factor >= n {
+				return factor
 			}
-
-			pow = pow.saturating_mul(16);
-			exp += 1;
 		}
-
-		debug_assert!(pow <= MAX_BATCH_SIZE);
-		debug_assert!(exp <= MAX_EXT_LEN);
-
-		// round down if below threshold
-		if n * 4 <= pow {
-			(pow / 16, exp - 1)
-		} else {
-			(pow, exp)
-		}
+		MAX_PARALLEL
 	}
 
-	let (size, len) = round(size);
-	let mut ext = vec![0; len];
+	if parallel == 1 {
+		return vec![vec![StorageKey(prefix.as_ref().to_vec())]]
+	}
 
-	(0..size)
-		.map(|idx| {
-			// 0-f | 00-ff | 000-fff
-			// relatively static, use OnceCell if turned out to be hot
-			for i in 0..len {
-				ext[len - i - 1] = (idx / POW_OF_SIXTEEN[i] % 16) as u8;
-			}
+	let window = round(parallel as usize);
+	debug_assert!(MAX_PARALLEL / window * window == MAX_PARALLEL);
 
-			let mut prefix = prefix.as_ref().to_vec();
-			prefix.extend(&ext);
-			StorageKey(prefix)
+	let ext: [u8; MAX_PARALLEL] = core::array::from_fn(|i| i as u8);
+	ext.chunks(window)
+		.map(|chunk| {
+			chunk
+				.into_iter()
+				.map(|i| {
+					let mut prefix = prefix.as_ref().to_vec();
+					prefix.push(*i);
+					StorageKey(prefix)
+				})
+				.collect::<Vec<_>>()
 		})
-		.collect()
+		.collect::<Vec<Vec<_>>>()
 }
 
 impl<B: BlockT + DeserializeOwned> Builder<B>
@@ -1531,33 +1514,30 @@ mod remote_tests {
 			.execute_with(|| {});
 	}
 
-	#[test]
-	fn prefixes_for_scraping_keys() {
-		let prefix = StorageKey(vec![0, 0]);
+	#[tokio::test]
+	async fn can_fetch_parallel() {
+		init_logger();
 
-		assert_eq!(extend_prefix(&prefix, 0), vec![StorageKey(vec![0, 0])]);
-		assert_eq!(extend_prefix(&prefix, 1), vec![StorageKey(vec![0, 0])]);
-		assert_eq!(extend_prefix(&prefix, 16), (0..16).map(|i| StorageKey(vec![0, 0, i])).collect::<Vec<_>>());
+		let uri = String::from("wss://kusama-bridge-hub-rpc.polkadot.io:443");
+		let mut builder = Builder::<Block>::new()
+			.mode(Mode::Online(OnlineConfig { transport: uri.into(), ..Default::default() }));
+		builder.init_remote_client().await.unwrap();
 
-		let prefixes = extend_prefix(&prefix, 256);
-		assert_eq!(prefixes, (0..256u32).map(|i| StorageKey(vec![0, 0, (i / 16 % 16) as u8, (i % 16) as u8])).collect::<Vec<_>>());
-		assert_eq!(prefixes[0], StorageKey(vec![0, 0, 0, 0]));
-		assert_eq!(prefixes[1], StorageKey(vec![0, 0, 0, 1]));
-		assert_eq!(prefixes[15], StorageKey(vec![0, 0, 0, 15]));
-		assert_eq!(prefixes[16], StorageKey(vec![0, 0, 1, 0]));
-		assert_eq!(prefixes[254], StorageKey(vec![0, 0, 15, 14]));
-		assert_eq!(prefixes[255], StorageKey(vec![0, 0, 15, 15]));
+		let at = builder.as_online().at.unwrap();
 
-		let prefixes = extend_prefix(&prefix, 4096);
-		assert_eq!(prefixes, (0..4096u32).map(|i| StorageKey(vec![0, 0, (i / 256 % 16) as u8, (i / 16 % 16) as u8, (i % 16) as u8])).collect::<Vec<_>>());
-		assert_eq!(prefixes[0], StorageKey(vec![0, 0, 0, 0, 0]));
-		assert_eq!(prefixes[1], StorageKey(vec![0, 0, 0, 0, 1]));
-		assert_eq!(prefixes[4094], StorageKey(vec![0, 0, 15, 15, 14]));
-		assert_eq!(prefixes[4095], StorageKey(vec![0, 0, 15, 15, 15]));
+		let prefix = StorageKey(vec![13]);
+		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap_or(vec![]);
+		let para_16 = builder.rpc_get_keys_parallel(prefix.clone(), at, 16).await.unwrap_or(vec![]);
+		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
+		assert_eq!(para_1, paged);
+		assert_eq!(para_16, paged);
 
-		// rounding
-		assert_eq!(extend_prefix(&prefix, 2), extend_prefix(&prefix, 16));
-		assert_eq!(extend_prefix(&prefix, 65), extend_prefix(&prefix, 256));
-		assert_eq!(extend_prefix(&prefix, 1025), extend_prefix(&prefix, 4096));
+		// scrape all
+		let prefix = StorageKey(vec![]);
+		let para_1 = builder.rpc_get_keys_parallel(prefix.clone(), at, 1).await.unwrap_or(vec![]);
+		let para_16 = builder.rpc_get_keys_parallel(prefix.clone(), at, 16).await.unwrap_or(vec![]);
+		let paged = builder.rpc_get_keys_paged(prefix, at).await.unwrap();
+		assert_eq!(para_1, paged);
+		assert_eq!(para_16, paged);
 	}
 }
