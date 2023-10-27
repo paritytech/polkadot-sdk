@@ -1,4 +1,4 @@
-name: Build and Attach Runtimes to Release
+name: Build and Attach Runtimes to Releases/RC
 
 on:
   release:
