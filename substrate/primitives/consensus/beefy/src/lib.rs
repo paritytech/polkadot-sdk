@@ -172,11 +172,11 @@ pub mod ecdsa_bls_crypto {
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			// We can not call simply call
+			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
 			// because that invokes ecdsa default verification which perfoms blake2 hash
 			// which we don't want. As such we need to re-implement the verification
-			// of signatures part by part instead of relying on paired crypto
+			// of signatures part by part instead of relying on `paired_crypto`
 			let public: &[u8] = self.as_inner_ref().as_ref();
 			let signature: &[u8] = signature.as_inner_ref().as_ref();
 			let msg_hash = <MsgHash as Hash>::hash(msg).into();
