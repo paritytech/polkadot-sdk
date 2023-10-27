@@ -18,7 +18,7 @@
 //! Elliptic Curves host functions to handle some of the *Arkworks* *BLS12-377*
 //! computationally expensive operations.
 
-use crate::{ArkScale, ArkScaleProjective};
+use crate::utils::{ArkScale, ArkScaleProjective};
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use ark_scale::scale::{Decode, Encode};
@@ -158,45 +158,45 @@ impl CurveHooks for HostHooks {
 /// and "not-compressed".
 #[runtime_interface]
 pub trait HostCalls {
-	/// Pairing multi Miller loop for BLS12-377.
+	/// Pairing multi Miller loop for *BLS12-377*.
 	///
 	/// - Receives encoded:
-	///   - `a: ArkScale<Vec<ark_ec::bls12::G1Prepared::<ark_bls12_377::Config>>>`.
-	///   - `b: ArkScale<Vec<ark_ec::bls12::G2Prepared::<ark_bls12_377::Config>>>`.
-	/// - Returns encoded: ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>.
+	///   - `a`: `ArkScale<Vec<G1Affine>>`.
+	///   - `b`: `ArkScale<Vec<G2Affine>>`.
+	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>` (`Fq12`).
 	fn bls12_377_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
 		crate::utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
 	}
 
-	/// Pairing final exponentiation for BLS12-377.
+	/// Pairing final exponentiation for *BLS12-377.*
 	///
-	/// - Receives encoded: `ArkScale<MillerLoopOutput<Bls12<ark_bls12_377::Config>>>`.
-	/// - Returns encoded: `ArkScale<PairingOutput<Bls12<ark_bls12_377::Config>>>`.
+	/// - Receives encoded: `ArkScale<Bls12_377::TargetField>` (`Fq12`).
+	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>` (`Fq12`).
 	fn bls12_377_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
 		crate::utils::final_exponentiation::<ark_bls12_377::Bls12_377>(f)
 	}
 
-	/// Projective multiplication on G1 for BLS12-377.
+	/// Projective multiplication on G1 for *BLS12-377*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
+	///   - `base`: `ArkScaleProjective<G1Projective>`.
+	///   - `scalar`: `ArkScale<Vec<u64>>`.
+	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
 	fn bls12_377_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 		crate::utils::mul_projective_sw::<ark_bls12_377::g1::Config>(base, scalar)
 	}
 
-	/// Projective multiplication on G2 for BLS12-377.
+	/// Projective multiplication on G2 for *BLS12-377*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
+	///   - `base`: `ArkScaleProjective<G2Projective>`.
+	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
 	fn bls12_377_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 		crate::utils::mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
 	}
 
-	/// Multi scalar multiplication on G1 for BLS12-377.
+	/// Multi scalar multiplication on G1 for *BLS12-377*.
 	///
 	/// - Receives encoded:
 	///   - `bases`: `ArkScale<&[ark_bls12_377::G1Affine]>`.
@@ -206,7 +206,7 @@ pub trait HostCalls {
 		crate::utils::msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
 	}
 
-	/// Multi scalar multiplication on G2 for BLS12-377.
+	/// Multi scalar multiplication on G2 for *BLS12-377*.
 	///
 	/// - Receives encoded:
 	///   - `bases`: `ArkScale<&[ark_bls12_377::G2Affine]>`.
@@ -215,4 +215,18 @@ pub trait HostCalls {
 	fn bls12_377_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
 		crate::utils::msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
 	}
+}
+
+// TODO: REMOVE
+#[cfg(test)]
+mod tests {
+	use super::{g1::G1Projective, g2::G2Projective, Bls12_377};
+	use ark_algebra_test_templates::*;
+	use ark_ec::pairing::PairingOutput;
+	use ark_scale::ark_serialize;
+
+	test_group!(g1; G1Projective; sw);
+	test_group!(g2; G2Projective; sw);
+	test_group!(pairing_output; PairingOutput<Bls12_377>; msm);
+	test_pairing!(pairing; super::Bls12_377);
 }

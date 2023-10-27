@@ -206,3 +206,17 @@ pub trait HostCalls {
 		crate::utils::msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
 	}
 }
+
+// TODO: REMOVE
+#[cfg(test)]
+mod tests {
+	use super::{g1::G1Projective, g2::G2Projective, Bls12_381};
+	use ark_algebra_test_templates::*;
+	use ark_ec::pairing::PairingOutput;
+	use ark_scale::ark_serialize;
+
+	test_group!(g1; G1Projective; sw);
+	test_group!(g2; G2Projective; sw);
+	test_group!(pairing_output; PairingOutput<Bls12_381>; msm);
+	test_pairing!(ark_pairing; super::Bls12_381);
+}
