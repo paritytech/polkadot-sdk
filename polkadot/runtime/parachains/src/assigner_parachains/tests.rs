@@ -19,7 +19,9 @@ use super::*;
 use crate::{
 	assigner_parachains::{mock_helpers::GenesisConfigBuilder, ParachainsAssignment},
 	initializer::SessionChangeNotification,
-	mock::{new_test_ext, ParachainsAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System},
+	mock::{
+		new_test_ext, ParachainsAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
+	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
@@ -94,7 +96,8 @@ fn parachains_assigner_pop_assignment_is_always_some() {
 
 		for _ in 0..20 {
 			assert!(
-				ParachainsAssigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+				ParachainsAssigner::pop_assignment_for_core(core_index) ==
+					Some(expected_assignment.clone())
 			);
 		}
 
@@ -102,7 +105,8 @@ fn parachains_assigner_pop_assignment_is_always_some() {
 
 		for _ in 0..20 {
 			assert!(
-				ParachainsAssigner::pop_assignment_for_core(core_index) == Some(expected_assignment.clone())
+				ParachainsAssigner::pop_assignment_for_core(core_index) ==
+					Some(expected_assignment.clone())
 			);
 		}
 	});

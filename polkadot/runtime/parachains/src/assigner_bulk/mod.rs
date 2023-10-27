@@ -38,12 +38,12 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
+use pallet_broker::CoreAssignment;
 use primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
-use pallet_broker::CoreAssignment;
 
 use sp_std::{collections::vec_deque::VecDeque, prelude::*};
 
@@ -127,13 +127,14 @@ struct AssignmentState {
 impl<N> From<Schedule<N>> for CoreState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint } = schedule;
-		let step = if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
-			min_step_assignment.1
-		} else {
-			// Assignments empty, should not exist. In any case step size does not matter here:
-			log::debug!("assignments of a `Schedule` should never be empty.");
-			1
-		};
+		let step =
+			if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
+				min_step_assignment.1
+			} else {
+				// Assignments empty, should not exist. In any case step size does not matter here:
+				log::debug!("assignments of a `Schedule` should never be empty.");
+				1
+			};
 		let assignments = assignments
 			.into_iter()
 			.map(|(a, ratio)| (a, AssignmentState { ratio, remaining: ratio }))
@@ -153,7 +154,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config {
+	pub trait Config:
+		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
+	{
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -257,8 +260,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 					// advance:
 					a_state.remaining -= core_state.step;
 					if a_state.remaining < core_state.step {
-						// Assignment exhausted, need to move to the next and credit remaining for next
-						// round.
+						// Assignment exhausted, need to move to the next and credit remaining for
+						// next round.
 						core_state.pos += 1;
 						// Reset to ratio + still remaining "credits":
 						a_state.remaining += a_state.ratio;
@@ -271,7 +274,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 								BlockNumberFor<T>,
 							>>::pop_assignment_for_core(core_idx)
 							.map(|assignment| BulkAssignment::Instantaneous(assignment)),
-						CoreAssignment::Task(para_id) => return Some(BulkAssignment::Bulk((*para_id).into())),
+						CoreAssignment::Task(para_id) =>
+							return Some(BulkAssignment::Bulk((*para_id).into())),
 					}
 				},
 				None => return None,
