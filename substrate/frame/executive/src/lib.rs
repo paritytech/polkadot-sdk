@@ -418,7 +418,9 @@ where
 				);
 
 				for (i, err) in errors.iter().enumerate() {
+					// We log the short version to `error` and then the full debug info to `debug`:
 					log::error!(target: LOG_TARGET, "- {i}. error: {err}");
+					log::debug!(target: LOG_TARGET, "- {i}. error: {err:?}");
 				}
 
 				Err("`try_decode_entire_state` failed".into())
