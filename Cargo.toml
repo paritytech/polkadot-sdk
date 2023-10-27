@@ -81,6 +81,7 @@ members = [
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-kusama",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-polkadot",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
+	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-polkadot",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",

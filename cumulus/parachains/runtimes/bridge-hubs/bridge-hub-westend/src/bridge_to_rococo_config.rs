@@ -17,11 +17,11 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::{BridgeParachainRococoInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendToRococoMessages, ParachainInfo, Runtime, RuntimeEvent,
-	RuntimeOrigin, XcmRouter,
+	bridge_common_config::DeliveryRewardInBalance, weights, AccountId, BridgeRococoMessages,
+	ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
 };
 use bp_messages::LaneId;
+use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bridge_runtime_common::{
 	messages,
 	messages::{
@@ -39,7 +39,10 @@ use bridge_runtime_common::{
 	},
 };
 use codec::Encode;
-use frame_support::{parameter_types, traits::PalletInfoAccess};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, PalletInfoAccess},
+};
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
@@ -48,13 +51,19 @@ use xcm::{
 use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
 
 parameter_types! {
+	pub const RelayChainHeadersToKeep: u32 = 1024;
+	pub const ParachainHeadsToKeep: u32 = 64;
+
+	pub const RococoBridgeParachainPalletName: &'static str = "Paras";
+	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
+
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 	pub BridgeHubWestendUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Westend), Parachain(ParachainInfo::parachain_id().into()));
-	pub BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendToRococoMessages as PalletInfoAccess>::index() as u8));
+	pub BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8));
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
 	pub const AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
@@ -131,7 +140,7 @@ type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler>;
 pub struct WithBridgeHubRococoMessageBridge;
 impl MessageBridge for WithBridgeHubRococoMessageBridge {
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_westend::WITH_BRIDGE_HUB_ROCOCO_TO_WESTEND_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubWestend;
 	type BridgedChain = BridgeHubRococo;
 	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
@@ -187,8 +196,31 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtension
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococoMessages);
 
+/// Add GRANDPA bridge pallet to track Rococo relay chain.
+pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
+impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = bp_rococo::Rococo;
+	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type HeadersToKeep = RelayChainHeadersToKeep;
+	type WeightInfo = weights::pallet_bridge_grandpa_rococo_finality::WeightInfo<Runtime>;
+}
+
+/// Add parachain bridge pallet to track Rococo BridgeHub parachain
+pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance1;
+impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_bridge_parachains_within_rococo::WeightInfo<Runtime>;
+	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
+	type ParasPalletName = RococoBridgeParachainPalletName;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
+	type HeadsToKeep = ParachainHeadsToKeep;
+	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+}
+
 /// Add XCM messages support for BridgeHubWestend to support Westend->Rococo XCM messages
-pub type WithBridgeHubRococoMessagesInstance = pallet_bridge_messages::Instance3;
+pub type WithBridgeHubRococoMessagesInstance = pallet_bridge_messages::Instance1;
 impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_bridge_messages_westend_to_rococo::WeightInfo<Runtime>;
@@ -227,7 +259,6 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::bridge_common_config::BridgeGrandpaRococoInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -293,10 +324,10 @@ mod tests {
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
-					bp_bridge_hub_westend::WITH_BRIDGE_HUB_ROCOCO_TO_WESTEND_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_westend::WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME,
 				with_bridged_chain_grandpa_pallet_name: bp_rococo::WITH_ROCOCO_GRANDPA_PALLET_NAME,
 				with_bridged_chain_messages_pallet_name:
-					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_WESTEND_TO_ROCOCO_MESSAGES_PALLET_NAME,
+					bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME,
 			},
 		});
 
