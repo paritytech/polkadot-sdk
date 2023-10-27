@@ -231,6 +231,8 @@ pub mod pallet {
 			type RuntimeHoldReason = ();
 			#[inject_runtime_type]
 			type RuntimeFreezeReason = ();
+			#[inject_runtime_type]
+			type RuntimeTask = ();
 
 			type Balance = u64;
 			type ExistentialDeposit = ConstU64<1>;
@@ -257,7 +259,7 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching task type.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type RuntimeTask: Task;
 
 		/// The overarching hold reason.
