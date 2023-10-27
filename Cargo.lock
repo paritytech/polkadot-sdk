@@ -14221,7 +14221,6 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-rate",
- "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
