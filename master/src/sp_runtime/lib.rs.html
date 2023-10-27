@@ -1592,7 +1592,7 @@
 }
 
 <span class="doccomment">/// Signature verify that can work with any known signature types..
-</span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug)]
+</span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>AnySignature(H512);
 

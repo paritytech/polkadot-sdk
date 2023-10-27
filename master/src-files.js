@@ -102,6 +102,8 @@ var srcIndex = JSON.parse('{\
 "integration_tests_common":["",[],["constants.rs","impls.rs","lib.rs","macros.rs","xcm_helpers.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
 "malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
+"minimal_node":["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]],\
+"minimal_runtime":["",[],["lib.rs"]],\
 "mmr_gadget":["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]],\
 "mmr_rpc":["",[],["lib.rs"]],\
 "multiply_by_rational_with_rounding":["",[],["multiply_by_rational_with_rounding.rs"]],\
@@ -156,6 +158,7 @@ var srcIndex = JSON.parse('{\
 "pallet_election_provider_support_benchmarking":["",[],["lib.rs"]],\
 "pallet_elections_phragmen":["",[["migrations",[],["mod.rs","unlock_and_unreserve_all_funds.rs","v3.rs","v4.rs","v5.rs"]]],["lib.rs","weights.rs"]],\
 "pallet_example_basic":["",[],["lib.rs","weights.rs"]],\
+"pallet_example_frame_crate":["",[],["lib.rs"]],\
 "pallet_example_kitchensink":["",[],["lib.rs","weights.rs"]],\
 "pallet_example_offchain_worker":["",[],["lib.rs"]],\
 "pallet_example_split":["",[],["events.rs","lib.rs","weights.rs"]],\
@@ -401,7 +404,7 @@ var srcIndex = JSON.parse('{\
 "sp_runtime_interface_test":["",[],["lib.rs"]],\
 "sp_runtime_interface_test_wasm":["",[],["lib.rs"]],\
 "sp_runtime_interface_test_wasm_deprecated":["",[],["lib.rs"]],\
-"sp_session":["",[],["lib.rs"]],\
+"sp_session":["",[],["lib.rs","runtime_api.rs"]],\
 "sp_staking":["",[],["currency_to_vote.rs","lib.rs","offence.rs"]],\
 "sp_state_machine":["",[["overlayed_changes",[],["changeset.rs","mod.rs","offchain.rs"]]],["backend.rs","basic.rs","error.rs","ext.rs","in_memory_backend.rs","lib.rs","read_only.rs","stats.rs","testing.rs","trie_backend.rs","trie_backend_essence.rs"]],\
 "sp_statement_store":["",[],["ecies.rs","lib.rs","runtime_api.rs","store_api.rs"]],\

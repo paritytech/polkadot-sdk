@@ -367,6 +367,24 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -617,7 +635,25 @@
 	}
 }
 
+<span class="doccomment">/// Implementor of [`WeightToFee`] such that it maps any unit of weight to a fixed fee.
+</span><span class="kw">pub struct </span>FixedFee&lt;<span class="kw">const </span>F: u32, T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+
+<span class="kw">impl</span>&lt;<span class="kw">const </span>F: u32, T&gt; WeightToFee <span class="kw">for </span>FixedFee&lt;F, T&gt;
+<span class="kw">where
+	</span>T: BaseArithmetic + From&lt;u32&gt; + Copy + Unsigned,
+{
+	<span class="kw">type </span>Balance = T;
+
+	<span class="kw">fn </span>weight_to_fee(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Weight) -&gt; <span class="self">Self</span>::Balance {
+		F.into()
+	}
+}
+
+<span class="doccomment">/// An implementation of [`WeightToFee`] that collects no fee.
+</span><span class="kw">pub type </span>NoFee&lt;T&gt; = FixedFee&lt;<span class="number">0</span>, T&gt;;
+
 <span class="doccomment">/// Implementor of [`WeightToFee`] that uses a constant multiplier.
+///
 /// # Example
 ///
 /// ```

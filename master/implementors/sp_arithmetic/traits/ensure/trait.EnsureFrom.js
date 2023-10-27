@@ -1,4 +1,5 @@
 (function() {var implementors = {
+"frame":[],
 "polkadot_service":[],
 "sp_arithmetic":[],
 "sp_runtime":[]

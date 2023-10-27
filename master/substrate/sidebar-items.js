@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["substrate_diagram"]};
+window.SIDEBAR_ITEMS = {};

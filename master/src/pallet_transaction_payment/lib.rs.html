@@ -870,6 +870,29 @@
 <a href="#870" id="870">870</a>
 <a href="#871" id="871">871</a>
 <a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1191,9 +1214,29 @@
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="attr">#[pallet::config]
+	<span class="kw">pub mod </span>config_preludes {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>frame_support::derive_impl;
+
+		<span class="doccomment">/// Default prelude sensible to be used in a testing environment.
+		</span><span class="kw">pub struct </span>TestDefaultConfig;
+
+		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
+		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
+
+		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>TestDefaultConfig {
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeEvent = ();
+			<span class="kw">type </span>FeeMultiplierUpdate = ();
+			<span class="kw">type </span>OperationalFeeMultiplier = ();
+		}
+	}
+
+	<span class="attr">#[pallet::config(with_default)]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// Handler for withdrawing, refunding and depositing the transaction fee.
@@ -1202,12 +1245,24 @@
 		/// adjusted, depending on the used resources by the transaction. If the
 		/// transaction weight is lower than expected, parts of the transaction fee
 		/// might be refunded. In the end the fees can be deposited.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>OnChargeTransaction: OnChargeTransaction&lt;<span class="self">Self</span>&gt;;
 
-		<span class="doccomment">/// A fee mulitplier for `Operational` extrinsics to compute &quot;virtual tip&quot; to boost their
+		<span class="doccomment">/// Convert a weight value into a deductible fee based on the currency type.
+		</span><span class="attr">#[pallet::no_default]
+		</span><span class="kw">type </span>WeightToFee: WeightToFee&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// Convert a length value into a deductible fee based on the currency type.
+		</span><span class="attr">#[pallet::no_default]
+		</span><span class="kw">type </span>LengthToFee: WeightToFee&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// Update the multiplier of the next block, based on the previous block&#39;s weight.
+		</span><span class="kw">type </span>FeeMultiplierUpdate: MultiplierUpdate;
+
+		<span class="doccomment">/// A fee multiplier for `Operational` extrinsics to compute &quot;virtual tip&quot; to boost their
 		/// `priority`
 		///
-		/// This value is multipled by the `final_fee` to obtain a &quot;virtual tip&quot; that is later
+		/// This value is multiplied by the `final_fee` to obtain a &quot;virtual tip&quot; that is later
 		/// added to a tip component in regular `priority` calculations.
 		/// It means that a `Normal` transaction can front-run a similarly-sized `Operational`
 		/// extrinsic (with no tip), by including a tip value greater than the virtual tip.
@@ -1227,15 +1282,6 @@
 		/// transactions.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>OperationalFeeMultiplier: Get&lt;u8&gt;;
-
-		<span class="doccomment">/// Convert a weight value into a deductible fee based on the currency type.
-		</span><span class="kw">type </span>WeightToFee: WeightToFee&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
-
-		<span class="doccomment">/// Convert a length value into a deductible fee based on the currency type.
-		</span><span class="kw">type </span>LengthToFee: WeightToFee&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
-
-		<span class="doccomment">/// Update the multiplier of the next block, based on the previous block&#39;s weight.
-		</span><span class="kw">type </span>FeeMultiplierUpdate: MultiplierUpdate;
 	}
 
 	<span class="attr">#[pallet::type_value]

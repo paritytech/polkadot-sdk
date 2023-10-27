@@ -2452,8 +2452,6 @@
 <a href="#2452" id="2452">2452</a>
 <a href="#2453" id="2453">2453</a>
 <a href="#2454" id="2454">2454</a>
-<a href="#2455" id="2455">2455</a>
-<a href="#2456" id="2456">2456</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2682,7 +2680,7 @@
 }
 
 <span class="doccomment">/// A lookup implementation returning the input value.
-</span><span class="attr">#[derive(Default)]
+</span><span class="attr">#[derive(Default, Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>IdentityLookup&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Codec + Clone + PartialEq + Debug + TypeInfo&gt; StaticLookup <span class="kw">for </span>IdentityLookup&lt;T&gt; {
 	<span class="kw">type </span>Source = T;
@@ -4122,9 +4120,7 @@
 	}
 }
 
-<span class="doccomment">/// Only for bare bone testing when you don&#39;t care about signed extensions at all.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl </span>SignedExtension <span class="kw">for </span>() {
+<span class="kw">impl </span>SignedExtension <span class="kw">for </span>() {
 	<span class="kw">type </span>AccountId = u64;
 	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Call = ();

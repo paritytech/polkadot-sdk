@@ -2287,6 +2287,10 @@
 <a href="#2287" id="2287">2287</a>
 <a href="#2288" id="2288">2288</a>
 <a href="#2289" id="2289">2289</a>
+<a href="#2290" id="2290">2290</a>
+<a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3091,16 +3095,20 @@
 <span class="doccomment">/// Prelude to be used alongside pallet macro, for ease of use.
 </span><span class="kw">pub mod </span>pallet_prelude {
 	<span class="kw">pub use crate</span>::{
+		defensive, defensive_assert,
 		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
 		storage::{
+			bounded_btree_map::BoundedBTreeMap,
+			bounded_btree_set::BoundedBTreeSet,
 			bounded_vec::BoundedVec,
 			types::{
 				CountedStorageMap, CountedStorageNMap, Key <span class="kw">as </span>NMapKey, OptionQuery, ResultQuery,
 				StorageDoubleMap, StorageMap, StorageNMap, StorageValue, ValueQuery,
 			},
+			weak_bounded_vec::WeakBoundedVec,
 			StorageList,
 		},
 		traits::{

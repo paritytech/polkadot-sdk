@@ -1050,7 +1050,7 @@
 	<span class="comment">// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
 	</span><span class="kw">let </span>commands_stream = pool.import_notification_stream().map(|<span class="kw">_</span>| EngineCommand::SealNewBlock {
-		create_empty: <span class="bool-val">false</span>,
+		create_empty: <span class="bool-val">true</span>,
 		finalize: <span class="bool-val">false</span>,
 		parent_hash: <span class="prelude-val">None</span>,
 		sender: <span class="prelude-val">None</span>,

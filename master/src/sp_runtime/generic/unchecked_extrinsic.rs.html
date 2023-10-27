@@ -679,16 +679,16 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;Address, AccountId, Call, Signature, Extra, Lookup&gt; Checkable&lt;Lookup&gt;
-	<span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
+<span class="kw">impl</span>&lt;LookupSource, AccountId, Call, Signature, Extra, Lookup&gt; Checkable&lt;Lookup&gt;
+	<span class="kw">for </span>UncheckedExtrinsic&lt;LookupSource, Call, Signature, Extra&gt;
 <span class="kw">where
-	</span>Address: Member + MaybeDisplay,
+	</span>LookupSource: Member + MaybeDisplay,
 	Call: Encode + Member,
 	Signature: Member + traits::Verify,
 	&lt;Signature <span class="kw">as </span>traits::Verify&gt;::Signer: IdentifyAccount&lt;AccountId = AccountId&gt;,
 	Extra: SignedExtension&lt;AccountId = AccountId&gt;,
 	AccountId: Member + MaybeDisplay,
-	Lookup: traits::Lookup&lt;Source = Address, Target = AccountId&gt;,
+	Lookup: traits::Lookup&lt;Source = LookupSource, Target = AccountId&gt;,
 {
 	<span class="kw">type </span>Checked = CheckedExtrinsic&lt;AccountId, Call, Extra&gt;;
 

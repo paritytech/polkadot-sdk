@@ -1,5 +1,6 @@
 (function() {var implementors = {
 "cumulus_primitives_core":[],
+"frame":[],
 "polkadot_core_primitives":[],
 "polkadot_primitives":[],
 "polkadot_service":[],

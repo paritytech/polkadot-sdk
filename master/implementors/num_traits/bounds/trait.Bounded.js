@@ -1,4 +1,5 @@
 (function() {var implementors = {
+"frame":[],
 "pallet_conviction_voting":[["impl <a class=\"trait\" href=\"https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html\" title=\"trait num_traits::bounds::Bounded\">Bounded</a> for <a class=\"enum\" href=\"pallet_conviction_voting/enum.Conviction.html\" title=\"enum pallet_conviction_voting::Conviction\">Conviction</a>"]],
 "pallet_democracy":[["impl <a class=\"trait\" href=\"https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html\" title=\"trait num_traits::bounds::Bounded\">Bounded</a> for <a class=\"enum\" href=\"pallet_democracy/enum.Conviction.html\" title=\"enum pallet_democracy::Conviction\">Conviction</a>"]],
 "polkadot_runtime_common":[],

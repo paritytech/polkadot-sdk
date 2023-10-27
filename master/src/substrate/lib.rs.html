@@ -236,65 +236,6 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -352,9 +293,22 @@
 //! is merely a matter of the Wasm blob being changed in the chain state, which is, in principle,
 //! same as updating an account&#39;s balance.
 //!
-//! To learn more about the substrate architecture using some visuals, see [`substrate_diagram`].
+//! ### Architecture
 //!
-//! `FRAME`, Substrate&#39;s default runtime development library takes the above even further by
+//! Therefore, Substrate can be visualized as follows:
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../docs/mermaid/substrate_simple.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! The client and the runtime of course need to communicate. This is done through two concepts:
+//!
+//! 1. Host functions: a way for the (Wasm) runtime to talk to the client. All host functions are
+//!    defined in [`sp-io`]. For example, [`sp-io::storage`] are the set of host functions that
+//!    allow the runtime to read and write data to the on-chain state.
+//! 2. Runtime APIs: a way for the client to talk to the Wasm runtime. Runtime APIs are defined
+//!    using macros and utilities in [`sp-api`]. For example, [`sp-api::Core`] is the most basic
+//!    runtime API that any blockchain must implement in order to be able to (re) execute blocks.
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../docs/mermaid/substrate_client_runtime.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! [`FRAME`], Substrate&#39;s default runtime development library takes the above even further by
 //! embracing a declarative programming model whereby correctness is enhanced and the system is
 //! highly configurable through parameterization.
 //!
@@ -365,8 +319,8 @@
 //! ## How to Get Stared
 //!
 //! Most developers want to leave the client side code as-is, and focus on the runtime. To do so,
-//! look into the [`frame_support`] crate, which is the entry point crate into runtime development
-//! with FRAME.
+//! look into the [`frame`] crate, which is the entry point crate into runtime development with
+//! FRAME.
 //!
 //! &gt; Side note, it is entirely possible to craft a substrate-based runtime without FRAME, an
 //! &gt; example of which can be found [here](https://github.com/JoshOrndorff/frameless-node-template).
@@ -376,8 +330,8 @@
 //! * **Templates**: A number of substrate-based templates exist and they can be used for various
 //!   purposes, with zero to little additional code needed. All of these templates contain runtimes
 //!   that are highly configurable and are likely suitable for basic needs.
-//! * `FRAME`: If need, one can customize that runtime even further, by using `FRAME` and developing
-//!   custom modules.
+//! * [`FRAME`]: If need, one can customize that runtime even further, by using `FRAME` and
+//!   developing custom modules.
 //! * **Core**: To the contrary, some developers may want to customize the client side software to
 //!   achieve novel goals such as a new consensus engine, or a new database backend. While
 //!   Substrate&#39;s main configurability is in the runtime, the client is also highly generic and can
@@ -397,10 +351,9 @@
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
 //!   are the traits that glue the client and runtime together, but are not opinionated about what
 //!   framework is using for building the runtime. Notable examples are [`sp-api`] and [`sp-io`],
-//!   which form the communication bridge between the client and runtime, as explained in
-//!   [`substrate_diagram`].
+//!   which form the communication bridge between the client and runtime.
 //! * `pallet-*` and `frame-*` crates, located under `./frame` folder. These are the crates related
-//!   to FRAME. See [`frame_support`] for more information.
+//!   to FRAME. See [`frame`] for more information.
 //!
 //! ### Wasm Build
 //!
@@ -454,8 +407,9 @@
 //! through which Polkadot can be utilized is by building &quot;parachains&quot;, blockchains that are
 //! connected to Polkadot&#39;s shared security.
 //!
-//! To build a parachain, one could use [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the
-//! library on top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//! To build a parachain, one could use
+//! [`Cumulus`](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus), the library on top
+//! of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
 //!
 //! ## Where To Go Next?
 //!
@@ -496,6 +450,7 @@
 //!     https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white
 //! [github]:
 //!     https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github
+//! [`FRAME`]: ../frame/index.html
 //! [`sp-io`]: ../sp_io/index.html
 //! [`sp-api`]: ../sp_api/index.html
 //! [`sp-api`]: ../sp_api/index.html
@@ -519,77 +474,4 @@
 
 </span><span class="attr">#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
-
-#[cfg_attr(doc, aquamarine::aquamarine)]
-</span><span class="doccomment">/// In this module, we explore substrate at a more depth. First, let&#39;s establish substrate being
-/// divided into a client and runtime.
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 	end
-/// 	subgraph Runtime
-/// 	end
-/// end
-/// ```
-///
-/// The client and the runtime of course need to communicate. This is done through two concepts:
-///
-/// 1. Host functions: a way for the (Wasm) runtime to talk to the client. All host functions are
-///    defined in [`sp-io`]. For example, [`sp-io::storage`] are the set of host functions that
-///    allow the runtime to read and write data to the on-chain state.
-/// 2. Runtime APIs: a way for the client to talk to the Wasm runtime. Runtime APIs are defined
-///    using macros and utilities in [`sp-api`]. For example, [`sp-api::Core`] is the most basic
-///    runtime API that any blockchain must implement in order to be able to (re) execute blocks.
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 	end
-/// 	subgraph Runtime
-/// 	end
-/// 	Client --runtime-api--&gt; Runtime
-/// 	Runtime --host-functions--&gt; Client
-/// end
-/// ```
-///
-/// Finally, let&#39;s expand the diagram a bit further and look at the internals of each component:
-///
-/// ```mermaid
-/// graph TB
-/// subgraph Substrate
-/// 	direction LR
-/// 	subgraph Client
-/// 		Database
-/// 		Networking
-/// 		Consensus
-/// 	end
-/// 	subgraph Runtime
-/// 		subgraph FRAME
-/// 			direction LR
-/// 			Governance
-/// 			Currency
-/// 			Staking
-/// 			Identity
-/// 		end
-/// 	end
-/// 	Client --runtime-api--&gt; Runtime
-/// 	Runtime --host-functions--&gt; Client
-/// end
-/// ```
-///
-/// As noted the runtime contains all of the application specific logic of the blockchain. This is
-/// usually written with `FRAME`. The client, on the other hand, contains reusable and generic
-/// components that are not specific to one single blockchain, such as networking, database, and the
-/// consensus engine.
-///
-/// [`sp-io`]: ../../sp_io/index.html
-/// [`sp-api`]: ../../sp_api/index.html
-/// [`sp-io::storage`]: ../../sp_io/storage/index.html
-/// [`sp-api::Core`]: ../../sp_api/trait.Core.html
-</span><span class="kw">pub mod </span>substrate_diagram {}
-</code></pre></div></section></main></body></html>
+</span></code></pre></div></section></main></body></html>

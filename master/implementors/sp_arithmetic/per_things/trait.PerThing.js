@@ -1,4 +1,5 @@
 (function() {var implementors = {
+"frame":[],
 "frame_election_provider_support":[],
 "sp_arithmetic":[],
 "sp_runtime":[]
