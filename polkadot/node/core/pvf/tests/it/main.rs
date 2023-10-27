@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "ci-only-tests")]
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
@@ -28,7 +27,7 @@ use polkadot_primitives::ExecutorParams;
 #[cfg(feature = "ci-only-tests")]
 use polkadot_primitives::ExecutorParam;
 
-use std::time::Duration;
+use std::{process::Command, time::Duration};
 use tokio::sync::Mutex;
 
 mod adder;
@@ -151,6 +150,68 @@ async fn terminates_on_timeout() {
 	let duration = std::time::Instant::now().duration_since(start);
 	assert!(duration >= TEST_EXECUTION_TIMEOUT);
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
+}
+
+// What happens when the prepare worker dies in the middle of a job?
+//
+// To avoid interfering with other running tests or processes, this test is ignored and must be run
+// by itself:
+// $  cargo test prepare_worker_killed_during_job -- --include-ignored
+#[ignore]
+#[tokio::test]
+async fn prepare_worker_killed_during_job() {
+	let host = TestHost::new().await;
+
+	let (result, _) = futures::join!(
+		// Choose a job that would normally take the entire timeout.
+		host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
+		// Run a future that kills the job in the middle of the timeout.
+		async {
+			tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
+			Command::new("killall").args(["-9", "polkadot-prepare-worker"]).spawn().unwrap();
+		}
+	);
+
+	assert_matches!(result, Err(PrepareError::IoErr(_)));
+}
+
+// What happens when the execute worker dies in the middle of a job?
+//
+// To avoid interfering with other running tests or processes, this test is ignored and must be run
+// by itself:
+// $  cargo test execute_worker_killed_during_job -- --include-ignored
+#[ignore]
+#[tokio::test]
+async fn execute_worker_killed_during_job() {
+	let host = TestHost::new().await;
+
+	// Prepare the artifact ahead of time.
+	let binary = halt::wasm_binary_unwrap();
+	host.precheck_pvf(binary, Default::default()).await.unwrap();
+
+	let (result, _) = futures::join!(
+		// Choose an job that would normally take the entire timeout.
+		host.validate_candidate(
+			binary,
+			ValidationParams {
+				block_data: BlockData(Vec::new()),
+				parent_head: Default::default(),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
+			Default::default(),
+		),
+		// Run a future that kills the job in the middle of the timeout.
+		async {
+			tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
+			Command::new("killall").args(["-9", "polkadot-execute-worker"]).spawn().unwrap();
+		}
+	);
+
+	assert_matches!(
+		result,
+		Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+	);
 }
 
 #[cfg(feature = "ci-only-tests")]
