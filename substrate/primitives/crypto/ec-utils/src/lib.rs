@@ -15,8 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic Curves host functions which may be used to handle some of the *Arkworks*
-//! computationally expensive operations.
+//! Elliptic curves which are mostly compatible with *Arkworks* library
+//! mostly useful in non-native contexts.
+//!
+//! The definitions make use of host functions to offload the non-native
+//! computational environment from the some of the most computationally
+//! expensive operations by internally leveraging the
+//! [arkworks-extensions](https://github.com/paritytech/arkworks-extensions)
+//! library.
+//!
+//! The exported types are organized and named in a way that mirrors the structure
+//! of the types in the original Arkworks library. This design choice aims to make
+//! it easier for users already familiar with the library to understand and utilize
+//! the exported types effectively.
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]

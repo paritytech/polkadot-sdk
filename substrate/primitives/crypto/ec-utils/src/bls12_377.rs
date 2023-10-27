@@ -15,50 +15,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic Curves host functions to handle some of the *Arkworks* *BLS12-377*
-//! computationally expensive operations.
+//! *BLS12-377* types and host functions.
 
-use crate::utils::{ArkScale, ArkScaleProjective};
+use crate::utils;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
-use ark_scale::scale::{Decode, Encode};
 use sp_runtime_interface::runtime_interface;
 use sp_std::vec::Vec;
 
-/// TODO
+/// First pairing group definitions.
 pub mod g1 {
 	pub use ark_bls12_377_ext::g1::{
 		G1_GENERATOR_X, G1_GENERATOR_Y, TE_GENERATOR_X, TE_GENERATOR_Y,
 	};
-
-	/// TODO
+	/// Group configuration.
 	pub type Config = ark_bls12_377_ext::g1::Config<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point affine representation.
 	pub type G1Affine = ark_bls12_377_ext::g1::G1Affine<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point projective representation.
 	pub type G1Projective = ark_bls12_377_ext::g1::G1Projective<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point affine representation.
 	pub type G1SWAffine = ark_bls12_377_ext::g1::G1SWAffine<super::HostHooks>;
-	/// TODO
-	pub type G1SWProjectove = ark_bls12_377_ext::g1::G1SWProjective<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point projective representation.
+	pub type G1SWProjective = ark_bls12_377_ext::g1::G1SWProjective<super::HostHooks>;
+	/// Twisted Edwards form point affine representation.
 	pub type G1TEAffine = ark_bls12_377_ext::g1::G1TEAffine<super::HostHooks>;
-	/// TODO
+	/// Twisted Edwards form point projective representation.
 	pub type G1TEProjective = ark_bls12_377_ext::g1::G1TEProjective<super::HostHooks>;
 }
 
-/// TODO
+/// Second pairing group definitions.
 pub mod g2 {
 	pub use ark_bls12_377_ext::g2::{
 		G2_GENERATOR_X, G2_GENERATOR_X_C0, G2_GENERATOR_X_C1, G2_GENERATOR_Y, G2_GENERATOR_Y_C0,
 		G2_GENERATOR_Y_C1,
 	};
-
-	/// TODO
+	/// Group configuration.
 	pub type Config = ark_bls12_377_ext::g2::Config<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point affine representation.
 	pub type G2Affine = ark_bls12_377_ext::g2::G2Affine<super::HostHooks>;
-	/// TODO
+	/// Short Weierstrass form point projective representation.
 	pub type G2Projective = ark_bls12_377_ext::g2::G2Projective<super::HostHooks>;
 }
 
@@ -67,13 +63,16 @@ pub use self::{
 	g2::{Config as G2Config, G2Affine, G2Projective},
 };
 
-/// TODO
+/// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
 pub struct HostHooks;
 
-/// TODO
+/// Configuration for *BLS12-377* curve.
 pub type Config = ark_bls12_377_ext::Config<HostHooks>;
-/// TODO
+
+/// *BLS12-377* definition.
+///
+/// A generic *BLS12* model specialized with *BLS12-377* configuration.
 pub type Bls12_377 = ark_bls12_377_ext::Bls12_377<HostHooks>;
 
 impl CurveHooks for HostHooks {
@@ -81,70 +80,58 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = <Bls12_377 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <Bls12_377 as Pairing>::G2Prepared>,
 	) -> Result<<Bls12_377 as Pairing>::TargetField, ()> {
-		let g1 = ArkScale::from(g1.collect::<Vec<_>>()).encode();
-		let g2 = ArkScale::from(g2.collect::<Vec<_>>()).encode();
-
+		let g1 = utils::encode(g1.collect::<Vec<_>>());
+		let g2 = utils::encode(g2.collect::<Vec<_>>());
 		let res = host_calls::bls12_377_multi_miller_loop(g1, g2).unwrap_or_default();
-		let res = ArkScale::<<Bls12_377 as Pairing>::TargetField>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode(res)
 	}
 
 	fn bls12_377_final_exponentiation(
 		target: <Bls12_377 as Pairing>::TargetField,
 	) -> Result<<Bls12_377 as Pairing>::TargetField, ()> {
-		let target = ArkScale::from(target).encode();
-
+		let target = utils::encode(target);
 		let res = host_calls::bls12_377_final_exponentiation(target).unwrap_or_default();
-		let res = ArkScale::<<Bls12_377 as Pairing>::TargetField>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode(res)
 	}
 
 	fn bls12_377_msm_g1(
 		bases: &[G1Affine],
 		scalars: &[<G1Config as CurveConfig>::ScalarField],
 	) -> Result<G1Projective, ()> {
-		let bases = ArkScale::from(bases).encode();
-		let scalars = ArkScale::from(scalars).encode();
-
+		let bases = utils::encode(bases);
+		let scalars = utils::encode(scalars);
 		let res = host_calls::bls12_377_msm_g1(bases, scalars).unwrap_or_default();
-		let res = ArkScaleProjective::<G1Projective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_sw(res)
 	}
 
 	fn bls12_377_msm_g2(
 		bases: &[G2Affine],
 		scalars: &[<G2Config as CurveConfig>::ScalarField],
 	) -> Result<G2Projective, ()> {
-		let bases = ArkScale::from(bases).encode();
-		let scalars = ArkScale::from(scalars).encode();
-
+		let bases = utils::encode(bases);
+		let scalars = utils::encode(scalars);
 		let res = host_calls::bls12_377_msm_g2(bases, scalars).unwrap_or_default();
-		let res = ArkScaleProjective::<G2Projective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_sw(res)
 	}
 
 	fn bls12_377_mul_projective_g1(
 		base: &G1Projective,
 		scalar: &[u64],
 	) -> Result<G1Projective, ()> {
-		let base = ArkScaleProjective::from(base).encode();
-		let scalar = ArkScale::from(scalar).encode();
-
+		let base = utils::encode_proj_sw(base);
+		let scalar = utils::encode(scalar);
 		let res = host_calls::bls12_377_mul_projective_g1(base, scalar).unwrap_or_default();
-		let res = ArkScaleProjective::<G1Projective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_sw(res)
 	}
 
 	fn bls12_377_mul_projective_g2(
 		base: &G2Projective,
 		scalar: &[u64],
 	) -> Result<G2Projective, ()> {
-		let base = ArkScaleProjective::from(base).encode();
-		let scalar = ArkScale::from(scalar).encode();
-
+		let base = utils::encode_proj_sw(base);
+		let scalar = utils::encode(scalar);
 		let res = host_calls::bls12_377_mul_projective_g2(base, scalar).unwrap_or_default();
-		let res = ArkScaleProjective::<G2Projective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_sw(res)
 	}
 }
 
@@ -163,57 +150,57 @@ pub trait HostCalls {
 	/// - Receives encoded:
 	///   - `a`: `ArkScale<Vec<G1Affine>>`.
 	///   - `b`: `ArkScale<Vec<G2Affine>>`.
-	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>` (`Fq12`).
+	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>`.
 	fn bls12_377_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
+		utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
 	}
 
 	/// Pairing final exponentiation for *BLS12-377.*
 	///
-	/// - Receives encoded: `ArkScale<Bls12_377::TargetField>` (`Fq12`).
-	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>` (`Fq12`).
+	/// - Receives encoded: `ArkScale<Bls12_377::TargetField>`.
+	/// - Returns encoded:  `ArkScale<Bls12_377::TargetField>`.
 	fn bls12_377_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::final_exponentiation::<ark_bls12_377::Bls12_377>(f)
+		utils::final_exponentiation::<ark_bls12_377::Bls12_377>(f)
 	}
 
-	/// Projective multiplication on G1 for *BLS12-377*.
+	/// Multi scalar multiplication on *G1* for *BLS12-377*.
+	///
+	/// - Receives encoded:
+	///   - `bases`: `ArkScale<Vec<G1Affine>>`.
+	///   - `scalars`: `ArkScale<Vec<G1Config::ScalarField>>`.
+	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
+	fn bls12_377_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
+	}
+
+	/// Multi scalar multiplication on *G2* for *BLS12-377*.
+	///
+	/// - Receives encoded:
+	///   - `bases`: `ArkScale<Vec<G2Affine>>`.
+	///   - `scalars`: `ArkScale<Vec<G2Config::ScalarField>>`.
+	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
+	fn bls12_377_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
+	}
+
+	/// Projective multiplication on *G1* for *BLS12-377*.
 	///
 	/// - Receives encoded:
 	///   - `base`: `ArkScaleProjective<G1Projective>`.
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
 	fn bls12_377_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::mul_projective_sw::<ark_bls12_377::g1::Config>(base, scalar)
+		utils::mul_projective_sw::<ark_bls12_377::g1::Config>(base, scalar)
 	}
 
-	/// Projective multiplication on G2 for *BLS12-377*.
+	/// Projective multiplication on *G2* for *BLS12-377*.
 	///
 	/// - Receives encoded:
 	///   - `base`: `ArkScaleProjective<G2Projective>`.
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
 	fn bls12_377_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
-	}
-
-	/// Multi scalar multiplication on G1 for *BLS12-377*.
-	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<&[ark_bls12_377::G1Affine]>`.
-	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G1Projective>`.
-	fn bls12_377_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
-	}
-
-	/// Multi scalar multiplication on G2 for *BLS12-377*.
-	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<&[ark_bls12_377::G2Affine]>`.
-	///   - `scalars`: `ArkScale<&[ark_bls12_377::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_bls12_377::G2Projective>`.
-	fn bls12_377_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
+		utils::mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
 	}
 }
 

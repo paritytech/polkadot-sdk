@@ -15,25 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic Curves host functions to handle some of the *Arkworks* *Ed-on-BLS12-377*
-//! computationally expensive operations.
+//! *Ed-on-BLS12-377* types and host functions.
 
-use crate::utils::{ArkScale, ArkScaleProjective};
+use crate::utils;
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_377_ext::CurveHooks;
-use ark_scale::scale::{Decode, Encode};
 use sp_runtime_interface::runtime_interface;
 use sp_std::vec::Vec;
 
-/// TODO
+/// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
 pub struct HostHooks;
 
-/// TODO
+/// Group configuration.
 pub type EdwardsConfig = ark_ed_on_bls12_377_ext::EdwardsConfig<HostHooks>;
-/// TODO
+/// Twisted Edwards form point affine representation.
 pub type EdwardsAffine = ark_ed_on_bls12_377_ext::EdwardsAffine<HostHooks>;
-/// TODO
+/// Twisted Edwards form point projective representation.
 pub type EdwardsProjective = ark_ed_on_bls12_377_ext::EdwardsProjective<HostHooks>;
 
 impl CurveHooks for HostHooks {
@@ -41,24 +39,20 @@ impl CurveHooks for HostHooks {
 		bases: &[EdwardsAffine],
 		scalars: &[<EdwardsConfig as CurveConfig>::ScalarField],
 	) -> Result<EdwardsProjective, ()> {
-		let bases = ArkScale::from(bases).encode();
-		let scalars = ArkScale::from(scalars).encode();
-
+		let bases = utils::encode(bases);
+		let scalars = utils::encode(scalars);
 		let res = host_calls::ed_on_bls12_377_te_msm(bases, scalars).unwrap_or_default();
-		let res = ArkScaleProjective::<EdwardsProjective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_te(res)
 	}
 
 	fn ed_on_bls12_377_mul_projective(
 		base: &EdwardsProjective,
 		scalar: &[u64],
 	) -> Result<EdwardsProjective, ()> {
-		let base = ArkScaleProjective::from(base).encode();
-		let scalar = ArkScale::from(scalar).encode();
-
+		let base = utils::encode_proj_te(base);
+		let scalar = utils::encode(scalar);
 		let res = host_calls::ed_on_bls12_377_te_mul_projective(base, scalar).unwrap_or_default();
-		let res = ArkScaleProjective::<EdwardsProjective>::decode(&mut res.as_slice());
-		res.map(|v| v.0).map_err(|_| ())
+		utils::decode_proj_te(res)
 	}
 }
 
@@ -75,21 +69,21 @@ pub trait HostCalls {
 	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-377*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
-	///   - `scalars`: `ArkScale<&[ark_ed_on_bls12_377::Fr]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
+	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
+	///   - `scalars`: `ArkScale<Vec<EdwardsConfig::ScalarField>>`.
+	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
 	fn ed_on_bls12_377_te_msm(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
+		utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
 	}
 
 	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-377*.
 	///
 	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
-	///   - `scalar`: `ArkScale<&[u64]>`.
-	/// - Returns encoded: `ArkScaleProjective<ark_ed_on_bls12_377::EdwardsProjective>`.
+	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
+	///   - `scalar`: `ArkScale<Vec<u64>>`.
+	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
 	fn ed_on_bls12_377_te_mul_projective(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-		crate::utils::mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
+		utils::mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 }
 
