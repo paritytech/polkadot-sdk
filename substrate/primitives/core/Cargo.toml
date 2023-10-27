@@ -24,8 +24,8 @@ hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
-substrate-bip39 = { version = "0.4.4" }
-tiny-bip39 = { git = "https://github.com/michalkucharczyk/tiny-bip39/" , branch = "mku-rand-is-optional", default-features = false, features = [ "default-langs" ] }
+substrate-bip39 = { version = "0.4.5", git = "https://github.com/paritytech/substrate-bip39", branch = "mku-support-for-no-std" }
+tiny-bip39 = { version = "1.0.1", git = "https://github.com/michalkucharczyk/tiny-bip39/" , branch = "mku-nodefaults-for-sha2", default-features = false, features = [ "default-langs" ] }
 regex = { version = "1.6.0",default-features = false, features = ["unicode-perl"] }
 zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false, features = ["alloc"] }
@@ -109,6 +109,7 @@ std = [
 	"sp-storage/std",
 	"ss58-registry/std",
 	"thiserror",
+	"tiny-bip39/std",
 	"tiny-bip39/rand",
 	"tracing",
 	"zeroize/alloc",
