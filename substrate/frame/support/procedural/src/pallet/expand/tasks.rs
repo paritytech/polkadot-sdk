@@ -97,6 +97,7 @@ impl ToTokens for TasksDef {
 		let task_fn_idents = self.tasks.iter().map(|task| &task.item.sig.ident).collect::<Vec<_>>();
 		let task_indices = self.tasks.iter().map(|task| &task.index_attr.meta.index);
 		let task_conditions = self.tasks.iter().map(|task| &task.condition_attr.meta.expr);
+		let task_fn_blocks = self.tasks.iter().map(|task| &task.item.block);
 
 		let sp_std = quote!(#scrate::__private::sp_std);
 		let impl_generics = &self.item_impl.generics;
@@ -127,30 +128,7 @@ impl ToTokens for TasksDef {
 
 				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
 					match self {
-						Task::increment => {
-							// Get the value and check if it can be incremented
-							let value = Value::<T>::get().unwrap_or_default();
-							if value >= 255 {
-								Err(Error::<T>::ValueOverflow.into())
-							} else {
-								let new_val = value.checked_add(1).ok_or(Error::<T>::ValueOverflow)?;
-								Value::<T>::put(new_val);
-								Pallet::<T>::deposit_event(Event::Incremented { new_val });
-								Ok(())
-							}
-						},
-						Task::decrement => {
-							// Get the value and check if it can be decremented
-							let value = Value::<T>::get().unwrap_or_default();
-							if value == 0 {
-								Err(Error::<T>::ValueUnderflow.into())
-							} else {
-								let new_val = value.checked_sub(1).ok_or(Error::<T>::ValueUnderflow)?;
-								Value::<T>::put(new_val);
-								Pallet::<T>::deposit_event(Event::Decremented { new_val });
-								Ok(())
-							}
-						},
+						#(#enum_ident::#task_fn_idents => #task_fn_blocks),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
