@@ -27,11 +27,6 @@ ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
 sp-std = { path = "../../std", default-features = false, optional = true }
 
-# TODO: REMOVE
-ark-algebra-test-templates = "0.4.2"
-ark-ff = "0.4.2"
-ark-std = "0.4.0"
-
 [features]
 default = [ "std" ]
 std = [

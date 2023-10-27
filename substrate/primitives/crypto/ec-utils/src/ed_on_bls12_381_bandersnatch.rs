@@ -151,14 +151,3 @@ pub trait HostCalls {
 		utils::mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 }
-
-// TODO: REMOVE
-#[cfg(test)]
-mod tests {
-	use super::{EdwardsProjective, SWProjective};
-	use ark_algebra_test_templates::*;
-	use ark_scale::ark_serialize;
-
-	test_group!(te; EdwardsProjective; te);
-	test_group!(sw; SWProjective; sw);
-}

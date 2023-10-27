@@ -203,17 +203,3 @@ pub trait HostCalls {
 		utils::mul_projective_sw::<ark_bls12_377::g2::Config>(base, scalar)
 	}
 }
-
-// TODO: REMOVE
-#[cfg(test)]
-mod tests {
-	use super::{g1::G1Projective, g2::G2Projective, Bls12_377};
-	use ark_algebra_test_templates::*;
-	use ark_ec::pairing::PairingOutput;
-	use ark_scale::ark_serialize;
-
-	test_group!(g1; G1Projective; sw);
-	test_group!(g2; G2Projective; sw);
-	test_group!(pairing_output; PairingOutput<Bls12_377>; msm);
-	test_pairing!(pairing; super::Bls12_377);
-}

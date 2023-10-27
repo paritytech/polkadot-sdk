@@ -86,13 +86,3 @@ pub trait HostCalls {
 		utils::mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 }
-
-// TODO: REMOVE
-#[cfg(test)]
-mod tests {
-	use super::EdwardsProjective;
-	use ark_algebra_test_templates::*;
-	use ark_scale::ark_serialize;
-
-	test_group!(te; EdwardsProjective; te);
-}
