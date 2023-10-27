@@ -56,7 +56,7 @@ use std::{
 };
 
 use super::{
-	approval_db::v2::StoredBlockRange,
+	approval_db::common::StoredBlockRange,
 	backend::BackendWriteOp,
 	import::tests::{
 		garbage_vrf_signature, AllowedSlots, BabeEpoch, BabeEpochConfiguration,
@@ -116,7 +116,7 @@ fn make_sync_oracle(val: bool) -> (Box<dyn SyncOracle + Send>, TestSyncOracleHan
 
 #[cfg(test)]
 pub mod test_constants {
-	use crate::approval_db::v2::Config as DatabaseConfig;
+	use crate::approval_db::common::Config as DatabaseConfig;
 	const DATA_COL: u32 = 0;
 
 	pub(crate) const NUM_COLUMNS: u32 = 1;

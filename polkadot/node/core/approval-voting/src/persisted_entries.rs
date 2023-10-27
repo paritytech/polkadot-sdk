@@ -77,15 +77,15 @@ impl From<TrancheEntry> for crate::approval_db::v2::TrancheEntry {
 	}
 }
 
-impl From<crate::approval_db::v2::OurApproval> for OurApproval {
-	fn from(approval: crate::approval_db::v2::OurApproval) -> Self {
+impl From<crate::approval_db::v3::OurApproval> for OurApproval {
+	fn from(approval: crate::approval_db::v3::OurApproval) -> Self {
 		Self {
 			signature: approval.signature,
 			signed_candidates_indices: approval.signed_candidates_indices,
 		}
 	}
 }
-impl From<OurApproval> for crate::approval_db::v2::OurApproval {
+impl From<OurApproval> for crate::approval_db::v3::OurApproval {
 	fn from(approval: OurApproval) -> Self {
 		Self {
 			signature: approval.signature,
@@ -105,9 +105,15 @@ pub struct OurApproval {
 
 impl OurApproval {
 	/// Converts a ValidatorSignature to an OurApproval.
-	/// It used in converting the database from v1 to v2.
+	/// It used in converting the database from v1 to latest.
 	pub fn from_v1(value: ValidatorSignature, candidate_index: CandidateIndex) -> Self {
 		Self { signature: value, signed_candidates_indices: candidate_index.into() }
+	}
+
+	/// Converts a ValidatorSignature to an OurApproval.
+	/// It used in converting the database from v2 to latest.
+	pub fn from_v2(value: ValidatorSignature, candidate_index: CandidateIndex) -> Self {
+		Self::from_v1(value, candidate_index)
 	}
 }
 /// Metadata regarding approval of a particular candidate within the context of some
@@ -267,7 +273,7 @@ impl ApprovalEntry {
 		}
 	}
 
-	// Convert an ApprovalEntry from v1 version to a v2 version
+	// Convert an ApprovalEntry from v1 version to latest version
 	pub fn from_v1(
 		value: crate::approval_db::v1::ApprovalEntry,
 		candidate_index: CandidateIndex,
@@ -283,10 +289,27 @@ impl ApprovalEntry {
 			approved: value.approved,
 		}
 	}
+
+	// Convert an ApprovalEntry from v1 version to latest version
+	pub fn from_v2(
+		value: crate::approval_db::v2::ApprovalEntry,
+		candidate_index: CandidateIndex,
+	) -> Self {
+		ApprovalEntry {
+			tranches: value.tranches.into_iter().map(|tranche| tranche.into()).collect(),
+			backing_group: value.backing_group,
+			our_assignment: value.our_assignment.map(|assignment| assignment.into()),
+			our_approval_sig: value
+				.our_approval_sig
+				.map(|sig| OurApproval::from_v2(sig, candidate_index)),
+			assigned_validators: value.assigned_validators,
+			approved: value.approved,
+		}
+	}
 }
 
-impl From<crate::approval_db::v2::ApprovalEntry> for ApprovalEntry {
-	fn from(entry: crate::approval_db::v2::ApprovalEntry) -> Self {
+impl From<crate::approval_db::v3::ApprovalEntry> for ApprovalEntry {
+	fn from(entry: crate::approval_db::v3::ApprovalEntry) -> Self {
 		ApprovalEntry {
 			tranches: entry.tranches.into_iter().map(Into::into).collect(),
 			backing_group: entry.backing_group,
@@ -298,7 +321,7 @@ impl From<crate::approval_db::v2::ApprovalEntry> for ApprovalEntry {
 	}
 }
 
-impl From<ApprovalEntry> for crate::approval_db::v2::ApprovalEntry {
+impl From<ApprovalEntry> for crate::approval_db::v3::ApprovalEntry {
 	fn from(entry: ApprovalEntry) -> Self {
 		Self {
 			tranches: entry.tranches.into_iter().map(Into::into).collect(),
@@ -355,7 +378,7 @@ impl CandidateEntry {
 		self.block_assignments.get(block_hash)
 	}
 
-	/// Convert a CandidateEntry from a v1 to its v2 equivalent.
+	/// Convert a CandidateEntry from a v1 to its latest equivalent.
 	pub fn from_v1(
 		value: crate::approval_db::v1::CandidateEntry,
 		candidate_index: CandidateIndex,
@@ -371,10 +394,27 @@ impl CandidateEntry {
 			session: value.session,
 		}
 	}
+
+	/// Convert a CandidateEntry from a v2 to its latest equivalent.
+	pub fn from_v2(
+		value: crate::approval_db::v2::CandidateEntry,
+		candidate_index: CandidateIndex,
+	) -> Self {
+		Self {
+			approvals: value.approvals,
+			block_assignments: value
+				.block_assignments
+				.into_iter()
+				.map(|(h, ae)| (h, ApprovalEntry::from_v2(ae, candidate_index)))
+				.collect(),
+			candidate: value.candidate,
+			session: value.session,
+		}
+	}
 }
 
-impl From<crate::approval_db::v2::CandidateEntry> for CandidateEntry {
-	fn from(entry: crate::approval_db::v2::CandidateEntry) -> Self {
+impl From<crate::approval_db::v3::CandidateEntry> for CandidateEntry {
+	fn from(entry: crate::approval_db::v3::CandidateEntry) -> Self {
 		CandidateEntry {
 			candidate: entry.candidate,
 			session: entry.session,
@@ -388,7 +428,7 @@ impl From<crate::approval_db::v2::CandidateEntry> for CandidateEntry {
 	}
 }
 
-impl From<CandidateEntry> for crate::approval_db::v2::CandidateEntry {
+impl From<CandidateEntry> for crate::approval_db::v3::CandidateEntry {
 	fn from(entry: CandidateEntry) -> Self {
 		Self {
 			candidate: entry.candidate,
@@ -614,8 +654,8 @@ impl BlockEntry {
 	}
 }
 
-impl From<crate::approval_db::v2::BlockEntry> for BlockEntry {
-	fn from(entry: crate::approval_db::v2::BlockEntry) -> Self {
+impl From<crate::approval_db::v3::BlockEntry> for BlockEntry {
+	fn from(entry: crate::approval_db::v3::BlockEntry) -> Self {
 		BlockEntry {
 			block_hash: entry.block_hash,
 			parent_hash: entry.parent_hash,
@@ -654,7 +694,25 @@ impl From<crate::approval_db::v1::BlockEntry> for BlockEntry {
 	}
 }
 
-impl From<BlockEntry> for crate::approval_db::v2::BlockEntry {
+impl From<crate::approval_db::v2::BlockEntry> for BlockEntry {
+	fn from(entry: crate::approval_db::v2::BlockEntry) -> Self {
+		BlockEntry {
+			block_hash: entry.block_hash,
+			parent_hash: entry.parent_hash,
+			block_number: entry.block_number,
+			session: entry.session,
+			slot: entry.slot,
+			relay_vrf_story: RelayVRFStory(entry.relay_vrf_story),
+			candidates: entry.candidates,
+			approved_bitfield: entry.approved_bitfield,
+			children: entry.children,
+			distributed_assignments: entry.distributed_assignments,
+			candidates_pending_signature: Default::default(),
+		}
+	}
+}
+
+impl From<BlockEntry> for crate::approval_db::v3::BlockEntry {
 	fn from(entry: BlockEntry) -> Self {
 		Self {
 			block_hash: entry.block_hash,
@@ -676,8 +734,8 @@ impl From<BlockEntry> for crate::approval_db::v2::BlockEntry {
 	}
 }
 
-impl From<crate::approval_db::v2::CandidateSigningContext> for CandidateSigningContext {
-	fn from(signing_context: crate::approval_db::v2::CandidateSigningContext) -> Self {
+impl From<crate::approval_db::v3::CandidateSigningContext> for CandidateSigningContext {
+	fn from(signing_context: crate::approval_db::v3::CandidateSigningContext) -> Self {
 		Self {
 			candidate_hash: signing_context.candidate_hash,
 			sign_no_later_than_tick: signing_context.sign_no_later_than_tick.into(),
@@ -685,7 +743,7 @@ impl From<crate::approval_db::v2::CandidateSigningContext> for CandidateSigningC
 	}
 }
 
-impl From<CandidateSigningContext> for crate::approval_db::v2::CandidateSigningContext {
+impl From<CandidateSigningContext> for crate::approval_db::v3::CandidateSigningContext {
 	fn from(signing_context: CandidateSigningContext) -> Self {
 		Self {
 			candidate_hash: signing_context.candidate_hash,

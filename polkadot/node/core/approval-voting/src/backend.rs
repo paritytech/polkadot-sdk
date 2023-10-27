@@ -27,7 +27,7 @@ use polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
 use std::collections::HashMap;
 
 use super::{
-	approval_db::v2::StoredBlockRange,
+	approval_db::common::StoredBlockRange,
 	persisted_entries::{BlockEntry, CandidateEntry},
 };
 
@@ -77,6 +77,19 @@ pub trait V1ReadBackend: Backend {
 
 	/// Load a block entry from the DB with scheme version 1.
 	fn load_block_entry_v1(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
+}
+
+/// A read only backend to enable db migration from version 2 of DB.
+pub trait V2ReadBackend: Backend {
+	/// Load a candidate entry from the DB with scheme version 1.
+	fn load_candidate_entry_v2(
+		&self,
+		candidate_hash: &CandidateHash,
+		candidate_index: CandidateIndex,
+	) -> SubsystemResult<Option<CandidateEntry>>;
+
+	/// Load a block entry from the DB with scheme version 1.
+	fn load_block_entry_v2(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>>;
 }
 
 // Status of block range in the `OverlayedBackend`.

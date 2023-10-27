@@ -100,7 +100,7 @@ mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
-	approval_db::v2::{Config as DatabaseConfig, DbBackend},
+	approval_db::common::{Config as DatabaseConfig, DbBackend},
 	backend::{Backend, OverlayedBackend},
 	criteria::InvalidAssignmentReason,
 	persisted_entries::OurApproval,
@@ -485,8 +485,8 @@ impl ApprovalVotingSubsystem {
 	/// The operation is not allowed for blocks older than the last finalized one.
 	pub fn revert_to(&self, hash: Hash) -> Result<(), SubsystemError> {
 		let config =
-			approval_db::v2::Config { col_approval_data: self.db_config.col_approval_data };
-		let mut backend = approval_db::v2::DbBackend::new(self.db.clone(), config);
+			approval_db::common::Config { col_approval_data: self.db_config.col_approval_data };
+		let mut backend = approval_db::common::DbBackend::new(self.db.clone(), config);
 		let mut overlay = OverlayedBackend::new(&backend);
 
 		ops::revert_to(&mut overlay, hash)?;
