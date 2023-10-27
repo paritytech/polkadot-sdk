@@ -20,7 +20,7 @@ jobs:
           # Release build has logging disabled and no dev features
           - { type: on-chain-release, opts: --features on-chain-release-build } 
           # Debug build has logging enabled and developer features
-          - { type: dev-debug-build, opts: --features try-runtime --features experimental }
+          - { type: dev-debug-build, opts: --features try-runtime }
 
     runs-on: ubuntu-22.04
 
