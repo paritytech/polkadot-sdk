@@ -288,6 +288,8 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 			#[inject_runtime_type]
+			type RuntimeTask = ();
+			#[inject_runtime_type]
 			type PalletInfo = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU32<256>;
