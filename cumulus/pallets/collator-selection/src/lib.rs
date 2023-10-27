@@ -312,6 +312,8 @@ pub mod pallet {
 		TargetIsNotCandidate,
 		/// The updated deposit amount is equal to the amount already reserved.
 		IdenticalDeposit,
+		/// Cannot lower candidacy bond while occupying a future collator slot in the list.
+		InvalidUnreserve,
 	}
 
 	#[pallet::hooks]
@@ -597,6 +599,9 @@ pub mod pallet {
 
 		/// Update the candidacy bond of collator candidate `origin` to a new amount `new_deposit`.
 		///
+		/// Setting a `new_deposit` that is lower than the current deposit while `origin` is
+		/// occupying a top-`DesiredCandidates` slot is not allowed.
+		///
 		/// This call will fail if `origin` is not a collator candidate, the updated bond is lower
 		/// than the minimum candidacy bond, and/or the amount cannot be reserved.
 		#[pallet::call_index(7)]
@@ -621,6 +626,12 @@ pub mod pallet {
 					if new_deposit > old_deposit {
 						T::Currency::reserve(&who, new_deposit - old_deposit)?;
 					} else if new_deposit < old_deposit {
+						// Casting `u32` to `usize` should be safe on all machines running this.
+						ensure!(
+							idx.saturating_add(<DesiredCandidates<T>>::get() as usize) <
+								candidate_count,
+							Error::<T>::InvalidUnreserve
+						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					} else {
 						return Err(Error::<T>::IdenticalDeposit.into())

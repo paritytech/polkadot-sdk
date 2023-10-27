@@ -756,6 +756,67 @@ fn decrease_candidacy_bond_insufficient_funds() {
 }
 
 #[test]
+fn decrease_candidacy_bond_occupying_top_slot() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(CollatorSelection::desired_candidates(), 2);
+		// Register 3 candidates.
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
+		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
+		// And update their bids.
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 30u64.into()));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 30u64.into()));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 60u64.into()));
+
+		// tuple of (id, deposit).
+		let candidate_3 = CandidateInfo { who: 3, deposit: 30 };
+		let candidate_4 = CandidateInfo { who: 4, deposit: 30 };
+		let candidate_5 = CandidateInfo { who: 5, deposit: 60 };
+		assert_eq!(
+			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![candidate_4, candidate_3, candidate_5]
+		);
+
+		// Candidates 5 and 3 can't decrease their deposits because they are the 2 top candidates.
+		assert_noop!(
+			CollatorSelection::update_bond(RuntimeOrigin::signed(5), 29),
+			Error::<Test>::InvalidUnreserve,
+		);
+		assert_noop!(
+			CollatorSelection::update_bond(RuntimeOrigin::signed(3), 29),
+			Error::<Test>::InvalidUnreserve,
+		);
+		// But candidate 4 should have be able to decrease the deposit up to the minimum.
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 29u64.into()));
+
+		// Make candidate 4 outbid candidate 3, taking their spot as the second highest bid.
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 35u64.into()));
+
+		// tuple of (id, deposit).
+		let candidate_3 = CandidateInfo { who: 3, deposit: 30 };
+		let candidate_4 = CandidateInfo { who: 4, deposit: 35 };
+		let candidate_5 = CandidateInfo { who: 5, deposit: 60 };
+		assert_eq!(
+			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![candidate_3, candidate_4, candidate_5]
+		);
+
+		// Now candidates 5 and 4 are the 2 top candidates, so they can't decrease their deposits.
+		assert_noop!(
+			CollatorSelection::update_bond(RuntimeOrigin::signed(5), 34),
+			Error::<Test>::InvalidUnreserve,
+		);
+		assert_noop!(
+			CollatorSelection::update_bond(RuntimeOrigin::signed(4), 34),
+			Error::<Test>::InvalidUnreserve,
+		);
+		// Candidate 3 should have be able to decrease the deposit up to the minimum now that
+		// they've fallen out of the top spots.
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10u64.into()));
+	});
+}
+
+#[test]
 fn decrease_candidacy_bond_works() {
 	new_test_ext().execute_with(|| {
 		// given
@@ -788,11 +849,10 @@ fn decrease_candidacy_bond_works() {
 		assert_eq!(Balances::free_balance(5), 60);
 
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10));
-		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 20));
 
 		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 90);
-		assert_eq!(Balances::free_balance(4), 80);
+		assert_eq!(Balances::free_balance(4), 70);
 		assert_eq!(Balances::free_balance(5), 60);
 	});
 }
@@ -860,7 +920,17 @@ fn candidate_list_works() {
 
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 30));
 
-		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10));
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 25));
+
+		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 10));
+
+		let candidate_3 = CandidateInfo { who: 3, deposit: 30 };
+		let candidate_4 = CandidateInfo { who: 4, deposit: 25 };
+		let candidate_5 = CandidateInfo { who: 5, deposit: 10 };
+		assert_eq!(
+			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			vec![candidate_5, candidate_4, candidate_3]
+		);
 	});
 }
 
