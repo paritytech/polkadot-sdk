@@ -18,7 +18,7 @@
 //! Utilities related to VRF input, output and signatures.
 
 use crate::{Randomness, TicketBody, TicketId};
-use scale_codec::Encode;
+use codec::Encode;
 use sp_consensus_slots::Slot;
 use sp_std::vec::Vec;
 
