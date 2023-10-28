@@ -29,10 +29,6 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelStatus, CollationInfo, GetChannelInfo,
-	InboundDownwardMessage, InboundHrmpMessage, MessageSendError, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
-	XcmpMessageSource,
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	DmpMessageHandler, GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage,
 	MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage,
@@ -58,8 +54,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	BoundedSlice, DispatchError, RuntimeDebug,
-	DispatchError, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, DispatchError, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;

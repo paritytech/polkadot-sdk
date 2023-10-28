@@ -64,11 +64,7 @@ use frame_support::{
 	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
-use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
-use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
+use polkadot_runtime_common::xcm_sender::{PriceForMessageDelivery, PriceForParachainDelivery};
 use polkadot_runtime_parachains::FeeTracker;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},

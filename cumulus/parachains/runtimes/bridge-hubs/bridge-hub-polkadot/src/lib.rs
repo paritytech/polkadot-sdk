@@ -79,8 +79,7 @@ use parachains_common::{
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 // XCM Imports
-use xcm::latest::prelude::BodyId;
-use xcm::latest::prelude::*;
+use xcm::latest::prelude::{BodyId, *};
 use xcm_executor::XcmExecutor;
 
 /// The address format for describing accounts.

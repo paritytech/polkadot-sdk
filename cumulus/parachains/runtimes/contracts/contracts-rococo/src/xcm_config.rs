@@ -17,8 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use cumulus_primitives_core::AggregateMessageOrigin;
 use crate::common::rococo::currency::CENTS;
+use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
 	match_types, parameter_types,
 	traits::{ConstU32, EitherOfDiverse, Equals, Everything, Nothing},

@@ -49,7 +49,6 @@ default = [ "std" ]
 std = [
 	"assets-common/std",
 	"codec/std",
-	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
