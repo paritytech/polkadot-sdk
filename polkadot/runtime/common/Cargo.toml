@@ -30,6 +30,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
+pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -85,6 +86,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
+	"pallet-identity/std",
 	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
 	"pallet-staking/std",
@@ -124,6 +126,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
@@ -147,6 +150,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
+	"pallet-identity/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",

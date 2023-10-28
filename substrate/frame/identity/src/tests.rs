@@ -113,10 +113,8 @@ impl pallet_identity::Config for Test {
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureOneOrRoot;
-	type ReapOrigin = EnsureOneOrRoot;
 	type ReapIdentityHandler = ();
 	type ForceOrigin = EnsureTwoOrRoot;
-	type LockerOrigin = EnsureOneOrRoot;
 	type WeightInfo = ();
 }
 
@@ -677,7 +675,7 @@ fn reap_identity_works() {
 		));
 		// 10 for identity, 10 for sub
 		assert_eq!(Balances::free_balance(10), 80);
-		assert_ok!(Identity::reap_identity(RuntimeOrigin::signed(1), 10));
+		assert_ok!(Identity::reap_identity(&10));
 		// no identity or subs
 		assert!(Identity::identity(10).is_none());
 		assert!(Identity::super_of(20).is_none());
@@ -705,7 +703,7 @@ fn poke_deposit_works() {
 		assert_eq!(Balances::free_balance(10), 100);
 
 		// poke
-		assert_ok!(Identity::poke_deposit(RuntimeOrigin::signed(1), 10));
+		assert_ok!(Identity::poke_deposit(&10));
 
 		// free balance reduced by 20
 		assert_eq!(Balances::free_balance(10), 80);
@@ -716,101 +714,5 @@ fn poke_deposit_works() {
 		);
 		// new subs deposit is 10          vv
 		assert_eq!(Identity::subs_of(10), (10, vec![20].try_into().unwrap()));
-	});
-}
-
-#[test]
-fn pallet_locks_and_unlocks() {
-	new_test_ext().execute_with(|| {
-		// Can add registrars and reap
-		let one_as_origin = RuntimeOrigin::signed(1);
-		// Killer
-		let two_as_origin = RuntimeOrigin::signed(2);
-		// Registrar
-		let three_as_origin = RuntimeOrigin::signed(3);
-		// Sets identity
-		let ten_as_origin = RuntimeOrigin::signed(10);
-		// Sets identity
-		let twenty_as_origin = RuntimeOrigin::signed(20);
-		// Sub data to use
-		let data = Data::Raw(vec![40; 1].try_into().unwrap());
-
-		// Set some state before locking so that calls are sensible
-		assert_ok!(Identity::add_registrar(one_as_origin.clone(), 3));
-		assert_ok!(Identity::set_identity(ten_as_origin.clone(), Box::new(ten())));
-		assert_ok!(Identity::request_judgement(ten_as_origin.clone(), 0, 10));
-
-		// Lock
-		assert_ok!(Identity::lock_pallet(one_as_origin.clone()));
-
-		// Almost everything is uncallable
-		assert_noop!(
-			Identity::add_registrar(one_as_origin.clone(), 1),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::set_identity(twenty_as_origin.clone(), Box::new(twenty())),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::set_subs(ten_as_origin.clone(), vec![(20, data.clone())]),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(Identity::clear_identity(ten_as_origin.clone()), Error::<Test>::PalletLocked);
-		assert_noop!(
-			Identity::request_judgement(twenty_as_origin.clone(), 0, 10),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::cancel_request(twenty_as_origin.clone(), 0),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::set_fee(three_as_origin.clone(), 0, 10),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::set_account_id(three_as_origin.clone(), 0, 4),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::set_fields(
-				three_as_origin.clone(),
-				0,
-				IdentityFields(SimpleIdentityField::Display | SimpleIdentityField::Legal)
-			),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::provide_judgement(
-				three_as_origin,
-				0,
-				10,
-				Judgement::Reasonable,
-				BlakeTwo256::hash_of(&ten())
-			),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(Identity::kill_identity(two_as_origin, 10), Error::<Test>::PalletLocked);
-		assert_noop!(
-			Identity::add_sub(ten_as_origin.clone(), 1, data.clone()),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(
-			Identity::rename_sub(ten_as_origin.clone(), 1, data),
-			Error::<Test>::PalletLocked
-		);
-		assert_noop!(Identity::remove_sub(ten_as_origin.clone(), 1), Error::<Test>::PalletLocked);
-		assert_noop!(Identity::quit_sub(one_as_origin.clone()), Error::<Test>::PalletLocked);
-
-		// Reap and Poke are still callable for migration
-		assert_ok!(Identity::poke_deposit(one_as_origin.clone(), 10));
-		assert_ok!(Identity::reap_identity(one_as_origin.clone(), 10));
-
-		// Unlock still needs to be callable, obviously
-		assert_ok!(Identity::unlock_pallet(one_as_origin));
-
-		// And pallet works
-		assert_ok!(Identity::set_identity(twenty_as_origin, Box::new(twenty())));
 	});
 }

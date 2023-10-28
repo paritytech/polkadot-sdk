@@ -80,7 +80,9 @@ mod types;
 pub mod weights;
 
 use frame_support::{
-	pallet_prelude::DispatchResult,
+	dispatch::PostDispatchInfo,
+	ensure,
+	pallet_prelude::{DispatchError, DispatchResult, DispatchResultWithPostInfo, Pays},
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -154,14 +156,8 @@ pub mod pallet {
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The origin that can reap an account's identity info.
-		type ReapOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// A handler for what to do when an identity is reaped.
 		type ReapIdentityHandler: OnReapIdentity<Self::AccountId>;
-
-		/// The origin that can lock calls to the pallet.
-		type LockerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -961,129 +957,6 @@ pub mod pallet {
 			});
 			Ok(())
 		}
-
-		/// Reap an identity, clearing associated storage items and refunding any deposits. Calls
-		/// the `ReapIdentityHandler`, which can be implemented in the runtime. This function is
-		/// very similar to (a) `clear_identity`, but called on a `target` account instead of self;
-		/// and (b) `kill_identity`, but without imposing a slash.
-		///
-		/// Parameters:
-		/// - `target`: The account for which to reap identity state.
-		///
-		/// Origin must be the `ReapOrigin`.
-		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::reap_identity(
-			T::MaxRegistrars::get(),
-			T::MaxSubAccounts::get()
-		))]
-		pub fn reap_identity(
-			origin: OriginFor<T>,
-			target: AccountIdLookupOf<T>,
-		) -> DispatchResultWithPostInfo {
-			// No locked check: used for migration.
-			// `ReapOrigin` to be set to `EnsureSigned<AccountId>` (i.e. anyone) on chain where we
-			// want to reap data (i.e. Relay) and `EnsureRoot` on chains where we want "normal"
-			// functionality (i.e. the People Chain).
-			T::ReapOrigin::ensure_origin(origin)?;
-			let who = T::Lookup::lookup(target)?;
-
-			// `take` any storage items keyed by `target`
-			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
-			let registrars = id.judgements.len() as u32;
-			#[allow(deprecated)]
-			let fields = id.info.additional() as u32;
-			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
-			// check witness data
-			let actual_subs = sub_ids.len() as u32;
-			for sub in sub_ids.iter() {
-				<SuperOf<T>>::remove(sub);
-			}
-
-			// unreserve any deposits
-			let deposit = id.total_deposit().saturating_add(subs_deposit);
-			let err_amount = T::Currency::unreserve(&who, deposit);
-			debug_assert!(err_amount.is_zero());
-
-			// Finally, call the handler.
-			T::ReapIdentityHandler::on_reap_identity(&who, fields, actual_subs)?;
-			Self::deposit_event(Event::IdentityReaped { who });
-			Ok(Some(T::WeightInfo::reap_identity(registrars, actual_subs)).into())
-		}
-
-		/// Update the deposits held by `target` for its identity info.
-		///
-		/// Parameters:
-		/// - `target`: The account for which to update deposits.
-		///
-		/// May be called by any signed origin.
-		#[pallet::call_index(16)]
-		#[pallet::weight(T::WeightInfo::poke_deposit())]
-		pub fn poke_deposit(origin: OriginFor<T>, target: AccountIdLookupOf<T>) -> DispatchResult {
-			// No locked check: used for migration.
-			// anyone or root (so that the system can call it for identity migration)
-			let _ = ensure_signed_or_root(origin)?;
-			let target = T::Lookup::lookup(target)?;
-
-			// Identity Deposit
-			ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
-			let new_id_deposit = IdentityOf::<T>::try_mutate(
-				&target,
-				|registration| -> Result<BalanceOf<T>, DispatchError> {
-					let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
-					// Calculate what deposit should be
-					#[allow(deprecated)]
-					let field_deposit = T::FieldDeposit::get()
-						.saturating_mul(BalanceOf::<T>::from(reg.info.additional() as u32));
-					let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
-
-					// Update account
-					Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
-
-					reg.deposit = new_id_deposit;
-					Ok(new_id_deposit)
-				},
-			)?;
-
-			// Subs Deposit
-			let new_subs_deposit = SubsOf::<T>::try_mutate(
-				&target,
-				|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
-					let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
-					Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
-					*current_subs_deposit = new_subs_deposit;
-					Ok(new_subs_deposit)
-				},
-			)?;
-
-			Self::deposit_event(Event::DepositUpdated {
-				who: target,
-				identity: new_id_deposit,
-				subs: new_subs_deposit,
-			});
-			Ok(())
-		}
-
-		/// Lock the pallet.
-		///
-		/// Origin must be the `LockerOrigin`.
-		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::lock_pallet())]
-		pub fn lock_pallet(origin: OriginFor<T>) -> DispatchResult {
-			T::LockerOrigin::ensure_origin(origin)?;
-			Locked::<T>::put(true);
-			Ok(())
-		}
-
-		/// Unlock the pallet.
-		///
-		/// Origin must be the `LockerOrigin`.
-		#[pallet::call_index(18)]
-		#[pallet::weight(T::WeightInfo::unlock_pallet())]
-		pub fn unlock_pallet(origin: OriginFor<T>) -> DispatchResult {
-			T::LockerOrigin::ensure_origin(origin)?;
-			Locked::<T>::put(false);
-			Ok(())
-		}
 	}
 }
 
@@ -1121,6 +994,91 @@ impl<T: Config> Pallet<T> {
 	pub fn has_identity(who: &T::AccountId, fields: u64) -> bool {
 		IdentityOf::<T>::get(who)
 			.map_or(false, |registration| (registration.info.has_identity(fields)))
+	}
+
+	/// Reap an identity, clearing associated storage items and refunding any deposits. Calls
+	/// the `ReapIdentityHandler`, which can be implemented in the runtime. This function is
+	/// very similar to (a) `clear_identity`, but called on a `target` account instead of self;
+	/// and (b) `kill_identity`, but without imposing a slash.
+	///
+	/// Parameters:
+	/// - `target`: The account for which to reap identity state.
+	///
+	/// NOTE: This function is here temporarily for migration of Identity info from the Polkadot
+	/// Relay Chain into a system parachain. It will be removed after the migration.
+	pub fn reap_identity(who: &T::AccountId) -> DispatchResultWithPostInfo {
+		// `take` any storage items keyed by `target`
+		let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
+		let registrars = id.judgements.len() as u32;
+		#[allow(deprecated)]
+		let fields = id.info.additional() as u32;
+		let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
+		// check witness data
+		let actual_subs = sub_ids.len() as u32;
+		for sub in sub_ids.iter() {
+			<SuperOf<T>>::remove(sub);
+		}
+
+		// unreserve any deposits
+		let deposit = id.total_deposit().saturating_add(subs_deposit);
+		let err_amount = T::Currency::unreserve(&who, deposit);
+		debug_assert!(err_amount.is_zero());
+
+		// Finally, call the handler.
+		T::ReapIdentityHandler::on_reap_identity(&who, fields, actual_subs)?;
+		Self::deposit_event(Event::IdentityReaped { who: who.clone() });
+		let post = PostDispatchInfo {
+			actual_weight: Some(T::WeightInfo::reap_identity(registrars, actual_subs)),
+			pays_fee: Pays::No,
+		};
+		Ok(post)
+	}
+
+	/// Update the deposits held by `target` for its identity info.
+	///
+	/// Parameters:
+	/// - `target`: The account for which to update deposits.
+	///
+	/// NOTE: This function is here temporarily for migration of Identity info from the Polkadot
+	/// Relay Chain into a system parachain. It will be removed after the migration.
+	pub fn poke_deposit(target: &T::AccountId) -> DispatchResult {
+		// Identity Deposit
+		ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
+		let new_id_deposit = IdentityOf::<T>::try_mutate(
+			&target,
+			|registration| -> Result<BalanceOf<T>, DispatchError> {
+				let reg = registration.as_mut().ok_or(Error::<T>::NoIdentity)?;
+				// Calculate what deposit should be
+				#[allow(deprecated)]
+				let field_deposit = T::FieldDeposit::get()
+					.saturating_mul(BalanceOf::<T>::from(reg.info.additional() as u32));
+				let new_id_deposit = T::BasicDeposit::get().saturating_add(field_deposit);
+
+				// Update account
+				Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
+
+				reg.deposit = new_id_deposit;
+				Ok(new_id_deposit)
+			},
+		)?;
+
+		// Subs Deposit
+		let new_subs_deposit = SubsOf::<T>::try_mutate(
+			&target,
+			|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
+				let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+				Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
+				*current_subs_deposit = new_subs_deposit;
+				Ok(new_subs_deposit)
+			},
+		)?;
+
+		Self::deposit_event(Event::DepositUpdated {
+			who: target.clone(),
+			identity: new_id_deposit,
+			subs: new_subs_deposit,
+		});
+		Ok(())
 	}
 }
 

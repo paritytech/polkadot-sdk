@@ -556,10 +556,6 @@ mod benchmarks {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 
-		//origin
-		let origin =
-			T::ReapOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
 		// set identity
 		let info = T::IdentityInformation::create_identity_info(1);
 		Identity::<T>::set_identity(
@@ -586,8 +582,10 @@ mod benchmarks {
 			)?;
 		}
 
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, target_lookup);
+		#[block]
+		{
+			let _ = Identity::<T>::reap_identity(&target);
+		}
 
 		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target }.into());
 
@@ -596,9 +594,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn poke_deposit() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
 		let target: T::AccountId = account("target", 0, SEED);
-		let target_lookup = T::Lookup::unlookup(target.clone());
 		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 		let additional_fields = 0;
 
@@ -626,8 +622,10 @@ mod benchmarks {
 			.saturating_add(T::BasicDeposit::get());
 		let expected_sub_deposit = T::SubAccountDeposit::get(); // only 1
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), target_lookup);
+		#[block]
+		{
+			let _ = Identity::<T>::poke_deposit(&target);
+		}
 
 		assert_last_event::<T>(
 			Event::<T>::DepositUpdated {
@@ -637,34 +635,6 @@ mod benchmarks {
 			}
 			.into(),
 		);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn lock_pallet() -> Result<(), BenchmarkError> {
-		let origin =
-			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		Identity::<T>::unlock_pallet(origin.clone())?;
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin);
-
-		assert!(Locked::<T>::get());
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn unlock_pallet() -> Result<(), BenchmarkError> {
-		let origin =
-			T::LockerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		Identity::<T>::lock_pallet(origin.clone())?;
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin);
-
-		assert!(!Locked::<T>::get());
 
 		Ok(())
 	}
