@@ -1,12 +1,13 @@
 [package]
 name = "shell-runtime"
 version = "0.1.0"
+description = "A minimal runtime to test Relay Chain consensus."
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}

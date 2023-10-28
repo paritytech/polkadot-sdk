@@ -8,7 +8,6 @@ description = "Utils for BridgeHub testing"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 log = { version = "0.4.20", default-features = false }
-assert_matches = "1.4.0"
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -19,6 +18,7 @@ sp-core = { path = "../../../../../substrate/primitives/core", default-features 
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false}
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
+sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false}
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
