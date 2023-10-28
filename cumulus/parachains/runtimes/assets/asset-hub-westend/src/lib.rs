@@ -1303,7 +1303,7 @@ impl_runtime_apis! {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
 							id: Concrete(Parent.into())
 						}.into(),
-						Parachain(random_para_id).into(),
+						ParentThen(Parachain(random_para_id).into()).into(),
 					))
 				}
 			}
