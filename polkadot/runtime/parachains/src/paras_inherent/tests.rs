@@ -1483,7 +1483,7 @@ mod sanitizers {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
 
-				// Disable Alice
+				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
 
 				// Verify the initial state is as expected
