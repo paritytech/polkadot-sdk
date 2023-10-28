@@ -133,7 +133,7 @@ pub struct ExecutionStrategiesParams {
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_offchain_worker: Option<ExecutionStrategy>,
 
-	/// Runtime execution strategy for importing or constructing blocks while not syncing.
+	/// Runtime execution strategy when not syncing, importing or constructing blocks.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_other: Option<ExecutionStrategy>,
 
