@@ -79,11 +79,21 @@ fn run_to_block(
 }
 
 #[test]
-fn place_order_works() {
-	let alice = 1u64;
-	let para_id = ParaId::from(111);
+fn pop_assignment_for_core_works() {
+	
+}
 
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		
-	});
+#[test]
+fn ensure_workload_works() {
+	
+}
+
+#[test]
+fn after_assign_core_workload_is_some() {
+
+}
+
+#[test]
+fn end_hint_always_points_to_next_work_plan_item() {
+
 }
