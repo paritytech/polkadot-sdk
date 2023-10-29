@@ -771,8 +771,22 @@ where
 								// We've made progress on this chain since the search was started.
 								// Opportunistically set common number to updated number
 								// instead of the one that started the search.
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: opportunistically updating peer {} common number from={} => to={}.",
+									*who,
+									peer.common_number,
+									self.best_queued_number,
+								);
 								peer.common_number = self.best_queued_number;
 							} else if peer.common_number < *current {
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: updating peer {} common number from={} => to={}.",
+									*who,
+									peer.common_number,
+									*current,
+								);
 								peer.common_number = *current;
 							}
 						}
@@ -1306,6 +1320,13 @@ where
 			// should be kept in that state.
 			if let PeerSyncState::DownloadingJustification(_) = p.state {
 				// We make sure our commmon number is at least something we have.
+				trace!(
+					target: LOG_TARGET,
+					"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
+					peer_id,
+					p.common_number,
+					self.best_queued_number,
+				);
 				p.common_number = self.best_queued_number;
 				self.peers.insert(peer_id, p);
 				return None
