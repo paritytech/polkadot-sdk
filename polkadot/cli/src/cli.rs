@@ -84,29 +84,29 @@ pub struct RunCmd {
 
 	/// Setup a GRANDPA scheduled voting pause.
 	///
-	/// This parameter takes two values, namely a block number and a delay (in
-	/// blocks). After the given block number is finalized the GRANDPA voter
-	/// will temporarily stop voting for new blocks until the given delay has
-	/// elapsed (i.e. until a block at height `pause_block + delay` is imported).
+	/// This parameter takes two values, namely a block number and a delay (in blocks).
+	///
+	/// After the given block number is finalized the GRANDPA voter will temporarily
+	/// stop voting for new blocks until the given delay has elapsed (i.e. until a
+	/// block at height `pause_block + delay` is imported).
 	#[arg(long = "grandpa-pause", num_args = 2)]
 	pub grandpa_pause: Vec<u32>,
 
-	/// Disable the BEEFY gadget
-	/// (currently enabled by default on Rococo, Wococo and Versi).
+	/// Disable the BEEFY gadget.
+	///
+	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
 	#[arg(long)]
 	pub no_beefy: bool,
 
-	/// Add the destination address to the jaeger agent.
+	/// Add the destination address to the 'Jaeger' agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:6831`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
 	#[arg(long)]
 	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:4040`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:4040`).
 	#[arg(long)]
 	pub pyroscope_server: Option<String>,
 

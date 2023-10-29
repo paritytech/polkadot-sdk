@@ -54,11 +54,13 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub no_grandpa: bool,
 
-	/// Listen to all RPC interfaces.
+	/// Listen to all RPC interfaces (default: local).
 	///
-	/// Default is local. Note: not all RPC methods are safe to be exposed publicly. Use an RPC
-	/// proxy server to filter out dangerous methods. More details:
+	/// Not all RPC methods are safe to be exposed publicly.
+	///
+	/// Use an RPC proxy server to filter out dangerous methods. More details:
 	/// <https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs>.
+	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	#[arg(long)]
 	pub rpc_external: bool,
@@ -207,8 +209,10 @@ pub struct RunCmd {
 	///
 	/// A temporary directory will be created to store the configuration and will be deleted
 	/// at the end of the process.
+	///
 	/// Note: the directory is random per process execution. This directory is used as base path
 	/// which includes: database, node key and keystore.
+	///
 	/// When `--dev` is given and no explicit `--base-path`, this option is implied.
 	#[arg(long, conflicts_with = "base_path")]
 	pub tmp: bool,

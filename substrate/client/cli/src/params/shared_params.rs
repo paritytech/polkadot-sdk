@@ -42,11 +42,13 @@ pub struct SharedParams {
 	#[arg(long, short = 'd', value_name = "PATH")]
 	pub base_path: Option<PathBuf>,
 
-	/// Sets a custom logging filter (syntax: <target>=<level>).
+	/// Sets a custom logging filter (syntax: `<target>=<level>`).
 	///
-	/// Log levels (least to most verbose) are error, warn, info, debug, and trace.
+	/// Log levels (least to most verbose) are `error`, `warn`, `info`, `debug`, and `trace`.
+	///
 	/// By default, all targets log `info`. The global log level can be set with `-l<level>`.
-	/// Multiple <target>=<level> entries can be specified and separated by a comma.
+	///
+	/// Multiple `<target>=<level>` entries can be specified and separated by a comma.
 	///
 	/// *Example*: `--log error,sync=debug,grandpa=warn`.
 	/// Sets Global log level to `error`, sets `sync` target to debug and grandpa target to `warn`.
@@ -55,7 +57,8 @@ pub struct SharedParams {
 
 	/// Enable detailed log output.
 	///
-	/// This includes displaying the log target, log level and thread name.
+	/// Includes displaying the log target, log level and thread name.
+	///
 	/// This is automatically enabled when something is logged with any higher level than `info`.
 	#[arg(long)]
 	pub detailed_log_output: bool,
@@ -68,12 +71,13 @@ pub struct SharedParams {
 	///
 	/// Be aware that enabling this feature can lead to a performance decrease up to factor six or
 	/// more. Depending on the global logging level the performance decrease changes.
+	///
 	/// The `system_addLogFilter` and `system_resetLogFilter` RPCs will have no effect with this
 	/// option not being set.
 	#[arg(long)]
 	pub enable_log_reloading: bool,
 
-	/// Sets a custom profiling filter (syntax: <target>=<level>)
+	/// Sets a custom profiling filter.
 	///
 	/// Syntax is the same as for logging (`--log`).
 	#[arg(long, value_name = "TARGETS")]
