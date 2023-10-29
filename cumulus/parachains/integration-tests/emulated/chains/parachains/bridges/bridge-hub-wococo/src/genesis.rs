@@ -13,18 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use integration_tests_common::constants::{
-	get_account_id_from_seed,
+// Substrate
+use sp_runtime::BuildStorage;
+use sp_core::{sr25519, storage::Storage};
+
+// Cumulus
+use parachains_common::Balance;
+use emulated_integration_tests_common::{
     accounts,
     collators,
+	get_account_id_from_seed,
     SAFE_XCM_VERSION,
 };
 
-use parachains_common::Balance;
-use sp_runtime::BuildStorage;
-use sp_core::{storage::Storage, sr25519};
-
-// Bridge Hub Rococo
 pub const PARA_ID: u32 = 1013;
 pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 

@@ -9,10 +9,8 @@ publish = false
 
 [dependencies]
 # Cumulus
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false }
-integration-tests-common = { path = "../../common", default-features = false }
-rococo-emulated-chain = { path = "../../chains/relays/rococo" }
-asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-rococo" }
-bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
+emulated-integration-tests-common = { path = "../../common", default-features = false }
+wococo-emulated-chain = { path = "../../chains/relays/wococo" }
+asset-hub-wococo-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-wococo" }
+bridge-hub-wococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-wococo" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
-# rococo-system-emulated-network = { path = "../rococo-system" }

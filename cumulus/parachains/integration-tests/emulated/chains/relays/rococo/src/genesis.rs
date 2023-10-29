@@ -13,50 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use integration_tests_common::constants::{
+// Substrate
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_runtime::BuildStorage;
+use sp_core::{storage::Storage, sr25519};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use grandpa::AuthorityId as GrandpaId;
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+
+// Polkadot
+use polkadot_primitives::{AssignmentId, ValidatorId};
+
+// Cumulus
+use parachains_common::Balance;
+use rococo_runtime_constants::currency::UNITS as ROC;
+use emulated_integration_tests_common::{
     accounts,
     validators,
     get_from_seed,
-	get_account_id_from_seed
+	get_account_id_from_seed,
+	get_host_config,
 };
 
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_babe::AuthorityId as BabeId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use grandpa::AuthorityId as GrandpaId;
-use parachains_common::{AccountId, Balance, BlockNumber};
-use polkadot_runtime_parachains::{
-	configuration::HostConfiguration,
-};
-use polkadot_primitives::{AssignmentId, ValidatorId};
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use sp_runtime::{
-	BuildStorage, Perbill,
-};
-use sp_core::{storage::Storage, sr25519};
-
-// Rococo
 pub const ED: Balance = rococo_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
-use rococo_runtime_constants::currency::UNITS as ROC;
 const ENDOWMENT: u128 = 1_000_000 * ROC;
-
-pub fn get_host_config() -> HostConfiguration<BlockNumber> {
-	HostConfiguration {
-		max_upward_queue_count: 10,
-		max_upward_queue_size: 51200,
-		max_upward_message_size: 51200,
-		max_upward_message_num_per_candidate: 10,
-		max_downward_message_size: 51200,
-		hrmp_sender_deposit: 0,
-		hrmp_recipient_deposit: 0,
-		hrmp_channel_max_capacity: 1000,
-		hrmp_channel_max_message_size: 102400,
-		hrmp_channel_max_total_size: 102400,
-		hrmp_max_parachain_outbound_channels: 30,
-		hrmp_max_parachain_inbound_channels: 30,
-		..Default::default()
-	}
-}
 
 fn session_keys(
 	babe: BabeId,
@@ -120,41 +101,6 @@ pub fn genesis() -> Storage {
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
 		configuration: rococo_runtime::ConfigurationConfig { config: get_host_config() },
-		// paras: rococo_runtime::ParasConfig {
-		// 	paras: vec![
-		// 		(
-		// 			asset_hub_rococo::PARA_ID.into(),
-		// 			ParaGenesisArgs {
-		// 				genesis_head: HeadData::default(),
-		// 				validation_code: ValidationCode(
-		// 					asset_hub_rococo_runtime::WASM_BINARY.unwrap().to_vec(),
-		// 				),
-		// 				para_kind: ParaKind::Parachain,
-		// 			},
-		// 		),
-		// 		(
-		// 			penpal::PARA_ID_A.into(),
-		// 			ParaGenesisArgs {
-		// 				genesis_head: HeadData::default(),
-		// 				validation_code: ValidationCode(
-		// 					penpal_runtime::WASM_BINARY.unwrap().to_vec(),
-		// 				),
-		// 				para_kind: ParaKind::Parachain,
-		// 			},
-		// 		),
-		// 		(
-		// 			penpal::PARA_ID_B.into(),
-		// 			ParaGenesisArgs {
-		// 				genesis_head: HeadData::default(),
-		// 				validation_code: ValidationCode(
-		// 					penpal_runtime::WASM_BINARY.unwrap().to_vec(),
-		// 				),
-		// 				para_kind: ParaKind::Parachain,
-		// 			},
-		// 		),
-		// 	],
-		// 	..Default::default()
-		// },
 		registrar: rococo_runtime::RegistrarConfig {
 			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
 			..Default::default()

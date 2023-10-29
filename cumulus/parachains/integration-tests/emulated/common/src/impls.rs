@@ -17,39 +17,18 @@ pub use codec::{Decode, Encode};
 pub use paste;
 
 pub use crate::{
-	constants::{PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD},
+	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
 	xcm_helpers::xcm_transact_unpaid_execution,
 };
 
 // Substrate
+use sp_core::Get;
 pub use frame_support::{sp_runtime::AccountId32, assert_ok, traits::fungibles::Inspect};
 pub use pallet_assets;
 pub use pallet_message_queue;
-use sp_core::Get;
-
-// Cumulus
-use bp_messages::{
-	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, OutboundLaneData,
-};
-use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-pub use cumulus_pallet_dmp_queue;
-pub use cumulus_pallet_parachain_system;
-pub use cumulus_pallet_xcmp_queue;
-pub use cumulus_primitives_core::{
-	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
-};
-use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
-pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
-pub use parachains_common::{AccountId, Balance};
-pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
-	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Parachain, RelayChain, TestExt,
-	Network
-};
+pub use pallet_xcm;
 
 // Polkadot
-pub use pallet_xcm;
 pub use polkadot_runtime_parachains::{
 	dmp, hrmp,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -59,6 +38,29 @@ pub use xcm::{
 	v3::Error,
 	DoubleEncoded,
 };
+
+// Cumulus
+pub use cumulus_pallet_dmp_queue;
+pub use cumulus_pallet_parachain_system;
+pub use cumulus_pallet_xcmp_queue;
+pub use cumulus_primitives_core::{
+	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
+};
+pub use parachains_common::{AccountId, Balance};
+pub use xcm_emulator::{
+	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
+	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Parachain, RelayChain, TestExt,
+	Network
+};
+
+// Bridges
+use bp_messages::{
+	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+	LaneId, MessageKey, OutboundLaneData,
+};
+use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
+use pallet_bridge_messages::{Config, Instance1, OutboundLanes, Pallet};
+pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
 
 pub struct BridgeHubMessageHandler<S, T, I> {
 	_marker: std::marker::PhantomData<(S, T, I)>,
@@ -77,14 +79,6 @@ impl From<u32> for LaneIdWrapper {
 		LaneIdWrapper(LaneId(id.to_be_bytes()))
 	}
 }
-
-// type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
-// type BridgeHubWococoRuntime = <BridgeHubWococoPara as Chain>::Runtime;
-
-// pub type RococoWococoMessageHandler =
-// 	BridgeHubMessageHandler<BridgeHubRococoRuntime, BridgeHubWococoRuntime, Instance2>;
-// pub type WococoRococoMessageHandler =
-// 	BridgeHubMessageHandler<BridgeHubWococoRuntime, BridgeHubRococoRuntime, Instance2>;
 
 impl<S, T, I> BridgeMessageHandler for BridgeHubMessageHandler<S, T, I>
 where

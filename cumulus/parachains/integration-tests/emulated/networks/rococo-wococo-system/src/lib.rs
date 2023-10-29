@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Local
 pub use rococo_emulated_chain;
 pub use wococo_emulated_chain;
 pub use asset_hub_rococo_emulated_chain;
@@ -29,8 +28,8 @@ use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 use bridge_hub_wococo_emulated_chain::BridgeHubWococo;
 
 // Cumulus
-use integration_tests_common::{
-    constants::accounts::{ALICE, BOB},
+use emulated_integration_tests_common::{
+    accounts::{ALICE, BOB},
     xcm_emulator::{
         decl_test_networks,
 		decl_test_bridges,
@@ -47,7 +46,6 @@ decl_test_networks! {
 			AssetHubRococo,
 			BridgeHubRococo,
 		],
-		// bridge = ()
 		bridge = RococoWococoMockBridge
 
 	},

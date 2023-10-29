@@ -19,14 +19,13 @@ pub mod genesis;
 use frame_support::traits::OnInitialize;
 
 // Cumulus
-use integration_tests_common::{
+use emulated_integration_tests_common::{
     xcm_emulator::decl_test_parachains,
     impl_accounts_helpers_for_parachain,
     impl_assert_events_helpers_for_parachain,
-    // impl_assets_helpers_for_parachain,
 };
 
-// BridgeHubRococo Parachain declaration
+// BridgeHubWococo Parachain declaration
 decl_test_parachains! {
 	pub struct BridgeHubWococo {
 		genesis = genesis::genesis(),
@@ -47,7 +46,6 @@ decl_test_parachains! {
 	},
 }
 
-// BridgeHubRococo implementation
+// BridgeHubWococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubWococo);
 impl_assert_events_helpers_for_parachain!(BridgeHubWococo);
-// impl_assets_helpers_for_parachain!(AssetHub, Kusama);

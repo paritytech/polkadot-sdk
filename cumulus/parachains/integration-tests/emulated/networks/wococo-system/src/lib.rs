@@ -13,30 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// mod impls;
+pub use wococo_emulated_chain;
+pub use asset_hub_wococo_emulated_chain;
+pub use bridge_hub_wococo_emulated_chain;
 
-// Local
-pub use rococo_emulated_chain;
-pub use asset_hub_rococo_emulated_chain;
-pub use bridge_hub_rococo_emulated_chain;
-
-pub use rococo_emulated_chain::{
-	Rococo as Wococo,
-	RococoRelayPallet as WococoRelayPallet
-};
-pub use asset_hub_rococo_emulated_chain::{
-	AssetHubRococo as AssetHubWococo,
-	AssetHubRococoParaPallet as AssetHubWococoParaPallet,
-};
-pub use bridge_hub_rococo_emulated_chain::{
-	BridgeHubRococo as BridgeHubWococo,
-	BridgeHubRococoParaPallet as BridgeHubWococoParaPallet,
-};
+use wococo_emulated_chain::Wococo;
+use asset_hub_wococo_emulated_chain::AssetHubWococo;
+use bridge_hub_wococo_emulated_chain::BridgeHubWococo;
 use penpal_emulated_chain::{PenpalA, PenpalB};
 
 // Cumulus
-use integration_tests_common::{
-    constants::accounts::{ALICE, BOB},
+use emulated_integration_tests_common::{
+    accounts::{ALICE, BOB},
     xcm_emulator::{
         decl_test_networks,
         decl_test_sender_receiver_accounts_parameter_types,
@@ -53,7 +41,6 @@ decl_test_networks! {
 			PenpalB,
 		],
 		bridge = ()
-		// bridge = ()
 	},
 }
 

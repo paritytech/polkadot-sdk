@@ -22,10 +22,7 @@ pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", defa
 pallet-asset-rate = { path = "../../../../../../../substrate/frame/asset-rate", default-features = false}
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../../../polkadot/parachain", default-features = false}
 polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
-polkadot-runtime-parachains = { path = "../../../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false}
 xcm-builder = { package = "staging-xcm-builder",  path = "../../../../../../../polkadot/xcm/xcm-builder", default-features = false}
 xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false}
@@ -39,31 +36,5 @@ asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-w
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils", default-features = false }
 cumulus-pallet-dmp-queue = { default-features = false, path = "../../../../../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
-
-# Local
-xcm-emulator = { path = "../../../../../../xcm/xcm-emulator", default-features = false}
-integration-tests-common = { path = "../../../common", default-features = false}
+emulated-integration-tests-common = { path = "../../../common", default-features = false}
 westend-system-emulated-network ={ path = "../../../networks/westend-system" }
-
-# [features]
-# runtime-benchmarks = [
-# 	"asset-hub-westend-runtime/runtime-benchmarks",
-# 	"cumulus-pallet-parachain-system/runtime-benchmarks",
-# 	"frame-support/runtime-benchmarks",
-# 	"frame-system/runtime-benchmarks",
-# 	"integration-tests-common/runtime-benchmarks",
-# 	"pallet-asset-conversion/runtime-benchmarks",
-# 	"pallet-asset-rate/runtime-benchmarks",
-# 	"pallet-assets/runtime-benchmarks",
-# 	"pallet-balances/runtime-benchmarks",
-# 	"pallet-treasury/runtime-benchmarks",
-# 	"pallet-xcm/runtime-benchmarks",
-# 	"parachains-common/runtime-benchmarks",
-# 	"polkadot-parachain-primitives/runtime-benchmarks",
-# 	"polkadot-runtime-common/runtime-benchmarks",
-# 	"polkadot-runtime-parachains/runtime-benchmarks",
-# 	"sp-runtime/runtime-benchmarks",
-# 	"westend-runtime/runtime-benchmarks",
-# 	"xcm-builder/runtime-benchmarks",
-# 	"xcm-executor/runtime-benchmarks",
-# ]

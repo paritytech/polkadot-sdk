@@ -14,19 +14,15 @@ sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", defau
 sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa" }
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
 pallet-im-online = { path = "../../../../../../../substrate/frame/im-online", default-features = false }
 pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false }
 
-# Polakadot
-polkadot-parachain-primitives = { path = "../../../../../../../polkadot/parachain", default-features = false }
+# Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
-polkadot-runtime-parachains = { path = "../../../../../../../polkadot/runtime/parachains", default-features = false }
-westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false }
+westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
-xcm-emulator = { path = "../../../../../../xcm/xcm-emulator", default-features = false }
-integration-tests-common = { path = "../../../common", default-features = false }
+emulated-integration-tests-common = { path = "../../../common", default-features = false }

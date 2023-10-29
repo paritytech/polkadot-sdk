@@ -13,23 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use asset_test_utils::xcm_helpers;
 pub use codec::Encode;
+
+// Substrate
 pub use frame_support::{
 	assert_err, assert_ok,
 	pallet_prelude::Weight,
 	sp_runtime::{AccountId32, DispatchError, DispatchResult},
 	traits::fungibles::Inspect,
 };
-pub use integration_tests_common::{
-	constants::{
-		PROOF_SIZE_THRESHOLD,
-		REF_TIME_THRESHOLD, XCM_V3,
-	},
-	test_parachain_is_trusted_teleporter,
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+
+// Polkadot
+pub use xcm::{
+	prelude::{AccountId32 as AccountId32Junction, *},
+	v3::{Error, NetworkId::Rococo as RococoId},
 };
 
+// Cumulus
+pub use parachains_common::{AccountId, Balance};
 pub use rococo_system_emulated_network::{
 	rococo_emulated_chain::{
 		genesis::ED as ROCOCO_ED,
@@ -48,15 +49,17 @@ pub use rococo_system_emulated_network::{
 	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 	PenpalAPara as PenpalA,
 };
-pub use parachains_common::{AccountId, Balance};
-pub use xcm::{
-	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+pub use emulated_integration_tests_common::{
+	PROOF_SIZE_THRESHOLD,
+	REF_TIME_THRESHOLD, XCM_V3,
+	test_parachain_is_trusted_teleporter,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	xcm_emulator::{
+		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
+		RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
+	}
 };
-pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
-	RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-};
+pub use asset_test_utils::xcm_helpers;
 
 pub const ASSET_ID: u32 = 1;
 pub const ASSET_MIN_BALANCE: u128 = 1000;

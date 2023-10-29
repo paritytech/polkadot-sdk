@@ -13,17 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use integration_tests_common::constants::{
+// Substrate
+use sp_runtime::BuildStorage;
+use sp_core::storage::Storage;
+
+// Cumulus
+use parachains_common::Balance;
+use emulated_integration_tests_common::{
     accounts,
     collators,
     SAFE_XCM_VERSION,
 };
 
-use parachains_common::Balance;
-use sp_runtime::BuildStorage;
-use sp_core::storage::Storage;
-
-// Asset Hub Westend
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 

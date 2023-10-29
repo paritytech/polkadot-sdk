@@ -20,7 +20,7 @@ pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
 use frame_support::traits::OnInitialize;
 
 // Cumulus
-use integration_tests_common::{
+use emulated_integration_tests_common::{
     xcm_emulator::decl_test_parachains,
     impl_assert_events_helpers_for_parachain,
 };

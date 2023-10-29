@@ -13,50 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use integration_tests_common::constants::{
+// Substrate
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_runtime::{BuildStorage, Perbill};
+use sp_core::storage::Storage;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use grandpa::AuthorityId as GrandpaId;
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+
+// Polkadot
+use polkadot_primitives::{AssignmentId, ValidatorId};
+
+// Cumulus
+use parachains_common::Balance;
+use westend_runtime_constants::currency::UNITS as WND;
+use emulated_integration_tests_common::{
     accounts,
     validators,
     get_from_seed,
+	get_host_config,
 };
 
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_babe::AuthorityId as BabeId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use grandpa::AuthorityId as GrandpaId;
-use parachains_common::{AccountId, Balance, BlockNumber};
-use polkadot_runtime_parachains::{
-	configuration::HostConfiguration,
-};
-use polkadot_primitives::{AssignmentId, ValidatorId};
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use sp_runtime::{
-	BuildStorage, Perbill,
-};
-use sp_core::storage::Storage;
-
-// Westend
-use westend_runtime_constants::currency::UNITS as WND;
 pub const ED: Balance = westend_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
 const ENDOWMENT: u128 = 1_000_000 * WND;
 const STASH: u128 = 100 * WND;
-
-pub fn get_host_config() -> HostConfiguration<BlockNumber> {
-	HostConfiguration {
-		max_upward_queue_count: 10,
-		max_upward_queue_size: 51200,
-		max_upward_message_size: 51200,
-		max_upward_message_num_per_candidate: 10,
-		max_downward_message_size: 51200,
-		hrmp_sender_deposit: 100_000_000_000,
-		hrmp_recipient_deposit: 100_000_000_000,
-		hrmp_channel_max_capacity: 1000,
-		hrmp_channel_max_message_size: 102400,
-		hrmp_channel_max_total_size: 102400,
-		hrmp_max_parachain_outbound_channels: 30,
-		hrmp_max_parachain_inbound_channels: 30,
-		..Default::default()
-	}
-}
 
 fn session_keys(
 	babe: BabeId,

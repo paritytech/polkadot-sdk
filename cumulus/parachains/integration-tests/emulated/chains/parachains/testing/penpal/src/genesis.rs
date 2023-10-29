@@ -13,16 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use integration_tests_common::constants::{
-	get_account_id_from_seed,
+// Substrate
+use sp_runtime::BuildStorage;
+use sp_core::{sr25519, storage::Storage};
+
+// Cumulus
+use parachains_common::Balance;
+use emulated_integration_tests_common::{
     accounts,
     collators,
     SAFE_XCM_VERSION,
+	get_account_id_from_seed,
 };
-
-use parachains_common::Balance;
-use sp_runtime::BuildStorage;
-use sp_core::{storage::Storage, sr25519};
 
 // Penpal
 pub const PARA_ID_A: u32 = 2000;

@@ -9,8 +9,7 @@ publish = false
 
 [dependencies]
 # Cumulus
-xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false }
-integration-tests-common = { path = "../../common", default-features = false }
+emulated-integration-tests-common = { path = "../../common", default-features = false }
 westend-emulated-chain = { path = "../../chains/relays/westend", default-features = false }
 asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }

@@ -17,6 +17,5 @@ frame-support = { path = "../../../../../../../../substrate/frame/support", defa
 parachains-common = { path = "../../../../../../../parachains/common" }
 
 # Cumulus
-xcm-emulator = { path = "../../../../../../../xcm/xcm-emulator", default-features = false }
-integration-tests-common = { path = "../../../../common", default-features = false }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
