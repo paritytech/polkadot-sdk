@@ -21,6 +21,7 @@ use integration_tests_common::{
     impl_accounts_helpers_for_relay_chain,
     impl_assert_events_helpers_for_relay_chain,
     impl_hrmp_channels_helpers_for_relay_chain,
+	impl_send_transact_helpers_for_relay_chain,
 };
 
 // Rococo declaration
@@ -48,3 +49,4 @@ decl_test_relay_chains! {
 impl_accounts_helpers_for_relay_chain!(Westend);
 impl_assert_events_helpers_for_relay_chain!(Westend);
 impl_hrmp_channels_helpers_for_relay_chain!(Westend);
+impl_send_transact_helpers_for_relay_chain!(Westend);

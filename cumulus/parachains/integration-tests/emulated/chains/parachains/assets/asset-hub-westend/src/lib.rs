@@ -23,8 +23,9 @@ use integration_tests_common::{
     xcm_emulator::decl_test_parachains,
     impl_accounts_helpers_for_parachain,
     impl_assert_events_helpers_for_parachain,
-    // impl_assets_helpers_for_parachain,
+    impl_assets_helpers_for_system_parachain,
 };
+use westend_emulated_chain::Westend;
 
 // AssetHubWestend Parachain declaration
 decl_test_parachains! {
@@ -54,4 +55,4 @@ decl_test_parachains! {
 // AssetHubWestend implementation
 impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
-// impl_assets_helpers_for_parachain!(AssetHub, Kusama);
+impl_assets_helpers_for_system_parachain!(AssetHubWestend, Westend);

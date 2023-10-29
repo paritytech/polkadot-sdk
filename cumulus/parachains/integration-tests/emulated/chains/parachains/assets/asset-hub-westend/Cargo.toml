@@ -20,3 +20,4 @@ parachains-common = { path = "../../../../../../../parachains/common" }
 xcm-emulator = { path = "../../../../../../../xcm/xcm-emulator", default-features = false }
 integration-tests-common = { path = "../../../../common", default-features = false }
 asset-hub-westend-runtime = { path = "../../../../../../runtimes/assets/asset-hub-westend" }
+westend-emulated-chain = { path = "../../../relays/westend" }

@@ -800,6 +800,7 @@ dependencies = [
  "frame-support",
  "integration-tests-common",
  "parachains-common",
+ "rococo-emulated-chain",
  "sp-core",
  "sp-runtime",
  "xcm-emulator",
@@ -920,6 +921,7 @@ dependencies = [
  "parachains-common",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
  "xcm-emulator",
 ]
 
@@ -1040,6 +1042,7 @@ dependencies = [
  "parachains-common",
  "sp-core",
  "sp-runtime",
+ "wococo-emulated-chain",
  "xcm-emulator",
 ]
 
