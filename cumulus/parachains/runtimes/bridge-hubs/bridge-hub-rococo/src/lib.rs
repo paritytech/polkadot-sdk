@@ -550,6 +550,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type DeliveryFeePerGas = DeliveryFeePerGas;
 	type DeliveryRefundPerGas = DeliveryRefundPerGas;
 	type DeliveryReward = DeliveryReward;
+	type WeightToFee = WeightToFee;
 	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 }
 
@@ -981,9 +982,13 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block> for Runtime {
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
 			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		}
+
+		fn calculate_fee(message: Message) -> Option<Balance> {
+			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
 		}
 	}
 

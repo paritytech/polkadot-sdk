@@ -41,24 +41,32 @@ impl<T: frame_system::Config> snowbridge_outbound_queue::WeightInfo for WeightIn
 		// Proof Size summary in bytes:
 		//  Measured:  `42`
 		//  Estimated: `3485`
-		// Minimum execution time: 38_000_000 picoseconds.
-		Weight::from_parts(38_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3485))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4))
+		// Minimum execution time: 39_000_000 picoseconds.
+		Weight::from_parts(39_000_000, 3485)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: EthereumOutboundQueue MessageLeaves (r:1 w:0)
 	/// Proof Skipped: EthereumOutboundQueue MessageLeaves (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: System Digest (r:1 w:1)
 	/// Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
-	fn on_finalize() -> Weight {
+	fn commit_messages() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1094`
 		//  Estimated: `2579`
 		// Minimum execution time: 28_000_000 picoseconds.
-		Weight::from_parts(28_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 2579))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
+		Weight::from_parts(28_000_000, 2579)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	fn commit_one_message() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1094`
+		//  Estimated: `2579`
+		// Minimum execution time: 9_000_000 picoseconds.
+		Weight::from_parts(9_000_000, 1586)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }

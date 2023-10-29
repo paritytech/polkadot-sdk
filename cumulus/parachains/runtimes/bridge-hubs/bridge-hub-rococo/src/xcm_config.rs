@@ -224,13 +224,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				>::initialize { .. }) |
 				RuntimeCall::EthereumBeaconClient(
 					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
-						snowbridge_ethereum_beacon_client::Call::set_owner { .. } |
 						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
 				) | RuntimeCall::EthereumInboundQueue(
-				snowbridge_inbound_queue::Call::set_owner { .. } |
 					snowbridge_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
-				snowbridge_outbound_queue::Call::set_owner { .. } |
 					snowbridge_outbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumControl(..)
 		)
