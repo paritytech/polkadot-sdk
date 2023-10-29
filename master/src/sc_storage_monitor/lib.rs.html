@@ -147,6 +147,9 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -191,9 +194,12 @@
 <span class="doccomment">/// Parameters used to create the storage monitor.
 </span><span class="attr">#[derive(Default, Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>StorageMonitorParams {
-	<span class="doccomment">/// Required available space on database storage. If available space for DB storage drops below
-	/// the given threshold, node will be gracefully terminated. If `0` is given monitoring will be
-	/// disabled.
+	<span class="doccomment">/// Required available space on database storage.
+	///
+	/// If available space for DB storage drops below the given threshold, node will
+	/// be gracefully terminated.
+	///
+	/// If `0` is given monitoring will be disabled.
 	</span><span class="attr">#[arg(long = <span class="string">&quot;db-storage-threshold&quot;</span>, value_name = <span class="string">&quot;MiB&quot;</span>, default_value_t = <span class="number">1024</span>)]
 	</span><span class="kw">pub </span>threshold: u64,
 

@@ -299,6 +299,23 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -343,6 +360,7 @@
 	</span><span class="kw">pub </span>reserved_nodes: Vec&lt;MultiaddrWithPeerId&gt;,
 
 	<span class="doccomment">/// Whether to only synchronize the chain with reserved nodes.
+	///
 	/// Also disables automatic peer discovery.
 	/// TCP connections might still be established with non-reserved nodes.
 	/// In particular, if you are a validator your node might still connect to other
@@ -351,7 +369,8 @@
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>reserved_only: bool,
 
-	<span class="doccomment">/// The public address that other nodes will use to connect to it.
+	<span class="doccomment">/// Public address that other nodes will use to connect to this node.
+	///
 	/// This can be used if there&#39;s a proxy in front of this node.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PUBLIC_ADDR&quot;</span>, num_args = <span class="number">1</span>..)]
 	</span><span class="kw">pub </span>public_addr: Vec&lt;Multiaddr&gt;,
@@ -368,20 +387,28 @@
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PORT&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[ <span class="string">&quot;listen_addr&quot; </span>]</span>)]
 	<span class="kw">pub </span>port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
 
-	<span class="doccomment">/// Always forbid connecting to private IPv4/IPv6 addresses (as specified in
-	/// [RFC1918](https://tools.ietf.org/html/rfc1918)), unless the address was passed with
-	/// `--reserved-nodes` or `--bootnodes`. Enabled by default for chains marked as &quot;live&quot; in
-	/// their chain specifications.
+	<span class="doccomment">/// Always forbid connecting to private IPv4/IPv6 addresses.
+	///
+	/// The option doesn&#39;t apply to addresses passed with `--reserved-nodes` or
+	/// `--bootnodes`. Enabled by default for chains marked as &quot;live&quot; in their chain
+	/// specifications.
+	///
+	/// Address allocation for private networks is specified by
+	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
 	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;no-private-ipv4&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;allow_private_ip&quot;</span>]</span>)]
 	<span class="kw">pub </span>no_private_ip: bool,
 
-	<span class="doccomment">/// Always accept connecting to private IPv4/IPv6 addresses (as specified in
-	/// [RFC1918](https://tools.ietf.org/html/rfc1918)). Enabled by default for chains marked as
-	/// &quot;local&quot; in their chain specifications, or when `--dev` is passed.
+	<span class="doccomment">/// Always accept connecting to private IPv4/IPv6 addresses.
+	///
+	/// Enabled by default for chains marked as &quot;local&quot; in their chain specifications,
+	/// or when `--dev` is passed.
+	///
+	/// Address allocation for private networks is specified by
+	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
 	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;allow-private-ipv4&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;no_private_ip&quot;</span>]</span>)]
 	<span class="kw">pub </span>allow_private_ip: bool,
 
-	<span class="doccomment">/// Specify the number of outgoing connections we&#39;re trying to maintain.
+	<span class="doccomment">/// Number of outgoing connections we&#39;re trying to maintain.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">8</span>)]
 	</span><span class="kw">pub </span>out_peers: u32,
 
@@ -393,15 +420,17 @@
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">100</span>)]
 	</span><span class="kw">pub </span>in_peers_light: u32,
 
-	<span class="doccomment">/// Disable mDNS discovery.
+	<span class="doccomment">/// Disable mDNS discovery (default: true).
+	///
 	/// By default, the network will use mDNS to discover other nodes on the
 	/// local network. This disables it. Automatically implied when using --dev.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_mdns: bool,
 
 	<span class="doccomment">/// Maximum number of peers from which to ask for the same blocks in parallel.
-	/// This allows downloading announced blocks from multiple peers. Decrease to save
-	/// traffic and risk increased latency.
+	///
+	/// This allows downloading announced blocks from multiple peers.
+	/// Decrease to save traffic and risk increased latency.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">5</span>)]
 	</span><span class="kw">pub </span>max_parallel_downloads: u32,
 
@@ -410,19 +439,24 @@
 	</span><span class="kw">pub </span>node_key_params: NodeKeyParams,
 
 	<span class="doccomment">/// Enable peer discovery on local networks.
+	///
 	/// By default this option is `true` for `--dev` or when the chain type is
 	/// `Local`/`Development` and false otherwise.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>discover_local: bool,
 
-	<span class="doccomment">/// Require iterative Kademlia DHT queries to use disjoint paths for increased resiliency in
-	/// the presence of potentially adversarial nodes.
+	<span class="doccomment">/// Require iterative Kademlia DHT queries to use disjoint paths.
+	///
+	/// Disjoint paths increase resiliency in the presence of potentially adversarial nodes.
+	///
 	/// See the S/Kademlia paper for more information on the high level design as well as its
 	/// security improvements.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>kademlia_disjoint_query_paths: bool,
 
-	<span class="doccomment">/// Kademlia replication factor determines to how many closest peers a record is replicated to.
+	<span class="doccomment">/// Kademlia replication factor.
+	///
+	/// Determines to how many closest peers a record is replicated to.
 	///
 	/// Discovery mechanism requires successful replication to all
 	/// `kademlia_replication_factor` peers to consider record successfully put.

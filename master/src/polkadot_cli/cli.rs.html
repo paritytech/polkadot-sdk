@@ -150,6 +150,9 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -236,29 +239,29 @@
 
 	<span class="doccomment">/// Setup a GRANDPA scheduled voting pause.
 	///
-	/// This parameter takes two values, namely a block number and a delay (in
-	/// blocks). After the given block number is finalized the GRANDPA voter
-	/// will temporarily stop voting for new blocks until the given delay has
-	/// elapsed (i.e. until a block at height `pause_block + delay` is imported).
+	/// This parameter takes two values, namely a block number and a delay (in blocks).
+	///
+	/// After the given block number is finalized the GRANDPA voter will temporarily
+	/// stop voting for new blocks until the given delay has elapsed (i.e. until a
+	/// block at height `pause_block + delay` is imported).
 	</span><span class="attr">#[arg(long = <span class="string">&quot;grandpa-pause&quot;</span>, num_args = <span class="number">2</span>)]
 	</span><span class="kw">pub </span>grandpa_pause: Vec&lt;u32&gt;,
 
-	<span class="doccomment">/// Disable the BEEFY gadget
-	/// (currently enabled by default on Rococo, Wococo and Versi).
+	<span class="doccomment">/// Disable the BEEFY gadget.
+	///
+	/// Currently enabled by default on &#39;Rococo&#39;, &#39;Wococo&#39; and &#39;Versi&#39;.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_beefy: bool,
 
-	<span class="doccomment">/// Add the destination address to the jaeger agent.
+	<span class="doccomment">/// Add the destination address to the &#39;Jaeger&#39; agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:6831`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>jaeger_agent: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Add the destination address to the `pyroscope` agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:4040`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:4040`).
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>pyroscope_server: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
@@ -278,10 +281,13 @@
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>overseer_channel_capacity_override: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
-	<span class="doccomment">/// Path to the directory where auxiliary worker binaries reside. If not specified, the main
-	/// binary&#39;s directory is searched first, then `/usr/lib/polkadot` is searched. TESTING ONLY:
-	/// if the path points to an executable rather then directory, that executable is used both as
-	/// preparation and execution worker.
+	<span class="doccomment">/// Path to the directory where auxiliary worker binaries reside.
+	///
+	/// If not specified, the main binary&#39;s directory is searched first, then
+	/// `/usr/lib/polkadot` is searched.
+	///
+	/// TESTING ONLY: if the path points to an executable rather then directory,
+	/// that executable is used both as preparation and execution worker.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PATH&quot;</span>)]
 	</span><span class="kw">pub </span>workers_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 

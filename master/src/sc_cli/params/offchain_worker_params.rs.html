@@ -97,8 +97,7 @@
 <span class="doccomment">/// Offchain worker related parameters.
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>OffchainWorkerParams {
-	<span class="doccomment">/// Should execute offchain workers on every block.
-	/// By default it&#39;s only enabled for nodes that are authoring new blocks.
+	<span class="doccomment">/// Execute offchain workers on every block.
 	</span><span class="attr">#[arg(
 		long = <span class="string">&quot;offchain-worker&quot;</span>,
 		value_name = <span class="string">&quot;ENABLED&quot;</span>,
@@ -108,8 +107,9 @@
 	)]
 	</span><span class="kw">pub </span>enabled: OffchainWorkerEnabled,
 
-	<span class="doccomment">/// Enable Offchain Indexing API, which allows block import to write to Offchain DB.
-	/// Enables a runtime to write directly to a offchain workers DB during block import.
+	<span class="doccomment">/// Enable offchain indexing API.
+	///
+	/// Allows the runtime to write directly to offchain workers DB during block import.
 	</span><span class="attr">#[arg(long = <span class="string">&quot;enable-offchain-indexing&quot;</span>, value_name = <span class="string">&quot;ENABLE_OFFCHAIN_INDEXING&quot;</span>, default_value_t = <span class="bool-val">false</span>, action = ArgAction::Set)]
 	</span><span class="kw">pub </span>indexing_enabled: bool,
 }

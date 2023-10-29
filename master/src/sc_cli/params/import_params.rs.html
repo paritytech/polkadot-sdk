@@ -173,7 +173,6 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -224,6 +223,7 @@
 	</span><span class="kw">pub </span>wasm_method: WasmExecutionMethod,
 
 	<span class="doccomment">/// The WASM instantiation method to use.
+	///
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
 	/// The copy-on-write strategies are only supported on Linux.
 	/// If the copy-on-write variant of a strategy is unsupported
@@ -241,6 +241,7 @@
 	</span><span class="kw">pub </span>wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
 	<span class="doccomment">/// Specify the path where local WASM runtimes are stored.
+	///
 	/// These runtimes will override on-chain runtimes when the version matches.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PATH&quot;</span>)]
 	</span><span class="kw">pub </span>wasm_runtime_overrides: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
@@ -250,12 +251,12 @@
 	</span><span class="kw">pub </span>execution_strategies: ExecutionStrategiesParams,
 
 	<span class="doccomment">/// Specify the state cache size.
+	///
 	/// Providing `0` will disable the cache.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;Bytes&quot;</span>, default_value_t = <span class="number">67108864</span>)]
 	</span><span class="kw">pub </span>trie_cache_size: usize,
 
-	<span class="doccomment">/// DEPRECATED
-	/// Switch to `--trie-cache-size`.
+	<span class="doccomment">/// DEPRECATED: switch to `--trie-cache-size`.
 	</span><span class="attr">#[arg(long)]
 	</span>state_cache_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
@@ -291,26 +292,23 @@
 <span class="doccomment">/// Execution strategies parameters.
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>ExecutionStrategiesParams {
-	<span class="doccomment">/// The means of execution used when calling into the runtime for importing blocks as
-	/// part of an initial sync.
+	<span class="doccomment">/// Runtime execution strategy for importing blocks during initial sync.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;STRATEGY&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>execution_syncing: <span class="prelude-ty">Option</span>&lt;ExecutionStrategy&gt;,
 
-	<span class="doccomment">/// The means of execution used when calling into the runtime for general block import
-	/// (including locally authored blocks).
+	<span class="doccomment">/// Runtime execution strategy for general block import (including locally authored blocks).
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;STRATEGY&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>execution_import_block: <span class="prelude-ty">Option</span>&lt;ExecutionStrategy&gt;,
 
-	<span class="doccomment">/// The means of execution used when calling into the runtime while constructing blocks.
+	<span class="doccomment">/// Runtime execution strategy for constructing blocks.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;STRATEGY&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>execution_block_construction: <span class="prelude-ty">Option</span>&lt;ExecutionStrategy&gt;,
 
-	<span class="doccomment">/// The means of execution used when calling into the runtime while using an off-chain worker.
+	<span class="doccomment">/// Runtime execution strategy for offchain workers.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;STRATEGY&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>execution_offchain_worker: <span class="prelude-ty">Option</span>&lt;ExecutionStrategy&gt;,
 
-	<span class="doccomment">/// The means of execution used when calling into the runtime while not syncing, importing or
-	/// constructing blocks.
+	<span class="doccomment">/// Runtime execution strategy when not syncing, importing or constructing blocks.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;STRATEGY&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>execution_other: <span class="prelude-ty">Option</span>&lt;ExecutionStrategy&gt;,
 

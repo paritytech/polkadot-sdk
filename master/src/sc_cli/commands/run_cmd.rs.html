@@ -524,6 +524,29 @@
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -566,35 +589,38 @@
 </span><span class="attr">#[derive(Debug, Clone, Parser)]
 </span><span class="kw">pub struct </span>RunCmd {
 	<span class="doccomment">/// Enable validator mode.
+	///
 	/// The node will be started with the authority role and actively
 	/// participate in any consensus task that it can (e.g. depending on
 	/// availability of local keys).
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>validator: bool,
 
-	<span class="doccomment">/// Disable GRANDPA voter when running in validator mode, otherwise disable the GRANDPA
+	<span class="doccomment">/// Disable GRANDPA.
+	///
+	/// Disables voter when running in validator mode, otherwise disable the GRANDPA
 	/// observer.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_grandpa: bool,
 
-	<span class="doccomment">/// Listen to all RPC interfaces.
-	/// Default is local. Note: not all RPC methods are safe to be exposed publicly. Use an RPC
-	/// proxy server to filter out dangerous methods. More details:
+	<span class="doccomment">/// Listen to all RPC interfaces (default: local).
+	///
+	/// Not all RPC methods are safe to be exposed publicly.
+	///
+	/// Use an RPC proxy server to filter out dangerous methods. More details:
 	/// &lt;https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs&gt;.
+	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>rpc_external: bool,
 
 	<span class="doccomment">/// Listen to all RPC interfaces.
+	///
 	/// Same as `--rpc-external`.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>unsafe_rpc_external: bool,
 
 	<span class="doccomment">/// RPC methods to expose.
-	/// - `unsafe`: Exposes every RPC method.
-	/// - `safe`: Exposes only a safe subset of RPC methods, denying unsafe RPC methods.
-	/// - `auto`: Acts as `safe` if RPC is served externally, e.g. when `--rpc--external` is
-	///   passed, otherwise acts as `unsafe`.
 	</span><span class="attr">#[arg(
 		long,
 		value_name = <span class="string">&quot;METHOD SET&quot;</span>,
@@ -605,15 +631,15 @@
 	)]
 	</span><span class="kw">pub </span>rpc_methods: RpcMethods,
 
-	<span class="doccomment">/// Set the the maximum RPC request payload size for both HTTP and WS in megabytes.
+	<span class="doccomment">/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	</span><span class="kw">pub </span>rpc_max_request_size: u32,
 
-	<span class="doccomment">/// Set the the maximum RPC response payload size for both HTTP and WS in megabytes.
+	<span class="doccomment">/// Set the maximum RPC response payload size for both HTTP and WS in megabytes.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB)]
 	</span><span class="kw">pub </span>rpc_max_response_size: u32,
 
-	<span class="doccomment">/// Set the the maximum concurrent subscriptions per connection.
+	<span class="doccomment">/// Set the maximum concurrent subscriptions per connection.
 	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MAX_SUBS_PER_CONN)]
 	</span><span class="kw">pub </span>rpc_max_subscriptions_per_connection: u32,
 
@@ -625,15 +651,17 @@
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	</span><span class="kw">pub </span>rpc_max_connections: u32,
 
-	<span class="doccomment">/// Specify browser Origins allowed to access the HTTP &amp; WS RPC servers.
-	/// A comma-separated list of origins (protocol://domain or special `null`
+	<span class="doccomment">/// Specify browser *origins* allowed to access the HTTP and WS RPC servers.
+	///
+	/// A comma-separated list of origins (`protocol://domain` or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and &lt;https://polkadot.js.org&gt; origins. When running in
-	/// --dev mode the default is to allow all origins.
+	/// `--dev` mode the default is to allow all origins.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;ORIGINS&quot;</span>, value_parser = parse_cors)]
 	</span><span class="kw">pub </span>rpc_cors: <span class="prelude-ty">Option</span>&lt;Cors&gt;,
 
 	<span class="doccomment">/// The human-readable name for this node.
+	///
 	/// It&#39;s used as network node name.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;NAME&quot;</span>)]
 	</span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -674,36 +702,51 @@
 	#[clap(flatten)]
 	</span><span class="kw">pub </span>keystore_params: KeystoreParams,
 
-	<span class="doccomment">/// Shortcut for `--name Alice --validator` with session keys for `Alice` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Alice --validator`.
+	///
+	/// Session keys for `Alice` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>alice: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Bob --validator` with session keys for `Bob` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Bob --validator`.
+	///
+	/// Session keys for `Bob` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>bob: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Charlie --validator` with session keys for `Charlie` added to
-	/// keystore.
+	<span class="doccomment">/// Shortcut for `--name Charlie --validator`.
+	///
+	/// Session keys for `Charlie` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>charlie: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Dave --validator` with session keys for `Dave` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Dave --validator`.
+	///
+	/// Session keys for `Dave` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>dave: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Eve --validator` with session keys for `Eve` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Eve --validator`.
+	///
+	/// Session keys for `Eve` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>eve: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Ferdie --validator` with session keys for `Ferdie` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Ferdie --validator`.
+	///
+	/// Session keys for `Ferdie` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>ferdie: bool,
 
-	<span class="doccomment">/// Shortcut for `--name One --validator` with session keys for `One` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name One --validator`.
+	///
+	/// Session keys for `One` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
 	<span class="kw">pub </span>one: bool,
 
-	<span class="doccomment">/// Shortcut for `--name Two --validator` with session keys for `Two` added to keystore.
+	<span class="doccomment">/// Shortcut for `--name Two --validator`.
+	///
+	/// Session keys for `Two` are added to keystore.
 	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>]</span>)]
 	<span class="kw">pub </span>two: bool,
 
@@ -712,10 +755,13 @@
 	</span><span class="kw">pub </span>force_authoring: bool,
 
 	<span class="doccomment">/// Run a temporary node.
+	///
 	/// A temporary directory will be created to store the configuration and will be deleted
 	/// at the end of the process.
+	///
 	/// Note: the directory is random per process execution. This directory is used as base path
 	/// which includes: database, node key and keystore.
+	///
 	/// When `--dev` is given and no explicit `--base-path`, this option is implied.
 	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">&quot;base_path&quot;</span>)]
 	</span><span class="kw">pub </span>tmp: bool,

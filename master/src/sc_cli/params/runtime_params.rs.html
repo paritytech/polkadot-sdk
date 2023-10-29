@@ -41,6 +41,8 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -65,7 +67,9 @@
 <span class="doccomment">/// Parameters used to config runtime.
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>RuntimeParams {
-	<span class="doccomment">/// The size of the instances cache for each runtime. The values higher than 32 are illegal.
+	<span class="doccomment">/// The size of the instances cache for each runtime [max: 32].
+	///
+	/// Values higher than 32 are illegal.
 	</span><span class="attr">#[arg(long, default_value_t = <span class="number">8</span>, value_parser = parse_max_runtime_instances)]
 	</span><span class="kw">pub </span>max_runtime_instances: usize,
 

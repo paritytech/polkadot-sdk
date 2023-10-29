@@ -60,6 +60,8 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -92,7 +94,9 @@
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">20480</span>)]
 	</span><span class="kw">pub </span>pool_kbytes: usize,
 
-	<span class="doccomment">/// How long a transaction is banned for, if it is considered invalid. Defaults to 1800s.
+	<span class="doccomment">/// How long a transaction is banned for.
+	///
+	/// If it is considered invalid. Defaults to 1800s.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;SECONDS&quot;</span>)]
 	</span><span class="kw">pub </span>tx_ban_seconds: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }

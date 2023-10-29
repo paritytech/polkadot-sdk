@@ -202,6 +202,16 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -236,39 +246,49 @@
 /// used for libp2p networking.
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>NodeKeyParams {
-	<span class="doccomment">/// The secret key to use for libp2p networking.
+	<span class="doccomment">/// Secret key to use for p2p networking.
+	///
 	/// The value is a string that is parsed according to the choice of
 	/// `--node-key-type` as follows:
-	///   `ed25519`:
-	///   The value is parsed as a hex-encoded Ed25519 32 byte secret key,
-	///   i.e. 64 hex characters.
+	///
+	///  - `ed25519`: the value is parsed as a hex-encoded Ed25519 32 byte secret key (64 hex
+	///    chars)
+	///
 	/// The value of this option takes precedence over `--node-key-file`.
+	///
 	/// WARNING: Secrets provided as command-line arguments are easily exposed.
 	/// Use of this option should be limited to development and testing. To use
 	/// an externally managed secret key, use `--node-key-file` instead.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;KEY&quot;</span>)]
 	</span><span class="kw">pub </span>node_key: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-	<span class="doccomment">/// The type of secret key to use for libp2p networking.
+	<span class="doccomment">/// Crypto primitive to use for p2p networking.
+	///
 	/// The secret key of the node is obtained as follows:
-	///   * If the `--node-key` option is given, the value is parsed as a secret key according to
-	///     the type. See the documentation for `--node-key`.
-	///   * If the `--node-key-file` option is given, the secret key is read from the specified
-	///     file. See the documentation for `--node-key-file`.
-	///   * Otherwise, the secret key is read from a file with a predetermined, type-specific name
-	///     from the chain-specific network config directory inside the base directory specified by
-	///     `--base-dir`. If this file does not exist, it is created with a newly generated secret
-	///     key of the chosen type.
+	///
+	/// - If the `--node-key` option is given, the value is parsed as a secret key according to the
+	///   type. See the documentation for `--node-key`.
+	///
+	/// - If the `--node-key-file` option is given, the secret key is read from the specified file.
+	///   See the documentation for `--node-key-file`.
+	///
+	/// - Otherwise, the secret key is read from a file with a predetermined, type-specific name
+	///   from the chain-specific network config directory inside the base directory specified by
+	///   `--base-dir`. If this file does not exist, it is created with a newly generated secret
+	///   key of the chosen type.
+	///
 	/// The node&#39;s secret key determines the corresponding public key and hence the
 	/// node&#39;s peer ID in the context of libp2p.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;TYPE&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>, default_value_t = NodeKeyType::Ed25519)]
 	</span><span class="kw">pub </span>node_key_type: NodeKeyType,
 
-	<span class="doccomment">/// The file from which to read the node&#39;s secret key to use for libp2p networking.
+	<span class="doccomment">/// File from which to read the node&#39;s secret key to use for p2p networking.
+	///
 	/// The contents of the file are parsed according to the choice of `--node-key-type`
 	/// as follows:
-	///   `ed25519`:
-	///   The file must contain an unencoded 32 byte or hex encoded Ed25519 secret key.
+	///
+	/// - `ed25519`: the file must contain an unencoded 32 byte or hex encoded Ed25519 secret key.
+	///
 	/// If the file does not exist, it is created with a newly generated secret key of
 	/// the chosen type.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;FILE&quot;</span>)]
