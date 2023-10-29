@@ -83,7 +83,7 @@ impl<T: Send> Deref for SpinlockGuard<'_, T> {
 
 	fn deref(&self) -> &T {
 		// SAFETY: It is safe to dereference a guard to the `UnsafeCell` underlying data as the
-		// presence of the guard means the data are already locked.
+		// presence of the guard means the data is already locked.
 		unsafe { &*self.lock.data.get() }
 	}
 }
