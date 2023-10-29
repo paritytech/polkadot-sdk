@@ -793,6 +793,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "asset-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -812,6 +825,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "rococo-runtime",
+ "rococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
@@ -897,6 +911,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset-hub-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -926,6 +953,7 @@ dependencies = [
  "staging-xcm-executor",
  "westend-runtime",
  "westend-runtime-constants",
+ "westend-system-emulated-network",
  "xcm-emulator",
 ]
 
@@ -1000,6 +1028,19 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "westend-runtime-constants",
+]
+
+[[package]]
+name = "asset-hub-wococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -2003,6 +2044,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-hub-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "bridge-hub-rococo-runtime",
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -2020,6 +2074,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "rococo-wococo-system-emulated-network",
  "staging-xcm",
  "staging-xcm-executor",
  "xcm-emulator",
@@ -2153,6 +2208,19 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "bridge-hub-wococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "bridge-hub-rococo-runtime",
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -6462,16 +6530,8 @@ dependencies = [
 name = "integration-tests-common"
 version = "1.0.0"
 dependencies = [
- "asset-hub-kusama-runtime",
- "asset-hub-polkadot-runtime",
- "asset-hub-rococo-runtime",
- "asset-hub-westend-runtime",
  "bp-messages",
- "bridge-hub-kusama-runtime",
- "bridge-hub-polkadot-runtime",
- "bridge-hub-rococo-runtime",
  "bridge-runtime-common",
- "collectives-polkadot-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -6487,14 +6547,11 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "paste",
- "penpal-runtime",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "polkadot-service",
- "rococo-runtime",
- "rococo-runtime-constants",
  "sc-consensus-grandpa",
  "sp-authority-discovery",
  "sp-consensus-babe",
@@ -6502,8 +6559,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "staging-xcm",
- "westend-runtime",
- "westend-runtime-constants",
  "xcm-emulator",
 ]
 
@@ -11367,6 +11422,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "penpal-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "parachains-common",
+ "penpal-runtime",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "penpal-runtime"
 version = "0.9.27"
 dependencies = [
@@ -14074,6 +14142,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "pallet-im-online",
+ "pallet-staking",
+ "parachains-common",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "rococo-runtime",
+ "rococo-runtime-constants",
+ "sc-consensus-grandpa",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "rococo-parachain-runtime"
 version = "0.1.0"
 dependencies = [
@@ -14236,6 +14327,32 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+]
+
+[[package]]
+name = "rococo-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-emulated-chain",
+ "bridge-hub-rococo-emulated-chain",
+ "integration-tests-common",
+ "penpal-emulated-chain",
+ "rococo-emulated-chain",
+ "xcm-emulator",
+]
+
+[[package]]
+name = "rococo-wococo-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-emulated-chain",
+ "asset-hub-wococo-emulated-chain",
+ "bridge-hub-rococo-emulated-chain",
+ "bridge-hub-wococo-emulated-chain",
+ "integration-tests-common",
+ "rococo-emulated-chain",
+ "wococo-emulated-chain",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -20107,6 +20224,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "pallet-im-online",
+ "pallet-staking",
+ "parachains-common",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-consensus-grandpa",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+ "westend-runtime",
+ "westend-runtime-constants",
+ "xcm-emulator",
+]
+
+[[package]]
 name = "westend-runtime"
 version = "1.0.0"
 dependencies = [
@@ -20228,6 +20368,17 @@ dependencies = [
  "sp-runtime",
  "sp-weights",
  "staging-xcm",
+]
+
+[[package]]
+name = "westend-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-westend-emulated-chain",
+ "integration-tests-common",
+ "penpal-emulated-chain",
+ "westend-emulated-chain",
+ "xcm-emulator",
 ]
 
 [[package]]
@@ -20489,6 +20640,41 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "wococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "frame-support",
+ "integration-tests-common",
+ "pallet-im-online",
+ "pallet-staking",
+ "parachains-common",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "rococo-runtime",
+ "rococo-runtime-constants",
+ "sc-consensus-grandpa",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core",
+ "sp-runtime",
+ "xcm-emulator",
+]
+
+[[package]]
+name = "wococo-system-emulated-network"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-rococo-emulated-chain",
+ "bridge-hub-rococo-emulated-chain",
+ "integration-tests-common",
+ "penpal-emulated-chain",
+ "rococo-emulated-chain",
+ "xcm-emulator",
 ]
 
 [[package]]

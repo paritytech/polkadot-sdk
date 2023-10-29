@@ -19,7 +19,6 @@ pub use paste;
 pub use crate::{
 	constants::{PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD},
 	xcm_helpers::xcm_transact_unpaid_execution,
-	BridgeHubRococoPara, BridgeHubWococoPara,
 };
 
 // Substrate
@@ -41,6 +40,7 @@ pub use cumulus_primitives_core::{
 	relay_chain::HrmpChannelId, DmpMessageHandler, ParaId, XcmpMessageHandler,
 };
 use pallet_bridge_messages::{Config, Instance1, Instance2, OutboundLanes, Pallet};
+pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
 	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
@@ -78,13 +78,13 @@ impl From<u32> for LaneIdWrapper {
 	}
 }
 
-type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
-type BridgeHubWococoRuntime = <BridgeHubWococoPara as Chain>::Runtime;
+// type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
+// type BridgeHubWococoRuntime = <BridgeHubWococoPara as Chain>::Runtime;
 
-pub type RococoWococoMessageHandler =
-	BridgeHubMessageHandler<BridgeHubRococoRuntime, BridgeHubWococoRuntime, Instance2>;
-pub type WococoRococoMessageHandler =
-	BridgeHubMessageHandler<BridgeHubWococoRuntime, BridgeHubRococoRuntime, Instance2>;
+// pub type RococoWococoMessageHandler =
+// 	BridgeHubMessageHandler<BridgeHubRococoRuntime, BridgeHubWococoRuntime, Instance2>;
+// pub type WococoRococoMessageHandler =
+// 	BridgeHubMessageHandler<BridgeHubWococoRuntime, BridgeHubRococoRuntime, Instance2>;
 
 impl<S, T, I> BridgeMessageHandler for BridgeHubMessageHandler<S, T, I>
 where
@@ -564,7 +564,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 }
 
 #[macro_export]
-macro_rules! impl_assets_helpers_for_parachain {
+macro_rules! impl_assets_helpers_for_system_parachain {
 	( $chain:ident, $relay_chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
