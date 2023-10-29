@@ -357,8 +357,6 @@ pub mod pallet {
 
 	impl<T: Config> QueryController<OriginFor<T>, BlockNumberFor<T>> for Pallet<T> {
 		type WeightInfo = Self;
-		type QueryId = <Self as QueryHandler>::QueryId;
-		type BlockNumber = BlockNumberFor<T>;
 
 		fn query(
 			origin: OriginFor<T>,
@@ -374,10 +372,6 @@ pub mod pallet {
 			);
 
 			Ok(query_id)
-		}
-
-		fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
-			<Self as QueryHandler>::take_response(query_id)
 		}
 	}
 

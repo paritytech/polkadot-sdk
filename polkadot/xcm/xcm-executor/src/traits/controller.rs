@@ -16,17 +16,27 @@
 
 //! A set of traits that define how a pallet interface with XCM.
 
-use frame_support::pallet_prelude::*;
+use crate::{
+	traits::{QueryHandler, QueryResponseStatus},
+	InteriorMultiLocation,
+	Junctions::Here,
+	MultiLocation, Xcm,
+};
+use frame_support::{pallet_prelude::*, parameter_types};
 use sp_weights::Weight;
 use xcm::{v3::XcmHash, VersionedMultiLocation, VersionedXcm};
-use crate::traits::QueryResponseStatus;
-
 
 /// Umbrella trait for all Controller traits.
-pub trait Controller<Origin, RuntimeCall, Timeout>: ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout> {}
-impl <T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T
-where T: ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
-{}
+pub trait Controller<Origin, RuntimeCall, Timeout>:
+	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
+{
+}
+impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
+	T: ExecuteController<Origin, RuntimeCall>
+		+ SendController<Origin>
+		+ QueryController<Origin, Timeout>
+{
+}
 
 /// Weight functions needed for [`ExecuteController`].
 pub trait ExecuteControllerWeightInfo {
@@ -86,9 +96,7 @@ pub trait QueryControllerWeightInfo {
 }
 
 /// Query a remote location, from a given origin.
-pub trait QueryController<Origin, Timeout> {
-	type QueryId: Encode + Decode + MaxEncodedLen;
-	type BlockNumber: Encode + Decode + MaxEncodedLen;
+pub trait QueryController<Origin, Timeout>: QueryHandler {
 	type WeightInfo: QueryControllerWeightInfo;
 
 	/// Query a remote location.
@@ -103,11 +111,6 @@ pub trait QueryController<Origin, Timeout> {
 		timeout: Timeout,
 		match_querier: VersionedMultiLocation,
 	) -> Result<Self::QueryId, DispatchError>;
-
-	/// Take an XCM response for the specified query.
-	///
-	/// - `query_id`: the query id returned by [`Self::query`].
-	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber>;
 }
 
 impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
@@ -145,9 +148,8 @@ impl SendControllerWeightInfo for () {
 }
 
 impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
-	type QueryId = u64;
-	type BlockNumber = u64;
 	type WeightInfo = ();
+
 	fn query(
 		_origin: Origin,
 		_timeout: Timeout,
@@ -155,9 +157,39 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 	) -> Result<Self::QueryId, DispatchError> {
 		Ok(Default::default())
 	}
+}
+
+parameter_types! {
+	pub UniversalLocation: InteriorMultiLocation = Here;
+}
+
+impl QueryHandler for () {
+	type BlockNumber = u64;
+	type Error = ();
+	type QueryId = u64;
+	type UniversalLocation = UniversalLocation;
+
 	fn take_response(_query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		QueryResponseStatus::NotFound
 	}
+	fn new_query(
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+		_match_querier: impl Into<MultiLocation>,
+	) -> Self::QueryId {
+		0u64
+	}
+
+	fn report_outcome(
+		_message: &mut Xcm<()>,
+		_responder: impl Into<MultiLocation>,
+		_timeout: Self::BlockNumber,
+	) -> Result<Self::QueryId, Self::Error> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn expect_response(_id: Self::QueryId, _response: Response) {}
 }
 
 impl QueryControllerWeightInfo for () {

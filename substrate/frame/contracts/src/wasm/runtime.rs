@@ -2849,9 +2849,9 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use xcm_executor::traits::{QueryController, QueryControllerWeightInfo};
+		use xcm_executor::traits::{QueryController, QueryHandler, QueryControllerWeightInfo};
 
-		let query_id: <<E::T as Config>::Xcm as QueryController<_, _>>::QueryId =
+		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
 
 		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::take_response();
