@@ -58,7 +58,7 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchResult,
+	dispatch::{DispatchResult, PostDispatchInfo},
 	ensure,
 	storage::bounded_vec::BoundedVec,
 	traits::{
@@ -427,26 +427,48 @@ pub mod pallet {
 
 			Ok(())
 		}
-	}
 
-	/// Force remove a vesting schedule
-	///
-	/// The dispatch origin for this call must be _Root_.
-	///
-	/// - `target`: An account that has a vesting schedule
-	/// - `schedule_index`: The vesting schedule index that should be removed
-	#[pallet::call_index(5)]
-	#[pallet::weight(
-	T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
-	)]
-	pub fn force_remove_vesting_schedule(
-		origin: OriginFor<T>,
-		target: <T::Lookup as StaticLookup>::Source,
-		schedule_index: u32,
-	) -> DispatchResult {
-		ensure_root(origin)?;
-		let who = T::Lookup::lookup(target)?;
-		Self::remove_vesting_schedule(&who, schedule_index)
+		/// Force remove a vesting schedule
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// - `target`: An account that has a vesting schedule
+		/// - `schedule_index`: The vesting schedule index that should be removed
+		#[pallet::call_index(5)]
+		#[pallet::weight(
+			T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+		)]
+		pub fn force_remove_vesting_schedule(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			schedule_index: u32,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			let who = T::Lookup::lookup(target)?;
+
+			// Efficiently get the number of vesting schedules for `who`
+			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
+			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
+
+			Self::remove_vesting_schedule(&who, schedule_index);
+			let current_count = Vesting::<T>::try_mutate(&who, |vesting_schedules_option| -> Result<usize, DispatchError> {
+				// If the account already has vesting schedules
+				if let Some(vesting_schedules) = vesting_schedules_option {
+					Ok(vesting_schedules.len())
+				}
+				else {
+					Ok(0)
+				}
+			})?;
+
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::force_remove_vesting_schedule(
+					MaxLocksOf::<T>::get(),
+					T::MAX_VESTING_SCHEDULES,
+				)),
+				pays_fee: Default::default(),
+			})
+		}
 	}
 }
 

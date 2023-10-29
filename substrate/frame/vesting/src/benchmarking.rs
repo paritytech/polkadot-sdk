@@ -271,52 +271,6 @@ benchmarks! {
 			);
 		}
 
-	force_remove_vesting_schedule {
-		let l in 0 .. MaxLocksOf::<T>::get() - 1;
-		let s in 2 .. T::MAX_VESTING_SCHEDULES;
-
-		let source: T::AccountId = account("source", 0, SEED);
-		let source_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(source.clone());
-		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
-
-		let target: T::AccountId = account("target", 0, SEED);
-		let target_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(target.clone());
-
-		assert!(l <= u8::MAX.into());
-		// Give target existing locks.
-		add_locks::<T>(&target, l as u8);
-
-		let transfer_amount = T::MinVestedTransfer::get();
-		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
-
-		let mut expected_balance = add_vesting_schedules::<T>(target_lookup.clone(), s -1)?;
-		let expected_balance = transfer_amount.checked_mul(&number_of_schedules_after_removal.into()).unwrap();
-
-		// It will remove last vesting schedule.
-		let schedule_index = s - 1;
-
-		let vesting_schedule = VestingInfo::new(
-			transfer_amount,
-			per_block,
-			1u32.into(),
-		);
-
-		for _ in 0..s {
-			assert_ok!(Vesting::<T>::do_vested_transfer(
-				source_lookup.clone(),
-				target_lookup.clone(),
-				vesting_schedule.into()
-			));
-		}
-	}: _(RawOrigin::Root, target_lookup, schedule_index)
-	verify {
-		assert_eq!(
-			Vesting::<T>::vesting_balance(&target),
-			Some(expected_balance),
-			"Vesting schedule was not removed",
-		);
-	}
-
 	not_unlocking_merge_schedules {
 		let l in 0 .. MaxLocksOf::<T>::get() - 1;
 		let s in 2 .. T::MAX_VESTING_SCHEDULES;
@@ -426,6 +380,52 @@ benchmarks! {
 		// Since merge unlocks all schedules we can now transfer the balance.
 		assert_ok!(
 			T::Currency::transfer(&caller, &test_dest, expected_balance, ExistenceRequirement::AllowDeath)
+		);
+	}
+
+force_remove_vesting_schedule {
+		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let s in 2 .. T::MAX_VESTING_SCHEDULES;
+
+		let source: T::AccountId = account("source", 0, SEED);
+		let source_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(source.clone());
+		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(target.clone());
+
+		assert!(l <= u8::MAX.into());
+		// Give target existing locks.
+		add_locks::<T>(&target, l as u8);
+
+		let transfer_amount = T::MinVestedTransfer::get();
+		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
+
+		let number_of_schedules_after_removal = s - 1;
+		let expected_balance = transfer_amount.checked_mul(&number_of_schedules_after_removal.into()).unwrap();
+
+		// It will remove last vesting schedule.
+		let schedule_index = s - 1;
+
+		let vesting_schedule = VestingInfo::new(
+			transfer_amount,
+			per_block,
+			1u32.into(),
+		);
+
+		for _ in 0..s {
+			assert_ok!(Vesting::<T>::do_vested_transfer(
+				source_lookup.clone(),
+				target_lookup.clone(),
+				vesting_schedule.into()
+			));
+		}
+	}: _(RawOrigin::Root, target_lookup, schedule_index)
+	verify {
+		assert_eq!(
+			Vesting::<T>::vesting_balance(&target),
+			Some(expected_balance),
+			"Vesting schedule was not removed",
 		);
 	}
 
