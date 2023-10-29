@@ -90,6 +90,7 @@ impl<T: Send> Deref for SpinlockGuard<'_, T> {
 
 impl<T: Send> DerefMut for SpinlockGuard<'_, T> {
 	fn deref_mut(&mut self) -> &mut T {
+		// SAFETY: Same as for `Deref::deref`.
 		unsafe { &mut *self.lock.data.get() }
 	}
 }
