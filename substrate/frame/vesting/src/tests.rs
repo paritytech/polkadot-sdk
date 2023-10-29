@@ -1156,7 +1156,6 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 	});
 }
 
-
 #[test]
 fn remove_vesting_schedule() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
@@ -1181,7 +1180,7 @@ fn remove_vesting_schedule() {
 		assert_noop!(Vesting::force_remove_vesting_schedule(Some(4).into(), 4, 0), BadOrigin);
 		// Verify that root can remove the schedule.
 		assert_ok!(Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0));
-// Verify that last event is VestingCompleted.
+		// Verify that last event is VestingCompleted.
 		System::assert_last_event(Event::VestingCompleted { account: 4 }.into());
 		// Appropriate storage is cleaned up.
 		assert!(!<VestingStorage<Test>>::contains_key(4));

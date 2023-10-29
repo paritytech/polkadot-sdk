@@ -451,15 +451,17 @@ pub mod pallet {
 			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
 
 			Self::remove_vesting_schedule(&who, schedule_index);
-			let current_count = Vesting::<T>::try_mutate(&who, |vesting_schedules_option| -> Result<usize, DispatchError> {
-				// If the account already has vesting schedules
-				if let Some(vesting_schedules) = vesting_schedules_option {
-					Ok(vesting_schedules.len())
-				}
-				else {
-					Ok(0)
-				}
-			})?;
+			let current_count = Vesting::<T>::try_mutate(
+				&who,
+				|vesting_schedules_option| -> Result<usize, DispatchError> {
+					// If the account already has vesting schedules
+					if let Some(vesting_schedules) = vesting_schedules_option {
+						Ok(vesting_schedules.len())
+					} else {
+						Ok(0)
+					}
+				},
+			)?;
 
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::force_remove_vesting_schedule(
