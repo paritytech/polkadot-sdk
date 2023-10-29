@@ -450,7 +450,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 				message,
 			)
 			.map(|result| ((Wococo, result.0), result.1)),
-			location if location == EthereumNetwork::get() && network == Rococo => {
+			location if location == EthereumNetwork::get() && network == EthereumNetwork::get() => { // TODO check
 				SnowbridgeExporter::validate(
 					network,
 					channel,
@@ -469,7 +469,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 		match network {
 			Rococo => ToBridgeHubRococoHaulBlobExporter::deliver(ticket),
 			Wococo => ToBridgeHubWococoHaulBlobExporter::deliver(ticket),
-			location if location == EthereumNetwork::get() && network == Rococo => {
+			location if location == EthereumNetwork::get() && network == EthereumNetwork::get() => { // TODO check
 				SnowbridgeExporter::deliver(ticket)
 			},
 			_ => unimplemented!("Unsupported network: {:?}", network),

@@ -938,11 +938,12 @@ pub mod bridging {
 				),
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![
-						EthereumLocation::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
-					]),
+					None, // no remote location filter
 					SiblingBridgeHub::get(), // TODO check
-					None // TODO check
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
+					).into()) // TODO check
 				),
 			];
 

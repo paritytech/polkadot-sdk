@@ -64,11 +64,6 @@ impl<SelfNetworkId: Get<NetworkId>> ContainsPair<MultiLocation, MultiLocation>
 	for FromNetwork<SelfNetworkId>
 {
 	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
-		// `a` needs to be from `b` at least
-		if !a.starts_with(b) {
-			return false;
-		}
-
 		match a {
 			MultiLocation { parents: 2, interior } => {
 				matches!(interior.first(), Some(GlobalConsensus(network)) if *network == SelfNetworkId::get())
