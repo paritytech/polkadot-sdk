@@ -28,12 +28,12 @@ use std::{
 	sync::atomic::{AtomicBool, Ordering},
 };
 
-struct Spinlock<T: Send> {
+struct Spinlock<T> {
 	lock: AtomicBool,
 	data: UnsafeCell<T>,
 }
 
-struct SpinlockGuard<'a, T: 'a + Send> {
+struct SpinlockGuard<'a, T: 'a> {
 	lock: &'a Spinlock<T>,
 }
 
@@ -45,7 +45,7 @@ struct SpinlockGuard<'a, T: 'a + Send> {
 // necessarily be `Sync` too).
 unsafe impl<T: Send> Sync for Spinlock<T> {}
 
-impl<T: Send> Spinlock<T> {
+impl<T> Spinlock<T> {
 	pub const fn new(t: T) -> Spinlock<T> {
 		Spinlock { lock: AtomicBool::new(false), data: UnsafeCell::new(t) }
 	}
@@ -78,7 +78,7 @@ impl<T: Send> Spinlock<T> {
 	}
 }
 
-impl<T: Send> Deref for SpinlockGuard<'_, T> {
+impl<T> Deref for SpinlockGuard<'_, T> {
 	type Target = T;
 
 	fn deref(&self) -> &T {
@@ -88,14 +88,14 @@ impl<T: Send> Deref for SpinlockGuard<'_, T> {
 	}
 }
 
-impl<T: Send> DerefMut for SpinlockGuard<'_, T> {
+impl<T> DerefMut for SpinlockGuard<'_, T> {
 	fn deref_mut(&mut self) -> &mut T {
 		// SAFETY: Same as for `Deref::deref`.
 		unsafe { &mut *self.lock.data.get() }
 	}
 }
 
-impl<T: Send> Drop for SpinlockGuard<'_, T> {
+impl<T> Drop for SpinlockGuard<'_, T> {
 	fn drop(&mut self) {
 		self.lock.unlock();
 	}
