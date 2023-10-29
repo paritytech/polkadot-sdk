@@ -38,6 +38,7 @@ pub struct NodeKeyParams {
 	/// `--node-key-type` as follows:
 	///
 	///  - `ed25519`: the value is parsed as a hex-encoded Ed25519 32 byte secret key (64 hex
+	///    chars)
 	///
 	/// The value of this option takes precedence over `--node-key-file`.
 	///
