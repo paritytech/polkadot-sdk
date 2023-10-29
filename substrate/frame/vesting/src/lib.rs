@@ -450,8 +450,8 @@ pub mod pallet {
 			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
 			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
 
-			Self::remove_vesting_schedule(&who, schedule_index);
-			let current_count = Vesting::<T>::try_mutate(
+			let _ = Self::remove_vesting_schedule(&who, schedule_index);
+			let _current_count = Vesting::<T>::try_mutate(
 				&who,
 				|vesting_schedules_option| -> Result<usize, DispatchError> {
 					// If the account already has vesting schedules
