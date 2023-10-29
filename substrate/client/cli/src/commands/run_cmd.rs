@@ -108,7 +108,7 @@ pub struct RunCmd {
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
-	#[arg(long, value_name = "ORIGINS", value_enum, value_parser = parse_cors)]
+	#[arg(long, value_name = "ORIGINS", value_parser = parse_cors)]
 	pub rpc_cors: Option<Cors>,
 
 	/// The human-readable name for this node.
