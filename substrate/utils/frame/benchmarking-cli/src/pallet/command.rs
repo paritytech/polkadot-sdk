@@ -25,7 +25,7 @@ use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
-use sc_executor::WasmExecutor;
+use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::Configuration;
 use serde::Serialize;
 use sp_core::{
@@ -219,12 +219,20 @@ impl PalletCmd {
 		let method =
 			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
 
+		let heap_pages =
+			self.heap_pages
+				.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
+					extra_pages: p as _,
+				});
+
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
 			frame_benchmarking::benchmarking::HostFunctions,
 			ExtraHostFunctions,
 		)>::builder()
 		.with_execution_method(method)
+		.with_onchain_heap_alloc_strategy(heap_pages)
+		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(2)
 		.with_runtime_cache_size(2)
 		.build();
