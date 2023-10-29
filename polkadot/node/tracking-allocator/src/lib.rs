@@ -37,8 +37,12 @@ struct SpinlockGuard<'a, T: 'a + Send> {
 	lock: &'a Spinlock<T>,
 }
 
-// SAFETY: Data under `UnsafeCell<T>` are protected by an exclusive lock, so they may be shared
-// between threads safely
+// SAFETY: We require that the data inside of the `SpinLock` is `Send`, so it can be sent
+// and accessed by any thread as long as it's accessed by only one thread at a time.
+// The `SpinLock` provides an exclusive lock over it, so it guarantees that multiple
+// threads cannot access it at the same time, hence it implements `Sync` (that is, it can be
+// accessed concurrently from multiple threads, even though the `T` itself might not
+// necessarily be `Sync` too).
 unsafe impl<T: Send> Sync for Spinlock<T> {}
 
 impl<T: Send> Spinlock<T> {
