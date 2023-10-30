@@ -907,8 +907,7 @@ fn runtime_upgrade_events() {
 				assert!(System::digest()
 					.logs()
 					.iter()
-					.find(|d| **d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
-					.is_some());
+					.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
 			},
 		);
 }
