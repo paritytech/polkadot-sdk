@@ -3569,6 +3569,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-transaction-pool",
 ]
@@ -3629,6 +3630,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
+ "rand 0.8.5",
  "sc-client-api",
  "scale-info",
  "sp-core",
@@ -3636,6 +3638,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-state-machine",
  "sp-std",
@@ -3644,6 +3647,7 @@ dependencies = [
  "sp-version",
  "staging-xcm",
  "trie-db",
+ "trie-standardmap",
 ]
 
 [[package]]
@@ -3964,6 +3968,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-timestamp",
  "substrate-test-client",
@@ -15711,6 +15716,7 @@ dependencies = [
  "sp-core",
  "sp-maybe-compressed-blob",
  "sp-runtime",
+ "sp-trie",
  "sp-version",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -17343,6 +17349,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-proof-size-hostfunction"
+version = "0.1.0"
+dependencies = [
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-trie",
+]
+
+[[package]]
 name = "sp-rpc"
 version = "6.0.0"
 dependencies = [
@@ -17407,6 +17425,7 @@ name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
 dependencies = [
  "Inflector",
+ "expander 2.0.0",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -17617,6 +17636,7 @@ dependencies = [
  "scale-info",
  "schnellru",
  "sp-core",
+ "sp-externalities",
  "sp-runtime",
  "sp-std",
  "thiserror",

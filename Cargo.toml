@@ -410,6 +410,7 @@ members = [
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
+	"substrate/primitives/proof-size-hostfunction",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime-interface",
 	"substrate/primitives/runtime-interface/proc-macro",

@@ -52,7 +52,7 @@ use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo};
 use std::{sync::Arc, time::Duration};
 
-pub use sp_proof_size_provider::storage_proof_size;
+pub use sp_proof_size_hostfunction::storage_proof_size;
 
 // Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.
