@@ -2,10 +2,10 @@
 name = "sp-tracing"
 version = "10.0.0"
 license = "Apache-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Instrumentation primitives and macros for Substrate."
 readme = "README.md"
 

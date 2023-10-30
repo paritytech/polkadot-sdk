@@ -1,13 +1,14 @@
 [package]
 name = "rococo-parachain-runtime"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Simple runtime used by the rococo parachain(s)"
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
@@ -26,6 +27,7 @@ sp-api = { path = "../../../../../substrate/primitives/api", default-features = 
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
@@ -36,10 +38,11 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-polkadot-parachain = { path = "../../../../../polkadot/parachain", default-features = false}
-xcm = { path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -68,6 +71,7 @@ std = [
 	"cumulus-ping/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -82,11 +86,14 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -100,10 +107,23 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 
 experimental = [ "pallet-aura/experimental" ]

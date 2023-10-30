@@ -30,16 +30,18 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit, ItemOf},
-		tokens::{nonfungibles_v2::Inspect, GetSalary, PayFromAccount},
+		fungible::{Balanced, Credit, HoldConsideration, ItemOf},
+		tokens::{nonfungibles_v2::Inspect, pay::PayAssetFromAccount, GetSalary, PayFromAccount},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
-		KeyOwnerProofSystem, LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
+		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
+		WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -57,7 +59,8 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
-use pallet_election_provider_multi_phase::SolutionAccuracyOf;
+use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
+use pallet_identity::simple::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
@@ -447,10 +450,10 @@ impl pallet_glutton::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageMaxSize: u32 = 4096 * 1024;
 	pub const PreimageBaseDeposit: Balance = 1 * DOLLARS;
 	// One cent: $10,000 / MB
 	pub const PreimageByteDeposit: Balance = 1 * CENTS;
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -458,8 +461,12 @@ impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = PreimageBaseDeposit;
-	type ByteDeposit = PreimageByteDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 parameter_types! {
@@ -506,6 +513,8 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
@@ -515,10 +524,9 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<Runtime>;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<2>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
+	type MaxHolds = ConstU32<5>;
 }
 
 parameter_types! {
@@ -583,6 +591,7 @@ impl_opaque_keys! {
 		pub babe: Babe,
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
+		pub mixnet: Mixnet,
 	}
 }
 
@@ -689,7 +698,8 @@ parameter_types! {
 
 	// signed config
 	pub const SignedRewardBase: Balance = 1 * DOLLARS;
-	pub const SignedDepositBase: Balance = 1 * DOLLARS;
+	pub const SignedFixedDeposit: Balance = 1 * DOLLARS;
+	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	pub const SignedDepositByte: Balance = 1 * CENTS;
 
 	pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
@@ -817,7 +827,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerConfig = Self;
 	type SignedMaxSubmissions = ConstU32<10>;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositBase =
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedMaxRefunds = ConstU32<3>;
 	type SignedDepositWeight = ();
@@ -874,6 +885,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -1039,7 +1051,7 @@ impl pallet_democracy::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
 	type InstantOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
-	type InstantAllowed = frame_support::traits::ConstBool<true>;
+	type InstantAllowed = ConstBool<true>;
 	type FastTrackVotingPeriod = FastTrackVotingPeriod;
 	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
 	type CancellationOrigin =
@@ -1177,6 +1189,7 @@ parameter_types! {
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -1202,6 +1215,14 @@ impl pallet_treasury::Config for Runtime {
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
+	type AssetKind = u32;
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = Indices;
+	type Paymaster = PayAssetFromAccount<Assets, TreasuryAccount>;
+	type BalanceConverter = AssetRate;
+	type PayoutPeriod = SpendPayoutPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_asset_rate::Config for Runtime {
@@ -1281,6 +1302,7 @@ impl pallet_tips::Config for Runtime {
 	type TipCountdown = TipCountdown;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
+	type MaxTipAmount = ConstU128<{ 500 * DOLLARS }>;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1453,6 +1475,7 @@ impl pallet_identity::Config for Runtime {
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
@@ -2009,6 +2032,29 @@ impl pallet_broker::Config for Runtime {
 	type PriceAdapter = pallet_broker::Linear;
 }
 
+parameter_types! {
+	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
+	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
+	pub const MixnetNumCoverToPrevBlocks: BlockNumber = 3;
+	pub const MixnetNumRegisterStartSlackBlocks: BlockNumber = 3;
+	pub const MixnetNumRegisterEndSlackBlocks: BlockNumber = 3;
+	pub const MixnetRegistrationPriority: TransactionPriority = ImOnlineUnsignedPriority::get() - 1;
+}
+
+impl pallet_mixnet::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+	type MaxExternalAddressSize = ConstU32<128>;
+	type MaxExternalAddressesPerMixnode = ConstU32<16>;
+	type NextSessionRotation = Babe;
+	type NumCoverToCurrentBlocks = MixnetNumCoverToCurrentBlocks;
+	type NumRequestsToCurrentBlocks = MixnetNumRequestsToCurrentBlocks;
+	type NumCoverToPrevBlocks = MixnetNumCoverToPrevBlocks;
+	type NumRegisterStartSlackBlocks = MixnetNumRegisterStartSlackBlocks;
+	type NumRegisterEndSlackBlocks = MixnetNumRegisterEndSlackBlocks;
+	type RegistrationPriority = MixnetRegistrationPriority;
+	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
+}
+
 construct_runtime!(
 	pub struct Runtime
 	{
@@ -2085,6 +2131,7 @@ construct_runtime!(
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		Mixnet: pallet_mixnet,
 	}
 );
 
@@ -2583,10 +2630,10 @@ impl_runtime_apis! {
 
 		fn system_attribute(
 			collection: u32,
-			item: u32,
+			item: Option<u32>,
 			key: Vec<u8>,
 		) -> Option<Vec<u8>> {
-			<Nfts as Inspect<AccountId>>::system_attribute(&collection, &item, &key)
+			<Nfts as Inspect<AccountId>>::system_attribute(&collection, item.as_ref(), &key)
 		}
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
@@ -2641,6 +2688,24 @@ impl_runtime_apis! {
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
+		}
+	}
+
+	impl sp_mixnet::runtime_api::MixnetApi<Block> for Runtime {
+		fn session_status() -> sp_mixnet::types::SessionStatus {
+			Mixnet::session_status()
+		}
+
+		fn prev_mixnodes() -> Result<Vec<sp_mixnet::types::Mixnode>, sp_mixnet::types::MixnodesErr> {
+			Mixnet::prev_mixnodes()
+		}
+
+		fn current_mixnodes() -> Result<Vec<sp_mixnet::types::Mixnode>, sp_mixnet::types::MixnodesErr> {
+			Mixnet::current_mixnodes()
+		}
+
+		fn maybe_register(session_index: sp_mixnet::types::SessionIndex, mixnode: sp_mixnet::types::Mixnode) -> bool {
+			Mixnet::maybe_register(session_index, mixnode)
 		}
 	}
 
@@ -2741,6 +2806,16 @@ impl_runtime_apis! {
 			let params = (&config, &whitelist);
 			add_benchmarks!(params, batches);
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

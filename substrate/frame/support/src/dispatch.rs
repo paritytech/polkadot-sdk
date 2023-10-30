@@ -18,30 +18,18 @@
 //! Dispatch system. Contains a macro for defining runtime modules and
 //! generating values representing lazy module function calls.
 
-pub use crate::traits::{
-	CallMetadata, GetCallIndex, GetCallMetadata, GetCallName, GetStorageVersion,
-	UnfilteredDispatchable,
-};
-pub use codec::{
-	Codec, Decode, Encode, EncodeAsRef, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
-};
-pub use scale_info::TypeInfo;
-pub use sp_runtime::{
-	traits::Dispatchable, transaction_validity::TransactionPriority, DispatchError, RuntimeDebug,
-};
-pub use sp_std::{
-	fmt, marker,
-	prelude::{Clone, Eq, PartialEq, Vec},
-	result,
-};
-pub use sp_weights::Weight;
-
+use crate::traits::UnfilteredDispatchable;
+use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
 	traits::SignedExtension,
+	DispatchError, RuntimeDebug,
 };
+use sp_std::fmt;
+use sp_weights::Weight;
 
 /// The return type of a `Dispatchable` in frame. When returned explicitly from
 /// a dispatchable function it allows overriding the default `PostDispatchInfo`
@@ -147,6 +135,15 @@ impl Default for Pays {
 impl From<Pays> for PostDispatchInfo {
 	fn from(pays_fee: Pays) -> Self {
 		Self { actual_weight: None, pays_fee }
+	}
+}
+
+impl From<bool> for Pays {
+	fn from(b: bool) -> Self {
+		match b {
+			true => Self::Yes,
+			false => Self::No,
+		}
 	}
 }
 
@@ -393,7 +390,7 @@ impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
 }
 
 /// A struct holding value for each `DispatchClass`.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct PerDispatchClass<T> {
 	/// Value for `Normal` extrinsics.
 	normal: T,

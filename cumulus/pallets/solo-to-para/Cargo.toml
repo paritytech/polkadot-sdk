@@ -1,13 +1,13 @@
 [package]
 name = "cumulus-pallet-solo-to-para"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 description = "Adds functionality to migrate from a Solo to a Parachain"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
@@ -35,4 +35,10 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-sudo/try-runtime",
+	"sp-runtime/try-runtime",
+]

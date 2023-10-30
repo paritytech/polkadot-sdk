@@ -1,5 +1,5 @@
 error: Generic parameters not supported.
- --> $DIR/no_generic_parameters_trait.rs:4:12
-  |
-4 | trait Test<T> {
-  |            ^
+  --> tests/ui/no_generic_parameters_trait.rs:21:12
+   |
+21 | trait Test<T> {
+   |            ^

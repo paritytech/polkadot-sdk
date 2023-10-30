@@ -711,7 +711,7 @@ mod tests {
 	use claims::Call as ClaimsCall;
 	use frame_support::{
 		assert_err, assert_noop, assert_ok,
-		dispatch::{DispatchError::BadOrigin, GetDispatchInfo, Pays},
+		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
 		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
 	};
@@ -719,7 +719,9 @@ mod tests {
 	use sp_runtime::{
 		traits::{BlakeTwo256, Identity, IdentityLookup},
 		transaction_validity::TransactionLongevity,
-		BuildStorage, TokenError,
+		BuildStorage,
+		DispatchError::BadOrigin,
+		TokenError,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -778,6 +780,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
@@ -1470,7 +1473,7 @@ mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};
-	use frame_support::dispatch::UnfilteredDispatchable;
+	use frame_support::traits::UnfilteredDispatchable;
 	use frame_system::RawOrigin;
 	use secp_utils::*;
 	use sp_runtime::{traits::ValidateUnsigned, DispatchResult};

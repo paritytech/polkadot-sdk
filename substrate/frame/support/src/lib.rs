@@ -30,6 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Export ourself as `frame_support` to make tests happy.
+#[doc(hidden)]
 extern crate self as frame_support;
 
 /// Private exports that are being used by macros.
@@ -45,11 +46,12 @@ pub mod __private {
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
+	pub use sp_inherents;
 	pub use sp_io::{self, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
-	pub use sp_runtime::{RuntimeDebug, StateVersion};
+	pub use sp_runtime::{traits::Dispatchable, RuntimeDebug, StateVersion};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
 	pub use sp_std;
@@ -786,12 +788,6 @@ pub use serde::{Deserialize, Serialize};
 #[cfg(not(no_std))]
 pub use macro_magic;
 
-/// Private module re-exporting items used by frame support macros.
-#[doc(hidden)]
-pub mod _private {
-	pub use sp_inherents;
-}
-
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
 pub mod testing_prelude {
@@ -806,19 +802,20 @@ pub mod testing_prelude {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{
-		dispatch::{
-			DispatchClass, DispatchError, DispatchResult, DispatchResultWithPostInfo, Parameter,
-			Pays,
-		},
+		defensive, defensive_assert,
+		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
 		storage::{
+			bounded_btree_map::BoundedBTreeMap,
+			bounded_btree_set::BoundedBTreeSet,
 			bounded_vec::BoundedVec,
 			types::{
 				CountedStorageMap, CountedStorageNMap, Key as NMapKey, OptionQuery, ResultQuery,
 				StorageDoubleMap, StorageMap, StorageNMap, StorageValue, ValueQuery,
 			},
+			weak_bounded_vec::WeakBoundedVec,
 			StorageList,
 		},
 		traits::{
@@ -855,7 +852,7 @@ pub mod pallet_prelude {
 			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
 			ValidTransaction,
 		},
-		RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
+		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
 	pub use sp_std::marker::PhantomData;
 	pub use sp_weights::Weight;
@@ -1266,8 +1263,9 @@ pub mod pallet_prelude {
 /// Field types in enum variants must also implement [`PalletError`](traits::PalletError),
 /// otherwise the pallet will fail to compile. Rust primitive types have already implemented
 /// the [`PalletError`](traits::PalletError) trait along with some commonly used stdlib types
-/// such as [`Option`] and [`PhantomData`](`frame_support::dispatch::marker::PhantomData`), and
-/// hence in most use cases, a manual implementation is not necessary and is discouraged.
+/// such as [`Option`] and
+/// [`PhantomData`](`frame_support::__private::sp_std::marker::PhantomData`), and hence in most
+/// use cases, a manual implementation is not necessary and is discouraged.
 ///
 /// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
 /// bounds and/or a where clause should not needed for any use-case.
@@ -1648,8 +1646,7 @@ pub mod pallet_prelude {
 /// the enum:
 ///
 /// ```ignore
-/// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug
 /// ```
 ///
 /// The inverse is also true: if there are any #[derive] attributes present for the enum, then
@@ -1817,6 +1814,15 @@ pub mod pallet_prelude {
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T>(PhantomData<T>);
 ///
+///     // Declare a hold reason (this is optional).
+///     //
+///     // Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+///     // A similar enum can be defined for `FreezeReason`, `LockId` or `SlashReason`.
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason {
+/// 		SomeHoldReason
+/// 	}
+///
 /// 	// Declare validate_unsigned implementation (this is optional).
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -1950,6 +1956,11 @@ pub mod pallet_prelude {
 ///
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T, I = ()>(PhantomData<(T, I)>);
+///
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason<I: 'static = ()> {
+/// 		SomeHoldReason
+/// 	}
 ///
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config<I>, I: 'static> ValidateUnsigned for Pallet<T, I> {
@@ -2190,10 +2201,80 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		call_index, compact, composite_enum, config, constant,
 		disable_frame_system_supertrait_check, error, event, extra_constants, generate_deposit,
-		generate_store, genesis_build, genesis_config, getter, hooks, import_section, inherent,
-		no_default, no_default_bounds, origin, pallet_section, storage, storage_prefix,
-		storage_version, type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
+		origin, pallet_section, storage, storage_prefix, storage_version, type_value, unbounded,
+		validate_unsigned, weight, whitelist_storage,
 	};
+
+	/// Allows you to define the genesis configuration for the pallet.
+	///
+	/// Item is defined as either an enum or a struct. It needs to be public and implement the
+	/// trait [`frame_support::traits::BuildGenesisConfig`].
+	///
+	/// See [`genesis_build`] for an example.
+	pub use frame_support_procedural::genesis_config;
+
+	/// Allows you to define how the state of your pallet at genesis is built. This
+	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's initial
+	/// state.
+	///
+	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
+	///
+	/// ## Example:
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// pub mod pallet {
+	/// # 	#[pallet::config]
+	/// # 	pub trait Config: frame_system::Config {}
+	/// # 	#[pallet::pallet]
+	/// # 	pub struct Pallet<T>(_);
+	/// # 	use frame_support::traits::BuildGenesisConfig;
+	///     #[pallet::genesis_config]
+	///     #[derive(frame_support::DefaultNoBound)]
+	///     pub struct GenesisConfig<T: Config> {
+	///         foo: Vec<T::AccountId>
+	///     }
+	///
+	///     #[pallet::genesis_build]
+	///     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	///         fn build(&self) {
+	///             // use &self to access fields.
+	///             let foo = &self.foo;
+	///             todo!()
+	///         }
+	///     }
+	/// }
+	/// ```
+	///
+	/// ## Former Usage
+	///
+	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
+	/// This is deprecated and will soon be removed.
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// pub mod pallet {
+	/// #     #[pallet::config]
+	/// #     pub trait Config: frame_system::Config {}
+	/// #     #[pallet::pallet]
+	/// #     pub struct Pallet<T>(_);
+	/// #     use frame_support::traits::GenesisBuild;
+	///     #[pallet::genesis_config]
+	///     #[derive(frame_support::DefaultNoBound)]
+	///     pub struct GenesisConfig<T: Config> {
+	/// 		foo: Vec<T::AccountId>
+	/// 	}
+	///
+	///     #[pallet::genesis_build]
+	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	///         fn build(&self) {
+	///             todo!()
+	///         }
+	///     }
+	/// }
+	/// ```
+	pub use frame_support_procedural::genesis_build;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]

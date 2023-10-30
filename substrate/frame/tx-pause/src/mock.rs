@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,6 +78,7 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
@@ -120,7 +121,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 		match self {
 			ProxyType::Any => true,
 			ProxyType::JustTransfer => {
-				matches!(c, RuntimeCall::Balances(pallet_balances::Call::transfer { .. }))
+				matches!(
+					c,
+					RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
+				)
 			},
 			ProxyType::JustUtility => matches!(c, RuntimeCall::Utility { .. }),
 		}

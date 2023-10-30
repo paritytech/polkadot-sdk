@@ -1,11 +1,11 @@
 [package]
 name = "pallet-asset-conversion-tx-payment"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Pallet to manage transaction payments in assets by converting them to native assets."
 readme = "README.md"
 
@@ -21,7 +21,7 @@ frame-system = { path = "../../system", default-features = false}
 pallet-asset-conversion = { path = "../../asset-conversion", default-features = false}
 pallet-transaction-payment = { path = "..", default-features = false}
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 sp-core = { path = "../../../primitives/core", default-features = false}

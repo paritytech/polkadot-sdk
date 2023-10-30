@@ -441,8 +441,6 @@ pub mod pallet {
 			);
 
 			NextFundIndex::<T>::put(new_fund_index);
-			// Add a lock to the para so that the configuration cannot be changed.
-			T::Registrar::apply_lock(index);
 
 			Self::deposit_event(Event::<T>::Created { para_id: index });
 			Ok(())
@@ -943,6 +941,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;

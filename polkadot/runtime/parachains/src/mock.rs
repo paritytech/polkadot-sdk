@@ -135,6 +135,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -214,6 +215,7 @@ impl crate::paras::Config for Test {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = TestNextSessionRotation;
+	type OnNewHead = ();
 }
 
 impl crate::dmp::Config for Test {}

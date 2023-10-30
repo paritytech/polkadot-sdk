@@ -18,10 +18,11 @@
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
 use polkadot_node_core_pvf::{
-	start, Config, InvalidCandidate, Metrics, PrepareJobKind, PvfPrepData, ValidationError,
-	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
+	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
+	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
-use polkadot_parachain::primitives::{BlockData, ValidationParams, ValidationResult};
+use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
 
 #[cfg(feature = "ci-only-tests")]
@@ -33,7 +34,6 @@ use tokio::sync::Mutex;
 mod adder;
 mod worker_common;
 
-const PUPPET_EXE: &str = env!("CARGO_BIN_EXE_puppet_worker");
 const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -51,14 +51,46 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
+		let (prepare_worker_path, execute_worker_path) = get_and_check_worker_paths();
+
 		let cache_dir = tempfile::tempdir().unwrap();
-		let program_path = std::path::PathBuf::from(PUPPET_EXE);
-		let mut config =
-			Config::new(cache_dir.path().to_owned(), None, program_path.clone(), program_path);
+		let mut config = Config::new(
+			cache_dir.path().to_owned(),
+			None,
+			prepare_worker_path,
+			execute_worker_path,
+		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default());
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
+	}
+
+	async fn precheck_pvf(
+		&self,
+		code: &[u8],
+		executor_params: ExecutorParams,
+	) -> Result<PrepareStats, PrepareError> {
+		let (result_tx, result_rx) = futures::channel::oneshot::channel();
+
+		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
+			.expect("Compression works");
+
+		self.host
+			.lock()
+			.await
+			.precheck_pvf(
+				PvfPrepData::from_code(
+					code.into(),
+					executor_params,
+					TEST_PREPARATION_TIMEOUT,
+					PrepareJobKind::Prechecking,
+				),
+				result_tx,
+			)
+			.await
+			.unwrap();
+		result_rx.await.unwrap()
 	}
 
 	async fn validate_candidate(
@@ -258,38 +290,26 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 #[tokio::test]
 async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new();
-	let cache_dir = host.cache_dir.path().clone();
+	let cache_dir = host.cache_dir.path();
 
-	let result = host
-		.validate_candidate(
-			halt::wasm_binary_unwrap(),
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		)
-		.await;
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
 
-	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
-		r => panic!("{:?}", r),
-	}
-
-	// Delete the prepared artifact.
+	// Manually delete the prepared artifact from disk. The in-memory artifacts table won't change.
 	{
 		// Get the artifact path (asserting it exists).
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
-		assert_eq!(cache_dir.len(), 1);
-		let artifact_path = cache_dir.pop().unwrap().unwrap();
+		// Should contain the artifact and the worker dir.
+		assert_eq!(cache_dir.len(), 2);
+		let mut artifact_path = cache_dir.pop().unwrap().unwrap();
+		if artifact_path.path().is_dir() {
+			artifact_path = cache_dir.pop().unwrap().unwrap();
+		}
 
 		// Delete the artifact.
 		std::fs::remove_file(artifact_path.path()).unwrap();
 	}
 
-	// Try to validate again, artifact should get recreated.
+	// Try to validate, artifact should get recreated.
 	let result = host
 		.validate_candidate(
 			halt::wasm_binary_unwrap(),
@@ -307,4 +327,20 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
+}
+
+// With one worker, run multiple preparation jobs serially. They should not conflict.
+#[tokio::test]
+async fn prepare_can_run_serially() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.prepare_workers_hard_max_num = 1;
+	});
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+
+	// Prepare a different wasm blob to prevent skipping work.
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
 }

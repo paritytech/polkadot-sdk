@@ -1,4 +1,4 @@
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +14,9 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, Fellows, ParachainInfo, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, Fellows, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use frame_support::{
 	match_types, parameter_types,
@@ -24,19 +25,22 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteNativeAssetFrom};
-use polkadot_parachain::primitives::Sibling;
+use parachains_common::{impls::ToStakingPot, xcm_config::ConcreteAssetFromSystem};
+use polkadot_parachain_primitives::primitives::Sibling;
+use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, IsConcrete,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+
+const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
 
 parameter_types! {
 	pub const DotLocation: MultiLocation = MultiLocation::parent();
@@ -46,6 +50,17 @@ parameter_types! {
 		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
+	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
+	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
+	pub UsdtAssetHub: LocatableAssetId = LocatableAssetId {
+		location: AssetHub::get(),
+		asset_id: AssetHubUsdtId::get(),
+	};
+	pub DotAssetHub: LocatableAssetId = LocatableAssetId {
+		location: AssetHub::get(),
+		asset_id: DotLocation::get().into(),
+	};
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -212,7 +227,7 @@ pub type Barrier = TrailingSetTopicAsId<
 			// Allow XCMs with some computed origins to pass through.
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then
+					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent and its pluralities (i.e. governance bodies) get free execution.
@@ -227,6 +242,10 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - DOT with the parent Relay Chain and sibling parachains.
+pub type TrustedTeleporters = ConcreteAssetFromSystem<DotLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -236,8 +255,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Collectives does not recognize a reserve location for any asset. Users must teleport DOT
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of DOT.
-	type IsTeleporter = ConcreteNativeAssetFrom<DotLocation>;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<TempFixedXcmWeight, RuntimeCall, MaxInstructions>;
@@ -263,11 +281,14 @@ impl xcm_executor::Config for XcmConfig {
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
+pub type PriceForParentDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>,
+	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

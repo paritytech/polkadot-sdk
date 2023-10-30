@@ -53,7 +53,7 @@ impl From<Error> for XcmError {
 /// use frame_support::{parameter_types, PalletId};
 /// use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput};
 /// use xcm::latest::prelude::*;
-/// use xcm_builder::{ParentIsPreset, CurrencyAdapter, IsConcrete};
+/// use staging_xcm_builder::{ParentIsPreset, CurrencyAdapter, IsConcrete};
 ///
 /// /// Our chain's account id.
 /// type AccountId = sp_runtime::AccountId32;
@@ -191,7 +191,11 @@ impl<
 		}
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, _context: &XcmContext) -> Result {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		_context: Option<&XcmContext>,
+	) -> Result {
 		log::trace!(target: "xcm::currency_adapter", "deposit_asset what: {:?}, who: {:?}", what, who);
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(&what).ok_or(Error::AssetNotHandled)?;

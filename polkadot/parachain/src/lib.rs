@@ -27,10 +27,11 @@
 //! instance and exports a function `validate_block`.
 //!
 //! `validate` accepts as input two `i32` values, representing a pointer/length pair
-//! respectively, that encodes [`ValidationParams`].
+//! respectively, that encodes [`ValidationParams`](primitives::ValidationParams).
 //!
 //! `validate` returns an `u64` which is a pointer to an `u8` array and its length.
-//! The data in the array is expected to be a SCALE encoded [`ValidationResult`].
+//! The data in the array is expected to be a SCALE encoded
+//! [`ValidationResult`](primitives::ValidationResult).
 //!
 //! ASCII-diagram demonstrating the return data format:
 //!

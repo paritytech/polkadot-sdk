@@ -1,4 +1,4 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -22,11 +22,12 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::ParaId;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -41,10 +42,10 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use constants::{consensus::*, currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything},
 	weights::{ConstantMultiplier, Weight},
@@ -70,11 +71,13 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 use parachains_common::{
-	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees,
+	polkadot::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 // XCM Imports
-use xcm::latest::prelude::BodyId;
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 /// The address format for describing accounts.
@@ -246,6 +249,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -313,7 +317,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -670,9 +674,21 @@ impl_runtime_apis! {
 			use xcm::latest::prelude::*;
 			use xcm_config::DotRelayLocation;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					xcm_config::DotRelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(DotRelayLocation::get())
 				}
@@ -713,6 +729,7 @@ impl_runtime_apis! {
 			}
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
+				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
 
 				fn worst_case_response() -> (u64, Response) {
@@ -777,6 +794,16 @@ impl_runtime_apis! {
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

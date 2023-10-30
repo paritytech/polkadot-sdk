@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@ const CONTRACTS_PARACHAIN_ID: u32 = 1002;
 
 /// The existential deposit is determined by the runtime "contracts-rococo".
 const CONTRACTS_ROCOCO_ED: contracts_rococo_runtime::Balance =
-	contracts_rococo_runtime::constants::currency::EXISTENTIAL_DEPOSIT;
+	parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();

@@ -1,5 +1,5 @@
 error: Invalid usage of `#[pallet::constant]`: Expected a type argument
- --> $DIR/trait_constant_invalid_bound_lifetime.rs:9:15
-  |
-9 |         type U: Get<'static>;
-  |                     ^^^^^^^
+  --> tests/pallet_ui/trait_constant_invalid_bound_lifetime.rs:26:15
+   |
+26 |         type U: Get<'static>;
+   |                     ^^^^^^^

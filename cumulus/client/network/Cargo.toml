@@ -1,9 +1,9 @@
 [package]
 name = "cumulus-client-network"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Cumulus-specific networking protocol"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 async-trait = "0.1.73"
@@ -23,7 +23,7 @@ sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 
 # Polkadot
 polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
-polkadot-parachain = { path = "../../../polkadot/parachain" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
 
 # Cumulus

@@ -1,32 +1,41 @@
+[workspace.package]
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+repository = "https://github.com/paritytech/polkadot-sdk.git"
+license = "GPL-3.0-only"
+
 [workspace]
 resolver = "2"
 
 members = [
-	"cumulus/bridges/bin/runtime-common",
-	"cumulus/bridges/modules/grandpa",
-	"cumulus/bridges/modules/messages",
-	"cumulus/bridges/modules/parachains",
-	"cumulus/bridges/modules/relayers",
-	"cumulus/bridges/modules/xcm-bridge-hub-router",
-	"cumulus/bridges/primitives/chain-asset-hub-kusama",
-	"cumulus/bridges/primitives/chain-asset-hub-polkadot",
-	"cumulus/bridges/primitives/chain-bridge-hub-cumulus",
-	"cumulus/bridges/primitives/chain-bridge-hub-kusama",
-	"cumulus/bridges/primitives/chain-bridge-hub-polkadot",
-	"cumulus/bridges/primitives/chain-bridge-hub-rococo",
-	"cumulus/bridges/primitives/chain-bridge-hub-wococo",
-	"cumulus/bridges/primitives/chain-kusama",
-	"cumulus/bridges/primitives/chain-polkadot",
-	"cumulus/bridges/primitives/chain-rococo",
-	"cumulus/bridges/primitives/chain-wococo",
-	"cumulus/bridges/primitives/header-chain",
-	"cumulus/bridges/primitives/messages",
-	"cumulus/bridges/primitives/parachains",
-	"cumulus/bridges/primitives/polkadot-core",
-	"cumulus/bridges/primitives/relayers",
-	"cumulus/bridges/primitives/runtime",
-	"cumulus/bridges/primitives/test-utils",
-	"cumulus/bridges/primitives/xcm-bridge-hub-router",
+	"bridges/bin/runtime-common",
+	"bridges/modules/grandpa",
+	"bridges/modules/messages",
+	"bridges/modules/parachains",
+	"bridges/modules/relayers",
+	"bridges/modules/xcm-bridge-hub-router",
+	"bridges/primitives/chain-asset-hub-kusama",
+	"bridges/primitives/chain-asset-hub-polkadot",
+	"bridges/primitives/chain-asset-hub-rococo",
+	"bridges/primitives/chain-asset-hub-wococo",
+	"bridges/primitives/chain-bridge-hub-cumulus",
+	"bridges/primitives/chain-bridge-hub-kusama",
+	"bridges/primitives/chain-bridge-hub-polkadot",
+	"bridges/primitives/chain-bridge-hub-rococo",
+	"bridges/primitives/chain-bridge-hub-wococo",
+	"bridges/primitives/chain-kusama",
+	"bridges/primitives/chain-polkadot",
+	"bridges/primitives/chain-polkadot-bulletin",
+	"bridges/primitives/chain-rococo",
+	"bridges/primitives/chain-wococo",
+	"bridges/primitives/header-chain",
+	"bridges/primitives/messages",
+	"bridges/primitives/parachains",
+	"bridges/primitives/polkadot-core",
+	"bridges/primitives/relayers",
+	"bridges/primitives/runtime",
+	"bridges/primitives/test-utils",
+	"bridges/primitives/xcm-bridge-hub-router",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -53,16 +62,16 @@ members = [
 	"cumulus/parachain-template/pallets/template",
 	"cumulus/parachain-template/runtime",
 	"cumulus/parachains/common",
-	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-kusama",
-	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-polkadot",
+	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/bridges/bridge-hub-rococo",
-	"cumulus/parachains/integration-tests/emulated/collectives/collectives-polkadot",
 	"cumulus/parachains/integration-tests/emulated/common",
+	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-kusama",
 	"cumulus/parachains/runtimes/assets/asset-hub-polkadot",
+	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
 	"cumulus/parachains/runtimes/assets/common",
 	"cumulus/parachains/runtimes/assets/test-utils",
@@ -86,7 +95,6 @@ members = [
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
 	"cumulus/test/relay-sproof-builder",
-	"cumulus/test/relay-validation-worker-provider",
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
@@ -107,11 +115,11 @@ members = [
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
 	"polkadot/node/core/provisioner",
+	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/pvf",
 	"polkadot/node/core/pvf/common",
 	"polkadot/node/core/pvf/execute-worker",
 	"polkadot/node/core/pvf/prepare-worker",
-	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
@@ -131,12 +139,11 @@ members = [
 	"polkadot/node/overseer",
 	"polkadot/node/primitives",
 	"polkadot/node/service",
-	"polkadot/node/subsystem",
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",
+	"polkadot/node/subsystem",
 	"polkadot/node/test/client",
-	"polkadot/node/test/performance-test",
 	"polkadot/node/test/service",
 	"polkadot/node/zombienet-backchannel",
 	"polkadot/parachain",
@@ -151,12 +158,8 @@ members = [
 	"polkadot/rpc",
 	"polkadot/runtime/common",
 	"polkadot/runtime/common/slot_range_helper",
-	"polkadot/runtime/kusama",
-	"polkadot/runtime/kusama/constants",
 	"polkadot/runtime/metrics",
 	"polkadot/runtime/parachains",
-	"polkadot/runtime/polkadot",
-	"polkadot/runtime/polkadot/constants",
 	"polkadot/runtime/rococo",
 	"polkadot/runtime/rococo/constants",
 	"polkadot/runtime/test-runtime",
@@ -166,10 +169,9 @@ members = [
 	"polkadot/statement-table",
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
-	"polkadot/utils/staking-miner",
 	"polkadot/xcm",
-	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -177,6 +179,12 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
+	"substrate/bin/minimal/node",
+	"substrate/bin/minimal/runtime",
+	"substrate",
+	"substrate/bin/node-template/node",
+	"substrate/bin/node-template/pallets/template",
+	"substrate/bin/node-template/runtime",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/executor",
@@ -185,9 +193,6 @@ members = [
 	"substrate/bin/node/rpc",
 	"substrate/bin/node/runtime",
 	"substrate/bin/node/testing",
-	"substrate/bin/node-template/node",
-	"substrate/bin/node-template/pallets/template",
-	"substrate/bin/node-template/runtime",
 	"substrate/bin/utils/chain-spec-builder",
 	"substrate/bin/utils/subkey",
 	"substrate/client/allocator",
@@ -219,6 +224,8 @@ members = [
 	"substrate/client/keystore",
 	"substrate/client/merkle-mountain-range",
 	"substrate/client/merkle-mountain-range/rpc",
+	"substrate/client/mixnet",
+	"substrate/client/network-gossip",
 	"substrate/client/network",
 	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
@@ -227,13 +234,12 @@ members = [
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
 	"substrate/client/network/transactions",
-	"substrate/client/network-gossip",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
-	"substrate/client/rpc",
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
+	"substrate/client/rpc",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -247,6 +253,7 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
 	"substrate/frame/asset-rate",
@@ -260,8 +267,8 @@ members = [
 	"substrate/frame/bags-list/fuzzer",
 	"substrate/frame/bags-list/remote-tests",
 	"substrate/frame/balances",
-	"substrate/frame/beefy",
 	"substrate/frame/beefy-mmr",
+	"substrate/frame/beefy",
 	"substrate/frame/benchmarking",
 	"substrate/frame/benchmarking/pov",
 	"substrate/frame/bounties",
@@ -300,6 +307,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
@@ -345,6 +353,7 @@ members = [
 	"substrate/frame/support/test",
 	"substrate/frame/support/test/compile_pass",
 	"substrate/frame/support/test/pallet",
+	"substrate/frame/support/test/stg_frame_crate",
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
 	"substrate/frame/system/rpc/runtime-api",
@@ -379,6 +388,7 @@ members = [
 	"substrate/primitives/consensus/common",
 	"substrate/primitives/consensus/grandpa",
 	"substrate/primitives/consensus/pow",
+	"substrate/primitives/consensus/sassafras",
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
 	"substrate/primitives/core/hashing",
@@ -395,17 +405,18 @@ members = [
 	"substrate/primitives/maybe-compressed-blob",
 	"substrate/primitives/merkle-mountain-range",
 	"substrate/primitives/metadata-ir",
+	"substrate/primitives/mixnet",
 	"substrate/primitives/npos-elections",
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
 	"substrate/primitives/rpc",
-	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
 	"substrate/primitives/runtime-interface/proc-macro",
-	"substrate/primitives/runtime-interface/test",
-	"substrate/primitives/runtime-interface/test-wasm",
 	"substrate/primitives/runtime-interface/test-wasm-deprecated",
+	"substrate/primitives/runtime-interface/test-wasm",
+	"substrate/primitives/runtime-interface/test",
+	"substrate/primitives/runtime",
 	"substrate/primitives/session",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
@@ -426,11 +437,9 @@ members = [
 	"substrate/test-utils",
 	"substrate/test-utils/cli",
 	"substrate/test-utils/client",
-	"substrate/test-utils/derive",
 	"substrate/test-utils/runtime",
 	"substrate/test-utils/runtime/client",
 	"substrate/test-utils/runtime/transaction-pool",
-	"substrate/test-utils/test-crate",
 	"substrate/utils/binary-merkle-tree",
 	"substrate/utils/build-script-utils",
 	"substrate/utils/fork-tree",
@@ -447,16 +456,80 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/wasm-builder",
 ]
+default-members = [ "polkadot", "substrate/bin/node/cli" ]
 
-[workspace.package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
-repository = "https://github.com/paritytech/polkadot-sdk.git"
-license = "GPL-3.0-only"
-version = "1.0.0"
+[profile.release]
+# Polkadot runtime requires unwinding.
+panic = "unwind"
+opt-level = 3
+
+# make sure dev builds with backtrace do
+# not slow us down
+[profile.dev.package.backtrace]
+inherits = "release"
+
+[profile.production]
+inherits = "release"
+lto = true
+codegen-units = 1
 
 [profile.testnet]
 inherits = "release"
 debug = 1               # debug symbols are useful for profilers
 debug-assertions = true
 overflow-checks = true
+
+# The list of dependencies below (which can be both direct and indirect dependencies) are crates
+# that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of
+# their debug info might be missing) or to require to be frequently recompiled. We compile these
+# dependencies with `opt-level=3` even in "dev" mode in order to make "dev" mode more usable.
+# The majority of these crates are cryptographic libraries.
+#
+# If you see an error mentioning "profile package spec ... did not match any packages", it
+# probably concerns this list.
+#
+# This list is ordered alphabetically.
+[profile.dev.package]
+blake2 = { opt-level = 3 }
+blake2b_simd = { opt-level = 3 }
+chacha20poly1305 = { opt-level = 3 }
+cranelift-codegen = { opt-level = 3 }
+cranelift-wasm = { opt-level = 3 }
+crc32fast = { opt-level = 3 }
+crossbeam-deque = { opt-level = 3 }
+crypto-mac = { opt-level = 3 }
+curve25519-dalek = { opt-level = 3 }
+ed25519-dalek = { opt-level = 3 }
+flate2 = { opt-level = 3 }
+futures-channel = { opt-level = 3 }
+hash-db = { opt-level = 3 }
+hashbrown = { opt-level = 3 }
+hmac = { opt-level = 3 }
+httparse = { opt-level = 3 }
+integer-sqrt = { opt-level = 3 }
+keccak = { opt-level = 3 }
+libm = { opt-level = 3 }
+librocksdb-sys = { opt-level = 3 }
+libsecp256k1 = { opt-level = 3 }
+libz-sys = { opt-level = 3 }
+mio = { opt-level = 3 }
+nalgebra = { opt-level = 3 }
+num-bigint = { opt-level = 3 }
+parking_lot = { opt-level = 3 }
+parking_lot_core = { opt-level = 3 }
+percent-encoding = { opt-level = 3 }
+primitive-types = { opt-level = 3 }
+reed-solomon-novelpoly = { opt-level = 3 }
+ring = { opt-level = 3 }
+rustls = { opt-level = 3 }
+sha2 = { opt-level = 3 }
+sha3 = { opt-level = 3 }
+smallvec = { opt-level = 3 }
+snow = { opt-level = 3 }
+substrate-bip39 = { opt-level = 3 }
+twox-hash = { opt-level = 3 }
+uint = { opt-level = 3 }
+wasmi = { opt-level = 3 }
+x25519-dalek = { opt-level = 3 }
+yamux = { opt-level = 3 }
+zeroize = { opt-level = 3 }

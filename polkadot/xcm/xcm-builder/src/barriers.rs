@@ -21,7 +21,7 @@ use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
-use polkadot_parachain::primitives::IsSystem;
+use polkadot_parachain_primitives::primitives::IsSystem;
 use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
@@ -52,7 +52,7 @@ impl ShouldExecute for TakeWeightCredit {
 	}
 }
 
-const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 1;
+const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 
 /// Allows execution from `origin` if it is contained in `T` (i.e. `T::Contains(origin)`) taking
 /// payments into account.

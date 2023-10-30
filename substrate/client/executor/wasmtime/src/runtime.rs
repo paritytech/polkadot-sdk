@@ -24,12 +24,11 @@ use crate::{
 	util::{self, replace_strategy_if_broken},
 };
 
+use parking_lot::Mutex;
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 use sc_executor_common::{
 	error::{Error, Result, WasmError},
-	runtime_blob::{
-		self, DataSegmentsSnapshot, ExposedMutableGlobalsSet, GlobalsSnapshot, RuntimeBlob,
-	},
+	runtime_blob::RuntimeBlob,
 	util::checked_range,
 	wasm_runtime::{HeapAllocStrategy, InvokeMethod, WasmInstance, WasmModule},
 };
@@ -43,6 +42,8 @@ use std::{
 	},
 };
 use wasmtime::{AsContext, Engine, Memory, Table};
+
+const MAX_INSTANCE_COUNT: u32 = 64;
 
 #[derive(Default)]
 pub(crate) struct StoreData {
@@ -69,90 +70,84 @@ impl StoreData {
 pub(crate) type Store = wasmtime::Store<StoreData>;
 
 enum Strategy {
-	LegacyInstanceReuse {
-		instance_wrapper: InstanceWrapper,
-		globals_snapshot: GlobalsSnapshot<wasmtime::Global>,
-		data_segments_snapshot: Arc<DataSegmentsSnapshot>,
-		heap_base: u32,
-	},
 	RecreateInstance(InstanceCreator),
 }
 
 struct InstanceCreator {
-	engine: wasmtime::Engine,
+	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
+	instance_counter: Arc<InstanceCounter>,
 }
 
 impl InstanceCreator {
 	fn instantiate(&mut self) -> Result<InstanceWrapper> {
-		InstanceWrapper::new(&self.engine, &self.instance_pre)
+		InstanceWrapper::new(&self.engine, &self.instance_pre, self.instance_counter.clone())
 	}
 }
 
-struct InstanceGlobals<'a> {
-	instance: &'a mut InstanceWrapper,
+/// A handle for releasing an instance acquired by [`InstanceCounter::acquire_instance`].
+pub(crate) struct ReleaseInstanceHandle {
+	counter: Arc<InstanceCounter>,
 }
 
-impl<'a> runtime_blob::InstanceGlobals for InstanceGlobals<'a> {
-	type Global = wasmtime::Global;
+impl Drop for ReleaseInstanceHandle {
+	fn drop(&mut self) {
+		{
+			let mut counter = self.counter.counter.lock();
+			*counter = counter.saturating_sub(1);
+		}
 
-	fn get_global(&mut self, export_name: &str) -> Self::Global {
-		self.instance
-			.get_global(export_name)
-			.expect("get_global is guaranteed to be called with an export name of a global; qed")
-	}
-
-	fn get_global_value(&mut self, global: &Self::Global) -> Value {
-		util::from_wasmtime_val(global.get(&mut self.instance.store_mut()))
-	}
-
-	fn set_global_value(&mut self, global: &Self::Global, value: Value) {
-		global.set(&mut self.instance.store_mut(), util::into_wasmtime_val(value)).expect(
-			"the value is guaranteed to be of the same value; the global is guaranteed to be mutable; qed",
-		);
+		self.counter.wait_for_instance.notify_one();
 	}
 }
 
-/// Data required for creating instances with the fast instance reuse strategy.
-struct InstanceSnapshotData {
-	mutable_globals: ExposedMutableGlobalsSet,
-	data_segments_snapshot: Arc<DataSegmentsSnapshot>,
+/// Keeps track on the number of parallel instances.
+///
+/// The runtime cache keeps track on the number of parallel instances. The maximum number in the
+/// cache is less than what we have configured as [`MAX_INSTANCE_COUNT`] for wasmtime. However, the
+/// cache will create on demand instances if required. This instance counter will ensure that we are
+/// blocking when we are trying to create too many instances.
+#[derive(Default)]
+pub(crate) struct InstanceCounter {
+	counter: Mutex<u32>,
+	wait_for_instance: parking_lot::Condvar,
+}
+
+impl InstanceCounter {
+	/// Acquire an instance.
+	///
+	/// Blocks if there is no free instance available.
+	///
+	/// The returned [`ReleaseInstanceHandle`] should be dropped when the instance isn't used
+	/// anymore.
+	pub fn acquire_instance(self: Arc<Self>) -> ReleaseInstanceHandle {
+		let mut counter = self.counter.lock();
+
+		while *counter >= MAX_INSTANCE_COUNT {
+			self.wait_for_instance.wait(&mut counter);
+		}
+		*counter += 1;
+
+		ReleaseInstanceHandle { counter: self.clone() }
+	}
 }
 
 /// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
 /// and execute the compiled code.
 pub struct WasmtimeRuntime {
-	engine: wasmtime::Engine,
+	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
+	instance_counter: Arc<InstanceCounter>,
 }
 
 impl WasmModule for WasmtimeRuntime {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>> {
 		let strategy = match self.instantiation_strategy {
-			InternalInstantiationStrategy::LegacyInstanceReuse(ref snapshot_data) => {
-				let mut instance_wrapper = InstanceWrapper::new(&self.engine, &self.instance_pre)?;
-				let heap_base = instance_wrapper.extract_heap_base()?;
-
-				// This function panics if the instance was created from a runtime blob different
-				// from which the mutable globals were collected. Here, it is easy to see that there
-				// is only a single runtime blob and thus it's the same that was used for both
-				// creating the instance and collecting the mutable globals.
-				let globals_snapshot = GlobalsSnapshot::take(
-					&snapshot_data.mutable_globals,
-					&mut InstanceGlobals { instance: &mut instance_wrapper },
-				);
-
-				Strategy::LegacyInstanceReuse {
-					instance_wrapper,
-					globals_snapshot,
-					data_segments_snapshot: snapshot_data.data_segments_snapshot.clone(),
-					heap_base,
-				}
-			},
 			InternalInstantiationStrategy::Builtin => Strategy::RecreateInstance(InstanceCreator {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
+				instance_counter: self.instance_counter.clone(),
 			}),
 		};
 
@@ -174,39 +169,12 @@ impl WasmtimeInstance {
 		allocation_stats: &mut Option<AllocationStats>,
 	) -> Result<Vec<u8>> {
 		match &mut self.strategy {
-			Strategy::LegacyInstanceReuse {
-				ref mut instance_wrapper,
-				globals_snapshot,
-				data_segments_snapshot,
-				heap_base,
-			} => {
-				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-
-				data_segments_snapshot.apply(|offset, contents| {
-					util::write_memory_from(
-						instance_wrapper.store_mut(),
-						Pointer::new(offset),
-						contents,
-					)
-				})?;
-				globals_snapshot.apply(&mut InstanceGlobals { instance: instance_wrapper });
-				let allocator = FreeingBumpHeapAllocator::new(*heap_base);
-
-				let result =
-					perform_call(data, instance_wrapper, entrypoint, allocator, allocation_stats);
-
-				// Signal to the OS that we are done with the linear memory and that it can be
-				// reclaimed.
-				instance_wrapper.decommit();
-
-				result
-			},
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
 				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-
 				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
 			},
 		}
@@ -226,22 +194,8 @@ impl WasmInstance for WasmtimeInstance {
 
 	fn get_global_const(&mut self, name: &str) -> Result<Option<Value>> {
 		match &mut self.strategy {
-			Strategy::LegacyInstanceReuse { instance_wrapper, .. } =>
-				instance_wrapper.get_global_val(name),
 			Strategy::RecreateInstance(ref mut instance_creator) =>
 				instance_creator.instantiate()?.get_global_val(name),
-		}
-	}
-
-	fn linear_memory_base_ptr(&self) -> Option<*const u8> {
-		match &self.strategy {
-			Strategy::RecreateInstance(_) => {
-				// We do not keep the wasm instance around, therefore there is no linear memory
-				// associated with it.
-				None
-			},
-			Strategy::LegacyInstanceReuse { instance_wrapper, .. } =>
-				Some(instance_wrapper.base_ptr()),
 		}
 	}
 }
@@ -338,7 +292,6 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 		InstantiationStrategy::Pooling => (true, false),
 		InstantiationStrategy::RecreateInstanceCopyOnWrite => (false, true),
 		InstantiationStrategy::RecreateInstance => (false, false),
-		InstantiationStrategy::LegacyInstanceReuse => (false, false),
 	};
 
 	const WASM_PAGE_SIZE: u64 = 65536;
@@ -377,7 +330,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			.instance_memories(1)
 			// This determines how many instances of the module can be
 			// instantiated in parallel from the same `Module`.
-			.instance_count(32);
+			.instance_count(MAX_INSTANCE_COUNT);
 
 		config.allocation_strategy(wasmtime::InstanceAllocationStrategy::Pooling(pooling_config));
 	}
@@ -409,7 +362,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 ///
 /// See [here][stack_height] for more details of the instrumentation
 ///
-/// [stack_height]: https://github.com/paritytech/wasm-utils/blob/d9432baf/src/stack_height/mod.rs#L1-L50
+/// [stack_height]: https://github.com/paritytech/wasm-instrument/blob/master/src/stack_limiter/mod.rs
 #[derive(Clone)]
 pub struct DeterministicStackLimit {
 	/// A number of logical "values" that can be pushed on the wasm stack. A trap will be triggered
@@ -458,13 +411,9 @@ pub enum InstantiationStrategy {
 
 	/// Recreate the instance from scratch on every instantiation. Very slow.
 	RecreateInstance,
-
-	/// Legacy instance reuse mechanism. DEPRECATED. Will be removed. Do not use.
-	LegacyInstanceReuse,
 }
 
 enum InternalInstantiationStrategy {
-	LegacyInstanceReuse(InstanceSnapshotData),
 	Builtin,
 }
 
@@ -655,22 +604,6 @@ where
 				.map_err(|e| WasmError::Other(format!("cannot create module: {:#}", e)))?;
 
 			match config.semantics.instantiation_strategy {
-				InstantiationStrategy::LegacyInstanceReuse => {
-					let data_segments_snapshot =
-						DataSegmentsSnapshot::take(&blob).map_err(|e| {
-							WasmError::Other(format!("cannot take data segments snapshot: {}", e))
-						})?;
-					let data_segments_snapshot = Arc::new(data_segments_snapshot);
-					let mutable_globals = ExposedMutableGlobalsSet::collect(&blob);
-
-					(
-						module,
-						InternalInstantiationStrategy::LegacyInstanceReuse(InstanceSnapshotData {
-							data_segments_snapshot,
-							mutable_globals,
-						}),
-					)
-				},
 				InstantiationStrategy::Pooling |
 				InstantiationStrategy::PoolingCopyOnWrite |
 				InstantiationStrategy::RecreateInstance |
@@ -679,12 +612,6 @@ where
 			}
 		},
 		CodeSupplyMode::Precompiled(compiled_artifact_path) => {
-			if let InstantiationStrategy::LegacyInstanceReuse =
-				config.semantics.instantiation_strategy
-			{
-				return Err(WasmError::Other("the legacy instance reuse instantiation strategy is incompatible with precompiled modules".into()));
-			}
-
 			// SAFETY: The unsafety of `deserialize_file` is covered by this function. The
 			//         responsibilities to maintain the invariants are passed to the caller.
 			//
@@ -695,12 +622,6 @@ where
 			(module, InternalInstantiationStrategy::Builtin)
 		},
 		CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes) => {
-			if let InstantiationStrategy::LegacyInstanceReuse =
-				config.semantics.instantiation_strategy
-			{
-				return Err(WasmError::Other("the legacy instance reuse instantiation strategy is incompatible with precompiled modules".into()));
-			}
-
 			// SAFETY: The unsafety of `deserialize` is covered by this function. The
 			//         responsibilities to maintain the invariants are passed to the caller.
 			//
@@ -719,7 +640,12 @@ where
 		.instantiate_pre(&module)
 		.map_err(|e| WasmError::Other(format!("cannot preinstantiate module: {:#}", e)))?;
 
-	Ok(WasmtimeRuntime { engine, instance_pre: Arc::new(instance_pre), instantiation_strategy })
+	Ok(WasmtimeRuntime {
+		engine,
+		instance_pre: Arc::new(instance_pre),
+		instantiation_strategy,
+		instance_counter: Default::default(),
+	})
 }
 
 fn prepare_blob_for_compilation(
@@ -728,13 +654,6 @@ fn prepare_blob_for_compilation(
 ) -> std::result::Result<RuntimeBlob, WasmError> {
 	if let Some(DeterministicStackLimit { logical_max, .. }) = semantics.deterministic_stack_limit {
 		blob = blob.inject_stack_depth_metering(logical_max)?;
-	}
-
-	if let InstantiationStrategy::LegacyInstanceReuse = semantics.instantiation_strategy {
-		// When this strategy is used this must be called after all other passes which may introduce
-		// new global variables, otherwise they will not be reset when we call into the runtime
-		// again.
-		blob.expose_mutable_globals();
 	}
 
 	// We don't actually need the memory to be imported so we can just convert any memory

@@ -2,11 +2,11 @@
 name = "pallet-authorship"
 version = "4.0.0-dev"
 description = "Block and Uncle Author tracking for the FRAME"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 impl-trait-for-tuples = "0.2.2"
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false}
 frame-system = { path = "../system", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false}

@@ -1,11 +1,11 @@
 [package]
 name = "substrate-wasm-builder"
 version = "5.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Utility for building WASM binaries"
-edition = "2021"
+edition.workspace = true
 readme = "README.md"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 
@@ -22,5 +22,5 @@ toml = "0.7.3"
 walkdir = "2.3.2"
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 filetime = "0.2.16"
-wasm-opt = "0.114"
+wasm-opt = "0.116"
 parity-wasm = "0.45"

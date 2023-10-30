@@ -1,5 +1,5 @@
 error: Unexpected tokens, expected one of `::$ident` `::{`, `exclude_parts`, `use_parts`, `=`, `,`
- --> tests/construct_runtime_ui/invalid_token_after_module.rs:6:18
-  |
-6 |         system: System ?
-  |                        ^
+  --> tests/construct_runtime_ui/invalid_token_after_module.rs:23:18
+   |
+23 |         system: System ?
+   |                        ^

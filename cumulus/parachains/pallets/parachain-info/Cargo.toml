@@ -1,13 +1,12 @@
 [package]
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 name = "parachain-info"
 version = "0.1.0"
-publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../../substrate/frame/system", default-features = false}
@@ -25,5 +24,11 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

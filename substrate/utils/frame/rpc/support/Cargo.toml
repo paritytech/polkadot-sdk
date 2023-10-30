@@ -1,14 +1,11 @@
 [package]
 name = "substrate-frame-rpc-support"
 version = "3.0.0"
-authors = [
-	"Parity Technologies <admin@parity.io>",
-	"Andrew Dirksen <andrew@dirksen.com>",
-]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate RPC for FRAME's support"
 
 [package.metadata.docs.rs]
@@ -23,7 +20,7 @@ sc-rpc-api = { path = "../../../../client/rpc-api" }
 sp-storage = { path = "../../../../primitives/storage" }
 
 [dev-dependencies]
-scale-info = "2.1.1"
+scale-info = "2.10.0"
 jsonrpsee = { version = "0.16.2", features = ["ws-client", "jsonrpsee-types"] }
 tokio = "1.22.0"
 sp-core = { path = "../../../../primitives/core" }

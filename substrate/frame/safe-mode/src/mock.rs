@@ -79,6 +79,7 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ConstU32<10>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<10>;
 	type MaxFreezes = ConstU32<0>;
@@ -122,7 +123,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 		match self {
 			ProxyType::Any => true,
 			ProxyType::JustTransfer => {
-				matches!(c, RuntimeCall::Balances(pallet_balances::Call::transfer { .. }))
+				matches!(
+					c,
+					RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
+				)
 			},
 			ProxyType::JustUtility => matches!(c, RuntimeCall::Utility { .. }),
 		}

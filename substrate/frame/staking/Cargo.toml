@@ -1,11 +1,11 @@
 [package]
 name = "pallet-staking"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME pallet staking"
 readme = "README.md"
 
@@ -13,11 +13,11 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.163", default-features = false, features = ["alloc", "derive"]}
+serde = { version = "1.0.188", default-features = false, features = ["alloc", "derive"]}
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 sp-io = { path = "../../primitives/io", default-features = false}
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }

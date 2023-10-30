@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -104,7 +104,7 @@ where
 	/// The prefix used to generate the key of the map.
 	pub fn map_storage_final_prefix() -> Vec<u8> {
 		use crate::storage::generator::StorageNMap;
-		<Self as MapWrapper>::Map::prefix_hash()
+		<Self as MapWrapper>::Map::prefix_hash().to_vec()
 	}
 
 	/// Get the storage key used to fetch a value corresponding to a specific key.

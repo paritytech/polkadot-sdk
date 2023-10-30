@@ -15,13 +15,20 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Various things for testing other crates.
-//!
-//! N.B. This is not guarded with some feature flag. Overexposing items here may affect the final
-//!      artifact even for production builds.
 
-pub use crate::worker_intf::{spawn_with_program_path, SpawnErr};
+pub use crate::{
+	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
+	worker_intf::{spawn_with_program_path, SpawnErr},
+};
 
+use crate::get_worker_version;
+use is_executable::IsExecutable;
+use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
+use std::{
+	path::PathBuf,
+	sync::{Mutex, OnceLock},
+};
 
 /// A function that emulates the stitches together behaviors of the preparation and the execution
 /// worker in a single synchronous function.
@@ -29,63 +36,64 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-	use polkadot_node_core_pvf_execute_worker::Executor;
+	use polkadot_node_core_pvf_execute_worker::execute_artifact;
 	use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
 		.expect("Decompressing code failed");
 
 	let blob = prevalidate(&code)?;
-	let compiled_artifact_blob = prepare(blob, &ExecutorParams::default())?;
+	let executor_params = ExecutorParams::default();
+	let compiled_artifact_blob = prepare(blob, &executor_params)?;
 
-	let executor = Executor::new(ExecutorParams::default())?;
 	let result = unsafe {
 		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
 		//         and is written into a temporary directory in an unmodified state.
-		executor.execute(&compiled_artifact_blob, params)?
+		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
 	};
 
 	Ok(result)
 }
 
-/// Use this macro to declare a `fn main() {}` that will check the arguments and dispatch them to
-/// the appropriate worker, making the executable that can be used for spawning workers.
-#[macro_export]
-macro_rules! decl_puppet_worker_main {
-	() => {
-		fn main() {
-			$crate::sp_tracing::try_init_simple();
+/// Retrieves the worker paths, checks that they exist and does a version check.
+///
+/// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
+/// paths of the built workers.
+pub fn get_and_check_worker_paths() -> (PathBuf, PathBuf) {
+	// Only needs to be called once for the current process.
+	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
+	let mutex = WORKER_PATHS.get_or_init(|| {
+		let mut workers_path = std::env::current_exe().unwrap();
+		workers_path.pop();
+		workers_path.pop();
+		let mut prepare_worker_path = workers_path.clone();
+		prepare_worker_path.push(PREPARE_BINARY_NAME);
+		let mut execute_worker_path = workers_path.clone();
+		execute_worker_path.push(EXECUTE_BINARY_NAME);
 
-			let args = std::env::args().collect::<Vec<_>>();
-			if args.len() == 1 {
-				panic!("wrong number of arguments");
-			}
-
-			let entrypoint = match args[1].as_ref() {
-				"exit" => {
-					std::process::exit(1);
-				},
-				"sleep" => {
-					std::thread::sleep(std::time::Duration::from_secs(5));
-					return
-				},
-				"prepare-worker" => $crate::prepare_worker_entrypoint,
-				"execute-worker" => $crate::execute_worker_entrypoint,
-				other => panic!("unknown subcommand: {}", other),
-			};
-
-			let mut node_version = None;
-			let mut socket_path: &str = "";
-
-			for i in (2..args.len()).step_by(2) {
-				match args[i].as_ref() {
-					"--socket-path" => socket_path = args[i + 1].as_str(),
-					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
-					arg => panic!("Unexpected argument found: {}", arg),
-				}
-			}
-
-			entrypoint(&socket_path, node_version, None);
+		// Check that the workers are valid.
+		if !prepare_worker_path.is_executable() || !execute_worker_path.is_executable() {
+			panic!("ERROR: Workers do not exist or are not executable. Workers directory: {:?}", workers_path);
 		}
-	};
+
+		let worker_version =
+			get_worker_version(&prepare_worker_path).expect("checked for worker existence");
+		if worker_version != NODE_VERSION {
+			panic!("ERROR: Prepare worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+		}
+		let worker_version =
+			get_worker_version(&execute_worker_path).expect("checked for worker existence");
+		if worker_version != NODE_VERSION {
+			panic!("ERROR: Execute worker version {worker_version} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+		}
+
+		// We don't want to check against the commit hash because we'd have to always rebuild
+		// the calling crate on every commit.
+		eprintln!("WARNING: Workers match the node version, but may have changed in recent commits. Please rebuild them if anything funny happens. Workers path: {workers_path:?}");
+
+		Mutex::new((prepare_worker_path, execute_worker_path))
+	});
+
+	let guard = mutex.lock().unwrap();
+	(guard.0.clone(), guard.1.clone())
 }

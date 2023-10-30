@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -30,9 +30,8 @@ use parity_scale_codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		slashing,
-		vstaging::{AsyncBackingParams, BackingState},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+		async_backing::{AsyncBackingParams, BackingState},
+		slashing, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
 		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
@@ -588,31 +587,41 @@ impl RelayChainRpcClient {
 			.await
 	}
 
-	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_async_backing_params(
+	/// Get the minimum number of backing votes for a candidate.
+	pub async fn parachain_host_minimum_backing_votes(
 		&self,
 		at: RelayHash,
-	) -> Result<AsyncBackingParams, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_async_backing_params",
-			at,
-			None::<()>,
-		)
-		.await
+		_session_index: SessionIndex,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_minimum_backing_votes", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_disabled_validators(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ValidatorIndex>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_disabled_validators", at, None::<()>)
+			.await
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_para_backing_state(
+	pub async fn parachain_host_async_backing_params(
+		&self,
+		at: RelayHash,
+	) -> Result<AsyncBackingParams, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_async_backing_params", at, None::<()>)
+			.await
+	}
+
+	#[allow(missing_docs)]
+	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,
 		para_id: ParaId,
 	) -> Result<Option<BackingState>, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_para_backing_state",
-			at,
-			Some(para_id),
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(

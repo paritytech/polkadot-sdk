@@ -1,4 +1,4 @@
-// Copyright (C) 2021-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod constants;
 mod weights;
 pub mod xcm_config;
 
@@ -35,6 +34,8 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert, MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::ParaId;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -50,10 +51,10 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use constants::{consensus::*, currency::*, fee::WeightToFee};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
@@ -70,8 +71,10 @@ use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber,
-	Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
+	impls::DealWithFees,
+	kusama::{consensus::*, currency::*, fee::WeightToFee},
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
+	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
@@ -87,7 +90,7 @@ pub use sp_runtime::BuildStorage;
 // Polkadot imports
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::latest::BodyId;
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 use crate::xcm_config::{
@@ -222,6 +225,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	// We allow each account to have holds on it from:
 	//   - `NftFractionalization`: 1
@@ -644,7 +648,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	>;
 	type ControllerOriginConverter = xcm_config::XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -1210,9 +1214,21 @@ impl_runtime_apis! {
 			use xcm_config::{KsmLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					KsmLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(KsmLocation::get())
 				}
@@ -1268,6 +1284,7 @@ impl_runtime_apis! {
 			}
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
+				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
 
 				fn worst_case_response() -> (u64, Response) {
@@ -1340,6 +1357,16 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1395,8 +1422,9 @@ fn ensure_key_ss58() {
 
 #[cfg(test)]
 mod tests {
-	use super::{constants::fee, *};
+	use super::*;
 	use crate::{CENTS, MILLICENTS};
+	use parachains_common::kusama::fee;
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
 
