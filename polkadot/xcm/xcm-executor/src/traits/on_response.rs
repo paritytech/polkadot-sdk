@@ -17,7 +17,7 @@
 use crate::Xcm;
 use core::result;
 use frame_support::pallet_prelude::{Get, TypeInfo};
-use parity_scale_codec::{FullCodec, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
@@ -103,7 +103,7 @@ impl VersionChangeNotifier for () {
 }
 
 /// The possible state of an XCM query response.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum QueryResponseStatus<BlockNumber> {
 	/// The response has arrived, and includes the inner Response and the block number it arrived
 	/// at.
@@ -129,7 +129,7 @@ pub trait QueryHandler {
 		+ PartialEq
 		+ Debug
 		+ Copy;
-	type BlockNumber: Zero;
+	type BlockNumber: Zero + Encode;
 	type Error;
 	type UniversalLocation: Get<InteriorMultiLocation>;
 

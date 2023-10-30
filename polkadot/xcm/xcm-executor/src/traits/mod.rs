@@ -16,6 +16,8 @@
 
 //! Various traits used in configuring the executor.
 
+mod controller;
+pub use controller::*;
 mod conversion;
 pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
