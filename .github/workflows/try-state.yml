@@ -31,7 +31,7 @@ jobs:
 
     - name: Download and set up try-runtime binary
       run: |
-        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime-x86_64-unknown-linux-musl -o try-runtime
         chmod +x try-runtime
 
     - name: Download runtime blob
