@@ -483,26 +483,41 @@ impl MultiStepMigrator for () {
 
 /// Multiple [`SteppedMigration`].
 pub trait SteppedMigrations {
+	/// The number of migrations that `Self` aggregates.
 	fn len() -> u32;
 
+	/// The `n`th [`SteppedMigration::id`].
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_id(n: u32) -> Option<Vec<u8>>;
 
+	/// Do a [`SteppedMigration::step`] on the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_step(
 		n: u32,
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
+	/// Do a [`SteppedMigration::transactional_step`] on the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_transactional_step(
 		n: u32,
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
+	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
+	///
+	/// Is guaranteed to return `Some` if `n < Self::len()`.
 	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
 
+	/// The maximal encoded length across all cursors.
 	fn cursor_max_encoded_len() -> usize;
 
+	/// The maximal encoded length across all identifiers.
 	fn identifier_max_encoded_len() -> usize;
 }
 
