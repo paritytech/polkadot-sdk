@@ -127,9 +127,8 @@
 //! - the administrative account that controls the sudo key,
 //! - an initial authorities set for consensus, etc.
 //!
-//! The compiled WASM blob of the runtime code is stored in the state (and therefore on the chain).
-//! As a result, the initial runtime must also be provided within the chain specification (under the
-//! `code` field).
+//! As the compiled WASM blob of the runtime code is stored in the chain's state, the initial runtime
+//! must also be provided within the chain specification under the `code` field.
 //!
 //! The genesis state can be represented in the formats described by [`GenesisFormat<G>`]
 //! enum. In essence, the most important formats are:
