@@ -19,8 +19,8 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, ConstU64, Contains};
-use sp_core::H256;
+use frame_support::traits::{ConstU32, Contains};
+use sp_core::{ConstU64, H256};
 use sp_io;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
