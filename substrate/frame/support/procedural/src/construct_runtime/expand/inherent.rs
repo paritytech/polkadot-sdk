@@ -30,12 +30,14 @@ pub fn expand_outer_inherent(
 ) -> TokenStream {
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
+	let mut pallet_indices = Vec::new();
 	let mut query_inherent_part_macros = Vec::new();
 
 	for pallet_decl in pallet_decls {
 		if pallet_decl.exists_part("Inherent") {
 			let name = &pallet_decl.name;
 			let path = &pallet_decl.path;
+			let index = &pallet_decl.index;
 			let attr = pallet_decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
 					.expect("was successfully parsed before; qed");
@@ -47,6 +49,7 @@ pub fn expand_outer_inherent(
 
 			pallet_names.push(name);
 			pallet_attrs.push(attr);
+			pallet_indices.push(index);
 			query_inherent_part_macros.push(quote! {
 				#path::__substrate_inherent_check::is_inherent_part_defined!(#name);
 			});
@@ -205,8 +208,45 @@ pub fn expand_outer_inherent(
 		}
 
 		impl #scrate::traits::EnsureInherentsAreOrdered<#block> for #runtime {
-			fn ensure_inherents_are_ordered(block: &#block) -> Result<(), ()> {
-				todo!()
+			fn ensure_inherents_are_ordered(block: &#block, num_inherents: usize) -> Result<(), ()> {
+				use #scrate::inherent::ProvideInherent;
+				use #scrate::traits::{IsSubType, ExtrinsicCall};
+				use #scrate::sp_runtime::traits::Block as _;
+				use #scrate::__private::sp_inherents::InherentOrder;
+
+				let mut last: Option<InherentOrder> = None;
+
+				for (i, xt) in block.extrinsics().iter().take(num_inherents).enumerate() {
+					let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
+
+					let mut current: Option<InherentOrder> = None;
+
+					#(
+						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+							if #pallet_names::is_inherent(&call) {
+								let order = #pallet_names::inherent_order().unwrap_or(InherentOrder::Index(#pallet_indices as u32));
+								current = Some(order);
+							}
+						}
+					)*
+
+					let Some(current) = current else {
+						#scrate::defensive!("Inherent without pallet; block invalid.");
+						return Err(());
+					};
+
+					if let Some(last) = last {
+						if last > current {
+							#scrate::defensive!("Inherents are not ordered; block invalid.");
+							return Err(());
+						} else if last == current {
+							#scrate::defensive!("Inherent orders are not unique; block invalid.");
+							return Err(());
+						}
+					}
+				}
+
+				Ok(())
 			}
 		}
 

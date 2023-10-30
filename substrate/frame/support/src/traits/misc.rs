@@ -899,7 +899,7 @@ pub trait EnsureInherentsAreFirst<Block> {
 }
 
 pub trait EnsureInherentsAreOrdered<Block> {
-	fn ensure_inherents_are_ordered(block: &Block) -> Result<(), ()>;
+	fn ensure_inherents_are_ordered(block: &Block, num_inherents: usize) -> Result<(), ()>;
 }
 
 /// An extrinsic on which we can get access to call.

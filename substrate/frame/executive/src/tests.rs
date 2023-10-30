@@ -226,6 +226,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ConstU32<1>;
 }
 
@@ -993,7 +994,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 
 /// Refuses to import blocks with transactions during `OnlyInherents` mode.
 #[test]
-#[should_panic = "Only inherents are allowed in this blocks"]
+#[should_panic = "Only inherents are allowed in this block"]
 fn transactions_in_only_inherents_block_errors() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent_call {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));

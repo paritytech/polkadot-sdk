@@ -16,7 +16,8 @@
 // limitations under the License.
 
 pub use sp_inherents::{
-	CheckInherentsResult, InherentData, InherentIdentifier, IsFatalError, MakeFatalError, InherentOrder,
+	CheckInherentsResult, InherentData, InherentIdentifier, InherentOrder, IsFatalError,
+	MakeFatalError,
 };
 
 /// A pallet that provides or verifies an inherent extrinsic will implement this trait.
