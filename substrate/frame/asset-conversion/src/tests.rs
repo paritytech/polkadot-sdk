@@ -505,8 +505,6 @@ fn add_tiny_liquidity_directly_to_pool_address() {
 		));
 
 		// check the same but for token_3.clone() (non-native token)
-		let pallet_account =
-			<Test as Config>::PoolLocator::address(&(token_1.clone(), token_3.clone())).unwrap();
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
 			Box::new(token_1.clone()),
