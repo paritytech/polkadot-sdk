@@ -439,9 +439,14 @@ impl<T: Config> Pallet<T> {
 			// nothing to unreserve
 			return
 		}
+
+		let err_balance = T::Currency::unreserve(&leaser, amount);
+		defensive_assert!(err_balance.is_zero());
+
+		let unreserved_balance = amount.saturating_sub(err_balance);
 		ReservedAmounts::<T>::mutate(para, &leaser, |maybe_current| {
 			if let Some(current) = maybe_current {
-				*current = current.checked_sub(&amount).defensive_unwrap_or_default();
+				*current = current.checked_sub(&unreserved_balance).defensive_unwrap_or_default();
 				// remove the entry if it is zero.
 				if current.is_zero() {
 					*maybe_current = None
@@ -450,9 +455,6 @@ impl<T: Config> Pallet<T> {
 				defensive!("unreserve called for non-existent reserve");
 			}
 		});
-
-		let err_balance = T::Currency::unreserve(&leaser, amount);
-		defensive_assert!(err_balance.is_zero());
 	}
 
 	fn clear_lease_storage(para: ParaId) {
