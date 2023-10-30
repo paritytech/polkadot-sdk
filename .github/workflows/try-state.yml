@@ -38,12 +38,14 @@ jobs:
       run: |
         curl -sL ${{ env.RUNTIME_BASE_URL }}/${{ matrix.runtime.file_name }}
 
+    - name: Display structure of downloaded files
+      run: ls -R
+
     - name: Check state
       run: | 
         ./try-runtime \
           --runtime ./${{ matrix.runtime.file_name }} \
           execute-block \
           live --uri ${{ matrix.runtime.rpc }}
-      continue-on-error: true
 
     # TODO: Post to Matrix if any fails
