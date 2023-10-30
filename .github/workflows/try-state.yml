@@ -13,6 +13,7 @@ env:
   # TODO: Replace this with paritytech/polkadot-sdk 'latest' release URL once 1.3.0 is published 
   # with all runtime blobs.
   RUNTIME_BASE_URL: https://github.com/liamaharon/polkadot-sdk/releases/download/polkadot-v1.2.0-with-runtime-builds-fixed.3
+  MATRIX_ROOM_ID: "!nbOkFmINBdBqqrfQYH:parity.io"
 
 jobs:
   check_try_state:
@@ -33,7 +34,7 @@ jobs:
       # if: steps.get-output.outputs.OUTCOME >= matrix.channel.threshold
       uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
       with:
-        room_id: "!nbOkFmINBdBqqrfQYH:parity.io"
+        room_id: ${{ env.MATRIX_ROOM_ID }}
         access_token: ${{ secrets.MATRIX_V2_ACCESS_TOKEN }}
         server: m.parity.io
         message: |
