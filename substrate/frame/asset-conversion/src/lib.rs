@@ -371,7 +371,6 @@ pub mod pallet {
 
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-			frame_system::Pallet::<T>::inc_providers(&pool_account);
 
 			// pay the setup fee
 			let fee =
