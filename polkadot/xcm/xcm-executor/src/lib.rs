@@ -446,9 +446,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	fn refund_surplus(&mut self) -> Result<(), XcmError> {
 		let current_surplus = self.total_surplus.saturating_sub(self.total_refunded);
 		if current_surplus.any_gt(Weight::zero()) {
-			self.total_refunded.saturating_accrue(current_surplus);
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				self.ensure_can_subsume_assets(1)?;
+				if !self.holding.contains_asset(&(w.id, 1).into()) &&
+					self.ensure_can_subsume_assets(1).is_err()
+				{
+					let _ = self
+						.trader
+						.buy_weight(current_surplus, w.into(), &self.context)
+						.defensive_proof(
+							"refund_weight returned an asset capable of buying weight; qed",
+						);
+					return Err(XcmError::HoldingWouldOverflow)
+				}
+				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
 			}
 		}
@@ -977,8 +987,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let give = self.holding.saturating_take(give);
 				let result = (|| -> Result<(), XcmError> {
 					self.ensure_can_subsume_assets(want.len())?;
-					let exchange_result =
-						Config::AssetExchanger::exchange_asset(self.origin_ref(), give, &want, maximal);
+					let exchange_result = Config::AssetExchanger::exchange_asset(
+						self.origin_ref(),
+						give,
+						&want,
+						maximal,
+					);
 					if let Ok(received) = exchange_result {
 						self.holding.subsume_assets(received.into());
 						Ok(())
