@@ -41,6 +41,10 @@ jobs:
     - name: Display structure of downloaded files
       run: ls -R
 
+    - name: Get Day of the Week
+      run: |
+
+
     - name: Check state
       run: | 
         ./try-runtime \
@@ -48,4 +52,12 @@ jobs:
           execute-block \
           live --uri ${{ matrix.runtime.rpc }}
 
-    # TODO: Post to Matrix if any fails
+    - name: Send Test Matrix message
+      # if: steps.get-output.outputs.OUTCOME >= matrix.channel.threshold
+      uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+      with:
+        room_id: "!nbOkFmINBdBqqrfQYH:parity.io"
+        access_token: ${{ secrets.MATRIX_V2_ACCESS_TOKEN }}
+        server: m.parity.io
+        message: |
+          @room This is a test
