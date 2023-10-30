@@ -77,6 +77,8 @@ default = [ "std" ]
 std = [
 	"array-bytes",
 	"bandersnatch_vrfs/getrandom",
+	"bip39/rand",
+	"bip39/std",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
@@ -89,6 +91,7 @@ std = [
 	"hash-db/std",
 	"hash256-std-hasher/std",
 	"impl-serde/std",
+	"itertools",
 	"lazy_static",
 	"libsecp256k1/std",
 	"log/std",
@@ -115,13 +118,10 @@ std = [
 	"ss58-registry/std",
 	"substrate-bip39",
 	"thiserror",
-	"bip39/std",
-	"bip39/rand",
 	"tracing",
 	"w3f-bls?/std",
 	"zeroize/alloc",
 	"zeroize/std",
-	"itertools",
 ]
 
 # Serde support without relying on std features.
