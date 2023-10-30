@@ -310,7 +310,6 @@ mod tests {
 	impl pallet_balances::Config for Test {
 		type ReserveIdentifier = [u8; 8];
 		type AccountStore = System;
-		type MaxHolds = ConstU32<1>;
 	}
 
 	ord_parameter_types! {
