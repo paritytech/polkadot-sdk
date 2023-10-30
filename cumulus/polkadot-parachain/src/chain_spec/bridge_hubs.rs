@@ -216,7 +216,7 @@ pub mod rococo {
 
 		BridgeHubChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
@@ -369,7 +369,7 @@ pub mod kusama {
 
 		BridgeHubChainSpec::builder(
 			bridge_hub_kusama_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
@@ -488,7 +488,7 @@ pub mod polkadot {
 
 		BridgeHubChainSpec::builder(
 			bridge_hub_polkadot_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)

@@ -611,7 +611,7 @@ pub mod asset_hub_westend {
 		build_genesis_storage(
 			genesis_config,
 			asset_hub_westend_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 		)
 	}
 
@@ -663,7 +663,7 @@ pub mod asset_hub_westend {
 			build_genesis_storage_legacy(
 				&genesis_config,
 				asset_hub_westend_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
+					.expect("WASM binary was not built, please build it!"),
 			)
 		}
 
@@ -723,7 +723,7 @@ pub mod asset_hub_rococo {
 		build_genesis_storage(
 			genesis_config,
 			asset_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 		)
 	}
 
@@ -775,7 +775,7 @@ pub mod asset_hub_rococo {
 			build_genesis_storage_legacy(
 				&genesis_config,
 				asset_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
+					.expect("WASM binary was not built, please build it!"),
 			)
 		}
 
@@ -835,7 +835,7 @@ pub mod asset_hub_wococo {
 		build_genesis_storage(
 			genesis_config,
 			asset_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 		)
 	}
 
@@ -887,7 +887,7 @@ pub mod asset_hub_wococo {
 			build_genesis_storage_legacy(
 				&genesis_config,
 				asset_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
+					.expect("WASM binary was not built, please build it!"),
 			)
 		}
 
@@ -951,7 +951,7 @@ pub mod penpal {
 
 		build_genesis_storage(
 			genesis_config,
-			penpal_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+			penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		)
 	}
 
@@ -1005,7 +1005,7 @@ pub mod penpal {
 
 			build_genesis_storage_legacy(
 				&genesis_config,
-				penpal_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+				penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 			)
 		}
 
@@ -1078,7 +1078,7 @@ pub mod bridge_hub_rococo {
 		build_genesis_storage(
 			genesis_config,
 			bridge_hub_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 		)
 	}
 
@@ -1148,7 +1148,7 @@ pub mod bridge_hub_rococo {
 			build_genesis_storage_legacy(
 				&genesis_config,
 				bridge_hub_rococo_runtime::WASM_BINARY
-					.expect("WASM binary was not build, please build it!"),
+					.expect("WASM binary was not built, please build it!"),
 			)
 		}
 

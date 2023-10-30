@@ -29,7 +29,7 @@ pub type RococoParachainChainSpec = sc_service::GenericChainSpec<(), Extensions>
 
 pub fn rococo_parachain_local_config() -> RococoParachainChainSpec {
 	RococoParachainChainSpec::builder(
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
 	)
 	.with_name("Rococo Parachain Local")
@@ -60,7 +60,7 @@ pub fn rococo_parachain_local_config() -> RococoParachainChainSpec {
 pub fn staging_rococo_parachain_local_config() -> RococoParachainChainSpec {
 	#[allow(deprecated)]
 	RococoParachainChainSpec::builder(
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
 	)
 	.with_name("Staging Rococo Parachain Local")

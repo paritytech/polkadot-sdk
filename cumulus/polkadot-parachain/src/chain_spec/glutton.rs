@@ -27,7 +27,7 @@ pub type GluttonChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 	GluttonChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
 	)
 	.with_name("Glutton Development")
@@ -42,7 +42,7 @@ pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 
 pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
 	GluttonChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
 	)
 	.with_name("Glutton Local")
@@ -63,7 +63,7 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 	properties.insert("ss58Format".into(), 2.into());
 
 	GluttonChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
 	)
 	.with_name(format!("Glutton {}", para_id).as_str())

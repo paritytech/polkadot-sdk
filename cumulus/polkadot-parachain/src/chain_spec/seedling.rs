@@ -27,7 +27,7 @@ pub type SeedlingChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
 	SeedlingChainSpec::builder(
-		seedling_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		seedling_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 2000 },
 	)
 	.with_name("Seedling Local Testnet")

@@ -26,7 +26,7 @@ pub type ShellChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 pub fn get_shell_chain_spec() -> ShellChainSpec {
 	ShellChainSpec::builder(
-		shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		shell_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
 	)
 	.with_name("Shell Local Testnet")

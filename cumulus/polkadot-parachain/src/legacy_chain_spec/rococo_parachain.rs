@@ -61,7 +61,7 @@ pub fn rococo_parachain_local_config() -> RococoParachainChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
@@ -94,7 +94,7 @@ pub fn staging_rococo_parachain_local_config() -> RococoParachainChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
-		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

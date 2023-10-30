@@ -78,7 +78,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> PenpalChainSpec {
 			relay_chain: relay_chain.into(), // You MUST set this to the correct network!
 			para_id: id.into(),
 		},
-		penpal_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

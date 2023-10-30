@@ -103,7 +103,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		None,
 		None,
 		Extensions { para_id: id.into() },
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

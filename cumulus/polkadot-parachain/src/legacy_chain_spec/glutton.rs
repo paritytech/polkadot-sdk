@@ -41,7 +41,7 @@ pub fn glutton_development_config(para_id: ParaId) -> GluttonChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
@@ -68,7 +68,7 @@ pub fn glutton_local_config(para_id: ParaId) -> GluttonChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
@@ -99,7 +99,7 @@ pub fn glutton_config(para_id: ParaId) -> GluttonChainSpec {
 		None,
 		Some(properties),
 		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

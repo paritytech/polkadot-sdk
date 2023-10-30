@@ -44,7 +44,7 @@ pub fn collectives_polkadot_development_config() -> CollectivesPolkadotChainSpec
 
 	CollectivesPolkadotChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1002 },
 	)
 	.with_name("Polkadot Collectives Development")
@@ -80,7 +80,7 @@ pub fn collectives_polkadot_local_config() -> CollectivesPolkadotChainSpec {
 
 	CollectivesPolkadotChainSpec::builder(
 		collectives_polkadot_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-local".into(), para_id: 1002 },
 	)
 	.with_name("Polkadot Collectives Local")

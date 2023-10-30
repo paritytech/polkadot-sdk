@@ -45,7 +45,7 @@ pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "westend".into(), para_id: 2000 },
-		seedling_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		seedling_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

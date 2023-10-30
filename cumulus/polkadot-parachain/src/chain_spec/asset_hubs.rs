@@ -81,7 +81,7 @@ pub fn asset_hub_polkadot_development_config() -> AssetHubPolkadotChainSpec {
 
 	AssetHubPolkadotChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1000 },
 	)
 	.with_name("Polkadot Asset Hub Development")
@@ -113,7 +113,7 @@ pub fn asset_hub_polkadot_local_config() -> AssetHubPolkadotChainSpec {
 
 	AssetHubPolkadotChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-local".into(), para_id: 1000 },
 	)
 	.with_name("Polkadot Asset Hub Local")
@@ -161,7 +161,7 @@ pub fn asset_hub_polkadot_config() -> AssetHubPolkadotChainSpec {
 
 	AssetHubPolkadotChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot".into(), para_id: 1000 },
 	)
 	.with_name("Polkadot Asset Hub")
@@ -257,7 +257,7 @@ pub fn asset_hub_kusama_development_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 
 	AssetHubKusamaChainSpec::builder(
-		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-dev".into(), para_id: 1000 },
 	)
 	.with_name("Kusama Asset Hub Development")
@@ -288,7 +288,7 @@ pub fn asset_hub_kusama_local_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 
 	AssetHubKusamaChainSpec::builder(
-		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-local".into(), para_id: 1000 },
 	)
 	.with_name("Kusama Asset Hub Local")
@@ -333,7 +333,7 @@ pub fn asset_hub_kusama_config() -> AssetHubKusamaChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 
 	AssetHubKusamaChainSpec::builder(
-		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama".into(), para_id: 1000 },
 	)
 	.with_name("Kusama Asset Hub")
@@ -415,7 +415,7 @@ pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
 
 	AssetHubWestendChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
 	)
 	.with_name("Westend Asset Hub Development")
@@ -446,7 +446,7 @@ pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
 
 	AssetHubWestendChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
 	)
 	.with_name("Westend Asset Hub Local")
@@ -491,7 +491,7 @@ pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
 
 	AssetHubWestendChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect("WASM binary was not build, please build it!"),
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
 	)
 	.with_name("Westend Asset Hub")
@@ -599,7 +599,7 @@ fn asset_hub_rococo_like_development_config(
 	para_id: u32,
 ) -> AssetHubRococoChainSpec {
 	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-dev".into(), para_id },
 	)
 	.with_name(name)
@@ -656,7 +656,7 @@ fn asset_hub_rococo_like_local_config(
 	para_id: u32,
 ) -> AssetHubRococoChainSpec {
 	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-local".into(), para_id },
 	)
 	.with_name(name)
@@ -700,7 +700,7 @@ pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
 	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo".into(), para_id },
 	)
 	.with_name("Rococo Asset Hub")
@@ -748,7 +748,7 @@ pub fn asset_hub_wococo_genesis_config() -> AssetHubWococoChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
 	AssetHubRococoChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "wococo".into(), para_id },
 	)
 	.with_name("Wococo Asset Hub")

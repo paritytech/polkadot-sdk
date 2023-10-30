@@ -40,7 +40,7 @@ pub fn get_shell_chain_spec() -> ShellChainSpec {
 		None,
 		None,
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
-		shell_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		shell_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 

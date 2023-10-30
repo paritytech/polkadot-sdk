@@ -1202,7 +1202,7 @@ mod tests {
 	) -> DummyChainSpec<E> {
 		DummyChainSpec::builder(
 			rococo_parachain_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!"),
+				.expect("WASM binary was not built, please build it!"),
 			extension,
 		)
 		.with_name("Dummy local testnet")

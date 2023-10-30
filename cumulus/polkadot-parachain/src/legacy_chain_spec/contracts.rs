@@ -84,7 +84,7 @@ pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
 			para_id: CONTRACTS_PARACHAIN_ID,
 		},
-		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
@@ -146,7 +146,7 @@ pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
 			para_id: CONTRACTS_PARACHAIN_ID,
 		},
 		// Code
-		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
@@ -234,7 +234,7 @@ pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
 		// Extensions
 		Extensions { relay_chain: "rococo".into(), para_id: CONTRACTS_PARACHAIN_ID },
 		// Code
-		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
+		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
