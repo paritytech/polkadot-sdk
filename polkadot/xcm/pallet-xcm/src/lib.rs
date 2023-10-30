@@ -1484,7 +1484,7 @@ impl<T: Config> Pallet<T> {
 						ClearOrigin,
 						// buy exec using `fees` in holding deposited in top instruction here
 						BuyExecution { fees: reanchored_fees, weight_limit },
-						// deposit all assets in holding to `beneficiary` account(s)
+						// deposit all assets in holding to `beneficiary` location
 						DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
 					]
 					.into_iter(),
