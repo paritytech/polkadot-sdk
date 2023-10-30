@@ -78,8 +78,7 @@ use parachains_common::{
 };
 
 // XCM Imports
-use xcm::latest::prelude::{BodyId, *};
-use xcm_executor::XcmExecutor;
+use xcm::latest::prelude::BodyId;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

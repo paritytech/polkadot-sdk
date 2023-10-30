@@ -77,8 +77,8 @@ macro_rules! test_parachain_is_trusted_teleporter {
 								RuntimeEvent::Balances(
 									$crate::pallet_balances::Event::Deposit { who: receiver, .. }
 								) => {},
-								RuntimeEvent::XcmpQueue(
-									$crate::cumulus_pallet_xcmp_queue::Event::Success { .. }
+								RuntimeEvent::MessageQueue(
+									$crate::pallet_message_queue::Event::Processed { success: true, .. }
 								) => {},
 							]
 						);
