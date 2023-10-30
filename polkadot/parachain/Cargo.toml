@@ -11,11 +11,11 @@ version = "1.0.0"
 # this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing
 # various unnecessary Substrate-specific endpoints.
 parity-scale-codec = { version = "3.6.1", default-features = false, features = [ "derive" ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 sp-std = { path = "../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"] }
-frame-support = { path = "../../substrate/frame/support", default-features = false }
+sp-weights = { path = "../../substrate/primitives/weights", default-features = false }
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
 derive_more = "0.99.11"
 bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
@@ -28,7 +28,6 @@ default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",
-	"frame-support/std",
 	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
 	"scale-info/std",
@@ -36,8 +35,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-weights/std",
 ]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
+runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
