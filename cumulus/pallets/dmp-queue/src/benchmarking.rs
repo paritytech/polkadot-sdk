@@ -62,10 +62,10 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn on_idle_large_overweight_msg() {
-		let msg = vec![123; 1 << 16];
+	fn on_idle_overweight_good_msg() {
+		let msg = vec![123; MaxDmpMessageLenOf::<T>::get() as usize];
 
-		Pages::<T>::insert(0, vec![(123, msg.clone())]);
+		Overweight::<T>::insert(0, (123, msg.clone()));
 		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 1 });
 		MigrationStatus::<T>::set(MigrationState::StartedOverweightExport {
 			next_overweight_index: 0,
@@ -78,6 +78,26 @@ mod benchmarks {
 
 		assert_last_event::<T>(Event::ExportedOverweight { index: 0 }.into());
 	}
+
+	#[benchmark]
+	fn on_idle_overweight_large_msg() {
+		let msg = vec![123; 1 << 16];
+
+		Overweight::<T>::insert(0, (123, msg.clone()));
+		PageIndex::<T>::put(PageIndexData { begin_used: 0, end_used: 1, overweight_count: 1 });
+		MigrationStatus::<T>::set(MigrationState::StartedOverweightExport {
+			next_overweight_index: 0,
+		});
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(0u32.into(), Weight::MAX);
+		}
+
+		assert_last_event::<T>(Event::ExportOverweightFailed { index: 0 }.into());
+	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Runtime);
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
