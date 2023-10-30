@@ -107,7 +107,7 @@ check-rust-feature-propagation:
       echo "---------- Building ${PACKAGE} runtime ----------"
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
-      echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
+      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
       time ./try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}
