@@ -81,6 +81,9 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -103,8 +106,9 @@
 	utils::print_from_uri, with_crypto_scheme, CryptoSchemeFlag, Error, KeystoreParams,
 	NetworkSchemeFlag, OutputTypeFlag,
 };
-<span class="kw">use </span>bip39::{Language, Mnemonic, MnemonicType};
+<span class="kw">use </span>bip39::Mnemonic;
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>itertools::Itertools;
 
 <span class="doccomment">/// The `generate` command
 </span><span class="attr">#[derive(Debug, Clone, Parser)]
@@ -135,20 +139,22 @@
 	<span class="doccomment">/// Run the command
 	</span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>words = <span class="kw">match </span><span class="self">self</span>.words {
-			<span class="prelude-val">Some</span>(words) =&gt; MnemonicType::for_word_count(words).map_err(|<span class="kw">_</span>| {
-				Error::Input(
-					<span class="string">&quot;Invalid number of words given for phrase: must be 12/15/18/21/24&quot;</span>.into(),
-				)
-			})<span class="question-mark">?</span>,
-			<span class="prelude-val">None </span>=&gt; MnemonicType::Words12,
-		};
-		<span class="kw">let </span>mnemonic = Mnemonic::new(words, Language::English);
+			<span class="prelude-val">Some</span>(words_count) <span class="kw">if </span>[<span class="number">12</span>, <span class="number">15</span>, <span class="number">18</span>, <span class="number">21</span>, <span class="number">24</span>].contains(<span class="kw-2">&amp;</span>words_count) =&gt; <span class="prelude-val">Ok</span>(words_count),
+			<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(Error::Input(
+				<span class="string">&quot;Invalid number of words given for phrase: must be 12/15/18/21/24&quot;</span>.into(),
+			)),
+			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="number">12</span>),
+		}<span class="question-mark">?</span>;
+		<span class="kw">let </span>mnemonic = Mnemonic::generate(words)
+			.map_err(|e| Error::Input(<span class="macro">format!</span>(<span class="string">&quot;Mnemonic generation failed: {e}&quot;</span>).into()))<span class="question-mark">?</span>;
 		<span class="kw">let </span>password = <span class="self">self</span>.keystore_params.read_password()<span class="question-mark">?</span>;
 		<span class="kw">let </span>output = <span class="self">self</span>.output_scheme.output_type;
 
+		<span class="kw">let </span>phrase = mnemonic.word_iter().join(<span class="string">&quot; &quot;</span>);
+
 		<span class="macro">with_crypto_scheme!</span>(
 			<span class="self">self</span>.crypto_scheme.scheme,
-			print_from_uri(mnemonic.phrase(), password, <span class="self">self</span>.network_scheme.network, output)
+			print_from_uri(<span class="kw-2">&amp;</span>phrase, password, <span class="self">self</span>.network_scheme.network, output)
 		);
 		<span class="prelude-val">Ok</span>(())
 	}
