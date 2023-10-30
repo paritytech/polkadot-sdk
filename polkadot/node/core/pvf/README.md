@@ -1,5 +1,14 @@
 # PVF Host
 
+This is the PVF host, responsible for responding to requests from Candidate
+Validation and spawning worker tasks to fulfill those requests.
+
+See [the Implementer's
+Guide](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html#summary)
+for more information and the
+[Glossary](https://paritytech.github.io/polkadot-sdk/book/glossary.html) for an
+explanation of the terminology.
+
 ## Running basic tests
 
 The first step is to build the worker binaries:
