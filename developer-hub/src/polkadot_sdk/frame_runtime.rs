@@ -34,17 +34,16 @@
 //! make as few assumptions about the general runtime as possible. A pallet is analogous to a
 //! _module_ in the runtime.
 //!
-//! Pallets themselves are composed of *parts/components*, most notable of which are:
+//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro. Within this macro, pallet components/parts can be defined. Most notable of these parts are:
 //!
-//! - Storage
-//! - Dispatchables
-//! - Events
-//! - Errors
-//!
-//! TODO: "dispatchables" need to be defined.
+//! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and generic over types, values and such.
+//! - [Storage](frame::pallet_macros::storage), allowing a pallet to define onchain storage.
+//! - [Dispatchable function aka. Extrinsics](frame::pallet_macros::call), allowing a pallet to define extrinsics that are callable by end users, from the outer world.
+//! - [Events](frame::pallet_macros::event), allowing a pallet to emit events.
+//! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
-//! [`frame::deps::frame_support::pallet_macros`]
+//! [`frame::pallet_macros`]
 //!
 //! ### Example
 //!
@@ -54,19 +53,18 @@
 //! ## Runtime
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
-//! some configurations (exposed as a `trait Config`) that needs to be specified in the runtime.
+//! some configurations (exposed as a `trait Config`) that needs to be *specified* in the runtime.
 //! This is done with [`frame::runtime::prelude::construct_runtime`].
 //!
 //! A (real) runtime that actually wishes to compile to WASM needs to also implement a set of
-//! runtime-apis that
+//! runtime-apis. These implementation can be specified using the
+//! [`frame::runtime::impl_runtime_apis`] macro.
 //!
 //! ### Example
 //!
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
 //! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
 
 #[cfg(test)]
 mod tests {

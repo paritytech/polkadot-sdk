@@ -12,4 +12,6 @@
 //!
 //! Runtime API:
 //!
-//! Dispatchable:
+//! Dispatchable, Callable:
+//!
+//! Extrinsic, Transaction

@@ -75,7 +75,7 @@ pub use log;
 /// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
 /// }`. They are mainly provided for documentation and IDE support.
 pub mod pallet_macros {
-	pub use frame_support::pallet_macros::*;
+	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
 }
 
 /// The main prelude of FRAME.

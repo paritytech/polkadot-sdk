@@ -1,6 +1,6 @@
 //! # Currency Pallet
 //!
-//! By the end of this tutorial, you will write a small pallet (see
+//! By the end of this tutorial, you will write a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
@@ -8,6 +8,11 @@
 //!    real system).
 //! 2. Allow any user that owns tokens to transfer them to others.
 //! 3. Tracks of the total issuance of all tokens at all times.
+//!
+//! > This tutorial will build a currency pallet from scratch using only the lowest primitives of
+//! > FRAME, and is mainly intended for education, not *applicability*. For example, almost all
+//! > FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
+//! > one. Further advance FRAME related topics are discussed in [`crate::reference_docs`].
 //!
 //! ## Topics Covered
 //!
@@ -23,7 +28,7 @@
 //!
 //! ## Writing Your First Pallet
 //!
-//! You should have studied the following reference documents as a prelude to this tutorial:
+//! You should have studied the following modules as a prelude to this tutorial:
 //!
 //! - [`crate::reference_docs::blockchain_state_machines`]
 //! - [`crate::reference_docs::trait_based_programming`]
@@ -31,18 +36,26 @@
 //!
 //! ### Shell Pallet
 //!
-//! TODO: a small link to what a shell pallet looks like, and a mention that this is our starting
-//! point.
+//! Consider the following as a "shell pallet". We continue building the rest of this pallet based
+//! on this template.
+//!
+//! [`pallet::config`](frame::pallet_macros::config) and
+//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
+//! to the documentation of each to get an overview of what they do.
+#![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", shell_pallet)]
 //!
 //! ### Storage
 //!
-//! First, we will need to create two storage. One should be a mapping from account ids to a balance
-//! type, and one value that is the total issuance. For the rest of this tutorial, we will opt for a
-//! balance type of u128. to
+//! First, we will need to create two onchain storage declarations.
+//!
+//! One should be a mapping from account-ids to a balance type, and one value that is the total
+//! issuance.
+//
+// For the rest of this tutorial, we will opt for a balance type of u128.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Balance)]
 //!
-//! The definition of these two storage items, based on [`frame::pallet_macros::storage`], is as
-//! follows:
+//! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
+//! is as follows:
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", TotalIssuance)]
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", Balances)]
 //!
@@ -57,11 +70,12 @@
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
 //!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
-//! - What is `ensure_signed`, and what does it to with the aforementioned `T::RuntimeOrigin`? this
+//! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? this
 //!   is outside the scope of this tutorial, and you can learn more about it in the origin reference
-//!   document (TODO). For now, you should only know the signature of the function: it takes a
-//!   generic `T::RuntimeOrigin` and returns a `Result<T::AccountId, _>`. So by the end of this
-//!   function call, we know that this dispatchable was signed by `who`.
+//!   document ([`crate::reference_docs::origin_account_abstraction`]). For now, you should only
+//!   know the signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
+//!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
+//!   was signed by `who`.
 #![doc = docify::embed!("../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //!
@@ -74,11 +88,12 @@
 //!
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
 //! the `Err` variant. We won't cover this error in detail here, but importantly you should know
-//! that there is an `impl From<&'static string> for DispatchError` provided (see here). Therefore,
+//! that there is an `impl From<&'static string> for DispatchError` provided (see
+//! [here](`frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`)). Therefore,
 //! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
-//! - Why are all `get` and `mutate` functions return an `Option`? This is the default behavior of
-//!   FRAME storage APIs. You can learn more about how to override this by looking into
+//! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
+//!   of FRAME storage APIs. You can learn more about how to override this by looking into
 //!   [`frame::pallet_macros::storage`], and
 //!   [`frame::prelude::ValueQuery`]/[`frame::prelude::OptionQuery`]
 //!
@@ -86,28 +101,28 @@
 //!
 //! How we handle error in the above snippets is fairly rudimentary. Let's look at how this can be
 //! improved. First, we can use [`frame::prelude::ensure`] to express the error slightly better.
-//! This macro will call `.into()` under the hood for us.
+//! This macro will call `.into()` under the hood.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better)]
 //!
-//! Moreover, you will learn elsewhere (TODO link) that it is always recommended to use safe
-//! arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not only
-//! take a step in that direction, but also improve the error handing and make it slightly more
-//! ergonomic.
+//! Moreover, you will learn elsewhere ([`crate::reference_docs::safe_defensive_programming`]) that
+//! it is always recommended to use safe arithmetic operations in your runtime. By using
+//! [`frame::traits::CheckedSub`], we can not only take a step in that direction, but also improve
+//! the error handing and make it slightly more ergonomic.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", transfer_better_checked)]
 //!
-//! This is more or less all the logic that there is this basic pallet!
+//! This is more or less all the logic that there is this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!
 //! Next, we create a "test runtime" in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
 //! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to include
-//! [`frame::frame_system`]. So we expect to see a runtime with two pallet, `frame_system` and the
-//! one we just wrote.
+//! [`frame::prelude::frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
+//! and the one we just wrote.
 #![doc = docify::embed!("./src/tutorial/currency_simple/mod.rs", runtime)]
 //!
-//! > `derive_impl` is a FRAME feature that enables us to have defaults for associated types. You
-//! > can learn more about it in TODO.
+//! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
+//! > defaults for associated types.
 //!
 //! Recall that within out pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
@@ -118,13 +133,13 @@
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
 //! is to implement the `trait Config` of all pallets. That is, anywhere within your pallet code
 //! where you see `<T: Config>` (read: *"some type `T` that implements `Config`"*), in the runtime,
-//! it can be replaced with `Runtime`, because `Runtime` implements `Config` of all pallets, as we
+//! it can be replaced with `<Runtime>`, because `Runtime` implements `Config` of all pallets, as we
 //! see above.
 //!
 //! Another way to think about this is that within a pallet, a lot of types are "unknown" and, we
 //! only know that they will be provided at some later point. For example, when you write
 //! `T::AccountId` (which is short for `<T as frame_system::Config>`) in your pallet, you are in
-//! fact saying "Some type `AccountId` that will be known later". That "later" is in fact when you
+//! fact saying "*Some type `AccountId` that will be known later*". That "later" is in fact when you
 //! specify these types when you implement all `Config` traits for `Runtime`.
 //!
 //! As you see above, `frame_system::Config` is setting the `AccountId` to `u64`. Of course, a real
@@ -282,7 +297,19 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 
-mod parts;
+use frame::prelude::*;
+
+#[docify::export]
+#[frame::pallet(dev_mode)]
+pub mod shell_pallet {
+	use frame::prelude::*;
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+}
 
 #[frame::pallet(dev_mode)]
 pub mod pallet {
