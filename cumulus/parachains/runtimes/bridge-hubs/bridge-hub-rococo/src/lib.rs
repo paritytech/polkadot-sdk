@@ -39,13 +39,13 @@ pub mod xcm_config;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_core::{outbound::Message, AgentId};
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
-use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256},
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -85,6 +85,7 @@ use pallet_xcm::EnsureXcm;
 
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use xcm::VersionedMultiLocation;
 use xcm_config::{EthereumGatewayAddress, XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 use bp_runtime::HeaderId;
@@ -552,6 +553,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type DeliveryFeePerGas = DeliveryFeePerGas;
 	type DeliveryRefundPerGas = DeliveryRefundPerGas;
 	type DeliveryReward = DeliveryReward;
+	type WeightToFee = WeightToFee;
 	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 }
 
@@ -983,11 +985,22 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block> for Runtime {
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
 			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
+
+		fn calculate_fee(message: Message) -> Option<Balance> {
+			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
+		}
 	}
+
+	impl snowbridge_control_runtime_api::ControlApi<Block> for Runtime {
+		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
+			snowbridge_control::api::agent_id::<Runtime>(location)
+		}
+	}
+
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {

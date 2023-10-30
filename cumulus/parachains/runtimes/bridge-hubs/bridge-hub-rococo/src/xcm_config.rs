@@ -40,24 +40,25 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
+use rococo_runtime_constants::system_parachain::SystemParachains;
+use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
+	EnsureXcmOrigin, HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeesToAccount, HashedDescription, DescribeFamily, DescribeAllTerminal
+	XcmFeesToAccount,
 };
 use xcm_executor::{
 	traits::{ExportXcm, WithOriginFilter},
 	XcmExecutor,
 };
-use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 
 parameter_types! {
 	pub storage Flavor: RuntimeFlavor = RuntimeFlavor::default();
@@ -222,14 +223,11 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					BridgeGrandpaWococoInstance,
 				>::initialize { .. }) |
 				RuntimeCall::EthereumBeaconClient(
-					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. }
-						| snowbridge_ethereum_beacon_client::Call::set_owner { .. }
-						| snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
+					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
+						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
 				) | RuntimeCall::EthereumInboundQueue(
-				snowbridge_inbound_queue::Call::set_owner { .. }
-					| snowbridge_inbound_queue::Call::set_operating_mode { .. },
+					snowbridge_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
-				snowbridge_outbound_queue::Call::set_owner { .. } |
 					snowbridge_outbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumControl(..)
 		)
@@ -342,12 +340,17 @@ pub type XcmRouter = WithUniqueTopic<(
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) mod benchmark_helper {
-	use crate::xcm_config::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+	use crate::xcm_config::{
+		MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash,
+	};
 
 	pub struct DoNothingRouter;
 	impl SendXcm for DoNothingRouter {
 		type Ticket = ();
-		fn validate(_dest: &mut Option<MultiLocation>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+		fn validate(
+			_dest: &mut Option<MultiLocation>,
+			_msg: &mut Option<Xcm<()>>,
+		) -> SendResult<()> {
 			Ok(((), MultiAssets::new()))
 		}
 		fn deliver(_: ()) -> Result<XcmHash, SendError> {
@@ -458,7 +461,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 					destination,
 					message,
 				)
-					.map(|result| ((Ethereum {chain_id: 15}, result.0), result.1)) // TODO get network ID
+				.map(|result| ((Ethereum { chain_id: 15 }, result.0), result.1)) // TODO get network ID
 			},
 			_ => unimplemented!("Unsupported network: {:?}", network),
 		}

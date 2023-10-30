@@ -46,7 +46,7 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
 		// `a` needs to be from `b` at least
 		if !a.starts_with(b) {
-			return false;
+			return false
 		}
 
 		// here we check if sibling
@@ -101,7 +101,7 @@ impl<
 					"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}",
 					origin, universal_source
 				);
-				return false;
+				return false
 			},
 		};
 
