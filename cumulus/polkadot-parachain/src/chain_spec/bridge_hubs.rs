@@ -325,6 +325,7 @@ pub mod rococo {
 					owner: bridges_pallet_owner,
 					..Default::default()
 				},
+			ethereum_outbound_queue: Default::default(),
 		}
 	}
 }

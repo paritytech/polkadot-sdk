@@ -492,7 +492,7 @@ impl pallet_message_queue::Config for Runtime {
 	type ServiceWeight = MessageQueueServiceWeight;
 	type MessageProcessor = EthereumOutboundQueue;
 	type QueueChangeHandler = ();
-	type QueuePausedQuery = ();
+	type QueuePausedQuery = EthereumOutboundQueue;
 	type WeightInfo = ();
 }
 
@@ -535,9 +535,6 @@ pub const GWEI: u128 = 1_000_000_000;
 parameter_types! {
 	pub const MaxMessagePayloadSize: u32 = 2048;
 	pub const MaxMessagesPerBlock: u32 = 32;
-	pub const DeliveryFeePerGas: u128 = 10;
-	pub const DeliveryRefundPerGas: u128 = 10 * GWEI;
-	pub const DeliveryReward: u128 = 1000 * GWEI;
 }
 
 impl snowbridge_outbound_queue::Config for Runtime {
@@ -549,9 +546,6 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type OwnParaId = ParachainInfo;
 	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	type Balance = Balance;
-	type DeliveryFeePerGas = DeliveryFeePerGas;
-	type DeliveryRefundPerGas = DeliveryRefundPerGas;
-	type DeliveryReward = DeliveryReward;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 }
@@ -690,7 +684,7 @@ construct_runtime!(
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
 		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event<T>} = 48,
-		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 49,
+		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Config<T>, Event<T>} = 49,
 		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event<T>} = 50,
 		EthereumControl: snowbridge_control::{Pallet, Call, Storage, Event<T>} = 51,
 
