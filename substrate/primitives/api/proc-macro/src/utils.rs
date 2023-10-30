@@ -15,20 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::common::API_VERSION_ATTRIBUTE;
+use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
-
+use proc_macro_crate::{crate_name, FoundCrate};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
 	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
 	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
 };
-
-use quote::{format_ident, quote};
-
-use proc_macro_crate::{crate_name, FoundCrate};
-
-use crate::common::API_VERSION_ATTRIBUTE;
-
-use inflector::Inflector;
 
 /// Generates the access to the `sc_client` crate.
 pub fn generate_crate_access() -> TokenStream {
@@ -38,10 +33,15 @@ pub fn generate_crate_access() -> TokenStream {
 			let renamed_name = Ident::new(&renamed_name, Span::call_site());
 			quote!(#renamed_name)
 		},
-		Err(e) => {
-			let err = Error::new(Span::call_site(), e).to_compile_error();
-			quote!( #err )
-		},
+		Err(e) =>
+			if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+				let path = format!("{}::deps::{}", name, "sp_api");
+				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
+				quote!( #path )
+			} else {
+				let err = Error::new(Span::call_site(), e).to_compile_error();
+				quote!( #err )
+			},
 	}
 }
 
@@ -261,8 +261,6 @@ pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
 /// Extract the documentation from the provided attributes.
 #[cfg(feature = "frame-metadata")]
 pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
-	use quote::ToTokens;
-
 	attrs
 		.iter()
 		.filter_map(|attr| {
