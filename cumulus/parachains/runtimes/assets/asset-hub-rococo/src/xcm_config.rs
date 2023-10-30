@@ -938,12 +938,12 @@ pub mod bridging {
 				),
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					None, // no remote location filter
-					SiblingBridgeHub::get(), // TODO check
+					None, // TODO add Ethereum network / gateway contract
+					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
 						bp_asset_hub_rococo::BridgeHubRococoBaseFeeInRocs::get(),
-					).into()) // TODO check
+					).into()) // TODO calculate fee factor
 				),
 			];
 

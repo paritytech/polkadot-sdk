@@ -40,7 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain::SystemParachains;
+use rococo_runtime_constants::system_parachain;
 use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
