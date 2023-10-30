@@ -488,7 +488,8 @@ fn send_xcm_nested_works() {
 fn hrmp_signals_are_prioritized() {
 	let message = Xcm(vec![Trap(5)]);
 
-	let dest = (Parent, X1(Parachain(HRMP_PARA_ID)));
+	let sibling_para_id = ParaId::from(12345);
+	let dest = (Parent, X1(Parachain(sibling_para_id.into())));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
 
@@ -499,20 +500,28 @@ fn hrmp_signals_are_prioritized() {
 		// check wrapper were consumed
 		assert_eq!(None, dest_wrapper.take());
 		assert_eq!(None, msg_wrapper.take());
-		OutboundXcmpStatus::<Test>::set(vec![OutboundChannelDetails {
-			recipient: HRMP_PARA_ID.into(),
-			state: OutboundState::Ok,
-			signals_exist: false,
-			first_index: 0,
-			last_index: 0,
-		}]);
+
+		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+			sibling_para_id,
+			cumulus_primitives_core::AbridgedHrmpChannel {
+				max_capacity: 128,
+				max_total_size: 1 << 16,
+				max_message_size: 128,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+
+		let taken = XcmpQueue::take_outbound_messages(130);
+		assert_eq!(taken, vec![]);
 
 		// Enqueue some messages
 		let num_events = frame_system::Pallet::<Test>::events().len();
-		for _ in 0..129 {
+		for _ in 0..256 {
 			assert_ok!(send_xcm::<XcmpQueue>(dest.into(), message.clone()));
 		}
-		assert_eq!(num_events + 129, frame_system::Pallet::<Test>::events().len());
+		assert_eq!(num_events + 256, frame_system::Pallet::<Test>::events().len());
 
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
@@ -521,18 +530,18 @@ fn hrmp_signals_are_prioritized() {
 		}
 
 		hypothetically!({
-			let taken = XcmpQueue::take_outbound_messages(130);
-			assert_eq!(taken, vec![(HRMP_PARA_ID.into(), expected_msg,)]);
+			let taken = XcmpQueue::take_outbound_messages(usize::MAX);
+			assert_eq!(taken, vec![(sibling_para_id.into(), expected_msg,)]);
 		});
 
 		// But a signal gets prioritized instead of the messages:
-		XcmpQueue::send_signal(HRMP_PARA_ID.into(), ChannelSignal::Suspend);
+		XcmpQueue::send_signal(sibling_para_id.into(), ChannelSignal::Suspend);
 
 		let taken = XcmpQueue::take_outbound_messages(130);
 		assert_eq!(
 			taken,
 			vec![(
-				HRMP_PARA_ID.into(),
+				sibling_para_id.into(),
 				(XcmpMessageFormat::Signals, ChannelSignal::Suspend).encode()
 			)]
 		);

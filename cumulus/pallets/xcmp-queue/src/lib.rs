@@ -565,7 +565,6 @@ impl<T: Config> Pallet<T> {
 							return None
 						}
 						if page.len() + encoded_fragment.len() > max_message_size {
-							defensive!("Outbound queue page full; dropping message");
 							return None
 						}
 						page.extend_from_slice(&encoded_fragment[..]);

@@ -297,7 +297,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(128, 1 << 16)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX)
 		}
 
 		ParachainSystem::get_channel_status(id)
