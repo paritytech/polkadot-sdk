@@ -58,7 +58,7 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{DispatchResult, PostDispatchInfo},
+	dispatch::DispatchResult,
 	ensure,
 	storage::bounded_vec::BoundedVec,
 	traits::{
