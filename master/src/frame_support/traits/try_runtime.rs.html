@@ -187,6 +187,24 @@
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -333,9 +351,27 @@
 		<span class="kw">match </span>targets {
 			Select::None =&gt; <span class="prelude-val">Ok</span>(()),
 			Select::All =&gt; {
-				<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="prelude-val">Ok</span>(());
-				<span class="macro">for_tuples!</span>( #( result = result.and(Tuple::try_state(n.clone(), targets.clone())); )* );
-				result
+				<span class="kw">let </span><span class="kw-2">mut </span>error_count = <span class="number">0</span>;
+				<span class="macro">for_tuples!</span>(#(
+					<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = Tuple::try_state(n.clone(), targets.clone()) {
+						error_count += <span class="number">1</span>;
+					}
+				)<span class="kw-2">*</span>);
+
+				<span class="kw">if </span>error_count &gt; <span class="number">0 </span>{
+					<span class="macro">log::error!</span>(
+						target: <span class="string">&quot;try-runtime&quot;</span>,
+						<span class="string">&quot;{} pallets exited with errors while executing try_state checks.&quot;</span>,
+						error_count
+					);
+
+					<span class="kw">return </span><span class="prelude-val">Err</span>(
+						<span class="string">&quot;Detected errors while executing try_state checks. See logs for more info.&quot;
+							</span>.into(),
+					)
+				}
+
+				<span class="prelude-val">Ok</span>(())
 			},
 			Select::RoundRobin(len) =&gt; {
 				<span class="kw">let </span>functions: <span class="kw-2">&amp;</span>[<span class="kw">fn</span>(BlockNumber, Select) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;] =

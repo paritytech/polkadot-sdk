@@ -281,6 +281,12 @@
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -339,19 +345,6 @@
 				pallet_name,
 			);
 		}
-	};
-
-	<span class="kw">let </span>log_try_state = <span class="macro">quote::quote! </span>{
-		<span class="kw">let </span>pallet_name = &lt;
-			&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
-			<span class="kw">as
-			</span>#frame_support::traits::PalletInfo
-		&gt;::name::&lt;<span class="self">Self</span>&gt;().expect(<span class="string">&quot;No name found for the pallet! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>);
-		#<span class="macro">frame_support::__private::log::debug!</span>(
-			target: #frame_support::LOG_TARGET,
-			<span class="string">&quot;🩺 try-state pallet {:?}&quot;</span>,
-			pallet_name,
-		);
 	};
 
 	<span class="kw">let </span>hooks_impl = <span class="kw">if </span>def.hooks.is_none() {
@@ -554,12 +547,31 @@
 				n: #frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;,
 				_s: #frame_support::traits::TryStateSelect
 			) -&gt; <span class="prelude-ty">Result</span>&lt;(), #frame_support::sp_runtime::TryRuntimeError&gt; {
-				#log_try_state
+				<span class="kw">let </span>pallet_name = &lt;
+					&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
+					<span class="kw">as
+					</span>#frame_support::traits::PalletInfo
+				&gt;::name::&lt;<span class="self">Self</span>&gt;().expect(<span class="string">&quot;No name found for the pallet! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>);
+
+				#<span class="macro">frame_support::__private::log::info!</span>(
+					target: #frame_support::LOG_TARGET,
+					<span class="string">&quot;🩺 Running {:?} try-state checks&quot;</span>,
+					pallet_name,
+				);
 				&lt;
 					<span class="self">Self </span><span class="kw">as </span>#frame_support::traits::Hooks&lt;
 						#frame_system::pallet_prelude::BlockNumberFor::&lt;T&gt;
 					&gt;
-				&gt;::try_state(n)
+				&gt;::try_state(n).map_err(|err| {
+					#<span class="macro">frame_support::__private::log::error!</span>(
+						target: #frame_support::LOG_TARGET,
+						<span class="string">&quot;❌ {:?} try_state checks failed: {:?}&quot;</span>,
+						pallet_name,
+						err
+					);
+
+					err
+				})
 			}
 		}
 	)

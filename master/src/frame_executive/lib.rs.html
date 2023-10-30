@@ -1633,17 +1633,6 @@
 <a href="#1633" id="1633">1633</a>
 <a href="#1634" id="1634">1634</a>
 <a href="#1635" id="1635">1635</a>
-<a href="#1636" id="1636">1636</a>
-<a href="#1637" id="1637">1637</a>
-<a href="#1638" id="1638">1638</a>
-<a href="#1639" id="1639">1639</a>
-<a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1995,23 +1984,12 @@
 		<span class="prelude-val">Ok</span>(frame_system::Pallet::&lt;System&gt;::block_weight().total())
 	}
 
-	<span class="doccomment">/// Execute all `OnRuntimeUpgrade` of this runtime, including the pre and post migration checks.
+	<span class="doccomment">/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
-	/// Runs the try-state code both before and after the migration function if `checks` is set to
-	/// `true`. Also, if set to `true`, it runs the `pre_upgrade` and `post_upgrade` hooks.
+	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
 	</span><span class="kw">pub fn </span>try_runtime_upgrade(
 		checks: frame_try_runtime::UpgradeCheckSelect,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, TryRuntimeError&gt; {
-		<span class="kw">if </span>checks.try_state() {
-			<span class="kw">let </span>_guard = frame_support::StorageNoopGuard::default();
-			&lt;AllPalletsWithSystem <span class="kw">as </span>frame_support::traits::TryState&lt;
-				BlockNumberFor&lt;System&gt;,
-			&gt;&gt;::try_state(
-				frame_system::Pallet::&lt;System&gt;::block_number(),
-				frame_try_runtime::TryStateSelect::All,
-			)<span class="question-mark">?</span>;
-		}
-
 		<span class="kw">let </span>weight =
 			&lt;(COnRuntimeUpgrade, AllPalletsWithSystem) <span class="kw">as </span>OnRuntimeUpgrade&gt;::try_on_runtime_upgrade(
 				checks.pre_and_post(),
