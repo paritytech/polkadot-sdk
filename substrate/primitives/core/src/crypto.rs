@@ -882,7 +882,7 @@ pub trait Pair: CryptoType + Sized {
 				Mnemonic::parse_in_normalized(Language::English, phrase)
 			}
 		}
-			.map_err(|_| SecretStringError::InvalidPhrase)?;
+		.map_err(|_| SecretStringError::InvalidPhrase)?;
 
 		let (entropy, entropy_len) = mnemonic.to_entropy_array();
 		let big_seed =
