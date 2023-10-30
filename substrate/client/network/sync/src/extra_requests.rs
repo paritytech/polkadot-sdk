@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{request_metrics::Metrics, PeerSync, PeerSyncState};
+use crate::{
+	chain_sync::{PeerSync, PeerSyncState},
+	request_metrics::Metrics,
+};
 use fork_tree::ForkTree;
 use libp2p::PeerId;
 use log::{debug, trace, warn};
@@ -342,7 +345,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::PeerSync;
+	use crate::chain_sync::PeerSync;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};
