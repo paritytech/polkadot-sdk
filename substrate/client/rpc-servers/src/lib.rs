@@ -29,6 +29,7 @@ use jsonrpsee::{
 	server::middleware::{HostFilterLayer, ProxyGetRequestLayer},
 	RpcModule,
 };
+use tokio::net::TcpListener;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 pub use crate::middleware::RpcMetrics;
@@ -87,7 +88,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		rpc_api,
 	} = config;
 
-	let host_filter = hosts_filtering(cors.is_some(), &addrs);
+	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
+	let local_addr = std_listener.local_addr().ok();
+	let host_filter = hosts_filtering(cors.is_some(), local_addr);
 
 	let middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -112,34 +115,32 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	};
 
 	let rpc_api = build_rpc_api(rpc_api);
-	let (handle, addr) = if let Some(metrics) = metrics {
-		let server = builder.set_logger(metrics).build(&addrs[..]).await?;
-		let addr = server.local_addr();
-		(server.start(rpc_api), addr)
+	let handle = if let Some(metrics) = metrics {
+		let server = builder.set_logger(metrics).build_from_tcp(std_listener)?;
+		server.start(rpc_api)
 	} else {
-		let server = builder.build(&addrs[..]).await?;
-		let addr = server.local_addr();
-		(server.start(rpc_api), addr)
+		let server = builder.build_from_tcp(std_listener)?;
+		server.start(rpc_api)
 	};
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",
-		addr.map_or_else(|_| "unknown".to_string(), |a| a.to_string()),
+		local_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string()),
 		format_cors(cors)
 	);
 
 	Ok(handle)
 }
 
-fn hosts_filtering(enabled: bool, addrs: &[SocketAddr]) -> Option<HostFilterLayer> {
+fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
+	// If the local_addr failed, fallback to wildcard.
+	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
+
 	if enabled {
-		// NOTE The listening addresses are whitelisted by default.
-		let mut hosts = Vec::with_capacity(addrs.len() * 2);
-		for addr in addrs {
-			hosts.push(format!("localhost:{}", addr.port()));
-			hosts.push(format!("127.0.0.1:{}", addr.port()));
-		}
-		Some(HostFilterLayer::new(hosts).expect("SockAddr is valid host; qed"))
+		// NOTE: The listening addresses are whitelisted by default.
+		let hosts =
+			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
+		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
 	} else {
 		None
 	}
