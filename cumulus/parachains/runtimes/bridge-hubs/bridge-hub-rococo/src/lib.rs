@@ -502,15 +502,15 @@ construct_runtime!(
 		// BridgeHubRococo uses:
 		//  - BridgeWococoGrandpa
 		//  - BridgeWestendGrandpa
-		//  - BridgeWococoParachain
-		//  - BridgeWestendParachain
+		//  - BridgeWococoParachains
+		//  - BridgeWestendParachains
 		//  - BridgeWococoMessages
 		//  - BridgeWestendMessages
 		//  - BridgeRelayers
 		//
 		// BridgeHubWococo uses:
 		//  - BridgeRococoGrandpa
-		//  - BridgeRococoParachain
+		//  - BridgeRococoParachains
 		//  - BridgeRococoMessages
 		//  - BridgeRelayers
 
@@ -520,9 +520,9 @@ construct_runtime!(
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
 
 		// Parachain bridge modules.
-		BridgeWococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
-		BridgeRococoParachain: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
-		BridgeWestendParachain: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
+		BridgeWococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 42,
+		BridgeRococoParachains: pallet_bridge_parachains::<Instance2>::{Pallet, Call, Storage, Event<T>} = 44,
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
 
 		// Messaging bridge modules.
 		BridgeWococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 46,
@@ -538,7 +538,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	// Grandpa
 	BridgeRococoGrandpa, BridgeWococoGrandpa, BridgeWestendGrandpa,
 	// Parachains
-	BridgeRococoParachain, BridgeWococoParachain, BridgeWestendParachain,
+	BridgeRococoParachains, BridgeWococoParachains, BridgeWestendParachains,
 	// Messages
 	BridgeRococoMessages, BridgeWococoMessages, BridgeWestendMessages
 }
@@ -753,7 +753,7 @@ impl_runtime_apis! {
 
 	impl bp_bridge_hub_rococo::BridgeHubRococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeRococoParachain::best_parachain_head_id::<
+			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
 		}
@@ -761,7 +761,7 @@ impl_runtime_apis! {
 
 	impl bp_bridge_hub_wococo::BridgeHubWococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeWococoParachain::best_parachain_head_id::<
+			BridgeWococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_wococo::BridgeHubWococo
 			>().unwrap_or(None)
 		}
@@ -769,7 +769,7 @@ impl_runtime_apis! {
 
 	impl bp_bridge_hub_westend::BridgeHubWestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeWestendParachain::best_parachain_head_id::<
+			BridgeWestendParachains::best_parachain_head_id::<
 				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
 		}

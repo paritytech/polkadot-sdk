@@ -477,7 +477,7 @@ construct_runtime!(
 		// Bridging stuff.
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 41,
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 42,
-		BridgeRococoParachain: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 43,
+		BridgeRococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 44,
 	}
 );
@@ -487,7 +487,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	// Grandpa
 	BridgeRococoGrandpa,
 	// Parachains
-	BridgeRococoParachain,
+	BridgeRococoParachains,
 	// Messages
 	BridgeRococoMessages
 }
@@ -676,7 +676,7 @@ impl_runtime_apis! {
 
 	impl bp_bridge_hub_rococo::BridgeHubRococoFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
-			BridgeRococoParachain::best_parachain_head_id::<
+			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
 		}

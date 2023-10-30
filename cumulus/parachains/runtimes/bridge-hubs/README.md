@@ -145,9 +145,9 @@ cd <polkadot-sdk-git-repo-dir>
 
 **Check parachain headers relaying:**
 - Rococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate - Pallet:
-	**bridgeWococoParachain** - Keys: **parasInfo(None)**
+	**bridgeWococoParachains** - Keys: **parasInfo(None)**
 - Wococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate - Pallet:
-	**bridgeRococoParachain** - Keys: **parasInfo(None)**
+	**bridgeRococoParachains** - Keys: **parasInfo(None)**
 
 ### Initialize configuration for transfer asset over bridge (ROCs/WOCs)
 
@@ -250,9 +250,9 @@ cd <polkadot-sdk-git-repo-dir>
 
 **Check parachain headers relaying:**
 - Rococo parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8943#/chainstate - Pallet:
-  **bridgeWestendParachain** - Keys: **parasInfo(None)**
+  **bridgeWestendParachains** - Keys: **parasInfo(None)**
 - Westend parachain: - https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A8945#/chainstate - Pallet:
-  **bridgeRococoParachain** - Keys: **parasInfo(None)**
+  **bridgeRococoParachains** - Keys: **parasInfo(None)**
 
 ### Initialize configuration for transfer asset over bridge (ROCs/WNDs)
 
