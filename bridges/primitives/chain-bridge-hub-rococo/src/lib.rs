@@ -26,7 +26,7 @@ use bp_runtime::{
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
-use sp_std::prelude::Vec;
+
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
 pub struct BridgeHubRococo;
@@ -68,11 +68,15 @@ pub type Address = MultiAddress<AccountId, ()>;
 pub const BRIDGE_HUB_ROCOCO_PARACHAIN_ID: u32 = 1013;
 
 /// Name of the With-BridgeHubRococo messages pallet instance that is deployed at bridged chains.
-pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
+pub const WITH_BRIDGE_HUB_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_NAME: &str =
+	"BridgeWococoToRococoMessages";
 
 /// Name of the With-BridgeHubRococo bridge-relayers pallet instance that is deployed at bridged
 /// chains.
 pub const WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
+
+/// Pallet index of `BridgeRococoToWococoMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX: u8 = 46;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_rococo);

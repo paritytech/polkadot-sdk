@@ -219,9 +219,14 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
+}
+
+parameter_types! {
+	pub const TransactionByteFee: Balance = MILLICENTS;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -230,7 +235,7 @@ impl pallet_transaction_payment::Config for Runtime {
 		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
 	type WeightToFee = WeightToFee;
 	/// Relay Chain `TransactionByteFee` / 10
-	type LengthToFee = ConstantMultiplier<Balance, ConstU128<MILLICENTS>>;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 }

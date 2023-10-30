@@ -124,7 +124,13 @@ benchmarks! {
 		let expired = frame_system::Pallet::<T>::block_number().saturating_sub(One::one());
 		let config = HostConfiguration::<BlockNumberFor<T>>::default();
 		generate_disordered_pruning::<T>();
-		Pallet::<T>::schedule_code_upgrade(para_id, ValidationCode(vec![0]), expired, &config);
+		Pallet::<T>::schedule_code_upgrade(
+			para_id,
+			ValidationCode(vec![0]),
+			expired,
+			&config,
+			SetGoAhead::Yes,
+		);
 	}: _(RawOrigin::Root, para_id, new_head)
 	verify {
 		assert_last_event::<T>(Event::NewHeadNoted(para_id).into());
