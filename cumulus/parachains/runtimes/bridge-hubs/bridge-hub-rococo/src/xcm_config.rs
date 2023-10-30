@@ -466,6 +466,12 @@ impl<
 				if bridged_network == DestNetwork::get() &&
 					destination == X1(Parachain(DestParaId::get().into())))
 		{
+			// We have 2 relayer rewards accounts:
+			// - the SA of the source parachain on this BH: this pays the relayers for delivering
+			//   Source para -> Target Para message delivery confirmations
+			// - the SA of the destination parachain on this BH: this pays the relayers for
+			//   delivering Target para -> Source Para messages
+			// We split the `ExportMessage` fee between these 2 accounts.
 			let source_para_account = PayRewardFromAccount::<
 				pallet_balances::Pallet<Runtime>,
 				AccountId,
