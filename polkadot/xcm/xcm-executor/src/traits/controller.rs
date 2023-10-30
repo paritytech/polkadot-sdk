@@ -31,6 +31,7 @@ pub trait Controller<Origin, RuntimeCall, Timeout>:
 	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
 {
 }
+
 impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
 	T: ExecuteController<Origin, RuntimeCall>
 		+ SendController<Origin>
