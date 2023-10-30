@@ -536,11 +536,15 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		Some(
-			// FAIL-CI
-			T::step(cursor.map(|c| Decode::decode(&mut &c[..]).unwrap()), meter)
-				.map(|v| v.map(|v| v.encode())),
-		)
+		let cursor = match cursor {
+			Some(cursor) => match T::Cursor::decode(&mut &cursor[..]) {
+				Ok(cursor) => Some(cursor),
+				Err(_) => return Some(Err(SteppedMigrationError::InvalidCursor)),
+			},
+			None => None,
+		};
+
+		Some(T::step(cursor, meter).map(|cursor| cursor.map(|cursor| cursor.encode())))
 	}
 
 	fn nth_transactional_step(
@@ -548,10 +552,16 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
+		let cursor = match cursor {
+			Some(cursor) => match T::Cursor::decode(&mut &cursor[..]) {
+				Ok(cursor) => Some(cursor),
+				Err(_) => return Some(Err(SteppedMigrationError::InvalidCursor)),
+			},
+			None => None,
+		};
+
 		Some(
-			// FAIL-CI unwrap
-			T::transactional_step(cursor.map(|c| Decode::decode(&mut &c[..]).unwrap()), meter)
-				.map(|v| v.map(|v| v.encode())),
+			T::transactional_step(cursor, meter).map(|cursor| cursor.map(|cursor| cursor.encode())),
 		)
 	}
 
