@@ -124,9 +124,10 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker,
+		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker, OnPoll,
 		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
+	weights::WeightMeter,
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -196,7 +197,8 @@ impl<
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
-			+ OffchainWorker<BlockNumberFor<System>>,
+			+ OffchainWorker<BlockNumberFor<System>>
+			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
 	> ExecuteBlock<Block>
@@ -243,6 +245,7 @@ impl<
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
+			+ OnPoll<BlockNumberFor<System>>
 			+ frame_support::traits::TryState<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
@@ -430,7 +433,8 @@ impl<
 			+ OnInitialize<BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
-			+ OffchainWorker<BlockNumberFor<System>>,
+			+ OffchainWorker<BlockNumberFor<System>>
+			+ OnPoll<BlockNumberFor<System>>,
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 		MultiStepMigrator: frame_support::migrations::MultiStepMigrator,
 	>
@@ -468,7 +472,7 @@ impl<
 	}
 
 	fn extrinsic_mode() -> ExtrinsicInclusionMode {
-		if MultiStepMigrator::is_upgrading() {
+		if MultiStepMigrator::ongoing() {
 			ExtrinsicInclusionMode::OnlyInherents
 		} else {
 			ExtrinsicInclusionMode::AllExtrinsics
@@ -588,16 +592,16 @@ impl<
 	/// Progress ongoing MBM migrations.
 	// Used by the block builder and Executive.
 	pub fn after_inherents() {
-		let is_upgrading = MultiStepMigrator::is_upgrading();
-		if is_upgrading {
+		if MultiStepMigrator::ongoing() {
 			let used_weight = MultiStepMigrator::step();
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 				used_weight,
 				DispatchClass::Mandatory,
 			);
+		} else {
+			let block_number = <frame_system::Pallet<System>>::block_number();
+			Self::on_poll_hook(block_number);
 		}
-
-		// TODO `poll` hook goes here. <https://github.com/paritytech/substrate/pull/14279>
 	}
 
 	/// Execute given extrinsics.
@@ -629,7 +633,7 @@ impl<
 
 	/// Run the `on_idle` hook of all pallet, but only if there is weight remaining.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
-		if MultiStepMigrator::is_upgrading() {
+		if MultiStepMigrator::ongoing() {
 			return
 		}
 
@@ -644,6 +648,29 @@ impl<
 			);
 			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 				used_weight,
+				DispatchClass::Mandatory,
+			);
+		}
+	}
+
+	fn on_poll_hook(block_number: NumberFor<Block>) {
+		if MultiStepMigrator::ongoing() {
+			debug_assert!(false, "on_poll should not be called during migrations");
+			return
+		}
+
+		let weight = <frame_system::Pallet<System>>::block_weight();
+		let max_weight = <System::BlockWeights as frame_support::traits::Get<_>>::get().max_block;
+		let remaining = max_weight.saturating_sub(weight.total());
+
+		if remaining.all_gt(Weight::zero()) {
+			let mut meter = WeightMeter::with_limit(remaining);
+			<AllPalletsWithSystem as OnPoll<BlockNumberFor<System>>>::on_poll(
+				block_number,
+				&mut meter,
+			);
+			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
+				meter.consumed(),
 				DispatchClass::Mandatory,
 			);
 		}

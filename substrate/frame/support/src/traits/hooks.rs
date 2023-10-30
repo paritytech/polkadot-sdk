@@ -25,6 +25,7 @@ use crate::weights::Weight;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_std::prelude::*;
+use sp_weights::WeightMeter;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -71,6 +72,21 @@ pub trait PostTransactions {
 impl PostTransactions for Tuple {
 	fn post_transactions() {
 		for_tuples!( #( Tuple::post_transactions(); )* );
+	}
+}
+
+/// FAIL-CI doc
+pub trait OnPoll<BlockNumber> {
+	/// FAIL-CI doc
+	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl<BlockNumber: Clone> OnPoll<BlockNumber> for Tuple {
+	fn on_poll(n: BlockNumber, weight: &mut WeightMeter) {
+		for_tuples!( #( Tuple::on_poll(n.clone(), weight); )* );
 	}
 }
 
@@ -387,6 +403,9 @@ pub trait Hooks<BlockNumber> {
 	fn on_idle(_n: BlockNumber, _remaining_weight: Weight) -> Weight {
 		Weight::zero()
 	}
+
+	/// FAIL-CI doc
+	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by FRAME.
 	///

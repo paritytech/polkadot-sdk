@@ -465,7 +465,7 @@ impl OnMigrationUpdate for () {
 /// Something that can do multi step migrations.
 pub trait MultiStepMigrator {
 	/// Hint for whether [`Self::step`] should be called.
-	fn is_upgrading() -> bool;
+	fn ongoing() -> bool;
 	/// Do the next step in the MBM process.
 	///
 	/// Must gracefully handle the case that it is currently not upgrading.
@@ -473,7 +473,7 @@ pub trait MultiStepMigrator {
 }
 
 impl MultiStepMigrator for () {
-	fn is_upgrading() -> bool {
+	fn ongoing() -> bool {
 		false
 	}
 

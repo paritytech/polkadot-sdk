@@ -72,7 +72,7 @@
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
 //! it is fixed through manual governance intervention.  
 //! As soon as the cursor of the pallet becomes `Some(_)`; chain transaction processing is paused
-//! by [`MultiStepMigrator::is_upgrading`] returning `true`. This ensures that no other
+//! by [`MultiStepMigrator::ongoing`] returning `true`. This ensures that no other
 //! transactions are processed until all migrations are complete (Goal 2).  
 //! `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the `Historic` set. Historic
@@ -445,7 +445,7 @@ impl<T: Config> Pallet<T> {
 				return meter.consumed()
 			},
 		};
-		debug_assert!(<Self as MultiStepMigrator>::is_upgrading());
+		debug_assert!(<Self as MultiStepMigrator>::ongoing());
 
 		for i in 0.. {
 			match Self::exec_migration(&mut meter, cursor, i == 0) {
@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> MultiStepMigrator for Pallet<T> {
-	fn is_upgrading() -> bool {
+	fn ongoing() -> bool {
 		Cursor::<T>::exists()
 	}
 
