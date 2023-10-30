@@ -124,7 +124,7 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
+		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
 		OnRuntimeUpgrade,
 	},
 	weights::Weight,
@@ -185,7 +185,7 @@ pub struct Executive<
 );
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -231,7 +231,7 @@ impl<
 
 #[cfg(feature = "try-runtime")]
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -419,7 +419,7 @@ impl<
 }
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + EnsureInherentsAreFirst<Block> + EnsureInherentsAreOrdered<Block>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -543,10 +543,14 @@ impl<
 			"Parent hash should be valid.",
 		);
 
-		match System::ensure_inherents_are_first(block) {
-			Ok(first_extrinsic_index) => first_extrinsic_index,
+		let num_inherents = match System::ensure_inherents_are_first(block) {
+			Ok(num) => num,
 			Err(i) => panic!("Invalid inherent position for extrinsic at index {}", i),
-		}
+		};
+
+		System::ensure_inherents_are_ordered(block, num_inherents as usize).expect("Inherents are ordered in a valid block");
+		
+		num_inherents
 	}
 
 	/// Actually execute all transitions for `block`.
