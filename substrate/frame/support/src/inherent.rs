@@ -16,7 +16,7 @@
 // limitations under the License.
 
 pub use sp_inherents::{
-	CheckInherentsResult, InherentData, InherentIdentifier, IsFatalError, MakeFatalError,
+	CheckInherentsResult, InherentData, InherentIdentifier, IsFatalError, MakeFatalError, InherentOrder,
 };
 
 /// A pallet that provides or verifies an inherent extrinsic will implement this trait.
@@ -79,6 +79,13 @@ pub trait ProvideInherent {
 	/// ensuring that the block is correct.
 	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
 		Ok(())
+	}
+
+	/// The order of the inherent relative to all other inherents.
+	///
+	/// A return value of `None` indicates that the pallet index should be used.
+	fn inherent_order() -> Option<InherentOrder> {
+		None
 	}
 
 	/// Return whether the call is an inherent call.
