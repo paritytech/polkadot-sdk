@@ -130,30 +130,26 @@ impl ArtifactId {
 	}
 
 	/// Returns the expected path to this artifact given the root of the cache.
-	pub fn path(&self, cache_path: &Path) -> PathBuf {
+	pub fn path_prefix(&self, cache_path: &Path) -> PathBuf {
 		let file_name =
 			format!("{}_{:#x}_{:#x}", ARTIFACT_PREFIX, self.code_hash, self.executor_params_hash);
 		cache_path.join(file_name)
 	}
 
 	/// Tries to recover the artifact id from the given file name.
+	/// Return `None` if the given file name is not valid.
 	fn from_file_name(file_name: &str) -> Option<Self> {
+		// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
 		let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
+		let parts: Vec<&str> = file_name.split('_').collect();
 
-		// [ code hash | param hash ]
-		let hashes: Vec<&str> = file_name.split('_').collect();
-
-		if hashes.len() != 2 {
-			return None
+		if let [code_hash, param_hash, _checksum] = parts[..] {
+			let code_hash = Hash::from_str(code_hash_str).ok()?.into();
+			let executor_params_hash =
+				ExecutorParamsHash::from_hash(Hash::from_str(param_hash).ok()?);
+			Some(Self { code_hash, executor_params_hash })
 		}
-
-		let (code_hash_str, executor_params_hash_str) = (hashes[0], hashes[1]);
-
-		let code_hash = Hash::from_str(code_hash_str).ok()?.into();
-		let executor_params_hash =
-			ExecutorParamsHash::from_hash(Hash::from_str(executor_params_hash_str).ok()?);
-
-		Some(Self { code_hash, executor_params_hash })
+		None
 	}
 }
 
@@ -171,8 +167,8 @@ pub struct ArtifactPathId {
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, cache_path: &Path) -> Self {
-		Self { path: artifact_id.path(cache_path), id: artifact_id }
+	pub(crate) fn new(artifact_id: ArtifactId, path: &Path) -> Self {
+		Self { id: artifact_id, path: path.to_owned() }
 	}
 }
 
@@ -182,6 +178,8 @@ pub enum ArtifactState {
 	/// That means that the artifact should be accessible through the path obtained by the artifact
 	/// id (unless, it was removed externally).
 	Prepared {
+		/// The path of the compiled artifact.
+		path: PathBuf,
 		/// The time when the artifact was last needed.
 		///
 		/// This is updated when we get the heads up for this artifact or when we just discover
@@ -235,10 +233,6 @@ impl Artifacts {
 	}
 
 	async fn insert_and_prune(&mut self, cache_path: &Path) {
-		fn is_stale(file_name: &str) -> bool {
-			!file_name.starts_with(ARTIFACT_PREFIX)
-		}
-
 		// Inserts the entry into the artifacts table if it is a valid artifact file, or prune it
 		// otherwise.
 		async fn insert_or_prune(
@@ -267,26 +261,26 @@ impl Artifacts {
 
 			if let Some(file_name) = file_name.to_str() {
 				let id = ArtifactId::from_file_name(file_name);
-				let file_path = cache_path.join(file_name);
+				let path = cache_path.join(file_name);
 
-				if is_stale(file_name) || id.is_none() {
+				if id.is_none() {
 					gum::debug!(
 						target: LOG_TARGET,
 						"discarding invalid artifact {:?}",
-						&file_path,
+						&path,
 					);
-					let _ = tokio::fs::remove_file(&file_path).await;
+					let _ = tokio::fs::remove_file(&path).await;
 					return
 				}
 
 				if let Some(id) = id {
-					artifacts.insert_prepared(id, SystemTime::now(), Default::default());
 					gum::debug!(
 						target: LOG_TARGET,
 						"reusing {:?} for node version v{}",
-						&file_path,
+						&path,
 						NODE_VERSION,
 					);
+					artifacts.insert_prepared(id, path, SystemTime::now(), Default::default());
 				}
 			} else {
 				gum::warn!(
@@ -353,19 +347,17 @@ impl Artifacts {
 	}
 
 	/// Insert an artifact with the given ID as "prepared".
-	///
-	/// This function must be used only for brand-new artifacts and should never be used for
-	/// replacing existing ones.
 	pub(crate) fn insert_prepared(
 		&mut self,
 		artifact_id: ArtifactId,
+		path: PathBuf,
 		last_time_needed: SystemTime,
 		prepare_stats: PrepareStats,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(artifact_id, ArtifactState::Prepared { last_time_needed, prepare_stats })
+			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, prepare_stats })
 			.is_none());
 	}
 
@@ -392,6 +384,15 @@ impl Artifacts {
 		}
 
 		to_remove
+	}
+
+	pub fn get_path(&self, id: &ArtifactId) -> Option<PathBuf> {
+		if let Some(state) = self.inner.get(id) {
+			if let ArtifactState::Prepared { path, .. } = state {
+				return Some(path.clone())
+			}
+		}
+		None
 	}
 }
 
@@ -473,7 +474,7 @@ mod tests {
 	}
 
 	#[test]
-	fn path() {
+	fn path_prefix() {
 		let dir = Path::new("/test");
 		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
 		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
@@ -484,7 +485,7 @@ mod tests {
 
 		assert_eq!(
 			ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
-				.path(dir)
+				.path_prefix(dir)
 				.to_str(),
 			Some(format!("/test/{}", file_name).as_str()),
 		);

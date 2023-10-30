@@ -70,7 +70,7 @@ pub async fn spawn(
 /// If the idle worker token is not returned, it means the worker must be terminated.
 pub enum Outcome {
 	/// The worker has finished the work assigned to it.
-	Concluded { worker: IdleWorker, result: PrepareResult },
+	Concluded { worker: IdleWorker, result: PrepareResult, path: Option<PathBuf> },
 	/// The host tried to reach the worker but failed. This is most likely because the worked was
 	/// killed by the system.
 	Unreachable,
@@ -203,7 +203,7 @@ async fn handle_response(
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-		Err(_) => return Outcome::Concluded { worker, result },
+		Err(_) => return Outcome::Concluded { worker, result, path: None },
 	};
 
 	if cpu_time_elapsed > preparation_timeout {
@@ -242,7 +242,7 @@ async fn handle_response(
 	);
 
 	let outcome = match tokio::fs::rename(&tmp_file, &artifact_path).await {
-		Ok(()) => Outcome::Concluded { worker, result },
+		Ok(()) => Outcome::Concluded { worker, result, path: Some(artifact_path) },
 		Err(err) => {
 			gum::warn!(
 				target: LOG_TARGET,

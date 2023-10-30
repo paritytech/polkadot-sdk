@@ -86,6 +86,8 @@ pub enum FromPool {
 		/// [`Ok`] indicates that compiled artifact is successfully stored on disk.
 		/// Otherwise, an [error](PrepareError) is supplied.
 		result: PrepareResult,
+		/// The path of the artifact, only available if successfully compiled.
+		path: Option<PathBuf>,
 	},
 
 	/// The given worker ceased to exist.
@@ -330,8 +332,8 @@ fn handle_mux(
 			// If we receive an outcome that the worker is unreachable or that an error occurred on
 			// the worker, we attempt to kill the worker process.
 			match outcome {
-				Outcome::Concluded { worker: idle, result } =>
-					handle_concluded_no_rip(from_pool, spawned, worker, idle, result),
+				Outcome::Concluded { worker: idle, result, path } =>
+					handle_concluded_no_rip(from_pool, spawned, worker, idle, result, path),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
 				Outcome::CreateTmpFileErr { worker: idle, err } => handle_concluded_no_rip(
@@ -340,6 +342,7 @@ fn handle_mux(
 					worker,
 					idle,
 					Err(PrepareError::CreateTmpFileErr(err)),
+					None,
 				),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
@@ -350,6 +353,7 @@ fn handle_mux(
 						worker,
 						idle,
 						Err(PrepareError::RenameTmpFileErr { err, src, dest }),
+						None,
 					),
 				// Could not clear worker cache. Kill the worker so other jobs can't see the data.
 				Outcome::ClearWorkerDir { err } => {
@@ -360,6 +364,7 @@ fn handle_mux(
 								worker,
 								rip: true,
 								result: Err(PrepareError::ClearWorkerDir(err)),
+								path: None,
 							},
 						)?;
 					}
@@ -381,6 +386,7 @@ fn handle_mux(
 								worker,
 								rip: true,
 								result: Err(PrepareError::IoErr(err)),
+								path: None,
 							},
 						)?;
 					}
@@ -395,6 +401,7 @@ fn handle_mux(
 								worker,
 								rip: true,
 								result: Err(PrepareError::TimedOut),
+								path: None,
 							},
 						)?;
 					}
@@ -440,6 +447,7 @@ fn handle_concluded_no_rip(
 	worker: Worker,
 	idle: IdleWorker,
 	result: PrepareResult,
+	path: Option<PathBuf>,
 ) -> Result<(), Fatal> {
 	let data = match spawned.get_mut(worker) {
 		None => {
@@ -458,7 +466,7 @@ fn handle_concluded_no_rip(
 		"old idle worker was taken out when starting work; we only replace it here; qed"
 	);
 
-	reply(from_pool, FromPool::Concluded { worker, rip: false, result })?;
+	reply(from_pool, FromPool::Concluded { worker, rip: false, result, path })?;
 
 	Ok(())
 }

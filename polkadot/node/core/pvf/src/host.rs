@@ -378,7 +378,6 @@ async fn run(
 				// If the artifact failed before, it could be re-scheduled for preparation here if
 				// the preparation failure cooldown has elapsed.
 				break_if_fatal!(handle_to_host(
-					&cache_path,
 					&mut artifacts,
 					&mut to_prepare_queue_tx,
 					&mut to_execute_queue_tx,
@@ -400,7 +399,6 @@ async fn run(
 				// We could be eager in terms of reporting and plumb the result from the preparation
 				// worker but we don't for the sake of simplicity.
 				break_if_fatal!(handle_prepare_done(
-					&cache_path,
 					&mut artifacts,
 					&mut to_execute_queue_tx,
 					&mut awaiting_prepare,
@@ -412,7 +410,6 @@ async fn run(
 }
 
 async fn handle_to_host(
-	cache_path: &Path,
 	artifacts: &mut Artifacts,
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,
 	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
@@ -424,15 +421,8 @@ async fn handle_to_host(
 			handle_precheck_pvf(artifacts, prepare_queue, pvf, result_tx).await?;
 		},
 		ToHost::ExecutePvf(inputs) => {
-			handle_execute_pvf(
-				cache_path,
-				artifacts,
-				prepare_queue,
-				execute_queue,
-				awaiting_prepare,
-				inputs,
-			)
-			.await?;
+			handle_execute_pvf(artifacts, prepare_queue, execute_queue, awaiting_prepare, inputs)
+				.await?;
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
@@ -457,7 +447,7 @@ async fn handle_precheck_pvf(
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
-			ArtifactState::Prepared { last_time_needed, prepare_stats } => {
+			ArtifactState::Prepared { last_time_needed, prepare_stats, .. } => {
 				*last_time_needed = SystemTime::now();
 				let _ = result_sender.send(Ok(prepare_stats.clone()));
 			},
@@ -489,7 +479,6 @@ async fn handle_precheck_pvf(
 /// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
 /// than when prechecking.
 async fn handle_execute_pvf(
-	cache_path: &Path,
 	artifacts: &mut Artifacts,
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,
 	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
@@ -502,8 +491,8 @@ async fn handle_execute_pvf(
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
-			ArtifactState::Prepared { last_time_needed, .. } => {
-				let file_metadata = std::fs::metadata(artifact_id.path(cache_path));
+			ArtifactState::Prepared { ref path, last_time_needed, .. } => {
+				let file_metadata = std::fs::metadata(path);
 
 				if file_metadata.is_ok() {
 					*last_time_needed = SystemTime::now();
@@ -512,7 +501,7 @@ async fn handle_execute_pvf(
 					send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							artifact: ArtifactPathId::new(artifact_id, cache_path),
+							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								params,
@@ -675,13 +664,12 @@ async fn handle_heads_up(
 }
 
 async fn handle_prepare_done(
-	cache_path: &Path,
 	artifacts: &mut Artifacts,
 	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
 	awaiting_prepare: &mut AwaitingPrepare,
 	from_queue: prepare::FromQueue,
 ) -> Result<(), Fatal> {
-	let prepare::FromQueue { artifact_id, result } = from_queue;
+	let prepare::FromQueue { artifact_id, result, path } = from_queue;
 
 	// Make some sanity checks and extract the current state.
 	let state = match artifacts.artifact_state_mut(&artifact_id) {
@@ -742,10 +730,16 @@ async fn handle_prepare_done(
 			continue
 		}
 
+		let path = if let Some(ref path) = path {
+			path.as_path()
+		} else {
+			unreachable!("path must be available if result is ok");
+		};
+
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				artifact: ArtifactPathId::new(artifact_id.clone(), cache_path),
+				artifact: ArtifactPathId::new(artifact_id.clone(), path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					params,
@@ -758,8 +752,14 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(prepare_stats) =>
-			ArtifactState::Prepared { last_time_needed: SystemTime::now(), prepare_stats },
+		Ok(prepare_stats) => {
+			let path = if let Some(path) = path {
+				path
+			} else {
+				unreachable!("path must be available if result is ok")
+			};
+			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats }
+		},
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -829,8 +829,9 @@ async fn handle_cleanup_pulse(
 			validation_code_hash = ?artifact_id.code_hash,
 			"pruning artifact",
 		);
-		let artifact_path = artifact_id.path(cache_path);
-		sweeper_tx.send(artifact_path).await.map_err(|_| Fatal)?;
+		if let Some(path) = artifacts.get_path(&artifact_id) {
+			sweeper_tx.send(path).await.map_err(|_| Fatal)?;
+		}
 	}
 
 	Ok(())
@@ -1012,7 +1013,9 @@ pub(crate) mod tests {
 	}
 
 	fn artifact_path(descriminator: u32) -> PathBuf {
-		artifact_id(descriminator).path(&PathBuf::from(std::env::temp_dir())).to_owned()
+		artifact_id(descriminator)
+			.path_prefix(&PathBuf::from(std::env::temp_dir()))
+			.to_owned()
 	}
 
 	struct Builder {

@@ -48,6 +48,8 @@ pub struct FromQueue {
 	/// is successfully stored on disk. Otherwise, an [error](crate::error::PrepareError)
 	/// is supplied.
 	pub(crate) result: PrepareResult,
+	/// Path of PVF artifact, only available if compiled successfully.
+	pub(crate) path: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -268,12 +270,12 @@ fn find_idle_worker(queue: &mut Queue) -> Option<Worker> {
 }
 
 async fn handle_from_pool(queue: &mut Queue, from_pool: pool::FromPool) -> Result<(), Fatal> {
-	use pool::FromPool::*;
+	use pool::FromPool;
 	match from_pool {
-		Spawned(worker) => handle_worker_spawned(queue, worker).await?,
-		Concluded { worker, rip, result } =>
-			handle_worker_concluded(queue, worker, rip, result).await?,
-		Rip(worker) => handle_worker_rip(queue, worker).await?,
+		FromPool::Spawned(worker) => handle_worker_spawned(queue, worker).await?,
+		FromPool::Concluded { worker, rip, result, path } =>
+			handle_worker_concluded(queue, worker, rip, result, path).await?,
+		FromPool::Rip(worker) => handle_worker_rip(queue, worker).await?,
 	}
 	Ok(())
 }
@@ -294,6 +296,7 @@ async fn handle_worker_concluded(
 	worker: Worker,
 	rip: bool,
 	result: PrepareResult,
+	path: Option<PathBuf>,
 ) -> Result<(), Fatal> {
 	queue.metrics.prepare_concluded();
 
@@ -351,7 +354,7 @@ async fn handle_worker_concluded(
 		"prepare worker concluded",
 	);
 
-	reply(&mut queue.from_queue_tx, FromQueue { artifact_id, result })?;
+	reply(&mut queue.from_queue_tx, FromQueue { artifact_id, result, path })?;
 
 	// Figure out what to do with the worker.
 	if rip {
@@ -426,7 +429,7 @@ async fn assign(queue: &mut Queue, worker: Worker, job: Job) -> Result<(), Fatal
 	let job_data = &mut queue.jobs[job];
 
 	let artifact_id = ArtifactId::from_pvf_prep_data(&job_data.pvf);
-	let artifact_path = artifact_id.path(&queue.cache_path);
+	let artifact_path = artifact_id.path_prefix(&queue.cache_path);
 
 	job_data.worker = Some(worker);
 
