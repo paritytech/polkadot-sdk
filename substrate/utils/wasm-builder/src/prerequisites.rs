@@ -143,9 +143,10 @@ fn check_wasm_toolchain_installed(
 	run_cmd.current_dir(&temp);
 	run_cmd.args(&["run", "--manifest-path", &manifest_path]);
 
-	// Unset the `CARGO_TARGET_DIR` to prevent a cargo deadlock
-	build_cmd.env_remove("CARGO_TARGET_DIR");
-	run_cmd.env_remove("CARGO_TARGET_DIR");
+	// manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock
+	let target_dir = temp.path().join("target").display().to_string();
+	build_cmd.env("CARGO_TARGET_DIR", &target_dir);
+	run_cmd.env("CARGO_TARGET_DIR", &target_dir);
 
 	// Make sure the host's flags aren't used here, e.g. if an alternative linker is specified
 	// in the RUSTFLAGS then the check we do here will break unless we clear these.
