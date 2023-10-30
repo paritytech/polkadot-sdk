@@ -36,7 +36,7 @@ use sp_runtime::{
 /// - `Left` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Right` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Criterion` determines whether the `AssetKind` belongs to the `Left` or `Right` set.
-/// - `AssetKind` is a superset type encompassing asset kinds from `Left`` and `Right` sets.
+/// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
 	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
