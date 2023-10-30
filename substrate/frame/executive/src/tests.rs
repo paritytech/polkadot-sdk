@@ -37,7 +37,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
-	weights::{ConstantMultiplier, WeightMeter, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
@@ -67,12 +67,9 @@ mod custom {
 			Weight::from_parts(175, 0)
 		}
 
-		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {
-		}
+		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {}
 
-		fn on_finalize(_: BlockNumberFor<T>) {
-			
-		}
+		fn on_finalize(_: BlockNumberFor<T>) {}
 
 		fn on_runtime_upgrade() -> Weight {
 			sp_io::storage::set(super::TEST_KEY, "module".as_bytes());

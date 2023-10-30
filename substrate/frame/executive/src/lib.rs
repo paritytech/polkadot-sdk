@@ -124,11 +124,11 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker, OnPoll,
-		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
+		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
+		PostTransactions, PreInherents,
 	},
-	weights::WeightMeter,
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
@@ -565,6 +565,7 @@ impl<
 			sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
 			let mode = Self::initialize_block(block.header());
+			<System as frame_system::Config>::PreInherents::pre_inherents();
 			let num_inherents = Self::initial_checks(&block) as usize;
 			let (header, extrinsics) = block.deconstruct();
 
@@ -584,6 +585,7 @@ impl<
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
 
 			Self::on_idle_hook(*header.number());
+			<System as frame_system::Config>::PostTransactions::post_transactions();
 			Self::on_finalize_hook(*header.number());
 			Self::final_checks(&header);
 		}
@@ -602,6 +604,8 @@ impl<
 			let block_number = <frame_system::Pallet<System>>::block_number();
 			Self::on_poll_hook(block_number);
 		}
+
+		<System as frame_system::Config>::PostInherents::post_inherents();
 	}
 
 	/// Execute given extrinsics.
