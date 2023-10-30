@@ -311,6 +311,15 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		let storage_version = <Pallet<T>>::on_chain_storage_version();
 		let target_version = <Pallet<T>>::current_storage_version();
 
+		if storage_version == target_version {
+			log::info!(
+				target: LOG_TARGET,
+				"Pallet is already at the latest version {storage_version:?}",
+			);
+
+			return Ok(Default::default())
+		}
+
 		log::debug!(
 			target: LOG_TARGET,
 			"Requested migration of {} from {:?}(on-chain storage version) to {:?}(current storage version)",
