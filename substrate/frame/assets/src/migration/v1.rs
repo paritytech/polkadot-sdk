@@ -101,9 +101,8 @@ pub(crate) struct AssetDetails<Balance, AccountId, DepositBalance> {
 pub struct MigrateToV1<T, I>(sp_std::marker::PhantomData<(T, I)>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 	fn on_runtime_upgrade() -> Weight {
-		let current_version = Pallet::<T, I>::current_storage_version();
 		let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-		if onchain_version == 0 && current_version == 1 {
+		if onchain_version == 0 {
 			let mut translated = 0u64;
 			Asset::<T, I>::translate::<
 				old::AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
@@ -112,14 +111,15 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 				translated.saturating_inc();
 				Some(old_value.migrate_to_v1())
 			});
-			current_version.put::<Pallet<T, I>>();
+			StorageVersion::new(1).put::<Pallet<T, I>>();
 			log::info!(
 				target: LOG_TARGET,
-				"Upgraded {} pools, storage to version {:?}",
+				"Upgraded {} pools, storage to version 1",
 				translated,
-				current_version
 			);
-			T::DbWeight::get().reads_writes(translated + 1, translated + 1)
+			translated.saturating_inc();
+
+			T::DbWeight::get().reads_writes(translated, translated)
 		} else {
 			log::info!(
 				target: LOG_TARGET,
@@ -149,13 +149,11 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateToV1<T, I> {
 			"the asset count before and after the migration should be the same"
 		);
 
-		let current_version = Pallet::<T, I>::current_storage_version();
 		let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 
-		frame_support::ensure!(current_version == 1, "must_upgrade");
-		ensure!(
-			current_version == onchain_version,
-			"after migration, the current_version and onchain_version should be the same"
+		frame_support::ensure!(
+			onchain_version == 1,
+			"on chain storage version for assets should be 1 after migration"
 		);
 
 		Asset::<T, I>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
