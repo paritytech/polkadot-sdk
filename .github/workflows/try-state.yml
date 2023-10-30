@@ -19,11 +19,11 @@ jobs:
     strategy:
       matrix:
         runtime:
-          - { file_name: DEV_DEBUG_BUILD__westend_runtime.compact.compressed.wasm, rpc: "wss://westend-try-runtime-node.parity-chains.parity.io:443" }
-          - { file_name: DEV_DEBUG_BUILD__rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-try-runtime-node.parity-chains.parity.io:443" }
-          - { file_name: DEV_DEBUG_BUILD__asset_hub_westend_runtime.compact.compressed.wasm, rpc: "wss://westend-asset-hub-rpc.polkadot.io:443" }
-          - { file_name: DEV_DEBUG_BUILD__bridge_hub_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-brdige-hub-rpc.polkadot.io:443" }
-          - { file_name: DEV_DEBUG_BUILD__contracts_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-contracts-rpc.polkadot.io:443" }
+          - { name: westend, file_name: DEV_DEBUG_BUILD__westend_runtime.compact.compressed.wasm, rpc: "wss://westend-try-runtime-node.parity-chains.parity.io:443" }
+          - { name: rococo, file_name: DEV_DEBUG_BUILD__rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-try-runtime-node.parity-chains.parity.io:443" }
+          - { name: westend_asset_hub, file_name: DEV_DEBUG_BUILD__asset_hub_westend_runtime.compact.compressed.wasm, rpc: "wss://westend-asset-hub-rpc.polkadot.io:443" }
+          - { name: rococo_bridge_hub, file_name: DEV_DEBUG_BUILD__bridge_hub_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-brdige-hub-rpc.polkadot.io:443" }
+          - { name: rococo_contracts, file_name: DEV_DEBUG_BUILD__contracts_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-contracts-rpc.polkadot.io:443" }
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -36,7 +36,7 @@ jobs:
 
     - name: Download runtime blob
       run: |
-        curl -sL ${{ env.RUNTIME_BASE_URL }}/${{ matrix.runtime.file_name }}
+        curl -sL ${{ env.RUNTIME_BASE_URL }}/${{ matrix.runtime.file_name }} -o ${{ matrix.runtime.name }}
 
     - name: Display structure of downloaded files
       run: ls -R
@@ -44,7 +44,7 @@ jobs:
     - name: Check state
       run: | 
         ./try-runtime \
-          --runtime ./${{ matrix.runtime.file_name }} \
+          --runtime ./${{ matrix.runtime.name }} \
           execute-block \
           live --uri ${{ matrix.runtime.rpc }}
 
