@@ -26,11 +26,10 @@ use frame_support::{
 	traits::{OnFinalize, OnIdle, OnInitialize},
 	StorageNoopGuard,
 };
-use sp_io::TestExternalities as TestExt;
 
 #[test]
 fn migration_works() {
-	let mut ext = TestExt::default();
+	let mut ext = new_test_ext();
 	ext.execute_with(|| {
 		sp_tracing::try_init_simple();
 		// Insert some storage:
@@ -154,7 +153,7 @@ fn migration_works() {
 /// Too long messages are dropped by the migration.
 #[test]
 fn migration_too_long_ignored() {
-	TestExt::default().execute_with(|| {
+	new_test_ext().execute_with(|| {
 		// Setup the storage:
 		PageIndex::<Runtime>::set(PageIndexData {
 			begin_used: 10,
