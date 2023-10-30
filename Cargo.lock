@@ -17962,7 +17962,8 @@ dependencies = [
 [[package]]
 name = "substrate-bip39"
 version = "0.4.5"
-source = "git+https://github.com/paritytech/substrate-bip39?branch=mku-support-for-no-std#b0ccbf720a0d6bdeea03c2e946ab186cef696fcb"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e620c7098893ba667438b47169c00aacdd9e7c10e042250ce2b60b087ec97328"
 dependencies = [
  "hmac 0.11.0",
  "pbkdf2 0.8.0",
