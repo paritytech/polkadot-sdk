@@ -537,6 +537,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		Some(
+			// FAIL-CI
 			T::step(cursor.map(|c| Decode::decode(&mut &c[..]).unwrap()), meter)
 				.map(|v| v.map(|v| v.encode())),
 		)

@@ -93,10 +93,12 @@ use frame_support::{
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass,
 	},
 	impl_ensure_origin_with_arg_ignoring_arg,
+	migrations::MultiStepMigrator,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -130,6 +132,7 @@ pub use extensions::{
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
+use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -243,6 +246,11 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
 		/// Default configurations of this pallet in a solo-chain environment.
@@ -290,6 +298,11 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU32<256>;
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 	}
 
@@ -448,6 +461,14 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		type SingleBlockMigrations: OnRuntimeUpgrade;
+
+		type MultiBlockMigrator: MultiStepMigrator;
+
+		type PreInherents: PreInherents;
+		type PostInherents: PostInherents;
+		type PostTransactions: PostTransactions;
 	}
 
 	#[pallet::pallet]

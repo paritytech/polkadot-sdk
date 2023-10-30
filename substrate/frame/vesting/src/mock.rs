@@ -63,6 +63,11 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type SystemWeightInfo = ();
 	type Version = ();
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 }
 
 impl pallet_balances::Config for Test {

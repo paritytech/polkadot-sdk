@@ -153,9 +153,9 @@ fn failing_migration_force_unstuck_works() {
 /// A migration that reports not getting enough weight errors if it is the first one to run in that
 /// block.
 #[test]
-fn high_weight_migration_singular_fails() {
+fn heigh_weight_migration_singular_fails() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(HightWeightAfter(Weight::zero()), 2)]);
+		MigrationsStorage::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -183,7 +183,7 @@ fn high_weight_migration_singular_fails() {
 #[test]
 fn high_weight_migration_retries_once() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (HightWeightAfter(Weight::zero()), 0)]);
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::zero()), 0)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -212,7 +212,7 @@ fn high_weight_migration_retries_once() {
 #[test]
 fn high_weight_migration_permanently_overweight_fails() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (HightWeightAfter(Weight::MAX), 0)]);
+		MigrationsStorage::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::MAX), 0)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();

@@ -66,7 +66,7 @@ pub enum MockedMigrationKind {
 	/// Never terminate.
 	TimeoutAfter,
 	/// Cause an [`InsufficientWeight`] error after its number of steps elapsed.
-	HeightWeightAfter(Weight),
+	HighWeightAfter(Weight),
 }
 use MockedMigrationKind::*; // C style
 
@@ -76,7 +76,7 @@ impl From<u8> for MockedMigrationKind {
 			0 => SucceedAfter,
 			1 => FailAfter,
 			2 => TimeoutAfter,
-			3 => HightWeightAfter(Weight::MAX),
+			3 => HighWeightAfter(Weight::MAX),
 			_ => unreachable!(),
 		}
 	}
@@ -88,7 +88,7 @@ impl Into<u8> for MockedMigrationKind {
 			SucceedAfter => 0,
 			FailAfter => 1,
 			TimeoutAfter => 2,
-			HightWeightAfter(_) => 3,
+			HighWeightAfter(_) => 3,
 		}
 	}
 }
@@ -147,7 +147,7 @@ impl SteppedMigrations for MigrationsStorage {
 					log::debug!("MockedMigration: Succeeded after {} steps", count);
 					Ok(None)
 				},
-				HightWeightAfter(required) => {
+				HighWeightAfter(required) => {
 					log::debug!("MockedMigration: Not enough weight after {} steps", count);
 					Err(SteppedMigrationError::InsufficientWeight { required })
 				},

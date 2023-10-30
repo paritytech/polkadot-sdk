@@ -29,6 +29,51 @@ use sp_std::prelude::*;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+/// Provides a callback to execute logic before the all inherents.
+pub trait PreInherents {
+	/// Called before all inherents were applied but after `on_initialize`.
+	fn pre_inherents() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PreInherents for Tuple {
+	fn pre_inherents() {
+		for_tuples!( #( Tuple::pre_inherents(); )* );
+	}
+}
+
+/// Provides a callback to execute logic after the all inherents.
+pub trait PostInherents {
+	/// Called after all inherents were applied.
+	fn post_inherents() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PostInherents for Tuple {
+	fn post_inherents() {
+		for_tuples!( #( Tuple::post_inherents(); )* );
+	}
+}
+
+/// Provides a callback to execute logic before the all transactions.
+pub trait PostTransactions {
+	/// Called after all transactions were applied but before `on_finalize`.
+	fn post_transactions() {}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+impl PostTransactions for Tuple {
+	fn post_transactions() {
+		for_tuples!( #( Tuple::post_transactions(); )* );
+	}
+}
+
 /// See [`Hooks::on_initialize`].
 pub trait OnInitialize<BlockNumber> {
 	/// See [`Hooks::on_initialize`].
