@@ -316,10 +316,7 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size() -> u64 {
-	recorder::with(|rec| rec.estimate_encoded_size())
-		.unwrap_or_default()
-		.try_into()
-		.unwrap_or_default()
+	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {

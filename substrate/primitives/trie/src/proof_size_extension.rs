@@ -27,11 +27,13 @@ sp_externalities::decl_extension! {
 }
 
 impl ProofSizeExt {
+	/// Creates a new instance of [`ProofSizeExt`].
 	pub fn new<T: ProofSizeProvider + Sync + Send + 'static>(recorder: T) -> Self {
 		ProofSizeExt(Box::new(recorder))
 	}
 
+	/// Returns the storage proof size.
 	pub fn storage_proof_size(&self) -> u64 {
-		self.0.estimate_encoded_size().try_into().unwrap_or_default()
+		self.0.estimate_encoded_size() as _
 	}
 }

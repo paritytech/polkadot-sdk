@@ -168,6 +168,7 @@ pub trait TrieRecorderProvider<H: Hasher> {
 
 /// Type that is able to provide a proof size estimation.
 pub trait ProofSizeProvider {
+	/// Returns the storage proof size.
 	fn estimate_encoded_size(&self) -> usize;
 }
 
