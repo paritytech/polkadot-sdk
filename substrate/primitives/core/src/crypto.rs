@@ -885,13 +885,12 @@ pub trait Pair: CryptoType + Sized {
 		phrase: &str,
 		password: Option<&str>,
 	) -> Result<(Self, Self::Seed), SecretStringError> {
+		let mnemonic = Mnemonic::parse_in(Language::English, phrase)
+			.map_err(|_| SecretStringError::InvalidPhrase)?;
 
-		let mnemonic =
-				Mnemonic::parse_in(Language::English, phrase)
-		.map_err(|_| SecretStringError::InvalidPhrase)?;
-
+		let (entropy, entropy_len) = mnemonic.to_entropy_array();
 		let big_seed =
-			substrate_bip39::seed_from_entropy(&mnemonic.to_entropy_array().0[..], password.unwrap_or(""))
+			substrate_bip39::seed_from_entropy(&entropy[0..entropy_len], password.unwrap_or(""))
 				.map_err(|_| SecretStringError::InvalidSeed)?;
 		let mut seed = Self::Seed::default();
 		let seed_slice = seed.as_mut();
