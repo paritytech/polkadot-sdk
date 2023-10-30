@@ -793,6 +793,7 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -949,8 +950,8 @@
 	/// all available accounts and the provided accounts
 	/// in `with_filter`. If no accounts are provided,
 	/// use all accounts by default.
-	</span><span class="kw">fn </span>accounts_from_keys&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Account&lt;T&gt;&gt; + <span class="lifetime">&#39;a</span>&gt; {
-		<span class="kw">let </span>keystore_accounts = <span class="self">self</span>.keystore_accounts();
+	</span><span class="kw">pub fn </span>accounts_from_keys&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Account&lt;T&gt;&gt; + <span class="lifetime">&#39;a</span>&gt; {
+		<span class="kw">let </span>keystore_accounts = <span class="self">Self</span>::keystore_accounts();
 		<span class="kw">match </span><span class="self">self</span>.accounts {
 			<span class="prelude-val">None </span>=&gt; Box::new(keystore_accounts),
 			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>keys) =&gt; {
@@ -970,7 +971,8 @@
 		}
 	}
 
-	<span class="kw">fn </span>keystore_accounts(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Account&lt;T&gt;&gt; {
+	<span class="doccomment">/// Return all available accounts in keystore.
+	</span><span class="kw">pub fn </span>keystore_accounts() -&gt; <span class="kw">impl </span>Iterator&lt;Item = Account&lt;T&gt;&gt; {
 		C::RuntimeAppPublic::all().into_iter().enumerate().map(|(index, key)| {
 			<span class="kw">let </span>generic_public = C::GenericPublic::from(key);
 			<span class="kw">let </span>public: T::Public = generic_public.into();
