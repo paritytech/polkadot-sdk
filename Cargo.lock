@@ -1377,6 +1377,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -11409,15 +11413,6 @@ dependencies = [
 
 [[package]]
 name = "pbkdf2"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83a0692ec44e4cf1ef28ca317f14f8f07da2d95ec3fa01f86e4467b725e60917"
-dependencies = [
- "digest 0.10.7",
-]
-
-[[package]]
-name = "pbkdf2"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
@@ -14732,11 +14727,13 @@ name = "sc-cli"
 version = "0.10.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
+ "bip39",
  "chrono",
  "clap 4.4.6",
  "fdlimit",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "libp2p-identity",
  "log",
  "names 0.13.0",
@@ -14765,7 +14762,6 @@ dependencies = [
  "sp-version",
  "tempfile",
  "thiserror",
- "tiny-bip39",
  "tokio",
 ]
 
@@ -17076,6 +17072,7 @@ version = "21.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "bandersnatch_vrfs",
+ "bip39",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -17087,6 +17084,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "impl-serde",
+ "itertools 0.10.5",
  "lazy_static",
  "libsecp256k1",
  "log",
@@ -17113,7 +17111,6 @@ dependencies = [
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
- "tiny-bip39",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -18705,25 +18702,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "733d258752e9303d392b94b75230d07b0b9c489350c69b851fc6c065fde3e8f9"
 dependencies = [
  "time-core",
-]
-
-[[package]]
-name = "tiny-bip39"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62cc94d358b5a1e84a5cb9109f559aa3c4d634d2b1b4de3d0fa4adc7c78e2861"
-dependencies = [
- "anyhow",
- "hmac 0.12.1",
- "once_cell",
- "pbkdf2 0.11.0",
- "rand 0.8.5",
- "rustc-hash",
- "sha2 0.10.7",
- "thiserror",
- "unicode-normalization",
- "wasm-bindgen",
- "zeroize",
 ]
 
 [[package]]
