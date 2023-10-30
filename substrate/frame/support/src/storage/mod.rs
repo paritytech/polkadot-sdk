@@ -2084,7 +2084,7 @@ mod test {
 			FooSet::append(6);
 			FooSet::append(7);
 
-			assert_eq!(FooSet::decode_len().unwrap(), 7);
+			assert_eq!(FooSet::decode_non_dedup_len().unwrap(), 7);
 		});
 	}
 
