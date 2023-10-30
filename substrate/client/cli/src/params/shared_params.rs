@@ -25,12 +25,14 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Args)]
 pub struct SharedParams {
 	/// Specify the chain specification.
-	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to a file
-	/// with the chainspec (such as one exported by the `build-spec` subcommand).
+	///
+	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to
+	/// a file with the chainspec (such as one exported by the `build-spec` subcommand).
 	#[arg(long, value_name = "CHAIN_SPEC")]
 	pub chain: Option<String>,
 
 	/// Specify the development chain.
+	///
 	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`,
 	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
 	#[arg(long, conflicts_with_all = &["chain"])]
@@ -40,14 +42,23 @@ pub struct SharedParams {
 	#[arg(long, short = 'd', value_name = "PATH")]
 	pub base_path: Option<PathBuf>,
 
-	/// Sets a custom logging filter. Syntax is `<target>=<level>`, e.g. -lsync=debug.
-	/// Log levels (least to most verbose) are error, warn, info, debug, and trace.
+	/// Sets a custom logging filter (syntax: `<target>=<level>`).
+	///
+	/// Log levels (least to most verbose) are `error`, `warn`, `info`, `debug`, and `trace`.
+	///
 	/// By default, all targets log `info`. The global log level can be set with `-l<level>`.
+	///
+	/// Multiple `<target>=<level>` entries can be specified and separated by a comma.
+	///
+	/// *Example*: `--log error,sync=debug,grandpa=warn`.
+	/// Sets Global log level to `error`, sets `sync` target to debug and grandpa target to `warn`.
 	#[arg(short = 'l', long, value_name = "LOG_PATTERN", num_args = 1..)]
 	pub log: Vec<String>,
 
 	/// Enable detailed log output.
-	/// This includes displaying the log target, log level and thread name.
+	///
+	/// Includes displaying the log target, log level and thread name.
+	///
 	/// This is automatically enabled when something is logged with any higher level than `info`.
 	#[arg(long)]
 	pub detailed_log_output: bool,
@@ -57,14 +68,18 @@ pub struct SharedParams {
 	pub disable_log_color: bool,
 
 	/// Enable feature to dynamically update and reload the log filter.
+	///
 	/// Be aware that enabling this feature can lead to a performance decrease up to factor six or
 	/// more. Depending on the global logging level the performance decrease changes.
+	///
 	/// The `system_addLogFilter` and `system_resetLogFilter` RPCs will have no effect with this
 	/// option not being set.
 	#[arg(long)]
 	pub enable_log_reloading: bool,
 
-	/// Sets a custom profiling filter. Syntax is the same as for logging: `<target>=<level>`.
+	/// Sets a custom profiling filter.
+	///
+	/// Syntax is the same as for logging (`--log`).
 	#[arg(long, value_name = "TARGETS")]
 	pub tracing_targets: Option<String>,
 
