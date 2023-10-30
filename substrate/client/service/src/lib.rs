@@ -110,7 +110,7 @@ impl RpcHandlers {
 		json_query: &str,
 	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
 		self.0
-			.raw_json_request(json_query, usize::MAX)
+			.raw_json_request(json_query, tokio::sync::Semaphore::MAX_PERMITS)
 			.await
 			.map(|(method_res, recv)| (method_res.result, recv))
 	}
