@@ -257,10 +257,7 @@ pub fn worker_entrypoint(
 								);
 								tokio::fs::write(&temp_artifact_dest, &artifact).await?;
 
-								let mut gen_hash = blake3::hash(artifact.as_ref());
-								let checksum = gen_hash.finalize();
-
-								Ok(PrepareStats { cpu_time_elapsed, memory_stats, checksum })
+								Ok(PrepareStats { cpu_time_elapsed, memory_stats })
 							},
 						}
 					},

@@ -199,7 +199,7 @@ async fn handle_response(
 	artifact_path: PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareStats { cpu_time_elapsed, memory_stats, .. } = match result.clone() {
+	let PrepareStats { cpu_time_elapsed, memory_stats } = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
 		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
