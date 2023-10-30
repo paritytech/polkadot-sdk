@@ -244,6 +244,53 @@ pub mod pallet {
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
 		}
+
+		/// Default configurations of this pallet in a solo-chain environment.
+		///
+		/// ## Considerations:
+		///
+		/// By default, this type makes the following choices:
+		///
+		/// * Use a normal 32 byte account id, with a [`DefaultConfig::Lookup`] that implies no
+		///   'account-indexing' pallet is being used.
+		/// * Given that we don't know anything about the existence of a currency system in scope,
+		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. Overwrite this
+		///   if you use `pallet-balances` or similar.
+		/// * Make sure to overwrite [`DefaultConfig::Version`].
+		/// * 2s block time, and a default 5mb block size is used.
+		#[cfg(feature = "experimental")]
+		pub struct SolochainDefaultConfig;
+
+		#[cfg(feature = "experimental")]
+		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		impl DefaultConfig for SolochainDefaultConfig {
+			type Nonce = u32;
+			type Hash = sp_core::hash::H256;
+			type Hashing = sp_runtime::traits::BlakeTwo256;
+			type AccountId = sp_runtime::AccountId32;
+			type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
+			type MaxConsumers = frame_support::traits::ConstU32<128>;
+			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type OnNewAccount = ();
+			type OnKilledAccount = ();
+			type SystemWeightInfo = ();
+			type SS58Prefix = ();
+			type Version = ();
+			type BlockWeights = ();
+			type BlockLength = ();
+			type DbWeight = ();
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+			#[inject_runtime_type]
+			type PalletInfo = ();
+			type BaseCallFilter = frame_support::traits::Everything;
+			type BlockHashCount = frame_support::traits::ConstU32<256>;
+			type OnSetCode = ();
+		}
 	}
 
 	/// System configuration trait. Implemented by runtime.
@@ -420,8 +467,9 @@ pub mod pallet {
 		///
 		/// Can be executed by every `origin`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::SystemWeightInfo::remark(_remark.len() as u32))]
-		pub fn remark(_origin: OriginFor<T>, _remark: Vec<u8>) -> DispatchResultWithPostInfo {
+		#[pallet::weight(T::SystemWeightInfo::remark(remark.len() as u32))]
+		pub fn remark(_origin: OriginFor<T>, remark: Vec<u8>) -> DispatchResultWithPostInfo {
+			let _ = remark; // No need to check the weight witness.
 			Ok(().into())
 		}
 
@@ -495,16 +543,16 @@ pub mod pallet {
 		/// the prefix we are removing to accurately calculate the weight of this function.
 		#[pallet::call_index(6)]
 		#[pallet::weight((
-			T::SystemWeightInfo::kill_prefix(_subkeys.saturating_add(1)),
+			T::SystemWeightInfo::kill_prefix(subkeys.saturating_add(1)),
 			DispatchClass::Operational,
 		))]
 		pub fn kill_prefix(
 			origin: OriginFor<T>,
 			prefix: Key,
-			_subkeys: u32,
+			subkeys: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			let _ = storage::unhashed::clear_prefix(&prefix, None, None);
+			let _ = storage::unhashed::clear_prefix(&prefix, Some(subkeys), None);
 			Ok(().into())
 		}
 
@@ -1816,4 +1864,11 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `BlockNumber` associated type of system config.
 	pub type BlockNumberFor<T> = <HeaderFor<T> as sp_runtime::traits::Header>::Number;
+
+	/// Type alias for the `Extrinsic` associated type of system config.
+	pub type ExtrinsicFor<T> =
+		<<T as crate::Config>::Block as sp_runtime::traits::Block>::Extrinsic;
+
+	/// Type alias for the `RuntimeCall` associated type of system config.
+	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
 }

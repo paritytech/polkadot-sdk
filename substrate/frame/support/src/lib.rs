@@ -30,6 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Export ourself as `frame_support` to make tests happy.
+#[doc(hidden)]
 extern crate self as frame_support;
 
 /// Private exports that are being used by macros.
@@ -45,6 +46,7 @@ pub mod __private {
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
+	pub use sp_inherents;
 	pub use sp_io::{self, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
@@ -786,12 +788,6 @@ pub use serde::{Deserialize, Serialize};
 #[cfg(not(no_std))]
 pub use macro_magic;
 
-/// Private module re-exporting items used by frame support macros.
-#[doc(hidden)]
-pub mod _private {
-	pub use sp_inherents;
-}
-
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
 pub mod testing_prelude {
@@ -806,16 +802,20 @@ pub mod testing_prelude {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{
+		defensive, defensive_assert,
 		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
 		storage::{
+			bounded_btree_map::BoundedBTreeMap,
+			bounded_btree_set::BoundedBTreeSet,
 			bounded_vec::BoundedVec,
 			types::{
 				CountedStorageMap, CountedStorageNMap, Key as NMapKey, OptionQuery, ResultQuery,
 				StorageDoubleMap, StorageMap, StorageNMap, StorageValue, ValueQuery,
 			},
+			weak_bounded_vec::WeakBoundedVec,
 			StorageList,
 		},
 		traits::{
@@ -1646,8 +1646,7 @@ pub mod pallet_prelude {
 /// the enum:
 ///
 /// ```ignore
-/// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug
 /// ```
 ///
 /// The inverse is also true: if there are any #[derive] attributes present for the enum, then
@@ -1815,6 +1814,15 @@ pub mod pallet_prelude {
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T>(PhantomData<T>);
 ///
+///     // Declare a hold reason (this is optional).
+///     //
+///     // Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+///     // A similar enum can be defined for `FreezeReason`, `LockId` or `SlashReason`.
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason {
+/// 		SomeHoldReason
+/// 	}
+///
 /// 	// Declare validate_unsigned implementation (this is optional).
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -1948,6 +1956,11 @@ pub mod pallet_prelude {
 ///
 /// 	#[pallet::origin]
 /// 	pub struct Origin<T, I = ()>(PhantomData<(T, I)>);
+///
+///     #[pallet::composite_enum]
+/// 	pub enum HoldReason<I: 'static = ()> {
+/// 		SomeHoldReason
+/// 	}
 ///
 /// 	#[pallet::validate_unsigned]
 /// 	impl<T: Config<I>, I: 'static> ValidateUnsigned for Pallet<T, I> {
