@@ -438,15 +438,20 @@ fn xcmp_queue_validate_nested_xcm_works() {
 		good = Xcm(vec![SetAppendix(good)]);
 	}
 
-	// Check that the good message is validated:
-	assert_ok!(<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
+	new_test_ext().execute_with(|| {
+		// Check that the good message is validated:
+		assert_ok!(<XcmpQueue as SendXcm>::validate(
+			&mut Some(dest.into()),
+			&mut Some(good.clone())
+		));
 
-	// Nesting the message one more time should reject it:
-	let bad = Xcm(vec![SetAppendix(good)]);
-	assert_eq!(
-		Err(SendError::ExceedsMaxMessageSize),
-		<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
-	);
+		// Nesting the message one more time should reject it:
+		let bad = Xcm(vec![SetAppendix(good)]);
+		assert_eq!(
+			Err(SendError::ExceedsMaxMessageSize),
+			<XcmpQueue as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
+		);
+	});
 }
 
 #[test]
@@ -486,13 +491,14 @@ fn hrmp_signals_are_prioritized() {
 	let dest = (Parent, X1(Parachain(HRMP_PARA_ID)));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
-	<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).unwrap();
-
-	// check wrapper were consumed
-	assert_eq!(None, dest_wrapper.take());
-	assert_eq!(None, msg_wrapper.take());
 
 	new_test_ext().execute_with(|| {
+		frame_system::Pallet::<Test>::set_block_number(1);
+		<XcmpQueue as SendXcm>::validate(&mut dest_wrapper, &mut msg_wrapper).unwrap();
+
+		// check wrapper were consumed
+		assert_eq!(None, dest_wrapper.take());
+		assert_eq!(None, msg_wrapper.take());
 		OutboundXcmpStatus::<Test>::set(vec![OutboundChannelDetails {
 			recipient: HRMP_PARA_ID.into(),
 			state: OutboundState::Ok,
@@ -502,9 +508,11 @@ fn hrmp_signals_are_prioritized() {
 		}]);
 
 		// Enqueue some messages
+		let num_events = frame_system::Pallet::<Test>::events().len();
 		for _ in 0..129 {
-			send_xcm::<XcmpQueue>(dest.into(), message.clone()).unwrap();
+			assert_ok!(send_xcm::<XcmpQueue>(dest.into(), message.clone()));
 		}
+		assert_eq!(num_events + 129, frame_system::Pallet::<Test>::events().len());
 
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();

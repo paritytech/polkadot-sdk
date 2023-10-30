@@ -45,7 +45,6 @@ pub mod fellowship;
 pub use ambassador::pallet_ambassador_origins;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::ParaId;
 use fellowship::{
 	migration::import_kusama_fellowship, pallet_fellowship_origins, Fellows,
 	FellowshipCollectiveInstance,

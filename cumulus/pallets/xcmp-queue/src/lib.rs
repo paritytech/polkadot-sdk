@@ -64,16 +64,12 @@ use frame_support::{
 	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
-use polkadot_runtime_common::xcm_sender::{PriceForMessageDelivery, PriceForParachainDelivery};
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
-use rand_chacha::{
-	rand_core::{RngCore, SeedableRng},
-	ChaChaRng,
-};
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
 
@@ -100,12 +96,6 @@ pub mod delivery_fee_constants {
 	/// The contribution of each KB to a fee factor increase
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
-
-// Maximum amount of messages to process per block. This is a temporary measure until we properly
-// account for proof size weights.
-const MAX_MESSAGES_PER_BLOCK: u8 = 10;
-// Maximum amount of messages that can exist in the overweight queue at any given time.
-const MAX_OVERWEIGHT_MESSAGES: u32 = 1000;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -571,9 +561,11 @@ impl<T: Config> Pallet<T> {
 							&mut &page[..],
 						) != Ok(format)
 						{
+							defensive!("Bad format in outbound queue; dropping message");
 							return None
 						}
 						if page.len() + encoded_fragment.len() > max_message_size {
+							defensive!("Outbound queue page full; dropping message");
 							return None
 						}
 						page.extend_from_slice(&encoded_fragment[..]);
@@ -712,6 +704,20 @@ impl<T: Config> Pallet<T> {
 		<T as crate::Config>::WeightInfo::on_idle_good_msg()
 			.max(<T as crate::Config>::WeightInfo::on_idle_large_msg())
 	}
+
+	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpSuspended<T>>::get().iter().any(|c| c == &sender)
+	}
+
+	#[cfg(feature = "bridging")]
+	/// Returns tuple of `OutboundState` and number of queued pages.
+	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
+		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
+			let queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
+	}
 }
 
 impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
@@ -736,24 +742,6 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 			}
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
 		}
-	}
-
-	#[cfg(feature = "bridging")]
-	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
-		<InboundXcmpStatus<T>>::get()
-			.iter()
-			.find(|c| c.sender == sender)
-			.map(|c| c.state == InboundState::Suspended)
-			.unwrap_or(false)
-	}
-
-	#[cfg(feature = "bridging")]
-	/// Returns tuple of `OutboundState` and number of queued pages.
-	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
-		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
-			let queued_pages = c.last_index.saturating_sub(c.first_index);
-			(c.state, queued_pages)
-		})
 	}
 }
 
@@ -812,13 +800,6 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 								defensive!("Undecodable channel signal - dropping");
 								break
 							},
-						}
-						// Update the delivery fee factor, if applicable.
-						if count > suspend_threshold {
-							let message_size_factor =
-								FixedU128::from((data_ref.len() / 1024) as u128)
-									.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
-							Self::increase_fee_factor(sender, message_size_factor);
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm =>
@@ -1015,7 +996,10 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		debug_assert!(validate_xcm_nesting(&xcm).is_ok(), "Tickets are valid; qed");
+		debug_assert!(
+			validate_xcm_nesting(&xcm).is_ok(),
+			"Tickets are valid prior to delivery by trait XCM; qed"
+		);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {

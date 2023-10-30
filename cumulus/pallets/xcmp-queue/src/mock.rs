@@ -17,7 +17,7 @@ use super::*;
 use crate as xcmp_queue;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
-use cumulus_primitives_core::{IsSystem, ParaId};
+use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
@@ -297,18 +297,24 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(128, usize::MAX)
+			return ChannelStatus::Ready(128, 1 << 16)
 		}
 
 		ParachainSystem::get_channel_status(id)
 	}
 
-	fn get_channel_max(id: ParaId) -> Option<usize> {
+	fn get_channel_info(id: ParaId) -> Option<ChannelInfo> {
 		if id == HRMP_PARA_ID.into() {
-			return Some(128)
+			return Some(ChannelInfo {
+				max_capacity: u32::MAX,
+				max_total_size: u32::MAX,
+				max_message_size: u32::MAX,
+				msg_count: 0,
+				total_size: 0,
+			})
 		}
 
-		ParachainSystem::get_channel_max(id)
+		ParachainSystem::get_channel_info(id)
 	}
 }
 
