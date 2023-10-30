@@ -7987,6 +7987,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -8003,6 +8004,7 @@ name = "minimal-runtime"
 version = "0.1.0"
 dependencies = [
  "frame",
+ "frame-support",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
@@ -8010,6 +8012,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "sp-genesis-builder",
  "substrate-wasm-builder",
 ]
 
