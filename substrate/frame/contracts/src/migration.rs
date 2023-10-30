@@ -312,11 +312,6 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		let target_version = <Pallet<T>>::current_storage_version();
 
 		if storage_version == target_version {
-			log::info!(
-				target: LOG_TARGET,
-				"Pallet is already at the latest version {storage_version:?}",
-			);
-
 			return Ok(Default::default())
 		}
 
