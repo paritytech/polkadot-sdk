@@ -274,11 +274,6 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 						#frame_system::pallet_prelude::BlockNumberFor::<T>
 					>
 				>::try_state(n).map_err(|err| {
-					let pallet_name = <
-						<T as #frame_system::Config>::PalletInfo
-						as
-						#frame_support::traits::PalletInfo
-					>::name::<Self>().unwrap_or("<unknown pallet name>");
 					#frame_support::__private::log::error!(
 						target: #frame_support::LOG_TARGET,
 						"❌ {:?} try_state checks failed: {:?}",
