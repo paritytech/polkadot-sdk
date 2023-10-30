@@ -1,5 +1,4 @@
 # Runs `try-state` on all live runtimes in `polkadot-sdk`
-# TODO: Post to a Matrix channel if any fails.
 
 name: Check try-state
 on:
@@ -7,100 +6,44 @@ on:
     branches:
       - liam-try-state-scheduled-checks
   schedule:
-    - cron: "0 * * * *"
+    # run once per day at midnight
+    - cron: "0 0 * * *"
+
+env:
+  # TODO: Replace this with paritytech/polkadot-sdk 'latest' release URL once 1.3.0 is published 
+  # with all runtime blobs.
+  RUNTIME_BASE_URL: https://github.com/liamaharon/polkadot-sdk/releases/download/polkadot-v1.2.0-with-runtime-builds-fixed.3
 
 jobs:
   check_try_state:
+    strategy:
+      matrix:
+        runtime:
+          - { file_name: DEV_DEBUG_BUILD__westend_runtime.compact.compressed.wasm, rpc: wss://westend-try-runtime-node.parity-chains.parity.io:443 }
+          - { file_name: DEV_DEBUG_BUILD__rococo_runtime.compact.compressed.wasm, rpc: wss://rococo-try-runtime-node.parity-chains.parity.io:443 }
+          - { file_name: DEV_DEBUG_BUILD__asset_hub_westend_runtime.compact.compressed.wasm, rpc: wss://westend-asset-hub-rpc.polkadot.io:443 }
+          - { file_name: DEV_DEBUG_BUILD__bridge_hub_rococo_runtime.compact.compressed.wasm, rpc: wss://rococo-brdige-hub-rpc.polkadot.io:443 }
+          - { file_name: DEV_DEBUG_BUILD__contracts_rococo_runtime.compact.compressed.wasm, rpc: wss://rococo-contracts-rpc.polkadot.io:443 }
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v1
-      with:
-        version: "3.6.1"
-
-    - name: Add wasm32-unknown-unknown target
-      run: rustup target add wasm32-unknown-unknown
-
     - name: Download and set up try-runtime binary
       run: |
-        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.3/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
         chmod +x try-runtime
 
-    - name: Download runtime artifacts
-      uses: actions/download-artifact@v2
-      with:
-        name: runtimes-try-runtime
+    - name: Download runtime blob
+      run: |
+        curl -sL ${{ env.RUNTIME_BASE_URL }}/${{ matrix.runtime.file_name }}
 
-    - name: Display structure of downloaded files
-      run: ls -R
-
-    # - name: Build Runtimes
-    #   run: |
-    #     cargo build --release --features try-runtime \
-    #       -p westend-runtime \
-    #       -p rococo-runtime \
-    #       -p asset-hub-westend-runtime \
-    #       -p bridge-hub-rococo-runtime \
-    #       -p contracts-rococo-runtime
-
-    - name: Check Westend
+    - name: Check state
       run: | 
         ./try-runtime \
-          --runtime ./target/release/wbuild/westend-runtime/westend_runtime.compact.wasm \
+          --runtime ./${{ matrix.runtime.file_name }} \
           execute-block \
-          live --uri wss://westend-try-runtime-node.parity-chains.parity.io:443
+          live --uri ${{ matrix.runtime.rpc }}
       continue-on-error: true
-      id: westend_run
-
-    - name: Check Rococo
-      run: | 
-        ./try-runtime \
-          --runtime ./target/release/wbuild/rococo-runtime/rococo_runtime.compact.wasm \
-          execute-block \
-          live --uri wss://rococo-try-runtime-node.parity-chains.parity.io:443
-      continue-on-error: true
-      id: rococo_run
-
-    - name: Check Asset Hub Westend
-      run: | 
-        ./try-runtime \
-          --runtime ./target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.wasm \
-          execute-block \
-          live --uri wss://westend-asset-hub-rpc.polkadot.io:443
-      continue-on-error: true
-      id: asset_hub_westend_run
-
-    - name: Check Bridge Hub Rococo
-      run: | 
-        ./try-runtime \
-          --runtime ./target/release/wbuild/bridge-hub-rococo-runtime/bridge_hub_rococo_runtime.compact.wasm \
-          execute-block \
-          live --uri wss://rococo-bridge-hub-rpc.polkadot.io:443
-      continue-on-error: true
-      id: brdige_hub_rococo_run
-
-    - name: Check Contracts Rococo
-      run: | 
-        ./try-runtime \
-          --runtime ./target/release/wbuild/contracts-rococo/contracts_rococo_runtime.compact.wasm \
-          execute-block \
-          live --uri wss://rococo-contracts-rpc.polkadot.io:443
-      continue-on-error: true
-      id: contracts_rococo_run
-
-    # TODO: Check all runtimes
 
     # TODO: Post to Matrix if any fails
-    # - name: Notify Matrix on Failure
-      # if: steps.westend_run.outcome == 'failure'
-      # ...
