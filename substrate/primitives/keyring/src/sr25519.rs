@@ -19,7 +19,7 @@
 
 use lazy_static::lazy_static;
 pub use sp_core::sr25519;
-#[cfg(feature = "full_crypto")]
+#[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
 use sp_core::{
 	sr25519::{Pair, Public},
@@ -95,7 +95,7 @@ impl Keyring {
 		self.to_raw_public().into()
 	}
 
-	#[cfg(feature = "full_crypto")]
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
