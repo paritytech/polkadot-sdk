@@ -28,8 +28,18 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+    
+    - name: Send Test Matrix message
+      # if: steps.get-output.outputs.OUTCOME >= matrix.channel.threshold
+      uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+      with:
+        room_id: "!nbOkFmINBdBqqrfQYH:parity.io"
+        access_token: ${{ secrets.MATRIX_V2_ACCESS_TOKEN }}
+        server: m.parity.io
+        message: |
+          @room This is a test
 
-    - name: Download and set up try-runtime binary
+    - name:  Download and set up try-runtime binary
       run: |
         curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.3.5/try-runtime-x86_64-unknown-linux-musl -o try-runtime
         chmod +x try-runtime
@@ -41,23 +51,9 @@ jobs:
     - name: Display structure of downloaded files
       run: ls -R
 
-    - name: Get Day of the Week
-      run: |
-
-
     - name: Check state
       run: | 
         ./try-runtime \
           --runtime ./${{ matrix.runtime.name }} \
           execute-block \
           live --uri ${{ matrix.runtime.rpc }}
-
-    - name: Send Test Matrix message
-      # if: steps.get-output.outputs.OUTCOME >= matrix.channel.threshold
-      uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
-      with:
-        room_id: "!nbOkFmINBdBqqrfQYH:parity.io"
-        access_token: ${{ secrets.MATRIX_V2_ACCESS_TOKEN }}
-        server: m.parity.io
-        message: |
-          @room This is a test
