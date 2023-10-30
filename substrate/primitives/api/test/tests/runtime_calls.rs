@@ -17,6 +17,7 @@
 
 use std::panic::UnwindSafe;
 
+use sc_block_builder::BlockBuilderBuilder;
 use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
@@ -104,9 +105,12 @@ fn record_proof_works() {
 	.into_unchecked_extrinsic();
 
 	// Build the block and record proof
-	let mut builder = client
-		.new_block_at(client.chain_info().best_hash, Default::default(), true)
-		.expect("Creates block builder");
+	let mut builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(&client, client.chain_info().best_hash)
+		.unwrap()
+		.enable_proof_recording()
+		.build()
+		.unwrap();
 	builder.push(transaction.clone()).unwrap();
 	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 

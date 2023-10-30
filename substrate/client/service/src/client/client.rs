@@ -24,7 +24,6 @@ use log::{error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
-use sc_block_builder::{BlockBuilderApi, RecordProof};
 use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
 use sc_client_api::{
 	backend::{
@@ -70,7 +69,7 @@ use sp_runtime::{
 		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
-	Digest, Justification, Justifications, StateVersion,
+	Justification, Justifications, StateVersion,
 };
 use sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
