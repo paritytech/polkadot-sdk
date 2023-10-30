@@ -995,7 +995,7 @@ pub mod pallet {
 		/// execution attempt will be made.
 		///
 		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
-		/// successfully to completion; only that *some* of it was executed.
+		/// successfully to completion; only that it was attempted.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
