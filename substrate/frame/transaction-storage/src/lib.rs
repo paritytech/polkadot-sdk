@@ -447,7 +447,8 @@ pub mod pallet {
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let fee = byte_fee.saturating_mul(size.into()).saturating_add(entry_fee);
 			T::Currency::hold(&HoldReason::StorageFeeHold.into(), &sender, fee)?;
-			let (credit, _) = T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
+			let (credit, remainder) = T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
+			debug_assert!(remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
 		}
