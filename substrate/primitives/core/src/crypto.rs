@@ -872,7 +872,16 @@ pub trait Pair: CryptoType + Sized {
 		phrase: &str,
 		password: Option<&str>,
 	) -> Result<(Self, Self::Seed), SecretStringError> {
-		let mnemonic = Mnemonic::parse_in(Language::English, phrase)
+		let mnemonic = {
+			#[cfg(feature = "std")]
+			{
+				Mnemonic::parse_in(Language::English, phrase)
+			}
+			#[cfg(not(feature = "std"))]
+			{
+				Mnemonic::parse_in_normalized(Language::English, phrase)
+			}
+		}
 			.map_err(|_| SecretStringError::InvalidPhrase)?;
 
 		let (entropy, entropy_len) = mnemonic.to_entropy_array();
