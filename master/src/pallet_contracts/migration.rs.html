@@ -655,6 +655,7 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -920,14 +921,14 @@
 <span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T, TEST_ALL_STEPS&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
-		<span class="kw">let </span>latest_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
-		<span class="kw">let </span>storage_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
+		<span class="kw">let </span>current_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
+		<span class="kw">let </span>on_chain_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
 
-		<span class="kw">if </span>storage_version == latest_version {
+		<span class="kw">if </span>on_chain_version == current_version {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;{name}: No Migration performed storage_version = latest_version = {:?}&quot;</span>,
-				<span class="kw-2">&amp;</span>storage_version
+				<span class="kw-2">&amp;</span>on_chain_version
 			);
 			<span class="kw">return </span>T::WeightInfo::on_runtime_upgrade_noop()
 		}
@@ -938,7 +939,7 @@
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;{name}: Migration already in progress {:?}&quot;</span>,
-				<span class="kw-2">&amp;</span>storage_version
+				<span class="kw-2">&amp;</span>on_chain_version
 			);
 
 			<span class="kw">return </span>T::WeightInfo::on_runtime_upgrade_in_progress()
@@ -946,10 +947,10 @@
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{name}: Upgrading storage from {storage_version:?} to {latest_version:?}.&quot;</span>,
+			<span class="string">&quot;{name}: Upgrading storage from {on_chain_version:?} to {current_version:?}.&quot;</span>,
 		);
 
-		<span class="kw">let </span>cursor = T::Migrations::new(storage_version + <span class="number">1</span>);
+		<span class="kw">let </span>cursor = T::Migrations::new(on_chain_version + <span class="number">1</span>);
 		MigrationInProgress::&lt;T&gt;::set(<span class="prelude-val">Some</span>(cursor));
 
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -965,24 +966,25 @@
 		<span class="comment">// We can&#39;t really do much here as our migrations do not happen during the runtime upgrade.
 		// Instead, we call the migrations `pre_upgrade` and `post_upgrade` hooks when we iterate
 		// over our migrations.
-		</span><span class="kw">let </span>storage_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
-		<span class="kw">let </span>target_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
+		</span><span class="kw">let </span>on_chain_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
+		<span class="kw">let </span>current_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
 
-		<span class="macro">ensure!</span>(
-			storage_version != target_version,
-			<span class="string">&quot;No upgrade: Please remove this migration from your runtime upgrade configuration.&quot;
-		</span>);
+		<span class="kw">if </span>on_chain_version == current_version {
+			<span class="macro">log::warn!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;No upgrade: Please remove this migration from your Migrations tuple&quot;
+			</span>)
+		}
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
 			<span class="string">&quot;Requested migration of {} from {:?}(on-chain storage version) to {:?}(current storage version)&quot;</span>,
-			&lt;Pallet&lt;T&gt;&gt;::name(), storage_version, target_version
+			&lt;Pallet&lt;T&gt;&gt;::name(), on_chain_version, current_version
 		);
 
-		<span class="macro">ensure!</span>(
-			T::Migrations::is_upgrade_supported(storage_version, target_version),
-			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;
-		</span>);
+		<span class="kw">if </span>!T::Migrations::is_upgrade_supported(on_chain_version, current_version) {
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;</span>)
+		}
 		<span class="prelude-val">Ok</span>(Default::default())
 	}
 
