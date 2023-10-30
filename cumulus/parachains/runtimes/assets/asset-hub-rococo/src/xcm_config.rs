@@ -676,8 +676,6 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecuteFilter = Nothing;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
-	// Allow reserve based transfer to everywhere except for bridging, here we strictly check what
-	// assets are allowed.
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
