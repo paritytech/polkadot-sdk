@@ -24,7 +24,7 @@ hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
 rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
-substrate-bip39 = { version = "0.4.5", git = "https://github.com/paritytech/substrate-bip39", branch = "mku-support-for-no-std" }
+substrate-bip39 = "0.4.5"
 bip39 = { version = "2.0.0", default-features = false }
 regex = { version = "1.6.0",default-features = false, features = ["unicode-perl"] }
 zeroize = { version = "1.4.3", default-features = false }
