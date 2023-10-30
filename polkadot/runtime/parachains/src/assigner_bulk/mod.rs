@@ -79,6 +79,16 @@ struct Schedule<N> {
 	end_hint: Option<N>,
 }
 
+// TODO: end_hint should probably be chosen in a smarter way.
+impl<N> Default for Schedule<N> {
+	fn default() -> Self {
+		Schedule {
+			assignments: vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
+			end_hint: None
+		}
+	}
+}
+
 /// An instantiated `Schedule`.
 ///
 /// This is the state of assignments currently being served via the `AssignmentProvider` interface,
@@ -108,6 +118,12 @@ struct CoreState<N> {
 	///
 	/// How much we subtract from `AssignmentState::remaining` for a core served.
 	step: PartsOf57600,
+}
+
+impl<N> Default for CoreState<N> {
+	fn default() -> Self {
+		CoreState::from(Schedule::default())
+	}
 }
 
 #[derive(Encode, Decode, TypeInfo)]
@@ -175,7 +191,8 @@ pub mod pallet {
 		Twox256,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
-		OptionQuery,
+		ValueQuery,
+		GetDefault,
 	>;
 
 	/// Latest schedule for the given core.
@@ -191,7 +208,7 @@ pub mod pallet {
 	/// `PendingAssignments`.
 	#[pallet::storage]
 	pub(super) type Workload<T: Config> =
-		StorageMap<_, Twox256, CoreIndex, CoreState<BlockNumberFor<T>>, OptionQuery>;
+		StorageMap<_, Twox256, CoreIndex, CoreState<BlockNumberFor<T>>, ValueQuery, GetDefault>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -249,36 +266,32 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 		Workload::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
-			match core_state {
-				Some(core_state) => {
-					core_state.pos = core_state.pos % core_state.assignments.len() as u16;
-					let (a_type, a_state) = &mut core_state
-						.assignments
-						.get_mut(core_state.pos as usize)
-						.expect("We limited pos to the size of the vec one line above. qed");
 
-					// advance:
-					a_state.remaining -= core_state.step;
-					if a_state.remaining < core_state.step {
-						// Assignment exhausted, need to move to the next and credit remaining for
-						// next round.
-						core_state.pos += 1;
-						// Reset to ratio + still remaining "credits":
-						a_state.remaining += a_state.ratio;
-					}
+			core_state.pos = core_state.pos % core_state.assignments.len() as u16;
+			let (a_type, a_state) = &mut core_state
+				.assignments
+				.get_mut(core_state.pos as usize)
+				.expect("We limited pos to the size of the vec one line above. qed");
 
-					match a_type {
-						CoreAssignment::Idle => return None,
-						CoreAssignment::Pool =>
-							return <assigner_on_demand::Pallet<T> as AssignmentProvider<
-								BlockNumberFor<T>,
-							>>::pop_assignment_for_core(core_idx)
-							.map(|assignment| BulkAssignment::Instantaneous(assignment)),
-						CoreAssignment::Task(para_id) =>
-							return Some(BulkAssignment::Bulk((*para_id).into())),
-					}
-				},
-				None => return None,
+			// advance:
+			a_state.remaining -= core_state.step;
+			if a_state.remaining < core_state.step {
+				// Assignment exhausted, need to move to the next and credit remaining for
+				// next round.
+				core_state.pos += 1;
+				// Reset to ratio + still remaining "credits":
+				a_state.remaining += a_state.ratio;
+			}
+
+			match a_type {
+				CoreAssignment::Idle => return None,
+				CoreAssignment::Pool =>
+					return <assigner_on_demand::Pallet<T> as AssignmentProvider<
+						BlockNumberFor<T>,
+					>>::pop_assignment_for_core(core_idx)
+					.map(|assignment| BulkAssignment::Instantaneous(assignment)),
+				CoreAssignment::Task(para_id) =>
+					return Some(BulkAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
@@ -320,9 +333,9 @@ impl<T: Config> Pallet<T> {
 	fn ensure_workload(
 		now: BlockNumberFor<T>,
 		core_idx: CoreIndex,
-		workload: &mut Option<CoreState<BlockNumberFor<T>>>,
+		workload: &mut CoreState<BlockNumberFor<T>>,
 	) {
-		let update = if let Some(workload) = workload {
+		let update = {
 			match workload.end_hint {
 				Some(end_hint) if end_hint < now => {
 					// Invariant: Always points to next item in `Workplan`, if such an item exists.
@@ -335,14 +348,10 @@ impl<T: Config> Pallet<T> {
 				// No end in sight, still valid:
 				None => return,
 			}
-		} else {
-			// Invariant: If there is no workload, workplan must be empty for core.
-			// Therefore nothing to do here.
-			return
 		};
 
 		// Needs update:
-		*workload = update.map(|schedule| schedule.into());
+		*workload = update.into();
 	}
 }
 
