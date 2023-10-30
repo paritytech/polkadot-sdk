@@ -368,7 +368,7 @@ impl PartialEq for CheckInherentsResult {
 }
 
 /// The order of an inherent.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
 pub enum InherentOrder {
 	/// The first inherent.
 	First,
@@ -376,6 +376,19 @@ pub enum InherentOrder {
 	Index(u32),
 	/// The last inherent.
 	Last,
+}
+
+/// The reason why the order of inherents was invalid.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum InherentOrderError {
+	/// An inherent does not belong to any pallet.
+	InherentWithoutPallet,
+	/// An inherent belongs to multiple pallets.
+	InherentWithMultiplePallets,
+	/// An inherent was encountered out of order.
+	///
+	/// The first and second parameters are supposed to be ordered ascending, but were not.
+	OutOfOrder(InherentOrder, InherentOrder),
 }
 
 impl Ord for InherentOrder {

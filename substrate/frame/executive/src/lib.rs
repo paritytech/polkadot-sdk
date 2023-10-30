@@ -124,8 +124,8 @@ use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker, OnFinalize, OnIdle, OnInitialize,
-		OnRuntimeUpgrade,
+		EnsureInherentsAreFirst, EnsureInherentsAreOrdered, ExecuteBlock, OffchainWorker,
+		OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
 	},
 	weights::Weight,
 };
@@ -548,8 +548,9 @@ impl<
 			Err(i) => panic!("Invalid inherent position for extrinsic at index {}", i),
 		};
 
-		System::ensure_inherents_are_ordered(block, num_inherents as usize).expect("Inherents are ordered in a valid block");
-		
+		System::ensure_inherents_are_ordered(block, num_inherents as usize)
+			.expect("Inherents are ordered in a valid block");
+
 		num_inherents
 	}
 
