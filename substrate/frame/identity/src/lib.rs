@@ -80,9 +80,8 @@ mod types;
 pub mod weights;
 
 use frame_support::{
-	dispatch::PostDispatchInfo,
 	ensure,
-	pallet_prelude::{DispatchError, DispatchResult, DispatchResultWithPostInfo, Pays},
+	pallet_prelude::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -155,9 +154,6 @@ pub mod pallet {
 
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// A handler for what to do when an identity is reaped.
-		type ReapIdentityHandler: OnReapIdentity<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -293,11 +289,6 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
-		/// The identity and all sub accounts were reaped for `who`.
-		IdentityReaped { who: T::AccountId },
-		/// The deposits held for `who` were updated. `identity` is the new deposit held for
-		/// identity info, and `subs` is the new deposit held for the sub-accounts.
-		DepositUpdated { who: T::AccountId, identity: BalanceOf<T>, subs: BalanceOf<T> },
 	}
 
 	#[pallet::call]
@@ -996,24 +987,28 @@ impl<T: Config> Pallet<T> {
 			.map_or(false, |registration| (registration.info.has_identity(fields)))
 	}
 
-	/// Reap an identity, clearing associated storage items and refunding any deposits. Calls
-	/// the `ReapIdentityHandler`, which can be implemented in the runtime. This function is
-	/// very similar to (a) `clear_identity`, but called on a `target` account instead of self;
-	/// and (b) `kill_identity`, but without imposing a slash.
+	/// Reap an identity, clearing associated storage items and refunding any deposits. This
+	/// function is very similar to (a) `clear_identity`, but called on a `target` account instead
+	/// of self; and (b) `kill_identity`, but without imposing a slash.
 	///
 	/// Parameters:
 	/// - `target`: The account for which to reap identity state.
 	///
+	/// Return type is a tuple of the number of registrars, additional fields, and sub accounts,
+	/// respectively.
+	///
 	/// NOTE: This function is here temporarily for migration of Identity info from the Polkadot
 	/// Relay Chain into a system parachain. It will be removed after the migration.
-	pub fn reap_identity(who: &T::AccountId) -> DispatchResultWithPostInfo {
+	pub fn reap_identity(who: &T::AccountId) -> Result<(u32, u32, u32), DispatchError> {
 		// `take` any storage items keyed by `target`
+		// identity
 		let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
 		let registrars = id.judgements.len() as u32;
 		#[allow(deprecated)]
 		let fields = id.info.additional() as u32;
+
+		// subs
 		let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&who);
-		// check witness data
 		let actual_subs = sub_ids.len() as u32;
 		for sub in sub_ids.iter() {
 			<SuperOf<T>>::remove(sub);
@@ -1023,15 +1018,7 @@ impl<T: Config> Pallet<T> {
 		let deposit = id.total_deposit().saturating_add(subs_deposit);
 		let err_amount = T::Currency::unreserve(&who, deposit);
 		debug_assert!(err_amount.is_zero());
-
-		// Finally, call the handler.
-		T::ReapIdentityHandler::on_reap_identity(&who, fields, actual_subs)?;
-		Self::deposit_event(Event::IdentityReaped { who: who.clone() });
-		let post = PostDispatchInfo {
-			actual_weight: Some(T::WeightInfo::reap_identity(registrars, actual_subs)),
-			pays_fee: Pays::No,
-		};
-		Ok(post)
+		Ok((registrars, fields, actual_subs))
 	}
 
 	/// Update the deposits held by `target` for its identity info.
@@ -1039,9 +1026,13 @@ impl<T: Config> Pallet<T> {
 	/// Parameters:
 	/// - `target`: The account for which to update deposits.
 	///
+	/// Return type is a tuple of the new Identity and Subs deposits, respectively.
+	///
 	/// NOTE: This function is here temporarily for migration of Identity info from the Polkadot
 	/// Relay Chain into a system parachain. It will be removed after the migration.
-	pub fn poke_deposit(target: &T::AccountId) -> DispatchResult {
+	pub fn poke_deposit(
+		target: &T::AccountId,
+	) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
 		// Identity Deposit
 		ensure!(IdentityOf::<T>::contains_key(&target), Error::<T>::NoIdentity);
 		let new_id_deposit = IdentityOf::<T>::try_mutate(
@@ -1072,33 +1063,6 @@ impl<T: Config> Pallet<T> {
 				Ok(new_subs_deposit)
 			},
 		)?;
-
-		Self::deposit_event(Event::DepositUpdated {
-			who: target.clone(),
-			identity: new_id_deposit,
-			subs: new_subs_deposit,
-		});
-		Ok(())
-	}
-}
-
-/// Trait to handle reaping identity from state.
-pub trait OnReapIdentity<AccountId> {
-	/// What to do when an identity is reaped. For example, the implementation could send an XCM
-	/// program to another chain. Concretely, a type implementing this trait in the Polkadot
-	/// runtime would teleport enough DOT to the People Chain to cover the Identity deposit there.
-	///
-	/// This could also directly include `Transact { poke_deposit(..), ..}`.
-	///
-	/// Inputs
-	/// - `who`: Whose identity was reaped.
-	/// - `fields`: The number of `additional_fields` they had.
-	/// - `subs`: The number of sub-accounts they had.
-	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult;
-}
-
-impl<AccountId> OnReapIdentity<AccountId> for () {
-	fn on_reap_identity(_who: &AccountId, _fields: u32, _subs: u32) -> DispatchResult {
-		Ok(())
+		Ok((new_id_deposit, new_subs_deposit))
 	}
 }

@@ -587,7 +587,8 @@ mod benchmarks {
 			let _ = Identity::<T>::reap_identity(&target);
 		}
 
-		assert_last_event::<T>(Event::<T>::IdentityReaped { who: target }.into());
+		assert!(IdentityOf::<T>::get(&target).is_none());
+		assert_eq!(SubsOf::<T>::get(&target).0, Zero::zero());
 
 		Ok(())
 	}
@@ -627,14 +628,11 @@ mod benchmarks {
 			let _ = Identity::<T>::poke_deposit(&target);
 		}
 
-		assert_last_event::<T>(
-			Event::<T>::DepositUpdated {
-				who: target,
-				identity: expected_id_deposit,
-				subs: expected_sub_deposit,
-			}
-			.into(),
-		);
+		let info = IdentityOf::<T>::get(&target).unwrap();
+		assert_eq!(info.deposit, expected_id_deposit);
+
+		let subs = SubsOf::<T>::get(&target);
+		assert_eq!(subs.0, expected_sub_deposit);
 
 		Ok(())
 	}
