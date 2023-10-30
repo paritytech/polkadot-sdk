@@ -1,5 +1,5 @@
 // Copyright 2019-2020 Parity Technologies (UK) Ltd.
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,10 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sha2::Sha512;
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
 use hmac::Hmac;
 use pbkdf2::pbkdf2;
 use schnorrkel::keys::MiniSecretKey;
+use sha2::Sha512;
 use zeroize::Zeroize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -63,7 +70,7 @@ pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Err
 #[cfg(test)]
 mod test {
     use super::*;
-    use bip39::{Mnemonic, Language};
+    use bip39::{Language, Mnemonic};
     use rustc_hex::FromHex;
 
     // phrase, entropy, seed, expanded secret_key
@@ -202,11 +209,28 @@ mod test {
 
             let mnemonic = Mnemonic::from_phrase(phrase, Language::English).unwrap();
             let seed = seed_from_entropy(mnemonic.entropy(), "Substrate").unwrap();
-            let secret = mini_secret_from_entropy(mnemonic.entropy(), "Substrate").unwrap().to_bytes();
+            let secret = mini_secret_from_entropy(mnemonic.entropy(), "Substrate")
+                .unwrap()
+                .to_bytes();
 
-            assert_eq!(mnemonic.entropy(), &expected_entropy[..], "Entropy is incorrect for {}", phrase);
-            assert_eq!(&seed[..], &expected_seed[..], "Seed is incorrect for {}", phrase);
-            assert_eq!(&secret[..], &expected_seed[..32], "Secret is incorrect for {}", phrase);
+            assert_eq!(
+                mnemonic.entropy(),
+                &expected_entropy[..],
+                "Entropy is incorrect for {}",
+                phrase
+            );
+            assert_eq!(
+                &seed[..],
+                &expected_seed[..],
+                "Seed is incorrect for {}",
+                phrase
+            );
+            assert_eq!(
+                &secret[..],
+                &expected_seed[..32],
+                "Secret is incorrect for {}",
+                phrase
+            );
         }
     }
 }
