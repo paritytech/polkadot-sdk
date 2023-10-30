@@ -84,7 +84,7 @@ impl<N> Default for Schedule<N> {
 	fn default() -> Self {
 		Schedule {
 			assignments: vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
-			end_hint: None
+			end_hint: None,
 		}
 	}
 }

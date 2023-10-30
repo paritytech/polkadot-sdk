@@ -79,21 +79,13 @@ fn run_to_block(
 }
 
 #[test]
-fn pop_assignment_for_core_works() {
-	
-}
+fn pop_assignment_for_core_works() {}
 
 #[test]
-fn ensure_workload_works() {
-	
-}
+fn ensure_workload_works() {}
 
 #[test]
-fn after_assign_core_workload_is_some() {
-
-}
+fn after_assign_core_workload_is_some() {}
 
 #[test]
-fn end_hint_always_points_to_next_work_plan_item() {
-
-}
+fn end_hint_always_points_to_next_work_plan_item() {}
