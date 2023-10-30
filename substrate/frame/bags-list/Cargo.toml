@@ -27,7 +27,7 @@ frame-election-provider-support = { path = "../election-provider-support", defau
 
 # third party
 log = { version = "0.4.17", default-features = false }
-docify = "0.2.5"
+docify = "0.2.6"
 aquamarine = { version = "0.3.2" }
 
 # Optional imports for benchmarking
