@@ -75,7 +75,8 @@ pub trait AssetTransferSupport {
 			Self::IsTeleporter::contains(asset, &asset_location)
 		{
 			// if the asset is local, then it's a local reserve
-			// it's also a local reserve if the asset's location is not `here` but it's a location where it can be teleported to `here` => local reserve
+			// it's also a local reserve if the asset's location is not `here` but it's a location
+			// where it can be teleported to `here` => local reserve
 			Ok(TransferType::LocalReserve)
 		} else if Self::IsReserve::contains(asset, &asset_location) {
 			// remote location that is recognized as reserve location for asset
