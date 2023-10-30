@@ -40,7 +40,6 @@ use frame_support::{
 	dispatch::{DispatchResult, Pays, PostDispatchInfo},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
-	storage,
 	traits::{Get, HandleMessage},
 	weights::Weight,
 };
