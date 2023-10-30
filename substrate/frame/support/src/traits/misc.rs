@@ -886,6 +886,10 @@ pub trait EnsureInherentsAreFirst<Block> {
 	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
 }
 
+pub trait EnsureInherentsAreOrdered<Block> {
+	fn ensure_inherents_are_ordered(block: &Block) -> Result<(), ()>;
+}
+
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	/// Get the call of the extrinsic.

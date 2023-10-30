@@ -205,6 +205,12 @@ pub fn expand_outer_inherent(
 			}
 		}
 
+		impl #scrate::traits::EnsureInherentsAreOrdered<#block> for #runtime {
+			fn ensure_inherents_are_ordered(block: &#block) -> Result<(), ()> {
+				todo!()
+			}
+		}
+
 		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
 			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
 				use #scrate::inherent::ProvideInherent;
