@@ -39,6 +39,7 @@ pub mod xcm_config;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_core::{outbound::Message, AgentId};
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
@@ -84,6 +85,7 @@ use pallet_xcm::EnsureXcm;
 
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use xcm::VersionedMultiLocation;
 use xcm_config::{EthereumGatewayAddress, XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 use bp_runtime::HeaderId;
@@ -991,6 +993,13 @@ impl_runtime_apis! {
 			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
 		}
 	}
+
+	impl snowbridge_control_runtime_api::ControlApi<Block> for Runtime {
+		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
+			snowbridge_control::api::agent_id::<Runtime>(location)
+		}
+	}
+
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
