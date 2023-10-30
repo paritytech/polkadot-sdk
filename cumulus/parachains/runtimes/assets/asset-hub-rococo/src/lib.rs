@@ -833,7 +833,7 @@ impl pallet_nfts::Config for Runtime {
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Wococo` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToWococoXcmRouterInstance = pallet_assets::Instance1;
+pub type ToWococoXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance1;
 impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_wococo::WeightInfo<Runtime>;
 
@@ -864,7 +864,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance> for Runtime
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToRococoXcmRouterInstance = pallet_assets::Instance2;
+pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance2;
 impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_rococo::WeightInfo<Runtime>;
 
@@ -895,7 +895,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Westend` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToWestendXcmRouterInstance = pallet_assets::Instance3;
+pub type ToWestendXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance3;
 impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router_to_westend::WeightInfo<Runtime>;
 
