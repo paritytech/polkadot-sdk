@@ -308,6 +308,7 @@ where
 	}
 }
 
+#[docify::export(unchecked_extrinsic_encode_impl)]
 impl<Address, Call, Signature, Extra> Encode for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: Encode,

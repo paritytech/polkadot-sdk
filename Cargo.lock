@@ -4425,6 +4425,8 @@ dependencies = [
  "sp-api",
  "sp-core",
  "sp-io",
+ "sp-keyring",
+ "sp-runtime",
  "substrate-wasm-builder",
 ]
 
@@ -17380,6 +17382,7 @@ dependencies = [
 name = "sp-runtime"
 version = "24.0.0"
 dependencies = [
+ "docify",
  "either",
  "hash256-std-hasher",
  "impl-trait-for-tuples",
