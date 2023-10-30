@@ -180,7 +180,7 @@ impl Config for Test {
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU128<100>; // 100 is good enough when the main currency has 12 decimals.
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = NativeOrWithIdFactory<u32>;
+	type BenchmarkHelper = ();
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

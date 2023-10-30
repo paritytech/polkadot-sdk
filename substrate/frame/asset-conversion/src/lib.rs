@@ -129,7 +129,7 @@ pub mod pallet {
 		/// Registry of assets utilized for providing liquidity to pools.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
-			+ AccountTouch<Self::AssetKind, Self::AccountId>
+			+ AccountTouch<Self::AssetKind, Self::AccountId, Balance = Self::Balance>
 			+ ContainsPair<Self::AssetKind, Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
@@ -150,7 +150,7 @@ pub mod pallet {
 		type PoolAssets: Inspect<Self::AccountId, AssetId = Self::PoolAssetId, Balance = Self::Balance>
 			+ Create<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ AccountTouch<Self::PoolAssetId, Self::AccountId>;
+			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>;
 
 		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
 		#[pallet::constant]
@@ -605,7 +605,7 @@ pub mod pallet {
 		/// [`AssetConversionApi::quote_price_exact_tokens_for_tokens`] runtime call can be called
 		/// for a quote.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens())]
+		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens(path.len() as u32))]
 		pub fn swap_exact_tokens_for_tokens(
 			origin: OriginFor<T>,
 			path: Vec<Box<T::AssetKind>>,
@@ -633,7 +633,7 @@ pub mod pallet {
 		/// [`AssetConversionApi::quote_price_tokens_for_exact_tokens`] runtime call can be called
 		/// for a quote.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens())]
+		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens(path.len() as u32))]
 		pub fn swap_tokens_for_exact_tokens(
 			origin: OriginFor<T>,
 			path: Vec<Box<T::AssetKind>>,
@@ -770,7 +770,10 @@ pub mod pallet {
 		) -> Result<CreditOf<T>, (CreditOf<T>, DispatchError)> {
 			let amount_in = credit_in.peek();
 			let inspect_path = |credit_asset| {
-				ensure!(path.first().map_or(false, |a| *a == credit_asset), Error::<T>::InvalidPath);
+				ensure!(
+					path.first().map_or(false, |a| *a == credit_asset),
+					Error::<T>::InvalidPath
+				);
 				ensure!(!amount_in.is_zero(), Error::<T>::ZeroAmount);
 				ensure!(amount_out_min.map_or(true, |a| !a.is_zero()), Error::<T>::ZeroAmount);
 
@@ -815,7 +818,10 @@ pub mod pallet {
 		) -> Result<(CreditOf<T>, CreditOf<T>), (CreditOf<T>, DispatchError)> {
 			let amount_in_max = credit_in.peek();
 			let inspect_path = |credit_asset| {
-				ensure!(path.first().map_or(false, |a| a == &credit_asset), Error::<T>::InvalidPath);
+				ensure!(
+					path.first().map_or(false, |a| a == &credit_asset),
+					Error::<T>::InvalidPath
+				);
 				ensure!(amount_in_max > Zero::zero(), Error::<T>::ZeroAmount);
 				ensure!(amount_out > Zero::zero(), Error::<T>::ZeroAmount);
 

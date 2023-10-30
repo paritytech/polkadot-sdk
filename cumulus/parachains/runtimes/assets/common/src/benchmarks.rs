@@ -26,17 +26,19 @@ impl<Target: Get<MultiLocation>, SelfParaId: Get<ParaId>, PalletId: Get<u32>>
 	pallet_asset_conversion::BenchmarkHelper<MultiLocation>
 	for AssetPairFactory<Target, SelfParaId, PalletId>
 {
-	fn create_pair(_seed1: u32, seed2: u32) -> (MultiLocation, MultiLocation) {
-		(
-			Target::get(),
-			MultiLocation::new(
-				1,
-				X3(
-					Parachain(SelfParaId::get().into()),
-					PalletInstance(PalletId::get() as u8),
-					GeneralIndex(seed2.into()),
-				),
+	fn create_pair(seed1: u32, seed2: u32) -> (MultiLocation, MultiLocation) {
+		let with_id = MultiLocation::new(
+			1,
+			X3(
+				Parachain(SelfParaId::get().into()),
+				PalletInstance(PalletId::get() as u8),
+				GeneralIndex(seed2.into()),
 			),
-		)
+		);
+		if seed1 % 2 == 0 {
+			(with_id, Target::get())
+		} else {
+			(Target::get(), with_id)
+		}
 	}
 }
