@@ -189,7 +189,7 @@ pub trait StorageValue<T: FullCodec> {
 	/// in the storage (in this case, the number `4` is counted twice).
 	fn decode_non_dedup_len() -> Option<usize>
 	where
-		T: StorageDecodeLength,
+		T: StorageDecodeNonDedupLength,
 	{
 		T::decode_non_dedup_len(&Self::hashed_key())
 	}
@@ -1514,7 +1514,14 @@ impl<T: Encode> StorageAppend<T> for Vec<T> {}
 impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeLength for BTreeSet<T> {}
+impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
+		let mut data = [0u8; 5];
+		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = data.len().min(len as usize);
+		<Self as codec::DecodeLength>::len(&data[..len]).ok()
+	}
+}
 
 // Blanket implementation StorageDecodeNonDedupLength
 // for all types that are StorageDecodeLength.
