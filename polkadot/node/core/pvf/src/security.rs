@@ -213,10 +213,10 @@ impl AuditLogFile {
 /// entries that were written since it was obtained, so that we do not consider events from previous
 /// processes with the same pid. This can still be racy, but it's unlikely and fine for a
 /// best-effort attempt.
-pub async fn check_seccomp_violation_for_worker(
+pub async fn check_seccomp_violations_for_worker(
 	audit_log_file: Option<AuditLogFile>,
 	worker_pid: u32,
-) -> Option<u32> {
+) -> Vec<u32> {
 	let audit_event_pid_field = format!("pid={worker_pid}");
 
 	let audit_log_file = match audit_log_file {
@@ -235,19 +235,19 @@ pub async fn check_seccomp_violation_for_worker(
 				%worker_pid,
 				"could not open either {AUDIT_LOG_PATH} or {SYSLOG_PATH} for reading audit logs"
 			);
-			return None
+			return vec![]
 		},
 	};
 	let events = audit_log_file.read_new_since_open().await;
 
+	let mut violations = vec![];
 	for event in events.lines() {
-		let res = parse_audit_log_for_seccomp_event(event, &audit_event_pid_field);
-		if res.is_some() {
-			return res
+		if let Some(syscall) = parse_audit_log_for_seccomp_event(event, &audit_event_pid_field) {
+			violations.push(syscall);
 		}
 	}
 
-	None
+	violations
 }
 
 fn parse_audit_log_for_seccomp_event(event: &str, audit_event_pid_field: &str) -> Option<u32> {

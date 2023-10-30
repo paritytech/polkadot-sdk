@@ -153,7 +153,19 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_result)) =>
+				Ok(Ok(prepare_result)) => {
+					// Check if any syscall violations occurred during the job. For now this is only
+					// informative, as we are not enforcing the seccomp policy yet.
+					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
+						gum::error!(
+							target: LOG_TARGET,
+							worker_pid = %pid,
+							%syscall,
+							?pvf,
+							"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+						);
+					}
+
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -163,7 +175,8 @@ pub async fn start_work(
 						artifact_path,
 						preparation_timeout,
 					)
-					.await,
+					.await
+				},
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
@@ -174,10 +187,10 @@ pub async fn start_work(
 					);
 
 					// The worker died. Check if it was due to a seccomp violation.
-					if let Some(syscall) = security::check_seccomp_violation_for_worker(audit_log_file, pid).await {
-						// NOTE: Log, but don't change the outcome. Not all validators may have
-						// auditing enabled, so we don't want attackers to abuse a non-deterministic
-						// outcome.
+					//
+					// NOTE: Log, but don't change the outcome. Not all validators may have auditing
+					// enabled, so we don't want attackers to abuse a non-deterministic outcome.
+					for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
 						gum::error!(
 							target: LOG_TARGET,
 							worker_pid = %pid,
