@@ -23,11 +23,13 @@ use polkadot_node_core_pvf::{
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
+#[cfg(target_os = "linux")]
+use rusty_fork::rusty_fork_test;
 
 #[cfg(feature = "ci-only-tests")]
 use polkadot_primitives::ExecutorParam;
 
-use std::{process::Command, time::Duration};
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 mod adder;
@@ -152,66 +154,106 @@ async fn terminates_on_timeout() {
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
 }
 
-// What happens when the prepare worker dies in the middle of a job?
-//
-// To avoid interfering with other running tests or processes, this test is ignored and must be run
-// by itself:
-// $  cargo test prepare_worker_killed_during_job -- --include-ignored
-#[ignore]
-#[tokio::test]
-async fn prepare_worker_killed_during_job() {
-	let host = TestHost::new().await;
+#[cfg(target_os = "linux")]
+fn kill_by_sid_and_name(sid: i32, exe_name: &'static str) {
+	use procfs::process;
 
-	let (result, _) = futures::join!(
-		// Choose a job that would normally take the entire timeout.
-		host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
-		// Run a future that kills the job in the middle of the timeout.
-		async {
-			tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
-			Command::new("killall").args(["-9", "polkadot-prepare-worker"]).spawn().unwrap();
+	let all_processes: Vec<process::Process> = process::all_processes()
+		.expect("Can't read /proc")
+		.filter_map(|p| match p {
+			Ok(p) => Some(p), // happy path
+			Err(e) => match e {
+				// process vanished during iteration, ignore it
+				procfs::ProcError::NotFound(_) => None,
+				x => {
+					panic!("some unknown error: {}", x);
+				},
+			},
+		})
+		.collect();
+
+	for process in all_processes {
+		if process.stat().unwrap().session == sid &&
+			process.exe().unwrap().to_str().unwrap().contains(exe_name)
+		{
+			assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
 		}
-	);
-
-	assert_matches!(result, Err(PrepareError::IoErr(_)));
+	}
 }
 
-// What happens when the execute worker dies in the middle of a job?
-//
-// To avoid interfering with other running tests or processes, this test is ignored and must be run
-// by itself:
-// $  cargo test execute_worker_killed_during_job -- --include-ignored
-#[ignore]
-#[tokio::test]
-async fn execute_worker_killed_during_job() {
-	let host = TestHost::new().await;
+// Run these tests in their own processes with rusty-fork. They work by each creating a new session,
+// then killing the worker process that matches the session ID and expected worker name.
+#[cfg(target_os = "linux")]
+rusty_fork_test! {
+	// What happens when the prepare worker dies in the middle of a job?
+	#[test]
+	fn prepare_worker_killed_during_job() {
+		const PROCESS_NAME: &'static str = "polkadot-prepare-worker";
 
-	// Prepare the artifact ahead of time.
-	let binary = halt::wasm_binary_unwrap();
-	host.precheck_pvf(binary, Default::default()).await.unwrap();
+		let rt  = tokio::runtime::Runtime::new().unwrap();
+		rt.block_on(async {
+			let host = TestHost::new().await;
 
-	let (result, _) = futures::join!(
-		// Choose an job that would normally take the entire timeout.
-		host.validate_candidate(
-			binary,
-			ValidationParams {
-				block_data: BlockData(Vec::new()),
-				parent_head: Default::default(),
-				relay_parent_number: 1,
-				relay_parent_storage_root: Default::default(),
-			},
-			Default::default(),
-		),
-		// Run a future that kills the job in the middle of the timeout.
-		async {
-			tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
-			Command::new("killall").args(["-9", "polkadot-execute-worker"]).spawn().unwrap();
-		}
-	);
+			// Create a new session and get the session ID.
+			let sid = unsafe { libc::setsid() };
+			assert!(sid > 0);
 
-	assert_matches!(
-		result,
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
-	);
+			let (result, _) = futures::join!(
+				// Choose a job that would normally take the entire timeout.
+				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
+				// Run a future that kills the job in the middle of the timeout.
+				async {
+					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
+					kill_by_sid_and_name(sid, PROCESS_NAME);
+				}
+			);
+
+			assert_matches!(result, Err(PrepareError::IoErr(_)));
+		})
+	}
+
+	// What happens when the execute worker dies in the middle of a job?
+	#[test]
+	fn execute_worker_killed_during_job() {
+		const PROCESS_NAME: &'static str = "polkadot-execute-worker";
+
+		let rt  = tokio::runtime::Runtime::new().unwrap();
+		rt.block_on(async {
+			let host = TestHost::new().await;
+
+			// Create a new session and get the session ID.
+			let sid = unsafe { libc::setsid() };
+			assert!(sid > 0);
+
+			// Prepare the artifact ahead of time.
+			let binary = halt::wasm_binary_unwrap();
+			host.precheck_pvf(binary, Default::default()).await.unwrap();
+
+			let (result, _) = futures::join!(
+				// Choose an job that would normally take the entire timeout.
+				host.validate_candidate(
+					binary,
+					ValidationParams {
+						block_data: BlockData(Vec::new()),
+						parent_head: Default::default(),
+						relay_parent_number: 1,
+						relay_parent_storage_root: Default::default(),
+					},
+					Default::default(),
+				),
+				// Run a future that kills the job in the middle of the timeout.
+				async {
+					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
+					kill_by_sid_and_name(sid, PROCESS_NAME);
+				}
+			);
+
+			assert_matches!(
+				result,
+				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+			);
+		})
+	}
 }
 
 #[cfg(feature = "ci-only-tests")]

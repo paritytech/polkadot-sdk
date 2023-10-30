@@ -153,6 +153,7 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
 	/// The time allotted for a prepare worker to spawn and report to the host.
@@ -162,6 +163,7 @@ pub struct Config {
 	pub prepare_workers_soft_max_num: usize,
 	/// The absolute number of workers that can be spawned in the prepare pool.
 	pub prepare_workers_hard_max_num: usize,
+
 	/// The path to the program that can be used to spawn the execute workers.
 	pub execute_worker_program_path: PathBuf,
 	/// The time allotted for an execute worker to spawn and report to the host.
@@ -181,10 +183,12 @@ impl Config {
 		Self {
 			cache_path,
 			node_version,
+
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
 			prepare_workers_soft_max_num: 1,
 			prepare_workers_hard_max_num: 1,
+
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
 			execute_workers_max_num: 2,
