@@ -71,6 +71,7 @@ use libp2p::{
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, HistogramVec, MetricSources, Metrics};
 use parking_lot::Mutex;
+use schnellru::{ByLength, LruMap};
 
 use sc_network_common::ExHashT;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -532,6 +533,7 @@ where
 			reported_invalid_boot_nodes: Default::default(),
 			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
+			address_scores: LruMap::new(ByLength::new(128)),
 			_marker: Default::default(),
 			_block: Default::default(),
 		})
@@ -1234,6 +1236,8 @@ where
 	peers_notifications_sinks: Arc<Mutex<HashMap<(PeerId, ProtocolName), NotificationsSink>>>,
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
+	/// Address scores for tracking external addresses.
+	address_scores: LruMap<Multiaddr, usize>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -1458,10 +1462,20 @@ where
 					);
 				}
 				self.peer_store_handle.add_known_peer(peer_id);
-				// Confirm the observed address manually since they are no longer trusted by
-				// default (libp2p >= 0.52)
+
 				// TODO: remove this when/if AutoNAT is implemented.
-				self.network_service.add_external_address(observed_addr);
+				match self.address_scores.get(&observed_addr) {
+					Some(value) => {
+						*value = value.saturating_add(1);
+
+						if *value >= 8 {
+							self.network_service.add_external_address(observed_addr);
+						}
+					},
+					None => {
+						self.address_scores.insert(observed_addr.clone(), 1usize);
+					},
+				}
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
 				self.peer_store_handle.add_known_peer(peer_id);
