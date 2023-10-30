@@ -35,9 +35,14 @@ use tokio::{io, runtime::Runtime};
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr $(,)*) => {
+	($expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
+		fn get_full_version() -> String {
+			format!("{}-{}", $worker_version, $worker_version_hash)
+		}
+
 		fn print_help(expected_command: &str) {
 			println!("{} {}", expected_command, $worker_version);
+			println!("commit: {}", $worker_version_hash);
 			println!();
 			println!("PVF worker that is called by polkadot.");
 		}
@@ -65,6 +70,11 @@ macro_rules! decl_worker_main {
 				},
 				"--version" | "-v" => {
 					println!("{}", $worker_version);
+					return
+				},
+				// Useful for debugging. --version is used for version checks.
+				"--full-version" => {
+					println!("{}", get_full_version());
 					return
 				},
 
