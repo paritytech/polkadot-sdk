@@ -1718,12 +1718,19 @@ fn early_crowdloan_dissolve() {
 
 		// Register on-demand parachain
 		let para_id = ParaId::from(2000);
-		let validation_code = test_validation_code(10);
+		let validation_code_storage_size: usize = 10;
+		let genesis_storage_size: usize = 10;
+		let validation_code = test_validation_code(validation_code_storage_size);
+		// deposit for para registration
+		let expected_deposit_para_registration: Balance = ParaDeposit::get() +
+			DataDepositPerByte::get() * validation_code_storage_size as Balance +
+			DataDepositPerByte::get() * genesis_storage_size as Balance;
+
 		assert_ok!(Registrar::reserve(signed(1)));
 		assert_ok!(Registrar::register(
 			signed(1),
 			para_id,
-			test_genesis_head(10),
+			test_genesis_head(genesis_storage_size),
 			validation_code.clone(),
 		));
 		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
@@ -1767,9 +1774,10 @@ fn early_crowdloan_dissolve() {
 		// Go to end of auction where everyone won their slots
 		run_to_block(200);
 
-		// deposit for validation code and crowdloan submission.
-		let expected_deposit_validation_code: Balance = 500 + 10 * 2 * 1;
-		assert_eq!(Balances::reserved_balance(&account_id(1)), expected_deposit_validation_code + SubmissionDeposit::get());
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			expected_deposit_para_registration + SubmissionDeposit::get()
+		);
 		// crowdloan fund is reserved
 		assert_eq!(Balances::reserved_balance(&crowdloan_account), total);
 		// Crowdloan is appropriately set
@@ -1815,11 +1823,14 @@ fn early_crowdloan_dissolve() {
 		assert_eq!(Balances::free_balance(&crowdloan_account), 0);
 
 		// reserved balance before dissolve
-		assert_eq!(Balances::reserved_balance(&account_id(1)), expected_deposit_validation_code + SubmissionDeposit::get());
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			expected_deposit_para_registration + SubmissionDeposit::get()
+		);
 		// Dissolve returns the balance of the person who put a deposit for crowdloan
 		assert_ok!(Crowdloan::dissolve(signed(1), para_id));
 		// Crowdloan submission deposit is returned
-		assert_eq!(Balances::reserved_balance(&account_id(1)), expected_deposit_validation_code);
+		assert_eq!(Balances::reserved_balance(&account_id(1)), expected_deposit_para_registration);
 
 		// run few blocks until lease is still active
 		run_to_block(early_refund_start_block + 2);

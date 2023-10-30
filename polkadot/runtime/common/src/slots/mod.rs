@@ -267,10 +267,10 @@ pub mod pallet {
 				})?;
 
 			// check if lease is ending soon.
-			let now = frame_system::Pallet::<T>::block_number();
-			let lease_ending_soon =
-				Self::lease_period_ending_soon(now).ok_or(Error::<T>::LeaseError)?;
-			ensure!(lease_ending_soon, Error::<T>::PreconditionNotMet);
+			ensure!(
+				Self::lease_period_ending_soon(frame_system::Pallet::<T>::block_number()),
+				Error::<T>::PreconditionNotMet
+			);
 
 			// allow this iff parachain has one lease period left.
 			let leases = Leases::<T>::get(para);
@@ -408,13 +408,21 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if the current lease period is ending within the next `T::EarliestRefundPeriod`
 	/// blocks.
-	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> Option<bool> {
-		let (current_lease, _) = Self::lease_period_index(now)?;
+	fn lease_period_ending_soon(now: BlockNumberFor<T>) -> bool {
+		if let Some(current_lease) = Self::lease_period_index(now).map(|(index, _)| index) {
+			let soon = now.saturating_add(T::EarliestRefundPeriod::get());
 
-		// check if new lease is coming soon.
-		let soon = now.checked_add(&T::EarliestRefundPeriod::get())?;
-		let (maybe_next_lease, _) = Self::lease_period_index(soon)?;
-		Some(maybe_next_lease == current_lease.checked_add(&sp_runtime::traits::One::one())?)
+			// default to current lease period if we can't find the lease period index.
+			let soon_lease =
+				Self::lease_period_index(soon).map(|(index, _)| index).unwrap_or(current_lease);
+
+			return current_lease
+				.checked_add(&sp_runtime::traits::One::one())
+				.map(|next_lease| soon_lease == next_lease)
+				.unwrap_or(false)
+		}
+
+		false
 	}
 
 	/// Reserve the amount for the parachain, updating the current reserved amount for this leaser
