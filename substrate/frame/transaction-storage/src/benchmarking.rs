@@ -127,7 +127,7 @@ benchmarks! {
 		let l in 1 .. T::MaxTransactionSize::get();
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Fungible::set_balance(&caller, initial_balance);
+		T::Currency::set_balance(&caller, initial_balance);
 	}: _(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize])
 	verify {
 		assert!(!BlockTransactions::<T>::get().is_empty());
@@ -137,7 +137,7 @@ benchmarks! {
 	renew {
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Fungible::set_balance(&caller, initial_balance);
+		T::Currency::set_balance(&caller, initial_balance);
 		TransactionStorage::<T>::store(
 			RawOrigin::Signed(caller.clone()).into(),
 			vec![0u8; T::MaxTransactionSize::get() as usize],
@@ -152,7 +152,7 @@ benchmarks! {
 		run_to_block::<T>(1u32.into());
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Fungible::set_balance(&caller, initial_balance);
+		T::Currency::set_balance(&caller, initial_balance);
 		for _ in 0 .. T::MaxBlockTransactions::get() {
 			TransactionStorage::<T>::store(
 				RawOrigin::Signed(caller.clone()).into(),
