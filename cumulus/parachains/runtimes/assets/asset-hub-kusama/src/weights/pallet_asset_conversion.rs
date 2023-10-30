@@ -20,7 +20,7 @@
 //! DATE: 2023-10-30, STEPS: `20`, REPEAT: `2`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `cob`, CPU: `<UNKNOWN>`
-//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("asset-hub-kusama-dev")`, DB CACHE: `1024`
+//! WASM-EXECUTION: `Compiled`, CHAIN: `Some("asset-hub-kusama-dev")`, DB CACHE: 1024
 
 // Executed Command:
 // ./target/debug/polkadot-parachain
@@ -34,28 +34,18 @@
 // --wasm-execution=compiled
 // --heap-pages=4096
 // --output=./cumulus/parachains/runtimes/assets/asset-hub-kusama/src/weights/pallet_asset_conversion.rs
-// --template=./substrate/.maintain/frame-weight-template.hbs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
-/// Weight functions needed for `pallet_asset_conversion`.
-pub trait WeightInfo {
-	fn create_pool() -> Weight;
-	fn add_liquidity() -> Weight;
-	fn remove_liquidity() -> Weight;
-	fn swap_exact_tokens_for_tokens(n: u32, ) -> Weight;
-	fn swap_tokens_for_exact_tokens(n: u32, ) -> Weight;
-}
-
-/// Weights for `pallet_asset_conversion` using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+/// Weight functions for `pallet_asset_conversion`.
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo<T> {
 	/// Storage: `AssetConversion::Pools` (r:1 w:1)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -74,10 +64,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `408`
 		//  Estimated: `4689`
-		// Minimum execution time: 909_000_000 picoseconds.
-		Weight::from_parts(944_000_000, 4689)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().writes(7_u64))
+		// Minimum execution time: 905_000_000 picoseconds.
+		Weight::from_parts(928_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4689))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
@@ -95,10 +86,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1117`
 		//  Estimated: `7404`
-		// Minimum execution time: 1_629_000_000 picoseconds.
-		Weight::from_parts(1_766_000_000, 7404)
-			.saturating_add(T::DbWeight::get().reads(8_u64))
-			.saturating_add(T::DbWeight::get().writes(7_u64))
+		// Minimum execution time: 1_628_000_000 picoseconds.
+		Weight::from_parts(1_799_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7404))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
@@ -116,10 +108,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1106`
 		//  Estimated: `7404`
-		// Minimum execution time: 1_431_000_000 picoseconds.
-		Weight::from_parts(1_517_000_000, 7404)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+		// Minimum execution time: 1_567_000_000 picoseconds.
+		Weight::from_parts(1_616_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7404))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	/// Storage: `ForeignAssets::Asset` (r:2 w:2)
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
@@ -131,13 +124,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn swap_exact_tokens_for_tokens(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0 + n * (557 ±0)`
-		//  Estimated: `7404 + n * (393 ±180)`
-		// Minimum execution time: 922_000_000 picoseconds.
-		Weight::from_parts(954_000_000, 7404)
-			// Standard Error: 15_697_849
-			.saturating_add(Weight::from_parts(39_602_040, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+		//  Estimated: `7404 + n * (393 ±92)`
+		// Minimum execution time: 940_000_000 picoseconds.
+		Weight::from_parts(959_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7404))
+			// Standard Error: 17_639_773
+			.saturating_add(Weight::from_parts(45_724_489, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(Weight::from_parts(0, 393).saturating_mul(n.into()))
 	}
 	/// Storage: `System::Account` (r:2 w:2)
@@ -150,120 +144,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn swap_tokens_for_exact_tokens(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0 + n * (557 ±0)`
-		//  Estimated: `7404 + n * (393 ±73)`
-		// Minimum execution time: 929_000_000 picoseconds.
-		Weight::from_parts(947_000_000, 7404)
-			// Standard Error: 15_496_079
-			.saturating_add(Weight::from_parts(41_295_918, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
-			.saturating_add(Weight::from_parts(0, 393).saturating_mul(n.into()))
-	}
-}
-
-// For backwards compatibility and tests.
-impl WeightInfo for () {
-	/// Storage: `AssetConversion::Pools` (r:1 w:1)
-	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:1 w:1)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `AssetConversion::NextPoolAssetId` (r:1 w:1)
-	/// Proof: `AssetConversion::NextPoolAssetId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Account` (r:1 w:1)
-	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	fn create_pool() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `408`
-		//  Estimated: `4689`
-		// Minimum execution time: 909_000_000 picoseconds.
-		Weight::from_parts(944_000_000, 4689)
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
-			.saturating_add(RocksDbWeight::get().writes(7_u64))
-	}
-	/// Storage: `AssetConversion::Pools` (r:1 w:0)
-	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:2 w:2)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Account` (r:2 w:2)
-	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	fn add_liquidity() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1117`
-		//  Estimated: `7404`
-		// Minimum execution time: 1_629_000_000 picoseconds.
-		Weight::from_parts(1_766_000_000, 7404)
-			.saturating_add(RocksDbWeight::get().reads(8_u64))
-			.saturating_add(RocksDbWeight::get().writes(7_u64))
-	}
-	/// Storage: `AssetConversion::Pools` (r:1 w:0)
-	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:2 w:2)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `PoolAssets::Account` (r:1 w:1)
-	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	fn remove_liquidity() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1106`
-		//  Estimated: `7404`
-		// Minimum execution time: 1_431_000_000 picoseconds.
-		Weight::from_parts(1_517_000_000, 7404)
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
-			.saturating_add(RocksDbWeight::get().writes(6_u64))
-	}
-	/// Storage: `ForeignAssets::Asset` (r:2 w:2)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:4 w:4)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[2, 3]`.
-	fn swap_exact_tokens_for_tokens(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0 + n * (557 ±0)`
 		//  Estimated: `7404 + n * (393 ±180)`
-		// Minimum execution time: 922_000_000 picoseconds.
-		Weight::from_parts(954_000_000, 7404)
-			// Standard Error: 15_697_849
-			.saturating_add(Weight::from_parts(39_602_040, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
-			.saturating_add(Weight::from_parts(0, 393).saturating_mul(n.into()))
-	}
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Asset` (r:2 w:2)
-	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-	/// Storage: `ForeignAssets::Account` (r:4 w:4)
-	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[2, 3]`.
-	fn swap_tokens_for_exact_tokens(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0 + n * (557 ±0)`
-		//  Estimated: `7404 + n * (393 ±73)`
-		// Minimum execution time: 929_000_000 picoseconds.
-		Weight::from_parts(947_000_000, 7404)
-			// Standard Error: 15_496_079
-			.saturating_add(Weight::from_parts(41_295_918, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+		// Minimum execution time: 928_000_000 picoseconds.
+		Weight::from_parts(956_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7404))
+			// Standard Error: 16_273_167
+			.saturating_add(Weight::from_parts(42_867_346, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(Weight::from_parts(0, 393).saturating_mul(n.into()))
 	}
 }
