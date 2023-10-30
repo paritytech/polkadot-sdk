@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 static_assertions = "1.1.0"
 log = { version = "0.4.17", default-features = false }
 
@@ -32,9 +32,10 @@ sp-authority-discovery = { path = "../../../primitives/authority-discovery", def
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false}
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false}
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false}
-sp-genesis-builder = { version = "0.1.0-dev", default-features = false, path = "../../../primitives/genesis-builder" }
+sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents", default-features = false}
 node-primitives = { path = "../primitives", default-features = false}
+sp-mixnet = { path = "../../../primitives/mixnet", default-features = false }
 sp-offchain = { path = "../../../primitives/offchain", default-features = false}
 sp-core = { path = "../../../primitives/core", default-features = false}
 sp-std = { path = "../../../primitives/std", default-features = false}
@@ -88,6 +89,7 @@ pallet-identity = { path = "../../../frame/identity", default-features = false}
 pallet-lottery = { path = "../../../frame/lottery", default-features = false}
 pallet-membership = { path = "../../../frame/membership", default-features = false}
 pallet-message-queue = { path = "../../../frame/message-queue", default-features = false}
+pallet-mixnet = { path = "../../../frame/mixnet", default-features = false }
 pallet-mmr = { path = "../../../frame/merkle-mountain-range", default-features = false}
 pallet-multisig = { path = "../../../frame/multisig", default-features = false}
 pallet-nfts = { path = "../../../frame/nfts", default-features = false}
@@ -185,6 +187,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
@@ -225,6 +228,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
+	"primitive-types/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-authority-discovery/std",
@@ -235,6 +239,7 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
+	"sp-mixnet/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
@@ -281,6 +286,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
@@ -354,6 +360,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
