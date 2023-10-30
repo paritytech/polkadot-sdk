@@ -456,7 +456,11 @@ impl<
 {
 	/// Execute all `OnRuntimeUpgrade` of this runtime, and return the aggregate weight.
 	pub fn execute_on_runtime_upgrade() -> Weight {
-		<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::on_runtime_upgrade()
+		<(
+			COnRuntimeUpgrade,
+			AllPalletsWithSystem,
+			<System as frame_system::Config>::SingleBlockMigrations,
+		) as OnRuntimeUpgrade>::on_runtime_upgrade()
 	}
 
 	/// Start the execution of a particular block.
