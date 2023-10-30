@@ -14,4 +14,5 @@
 // limitations under the License.
 
 mod example;
+mod snowbridge;
 mod teleport;

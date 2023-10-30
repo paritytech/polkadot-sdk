@@ -33,3 +33,6 @@ bridge-hub-rococo-runtime = { path = "../../../../../parachains/runtimes/bridge-
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
 integration-tests-common = { path = "../../common", default-features = false}
+
+# Snowbridge
+snowbridge-control = { path = "../../../../../../../parachain/pallets/control" }

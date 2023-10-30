@@ -38,15 +38,30 @@ pub mod xcm_config;
 
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_core::{outbound::Message, AgentId};
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::xcm_config::benchmark_helper::DoNothingRouter;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_beacon_primitives::CompactExecutionHeader;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_core::RingBufferMap;
+#[cfg(feature = "runtime-benchmarks")]
+pub use snowbridge_ethereum_beacon_client::ExecutionHeaderBuffer;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue::BenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_core::H256;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -65,9 +80,13 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+
+use pallet_xcm::EnsureXcm;
+
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm::VersionedMultiLocation;
+use xcm_config::{EthereumGatewayAddress, XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 use bp_runtime::HeaderId;
 
@@ -79,6 +98,8 @@ use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::xcm_config::AllowSiblingsOnly;
 use crate::{
 	bridge_hub_rococo_config::BridgeRefundBridgeHubWococoMessages,
 	bridge_hub_wococo_config::BridgeRefundBridgeHubRococoMessages, xcm_config::XcmRouter,
@@ -327,7 +348,8 @@ impl pallet_transaction_payment::Config for Runtime {
 
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	// For beacon checkpoint to work require a bigger default
+	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -457,6 +479,167 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// Amount of weight that can be spent per block to service messages.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Size = u32;
+	type HeapSize = ConstU32<{ 64 * 1024 }>;
+	type MaxStale = ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
+	type MessageProcessor = EthereumOutboundQueue;
+	type QueueChangeHandler = ();
+	type QueuePausedQuery = ();
+	type WeightInfo = ();
+}
+
+// Ethereum Bridge
+
+parameter_types! {
+	pub const Reward: u128 = 10;
+	pub const GatewayAddress: H160 = H160(EthereumGatewayAddress::get());
+	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetExecutionFee: u128 = 2_000_000_000;
+	pub const SendTokenExecutionFee: u128 = 1_000_000_000;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: snowbridge_ethereum_beacon_client::Config> BenchmarkHelper<T> for Runtime {
+	fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
+		<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
+	}
+}
+
+impl snowbridge_inbound_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Verifier = snowbridge_ethereum_beacon_client::Pallet<Runtime>;
+	type Token = Balances;
+	type Reward = Reward;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
+	type GatewayAddress = GatewayAddress;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Runtime;
+	type MessageConverter =
+		MessageToXcm<CreateAssetCall, CreateAssetExecutionFee, SendTokenExecutionFee>;
+}
+
+pub const GWEI: u128 = 1_000_000_000;
+
+parameter_types! {
+	pub const MaxMessagePayloadSize: u32 = 2048;
+	pub const MaxMessagesPerBlock: u32 = 32;
+	pub const DeliveryFeePerGas: u128 = 10;
+	pub const DeliveryRefundPerGas: u128 = 10 * GWEI;
+	pub const DeliveryReward: u128 = 1000 * GWEI;
+}
+
+impl snowbridge_outbound_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Hashing = Keccak256;
+	type MessageQueue = MessageQueue;
+	type MaxMessagePayloadSize = MaxMessagePayloadSize;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type OwnParaId = ParachainInfo;
+	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type Balance = Balance;
+	type DeliveryFeePerGas = DeliveryFeePerGas;
+	type DeliveryRefundPerGas = DeliveryRefundPerGas;
+	type DeliveryReward = DeliveryReward;
+	type WeightToFee = WeightToFee;
+	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
+}
+
+#[cfg(not(feature = "beacon-spec-mainnet"))]
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: [0, 0, 0, 1], // 0x00000001
+			epoch: 0,
+		},
+		altair: Fork {
+			version: [1, 0, 0, 1], // 0x01000001
+			epoch: 0,
+		},
+		bellatrix: Fork {
+			version: [2, 0, 0, 1], // 0x02000001
+			epoch: 0,
+		},
+		capella: Fork {
+			version: [3, 0, 0, 1], // 0x03000001
+			epoch: 0,
+		},
+	};
+	pub const MaxExecutionHeadersToKeep:u32 = 1000;
+}
+
+#[cfg(feature = "beacon-spec-mainnet")]
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: [0, 0, 16, 32], // 0x00001020
+			epoch: 0,
+		},
+		altair: Fork {
+			version: [1, 0, 16, 32], // 0x01001020
+			epoch: 36660,
+		},
+		bellatrix: Fork {
+			version: [2, 0, 16, 32], // 0x02001020
+			epoch: 112260,
+		},
+		capella: Fork {
+			version: [3, 0, 16, 32], // 0x03001020
+			epoch: 162304,
+		},
+	};
+	pub const MaxExecutionHeadersToKeep:u32 = 8192 * 2;
+}
+
+impl snowbridge_ethereum_beacon_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ForkVersions = ChainForkVersions;
+	type MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
+	type WeightInfo = weights::snowbridge_ethereum_beacon_client::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	// TODO: placeholder value - choose a real one
+	pub const MaxUpgradeDataSize: u32 = 1024;
+	pub const RelayNetwork: NetworkId = Rococo;
+}
+
+parameter_types! {
+	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl snowbridge_control::BenchmarkHelper<RuntimeOrigin> for () {
+	fn make_xcm_origin(location: xcm::latest::MultiLocation) -> RuntimeOrigin {
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+	}
+}
+
+impl snowbridge_control::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OwnParaId = ParachainInfo;
+	type OutboundQueue = EthereumOutboundQueue;
+	type MessageHasher = BlakeTwo256;
+	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
+	type AgentIdOf = xcm_config::AgentIdOf;
+	type TreasuryAccount = TreasuryAccount;
+	type Token = Balances;
+	type WeightInfo = weights::snowbridge_control::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -505,6 +688,15 @@ construct_runtime!(
 		BridgeWococoToRococoMessages: pallet_bridge_messages::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 45,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
+
+		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event<T>} = 48,
+		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 49,
+		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event<T>} = 50,
+		EthereumControl: snowbridge_control::{Pallet, Call, Storage, Event<T>} = 51,
+
+		// Message Queue. Registered after EthereumOutboundQueue so that their `on_initialize` handlers
+		// run in the desired order.
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 60,
 	}
 );
 
@@ -528,6 +720,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_multisig, Multisig]
+		[pallet_message_queue, MessageQueue]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
@@ -548,6 +741,11 @@ mod benches {
 		[pallet_bridge_messages, WococoToRococo]
 		// Bridge relayer pallets
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
+		// Ethereum Bridge
+		[snowbridge_inbound_queue, EthereumInboundQueue]
+		[snowbridge_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_control, EthereumControl]
+		[snowbridge_ethereum_beacon_client, EthereumBeaconClient]
 	);
 }
 
@@ -785,6 +983,23 @@ impl_runtime_apis! {
 			>(lane, begin, end)
 		}
 	}
+
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
+			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		}
+
+		fn calculate_fee(message: Message) -> Option<Balance> {
+			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
+		}
+	}
+
+	impl snowbridge_control_runtime_api::ControlApi<Block> for Runtime {
+		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
+			snowbridge_control::api::agent_id::<Runtime>(location)
+		}
+	}
+
 
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {

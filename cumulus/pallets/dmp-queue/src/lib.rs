@@ -54,9 +54,11 @@ pub struct ConfigData {
 impl Default for ConfigData {
 	fn default() -> Self {
 		Self {
+			// For beacon checkpoint to work require a bigger default
 			max_individual: Weight::from_parts(
-				10u64 * WEIGHT_REF_TIME_PER_MILLIS, // 10 ms of execution time maximum by default
-				DEFAULT_POV_SIZE,                   // 64 KB of proof size by default
+				20u64 * 10u64 * WEIGHT_REF_TIME_PER_MILLIS, /* 200 ms of execution time maximum
+				                                             * by default */
+				10u64 * DEFAULT_POV_SIZE, // 640 KB of proof size by default
 			),
 		}
 	}

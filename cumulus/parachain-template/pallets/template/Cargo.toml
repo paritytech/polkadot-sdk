@@ -19,6 +19,10 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true}
 frame-support = { path = "../../../../substrate/frame/support", default-features = false}
 frame-system = { path = "../../../../substrate/frame/system", default-features = false}
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false}
+
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false}
 
 [dev-dependencies]
 serde = { version = "1.0.188" }
@@ -45,6 +49,9 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
+	"pallet-xcm/std",
+	"xcm/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
