@@ -330,7 +330,6 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.
-										 // TODO: flavor?
 	type Weigher = WeightInfoBounds<
 		crate::weights::xcm::BridgeHubRococoXcmWeight<RuntimeCall>,
 		RuntimeCall,
