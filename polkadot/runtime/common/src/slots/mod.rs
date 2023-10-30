@@ -420,14 +420,16 @@ impl<T: Config> Pallet<T> {
 	/// Reserve the amount for the parachain, updating the current reserved amount for this leaser
 	/// and parachain.
 	fn reserve(para: ParaId, leaser: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		ReservedAmounts::<T>::mutate(para, leaser, |maybe_current| {
-			if let Some(current) = maybe_current {
-				*current = amount.saturating_add(*current)
-			} else {
-				*maybe_current = Some(amount)
-			}
-		});
-		T::Currency::reserve(&leaser, amount)
+		T::Currency::reserve(&leaser, amount).map(|_| {
+			ReservedAmounts::<T>::mutate(para, leaser, |maybe_current| {
+				if let Some(current) = maybe_current {
+					*current = amount.saturating_add(*current)
+				} else {
+					*maybe_current = Some(amount)
+				}
+			});
+			()
+		})
 	}
 
 	/// Unreserve the amount for the parachain, updating the current reserved amount for this leaser
