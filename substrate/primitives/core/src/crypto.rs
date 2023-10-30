@@ -942,8 +942,7 @@ pub trait Pair: CryptoType + Sized {
 	///   - the path may be followed by `///`, in which case everything after the `///` is treated
 	/// as a password.
 	/// - If `s` begins with a `/` character it is prefixed with the Substrate public `DEV_PHRASE`
-	///   and
-	/// interpreted as above.
+	///   and interpreted as above.
 	///
 	/// In this case they are interpreted as HDKD junctions; purely numeric items are interpreted as
 	/// integers, non-numeric items as strings. Junctions prefixed with `/` are interpreted as soft
@@ -1213,7 +1212,7 @@ macro_rules! impl_from_entropy_base {
 			[$type; 17], [$type; 18], [$type; 19], [$type; 20], [$type; 21], [$type; 22], [$type; 23], [$type; 24],
 			[$type; 25], [$type; 26], [$type; 27], [$type; 28], [$type; 29], [$type; 30], [$type; 31], [$type; 32],
 			[$type; 36], [$type; 40], [$type; 44], [$type; 48], [$type; 56], [$type; 64], [$type; 72], [$type; 80],
-			[$type; 96], [$type; 112], [$type; 128], [$type; 160], [$type; 192], [$type; 224], [$type; 256]
+			[$type; 96], [$type; 112], [$type; 128], [$type; 160], [$type; 177], [$type; 192], [$type; 224], [$type; 256]
 		);
 	}
 }
