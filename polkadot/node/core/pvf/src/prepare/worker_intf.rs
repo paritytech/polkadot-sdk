@@ -196,7 +196,7 @@ async fn handle_response(
 	result: PrepareResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	artifact_path: PathBuf,
+	artifact_path_partial: PathBuf,
 	preparation_timeout: Duration,
 ) -> Outcome {
 	let PrepareStats { cpu_time_elapsed, memory_stats } = match result.clone() {
@@ -218,6 +218,20 @@ async fn handle_response(
 		);
 		return Outcome::TimedOut
 	}
+
+	let checksum = match tokio::fs::read(&tmp_file).await {
+		Ok(bytes) => blake3::hash(&bytes),
+		// FIXME eagr: handle error properly
+		Err(_) => return Outcome::Unreachable,
+	};
+
+	let file_name_partial = artifact_path_partial
+		.file_name()
+		.expect("the path should never terminate in `..`");
+	let mut file_name = file_name_partial.to_os_string();
+	file_name.push("_0x");
+	file_name.push(checksum.to_hex().as_str());
+	let artifact_path = artifact_path_partial.with_file_name(&file_name);
 
 	gum::debug!(
 		target: LOG_TARGET,

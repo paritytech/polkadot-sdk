@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 always-assert = "0.1"
+blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"

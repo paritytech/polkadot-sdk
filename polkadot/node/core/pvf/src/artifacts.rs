@@ -71,7 +71,7 @@ use std::{
 
 // A workaround for defining a `const` that is a concatenation of other constants.
 macro_rules! concat_const {
-    ($($arg:tt),*) => {{
+    ($($arg:expr),*) => {{
         // ensure inputs to be strings
         $(const _: &str = $arg;)*
 
@@ -80,8 +80,8 @@ macro_rules! concat_const {
         // concatenate strings as byte slices
         const CAT: [u8; LEN] = {
             let mut cat = [0u8; LEN];
-            // for turning off unused warning
-            let mut _offset = 0;
+            #[allow(unused_variables)]
+            let mut offset = 0;
 
             $({
                 const BYTES: &[u8] = $arg.as_bytes();
@@ -89,10 +89,10 @@ macro_rules! concat_const {
                 let mut i = 0;
                 let len = BYTES.len();
                 while i < len {
-                    cat[_offset + i] = BYTES[i];
+                    cat[offset + i] = BYTES[i];
                     i += 1;
                 }
-                _offset += len;
+                offset += len;
             })*
 
             cat
@@ -317,9 +317,7 @@ impl Artifacts {
 		loop {
 			match dir.next_entry().await {
 				Ok(Some(entry)) => insert_or_prune(self, &entry, cache_path).await,
-
 				Ok(None) => break,
-
 				Err(err) => {
 					gum::warn!(
 						target: LOG_TARGET,
