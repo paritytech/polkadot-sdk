@@ -24,7 +24,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
-use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
