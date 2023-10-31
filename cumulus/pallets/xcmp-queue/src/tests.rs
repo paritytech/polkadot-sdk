@@ -229,7 +229,7 @@ fn handle_invalid_data_no_panic() {
 
 #[test]
 fn suspend_xcm_execution_works() {
-	new_test_ext().execute_with(|| {	
+	new_test_ext().execute_with(|| {
 		assert!(!XcmpQueue::is_paused(&2000.into()));
 		QueueSuspended::<Test>::put(true);
 		assert!(XcmpQueue::is_paused(&2000.into()));
