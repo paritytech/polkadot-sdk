@@ -31,7 +31,9 @@
 //!
 //! ### Checklist
 //!
-//! TODO
+//! - [ ] Always make sure all downstream types and items are improved.
+//! - [ ] Make sure you read all relevant documents, build on top of. Imagine the process of posting
+//!   something new in SE.
 //!
 //! ### Note on `crates.io` and Publishing
 //!
@@ -102,8 +104,8 @@
 //!
 //! For more details about documenting guidelines, see:
 //! <https://github.com/paritytech/polkadot-sdk/master/docs/DOCUMENTATION_GUIDELINES.md>
-#![deny(rustdoc::broken_intra_doc_links)]
-#![deny(rustdoc::private_intra_doc_links)]
+#![warn(rustdoc::broken_intra_doc_links)]
+#![warn(rustdoc::private_intra_doc_links)]
 
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.

@@ -15,12 +15,12 @@
 //! [![Runtime](https://img.shields.io/badge/fellowship-runtimes-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/runtimes)
 //! [![Manifesto](https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot)](https://github.com/polkadot-fellows/manifesto)
 //!
-//!
 //! ## Getting Started
 //!
 //! The primary way to get started with the Polkadot SDK is to start writing a Substrate-based
 //! runtime using FRAME. See:
 //!
+//! 0. [`polkadot`], to understand what is Polkadot as a development platform.
 //! 1. [`substrate`], for an overview of what Substrate is.
 //! 2. Jump right into [`frame`] to learn about how to write a FRAME-based blockchain runtime.
 //! 3. Continue with the [`developer_hub`'s "getting started"](crate#getting-started).
@@ -119,3 +119,6 @@ pub mod smart_contracts;
 pub mod substrate;
 /// Index of all the templates that can act as an initial scaffold for a new project.
 pub mod templates;
+
+/// Learn about XCM, the de-facto communication language between different consensus systems.
+pub mod xcm;

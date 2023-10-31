@@ -56,3 +56,7 @@ pub mod frame_composite_enums;
 /// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
 /// control usage and sybil attacks.
 pub mod fee_less_runtime;
+
+/// Learn about metadata, the main means through which an upgrade-able runtime communicate its
+/// properties to the outside world.
+pub mod metadata;
