@@ -12,7 +12,7 @@ environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.20", default-features = false }
 trie-db = { version = "0.28.0", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false}
@@ -55,6 +55,7 @@ cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 [features]
 default = [ "std" ]
 std = [
+	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
