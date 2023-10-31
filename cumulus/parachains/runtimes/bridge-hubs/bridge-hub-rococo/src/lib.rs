@@ -530,19 +530,13 @@ impl snowbridge_inbound_queue::Config for Runtime {
 		MessageToXcm<CreateAssetCall, CreateAssetExecutionFee, SendTokenExecutionFee>;
 }
 
-pub const GWEI: u128 = 1_000_000_000;
-
-parameter_types! {
-	pub const MaxMessagePayloadSize: u32 = 2048;
-	pub const MaxMessagesPerBlock: u32 = 32;
-}
-
 impl snowbridge_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
-	type MaxMessagePayloadSize = MaxMessagePayloadSize;
-	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type Decimals = ConstU8<12>;
+	type MaxMessagePayloadSize = ConstU32<2048>;
+	type MaxMessagesPerBlock = ConstU32<32>;
 	type OwnParaId = ParachainInfo;
 	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	type Balance = Balance;
@@ -684,7 +678,7 @@ construct_runtime!(
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
 		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event<T>} = 48,
-		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Config<T>, Event<T>} = 49,
+		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 49,
 		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event<T>} = 50,
 		EthereumControl: snowbridge_control::{Pallet, Call, Storage, Event<T>} = 51,
 
