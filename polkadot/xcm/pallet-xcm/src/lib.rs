@@ -1219,7 +1219,7 @@ impl<T: Config> Pallet<T> {
 				ensure!(!x.is_zero(), Error::<T>::Empty);
 			}
 			let transfer_type =
-				<T::XcmExecutor as AssetTransferSupport>::determine_for(&asset, dest)
+				T::XcmExecutor::determine_for(&asset, dest)
 					.map_err(Error::<T>::from)?;
 			// Ensure asset is not teleportable to `dest`.
 			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
