@@ -251,12 +251,20 @@ above, hard to do without also being able to do 4 or 5.</li>
 with untrusted code does not have unnecessary access to the file-system. This
 provides some protection against attackers accessing sensitive data or modifying
 data on the host machine.</p>
+<p><em>Currently this is only supported on Linux.</em></p>
+<!-- TODO: Uncomment when this has been enabled. -->
+<!-- ### Restricting networking -->
+<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
+<!-- the creation of sockets. This prevents attackers from either downloading -->
+<!-- payloads or communicating sensitive data from the validator's machine to the -->
+<!-- outside world. -->
+<!-- *Currently this is only supported on Linux.* -->
 <h3 id="clearing-env-vars"><a class="header" href="#clearing-env-vars">Clearing env vars</a></h3>
 <p>We clear environment variables before handling untrusted code, because why give
 attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
-<footer id="last-change">Last change: 2023-09-28, commit: <a href="https://github.com/paritytech/polkadot/commit/c1eb342b14">c1eb342b14</a></footer>
+<footer id="last-change">Last change: 2023-10-31, commit: <a href="https://github.com/paritytech/polkadot/commit/9faea380dc">9faea380dc</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

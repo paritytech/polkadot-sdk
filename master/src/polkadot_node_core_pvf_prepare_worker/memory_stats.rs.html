@@ -318,7 +318,7 @@
 	}
 
 	<span class="doccomment">/// Helper function to get the stats from the memory tracker. Helps isolate this error handling.
-	</span><span class="kw">pub async fn </span>get_memory_tracker_loop_stats(
+	</span><span class="kw">pub fn </span>get_memory_tracker_loop_stats(
 		thread: JoinHandle&lt;<span class="prelude-ty">Result</span>&lt;MemoryAllocationStats, String&gt;&gt;,
 		worker_pid: u32,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;MemoryAllocationStats&gt; {

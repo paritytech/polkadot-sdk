@@ -470,6 +470,9 @@
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
 <a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -717,7 +720,7 @@
 /// has been terminated. Since the worker is running in another process it is obviously not
 /// necessary to poll this future to make the worker run, it&#39;s only for termination detection.
 ///
-/// This future relies on the fact that a child process&#39;s stdout `fd` is closed upon it&#39;s
+/// This future relies on the fact that a child process&#39;s stdout `fd` is closed upon its
 /// termination.
 </span><span class="attr">#[pin_project]
 </span><span class="kw">pub struct </span>WorkerHandle {
@@ -741,6 +744,9 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>args = <span class="macro">vec!</span>[];
 			<span class="kw">if </span>security_status.can_enable_landlock {
 				args.push(<span class="string">&quot;--can-enable-landlock&quot;</span>.to_string());
+			}
+			<span class="kw">if </span>security_status.can_enable_seccomp {
+				args.push(<span class="string">&quot;--can-enable-seccomp&quot;</span>.to_string());
 			}
 			<span class="kw">if </span>security_status.can_unshare_user_namespace_and_change_root {
 				args.push(<span class="string">&quot;--can-unshare-user-namespace-and-change-root&quot;</span>.to_string());

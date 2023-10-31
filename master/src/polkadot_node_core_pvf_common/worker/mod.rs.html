@@ -645,6 +645,25 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -670,13 +689,12 @@
 <span class="kw">use </span>futures::never::Never;
 <span class="kw">use </span>std::{
 	any::Any,
-	fmt,
+	fmt, io,
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-<span class="kw">use </span>tokio::{io, runtime::Runtime};
 
 <span class="doccomment">/// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -732,6 +750,13 @@
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
+				<span class="string">&quot;--check-can-enable-seccomp&quot; </span>=&gt; {
+					<span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+					</span><span class="kw">let </span>status = <span class="kw">if </span>security::seccomp::check_is_fully_enabled() { <span class="number">0 </span>} <span class="kw">else </span>{ -<span class="number">1 </span>};
+					<span class="attr">#[cfg(not(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))]
+					</span><span class="kw">let </span>status = -<span class="number">1</span>;
+					std::process::exit(status)
+				},
 				<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot; </span>=&gt; {
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::unshare_user_namespace_and_change_root(
@@ -776,6 +801,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>worker_dir_path = <span class="prelude-val">None</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>node_version = <span class="prelude-val">None</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>can_enable_landlock = <span class="bool-val">false</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>can_enable_seccomp = <span class="bool-val">false</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>can_unshare_user_namespace_and_change_root = <span class="bool-val">false</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
@@ -794,6 +820,7 @@
 						i += <span class="number">1
 					</span>},
 					<span class="string">&quot;--can-enable-landlock&quot; </span>=&gt; can_enable_landlock = <span class="bool-val">true</span>,
+					<span class="string">&quot;--can-enable-seccomp&quot; </span>=&gt; can_enable_seccomp = <span class="bool-val">true</span>,
 					<span class="string">&quot;--can-unshare-user-namespace-and-change-root&quot; </span>=&gt;
 						can_unshare_user_namespace_and_change_root = <span class="bool-val">true</span>,
 					arg =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected argument found: {}&quot;</span>, arg),
@@ -808,6 +835,7 @@
 			<span class="kw">let </span>worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 			<span class="kw">let </span>security_status = <span class="macro-nonterminal">$crate::SecurityStatus </span>{
 				can_enable_landlock,
+				can_enable_seccomp,
 				can_unshare_user_namespace_and_change_root,
 			};
 
@@ -845,7 +873,7 @@
 
 <span class="comment">// The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
-</span><span class="kw">pub fn </span>worker_event_loop&lt;F, Fut&gt;(
+</span><span class="kw">pub fn </span>worker_event_loop&lt;F&gt;(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))] </span><span class="kw-2">mut </span>worker_dir_path: PathBuf,
@@ -854,8 +882,7 @@
 	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))] </span>security_status: <span class="kw-2">&amp;</span>SecurityStatus,
 	<span class="kw-2">mut </span>event_loop: F,
 ) <span class="kw">where
-	</span>F: FnMut(UnixStream, PathBuf) -&gt; Fut,
-	Fut: futures::Future&lt;Output = io::Result&lt;Never&gt;&gt;,
+	</span>F: FnMut(UnixStream, PathBuf) -&gt; io::Result&lt;Never&gt;,
 {
 	<span class="kw">let </span>worker_pid = std::process::id();
 	<span class="macro">gum::debug!</span>(
@@ -909,7 +936,7 @@
 	}
 
 	<span class="comment">// Connect to the socket.
-	</span><span class="kw">let </span>stream = || -&gt; std::io::Result&lt;UnixStream&gt; {
+	</span><span class="kw">let </span>stream = || -&gt; io::Result&lt;UnixStream&gt; {
 		<span class="kw">let </span>stream = UnixStream::connect(<span class="kw-2">&amp;</span>socket_path)<span class="question-mark">?</span>;
 		<span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>socket_path);
 		<span class="prelude-val">Ok</span>(stream)
@@ -965,6 +992,24 @@
 				security::landlock::enable_for_worker(worker_kind, worker_pid, <span class="kw-2">&amp;</span>worker_dir_path);
 			<span class="kw">if </span>!<span class="macro">matches!</span>(landlock_status, <span class="prelude-val">Ok</span>(landlock::RulesetStatus::FullyEnforced)) {
 				<span class="comment">// We previously were able to enable, so this should never happen.
+				</span><span class="macro">gum::error!</span>(
+					target: LOG_TARGET,
+					%worker_kind,
+					%worker_pid,
+					<span class="string">&quot;could not fully enable landlock: {:?}. This should not happen, please report an issue&quot;</span>,
+					landlock_status
+				);
+			}
+		}
+
+		<span class="comment">// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
+		//       job to catch regressions. See &lt;https://github.com/paritytech/ci_cd/issues/609&gt;.
+		</span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+		</span><span class="kw">if </span>security_status.can_enable_seccomp {
+			<span class="kw">let </span>seccomp_status =
+				security::seccomp::enable_for_worker(worker_kind, worker_pid, <span class="kw-2">&amp;</span>worker_dir_path);
+			<span class="kw">if </span>!<span class="macro">matches!</span>(seccomp_status, <span class="prelude-val">Ok</span>(())) {
+				<span class="comment">// We previously were able to enable, so this should never happen.
 				//
 				// TODO: Make this a real error in secure-mode. See:
 				// &lt;https://github.com/paritytech/polkadot-sdk/issues/1444&gt;
@@ -972,8 +1017,8 @@
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					<span class="string">&quot;could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs&quot;</span>,
-					landlock_status
+					<span class="string">&quot;could not fully enable seccomp: {:?}. This should not happen, please report an issue&quot;</span>,
+					seccomp_status
 				);
 			}
 		}
@@ -993,18 +1038,11 @@
 	}
 
 	<span class="comment">// Run the main worker loop.
-	</span><span class="kw">let </span>rt = Runtime::new().expect(<span class="string">&quot;Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.&quot;</span>);
-	<span class="kw">let </span>err = rt
-		.block_on(event_loop(stream, worker_dir_path))
+	</span><span class="kw">let </span>err = event_loop(stream, worker_dir_path)
 		<span class="comment">// It&#39;s never `Ok` because it&#39;s `Ok(Never)`.
 		</span>.unwrap_err();
 
 	worker_shutdown_message(worker_kind, worker_pid, <span class="kw-2">&amp;</span>err.to_string());
-
-	<span class="comment">// We don&#39;t want tokio to wait for the tasks to finish. We want to bring down the worker as fast
-	// as possible and not wait for stalled validation to finish. This isn&#39;t strictly necessary now,
-	// but may be in the future.
-	</span>rt.shutdown_background();
 }
 
 <span class="doccomment">/// Provide a consistent message on worker shutdown.
@@ -1085,7 +1123,7 @@
 /// The motivation for this module is to coordinate worker threads without using async Rust.
 </span><span class="kw">pub mod </span>thread {
 	<span class="kw">use </span>std::{
-		panic,
+		io, panic,
 		sync::{Arc, Condvar, Mutex},
 		thread,
 		time::Duration,
@@ -1126,7 +1164,7 @@
 		f: F,
 		cond: Cond,
 		outcome: WaitOutcome,
-	) -&gt; std::io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
+	) -&gt; io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
 	<span class="kw">where
 		</span>F: FnOnce() -&gt; R,
 		F: Send + <span class="lifetime">&#39;static </span>+ panic::UnwindSafe,
@@ -1144,7 +1182,7 @@
 		cond: Cond,
 		outcome: WaitOutcome,
 		stack_size: usize,
-	) -&gt; std::io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
+	) -&gt; io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
 	<span class="kw">where
 		</span>F: FnOnce() -&gt; R,
 		F: Send + <span class="lifetime">&#39;static </span>+ panic::UnwindSafe,
