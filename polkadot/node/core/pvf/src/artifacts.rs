@@ -80,8 +80,7 @@ macro_rules! concat_const {
         // concatenate strings as byte slices
         const CAT: [u8; LEN] = {
             let mut cat = [0u8; LEN];
-            #[allow(unused_variables)]
-            let mut offset = 0;
+            let mut _offset = 0;
 
             $({
                 const BYTES: &[u8] = $arg.as_bytes();
@@ -89,10 +88,10 @@ macro_rules! concat_const {
                 let mut i = 0;
                 let len = BYTES.len();
                 while i < len {
-                    cat[offset + i] = BYTES[i];
+                    cat[_offset + i] = BYTES[i];
                     i += 1;
                 }
-                offset += len;
+                _offset += len;
             })*
 
             cat
@@ -137,18 +136,19 @@ impl ArtifactId {
 	}
 
 	/// Tries to recover the artifact id from the given file name.
-	/// Return `None` if the given file name is not valid.
+	/// Return `None` if the given file name is invalid.
+	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
 	fn from_file_name(file_name: &str) -> Option<Self> {
-		// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
 		let file_name = file_name.strip_prefix(ARTIFACT_PREFIX)?.strip_prefix('_')?;
 		let parts: Vec<&str> = file_name.split('_').collect();
 
 		if let [code_hash, param_hash, _checksum] = parts[..] {
-			let code_hash = Hash::from_str(code_hash_str).ok()?.into();
+			let code_hash = Hash::from_str(code_hash).ok()?.into();
 			let executor_params_hash =
 				ExecutorParamsHash::from_hash(Hash::from_str(param_hash).ok()?);
-			Some(Self { code_hash, executor_params_hash })
+			return Some(Self { code_hash, executor_params_hash })
 		}
+
 		None
 	}
 }
@@ -233,8 +233,30 @@ impl Artifacts {
 	}
 
 	async fn insert_and_prune(&mut self, cache_path: &Path) {
-		// Inserts the entry into the artifacts table if it is a valid artifact file, or prune it
-		// otherwise.
+		async fn is_corrupted(path: &Path) -> bool {
+			let file_name = path
+				.file_stem()
+				.expect("path must contain a file name")
+				.to_str()
+				.expect("file name must be valid UTF-8");
+			let checksum = match tokio::fs::read(path).await {
+				Ok(bytes) => blake3::hash(&bytes),
+				Err(err) => {
+					// just remove the file if we cannot read it
+					gum::warn!(
+						target: LOG_TARGET,
+						?err,
+						"unable to read file {:?} when checking integrity",
+						path,
+					);
+					return true
+				},
+			};
+			!file_name.ends_with(checksum.to_hex().as_str())
+		}
+
+		// Insert the entry into the artifacts table if it is valid.
+		// Otherwise, prune it.
 		async fn insert_or_prune(
 			artifacts: &mut Artifacts,
 			entry: &tokio::fs::DirEntry,
@@ -263,7 +285,7 @@ impl Artifacts {
 				let id = ArtifactId::from_file_name(file_name);
 				let path = cache_path.join(file_name);
 
-				if id.is_none() {
+				if id.is_none() || is_corrupted(&path).await {
 					gum::debug!(
 						target: LOG_TARGET,
 						"discarding invalid artifact {:?}",
@@ -387,10 +409,8 @@ impl Artifacts {
 	}
 
 	pub fn get_path(&self, id: &ArtifactId) -> Option<PathBuf> {
-		if let Some(state) = self.inner.get(id) {
-			if let ArtifactState::Prepared { path, .. } = state {
-				return Some(path.clone())
-			}
+		if let Some(ArtifactState::Prepared { path, .. }) = self.inner.get(id) {
+			return Some(path.clone())
 		}
 		None
 	}

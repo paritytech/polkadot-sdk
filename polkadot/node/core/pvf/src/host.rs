@@ -359,7 +359,6 @@ async fn run(
 				// will notice it.
 
 				break_if_fatal!(handle_cleanup_pulse(
-					&cache_path,
 					&mut to_sweeper_tx,
 					&mut artifacts,
 					artifact_ttl,
@@ -812,7 +811,6 @@ async fn enqueue_prepare_for_execute(
 }
 
 async fn handle_cleanup_pulse(
-	cache_path: &Path,
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
 	artifact_ttl: Duration,
