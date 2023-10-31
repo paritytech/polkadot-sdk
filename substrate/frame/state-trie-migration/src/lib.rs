@@ -80,6 +80,7 @@ pub mod pallet {
 		ensure,
 		pallet_prelude::*,
 		traits::{Currency, Get},
+		StorageValue as _,
 	};
 	use frame_system::{self, pallet_prelude::*};
 	use sp_core::{
@@ -1269,6 +1270,7 @@ mod mock {
 #[cfg(test)]
 mod test {
 	use super::{mock::*, *};
+	use frame_support::StorageValue as _;
 	use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
 
 	#[test]

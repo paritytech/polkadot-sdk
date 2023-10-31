@@ -87,7 +87,7 @@ pub mod pallet {
 			Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency,
 			ValidatorRegistration,
 		},
-		BoundedVec, DefaultNoBound, PalletId,
+		BoundedVec, DefaultNoBound, PalletId, StorageValue as _,
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};
 	use pallet_session::SessionManager;

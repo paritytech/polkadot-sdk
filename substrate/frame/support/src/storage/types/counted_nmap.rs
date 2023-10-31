@@ -26,7 +26,7 @@ use crate::{
 		KeyGenerator, PrefixIterator, StorageAppend, StorageDecodeLength,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
-	Never,
+	Never, StorageValue as _,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 use sp_metadata_ir::StorageEntryMetadataIR;

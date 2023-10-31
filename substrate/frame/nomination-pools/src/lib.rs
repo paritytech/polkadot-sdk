@@ -364,7 +364,7 @@ use frame_support::{
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
-	DefaultNoBound, PalletError,
+	DefaultNoBound, PalletError, StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;

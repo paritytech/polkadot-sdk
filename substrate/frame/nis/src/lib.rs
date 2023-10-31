@@ -173,7 +173,7 @@ pub mod pallet {
 			},
 			Defensive, DefensiveSaturating, OnUnbalanced,
 		},
-		PalletId,
+		PalletId, StorageValue as _,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::{PerThing, Perquintill};

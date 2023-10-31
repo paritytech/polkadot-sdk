@@ -19,6 +19,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
+	StorageValue as _,
 };
 
 /// The current storage version.

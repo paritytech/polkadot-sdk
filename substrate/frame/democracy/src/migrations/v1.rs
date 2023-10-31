@@ -18,7 +18,12 @@
 //! Storage migrations for the preimage pallet.
 
 use crate::*;
-use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, BoundedVec};
+use frame_support::{
+	pallet_prelude::*,
+	storage_alias,
+	traits::OnRuntimeUpgrade,
+	BoundedVec, // StorageValue as _,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::H256;
 

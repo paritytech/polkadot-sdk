@@ -98,7 +98,7 @@ use frame_support::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
 		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
 	},
-	Parameter,
+	Parameter, StorageValue as _,
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;

@@ -61,7 +61,7 @@ use frame_support::{
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
 	traits::{Currency, ExistenceRequirement::KeepAlive, Get, Randomness, ReservableCurrency},
-	PalletId,
+	PalletId, StorageValue as _,
 };
 pub use pallet::*;
 use sp_runtime::{

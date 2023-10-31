@@ -28,7 +28,7 @@ use frame_support::{
 		EstimateNextNewSession, Get, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{

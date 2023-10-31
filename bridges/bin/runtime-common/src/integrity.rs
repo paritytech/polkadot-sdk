@@ -24,7 +24,7 @@ use crate::{messages, messages::MessageBridge};
 use bp_messages::{InboundLaneData, MessageNonce};
 use bp_runtime::{Chain, ChainId};
 use codec::Encode;
-use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
+use frame_support::{traits::Get, weights::Weight};
 use frame_system::limits;
 use pallet_bridge_messages::WeightInfoExt as _;
 

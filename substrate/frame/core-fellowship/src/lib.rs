@@ -70,7 +70,7 @@ use frame_support::{
 	traits::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 	},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 
 #[cfg(test)]

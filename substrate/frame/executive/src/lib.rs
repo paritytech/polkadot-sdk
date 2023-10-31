@@ -125,6 +125,7 @@ use frame_support::{
 		OnRuntimeUpgrade,
 	},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{

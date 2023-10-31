@@ -28,6 +28,7 @@ use crate::{
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::limits::BlockWeights;
 use parity_scale_codec::{Decode, Encode};

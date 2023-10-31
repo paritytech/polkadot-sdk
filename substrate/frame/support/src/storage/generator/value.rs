@@ -47,6 +47,7 @@ pub trait StorageValue<T: FullCodec> {
 	fn storage_value_final_key() -> [u8; 32];
 }
 
+/*
 impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
 	type Query = G::Query;
 
@@ -159,3 +160,4 @@ impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
 		sp_io::storage::append(&key, item.encode());
 	}
 }
+*/

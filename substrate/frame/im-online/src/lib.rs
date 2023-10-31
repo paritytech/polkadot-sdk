@@ -89,7 +89,7 @@ use frame_support::{
 		EstimateNextSessionRotation, Get, OneSessionHandler, ValidatorSet,
 		ValidatorSetWithIdentification,
 	},
-	BoundedSlice, WeakBoundedVec,
+	BoundedSlice, StorageValue as _, WeakBoundedVec,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},

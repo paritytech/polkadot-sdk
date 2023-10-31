@@ -44,6 +44,7 @@ mod tests;
 
 pub mod weights;
 
+use frame_support::StorageValue as _;
 pub use pallet::*;
 use sp_core::OpaquePeerId as PeerId;
 use sp_runtime::traits::StaticLookup;

@@ -46,7 +46,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, FeeTracker,
 };
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, StorageValue as _};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
 use sp_core::MAX_POSSIBLE_ALLOCATION;

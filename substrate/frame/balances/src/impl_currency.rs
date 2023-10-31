@@ -39,7 +39,7 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 // of the inner member.
 mod imbalances {
 	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
-	use frame_support::traits::SameOrOther;
+	use frame_support::{traits::SameOrOther, StorageValue as _};
 	use sp_std::mem;
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that

@@ -71,6 +71,7 @@ use codec::{Codec, Decode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{ConstU32, OnRuntimeUpgrade},
+	StorageValue as _,
 };
 use sp_runtime::Saturating;
 use sp_std::marker::PhantomData;

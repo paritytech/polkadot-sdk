@@ -27,7 +27,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{DefensiveResult, Get},
-	BoundedVec,
+	BoundedVec, //StorageValue as _,
 };
 use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;

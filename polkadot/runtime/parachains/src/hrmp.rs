@@ -18,7 +18,9 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
-use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
+use frame_support::{
+	pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound, StorageValue as _,
+};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};

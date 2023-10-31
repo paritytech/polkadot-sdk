@@ -24,7 +24,7 @@ use frame_support::{
 	storage_alias,
 	traits::{Currency, LockIdentifier, LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
 	weights::RuntimeDbWeight,
-	Parameter, Twox64Concat,
+	Parameter, StorageValue as _, Twox64Concat,
 };
 use sp_core::Get;
 use sp_runtime::traits::Zero;

@@ -101,8 +101,9 @@ mod tests;
 use codec::{FullCodec, MaxEncodedLen};
 use frame_support::{
 	ensure,
+	storage::TryAppendValue,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};

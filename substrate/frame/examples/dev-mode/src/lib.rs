@@ -44,7 +44,7 @@ type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]

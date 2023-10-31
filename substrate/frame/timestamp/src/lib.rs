@@ -133,7 +133,10 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use frame_support::traits::{OnTimestampSet, Time, UnixTime};
+use frame_support::{
+	traits::{OnTimestampSet, Time, UnixTime},
+	StorageValue as _,
+};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
 use sp_std::{cmp, result};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};

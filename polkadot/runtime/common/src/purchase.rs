@@ -19,6 +19,7 @@
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;

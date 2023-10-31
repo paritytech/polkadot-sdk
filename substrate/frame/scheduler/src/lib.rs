@@ -95,6 +95,7 @@ use frame_support::{
 		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
 	},
 	weights::{Weight, WeightMeter},
+	StorageValue as _,
 };
 use frame_system::{
 	pallet_prelude::BlockNumberFor,

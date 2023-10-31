@@ -44,6 +44,7 @@ use frame_support::{
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		WithdrawReasons,
 	},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 use primitives::{CoreIndex, Id as ParaId};

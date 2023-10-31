@@ -49,9 +49,12 @@ pub mod macros;
 pub mod weights;
 
 use codec::{Decode, Encode};
-use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
-	ReservableCurrency,
+use frame_support::{
+	traits::{
+		tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
+		ReservableCurrency,
+	},
+	StorageValue as _,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{

@@ -305,7 +305,7 @@ use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	traits::{ConstU32, Currency, Defensive, Get, LockIdentifier},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, StorageValue as _,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

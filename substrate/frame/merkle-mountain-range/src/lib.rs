@@ -56,7 +56,7 @@
 //! NOTE This pallet is experimental and not proven to work in production.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::weights::Weight;
+use frame_support::{weights::Weight, StorageValue as _};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log;
 use sp_mmr_primitives::utils;

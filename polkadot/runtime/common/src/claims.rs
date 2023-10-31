@@ -20,7 +20,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
 	weights::Weight,
-	DefaultNoBound,
+	DefaultNoBound, StorageValue as _,
 };
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};

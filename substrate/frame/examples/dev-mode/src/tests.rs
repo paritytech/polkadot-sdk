@@ -18,7 +18,7 @@
 //! Tests for pallet-dev-mode.
 
 use crate::*;
-use frame_support::{assert_ok, traits::ConstU64};
+use frame_support::{assert_ok, traits::ConstU64, StorageValue as _};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},

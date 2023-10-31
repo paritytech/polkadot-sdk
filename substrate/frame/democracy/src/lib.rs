@@ -156,6 +156,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
 	error::BadOrigin,
+	storage::TryAppendValue,
 	traits::{
 		defensive_prelude::*,
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
@@ -163,6 +164,7 @@ use frame_support::{
 		QueryPreimage, ReservableCurrency, StorePreimage, WithdrawReasons,
 	},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use sp_runtime::{

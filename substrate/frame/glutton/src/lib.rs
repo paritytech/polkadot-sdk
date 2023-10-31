@@ -37,7 +37,7 @@ mod tests;
 pub mod weights;
 
 use blake2::{Blake2b512, Digest};
-use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound};
+use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use sp_io::hashing::twox_256;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};

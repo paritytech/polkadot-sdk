@@ -197,7 +197,7 @@ use frame_support::{
 		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
 		ProcessMessageError, QueuePausedQuery, ServiceQueues,
 	},
-	BoundedSlice, CloneNoBound, DefaultNoBound,
+	BoundedSlice, CloneNoBound, DefaultNoBound, StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;

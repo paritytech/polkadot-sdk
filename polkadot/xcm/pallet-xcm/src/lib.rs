@@ -45,6 +45,7 @@ use xcm_executor::traits::{ConvertOrigin, Properties};
 
 use frame_support::{
 	dispatch::GetDispatchInfo, pallet_prelude::*, traits::WithdrawReasons, PalletId,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;

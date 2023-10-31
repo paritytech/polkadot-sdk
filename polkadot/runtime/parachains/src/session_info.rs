@@ -27,6 +27,7 @@ use crate::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};

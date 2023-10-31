@@ -21,7 +21,7 @@ use frame_support::{
 	storage_alias,
 	traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
 	weights::Weight,
-	Twox64Concat,
+	StorageValue as _, Twox64Concat,
 };
 use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
 use sp_std::vec::Vec;

@@ -18,6 +18,7 @@
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade},
 	weights::Weight,
+	StorageValue as _,
 };
 
 use crate::{Config, CurrentSetId, SetIdSession, LOG_TARGET};

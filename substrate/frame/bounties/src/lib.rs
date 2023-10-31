@@ -89,8 +89,13 @@ pub mod weights;
 
 use sp_std::prelude::*;
 
-use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
+use frame_support::{
+	storage::TryAppendValue,
+	traits::{
+		Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
+		ReservableCurrency,
+	},
+	StorageValue as _,
 };
 
 use sp_runtime::{

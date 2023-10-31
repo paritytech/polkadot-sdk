@@ -26,6 +26,7 @@ use frame_support::{
 		nonfungible::{Inspect, Transfer},
 		tokens::{Fortitude::Force, Precision::Exact},
 	},
+	StorageValue as _,
 };
 use sp_arithmetic::Perquintill;
 use sp_runtime::{

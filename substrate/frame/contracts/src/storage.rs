@@ -29,7 +29,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::Weight,
-	CloneNoBound, DefaultNoBound,
+	CloneNoBound, DefaultNoBound, StorageValue as _,
 };
 use scale_info::TypeInfo;
 use sp_core::Get;

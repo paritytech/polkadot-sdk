@@ -106,6 +106,7 @@ use frame_support::{
 		SortedMembers, WithdrawReasons,
 	},
 	weights::Weight,
+	StorageValue as _,
 };
 use log;
 use scale_info::TypeInfo;

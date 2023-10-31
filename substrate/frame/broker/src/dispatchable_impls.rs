@@ -19,6 +19,7 @@ use super::*;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	StorageValue as _,
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::Convert;

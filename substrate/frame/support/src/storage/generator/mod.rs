@@ -42,7 +42,7 @@ mod tests {
 
 	use crate::{
 		assert_noop, assert_ok,
-		storage::{generator::StorageValue, unhashed},
+		storage::{unhashed, StorageValue as _},
 	};
 
 	#[crate::pallet]

@@ -46,7 +46,7 @@ use sp_trie::{
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter,
+	Parameter, StorageValue as _,
 };
 
 use crate::{self as pallet_session, Pallet as Session};

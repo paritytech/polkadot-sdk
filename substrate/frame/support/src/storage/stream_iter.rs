@@ -22,6 +22,7 @@ use sp_std::vec::Vec;
 /// Provides the sealed trait `StreamIter`.
 mod private {
 	use super::*;
+	//use frame_support::StorageValue as _;
 
 	/// Used as marker trait for types that support stream iteration.
 	pub trait StreamIter {
@@ -395,6 +396,7 @@ impl codec::Input for StorageInput {
 mod tests {
 	use super::*;
 	use codec::{Compact, CompactLen, Encode, Input};
+	use frame_support::StorageValue as _;
 
 	#[crate::storage_alias]
 	pub type TestVecU32 = StorageValue<Test, Vec<u32>>;

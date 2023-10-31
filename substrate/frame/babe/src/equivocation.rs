@@ -33,7 +33,10 @@
 //! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
 //! definition.
 
-use frame_support::traits::{Get, KeyOwnerProofSystem};
+use frame_support::{
+	traits::{Get, KeyOwnerProofSystem},
+	StorageValue as _,
+};
 use frame_system::pallet_prelude::HeaderFor;
 use log::{error, info};
 

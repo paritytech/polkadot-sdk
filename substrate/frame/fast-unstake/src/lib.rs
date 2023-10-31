@@ -153,6 +153,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Defensive, ReservableCurrency, StorageVersion},
+		StorageValue as _,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::Zero, DispatchResult};

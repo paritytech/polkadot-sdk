@@ -27,6 +27,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, Get, Randomness, ReservableCurrency},
 	weights::Weight,
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;

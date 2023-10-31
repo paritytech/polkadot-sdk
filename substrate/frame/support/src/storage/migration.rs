@@ -393,6 +393,7 @@ mod tests {
 	use crate::{
 		hash::StorageHasher,
 		pallet_prelude::{StorageMap, StorageValue, Twox128, Twox64Concat},
+		storage::StorageValue as _,
 	};
 	use sp_io::TestExternalities;
 

@@ -64,7 +64,7 @@ use frame_support::{
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Get, ReservableCurrency,
 	},
-	Identity, PalletId,
+	Identity, PalletId, StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;

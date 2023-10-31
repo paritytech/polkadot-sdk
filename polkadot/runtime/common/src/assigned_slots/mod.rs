@@ -30,7 +30,7 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{pallet_prelude::*, traits::Currency, StorageValue as _};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};

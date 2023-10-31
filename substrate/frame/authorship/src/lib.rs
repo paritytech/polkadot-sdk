@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::FindAuthor;
+use frame_support::{traits::FindAuthor, StorageValue as _};
 use sp_std::prelude::*;
 
 pub use pallet::*;

@@ -56,6 +56,7 @@ use frame_support::{
 	},
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
+	StorageValue as _,
 };
 pub use pallet::*;
 pub use payment::*;

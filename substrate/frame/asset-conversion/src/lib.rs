@@ -71,6 +71,7 @@ use codec::Codec;
 use frame_support::{
 	ensure,
 	traits::tokens::{AssetId, Balance},
+	StorageValue as _,
 };
 use frame_system::{
 	ensure_signed,
@@ -415,18 +416,20 @@ pub mod pallet {
 
 			// try to convert both assets
 			match T::MultiAssetIdConverter::try_convert(asset1) {
-				MultiAssetIdConversionResult::Converted(asset) =>
+				MultiAssetIdConversionResult::Converted(asset) => {
 					if !T::Assets::contains(&asset, &pool_account) {
 						T::Assets::touch(asset, pool_account.clone(), sender.clone())?
-					},
+					}
+				},
 				MultiAssetIdConversionResult::Unsupported(_) => Err(Error::<T>::UnsupportedAsset)?,
 				MultiAssetIdConversionResult::Native => (),
 			}
 			match T::MultiAssetIdConverter::try_convert(asset2) {
-				MultiAssetIdConversionResult::Converted(asset) =>
+				MultiAssetIdConversionResult::Converted(asset) => {
 					if !T::Assets::contains(&asset, &pool_account) {
 						T::Assets::touch(asset, pool_account.clone(), sender.clone())?
-					},
+					}
+				},
 				MultiAssetIdConversionResult::Unsupported(_) => Err(Error::<T>::UnsupportedAsset)?,
 				MultiAssetIdConversionResult::Native => (),
 			}

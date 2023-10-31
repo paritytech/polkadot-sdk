@@ -91,14 +91,14 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
+	storage::TryAppendValue,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	PalletId,
+	PalletId, StorageValue as _,
 };
-
 pub use pallet::*;
 pub use weights::WeightInfo;
 

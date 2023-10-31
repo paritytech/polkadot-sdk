@@ -40,7 +40,7 @@ use frame_support::{
 	storage,
 	traits::OneSessionHandler,
 	weights::Weight,
-	WeakBoundedVec,
+	StorageValue as _, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;

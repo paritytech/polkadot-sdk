@@ -114,7 +114,9 @@ use crate::{
 	shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
+use frame_support::{
+	pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound, StorageValue as _,
+};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{

@@ -19,6 +19,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
+	StorageValue as _,
 };
 
 const DEFAULT_PROOF_SIZE: u64 = 64 * 1024;

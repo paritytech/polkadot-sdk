@@ -178,7 +178,7 @@ use frame_support::{
 		},
 		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
 	},
-	BoundedSlice, WeakBoundedVec,
+	BoundedSlice, StorageValue as _, WeakBoundedVec,
 };
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};

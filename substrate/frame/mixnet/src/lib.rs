@@ -24,7 +24,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{EstimateNextSessionRotation, Get, OneSessionHandler},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},

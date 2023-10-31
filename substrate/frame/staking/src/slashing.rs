@@ -58,6 +58,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
+	StorageValue as _,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

@@ -61,6 +61,7 @@ use frame_support::{
 		InitializeMembers, StorageVersion,
 	},
 	weights::Weight,
+	StorageValue as _,
 };
 
 #[cfg(any(feature = "try-runtime", test))]

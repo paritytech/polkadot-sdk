@@ -124,7 +124,7 @@ use frame_support::{
 		ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
-	Parameter,
+	Parameter, StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{

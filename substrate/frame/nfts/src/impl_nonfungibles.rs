@@ -22,7 +22,7 @@ use frame_support::{
 	ensure,
 	storage::KeyPrefixIterator,
 	traits::{tokens::nonfungibles_v2::*, Get},
-	BoundedSlice,
+	BoundedSlice, StorageValue as _,
 };
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;

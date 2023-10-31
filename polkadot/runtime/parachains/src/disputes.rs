@@ -20,7 +20,7 @@ use crate::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
-use frame_support::{ensure, weights::Weight};
+use frame_support::{ensure, weights::Weight, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;

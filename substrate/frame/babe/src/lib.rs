@@ -27,7 +27,7 @@ use frame_support::{
 	ensure,
 	traits::{ConstU32, DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
 	weights::Weight,
-	BoundedVec, WeakBoundedVec,
+	BoundedVec, StorageValue as _, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use sp_consensus_babe::{

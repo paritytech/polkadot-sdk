@@ -25,7 +25,7 @@
 
 use frame_support::{
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
-	BoundedVec,
+	BoundedVec, StorageValue as _,
 };
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;

@@ -241,7 +241,7 @@ use frame_support::{
 	ensure,
 	traits::{Currency, DefensiveResult, Get, OnUnbalanced, ReservableCurrency},
 	weights::Weight,
-	DefaultNoBound, EqNoBound, PartialEqNoBound,
+	DefaultNoBound, EqNoBound, PartialEqNoBound, StorageValue as _,
 };
 use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;

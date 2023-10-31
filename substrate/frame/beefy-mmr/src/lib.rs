@@ -42,7 +42,7 @@ use sp_consensus_beefy::{
 	ValidatorSet as BeefyValidatorSet,
 };
 
-use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
+use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get, StorageValue as _};
 use frame_system::pallet_prelude::BlockNumberFor;
 
 pub use pallet::*;

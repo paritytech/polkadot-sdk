@@ -21,6 +21,7 @@ pub mod v1 {
 		storage::unhashed,
 		traits::{Defensive, Get, GetStorageVersion, OnRuntimeUpgrade},
 		weights::Weight,
+		StorageValue as _,
 	};
 	use sp_staking::EraIndex;
 	use sp_std::prelude::*;

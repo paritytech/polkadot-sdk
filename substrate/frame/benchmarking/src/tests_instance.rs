@@ -29,7 +29,7 @@ use sp_std::prelude::*;
 
 #[frame_support::pallet]
 mod pallet_test {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, StorageValue as _};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -128,7 +128,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 mod benchmarks {
 	use super::pallet_test::{self, Value};
 	use crate::account;
-	use frame_support::ensure;
+	use frame_support::{ensure, StorageValue as _};
 	use frame_system::RawOrigin;
 	use sp_std::prelude::*;
 

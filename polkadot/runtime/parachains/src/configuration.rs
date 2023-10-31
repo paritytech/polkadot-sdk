@@ -19,7 +19,7 @@
 //! Configuration can change only at session boundaries and is buffered until then.
 
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
-use frame_support::{pallet_prelude::*, DefaultNoBound};
+use frame_support::{pallet_prelude::*, DefaultNoBound, StorageValue as _};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{

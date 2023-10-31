@@ -18,7 +18,7 @@
 //! Tests for pallet-example-kitchensink.
 
 use crate::*;
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU64, StorageValue as _};
 use sp_runtime::BuildStorage;
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_kitchensink;

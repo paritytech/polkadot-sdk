@@ -20,6 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	traits::Get,
+	StorageValue as _,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

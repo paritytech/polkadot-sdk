@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, OneSessionHandler},
 	weights::Weight,
-	BoundedSlice, BoundedVec, Parameter,
+	BoundedSlice, BoundedVec, Parameter, StorageValue as _,
 };
 use frame_system::{
 	ensure_none, ensure_signed,

@@ -23,6 +23,7 @@ use frame_support::{
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
 		OnUnbalanced,
 	},
+	StorageValue as _,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::{

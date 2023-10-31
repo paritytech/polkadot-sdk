@@ -36,7 +36,7 @@ use frame_support::{
 		ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
-	PalletId,
+	PalletId, //StorageValue as _,
 };
 use frame_system::EnsureRoot;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -2350,7 +2350,9 @@ mod remote_tests {
 
 mod clean_state_migration {
 	use super::Runtime;
-	use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
+	use frame_support::{
+		pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade, StorageValue as _,
+	};
 	use pallet_state_trie_migration::MigrationLimits;
 
 	#[cfg(not(feature = "std"))]

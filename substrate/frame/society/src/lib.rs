@@ -266,7 +266,7 @@ use frame_support::{
 		ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, Randomness, ReservableCurrency,
 		StorageVersion,
 	},
-	PalletId,
+	PalletId, StorageValue as _,
 };
 use frame_system::pallet_prelude::*;
 use rand_chacha::{

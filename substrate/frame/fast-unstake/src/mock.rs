@@ -22,6 +22,7 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU64, Currency},
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+	StorageValue as _,
 };
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
