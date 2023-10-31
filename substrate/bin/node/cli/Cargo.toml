@@ -99,8 +99,8 @@ pallet-im-online = { path = "../../../frame/im-online", default-features = false
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
-node-rpc = { package = "staging-node-rpc", path = "../rpc" }
-node-primitives = { package = "staging-node-primitives", path = "../primitives" }
+node-rpc = { path = "../rpc" }
+node-primitives = { path = "../primitives" }
 node-executor = { package = "staging-node-executor", path = "../executor" }
 
 # CLI-specific dependencies
