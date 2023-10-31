@@ -348,7 +348,7 @@ where
 		};
 
 		self.executor
-			.spawn("rpcV2-chainHead-unstable-storage", Some("rpc"), fut.boxed());
+			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 		Ok(MethodResponse::Started(MethodResponseStarted {
 			operation_id,
 			discarded_items: Some(discarded),
