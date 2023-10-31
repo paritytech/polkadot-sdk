@@ -113,7 +113,8 @@ pub struct RunCmd {
 	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
 	pub rpc_message_buffer_capacity_per_connection: u32,
 
-	/// Specify browser Origins allowed to access the HTTP & WS RPC servers.
+	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
+	///
 	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
