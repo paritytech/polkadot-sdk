@@ -1173,10 +1173,11 @@ impl<Hash> PreimageRecipient<Hash> for () {
 /// Trait for touching/creating an asset account with a deposit taken from a designated depositor
 /// specified by the client.
 ///
-/// Ensures that transfers to the touched account will succeed without being denied  by the system's
-/// account existence requirements. For example, this is particularly useful for the account
-/// creation of non-sufficient assets when its system account may not have the free consumer
-/// reference required for it.
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// existence requirements. For example, this is particularly useful for the account creation of
+/// non-sufficient assets when its system account may not have the free consumer reference required
+/// for it. If there is no risk of failing to meet those requirements, the touch operation can be a
+/// no-op, as is common for native assets.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
