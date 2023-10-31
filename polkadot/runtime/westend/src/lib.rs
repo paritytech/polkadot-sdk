@@ -1549,7 +1549,7 @@ pub mod migrations {
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
-		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		parachains_configuration::migration::v10::MigrateV9ToV10<Runtime>,
 	);
 }
 

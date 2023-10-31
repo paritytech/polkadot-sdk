@@ -18,13 +18,10 @@
 
 use crate::configuration::{self, Config, Pallet};
 use frame_support::{
-	pallet_prelude::*,
-	traits::{Defensive, StorageVersion},
-	weights::Weight,
+	migrations::VersionedMigration, pallet_prelude::*, traits::Defensive, weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::ApprovalVotingParams, SessionIndex, LEGACY_MIN_BACKING_VOTES};
-use sp_runtime::Perbill;
+use primitives::{vstaging::ApprovalVotingParams, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
@@ -62,8 +59,16 @@ mod v10 {
 	>;
 }
 
-pub struct MigrateToV10<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
+pub type MigrateV9ToV10<T> = VersionedMigration<
+	9,
+	10,
+	UncheckedMigrateToV10<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub struct UncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV10<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV10");
@@ -72,17 +77,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
 
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 started");
-		if StorageVersion::get::<Pallet<T>>() == 9 {
-			let weight_consumed = migrate_to_v10::<T>();
+		let weight_consumed = migrate_to_v10::<T>();
 
-			log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
-			StorageVersion::new(10).put::<Pallet<T>>();
+		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
 
-			weight_consumed
-		} else {
-			log::warn!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 should be removed.");
-			T::DbWeight::get().reads(1)
-		}
+		weight_consumed
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -145,12 +144,12 @@ pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 async_backing_params                     : pre.async_backing_params,
 executor_params                          : pre.executor_params,
-on_demand_queue_max_size                 : 10_000u32,
-on_demand_base_fee                       : 10_000_000u128,
-on_demand_fee_variability                : Perbill::from_percent(3),
-on_demand_target_queue_utilization       : Perbill::from_percent(25),
-on_demand_ttl                            : 5u32.into(),
-minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES,
+on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
+on_demand_base_fee                       : pre.on_demand_base_fee,
+on_demand_fee_variability                : pre.on_demand_fee_variability,
+on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
+on_demand_ttl                            : pre.on_demand_ttl,
+minimum_backing_votes                    : pre.minimum_backing_votes,
 approval_voting_params                   : ApprovalVotingParams {
 												max_approval_coalesce_count: 1,
 											}
@@ -179,6 +178,8 @@ approval_voting_params                   : ApprovalVotingParams {
 
 #[cfg(test)]
 mod tests {
+	use primitives::LEGACY_MIN_BACKING_VOTES;
+
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
 
