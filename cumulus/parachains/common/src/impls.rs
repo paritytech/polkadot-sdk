@@ -17,7 +17,7 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
-	fungibles::{self, Balanced as FungiblesBalanced, Credit as FungiblesCredit},
+	fungibles::{self, Balanced, Credit},
 	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
 };
 use pallet_asset_tx_payment::HandleCredit;
@@ -75,7 +75,7 @@ where
 	R: pallet_authorship::Config + pallet_assets::Config<I>,
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
-	fn handle_credit(credit: FungiblesCredit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
+	fn handle_credit(credit: Credit<AccountIdOf<R>, pallet_assets::Pallet<R, I>>) {
 		if let Some(author) = pallet_authorship::Pallet::<R>::author() {
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit);
@@ -251,8 +251,8 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = <Balances as Currency<_>>::issue(10);
-			let tip = <Balances as Currency<_>>::issue(20);
+			let fee = Balances::issue(10);
+			let tip = Balances::issue(20);
 
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
 
