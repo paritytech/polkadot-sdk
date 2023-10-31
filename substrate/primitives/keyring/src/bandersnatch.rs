@@ -17,6 +17,7 @@
 
 //! A set of well-known keys used for testing.
 
+use lazy_static::lazy_static;
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},
@@ -24,11 +25,8 @@ use sp_core::{
 	ByteArray, Pair as PairT,
 };
 
-use lazy_static::lazy_static;
 #[cfg(not(feature = "std"))]
-use sp_std::ops::Deref;
-#[cfg(not(feature = "std"))]
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, ops::Deref, sync::Mutex};
 

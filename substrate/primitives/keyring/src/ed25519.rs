@@ -26,8 +26,6 @@ use sp_core::{
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
-
-use sp_std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
 #[cfg(feature = "std")]

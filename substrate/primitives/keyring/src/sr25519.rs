@@ -27,9 +27,7 @@ use sp_core::{
 };
 use sp_runtime::AccountId32;
 #[cfg(not(feature = "std"))]
-use sp_std::ops::Deref;
-#[cfg(not(feature = "std"))]
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, ops::Deref};
 
