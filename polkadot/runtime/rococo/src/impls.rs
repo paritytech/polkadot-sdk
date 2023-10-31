@@ -17,10 +17,10 @@
 use crate::xcm_config;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
-use pallet_identity::OnReapIdentity;
 use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
 use rococo_runtime_constants::currency::*;
+use runtime_common::identity_migrator::OnReapIdentity;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -29,14 +29,14 @@ use xcm_executor::traits::TransactAsset;
 /// remote calls.
 #[derive(Encode, Decode)]
 enum PeopleRuntimePallets<AccountId: Encode> {
-	#[codec(index = 50)]
-	Identity(IdentityCalls<AccountId>),
+	#[codec(index = 248)]
+	IdentityMigrator(IdentityMigratorCalls<AccountId>),
 }
 
 /// Call encoding for the calls needed from the Identity pallet.
 #[derive(Encode, Decode)]
-enum IdentityCalls<AccountId: Encode> {
-	#[codec(index = 16)]
+enum IdentityMigratorCalls<AccountId: Encode> {
+	#[codec(index = 1)]
 	PokeDeposit(AccountId),
 }
 
@@ -78,7 +78,7 @@ where
 	AccountId: Into<[u8; 32]> + Clone + Encode,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
-		use crate::impls::IdentityCalls::PokeDeposit;
+		use crate::impls::IdentityMigratorCalls::PokeDeposit;
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
@@ -114,7 +114,7 @@ where
 		}]
 		.into();
 
-		let poke = PeopleRuntimePallets::<AccountId>::Identity(PokeDeposit(who.clone()));
+		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
 
 		// Actual program to execute on People Chain.
 		let program: Xcm<()> = Xcm(vec![

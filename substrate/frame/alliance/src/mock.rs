@@ -125,10 +125,7 @@ impl pallet_identity::Config for Test {
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
-	type ReapOrigin = EnsureOneOrRoot;
-	type ReapIdentityHandler = ();
 	type ForceOrigin = EnsureTwoOrRoot;
-	type LockerOrigin = EnsureTwoOrRoot;
 	type WeightInfo = ();
 }
 
