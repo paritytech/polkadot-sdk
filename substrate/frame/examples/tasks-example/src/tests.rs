@@ -17,7 +17,7 @@
 
 //! Tests for `tasks-example`.
 #![cfg(test)]
-use crate::mock::*;
+use crate::{mock::*, Numbers};
 use frame_support::traits::Task;
 use sp_runtime::BuildStorage;
 
@@ -34,63 +34,56 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[test]
-fn incrementing_and_decrementing_works() {
+fn task_enumerate_works() {
 	new_test_ext().execute_with(|| {
-		assert!(TasksExample::decrement(RuntimeOrigin::root()).is_err());
-		TasksExample::increment(RuntimeOrigin::root()).unwrap();
-		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
-		TasksExample::increment(RuntimeOrigin::root()).unwrap();
-		TasksExample::increment(RuntimeOrigin::root()).unwrap();
-		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
-		TasksExample::decrement(RuntimeOrigin::root()).unwrap();
-		assert!(TasksExample::decrement(RuntimeOrigin::root()).is_err());
-		for _ in 0..255 {
-			TasksExample::increment(RuntimeOrigin::root()).unwrap();
-		}
-		assert!(TasksExample::increment(RuntimeOrigin::root()).is_err());
+		Numbers::<Runtime>::insert(0, 1);
+		assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 1);
 	});
 }
 
 #[test]
-fn task_enumerate_works() {
-	assert_eq!(crate::pallet::Task::<Runtime>::iter().collect::<Vec<_>>().len(), 2);
-}
-
-#[test]
 fn runtime_task_enumerate_works_via_frame_system_config() {
-	assert_eq!(<Runtime as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(), 2);
+	new_test_ext().execute_with(|| {
+		Numbers::<Runtime>::insert(0, 1);
+		Numbers::<Runtime>::insert(1, 4);
+		assert_eq!(
+			<Runtime as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
+			2
+		);
+	});
 }
 
 #[test]
 fn runtime_task_enumerate_works_via_pallet_config() {
-	assert_eq!(
-		<Runtime as crate::pallet::Config>::RuntimeTask::iter()
-			.collect::<Vec<_>>()
-			.len(),
-		2
-	);
+	new_test_ext().execute_with(|| {
+		Numbers::<Runtime>::insert(1, 4);
+		assert_eq!(
+			<Runtime as crate::pallet::Config>::RuntimeTask::iter()
+				.collect::<Vec<_>>()
+				.len(),
+			1
+		);
+	});
 }
 
 #[test]
 fn task_index_works_at_pallet_level() {
-	assert_eq!(crate::pallet::Task::<Runtime>::increment.task_index(), 1);
-	assert_eq!(crate::pallet::Task::<Runtime>::decrement.task_index(), 2);
+	new_test_ext().execute_with(|| {
+		assert_eq!(crate::pallet::Task::<Runtime>::AddNumberIntoTotal { i: 2u32 }.task_index(), 0);
+	});
 }
 
 #[test]
 fn task_index_works_at_runtime_level() {
-	assert_eq!(
-		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
-			crate::pallet::Task::<Runtime>::increment
-		)
-		.task_index(),
-		1
-	);
-	assert_eq!(
-		<Runtime as frame_system::Config>::RuntimeTask::TasksExample(
-			crate::pallet::Task::<Runtime>::decrement
-		)
-		.task_index(),
-		2
-	);
+	new_test_ext().execute_with(|| {
+		assert_eq!(
+			<Runtime as frame_system::Config>::RuntimeTask::TasksExample(crate::pallet::Task::<
+				Runtime,
+			>::AddNumberIntoTotal {
+				i: 1u32
+			})
+			.task_index(),
+			0
+		);
+	});
 }

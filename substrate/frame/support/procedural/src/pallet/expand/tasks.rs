@@ -17,8 +17,9 @@
 
 use crate::pallet::{parse::tasks::*, Def};
 use derive_syn_parse::Parse;
+use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_quote, spanned::Spanned, Item, ItemEnum, ItemImpl};
 
 impl TaskEnumDef {
@@ -33,11 +34,16 @@ impl TaskEnumDef {
 				.iter()
 				.map(|task| {
 					let ident = &task.item.sig.ident;
+					let ident = format_ident!("{}", ident.to_string().to_class_case());
+
 					let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
+
 					if args.is_empty() {
 						quote!(#ident)
 					} else {
-						quote!(#ident(#(#args),*))
+						quote!(#ident {
+							#(#args),*
+						})
 					}
 				})
 				.collect::<Vec<_>>(),
@@ -48,11 +54,9 @@ impl TaskEnumDef {
 			///
 			/// Conceptually similar to the [`Call`] enum, but for tasks. This is only
 			/// generated if there are tasks present in this pallet.
-			#[allow(non_camel_case_types)]
 			#[pallet::task_enum]
 			pub enum Task<#type_decl_bounded_generics> {
 				#(
-					#[allow(non_camel_case_types)]
 					#variants,
 				)*
 			}
@@ -111,10 +115,34 @@ impl ToTokens for TasksDef {
 		let enum_arguments = &self.enum_arguments;
 		let enum_use = quote!(#enum_ident #enum_arguments);
 
-		let task_fn_idents = self.tasks.iter().map(|task| &task.item.sig.ident).collect::<Vec<_>>();
+		let task_fn_idents = self
+			.tasks
+			.iter()
+			.map(|task| format_ident!("{}", &task.item.sig.ident.to_string().to_class_case()))
+			.collect::<Vec<_>>();
 		let task_indices = self.tasks.iter().map(|task| &task.index_attr.meta.index);
 		let task_conditions = self.tasks.iter().map(|task| &task.condition_attr.meta.expr);
+		let task_iters = self.tasks.iter().map(|task| &task.list_attr.meta.expr);
 		let task_fn_blocks = self.tasks.iter().map(|task| &task.item.block);
+		let task_arg_names = self
+			.tasks
+			.iter()
+			.map(|task| {
+				task.item
+					.sig
+					.inputs
+					.iter()
+					.map(|input| match input {
+						// Todo: This should be checked in the parsing stage.
+						syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
+							syn::Pat::Ident(ident) => quote!(#ident),
+							_ => panic!("unexpected pattern type"),
+						},
+						_ => panic!("unexpected function argument type"),
+					})
+					.collect::<Vec<_>>()
+			})
+			.collect::<Vec<_>>();
 
 		let sp_std = quote!(#scrate::__private::sp_std);
 		let impl_generics = &self.item_impl.generics;
@@ -126,26 +154,28 @@ impl ToTokens for TasksDef {
 				type Enumeration = #sp_std::vec::IntoIter<#enum_use>;
 
 				fn iter() -> Self::Enumeration {
-					#sp_std::vec![#(#enum_ident::#task_fn_idents),*].into_iter()
+					let mut all_tasks = #sp_std::vec![];
+					#(all_tasks.extend(#task_iters.map(|i| #enum_ident::#task_fn_idents { i }).collect::<Vec<_>>());)*
+					all_tasks.into_iter()
 				}
 
 				fn task_index(&self) -> u32 {
 					match self {
-						#(#enum_ident::#task_fn_idents => #task_indices),*,
+						#(#enum_ident::#task_fn_idents { .. } => #task_indices),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 
 				fn is_valid(&self) -> bool {
 					match self {
-						#(#enum_ident::#task_fn_idents => (#task_conditions)()),*,
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => (#task_conditions)(#(#task_arg_names),* )),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 
 				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
-					match self {
-						#(#enum_ident::#task_fn_idents => #task_fn_blocks),*,
+					match self.clone() {
+						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_fn_blocks),*,
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
