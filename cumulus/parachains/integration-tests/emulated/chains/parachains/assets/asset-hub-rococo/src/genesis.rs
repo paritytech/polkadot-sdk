@@ -14,16 +14,12 @@
 // limitations under the License.
 
 // Substrate
-use sp_runtime::BuildStorage;
 use sp_core::storage::Storage;
+use sp_runtime::BuildStorage;
 
 // Cumulus
+use emulated_integration_tests_common::{accounts, collators, SAFE_XCM_VERSION};
 use parachains_common::Balance;
-use emulated_integration_tests_common::{
-    accounts,
-    collators,
-    SAFE_XCM_VERSION,
-};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
@@ -48,11 +44,7 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		collator_selection: asset_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},

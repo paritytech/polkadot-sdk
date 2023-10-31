@@ -14,17 +14,14 @@
 // limitations under the License.
 
 // Substrate
-use sp_runtime::BuildStorage;
 use sp_core::{sr25519, storage::Storage};
+use sp_runtime::BuildStorage;
 
 // Cumulus
-use parachains_common::Balance;
 use emulated_integration_tests_common::{
-    accounts,
-    collators,
-	get_account_id_from_seed,
-    SAFE_XCM_VERSION,
+	accounts, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
+use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1013;
 pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
@@ -38,22 +35,14 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		balances: bridge_hub_rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ED * 4096))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
 		},
 		parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
 			..Default::default()
 		},
 		collator_selection: bridge_hub_rococo_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},

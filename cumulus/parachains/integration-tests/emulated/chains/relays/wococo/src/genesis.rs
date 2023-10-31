@@ -14,27 +14,23 @@
 // limitations under the License.
 
 // Substrate
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+use grandpa::AuthorityId as GrandpaId;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_core::{sr25519, storage::Storage};
 use sp_runtime::BuildStorage;
-use sp_core::{storage::Storage, sr25519};
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use grandpa::AuthorityId as GrandpaId;
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
+use emulated_integration_tests_common::{
+	accounts, get_account_id_from_seed, get_from_seed, get_host_config, validators,
+};
 use parachains_common::Balance;
 use rococo_runtime_constants::currency::UNITS as ROC;
-use emulated_integration_tests_common::{
-    accounts,
-    validators,
-    get_from_seed,
-	get_account_id_from_seed,
-	get_host_config,
-};
 
 pub const ED: Balance = rococo_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
 const ENDOWMENT: u128 = 1_000_000 * ROC;
@@ -66,10 +62,7 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		balances: rococo_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.map(|k| (k.clone(), ENDOWMENT))
-				.collect(),
+			balances: accounts::init_balances().iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
 		},
 		// indices: rococo_runtime::IndicesConfig { indices: vec![] },
 		session: rococo_runtime::SessionConfig {

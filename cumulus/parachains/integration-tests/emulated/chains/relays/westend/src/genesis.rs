@@ -14,26 +14,21 @@
 // limitations under the License.
 
 // Substrate
+use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+use grandpa::AuthorityId as GrandpaId;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_runtime::{BuildStorage, Perbill};
 use sp_core::storage::Storage;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use grandpa::AuthorityId as GrandpaId;
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_runtime::{BuildStorage, Perbill};
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
+use emulated_integration_tests_common::{accounts, get_from_seed, get_host_config, validators};
 use parachains_common::Balance;
 use westend_runtime_constants::currency::UNITS as WND;
-use emulated_integration_tests_common::{
-    accounts,
-    validators,
-    get_from_seed,
-	get_host_config,
-};
 
 pub const ED: Balance = westend_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
 const ENDOWMENT: u128 = 1_000_000 * WND;
@@ -66,11 +61,7 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		balances: westend_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ENDOWMENT))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -101,10 +92,7 @@ pub fn genesis() -> Storage {
 					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
 				})
 				.collect(),
-			invulnerables: validators::initial_authorities()
-				.iter()
-				.map(|x| x.0.clone())
-				.collect(),
+			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()

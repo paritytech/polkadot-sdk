@@ -21,8 +21,7 @@ use frame_support::traits::OnInitialize;
 
 // Cumulus
 use emulated_integration_tests_common::{
-    xcm_emulator::decl_test_parachains,
-    impl_assert_events_helpers_for_parachain,
+	impl_assert_events_helpers_for_parachain, xcm_emulator::decl_test_parachains,
 };
 
 // Penpal Parachain declaration

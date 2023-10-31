@@ -14,16 +14,12 @@
 // limitations under the License.
 
 // Substrate
-use sp_runtime::BuildStorage;
 use sp_core::storage::Storage;
+use sp_runtime::BuildStorage;
 
 // Cumulus
+use emulated_integration_tests_common::{accounts, collators, SAFE_XCM_VERSION};
 use parachains_common::Balance;
-use emulated_integration_tests_common::{
-    accounts,
-    collators,
-    SAFE_XCM_VERSION,
-};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
@@ -37,22 +33,14 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		balances: asset_hub_westend_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ED * 4096))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
 		},
 		parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
 			..Default::default()
 		},
 		collator_selection: asset_hub_westend_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},

@@ -31,8 +31,8 @@ use sp_runtime::{
 };
 
 // Polakdot
-use polkadot_runtime_parachains::configuration::HostConfiguration;
 use parachains_common::BlockNumber;
+use polkadot_runtime_parachains::configuration::HostConfiguration;
 use xcm;
 
 // Cumulus

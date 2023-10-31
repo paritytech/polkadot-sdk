@@ -17,16 +17,15 @@ pub use codec::{Decode, Encode};
 pub use paste;
 
 pub use crate::{
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
-	xcm_helpers::xcm_transact_unpaid_execution,
+	xcm_helpers::xcm_transact_unpaid_execution, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
 };
 
 // Substrate
-use sp_core::Get;
-pub use frame_support::{sp_runtime::AccountId32, assert_ok, traits::fungibles::Inspect};
+pub use frame_support::{assert_ok, sp_runtime::AccountId32, traits::fungibles::Inspect};
 pub use pallet_assets;
 pub use pallet_message_queue;
 pub use pallet_xcm;
+use sp_core::Get;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
@@ -49,8 +48,8 @@ pub use cumulus_primitives_core::{
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
 	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
-	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Parachain, RelayChain, TestExt,
-	Network
+	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Network, Parachain, RelayChain,
+	TestExt,
 };
 
 // Bridges
@@ -59,8 +58,8 @@ use bp_messages::{
 	LaneId, MessageKey, OutboundLaneData,
 };
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-use pallet_bridge_messages::{Config, Instance1, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::Instance2 as BridgeMessagesInstance2;
+use pallet_bridge_messages::{Config, Instance1, OutboundLanes, Pallet};
 
 pub struct BridgeHubMessageHandler<S, T, I> {
 	_marker: std::marker::PhantomData<(S, T, I)>,

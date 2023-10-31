@@ -17,11 +17,9 @@ pub mod genesis;
 
 // Cumulus
 use emulated_integration_tests_common::{
-    xcm_emulator::decl_test_relay_chains,
-    impl_accounts_helpers_for_relay_chain,
-    impl_assert_events_helpers_for_relay_chain,
-    impl_hrmp_channels_helpers_for_relay_chain,
-	impl_send_transact_helpers_for_relay_chain,
+	impl_accounts_helpers_for_relay_chain, impl_assert_events_helpers_for_relay_chain,
+	impl_hrmp_channels_helpers_for_relay_chain, impl_send_transact_helpers_for_relay_chain,
+	xcm_emulator::decl_test_relay_chains,
 };
 
 // Westend declaration

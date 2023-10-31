@@ -16,8 +16,8 @@
 pub use paste;
 
 // Substrate
-pub use pallet_xcm;
 pub use pallet_balances;
+pub use pallet_xcm;
 
 // Polkadot
 pub use xcm::prelude::{AccountId32, WeightLimit};

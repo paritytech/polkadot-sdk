@@ -179,12 +179,8 @@ pub trait Network {
 	}
 
 	fn send_upward_message(from_para_id: u32, msg: Vec<u8>) {
-		UPWARD_MESSAGES.with(|b| {
-			b.borrow_mut()
-				.get_mut(Self::name())
-				.unwrap()
-				.push_back((from_para_id, msg))
-		});
+		UPWARD_MESSAGES
+			.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((from_para_id, msg)));
 	}
 
 	fn send_downward_messages(
@@ -200,8 +196,7 @@ pub trait Network {
 	}
 
 	fn send_bridged_messages(msg: BridgeMessage) {
-		BRIDGED_MESSAGES
-			.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back(msg));
+		BRIDGED_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back(msg));
 	}
 }
 

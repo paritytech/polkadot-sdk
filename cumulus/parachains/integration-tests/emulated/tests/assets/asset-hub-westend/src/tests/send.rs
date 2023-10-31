@@ -61,8 +61,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), fee_amount).into();
 
 	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
-	let system_para_destination =
-		PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
+	let system_para_destination = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
 	let xcm = xcm_transact_paid_execution(
 		call,
 		origin_kind,

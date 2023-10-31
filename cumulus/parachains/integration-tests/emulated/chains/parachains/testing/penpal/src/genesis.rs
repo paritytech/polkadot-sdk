@@ -14,17 +14,14 @@
 // limitations under the License.
 
 // Substrate
-use sp_runtime::BuildStorage;
 use sp_core::{sr25519, storage::Storage};
+use sp_runtime::BuildStorage;
 
 // Cumulus
-use parachains_common::Balance;
 use emulated_integration_tests_common::{
-    accounts,
-    collators,
-    SAFE_XCM_VERSION,
-	get_account_id_from_seed,
+	accounts, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
+use parachains_common::Balance;
 
 // Penpal
 pub const PARA_ID_A: u32 = 2000;
@@ -40,22 +37,14 @@ pub fn genesis(para_id: u32) -> Storage {
 			..Default::default()
 		},
 		balances: penpal_runtime::BalancesConfig {
-			balances: accounts::init_balances()
-				.iter()
-				.cloned()
-				.map(|k| (k, ED * 4096))
-				.collect(),
+			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
 		},
 		parachain_info: penpal_runtime::ParachainInfoConfig {
 			parachain_id: para_id.into(),
 			..Default::default()
 		},
 		collator_selection: penpal_runtime::CollatorSelectionConfig {
-			invulnerables: collators::invulnerables()
-				.iter()
-				.cloned()
-				.map(|(acc, _)| acc)
-				.collect(),
+			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ED * 16,
 			..Default::default()
 		},

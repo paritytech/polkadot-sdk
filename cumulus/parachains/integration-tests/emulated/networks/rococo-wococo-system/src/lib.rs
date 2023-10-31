@@ -13,30 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use rococo_emulated_chain;
-pub use wococo_emulated_chain;
 pub use asset_hub_rococo_emulated_chain;
 pub use asset_hub_wococo_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
 pub use bridge_hub_wococo_emulated_chain;
+pub use rococo_emulated_chain;
+pub use wococo_emulated_chain;
 
-use rococo_emulated_chain::Rococo;
-use wococo_emulated_chain::Wococo;
 use asset_hub_rococo_emulated_chain::AssetHubRococo;
 use asset_hub_wococo_emulated_chain::AssetHubWococo;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 use bridge_hub_wococo_emulated_chain::BridgeHubWococo;
+use rococo_emulated_chain::Rococo;
+use wococo_emulated_chain::Wococo;
 
 // Cumulus
 use emulated_integration_tests_common::{
-    accounts::{ALICE, BOB},
-    xcm_emulator::{
-        decl_test_networks,
-		decl_test_bridges,
-        decl_test_sender_receiver_accounts_parameter_types,
-		Chain,
-    },
+	accounts::{ALICE, BOB},
 	impls::{BridgeHubMessageHandler, BridgeMessagesInstance2},
+	xcm_emulator::{
+		decl_test_bridges, decl_test_networks, decl_test_sender_receiver_accounts_parameter_types,
+		Chain,
+	},
 };
 
 decl_test_networks! {
@@ -75,10 +73,16 @@ decl_test_bridges! {
 type BridgeHubRococoRuntime = <BridgeHubRococoPara as Chain>::Runtime;
 type BridgeHubWococoRuntime = <BridgeHubWococoPara as Chain>::Runtime;
 
-pub type RococoWococoMessageHandler =
-	BridgeHubMessageHandler<BridgeHubRococoRuntime, BridgeHubWococoRuntime, BridgeMessagesInstance2>;
-pub type WococoRococoMessageHandler =
-	BridgeHubMessageHandler<BridgeHubWococoRuntime, BridgeHubRococoRuntime, BridgeMessagesInstance2>;
+pub type RococoWococoMessageHandler = BridgeHubMessageHandler<
+	BridgeHubRococoRuntime,
+	BridgeHubWococoRuntime,
+	BridgeMessagesInstance2,
+>;
+pub type WococoRococoMessageHandler = BridgeHubMessageHandler<
+	BridgeHubWococoRuntime,
+	BridgeHubRococoRuntime,
+	BridgeMessagesInstance2,
+>;
 
 decl_test_sender_receiver_accounts_parameter_types! {
 	RococoRelay { sender: ALICE, receiver: BOB },

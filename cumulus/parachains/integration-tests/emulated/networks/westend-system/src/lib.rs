@@ -13,21 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use westend_emulated_chain;
 pub use asset_hub_westend_emulated_chain;
 pub use penpal_emulated_chain;
+pub use westend_emulated_chain;
 
-use westend_emulated_chain::Westend;
 use asset_hub_westend_emulated_chain::AssetHubWestend;
 use penpal_emulated_chain::{PenpalA, PenpalB};
+use westend_emulated_chain::Westend;
 
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts::{ALICE, BOB},
-    xcm_emulator::{
-        decl_test_networks,
-        decl_test_sender_receiver_accounts_parameter_types,
-    },
+	xcm_emulator::{decl_test_networks, decl_test_sender_receiver_accounts_parameter_types},
 };
 
 decl_test_networks! {
