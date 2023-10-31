@@ -305,13 +305,15 @@ pub mod pallet {
 			let value = (origin_location, message);
 			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
 			let (origin_location, message) = value;
-			Ok(T::XcmExecutor::execute_xcm_in_credit(
+			let outcome = T::XcmExecutor::execute_xcm_in_credit(
 				origin_location,
 				message,
 				hash,
 				max_weight,
 				max_weight,
-			))
+			);
+			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			Ok(outcome)
 		}
 	}
 
@@ -1000,10 +1002,7 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into())
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
