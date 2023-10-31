@@ -9,7 +9,6 @@ bootnode = true
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
-chain_spec_command = "polkadot build-spec --chain rococo-local"
 default_command = "polkadot"
 
 [relaychain.default_resources]
