@@ -655,7 +655,6 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -970,10 +969,7 @@
 		<span class="kw">let </span>current_version = &lt;Pallet&lt;T&gt;&gt;::current_storage_version();
 
 		<span class="kw">if </span>on_chain_version == current_version {
-			<span class="macro">log::warn!</span>(
-				target: LOG_TARGET,
-				<span class="string">&quot;No upgrade: Please remove this migration from your Migrations tuple&quot;
-			</span>)
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(Default::default())
 		}
 
 		<span class="macro">log::debug!</span>(
@@ -982,9 +978,11 @@
 			&lt;Pallet&lt;T&gt;&gt;::name(), on_chain_version, current_version
 		);
 
-		<span class="kw">if </span>!T::Migrations::is_upgrade_supported(on_chain_version, current_version) {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;</span>)
-		}
+		<span class="macro">ensure!</span>(
+			T::Migrations::is_upgrade_supported(on_chain_version, current_version),
+			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)&quot;
+		</span>);
+
 		<span class="prelude-val">Ok</span>(Default::default())
 	}
 
