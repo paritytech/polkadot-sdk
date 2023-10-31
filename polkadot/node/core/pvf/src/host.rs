@@ -24,12 +24,12 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, Priority, ValidationError, LOG_TARGET,
+	prepare, security, Priority, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
 	channel::{mpsc, oneshot},
-	Future, FutureExt, SinkExt, StreamExt,
+	join, Future, FutureExt, SinkExt, StreamExt,
 };
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
@@ -153,6 +153,7 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
 	/// The time allotted for a prepare worker to spawn and report to the host.
@@ -162,6 +163,7 @@ pub struct Config {
 	pub prepare_workers_soft_max_num: usize,
 	/// The absolute number of workers that can be spawned in the prepare pool.
 	pub prepare_workers_hard_max_num: usize,
+
 	/// The path to the program that can be used to spawn the execute workers.
 	pub execute_worker_program_path: PathBuf,
 	/// The time allotted for an execute worker to spawn and report to the host.
@@ -181,10 +183,12 @@ impl Config {
 		Self {
 			cache_path,
 			node_version,
+
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
 			prepare_workers_soft_max_num: 1,
 			prepare_workers_hard_max_num: 1,
+
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
 			execute_workers_max_num: 2,
@@ -200,15 +204,24 @@ impl Config {
 /// The future should not return normally but if it does then that indicates an unrecoverable error.
 /// In that case all pending requests will be canceled, dropping the result senders and new ones
 /// will be rejected.
-pub fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
+pub async fn start(config: Config, metrics: Metrics) -> (ValidationHost, impl Future<Output = ()>) {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Run checks for supported security features once per host startup. Warn here if not enabled.
 	let security_status = {
-		let can_enable_landlock = check_landlock(&config.prepare_worker_program_path);
-		let can_unshare_user_namespace_and_change_root =
-			check_can_unshare_user_namespace_and_change_root(&config.prepare_worker_program_path);
-		SecurityStatus { can_enable_landlock, can_unshare_user_namespace_and_change_root }
+		// TODO: add check that syslog is available and that seccomp violations are logged?
+		let (can_enable_landlock, can_enable_seccomp, can_unshare_user_namespace_and_change_root) = join!(
+			security::check_landlock(&config.prepare_worker_program_path),
+			security::check_seccomp(&config.prepare_worker_program_path),
+			security::check_can_unshare_user_namespace_and_change_root(
+				&config.prepare_worker_program_path
+			)
+		);
+		SecurityStatus {
+			can_enable_landlock,
+			can_enable_seccomp,
+			can_unshare_user_namespace_and_change_root,
+		}
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
@@ -880,105 +893,6 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 		}
 	})
 	.map(|_| ())
-}
-
-/// Check if we can sandbox the root and emit a warning if not.
-///
-/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
-/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
-/// success and -1 on failure.
-fn check_can_unshare_user_namespace_and_change_root(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
-	prepare_worker_program_path: &Path,
-) -> bool {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			let output = std::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.output();
-
-			match output {
-				Ok(output) if output.status.success() => true,
-				Ok(output) => {
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						// Docs say to always print status using `Display` implementation.
-						status = %output.status,
-						%stderr,
-						"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running with support for unsharing user namespaces for maximum security."
-					);
-					false
-				},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						"Could not start child process: {}",
-						err
-					);
-					false
-				},
-			}
-		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Cannot unshare user namespace and change root, which are Linux-specific kernel security features. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with support for unsharing user namespaces for maximum security."
-			);
-			false
-		}
-	}
-}
-
-/// Check if landlock is supported and emit a warning if not.
-///
-/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
-/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
-/// success and -1 on failure.
-fn check_landlock(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
-	prepare_worker_program_path: &Path,
-) -> bool {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			match std::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-enable-landlock")
-				.status()
-			{
-				Ok(status) if status.success() => true,
-				Ok(status) => {
-					let abi =
-						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						?status,
-						%abi,
-						"Cannot fully enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider upgrading the kernel version for maximum security."
-					);
-					false
-				},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?prepare_worker_program_path,
-						"Could not start child process: {}",
-						err
-					);
-					false
-				},
-			}
-		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Cannot enable landlock, a Linux-specific kernel security feature. Running validation of malicious PVF code has a higher risk of compromising this machine. Consider running on Linux with landlock support for maximum security."
-			);
-			false
-		}
-	}
 }
 
 #[cfg(test)]
