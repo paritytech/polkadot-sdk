@@ -26,12 +26,15 @@ use assets_common::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
+	traits::{
+		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Everything, Nothing,
+		PalletInfoAccess,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::{ResolveCreditTo, ToStakingPot},
+	impls::ToStakingPot,
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
 		RelayOrOtherSystemParachains,
@@ -47,8 +50,8 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
-	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	EnsureXcmOrigin, FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
@@ -556,19 +559,15 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = (
 		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
-		// cumulus_primitives_utility::SwapFirstAssetTrader<
-		// 	AccountId,
-		// 	crate::AssetConversion,
-		// 	crate::MultiLocationConverter<
-		// 		WestendLocation,
-		// 		LocalAndForeignAssetsMultiLocationMatcher,
-		// 	>,
-		// 	WeightToFee,
-		// 	super::LocalAndTrustedForeignAssets,
-		// 	ForeignAssetsConvertedConcreteId,
-		// 	crate::Balances,
-		// 	ResolveCreditTo<RelayTreasuryAccount, crate::Balances>,
-		// >,
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			WestendLocation,
+			crate::AssetConversion,
+			WeightToFee,
+			crate::NativeAndAssets,
+			ForeignAssetsConvertedConcreteId,
+			ResolveAssetTo<RelayTreasuryAccount, crate::NativeAndAssets>,
+			AccountId,
+		>,
 	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
