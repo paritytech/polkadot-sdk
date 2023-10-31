@@ -277,7 +277,7 @@ pub mod pallet {
 					"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
 					format
 				);
-				InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
+				v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
 				v3::InboundXcmpStatus::<T>::put(states);
 				return meter.consumed()
 			}
@@ -331,18 +331,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InboundXcmpSuspended<T: Config> =
 		StorageValue<_, BoundedBTreeSet<ParaId, T::MaxInboundSuspended>, ValueQuery>;
-
-	/// Inbound aggregate XCMP messages. It can only be one per ParaId/block.
-	#[pallet::storage]
-	pub(super) type InboundXcmpMessages<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		ParaId,
-		Twox64Concat,
-		RelayBlockNumber,
-		Vec<u8>,
-		ValueQuery,
-	>;
 
 	/// The non-empty XCMP channels in order of becoming non-empty, and the index of the first
 	/// and last outbound message. If the two indices are equal, then it indicates an empty
