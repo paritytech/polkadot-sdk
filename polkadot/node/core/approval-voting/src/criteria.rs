@@ -1135,7 +1135,7 @@ mod tests {
 
 	#[test]
 	fn check_rejects_delay_bad_vrf() {
-		check_mutated_assignments(40, 10, 8, |m| {
+		check_mutated_assignments(40, 100, 8, |m| {
 			let vrf_signature = garbage_vrf_signature();
 			match m.cert.kind.clone() {
 				AssignmentCertKindV2::RelayVRFDelay { .. } => {
