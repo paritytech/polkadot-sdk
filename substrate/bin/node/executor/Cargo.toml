@@ -1,5 +1,5 @@
 [package]
-name = "node-executor"
+name = "staging-node-executor"
 version = "3.0.0-dev"
 authors.workspace = true
 description = "Substrate node implementation in Rust."
