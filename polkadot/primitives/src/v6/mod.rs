@@ -1070,7 +1070,7 @@ impl ApprovalVote {
 	}
 }
 
-/// A vote of approvalf for multiple candidates.
+/// A vote of approval for multiple candidates.
 #[derive(Clone, RuntimeDebug)]
 pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a Vec<CandidateHash>);
 
@@ -1266,6 +1266,9 @@ pub enum DisputeStatement {
 
 impl DisputeStatement {
 	/// Get the payload data for this type of dispute statement.
+	///
+	/// Returns Error if the candidate_hash is not included in the list of signed
+	/// candidate from ApprovalCheckingMultipleCandidate.
 	pub fn payload_data(
 		&self,
 		candidate_hash: CandidateHash,

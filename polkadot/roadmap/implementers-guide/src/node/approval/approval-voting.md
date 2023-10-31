@@ -5,8 +5,8 @@ aims of this subsystem.
 
 Approval votes are split into two parts: Assignments and Approvals. Validators first broadcast their assignment to
 indicate intent to check a candidate. Upon successfully checking, they don't immediately send the vote instead
-they queue the check for a short period of time `MAX_APPROVALS_COALESCE_TICKS` to give the opportunity of the
-validator to vote for more than one candidate. Once MAX_APPROVALS_COALESCE_TICKS have passed or at least
+they queue the check for a short period of time `MAX_APPROVAL_COALESCE_WAIT_TICKS` to give the opportunity of the
+validator to vote for more than one candidate. Once MAX_APPROVAL_COALESCE_WAIT_TICKS have passed or at least
 `MAX_APPROVAL_COALESCE_COUNT` are ready they broadcast an approval vote for all candidates. If a validator
 doesn't broadcast their approval vote shortly after issuing an assignment, this is an indication that they are
 being prevented from recovering or validating the block data and that more validators should self-select to
@@ -123,7 +123,7 @@ struct BlockEntry {
     // this block. The block can be considered approved has all bits set to 1
     approved_bitfield: Bitfield,
     children: Vec<Hash>,
-    // A list of candidates that has been approved, but we didn't not sign and
+    // A list of candidates we have checked, but didn't not sign and
     // advertise the vote yet.
     candidates_pending_signature: BTreeMap<CandidateIndex, CandidateSigningContext>,
     // Assignments we already distributed. A 1 bit means the candidate index for which

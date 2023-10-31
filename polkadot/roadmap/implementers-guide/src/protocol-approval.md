@@ -300,11 +300,11 @@ TODO: When?  Is this optimal for the network?  etc.
 To reduce the necessary network bandwidth and cpu time when a validator has more than one candidate to approve we are
 doing our best effort to send a single message that approves all available candidates with a single signature.
 The implemented heuristic, is that each time we are ready to create a signature and send a vote for a candidate we
-delay the sending of it untill one of three things happen:
+delay sending it until one of three things happen:
 - We gathered a maximum of `MAX_APPROVAL_COALESCE_COUNT` candidates that we are ready to vote for.
-- `MAX_APPROVALS_COALESCE_TICKS` have passed since the we were ready to approve the candidate.
-- We are already in the last third of the now-show period in order to avoid creating accidental no shows, which in
-  turn my trigger other assignments.
+- `MAX_APPROVAL_COALESCE_WAIT_TICKS` have passed since the we were ready to approve the candidate.
+- We are already in the last third of the no-show period in order to avoid creating accidental no-shows, which in
+  turn might trigger other assignments.
 
 ## On-chain verification
 

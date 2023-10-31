@@ -2606,7 +2606,7 @@ pub(crate) async fn send_approvals_batched(
 			.clone()
 			.into_iter()
 			.filter(|approval| approval.candidate_indices.count_ones() == 1)
-			.map(|val| val.try_into().expect("We checked conversion should succeed; qed"))
+			.filter_map(|val| val.try_into().ok())
 			.peekable();
 
 		while batches.peek().is_some() {

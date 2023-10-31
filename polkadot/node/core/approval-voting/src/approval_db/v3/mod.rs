@@ -97,7 +97,7 @@ pub struct BlockEntry {
 	// block. The block can be considered approved if the bitfield has all bits set to `true`.
 	pub approved_bitfield: Bitfield,
 	pub children: Vec<Hash>,
-	// A list of candidates that has been approved, but we didn't not sign and
+	// A list of candidates we have checked, but didn't not sign and
 	// advertise the vote yet.
 	pub candidates_pending_signature: BTreeMap<CandidateIndex, CandidateSigningContext>,
 	// Assignments we already distributed. A 1 bit means the candidate index for which
