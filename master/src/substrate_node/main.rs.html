@@ -23,6 +23,8 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -45,7 +47,9 @@
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">fn </span>main() -&gt; sc_cli::Result&lt;()&gt; {
+</span><span class="kw">use </span>staging_node_cli <span class="kw">as </span>node_cli;
+
+<span class="kw">fn </span>main() -&gt; sc_cli::Result&lt;()&gt; {
 	node_cli::run()
 }
 </code></pre></div></section></main></body></html>

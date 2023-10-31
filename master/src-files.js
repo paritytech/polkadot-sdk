@@ -40,7 +40,7 @@ var srcIndex = JSON.parse('{\
 "bridge_hub_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "bridge_runtime_common":["",[],["lib.rs","messages.rs","messages_api.rs","messages_call_ext.rs","messages_generation.rs","messages_xcm_extension.rs","priority_calculator.rs","refund_relayer_extension.rs"]],\
 "call":["",[],["call.rs"]],\
-"chain_spec_builder":["",[],["lib.rs"]],\
+"chain_spec_builder":["",[],["main.rs"]],\
 "collectives_polkadot_runtime":["",[["ambassador",[],["mod.rs","origins.rs","tracks.rs"]],["fellowship",[],["migration.rs","mod.rs","origins.rs","tracks.rs"]],["weights",[],["block_weights.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_alliance.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_collective.rs","pallet_collective_content.rs","pallet_core_fellowship_ambassador_core.rs","pallet_core_fellowship_fellowship_core.rs","pallet_multisig.rs","pallet_preimage.rs","pallet_proxy.rs","pallet_ranked_collective_ambassador_collective.rs","pallet_ranked_collective_fellowship_collective.rs","pallet_referenda_ambassador_referenda.rs","pallet_referenda_fellowship_referenda.rs","pallet_salary_ambassador_salary.rs","pallet_salary_fellowship_salary.rs","pallet_scheduler.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["impls.rs","lib.rs","xcm_config.rs"]],\
 "compact":["",[],["compact.rs"]],\
 "contracts_rococo_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["contracts.rs","lib.rs","xcm_config.rs"]],\
@@ -108,9 +108,6 @@ var srcIndex = JSON.parse('{\
 "mmr_rpc":["",[],["lib.rs"]],\
 "multiply_by_rational_with_rounding":["",[],["multiply_by_rational_with_rounding.rs"]],\
 "node_bench":["",[],["common.rs","construct.rs","core.rs","generator.rs","import.rs","main.rs","simple_trie.rs","state_sizes.rs","tempdb.rs","trie.rs","txpool.rs"]],\
-"node_cli":["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","lib.rs","service.rs"]],\
-"node_executor":["",[],["lib.rs"]],\
-"node_inspect":["",[],["cli.rs","command.rs","lib.rs"]],\
 "node_primitives":["",[],["lib.rs"]],\
 "node_rpc":["",[],["lib.rs"]],\
 "node_runtime_generate_bags":["",[],["main.rs"]],\
@@ -229,7 +226,6 @@ var srcIndex = JSON.parse('{\
 "pallet_xcm":["",[],["lib.rs","migration.rs"]],\
 "pallet_xcm_benchmarks":["",[["fungible",[],["mod.rs"]],["generic",[],["mod.rs"]]],["lib.rs"]],\
 "pallet_xcm_bridge_hub_router":["",[],["lib.rs","weights.rs"]],\
-"parachain_info":["",[],["lib.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
 "parachains_common":["",[],["impls.rs","kusama.rs","lib.rs","polkadot.rs","rococo.rs","westend.rs","wococo.rs","xcm_config.rs"]],\
@@ -420,6 +416,11 @@ var srcIndex = JSON.parse('{\
 "sp_version_proc_macro":["",[],["decl_runtime_version.rs","lib.rs"]],\
 "sp_wasm_interface":["",[],["lib.rs"]],\
 "sp_weights":["",[],["lib.rs","weight_meter.rs","weight_v2.rs"]],\
+"staging_chain_spec_builder":["",[],["lib.rs"]],\
+"staging_node_cli":["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","lib.rs","service.rs"]],\
+"staging_node_executor":["",[],["lib.rs"]],\
+"staging_node_inspect":["",[],["cli.rs","command.rs","lib.rs"]],\
+"staging_parachain_info":["",[],["lib.rs"]],\
 "staging_xcm":["",[["v2",[],["junction.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]],["v3",[],["junction.rs","junctions.rs","mod.rs","multiasset.rs","multilocation.rs","traits.rs"]]],["double_encoded.rs","lib.rs"]],\
 "staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","currency_adapter.rs","fee_handling.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
 "staging_xcm_executor":["",[["traits",[],["asset_exchange.rs","asset_lock.rs","conversion.rs","drop_assets.rs","export.rs","fee_manager.rs","filter_asset_location.rs","mod.rs","on_response.rs","should_execute.rs","token_matching.rs","transact_asset.rs","weight.rs"]]],["assets.rs","config.rs","lib.rs"]],\
