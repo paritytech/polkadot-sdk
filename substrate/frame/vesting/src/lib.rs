@@ -442,7 +442,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target: <T::Lookup as StaticLookup>::Source,
 			schedule_index: u32,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(target)?;
 
@@ -450,7 +450,10 @@ pub mod pallet {
 			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
 			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
 
-			Self::remove_vesting_schedule(&who, schedule_index)
+			Self::remove_vesting_schedule(&who, schedule_index);
+			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
+				schedules_count as u32, T::MAX_VESTING_SCHEDULES,
+			).into()))
 		}
 	}
 }
