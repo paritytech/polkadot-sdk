@@ -22,15 +22,14 @@
 
 #[cfg(feature = "std")]
 use crate::crypto::Ss58Codec;
+#[cfg(feature = "full_crypto")]
+use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom, VrfPublic,
+	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
 };
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, VrfSecret};
 
-use bandersnatch_vrfs::CanonicalSerialize;
-#[cfg(feature = "full_crypto")]
-use bandersnatch_vrfs::SecretKey;
+use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -47,7 +46,6 @@ pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 // Max ring domain size.
 const RING_DOMAIN_SIZE: usize = 1024;
 
-#[cfg(feature = "full_crypto")]
 const SEED_SERIALIZED_LEN: usize = 32;
 
 // Short-Weierstrass form serialized sizes.
@@ -63,7 +61,6 @@ const PREOUT_SERIALIZED_LEN: usize = 33;
 const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
 
 /// Bandersnatch public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	Clone,
 	Copy,
@@ -76,6 +73,7 @@ const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_SERIALIZED_LEN]);
 
@@ -123,7 +121,6 @@ impl ByteArray for Public {
 impl TraitPublic for Public {}
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
@@ -146,8 +143,9 @@ impl sp_std::fmt::Debug for Public {
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo, Hash,
+)]
 pub struct Signature([u8; SIGNATURE_SERIALIZED_LEN]);
 
 impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_LEN]> for Signature {
@@ -186,7 +184,6 @@ impl ByteArray for Signature {
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
@@ -203,18 +200,15 @@ impl sp_std::fmt::Debug for Signature {
 }
 
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SEED_SERIALIZED_LEN];
 
 /// Bandersnatch secret key.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the key seed.
 	pub fn seed(&self) -> Seed {
@@ -222,7 +216,6 @@ impl Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Seed = Seed;
 	type Public = Public;
@@ -279,11 +272,13 @@ impl TraitPair for Pair {
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data.as_ref()], None);
 		let signature =
@@ -297,7 +292,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }

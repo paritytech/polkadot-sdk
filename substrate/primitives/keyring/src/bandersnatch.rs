@@ -25,10 +25,28 @@ use sp_core::{
 };
 
 use lazy_static::lazy_static;
-use sp_std::{collections::HashMap, ops::Deref, sync::Mutex};
+#[cfg(not(feature = "std"))]
+use sp_std::ops::Deref;
+#[cfg(not(feature = "std"))]
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+#[cfg(feature = "std")]
+use std::{collections::BTreeMap, ops::Deref, sync::Mutex};
+
+// todo: this requires cleanup!
+// #[cfg(not(feature = "std"))]
+// use sp_std::{alloc::string::String, format};
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
+
+#[cfg(not(feature = "std"))]
+compile_error!("No support for bandersnatch in no-std yet.");
 
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -59,6 +77,7 @@ impl Keyring {
 		Public::from(self).to_raw_vec()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
@@ -105,16 +124,16 @@ impl From<Keyring> for &'static str {
 #[derive(Debug)]
 pub struct ParseKeyringError;
 
-impl std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl sp_std::fmt::Display for ParseKeyringError {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		write!(f, "ParseKeyringError")
 	}
 }
 
-impl std::str::FromStr for Keyring {
+impl sp_std::str::FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as sp_std::str::FromStr>::Err> {
 		match s {
 			"Alice" => Ok(Keyring::Alice),
 			"Bob" => Ok(Keyring::Bob),
@@ -130,9 +149,9 @@ impl std::str::FromStr for Keyring {
 }
 
 lazy_static! {
-	static ref PRIVATE_KEYS: Mutex<HashMap<Keyring, Pair>> =
+	static ref PRIVATE_KEYS: Mutex<BTreeMap<Keyring, Pair>> =
 		Mutex::new(Keyring::iter().map(|who| (who, who.pair())).collect());
-	static ref PUBLIC_KEYS: HashMap<Keyring, Public> = PRIVATE_KEYS
+	static ref PUBLIC_KEYS: BTreeMap<Keyring, Public> = PRIVATE_KEYS
 		.lock()
 		.unwrap()
 		.iter()
