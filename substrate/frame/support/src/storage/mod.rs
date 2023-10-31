@@ -1673,7 +1673,6 @@ mod test {
 	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
-	use bounded_btree_map::BoundedBTreeMap;
 
 	#[test]
 	fn prefixed_map_works() {
