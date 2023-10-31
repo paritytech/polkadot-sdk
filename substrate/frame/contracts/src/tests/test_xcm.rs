@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::{
-	assert_return_code,
 	tests::{
 		compile_module,
 		mock_network::{
@@ -26,10 +25,10 @@ use crate::{
 			relay_chain, MockNet, ParaA, ParachainBalances, ParachainPalletXcm, Relay, ALICE, BOB,
 			INITIAL_BALANCE,
 		},
-		RuntimeReturnCode,
 	},
 	CollectEvents, DebugInfo, Determinism,
 };
+use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err,
@@ -114,7 +113,9 @@ fn test_xcm_execute() {
 		.result
 		.unwrap();
 
-		assert_return_code!(result, RuntimeReturnCode::Success);
+		let mut data = &result.data[..];
+		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
+		assert_matches!(outcome, Outcome::Complete(_));
 
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
@@ -180,7 +181,7 @@ fn test_xcm_execute_reentrant_call() {
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 
-		ParachainContracts::bare_call(
+		let result = ParachainContracts::bare_call(
 			ALICE,
 			contract_addr.clone(),
 			0,
@@ -190,17 +191,13 @@ fn test_xcm_execute_reentrant_call() {
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		);
+		)
+		.result
+		.unwrap();
 
-		// assert that the Transact failed
-		assert!(parachain::System::events().iter().any(|r| {
-			matches!(
-				r.event,
-				parachain::RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Attempted {
-					outcome: Outcome::Incomplete(_, XcmError::ExpectationFalse)
-				}),
-			)
-		}));
+		let mut data = &result.data[..];
+		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
+		assert_matches!(outcome, Outcome::Incomplete(_, XcmError::ExpectationFalse));
 
 		// Funds should not change hands as the XCM transact failed.
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
@@ -237,7 +234,7 @@ fn test_xcm_send() {
 		);
 
 		let mut data = &exec.result.unwrap().data[..];
-		XcmHash::decode(&mut data).expect("Failed to decode message");
+		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
 	});
 
 	Relay::execute_with(|| {

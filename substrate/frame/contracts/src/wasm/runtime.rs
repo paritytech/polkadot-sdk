@@ -606,7 +606,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	/// Charge, Run and adjust gas, for executing the given dispatchable.
 	fn call_dispatchable<
 		ErrorReturnCode: Get<ReturnCode>,
-		F: FnOnce(&E) -> DispatchResultWithPostInfo,
+		F: FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	>(
 		&mut self,
 		dispatch_info: DispatchInfo,
@@ -614,7 +614,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
 		let charged = self.charge_gas(RuntimeCosts::CallRuntime(dispatch_info.weight))?;
-		let result = run(self.ext);
+		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
 		self.adjust_gas(charged, RuntimeCosts::CallRuntime(actual_weight));
 		match result {
@@ -2683,8 +2683,8 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
 		let call: <E::T as Config>::RuntimeCall =
 			ctx.read_sandbox_memory_as_unbounded(memory, call_ptr, call_len)?;
-		ctx.call_dispatchable::<CallRuntimeFailed, _>(call.get_dispatch_info(), |ext| {
-			ext.call_runtime(call)
+		ctx.call_dispatchable::<CallRuntimeFailed, _>(call.get_dispatch_info(), |ctx| {
+			ctx.ext.call_runtime(call)
 		})
 	}
 
@@ -2707,6 +2707,7 @@ pub mod env {
 		memory: _,
 		msg_ptr: u32,
 		msg_len: u32,
+		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
 		use frame_support::dispatch::DispatchInfo;
 		use xcm::VersionedXcm;
@@ -2722,13 +2723,18 @@ pub mod env {
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
 		ensure_executable::<E::T>(&message)?;
-		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ext| {
-			let origin = crate::RawOrigin::Signed(ext.address().clone()).into();
-			<<E::T as Config>::Xcm>::execute(
+		ctx.call_dispatchable::<XcmExecutionFailed, _>(dispatch_info, |ctx| {
+			let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+			let outcome = <<E::T as Config>::Xcm>::execute(
 				origin,
 				Box::new(message),
 				weight.saturating_sub(execute_weight),
-			)
+			)?;
+
+			ctx.write_sandbox_memory(memory, output_ptr, &outcome.encode())?;
+			let pre_dispatch_weight =
+				<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+			Ok(Some(outcome.weight_used().saturating_add(pre_dispatch_weight)).into())
 		})
 	}
 
@@ -2849,7 +2855,7 @@ pub mod env {
 		query_id_ptr: u32,
 		output_ptr: u32,
 	) -> Result<ReturnCode, TrapReason> {
-		use xcm_executor::traits::{QueryController, QueryHandler, QueryControllerWeightInfo};
+		use xcm_executor::traits::{QueryController, QueryControllerWeightInfo, QueryHandler};
 
 		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
 			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
