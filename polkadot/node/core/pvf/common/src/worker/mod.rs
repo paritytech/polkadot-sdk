@@ -23,13 +23,12 @@ use cpu_time::ProcessTime;
 use futures::never::Never;
 use std::{
 	any::Any,
-	fmt,
+	fmt, io,
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-use tokio::{io, runtime::Runtime};
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -85,6 +84,13 @@ macro_rules! decl_worker_main {
 					let status = -1;
 					std::process::exit(status)
 				},
+				"--check-can-enable-seccomp" => {
+					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+					let status = if security::seccomp::check_is_fully_enabled() { 0 } else { -1 };
+					#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+					let status = -1;
+					std::process::exit(status)
+				},
 				"--check-can-unshare-user-namespace-and-change-root" => {
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::unshare_user_namespace_and_change_root(
@@ -129,6 +135,7 @@ macro_rules! decl_worker_main {
 			let mut worker_dir_path = None;
 			let mut node_version = None;
 			let mut can_enable_landlock = false;
+			let mut can_enable_seccomp = false;
 			let mut can_unshare_user_namespace_and_change_root = false;
 
 			let mut i = 2;
@@ -147,6 +154,7 @@ macro_rules! decl_worker_main {
 						i += 1
 					},
 					"--can-enable-landlock" => can_enable_landlock = true,
+					"--can-enable-seccomp" => can_enable_seccomp = true,
 					"--can-unshare-user-namespace-and-change-root" =>
 						can_unshare_user_namespace_and_change_root = true,
 					arg => panic!("Unexpected argument found: {}", arg),
@@ -161,6 +169,7 @@ macro_rules! decl_worker_main {
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 			let security_status = $crate::SecurityStatus {
 				can_enable_landlock,
+				can_enable_seccomp,
 				can_unshare_user_namespace_and_change_root,
 			};
 
@@ -198,7 +207,7 @@ impl fmt::Display for WorkerKind {
 
 // The worker version must be passed in so that we accurately get the version of the worker, and not
 // the version that this crate was compiled with.
-pub fn worker_event_loop<F, Fut>(
+pub fn worker_event_loop<F>(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
@@ -207,8 +216,7 @@ pub fn worker_event_loop<F, Fut>(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] security_status: &SecurityStatus,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, PathBuf) -> Fut,
-	Fut: futures::Future<Output = io::Result<Never>>,
+	F: FnMut(UnixStream, PathBuf) -> io::Result<Never>,
 {
 	let worker_pid = std::process::id();
 	gum::debug!(
@@ -262,7 +270,7 @@ pub fn worker_event_loop<F, Fut>(
 	}
 
 	// Connect to the socket.
-	let stream = || -> std::io::Result<UnixStream> {
+	let stream = || -> io::Result<UnixStream> {
 		let stream = UnixStream::connect(&socket_path)?;
 		let _ = std::fs::remove_file(&socket_path);
 		Ok(stream)
@@ -318,6 +326,24 @@ pub fn worker_event_loop<F, Fut>(
 				security::landlock::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
 			if !matches!(landlock_status, Ok(landlock::RulesetStatus::FullyEnforced)) {
 				// We previously were able to enable, so this should never happen.
+				gum::error!(
+					target: LOG_TARGET,
+					%worker_kind,
+					%worker_pid,
+					"could not fully enable landlock: {:?}. This should not happen, please report an issue",
+					landlock_status
+				);
+			}
+		}
+
+		// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
+		//       job to catch regressions. See <https://github.com/paritytech/ci_cd/issues/609>.
+		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+		if security_status.can_enable_seccomp {
+			let seccomp_status =
+				security::seccomp::enable_for_worker(worker_kind, worker_pid, &worker_dir_path);
+			if !matches!(seccomp_status, Ok(())) {
+				// We previously were able to enable, so this should never happen.
 				//
 				// TODO: Make this a real error in secure-mode. See:
 				// <https://github.com/paritytech/polkadot-sdk/issues/1444>
@@ -325,8 +351,8 @@ pub fn worker_event_loop<F, Fut>(
 					target: LOG_TARGET,
 					%worker_kind,
 					%worker_pid,
-					"could not fully enable landlock: {:?}. This should not happen, please report to the Polkadot devs",
-					landlock_status
+					"could not fully enable seccomp: {:?}. This should not happen, please report an issue",
+					seccomp_status
 				);
 			}
 		}
@@ -346,18 +372,11 @@ pub fn worker_event_loop<F, Fut>(
 	}
 
 	// Run the main worker loop.
-	let rt = Runtime::new().expect("Creates tokio runtime. If this panics the worker will die and the host will detect that and deal with it.");
-	let err = rt
-		.block_on(event_loop(stream, worker_dir_path))
+	let err = event_loop(stream, worker_dir_path)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
 	worker_shutdown_message(worker_kind, worker_pid, &err.to_string());
-
-	// We don't want tokio to wait for the tasks to finish. We want to bring down the worker as fast
-	// as possible and not wait for stalled validation to finish. This isn't strictly necessary now,
-	// but may be in the future.
-	rt.shutdown_background();
 }
 
 /// Provide a consistent message on worker shutdown.
@@ -438,7 +457,7 @@ fn kill_parent_node_in_emergency() {
 /// The motivation for this module is to coordinate worker threads without using async Rust.
 pub mod thread {
 	use std::{
-		panic,
+		io, panic,
 		sync::{Arc, Condvar, Mutex},
 		thread,
 		time::Duration,
@@ -479,7 +498,7 @@ pub mod thread {
 		f: F,
 		cond: Cond,
 		outcome: WaitOutcome,
-	) -> std::io::Result<thread::JoinHandle<R>>
+	) -> io::Result<thread::JoinHandle<R>>
 	where
 		F: FnOnce() -> R,
 		F: Send + 'static + panic::UnwindSafe,
@@ -497,7 +516,7 @@ pub mod thread {
 		cond: Cond,
 		outcome: WaitOutcome,
 		stack_size: usize,
-	) -> std::io::Result<thread::JoinHandle<R>>
+	) -> io::Result<thread::JoinHandle<R>>
 	where
 		F: FnOnce() -> R,
 		F: Send + 'static + panic::UnwindSafe,
