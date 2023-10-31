@@ -1332,7 +1332,7 @@ impl<T: Config> Pallet<T> {
 		let (origin_location, assets) = value;
 		for asset in assets.iter() {
 			let transfer_type =
-				<T::XcmExecutor as AssetTransferSupport>::determine_for(asset, &dest)
+				T::XcmExecutor::determine_for(asset, &dest)
 					.map_err(Error::<T>::from)?;
 			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
 		}
