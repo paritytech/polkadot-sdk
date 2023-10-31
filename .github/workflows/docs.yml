@@ -2,7 +2,7 @@ name: Rust Docs
 
 on:
   push:
-    branches: [kiz-umbrella-crates]
+    branches: [kiz-developer-hub]
 
 jobs:
   docs:
