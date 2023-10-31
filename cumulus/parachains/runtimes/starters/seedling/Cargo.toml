@@ -1,12 +1,13 @@
 [package]
 name = "seedling-runtime"
 version = "0.1.0"
+description = "Seedling parachain runtime. A starter runtime for solochain to parachain migration."
 authors.workspace = true
 edition.workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}
@@ -20,6 +21,7 @@ sp-api = { path = "../../../../../substrate/primitives/api", default-features = 
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
 sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
@@ -63,6 +65,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",

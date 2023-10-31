@@ -91,7 +91,7 @@
 //! #### Nomination
 //!
 //! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
-//! a set of validators  to be elected. Once interest in nomination is stated by an account, it
+//! a set of validators to be elected. Once interest in nomination is stated by an account, it
 //! takes effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
 //! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
@@ -298,6 +298,7 @@ mod tests;
 
 pub mod election_size_tracker;
 pub mod inflation;
+pub mod ledger;
 pub mod migrations;
 pub mod slashing;
 pub mod weights;
@@ -307,19 +308,19 @@ mod pallet;
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get},
+	traits::{ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug,
+	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
+	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex, StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -327,6 +328,7 @@ pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
+pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
 // syntactic sugar for logging.
@@ -438,6 +440,14 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 }
 
 /// The ledger of a (bonded) stash.
+///
+/// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items
+/// *MUST* be performed through the methods exposed by this struct, to ensure the consistency of
+/// ledger's data and corresponding staking lock
+///
+/// TODO: move struct definition and full implementation into `/src/ledger.rs`. Currently
+/// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
+/// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
 	PartialEqNoBound,
 	EqNoBound,
@@ -452,38 +462,38 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 pub struct StakingLedger<T: Config> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: T::AccountId,
+
 	/// The total amount of the stash's balance that we are currently accounting for.
 	/// It's just `active` plus all the `unlocking` balances.
 	#[codec(compact)]
 	pub total: BalanceOf<T>,
+
 	/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
+
 	/// Any balance that is becoming free, which may eventually be transferred out of the stash
 	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
 	/// in, first out queue where the new (higher value) eras get pushed on the back.
 	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+
 	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
 	/// for validators.
 	///
 	/// This is deprecated as of V14 in favor of `T::ClaimedRewards` and will be removed in future.
 	/// Refer to issue <https://github.com/paritytech/substrate/issues/13034>
 	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+
+	/// The controller associated with this ledger's stash.
+	///
+	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
+	/// Use [`controller`] function to get the controller associated with the ledger.
+	#[codec(skip)]
+	controller: Option<T::AccountId>,
 }
 
 impl<T: Config> StakingLedger<T> {
-	/// Initializes the default object using the given `validator`.
-	pub fn default_from(stash: T::AccountId) -> Self {
-		Self {
-			stash,
-			total: Zero::zero(),
-			active: Zero::zero(),
-			unlocking: Default::default(),
-			legacy_claimed_rewards: Default::default(),
-		}
-	}
-
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
 	fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
@@ -511,6 +521,7 @@ impl<T: Config> StakingLedger<T> {
 			active: self.active,
 			unlocking,
 			legacy_claimed_rewards: self.legacy_claimed_rewards,
+			controller: self.controller,
 		}
 	}
 
@@ -679,8 +690,14 @@ impl<T: Config> StakingLedger<T> {
 		// clean unlocking chunks that are set to zero.
 		self.unlocking.retain(|c| !c.value.is_zero());
 
-		T::EventListeners::on_slash(&self.stash, self.active, &slashed_unlocking);
-		pre_slash_total.saturating_sub(self.total)
+		let final_slashed_amount = pre_slash_total.saturating_sub(self.total);
+		T::EventListeners::on_slash(
+			&self.stash,
+			self.active,
+			&slashed_unlocking,
+			final_slashed_amount,
+		);
+		final_slashed_amount
 	}
 }
 
@@ -947,7 +964,7 @@ pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		<Pallet<T>>::ledger(&controller).map(|l| l.stash)
+		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
 	}
 }
 

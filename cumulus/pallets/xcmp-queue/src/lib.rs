@@ -22,6 +22,16 @@
 //! Also provides an implementation of `SendXcm` which can be placed in a router tuple for relaying
 //! XCM over XCMP if the destination is `Parent/Parachain`. It requires an implementation of
 //! `XcmExecutor` for dispatching incoming XCM messages.
+//!
+//! To prevent out of memory errors on the `OutboundXcmpMessages` queue, an exponential fee factor
+//! (`DeliveryFeeFactor`) is set, much like the one used in DMP.
+//! The fee factor increases whenever the total size of messages in a particular channel passes a
+//! threshold. This threshold is defined as a percentage of the maximum total size the channel can
+//! have. More concretely, the threshold is `max_total_size` / `THRESHOLD_FACTOR`, where:
+//! - `max_total_size` is the maximum size, in bytes, of the channel, not number of messages.
+//! It is defined in the channel configuration.
+//! - `THRESHOLD_FACTOR` just declares which percentage of the max size is the actual threshold.
+//! If it's 2, then the threshold is half of the max size, if it's 4, it's a quarter, and so on.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -35,6 +45,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "bridging")]
+pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -47,13 +59,15 @@ use frame_support::{
 	traits::{EnsureOrigin, Get},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
-use polkadot_runtime_common::xcm_sender::PriceForParachainDelivery;
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
+use polkadot_runtime_parachains::FeeTracker;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_core::MAX_POSSIBLE_ALLOCATION;
+use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
 use sp_std::{convert::TryFrom, prelude::*};
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
@@ -66,6 +80,19 @@ pub type OverweightIndex = u64;
 const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
 
+/// Constants related to delivery fee calculation
+pub mod delivery_fee_constants {
+	use super::FixedU128;
+
+	/// Fees will start increasing when queue is half full
+	pub const THRESHOLD_FACTOR: u32 = 2;
+	/// The base number the delivery fee factor gets multiplied by every time it is increased.
+	/// Also, the number it gets divided by when decreased.
+	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
+	/// The contribution of each KB to a fee factor increase
+	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
+}
+
 // Maximum amount of messages to process per block. This is a temporary measure until we properly
 // account for proof size weights.
 const MAX_MESSAGES_PER_BLOCK: u8 = 10;
@@ -75,7 +102,7 @@ const MAX_OVERWEIGHT_MESSAGES: u32 = 1000;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, Twox64Concat};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -107,7 +134,7 @@ pub mod pallet {
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
 		/// The price for delivering an XCM to a sibling parachain destination.
-		type PriceForSiblingDelivery: PriceForParachainDelivery;
+		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -372,6 +399,17 @@ pub mod pallet {
 	/// Whether or not the XCMP queue is suspended from executing incoming XCMs or not.
 	#[pallet::storage]
 	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Initialization value for the DeliveryFee factor.
+	#[pallet::type_value]
+	pub fn InitialFactor() -> FixedU128 {
+		FixedU128::from_u32(1)
+	}
+
+	/// The factor to multiply the base delivery fee by.
+	#[pallet::storage]
+	pub(super) type DeliveryFeeFactor<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -401,7 +439,7 @@ pub struct InboundChannelDetails {
 }
 
 /// Struct containing detailed information about the outbound channel.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct OutboundChannelDetails {
 	/// The `ParaId` of the parachain that this channel is connected with.
 	recipient: ParaId,
@@ -501,56 +539,90 @@ impl<T: Config> Pallet<T> {
 	/// length prefixed and can thus decode each fragment from the aggregate stream. With this,
 	/// we can concatenate them into a single aggregate blob without needing to be concerned
 	/// about encoding fragment boundaries.
+	///
+	/// If successful, returns the number of pages in the outbound queue after enqueuing the new
+	/// fragment.
 	fn send_fragment<Fragment: Encode>(
 		recipient: ParaId,
 		format: XcmpMessageFormat,
 		fragment: Fragment,
 	) -> Result<u32, MessageSendError> {
-		let data = fragment.encode();
+		let encoded_fragment = fragment.encode();
 
-		// Optimization note: `max_message_size` could potentially be stored in
-		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
-
-		let max_message_size =
-			T::ChannelInfo::get_channel_max(recipient).ok_or(MessageSendError::NoChannel)?;
-		if data.len() > max_message_size {
+		let channel_info =
+			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
+		let max_message_size = channel_info.max_message_size as usize;
+		// Max message size refers to aggregates, or pages. Not to individual fragments.
+		if encoded_fragment.len() > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
-		let mut s = <OutboundXcmpStatus<T>>::get();
-		let details = if let Some(details) = s.iter_mut().find(|item| item.recipient == recipient) {
+		let mut all_channels = <OutboundXcmpStatus<T>>::get();
+		let channel_details = if let Some(details) =
+			all_channels.iter_mut().find(|channel| channel.recipient == recipient)
+		{
 			details
 		} else {
-			s.push(OutboundChannelDetails::new(recipient));
-			s.last_mut().expect("can't be empty; a new element was just pushed; qed")
+			all_channels.push(OutboundChannelDetails::new(recipient));
+			all_channels
+				.last_mut()
+				.expect("can't be empty; a new element was just pushed; qed")
 		};
-		let have_active = details.last_index > details.first_index;
-		let appended = have_active &&
-			<OutboundXcmpMessages<T>>::mutate(recipient, details.last_index - 1, |s| {
-				if XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &s[..]) !=
-					Ok(format)
-				{
-					return false
-				}
-				if s.len() + data.len() > max_message_size {
-					return false
-				}
-				s.extend_from_slice(&data[..]);
-				true
-			});
-		if appended {
-			Ok((details.last_index - details.first_index - 1) as u32)
+		let have_active = channel_details.last_index > channel_details.first_index;
+		// Try to append fragment to the last page, if there is enough space.
+		// We return the size of the last page inside of the option, to not calculate it again.
+		let appended_to_last_page = have_active
+			.then(|| {
+				<OutboundXcmpMessages<T>>::mutate(
+					recipient,
+					channel_details.last_index - 1,
+					|page| {
+						if XcmpMessageFormat::decode_with_depth_limit(
+							MAX_XCM_DECODE_DEPTH,
+							&mut &page[..],
+						) != Ok(format)
+						{
+							return None
+						}
+						if page.len() + encoded_fragment.len() > max_message_size {
+							return None
+						}
+						page.extend_from_slice(&encoded_fragment[..]);
+						Some(page.len())
+					},
+				)
+			})
+			.flatten();
+
+		let (number_of_pages, last_page_size) = if let Some(size) = appended_to_last_page {
+			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
+			(number_of_pages, size)
 		} else {
 			// Need to add a new page.
-			let page_index = details.last_index;
-			details.last_index += 1;
+			let page_index = channel_details.last_index;
+			channel_details.last_index += 1;
 			let mut new_page = format.encode();
-			new_page.extend_from_slice(&data[..]);
+			new_page.extend_from_slice(&encoded_fragment[..]);
+			let last_page_size = new_page.len();
+			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
 			<OutboundXcmpMessages<T>>::insert(recipient, page_index, new_page);
-			let r = (details.last_index - details.first_index - 1) as u32;
-			<OutboundXcmpStatus<T>>::put(s);
-			Ok(r)
+			<OutboundXcmpStatus<T>>::put(all_channels);
+			(number_of_pages, last_page_size)
+		};
+
+		// We have to count the total size here since `channel_info.total_size` is not updated at
+		// this point in time. We assume all previous pages are filled, which, in practice, is not
+		// always the case.
+		let total_size =
+			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
+		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
+		if total_size > threshold {
+			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
+				.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
+			Self::increase_fee_factor(recipient, message_size_factor);
 		}
+
+		Ok(number_of_pages)
 	}
 
 	/// Sends a signal to the `dest` chain over XCMP. This is guaranteed to be dispatched on this
@@ -947,6 +1019,24 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 	}
+
+	#[cfg(feature = "bridging")]
+	fn is_inbound_channel_suspended(sender: ParaId) -> bool {
+		<InboundXcmpStatus<T>>::get()
+			.iter()
+			.find(|c| c.sender == sender)
+			.map(|c| c.state == InboundState::Suspended)
+			.unwrap_or(false)
+	}
+
+	#[cfg(feature = "bridging")]
+	/// Returns tuple of `OutboundState` and number of queued pages.
+	fn outbound_channel_state(target: ParaId) -> Option<(OutboundState, u16)> {
+		<OutboundXcmpStatus<T>>::get().iter().find(|c| c.recipient == target).map(|c| {
+			let queued_pages = c.last_index.saturating_sub(c.first_index);
+			(c.state, queued_pages)
+		})
+	}
 }
 
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
@@ -984,9 +1074,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				// Record the fact we received it.
 				match status.binary_search_by_key(&sender, |item| item.sender) {
 					Ok(i) => {
-						let count = status[i].message_metadata.len();
-						if count as u32 >= suspend_threshold && status[i].state == InboundState::Ok
-						{
+						let count = status[i].message_metadata.len() as u32;
+						if count >= suspend_threshold && status[i].state == InboundState::Ok {
 							status[i].state = InboundState::Suspended;
 							let r = Self::send_signal(sender, ChannelSignal::Suspend);
 							if r.is_err() {
@@ -995,13 +1084,20 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 								);
 							}
 						}
-						if (count as u32) < drop_threshold {
+						if count < drop_threshold {
 							status[i].message_metadata.push((sent_at, format));
 						} else {
 							debug_assert!(
 								false,
 								"XCMP channel queue full. Silently dropping message"
 							);
+						}
+						// Update the delivery fee factor, if applicable.
+						if count > suspend_threshold {
+							let message_size_factor =
+								FixedU128::from((data_ref.len() / 1024) as u128)
+									.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
+							Self::increase_fee_factor(sender, message_size_factor);
 						}
 					},
 					Err(_) => status.push(InboundChannelDetails {
@@ -1100,6 +1196,21 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				result.push((para_id, page));
 			}
 
+			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
+				Some(channel_info) => channel_info.max_total_size,
+				None => {
+					log::warn!("calling `get_channel_info` with no RelevantMessagingState?!");
+					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
+				},
+			};
+			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
+			let remaining_total_size: usize = (first_index..last_index)
+				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
+				.sum();
+			if remaining_total_size <= threshold as usize {
+				Self::decrease_fee_factor(para_id);
+			}
+
 			*status = OutboundChannelDetails {
 				recipient: para_id,
 				state: outbound_state,
@@ -1129,7 +1240,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 		let pruned = old_statuses_len - statuses.len();
 		// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-		statuses.rotate_left(result.len() - pruned);
+		statuses.rotate_left(result.len().saturating_sub(pruned));
 
 		<OutboundXcmpStatus<T>>::put(statuses);
 
@@ -1152,7 +1263,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
-				let price = T::PriceForSiblingDelivery::price_for_parachain_delivery(id, &xcm);
+				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				Ok(((id, versioned_xcm), price))
@@ -1176,5 +1287,29 @@ impl<T: Config> SendXcm for Pallet<T> {
 			},
 			Err(e) => Err(SendError::Transport(<&'static str>::from(e))),
 		}
+	}
+}
+
+impl<T: Config> FeeTracker for Pallet<T> {
+	type Id = ParaId;
+
+	fn get_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::get(id)
+	}
+
+	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = f.saturating_mul(
+				delivery_fee_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
+			);
+			*f
+		})
+	}
+
+	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = InitialFactor::get().max(*f / delivery_fee_constants::EXPONENTIAL_FEE_BASE);
+			*f
+		})
 	}
 }

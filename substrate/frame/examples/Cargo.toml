@@ -12,11 +12,12 @@ description = "The single package with examples of various types of FRAME pallet
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-pallet-example-basic = { path = "basic", default-features = false}
 pallet-default-config-example = { path = "default-config", default-features = false}
-pallet-example-offchain-worker = { path = "offchain-worker", default-features = false}
-pallet-example-kitchensink = { path = "kitchensink", default-features = false}
 pallet-dev-mode = { path = "dev-mode", default-features = false}
+pallet-example-basic = { path = "basic", default-features = false}
+pallet-example-frame-crate = { path = "frame-crate", default-features = false }
+pallet-example-kitchensink = { path = "kitchensink", default-features = false}
+pallet-example-offchain-worker = { path = "offchain-worker", default-features = false}
 pallet-example-split = { path = "split", default-features = false}
 
 [features]
@@ -25,6 +26,7 @@ std = [
 	"pallet-default-config-example/std",
 	"pallet-dev-mode/std",
 	"pallet-example-basic/std",
+	"pallet-example-frame-crate/std",
 	"pallet-example-kitchensink/std",
 	"pallet-example-offchain-worker/std",
 	"pallet-example-split/std",

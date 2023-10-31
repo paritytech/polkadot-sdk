@@ -203,10 +203,10 @@ pub mod pallet {
 		>;
 
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
-		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as SysConfig>::RuntimeCall>)>;
+		type XcmExecuteFilter: Contains<(MultiLocation, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as SysConfig>::RuntimeCall>;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall>;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
@@ -216,7 +216,7 @@ pub mod pallet {
 		type XcmReserveTransferFilter: Contains<(MultiLocation, Vec<MultiAsset>)>;
 
 		/// Means of measuring the weight consumed by an XCM message locally.
-		type Weigher: WeightBounds<<Self as SysConfig>::RuntimeCall>;
+		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorMultiLocation>;
@@ -227,7 +227,6 @@ pub mod pallet {
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
 			+ GetDispatchInfo
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
@@ -902,7 +901,7 @@ pub mod pallet {
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
 			origin: OriginFor<T>,
-			message: Box<VersionedXcm<<T as SysConfig>::RuntimeCall>>,
+			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
