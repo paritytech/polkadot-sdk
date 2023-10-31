@@ -22,7 +22,7 @@ use frame_support::traits::{
 		fungibles, AssetId, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
 		Restriction, WithdrawConsequence,
 	},
-	AccountTouch, ContainsPair,
+	AccountTouch,
 };
 use sp_runtime::{
 	traits::Convert,
@@ -971,23 +971,6 @@ impl<
 			Left(a) => <Left as AccountTouch<Left::AssetId, AccountId>>::touch(a, who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
-		}
-	}
-}
-
-impl<
-		Left: fungibles::Inspect<AccountId> + ContainsPair<Left::AssetId, AccountId>,
-		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
-			+ ContainsPair<Right::AssetId, AccountId>,
-		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
-		AssetKind: AssetId,
-		AccountId,
-	> ContainsPair<AssetKind, AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
-{
-	fn contains(asset: &AssetKind, who: &AccountId) -> bool {
-		match Criterion::convert(asset.clone()) {
-			Left(a) => <Left as ContainsPair<Left::AssetId, AccountId>>::contains(&a, who),
-			Right(a) => <Right as ContainsPair<Right::AssetId, AccountId>>::contains(&a, who),
 		}
 	}
 }
