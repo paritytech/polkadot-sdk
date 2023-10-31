@@ -223,7 +223,7 @@ impl StorageVersion {
 		crate::storage::unhashed::get_or_default(&key)
 	}
 
-	/// Returns if the storage key for the given pallet exists in storage.
+	/// Returns if the storage version key for the given pallet exists in storage.
 	///
 	/// See [`STORAGE_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
 	///
