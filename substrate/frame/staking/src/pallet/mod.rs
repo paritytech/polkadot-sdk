@@ -24,8 +24,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-	DefensiveResult, TryCollect,  Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-LockIdentifier, LockableCurrency, OnUnbalanced, UnixTime,
+		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -931,17 +931,10 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
-			let current_era = CurrentEra::<T>::get().unwrap_or(0);
-			let history_depth = T::HistoryDepth::get();
-			let last_reward_era = current_era.saturating_sub(history_depth);
-
 			let stash_balance = T::Currency::free_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
-			let ledger = StakingLedger::<T>::new(
-				stash.clone(),
-				value,
-			);
+			let ledger = StakingLedger::<T>::new(stash.clone(), value);
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.

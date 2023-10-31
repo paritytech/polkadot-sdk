@@ -308,7 +308,9 @@ mod pallet;
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier},
+	traits::{
+		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -320,7 +322,8 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex, StakingAccount,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
+	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};

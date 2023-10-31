@@ -34,9 +34,8 @@
 use frame_support::{
 	defensive,
 	traits::{LockableCurrency, WithdrawReasons},
-	BoundedVec,
 };
-use sp_staking::{EraIndex, StakingAccount};
+use sp_staking::StakingAccount;
 use sp_std::prelude::*;
 
 use crate::{
@@ -66,10 +65,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: as the controller accounts are being deprecated, the stash account is the same as the
 	/// controller account.
-	pub fn new(
-		stash: T::AccountId,
-		stake: BalanceOf<T>,
-	) -> Self {
+	pub fn new(stash: T::AccountId, stake: BalanceOf<T>) -> Self {
 		Self {
 			stash: stash.clone(),
 			active: stake,
@@ -239,8 +235,8 @@ pub struct StakingLedgerInspect<T: Config> {
 	pub total: BalanceOf<T>,
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
-	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
-	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+	pub unlocking: frame_support::BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+	pub legacy_claimed_rewards: frame_support::BoundedVec<sp_staking::EraIndex, T::HistoryDepth>,
 }
 
 #[cfg(test)]

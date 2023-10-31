@@ -27,9 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Len, LockableCurrency,
-		 WithdrawReasons, Currency, Defensive, DefensiveResult, EstimateNextNewSession, Get, Imbalance, OnUnbalanced,
-		TryCollect, UnixTime,
+		Currency, Defensive, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced, TryCollect,
+		UnixTime,
 	},
 	weights::Weight,
 };
@@ -220,19 +219,17 @@ impl<T: Config> Pallet<T> {
 
 		let stash = ledger.stash.clone();
 
-		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page)
-		{
+		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
 		} else {
 			EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		}
 
-		let exposure =
-			EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
-				Error::<T>::InvalidEraToReward
-					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-			})?;
+		let exposure = EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
+			Error::<T>::InvalidEraToReward
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+		})?;
 
 		// Input data seems good, no errors allowed after this point
 
@@ -1187,10 +1184,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			panic!("cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.")
 		});
 		<Bonded<T>>::insert(voter.clone(), voter.clone());
-		<Ledger<T>>::insert(
-			voter.clone(),
-			StakingLedger::<T>::new(voter.clone(), stake),
-		);
+		<Ledger<T>>::insert(voter.clone(), StakingLedger::<T>::new(voter.clone(), stake));
 
 		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false });
 	}
@@ -1199,10 +1193,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	fn add_target(target: T::AccountId) {
 		let stake = MinValidatorBond::<T>::get() * 100u32.into();
 		<Bonded<T>>::insert(target.clone(), target.clone());
-		<Ledger<T>>::insert(
-			target.clone(),
-			StakingLedger::<T>::new(target.clone(), stake),
-		);
+		<Ledger<T>>::insert(target.clone(), StakingLedger::<T>::new(target.clone(), stake));
 		Self::do_add_validator(
 			&target,
 			ValidatorPrefs { commission: Perbill::zero(), blocked: false },
@@ -1234,10 +1225,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				.and_then(|w| <BalanceOf<T>>::try_from(w).ok())
 				.unwrap_or_else(|| MinNominatorBond::<T>::get() * 100u32.into());
 			<Bonded<T>>::insert(v.clone(), v.clone());
-			<Ledger<T>>::insert(
-				v.clone(),
-				StakingLedger::<T>::new(v.clone(), stake),
-			);
+			<Ledger<T>>::insert(v.clone(), StakingLedger::<T>::new(v.clone(), stake));
 			Self::do_add_validator(
 				&v,
 				ValidatorPrefs { commission: Perbill::zero(), blocked: false },
@@ -1249,10 +1237,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				panic!("cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.")
 			});
 			<Bonded<T>>::insert(v.clone(), v.clone());
-			<Ledger<T>>::insert(
-				v.clone(),
-				StakingLedger::<T>::new(v.clone(), stake),
-			);
+			<Ledger<T>>::insert(v.clone(), StakingLedger::<T>::new(v.clone(), stake));
 			Self::do_add_nominator(
 				&v,
 				Nominations { targets: t, submitted_in: 0, suppressed: false },
