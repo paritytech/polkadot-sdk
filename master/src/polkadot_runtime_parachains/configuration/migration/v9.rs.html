@@ -318,7 +318,6 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -345,7 +344,6 @@
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
-<span class="kw">use </span>sp_runtime::Perbill;
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
@@ -466,11 +464,11 @@ pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 async_backing_params                     : pre.async_backing_params,
 executor_params                          : pre.executor_params,
-on_demand_queue_max_size                 : <span class="number">10_000u32</span>,
-on_demand_base_fee                       : <span class="number">10_000_000u128</span>,
-on_demand_fee_variability                : Perbill::from_percent(<span class="number">3</span>),
-on_demand_target_queue_utilization       : Perbill::from_percent(<span class="number">25</span>),
-on_demand_ttl                            : <span class="number">5u32</span>.into(),
+on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
+on_demand_base_fee                       : pre.on_demand_base_fee,
+on_demand_fee_variability                : pre.on_demand_fee_variability,
+on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
+on_demand_ttl                            : pre.on_demand_ttl,
 minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 		}
 	};
