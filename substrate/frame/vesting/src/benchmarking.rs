@@ -402,7 +402,7 @@ force_remove_vesting_schedule {
 		let per_block = transfer_amount.checked_div(&20u32.into()).unwrap();
 
 		let number_of_schedules_after_removal = s - 1;
-		let expected_balance = transfer_amount.checked_mul(&number_of_schedules_after_removal.into()).unwrap();
+		let mut expected_balance = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
 
 		// It will remove last vesting schedule.
 		let schedule_index = s - 1;
