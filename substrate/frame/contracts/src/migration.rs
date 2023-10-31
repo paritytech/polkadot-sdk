@@ -312,7 +312,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		let current_version = <Pallet<T>>::current_storage_version();
 
 		if on_chain_version == current_version {
-			return Ok(Default:default())
+			return Ok(Default::default())
 		}
 
 		log::debug!(
