@@ -1524,7 +1524,7 @@
 </span><span class="macro">macro_rules! </span>defensive {
 	() =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime&quot;</span>,
+			target: <span class="string">&quot;runtime::defensive&quot;</span>,
 			<span class="string">&quot;{}&quot;</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		</span>);
@@ -1532,7 +1532,7 @@
 	};
 	(<span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime&quot;</span>,
+			target: <span class="string">&quot;runtime::defensive&quot;</span>,
 			<span class="string">&quot;{}: {:?}&quot;</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR</span>,
 			<span class="macro-nonterminal">$error
@@ -1541,7 +1541,7 @@
 	};
 	(<span class="macro-nonterminal">$error</span>:expr, <span class="macro-nonterminal">$proof</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime&quot;</span>,
+			target: <span class="string">&quot;runtime::defensive&quot;</span>,
 			<span class="string">&quot;{}: {:?}: {:?}&quot;</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR</span>,
 			<span class="macro-nonterminal">$error</span>,

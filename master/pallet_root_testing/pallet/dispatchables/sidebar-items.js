@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fill_block"]};
+window.SIDEBAR_ITEMS = {"fn":["fill_block","trigger_defensive"]};

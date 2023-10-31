@@ -2862,6 +2862,8 @@
 <a href="#2862" id="2862">2862</a>
 <a href="#2863" id="2863">2863</a>
 <a href="#2864" id="2864">2864</a>
+<a href="#2865" id="2865">2865</a>
+<a href="#2866" id="2866">2866</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3878,7 +3880,9 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 }
 
-<span class="kw">impl </span>pallet_root_testing::Config <span class="kw">for </span>Runtime {}
+<span class="kw">impl </span>pallet_root_testing::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+}
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>LaunchPeriod: BlockNumber = <span class="number">28 </span>* <span class="number">24 </span>* <span class="number">60 </span>* MINUTES;
