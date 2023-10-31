@@ -65,3 +65,11 @@ impl CliChain for Millau {
 	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
 		Some(SimpleRuntimeVersion::from_runtime_version(&millau_runtime::VERSION));
 }
+
+/// TODO: Note: I know this does not belong here, but I don't want to add it to the
+/// `chain-asset-hub-westend` or `chain-westend`, because we wont use it for production and I don't
+/// want to bring this to the bridges subtree now. Anyway, we plan to retire millau/rialto, so this
+/// hack will disappear with that.
+impl CliChain for crate::bridges::westend_millau::westend_parachains_to_millau::relay_asset_hub_westend_client::AssetHubWestend {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
+}
