@@ -1357,6 +1357,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test, _>(
 						backed_candidates.clone(),
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						has_concluded_invalid,
 						&scheduled
 					),
@@ -1378,6 +1379,7 @@ mod sanitizers {
 
 				assert!(sanitize_backed_candidates::<Test, _>(
 					backed_candidates.clone(),
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					has_concluded_invalid,
 					&scheduled
 				)
@@ -1406,6 +1408,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test, _>(
 						backed_candidates.clone(),
+						&<shared::Pallet<Test>>::allowed_relay_parents(),
 						has_concluded_invalid,
 						&scheduled
 					)
@@ -1425,9 +1428,18 @@ mod sanitizers {
 
 				let before = backed_candidates.clone();
 
+				// TODO: fix this. No need to keep this in runtime anymore.
+				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
+					.map(|(core_idx, para_id)| (para_id, core_idx))
+					.collect();
+
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
-				assert!(!filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+				assert!(!filter_backed_statements_from_disabled::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled
+				));
 				assert_eq!(backed_candidates, before);
 			});
 		}
@@ -1456,9 +1468,18 @@ mod sanitizers {
 				);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
+				// TODO: fix this. No need to keep this in runtime anymore.
+				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
+					.map(|(core_idx, para_id)| (para_id, core_idx))
+					.collect();
+
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
-				assert!(filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+				assert!(filter_backed_statements_from_disabled::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled
+				));
 
 				// there should still be two backed candidates
 				assert_eq!(backed_candidates.len(), 2);
@@ -1490,9 +1511,18 @@ mod sanitizers {
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
+				// TODO: fix this. No need to keep this in runtime anymore.
+				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
+					.map(|(core_idx, para_id)| (para_id, core_idx))
+					.collect();
+
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
-				assert!(filter_backed_statements::<Test>(&mut backed_candidates).unwrap());
+				assert!(filter_backed_statements_from_disabled::<Test>(
+					&mut backed_candidates,
+					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&scheduled
+				));
 
 				assert_eq!(backed_candidates.len(), 1);
 				assert_eq!(*backed_candidates.get(0).unwrap(), untouched);

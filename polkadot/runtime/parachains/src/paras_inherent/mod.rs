@@ -30,7 +30,8 @@ use crate::{
 	metrics::METRICS,
 	paras,
 	scheduler::{self, FreedReason},
-	shared, ParaId,
+	shared::{self, AllowedRelayParentsTracker},
+	ParaId,
 };
 use bitvec::prelude::BitVec;
 use frame_support::{
@@ -430,9 +431,6 @@ impl<T: Config> Pallet<T> {
 			T::DisputesHandler::filter_dispute_data(set, post_conclusion_acceptance_period)
 		};
 
-		// Filter out backing statements from disabled validators
-		let statements_were_dropped = filter_backed_statements::<T>(&mut backed_candidates)?;
-
 		// Limit the disputes first, since the following statements depend on the votes include
 		// here.
 		let (checked_disputes_sets, checked_disputes_sets_consumed_weight) =
@@ -483,7 +481,11 @@ impl<T: Config> Pallet<T> {
 			}
 
 			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
-			ensure!(!statements_were_dropped, Error::<T>::InherentOverweight);
+			// TODO
+			// ensure!(
+			// 	!statements_were_dropped,
+			// 	Error::<T>::InherentOverweight
+			// );
 			all_weight_before
 		};
 
@@ -593,6 +595,7 @@ impl<T: Config> Pallet<T> {
 
 		let backed_candidates = sanitize_backed_candidates::<T, _>(
 			backed_candidates,
+			&allowed_relay_parents,
 			|candidate_idx: usize,
 			 backed_candidate: &BackedCandidate<<T as frame_system::Config>::Hash>|
 			 -> bool {
@@ -920,6 +923,7 @@ fn sanitize_backed_candidates<
 	F: FnMut(usize, &BackedCandidate<T::Hash>) -> bool,
 >(
 	mut backed_candidates: Vec<BackedCandidate<T::Hash>>,
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut candidate_has_concluded_invalid_dispute_or_is_invalid: F,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,
 ) -> Vec<BackedCandidate<T::Hash>> {
@@ -939,6 +943,13 @@ fn sanitize_backed_candidates<
 
 		scheduled.get(&desc.para_id).is_some()
 	});
+
+	// Filter out backing statements from disabled validators
+	filter_backed_statements_from_disabled::<T>(
+		&mut backed_candidates,
+		&allowed_relay_parents,
+		scheduled,
+	);
 
 	// Sort the `Vec` last, once there is a guarantee that these
 	// `BackedCandidates` references the expected relay chain parent,
@@ -1036,26 +1047,17 @@ fn limit_and_sanitize_disputes<
 
 // Filters statements from disabled validators in `BackedCandidate` and `MultiDisputeStatementSet`.
 // Returns `true` if at least one statement is removed and `false` otherwise.
-fn filter_backed_statements<T: Config>(
+fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
-) -> Result<bool, DispatchErrorWithPostInfo> {
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	para_id_to_core_idx: &BTreeMap<ParaId, CoreIndex>,
+) -> bool {
 	let disabled_validators = shared::Pallet::<T>::disabled_validators();
 
 	if disabled_validators.is_empty() {
 		// No disabled validators - nothing to do
-		return Ok(false)
+		return false
 	}
-
-	// `BackedCandidate` contains `validator_indices` which are indices within the validator group.
-	// To obtain `ValidatorIndex` from them we do the following steps:
-	// 1. Get `para_id` from `CandidateDescriptor`
-	// 2. Get the `core_idx` for the corresponding `para_id`
-	// 3. Get the validator group assigned to the corresponding core idx
-
-	// Map `para_id` to `core_idx` for step 2 from the above list
-	let para_id_to_core_idx = <scheduler::Pallet<T>>::scheduled_paras()
-		.map(|(core_idx, para_id)| (para_id, core_idx))
-		.collect::<BTreeMap<_, _>>();
 
 	// Flag which will be returned. Set to `true` if at least one vote is filtered.
 	let mut filtered = false;
@@ -1074,7 +1076,7 @@ fn filter_backed_statements<T: Config>(
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number = match <shared::Pallet<T>>::allowed_relay_parents()
+		let relay_parent_block_number = match allowed_relay_parents
 			.acquire_info(bc.descriptor().relay_parent, None) {
 				Some((_, block_num)) => block_num,
 				None => {
@@ -1153,5 +1155,5 @@ fn filter_backed_statements<T: Config>(
 		filtered = backed_len_before > backed_candidates.len();
 	}
 
-	Ok(filtered)
+	filtered
 }
