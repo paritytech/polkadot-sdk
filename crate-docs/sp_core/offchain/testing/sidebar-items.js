@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["OffchainState","PendingRequest","PoolState","TestOffchainExt","TestPersistentOffchainDB","TestTransactionPoolExt"]};

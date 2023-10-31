@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["gcd","multiply_by_rational_with_rounding","split","sqrt","to_big_uint"]};

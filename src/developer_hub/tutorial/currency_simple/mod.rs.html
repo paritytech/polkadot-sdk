@@ -706,9 +706,36 @@
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Currency Pallet
 //!
-//! By the end of this tutorial, you will write a small pallet (see
+//! By the end of this tutorial, you will write a small FRAME pallet (see
 //! [`crate::polkadot_sdk::frame_runtime`]) that is capable of handling a simple crypto-currency.
 //! This pallet will:
 //!
@@ -716,6 +743,11 @@
 //!    real system).
 //! 2. Allow any user that owns tokens to transfer them to others.
 //! 3. Tracks of the total issuance of all tokens at all times.
+//!
+//! &gt; This tutorial will build a currency pallet from scratch using only the lowest primitives of
+//! &gt; FRAME, and is mainly intended for education, not *applicability*. For example, almost all
+//! &gt; FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
+//! &gt; one. Further advance FRAME related topics are discussed in [`crate::reference_docs`].
 //!
 //! ## Topics Covered
 //!
@@ -727,11 +759,11 @@
 //! - [Event](frame::pallet_macros::event)
 //! - [Error](frame::pallet_macros::error)
 //! - Basics of testing a pallet.
-//! - [Constructing a runtime](frame::runtime::construct_runtime)
+//! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
 //!
 //! ## Writing Your First Pallet
 //!
-//! You should have studied the following reference documents as a prelude to this tutorial:
+//! You should have studied the following modules as a prelude to this tutorial:
 //!
 //! - [`crate::reference_docs::blockchain_state_machines`]
 //! - [`crate::reference_docs::trait_based_programming`]
@@ -739,18 +771,26 @@
 //!
 //! ### Shell Pallet
 //!
-//! TODO: a small link to what a shell pallet looks like, and a mention that this is our starting
-//! point.
+//! Consider the following as a &quot;shell pallet&quot;. We continue building the rest of this pallet based
+//! on this template.
 //!
+//! [`pallet::config`](frame::pallet_macros::config) and
+//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
+//! to the documentation of each to get an overview of what they do.
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, shell_pallet)]
+</span><span class="doccomment">//!
 //! ### Storage
 //!
-//! First, we will need to create two storage. One should be a mapping from account ids to a balance
-//! type, and one value that is the total issuance. For the rest of this tutorial, we will opt for a
-//! balance type of u128. to
+//! First, we will need to create two onchain storage declarations.
+//!
+//! One should be a mapping from account-ids to a balance type, and one value that is the total
+//! issuance.
+</span><span class="comment">//
+// For the rest of this tutorial, we will opt for a balance type of u128.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, Balance)]
 </span><span class="doccomment">//!
-//! The definition of these two storage items, based on [`frame::pallet_macros::storage`], is as
-//! follows:
+//! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
+//! is as follows:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, TotalIssuance)]
 #![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, Balances)]
 </span><span class="doccomment">//!
@@ -765,11 +805,12 @@
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
 //!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
-//! - What is `ensure_signed`, and what does it to with the aforementioned `T::RuntimeOrigin`? this
+//! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? this
 //!   is outside the scope of this tutorial, and you can learn more about it in the origin reference
-//!   document (TODO). For now, you should only know the signature of the function: it takes a
-//!   generic `T::RuntimeOrigin` and returns a `Result&lt;T::AccountId, _&gt;`. So by the end of this
-//!   function call, we know that this dispatchable was signed by `who`.
+//!   document ([`crate::reference_docs::origin_account_abstraction`]). For now, you should only
+//!   know the signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
+//!   `Result&lt;T::AccountId, _&gt;`. So by the end of this function call, we know that this dispatchable
+//!   was signed by `who`.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;../substrate/frame/system/src/lib.rs&quot;</span>, ensure_signed)]
 </span><span class="doccomment">//!
 //!
@@ -782,11 +823,12 @@
 </span><span class="doccomment">//!
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
 //! the `Err` variant. We won&#39;t cover this error in detail here, but importantly you should know
-//! that there is an `impl From&lt;&amp;&#39;static string&gt; for DispatchError` provided (see here). Therefore,
+//! that there is an `impl From&lt;&amp;&#39;static string&gt; for DispatchError` provided (see
+//! [here](`frame::prelude::DispatchError#impl-From&lt;%26&#39;static+str&gt;-for-DispatchError`)). Therefore,
 //! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
-//! - Why are all `get` and `mutate` functions return an `Option`? This is the default behavior of
-//!   FRAME storage APIs. You can learn more about how to override this by looking into
+//! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
+//!   of FRAME storage APIs. You can learn more about how to override this by looking into
 //!   [`frame::pallet_macros::storage`], and
 //!   [`frame::prelude::ValueQuery`]/[`frame::prelude::OptionQuery`]
 //!
@@ -794,28 +836,28 @@
 //!
 //! How we handle error in the above snippets is fairly rudimentary. Let&#39;s look at how this can be
 //! improved. First, we can use [`frame::prelude::ensure`] to express the error slightly better.
-//! This macro will call `.into()` under the hood for us.
+//! This macro will call `.into()` under the hood.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, transfer_better)]
 </span><span class="doccomment">//!
-//! Moreover, you will learn elsewhere (TODO link) that it is always recommended to use safe
-//! arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not only
-//! take a step in that direction, but also improve the error handing and make it slightly more
-//! ergonomic.
+//! Moreover, you will learn elsewhere ([`crate::reference_docs::safe_defensive_programming`]) that
+//! it is always recommended to use safe arithmetic operations in your runtime. By using
+//! [`frame::traits::CheckedSub`], we can not only take a step in that direction, but also improve
+//! the error handing and make it slightly more ergonomic.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, transfer_better_checked)]
 </span><span class="doccomment">//!
-//! This is more or less all the logic that there is this basic pallet!
+//! This is more or less all the logic that there is this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!
 //! Next, we create a &quot;test runtime&quot; in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
 //! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to include
-//! [`frame::frame_system`]. So we expect to see a runtime with two pallet, `frame_system` and the
-//! one we just wrote.
+//! [`frame::prelude::frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
+//! and the one we just wrote.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tutorial/currency_simple/mod.rs&quot;</span>, runtime)]
 </span><span class="doccomment">//!
-//! &gt; `derive_impl` is a FRAME feature that enables us to have defaults for associated types. You
-//! &gt; can learn more about it in TODO.
+//! &gt; [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
+//! &gt; defaults for associated types.
 //!
 //! Recall that within out pallet, (almost) all blocks of code are generic over `&lt;T: Config&gt;`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
@@ -826,13 +868,13 @@
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
 //! is to implement the `trait Config` of all pallets. That is, anywhere within your pallet code
 //! where you see `&lt;T: Config&gt;` (read: *&quot;some type `T` that implements `Config`&quot;*), in the runtime,
-//! it can be replaced with `Runtime`, because `Runtime` implements `Config` of all pallets, as we
+//! it can be replaced with `&lt;Runtime&gt;`, because `Runtime` implements `Config` of all pallets, as we
 //! see above.
 //!
 //! Another way to think about this is that within a pallet, a lot of types are &quot;unknown&quot; and, we
 //! only know that they will be provided at some later point. For example, when you write
 //! `T::AccountId` (which is short for `&lt;T as frame_system::Config&gt;`) in your pallet, you are in
-//! fact saying &quot;Some type `AccountId` that will be known later&quot;. That &quot;later&quot; is in fact when you
+//! fact saying &quot;*Some type `AccountId` that will be known later*&quot;. That &quot;later&quot; is in fact when you
 //! specify these types when you implement all `Config` traits for `Runtime`.
 //!
 //! As you see above, `frame_system::Config` is setting the `AccountId` to `u64`. Of course, a real
@@ -918,8 +960,6 @@
 //!
 //! ### Event and Error
 //!
-//! TODO: this should be a new tutorial.
-//!
 //! Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
 //! Errors. First, let&#39;s understand what each are.
 //!
@@ -937,8 +977,8 @@
 //!   (eg. a light-client, A DApp) to listen to particular events happening, without needing to
 //!   re-execute the whole state transition function.
 //!
-//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation of
-//! event is probably not the best.
+//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
+//! of event is probably not the best.
 //!
 //! With the explanation out of the way, let&#39;s see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with an extra `#[frame::event/error]` attribute
@@ -975,6 +1015,8 @@
 //! to see its definition in rust-docs:
 //! [`crate::tutorial::currency_simple::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
+//!
+//!
 //! ## What Next?
 //!
 //! The following topics where used in this tutorial, but not covered in depth. It is suggested to
@@ -988,7 +1030,19 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 
-</span><span class="kw">mod </span>parts;
+</span><span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+
+<span class="attr">#[docify::export]
+#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>shell_pallet {
+	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+}
 
 <span class="attr">#[frame::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>pallet {
@@ -1307,7 +1361,9 @@
 	#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The overarching event type of the runtime.
-		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
+		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;
+			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;
+			+ TryInto&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
 	}
 
 	<span class="attr">#[pallet::pallet]
@@ -1403,13 +1459,11 @@
 				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">150</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 
-				<span class="comment">// when:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">1</span>, <span class="number">50</span>));
-
-				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+				<span class="comment">// now we can also check that an event has been deposited:
+				</span><span class="macro">assert_eq!</span>(
+					System::read_events_for_pallet::&lt;Event&lt;Runtime&gt;&gt;(),
+					<span class="macro">vec!</span>[Event::Transferred { from: <span class="number">1</span>, to: <span class="number">2</span>, amount: <span class="number">50 </span>}]
+				);
 			});
 		}
 	}

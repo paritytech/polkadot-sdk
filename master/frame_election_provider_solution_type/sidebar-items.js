@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"macro":["generate_solution_type"]};

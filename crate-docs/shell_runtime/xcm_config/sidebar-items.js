@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["JustTheParent","MaxAssetsIntoHolding","MaxInstructions","RococoLocation","RococoNetwork","UnitWeightCost","UniversalLocation","XcmConfig"],"type":["XcmOriginToTransactDispatchOrigin"]};

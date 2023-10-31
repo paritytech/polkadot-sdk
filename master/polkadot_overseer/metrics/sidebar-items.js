@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["metrics"],"struct":["Metrics"],"trait":["MetricsTrait"]};

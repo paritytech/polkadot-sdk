@@ -327,6 +327,20 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -448,7 +462,7 @@
 }
 
 <span class="doccomment">/// Trait for providing an interface for NFT-like items which may be minted, burned and/or have
-/// attributes set on them.
+/// attributes and metadata set on them.
 </span><span class="kw">pub trait </span>Mutate&lt;AccountId, ItemConfig&gt;: Inspect&lt;AccountId&gt; {
 	<span class="doccomment">/// Mint some `item` to be owned by `who`.
 	///
@@ -487,6 +501,13 @@
 		key.using_encoded(|k| value.using_encoded(|v| <span class="self">Self</span>::set_attribute(item, k, v)))
 	}
 
+	<span class="doccomment">/// Set the metadata `data` of an `item`.
+	///
+	/// By default, this is not a supported operation.
+	</span><span class="kw">fn </span>set_metadata(_who: <span class="kw-2">&amp;</span>AccountId, _item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; DispatchResult {
+		<span class="prelude-val">Err</span>(TokenError::Unsupported.into())
+	}
+
 	<span class="doccomment">/// Clear attribute of `item`&#39;s `key`.
 	///
 	/// By default, this is not a supported operation.
@@ -499,6 +520,13 @@
 	/// By default this just attempts to use `clear_attribute`.
 	</span><span class="kw">fn </span>clear_typed_attribute&lt;K: Encode&gt;(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>K) -&gt; DispatchResult {
 		key.using_encoded(|k| <span class="self">Self</span>::clear_attribute(item, k))
+	}
+
+	<span class="doccomment">/// Clear the metadata of an `item`.
+	///
+	/// By default, this is not a supported operation.
+	</span><span class="kw">fn </span>clear_metadata(_who: <span class="kw-2">&amp;</span>AccountId, _item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId) -&gt; DispatchResult {
+		<span class="prelude-val">Err</span>(TokenError::Unsupported.into())
 	}
 }
 
@@ -541,7 +569,7 @@
 		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::custom_attribute(account, <span class="kw-2">&amp;</span>A::get(), item, key)
 	}
 	<span class="kw">fn </span>system_attribute(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::system_attribute(<span class="kw-2">&amp;</span>A::get(), item, key)
+		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::system_attribute(<span class="kw-2">&amp;</span>A::get(), <span class="prelude-val">Some</span>(item), key)
 	}
 	<span class="kw">fn </span>typed_attribute&lt;K: Encode, V: Decode&gt;(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>K) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt; {
 		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::typed_attribute(<span class="kw-2">&amp;</span>A::get(), item, key)
@@ -559,7 +587,7 @@
 		)
 	}
 	<span class="kw">fn </span>typed_system_attribute&lt;K: Encode, V: Decode&gt;(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>K) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt; {
-		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::typed_system_attribute(<span class="kw-2">&amp;</span>A::get(), item, key)
+		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::typed_system_attribute(<span class="kw-2">&amp;</span>A::get(), <span class="prelude-val">Some</span>(item), key)
 	}
 	<span class="kw">fn </span>can_transfer(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId) -&gt; bool {
 		&lt;F <span class="kw">as </span>nonfungibles::Inspect&lt;AccountId&gt;&gt;::can_transfer(<span class="kw-2">&amp;</span>A::get(), item)

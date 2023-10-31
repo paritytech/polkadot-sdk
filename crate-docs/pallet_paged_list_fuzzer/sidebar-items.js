@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Op"],"fn":["drain_append_work","main"],"type":["Meta"]};

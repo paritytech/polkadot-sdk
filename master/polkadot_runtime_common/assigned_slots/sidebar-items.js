@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["SlotLeasePeriodStart"],"mod":["migration","pallet"],"struct":["ParachainTemporarySlot","TestWeightInfo"],"trait":["WeightInfo"]};

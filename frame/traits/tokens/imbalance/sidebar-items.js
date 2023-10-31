@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SignedImbalance"],"struct":["SplitTwoWays"],"trait":["Imbalance","OnUnbalanced"]};
+window.SIDEBAR_ITEMS = {"enum":["SignedImbalance"],"struct":["ResolveAssetTo","ResolveTo","SplitTwoWays"],"trait":["Imbalance","OnUnbalanced"]};

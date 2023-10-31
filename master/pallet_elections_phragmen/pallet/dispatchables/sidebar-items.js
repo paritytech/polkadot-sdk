@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["clean_defunct_voters","remove_member","remove_voter","renounce_candidacy","submit_candidacy","vote"]};

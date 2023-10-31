@@ -355,12 +355,6 @@
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -380,7 +374,7 @@
 
 </span><span class="doccomment">//! # FRAME
 //!
-//! ```co_compile
+//! ```no_compile
 //!   ______   ______    ________   ___ __ __   ______
 //!  /_____/\ /_____/\  /_______/\ /__//_//_/\ /_____/\
 //!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
@@ -408,16 +402,9 @@
 //!
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
-//!
-//! ## Underlying dependencies
-//!
-//! This crate is an amalgamation of multiple other crates that are often used together to compose a
-//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
-//!
-//! In short, this crate only re-exports types and traits from multiple sources. All of these
-//! sources are listed (and re-exported again) in [`deps`].
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 
 </span><span class="doccomment">/// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
 /// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.
@@ -429,7 +416,7 @@
 
 <span class="kw">pub use </span>frame_support::pallet_macros::{import_section, pallet_section};
 
-<span class="doccomment">/// The logging library of the runtime. Can be normally like the classic `log` crate.
+<span class="doccomment">/// The logging library of the runtime. Can normally be the classic `log` crate.
 </span><span class="kw">pub use </span>log;
 
 <span class="doccomment">/// A list of all macros used within the main [`pallet`] macro.
@@ -437,12 +424,12 @@
 /// Note: All of these macros are &quot;stubs&quot; and not really usable outside `#[pallet] mod pallet { ..
 /// }`. They are mainly provided for documentation and IDE support.
 </span><span class="kw">pub mod </span>pallet_macros {
-	<span class="kw">pub use </span>frame_support::pallet_macros::<span class="kw-2">*</span>;
+	<span class="kw">pub use </span>frame_support::{derive_impl, pallet, pallet_macros::<span class="kw-2">*</span>};
 }
 
 <span class="doccomment">/// The main prelude of FRAME.
 ///
-/// This prelude should almost always be the first non-import line of code in any pallet or runtime.
+/// This prelude should almost always be the first line of code in any pallet or runtime.
 ///
 /// ```
 /// use frame::prelude::*;
@@ -482,14 +469,15 @@
 /// A test setup typically starts with:
 ///
 /// ```
-/// use frame::{prelude::*, testing_prelude::*};
+/// use frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub mod </span>testing_prelude {
+	<span class="kw">pub use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
 	<span class="doccomment">/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
-	</span><span class="kw">pub use </span><span class="kw">super</span>::runtime::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
+	</span><span class="kw">pub use </span><span class="kw">super</span>::runtime::testing_prelude::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// Other helper macros from `frame_support` that help with asserting in tests.
 	</span><span class="kw">pub use </span>frame_support::{
@@ -553,7 +541,8 @@
 	/// ```
 	</span><span class="comment">// TODO: This is because of wildcard imports, and it should be not needed once we can avoid
 	// that. Imports like that are needed because we seem to need some unknown types in the macro
-	// expansion.
+	// expansion. See `sp_session::runtime_api::*;` as one example. All runtime api decls should be
+	// moved to file similarly.
 	</span><span class="attr">#[allow(ambiguous_glob_reexports)]
 	</span><span class="kw">pub mod </span>apis {
 		<span class="comment">// Types often used in the runtime APIs.
@@ -567,7 +556,7 @@
 		<span class="kw">pub use </span>sp_consensus_aura::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_consensus_grandpa::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_offchain::<span class="kw-2">*</span>;
-		<span class="kw">pub use </span>sp_session::api::<span class="kw-2">*</span>;
+		<span class="kw">pub use </span>sp_session::runtime_api::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_transaction_pool::runtime_api::<span class="kw-2">*</span>;
 	}
 
@@ -585,25 +574,24 @@
 	///   `AccountIdLookup` in [`frame_system::Config::Lookup`].
 	</span><span class="kw">pub mod </span>types_common {
 		<span class="kw">use </span>frame_system::Config <span class="kw">as </span>SysConfig;
+		<span class="kw">use </span>sp_runtime::{generic, traits, OpaqueExtrinsic};
 
 		<span class="doccomment">/// A signature type compatible capably of handling multiple crypto-schemes.
 		</span><span class="kw">pub type </span>Signature = sp_runtime::MultiSignature;
 
 		<span class="doccomment">/// The corresponding account-id type of [`Signature`].
-		</span><span class="kw">pub type </span>AccountId = &lt;
-			&lt;Signature <span class="kw">as </span>sp_runtime::traits::Verify&gt;::Signer
-			<span class="kw">as
-			</span>sp_runtime::traits::IdentifyAccount
-		&gt;::AccountId;
+		</span><span class="kw">pub type </span>AccountId =
+			&lt;&lt;Signature <span class="kw">as </span>traits::Verify&gt;::Signer <span class="kw">as </span>traits::IdentifyAccount&gt;::AccountId;
 
 		<span class="doccomment">/// The block-number type, which should be fed into [`frame_system::Config`].
 		</span><span class="kw">pub type </span>BlockNumber = u32;
 
-		<span class="kw">type </span>HeaderInner&lt;T&gt; = sp_runtime::generic::Header&lt;BlockNumber, &lt;T <span class="kw">as </span>SysConfig&gt;::Hashing&gt;;
+		<span class="doccomment">/// TODO: Ideally we want the hashing type to be equal to SysConfig::Hashing?
+		</span><span class="kw">type </span>HeaderInner = generic::Header&lt;BlockNumber, traits::BlakeTwo256&gt;;
 
 		<span class="comment">// NOTE: `AccountIndex` is provided for future compatibility, if you want to introduce
 		// something like `pallet-indices`.
-		</span><span class="kw">type </span>ExtrinsicInner&lt;T, Extra, AccountIndex = ()&gt; = sp_runtime::generic::UncheckedExtrinsic&lt;
+		</span><span class="kw">type </span>ExtrinsicInner&lt;T, Extra, AccountIndex = ()&gt; = generic::UncheckedExtrinsic&lt;
 			sp_runtime::MultiAddress&lt;AccountId, AccountIndex&gt;,
 			&lt;T <span class="kw">as </span>SysConfig&gt;::RuntimeCall,
 			Signature,
@@ -616,18 +604,17 @@
 		/// When in doubt, use [`SystemSignedExtensionsOf`].
 		</span><span class="comment">// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
-		</span><span class="kw">pub type </span>BlockOf&lt;T, Extra = ()&gt; =
-			sp_runtime::generic::Block&lt;HeaderInner&lt;T&gt;, ExtrinsicInner&lt;T, Extra&gt;&gt;;
+		</span><span class="kw">pub type </span>BlockOf&lt;T, Extra = ()&gt; = generic::Block&lt;HeaderInner, ExtrinsicInner&lt;T, Extra&gt;&gt;;
 
 		<span class="doccomment">/// The opaque block type. This is the same [`BlockOf`], but it has
-		/// [`sp_runtime::OpaqueExtrinsic`] as its final extrinsic type. This should be provided to
-		/// the client side as the extrinsic type.
-		</span><span class="kw">pub type </span>OpaqueBlockOf&lt;T&gt; =
-			sp_runtime::generic::Block&lt;HeaderInner&lt;T&gt;, sp_runtime::OpaqueExtrinsic&gt;;
+		/// [`sp_runtime::OpaqueExtrinsic`] as its final extrinsic type.
+		///
+		/// This should be provided to the client side as the extrinsic type.
+		</span><span class="kw">pub type </span>OpaqueBlock = generic::Block&lt;HeaderInner, OpaqueExtrinsic&gt;;
 
 		<span class="doccomment">/// Default set of signed extensions exposed from the `frame_system`.
 		///
-		/// crucially, this does not contain any tx-payment extension.
+		/// crucially, this does NOT contain any tx-payment extension.
 		</span><span class="kw">pub type </span>SystemSignedExtensionsOf&lt;T&gt; = (
 			frame_system::CheckNonZeroSender&lt;T&gt;,
 			frame_system::CheckSpecVersion&lt;T&gt;,
@@ -644,6 +631,7 @@
 	/// counter part of `runtime::prelude`.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub mod </span>testing_prelude {
+		<span class="kw">pub use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_core::storage::Storage;
 		<span class="kw">pub use </span>sp_runtime::BuildStorage;
 	}

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["check_genesis_storage"],"struct":["Backend","BlockImportOperation","Blockchain"]};

@@ -229,6 +229,13 @@
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -256,7 +263,7 @@
 <span class="kw">mod </span>on_unbalanced;
 <span class="kw">mod </span>signed_imbalance;
 <span class="kw">mod </span>split_two_ways;
-<span class="kw">pub use </span>on_unbalanced::OnUnbalanced;
+<span class="kw">pub use </span>on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
 <span class="kw">pub use </span>signed_imbalance::SignedImbalance;
 <span class="kw">pub use </span>split_two_ways::SplitTwoWays;
 
@@ -302,6 +309,10 @@
 	<span class="doccomment">/// Consume `self` and return two independent instances; the first
 	/// is guaranteed to be at most `amount` and the second will be the remainder.
 	</span><span class="kw">fn </span>split(<span class="self">self</span>, amount: Balance) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>);
+
+	<span class="doccomment">/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	</span><span class="kw">fn </span>extract(<span class="kw-2">&amp;mut </span><span class="self">self</span>, amount: Balance) -&gt; <span class="self">Self</span>;
 
 	<span class="doccomment">/// Consume `self` and return two independent instances; the amounts returned will be in
 	/// approximately the same ratio as `first`:`second`.
@@ -420,6 +431,9 @@
 	}
 	<span class="kw">fn </span>split(<span class="self">self</span>, <span class="kw">_</span>: Balance) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>) {
 		((), ())
+	}
+	<span class="kw">fn </span>extract(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: Balance) -&gt; <span class="self">Self </span>{
+		()
 	}
 	<span class="kw">fn </span>ration(<span class="self">self</span>, <span class="kw">_</span>: u32, <span class="kw">_</span>: u32) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>)
 	<span class="kw">where

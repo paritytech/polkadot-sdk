@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["InvalidStatement","StatementSource","SubmitResult"],"mod":["statement_store"],"struct":["StatementStoreExt","ValidStatement"],"trait":["ValidateStatement"],"type":["HostFunctions"]};

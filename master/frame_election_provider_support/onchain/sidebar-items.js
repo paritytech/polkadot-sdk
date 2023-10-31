@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["OnChainExecution"],"trait":["Config"],"type":["BoundedExecution","OnChainBoundedSupportsOf"]};

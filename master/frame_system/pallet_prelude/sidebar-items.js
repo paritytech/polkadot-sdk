@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["BlockNumberFor","ExtrinsicFor","HeaderFor","OriginFor","RuntimeCallFor"]};

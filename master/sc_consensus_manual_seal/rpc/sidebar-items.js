@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["EngineCommand"],"fn":["send_result"],"struct":["CreatedBlock","ManualSeal"],"trait":["ManualSealApiClient","ManualSealApiServer"],"type":["Sender"]};

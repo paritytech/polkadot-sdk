@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["OLD_PREFIX"],"fn":["migrate","post_migration","pre_migration"]};

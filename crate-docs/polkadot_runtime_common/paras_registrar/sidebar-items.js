@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["migration","pallet"],"struct":["ParaInfo","TestWeightInfo"],"trait":["WeightInfo"]};

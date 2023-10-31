@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_APPROVAL_BATCH_SIZE","MAX_ASSIGNMENT_BATCH_SIZE"],"struct":["ApprovalDistribution"]};

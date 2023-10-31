@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["Babe","EpochAuthorship"],"trait":["BabeApiClient","BabeApiServer"]};

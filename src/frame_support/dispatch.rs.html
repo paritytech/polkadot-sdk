@@ -1484,7 +1484,7 @@
 }
 
 <span class="doccomment">/// A struct holding value for each `DispatchClass`.
-</span><span class="attr">#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+</span><span class="attr">#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>PerDispatchClass&lt;T&gt; {
 	<span class="doccomment">/// Value for `Normal` extrinsics.
 	</span>normal: T,

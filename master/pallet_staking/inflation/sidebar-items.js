@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["compute_total_payout"]};

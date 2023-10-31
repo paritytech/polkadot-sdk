@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["BoundedMixnode","Registration"],"type":["AuthorityIndex","BoundedMixnodeFor","RegistrationFor"]};

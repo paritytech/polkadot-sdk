@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","WasmError"],"struct":["Backtrace","MessageWithBacktrace"],"type":["Result"]};

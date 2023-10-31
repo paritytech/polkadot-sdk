@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AlternativeSyntax","AlternativeSyntax2","Bar","Foo","FooWithDefault","Quux","Qux"]};

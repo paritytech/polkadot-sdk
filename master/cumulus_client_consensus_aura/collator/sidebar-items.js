@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["claim_slot","seal"],"struct":["Collator","Params","SlotClaim"]};

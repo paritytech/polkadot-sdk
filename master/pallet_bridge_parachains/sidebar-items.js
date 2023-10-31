@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"mod":["pallet","weights","weights_ext"],"struct":["ParachainHeaders","SubmitParachainHeadsHelper","SubmitParachainHeadsInfo"],"trait":["CallSubType"],"type":["RelayBlockHash","RelayBlockHasher","RelayBlockNumber"]};

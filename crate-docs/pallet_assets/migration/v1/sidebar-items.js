@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["MigrateToV1","OldAssetDetails"]};

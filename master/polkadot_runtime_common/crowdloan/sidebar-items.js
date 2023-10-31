@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["LastContribution"],"mod":["migration","pallet"],"struct":["FundInfo","TestWeightInfo"],"trait":["WeightInfo"]};

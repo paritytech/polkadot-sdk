@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["receive_messages_delivery_proof","receive_messages_proof","set_operating_mode","set_owner"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ChildBountyStatus"],"mod":["pallet","weights"],"struct":["ChildBounty"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BlockLength","BlockWeights","BlockWeightsBuilder","ValidationErrors","WeightsPerClass"],"type":["ValidationResult"]};

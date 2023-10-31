@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["cause_error","do_something"]};

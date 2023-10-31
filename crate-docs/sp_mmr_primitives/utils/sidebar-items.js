@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["block_num_to_leaf_index","first_mmr_block_num"],"struct":["NodesUtils"]};

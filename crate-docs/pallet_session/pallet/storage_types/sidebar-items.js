@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CurrentIndex","DisabledValidators","KeyOwner","NextKeys","QueuedChanged","QueuedKeys","Validators"]};

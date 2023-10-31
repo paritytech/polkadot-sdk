@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["logger_hook"],"mod":["metrics","metronome"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CountBound","DataProviderBounds","ElectionBounds","ElectionBoundsBuilder","SizeBound"]};

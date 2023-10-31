@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Kind","Level","LevelFilter","Metadata","ParseLevelError","ParseLevelFilterError"]};

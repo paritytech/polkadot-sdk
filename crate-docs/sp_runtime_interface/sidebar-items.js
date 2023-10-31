@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"attr":["runtime_interface"],"fn":["pack_ptr_and_len","unpack_ptr_and_len"],"mod":["host","pass_by","wasm"],"trait":["RIType"],"type":["Pointer"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["StatementKind"],"mod":["pallet"],"struct":["EcdsaSignature","EthereumAddress","PrevalidateAttests","TestWeightInfo"],"trait":["WeightInfo"]};

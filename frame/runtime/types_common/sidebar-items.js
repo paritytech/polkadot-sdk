@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["AccountId","BlockNumber","BlockOf","OpaqueBlockOf","Signature","SystemSignedExtensionsOf"]};
+window.SIDEBAR_ITEMS = {"type":["AccountId","BlockNumber","BlockOf","OpaqueBlock","Signature","SystemSignedExtensionsOf"]};

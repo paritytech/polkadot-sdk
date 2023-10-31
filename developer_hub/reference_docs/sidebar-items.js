@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["blockchain_state_machines","frame_composite_enums","glossary","origin_account_abstraction","runtime_vs_smart_contract","safe_defensive_programming","trait_based_programming","wasm_meta_protocol"]};
+window.SIDEBAR_ITEMS = {"mod":["blockchain_state_machines","extrinsic_encoding","fee_less_runtime","frame_composite_enums","glossary","metadata","origin_account_abstraction","runtime_vs_smart_contract","safe_defensive_programming","signed_extensions","trait_based_programming","wasm_meta_protocol"]};

@@ -548,7 +548,7 @@ transaction:</p>
 <p>I.e. a trait implementation with bound <code>T: Config</code>, of trait
 <a href="pallet_prelude/trait.ValidateUnsigned.html" title="trait frame_support::pallet_prelude::ValidateUnsigned"><code>ValidateUnsigned</code></a> for type <code>Pallet&lt;T&gt;</code>, and some
 optional where clause.</p>
-<p>NOTE: There is also the [<code>sp_runtime::traits::SignedExtension</code>] trait that can be used to
+<p>NOTE: There is also the <a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>sp_runtime::traits::SignedExtension</code></a> trait that can be used to
 add some specific logic for transaction validation.</p>
 <p>Also see <a href="pallet_macros/attr.validate_unsigned.html" title="attr frame_support::pallet_macros::validate_unsigned"><code>pallet::validate_unsigned</code></a></p>
 <h2 id="origin-palletorigin-optional"><a href="#origin-palletorigin-optional">Origin: <code>#[pallet::origin]</code> (optional)</a></h2>
@@ -575,8 +575,7 @@ Custom identifiers are not supported.</p>
 <code>#[pallet::composite_enum]</code> attribute will automatically derive the following traits for
 the enum:</p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-RuntimeDebug</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug</code></pre></div>
 <p>The inverse is also true: if there are any #<a href="https://doc.rust-lang.org/1.73.0/core/macros/builtin/attr.derive.html" title="attr core::macros::builtin::derive">derive</a> attributes present for the enum, then
 the attribute will not automatically derive any of the traits described above.</p>
 <h2 id="general-notes-on-instantiable-pallets"><a href="#general-notes-on-instantiable-pallets">General notes on instantiable pallets</a></h2>
@@ -736,6 +735,15 @@ instance, it is important to bound by <code>= ()</code> on every type.</p>
 	</span><span class="attr">#[pallet::origin]
 	</span><span class="kw">pub struct </span>Origin&lt;T&gt;(PhantomData&lt;T&gt;);
 
+    <span class="comment">// Declare a hold reason (this is optional).
+    //
+    // Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+    // A similar enum can be defined for `FreezeReason`, `LockId` or `SlashReason`.
+    </span><span class="attr">#[pallet::composite_enum]
+	</span><span class="kw">pub enum </span>HoldReason {
+		SomeHoldReason
+	}
+
 	<span class="comment">// Declare validate_unsigned implementation (this is optional).
 	</span><span class="attr">#[pallet::validate_unsigned]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; ValidateUnsigned <span class="kw">for </span>Pallet&lt;T&gt; {
@@ -865,6 +873,11 @@ instance, it is important to bound by <code>= ()</code> on every type.</p>
 
 	<span class="attr">#[pallet::origin]
 	</span><span class="kw">pub struct </span>Origin&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
+
+    <span class="attr">#[pallet::composite_enum]
+	</span><span class="kw">pub enum </span>HoldReason&lt;I: <span class="lifetime">&#39;static </span>= ()&gt; {
+		SomeHoldReason
+	}
 
 	<span class="attr">#[pallet::validate_unsigned]
 	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ValidateUnsigned <span class="kw">for </span>Pallet&lt;T, I&gt; {

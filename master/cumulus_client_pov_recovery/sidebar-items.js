@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RecoveryKind"],"struct":["PoVRecovery","RecoveryDelayRange","RecoveryRequest"],"trait":["RecoveryHandle"]};

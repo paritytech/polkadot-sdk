@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["fill_old_queue"],"struct":["DeletionQueueManager","Migration"]};

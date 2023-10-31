@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AnyNetwork","BaseXcmWeight","DoNothingRouter","DummyAssetTransactor","DummyWeightTrader","MaxAssetsIntoHolding","MaxInstructions","UniversalLocation","XcmConfig"],"type":["Barrier","LocalOriginToLocation"]};

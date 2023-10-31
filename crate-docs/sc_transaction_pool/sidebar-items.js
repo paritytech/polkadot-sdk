@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RevalidationType","ValidatedTransaction"],"fn":["notification_future"],"mod":["error"],"struct":["BasicPool","FullChainApi","Options","Pool","PoolLimit","Transaction"],"trait":["ChainApi"],"type":["FullPool"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_KADEMLIA_REPLICATION_FACTOR"],"enum":["DiscoveryOut"],"struct":["DiscoveryBehaviour","DiscoveryConfig"]};

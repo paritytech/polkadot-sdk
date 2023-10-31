@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"fn":["verify_leaves_proof"],"mod":["pallet"],"struct":["NodesUtils","ParentNumberAndHash"],"trait":["LeafDataProvider","WeightInfo"],"type":["LeafIndex","NodeIndex"]};

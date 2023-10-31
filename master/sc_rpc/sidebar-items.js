@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DenyUnsafe"],"mod":["author","chain","dev","mixnet","offchain","state","statement","system"],"struct":["RandomIntegerSubscriptionId","RandomStringSubscriptionId"],"trait":["RpcSubscriptionIdProvider"],"type":["SubscriptionTaskExecutor"]};

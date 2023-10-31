@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["clear_all_leases","force_lease","trigger_onboard"]};

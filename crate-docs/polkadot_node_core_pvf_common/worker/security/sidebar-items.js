@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["check_env_vars_were_cleared","unshare_user_namespace_and_change_root"],"mod":["landlock"]};

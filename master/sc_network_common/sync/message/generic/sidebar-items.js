@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["FromBlock"],"struct":["BlockAnnounce","BlockData","BlockRequest","BlockResponse"]};

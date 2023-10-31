@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MutateStorageError","StorageRetrievalError"],"struct":["StorageValueRef"],"type":["StorageValue"]};

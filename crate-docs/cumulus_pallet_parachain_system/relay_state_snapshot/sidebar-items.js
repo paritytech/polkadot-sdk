@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error","ReadEntryErr"],"struct":["MessagingStateSnapshot","RelayChainStateProof","RelayDispatchQueueRemainingCapacity"]};

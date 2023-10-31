@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ExecutionExtensions","ExtensionBeforeBlock"],"trait":["ExtensionsFactory"]};

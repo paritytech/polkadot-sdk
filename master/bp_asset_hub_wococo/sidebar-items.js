@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ASSET_HUB_WOCOCO_PARACHAIN_ID"],"enum":["Call","XcmBridgeHubRouterCall"],"struct":["BridgeHubWococoBaseFeeInWocs","XcmBridgeHubRouterTransactCallMaxWeight"]};

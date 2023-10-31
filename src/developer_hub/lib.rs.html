@@ -107,6 +107,16 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Developer Hub
 //!
 //! The Polkadot SDK Developer Hub.
@@ -114,7 +124,44 @@
 //! This crate is meant to be a *minimal*, but *always-accurate* source of information for those
 //! wishing to build on the Polkadot SDK.
 //!
-//! ## Why Rust Docs?
+//! ## Getting Started
+//!
+//! We suggest the following reading sequence:
+//!
+//! - Start by learning about the structure of the [`polkadot_sdk`] and its context.
+//! - Then, head over the [`tutorial`] to get more hand-on practice.
+//! - Whilst reading the tutorial, you might find back-links to [`reference_docs`].
+//! - Finally, &lt;https://paritytech.github.io&gt; is the parent website of this crate that hosts the
+//!   documentation of other related projects.
+//!
+//! ## Information Architecture
+//!
+//! This section paints a picture over the information architecture of this crate. In short, the
+//! list of modules below is the starting point. Each module has a short description of what it is
+//! covering.
+//!
+//! In a more visual representation, the information architecture of this crate is as follows:
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../docs/mermaid/IA.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! ## Contribution
+//!
+//! The following sections cover more detailed information about this crate and how it should be
+//! maintained.
+//!
+//! ### Checklist
+//!
+//! - [ ] Always make sure all downstream types and items are improved. Don&#39;t assume too many &quot;this
+//!   is blackbox&quot;. It should be a box that if I want to learn, there should be a way for it.
+//! - [ ] Make sure you read all relevant documents, build on top of. Imagine the process of posting
+//!   something new in SE.
+//!
+//! ### Note on `crates.io` and Publishing
+//!
+//! TODO: This crate cannot be published for now, and that is fine. We use `paritytech.github.io`
+//! as the entry point.
+//! TODO: link checker.
+//!
+//! ### Why Rust Docs?
 //!
 //! We acknowledge that blockchain based systems, particularly a cutting-edge one like the
 //! Polkadot-Sdk is a software artifact that is complex, and rapidly evolving. This makes the task
@@ -141,7 +188,7 @@
 //!
 //! Also see: &lt;https://github.com/paritytech/polkadot-sdk/issues/991&gt;.
 //!
-//! ## Scope
+//! ### Scope
 //!
 //! The above would NOT be unattainable if we don&#39;t acknowledge that the scope of this crate MUST be
 //! limited, or else its maintenance burden would be infeasible or not worthwhile. In short, future
@@ -175,35 +222,8 @@
 //! &gt; documented in multiple places across this crate. It should be only be documented in the
 //! &gt; corresponding crate (eg. `sc_cli`).
 //!
-//!
-//!
 //! For more details about documenting guidelines, see:
 //! &lt;https://github.com/paritytech/polkadot-sdk/master/docs/DOCUMENTATION_GUIDELINES.md&gt;
-//!
-//! ## Information Architecture
-//!
-//! This section paints a picture over the information architecture of this crate. In short, the
-//! list of modules below is the starting point. Each module has a short description of what it is
-//! covering.
-//!
-//! In a more visual representation, the information architecture of this crate is as follows:
-</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../docs/mermaid/IA.mmd&quot;</span>)]
-</span><span class="doccomment">//!
-//! ## Getting Started
-//!
-//! We suggest the following reading sequence:
-//!
-//! - Start by learning about the structure of the [`polkadot_sdk`] and its context.
-//! - Then, head over the [`tutorial`] to get more hand-on practice.
-//! - Whilst reading the tutorial, you might find back-links to [`reference_docs`].
-//! - Finally, &lt;https://paritytech.github.io&gt; is the parent website of this crate that hosts the
-//!   documentation of other related projects.
-//!
-//! ## Note on `crates.io` and Publishing
-//!
-//! TODO: This crate cannot be published for now, and that is fine. We use `paritytech.github.io` as
-//! the entry point.
-//! TODO: link checker.
 </span><span class="attr">#![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
 

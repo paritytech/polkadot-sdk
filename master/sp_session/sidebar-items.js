@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["generate_initial_session_keys"],"mod":["runtime_api"],"struct":["MembershipProof"],"trait":["GetSessionNumber","GetValidatorCount"],"type":["ValidatorCount"]};

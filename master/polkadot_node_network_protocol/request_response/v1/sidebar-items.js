@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["AvailableDataFetchingResponse","ChunkFetchingResponse","CollationFetchingResponse","DisputeResponse","PoVFetchingResponse","StatementFetchingResponse"],"struct":["AvailableDataFetchingRequest","ChunkFetchingRequest","ChunkResponse","CollationFetchingRequest","DisputeRequest","PoVFetchingRequest","StatementFetchingRequest"]};

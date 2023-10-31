@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BeefyBestBlockTracingKey","BeefyVersionedFinalityProofTracingKey"],"type":["BeefyBestBlockSender","BeefyBestBlockStream","BeefyVersionedFinalityProofSender","BeefyVersionedFinalityProofStream"]};

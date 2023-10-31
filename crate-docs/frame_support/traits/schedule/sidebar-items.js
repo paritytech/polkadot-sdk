@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["HARD_DEADLINE","HIGHEST_PRIORITY","LOWEST_PRIORITY"],"enum":["DispatchTime","LookupError","MaybeHashed"],"mod":["v1","v2","v3"],"type":["Period","Priority"]};

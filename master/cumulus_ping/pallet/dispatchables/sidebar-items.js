@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["ping","pong","start","start_many","stop","stop_all"]};

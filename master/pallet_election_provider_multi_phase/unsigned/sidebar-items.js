@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MinerError"],"struct":["Miner","TrimmingStatus"],"trait":["MinerConfig"],"type":["Assignment","IndexAssignmentOf","MinerVoterOf","SolverErrorOf","VoterOf"]};

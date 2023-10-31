@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DispatchError"],"fn":["convert_to_latest"],"struct":["ModuleError"],"type":["ApplyExtrinsicResult","DispatchOutcome"]};

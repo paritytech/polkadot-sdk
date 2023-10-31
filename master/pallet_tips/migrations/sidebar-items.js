@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["unreserve_deposits","v4"]};

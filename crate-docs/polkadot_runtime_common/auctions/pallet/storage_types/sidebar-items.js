@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["AuctionCounter","AuctionInfo","ReservedAmounts","Winning"]};

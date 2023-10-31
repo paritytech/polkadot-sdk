@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["AccountId","Balance","Block","Hash","MinimumBalance","Nonce","OpaqueBlock"]};

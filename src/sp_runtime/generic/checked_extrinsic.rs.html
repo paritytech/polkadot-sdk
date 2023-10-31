@@ -94,6 +94,8 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -122,9 +124,11 @@
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 
-<span class="doccomment">/// Definition of something that the external world might want to say; its
-/// existence implies that it has been checked and is good, particularly with
-/// regards to the signature.
+<span class="doccomment">/// Definition of something that the external world might want to say; its existence implies that it
+/// has been checked and is good, particularly with regards to the signature.
+///
+/// This is typically passed into [`traits::Applyable::apply`], which should execute
+/// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
 </span><span class="kw">pub struct </span>CheckedExtrinsic&lt;AccountId, Call, Extra&gt; {
 	<span class="doccomment">/// Who this purports to be from and the number of extrinsics have come before

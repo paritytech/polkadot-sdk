@@ -3518,7 +3518,7 @@
 	<span class="kw">fn </span>bound() -&gt; usize;
 }
 
-<span class="doccomment">/// Storage value that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+<span class="doccomment">/// Storage value that is capable of [`StorageTryAppend`].
 </span><span class="kw">pub trait </span>TryAppendValue&lt;T: StorageTryAppend&lt;I&gt;, I: Encode&gt; {
 	<span class="doccomment">/// Try and append the `item` into the storage item.
 	///
@@ -3547,7 +3547,7 @@
 	}
 }
 
-<span class="doccomment">/// Storage map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+<span class="doccomment">/// Storage map that is capable of [`StorageTryAppend`].
 </span><span class="kw">pub trait </span>TryAppendMap&lt;K: Encode, T: StorageTryAppend&lt;I&gt;, I: Encode&gt; {
 	<span class="doccomment">/// Try and append the `item` into the storage map at the given `key`.
 	///
@@ -3581,7 +3581,7 @@
 	}
 }
 
-<span class="doccomment">/// Storage double map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+<span class="doccomment">/// Storage double map that is capable of [`StorageTryAppend`].
 </span><span class="kw">pub trait </span>TryAppendDoubleMap&lt;K1: Encode, K2: Encode, T: StorageTryAppend&lt;I&gt;, I: Encode&gt; {
 	<span class="doccomment">/// Try and append the `item` into the storage double map at the given `key`.
 	///

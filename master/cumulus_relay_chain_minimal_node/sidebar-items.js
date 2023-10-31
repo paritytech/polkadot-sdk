@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["build_minimal_relay_chain_node_light_client","build_minimal_relay_chain_node_with_rpc"],"struct":["BlockChainRpcClient"]};
