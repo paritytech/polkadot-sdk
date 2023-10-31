@@ -1021,6 +1021,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+#[docify::export]
 /// Ensure that the origin `o` represents a signed extrinsic (i.e. transaction).
 /// Returns `Ok` with the account that signed the extrinsic or an `Err` otherwise.
 pub fn ensure_signed<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<AccountId, BadOrigin>
@@ -1353,10 +1354,13 @@ impl<T: Config> Pallet<T> {
 	/// This will update storage entries that correspond to the specified topics.
 	/// It is expected that light-clients could subscribe to this topics.
 	///
-	/// NOTE: Events not registered at the genesis block and quietly omitted.
+	/// NOTE: Events not registered at the genesis block and `not(feature = "std")` and quietly
+	/// omitted. But, in testing (`feature = "std"`) events are deposited normally.
 	pub fn deposit_event_indexed(topics: &[T::Hash], event: T::RuntimeEvent) {
 		let block_number = Self::block_number();
-		// Don't populate events on genesis.
+
+		// Don't populate events on "real" genesis
+		#[cfg(not(feature = "std"))]
 		if block_number.is_zero() {
 			return
 		}
@@ -1539,12 +1543,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn events() -> Vec<EventRecord<T::RuntimeEvent, T::Hash>> {
-		debug_assert!(
-			!Self::block_number().is_zero(),
-			"events not registered at the genesis block"
-		);
-		// Dereferencing the events here is fine since we are not in the
-		// memory-restricted runtime.
+		// Dereferencing the events here is fine since we are not in the memory-restricted runtime.
 		Self::read_events_no_consensus().map(|e| *e).collect()
 	}
 
@@ -1563,6 +1562,21 @@ impl<T: Config> Pallet<T> {
 	pub fn read_events_no_consensus(
 	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
+	}
+
+	/// Read and return the events of a specific pallet, as denoted by `E`.
+	///
+	/// This is useful for a pallet that wishes to read only the events it has deposited into
+	/// `frame_system` using the standard `fn deposit_event`.
+	pub fn read_events_for_pallet<E>() -> Vec<E>
+	where
+		T::RuntimeEvent: TryInto<E>,
+	{
+		Events::<T>::get()
+			.into_iter()
+			.map(|er| er.event)
+			.filter_map(|e| e.try_into().ok())
+			.collect::<_>()
 	}
 
 	/// Set the block number to something in particular. Can be used as an alternative to

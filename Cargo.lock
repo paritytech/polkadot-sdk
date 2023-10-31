@@ -4410,6 +4410,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "developer-hub"
+version = "0.0.1"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "docify",
+ "frame",
+ "pallet-aura",
+ "pallet-default-config-example",
+ "pallet-timestamp",
+ "parachain-info",
+ "parity-scale-codec",
+ "scale-info",
+ "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5209,7 +5232,7 @@ dependencies = [
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",
- "simple-mermaid",
+ "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?rev=e48b187bcfd5cc75111acd9d241f1bd36604344b)",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -5569,6 +5592,7 @@ version = "4.0.0-dev"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
+ "docify",
  "frame-support",
  "log",
  "parity-scale-codec",
@@ -11270,9 +11294,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.4"
+version = "3.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8e946cc0cc711189c0b0249fb8b599cbeeab9784d83c415719368bb8d4ac64"
+checksum = "0dec8a8073036902368c2cdc0387e85ff9a37054d7e7c98e592145e0c92cd4fb"
 dependencies = [
  "arrayvec 0.7.4",
  "bitvec",
@@ -11285,9 +11309,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.4"
+version = "3.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a296c3079b5fefbc499e1de58dc26c09b1b9a5952d26694ee89f04a43ebbb3e"
+checksum = "312270ee71e1cd70289dacf597cab7b207aa107d2f28191c2ae45b2ece18a260"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -16579,6 +16603,11 @@ dependencies = [
 [[package]]
 name = "simple-mermaid"
 version = "0.1.0"
+source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
+
+[[package]]
+name = "simple-mermaid"
+version = "0.1.0"
 source = "git+https://github.com/kianenigma/simple-mermaid.git?rev=e48b187bcfd5cc75111acd9d241f1bd36604344b#e48b187bcfd5cc75111acd9d241f1bd36604344b"
 
 [[package]]
@@ -17354,6 +17383,7 @@ dependencies = [
 name = "sp-runtime"
 version = "24.0.0"
 dependencies = [
+ "docify",
  "either",
  "hash256-std-hasher",
  "impl-trait-for-tuples",
@@ -17364,6 +17394,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+ "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
  "sp-api",
  "sp-application-crypto",
  "sp-arithmetic",
@@ -17922,25 +17953,6 @@ version = "3.0.0"
 dependencies = [
  "clap 4.4.6",
  "sc-cli",
-]
-
-[[package]]
-name = "substrate"
-version = "1.0.0"
-dependencies = [
- "chain-spec-builder",
- "frame-support",
- "sc-cli",
- "sc-consensus-aura",
- "sc-consensus-babe",
- "sc-consensus-beefy",
- "sc-consensus-grandpa",
- "sc-consensus-manual-seal",
- "sc-consensus-pow",
- "sc-service",
- "simple-mermaid",
- "sp-runtime",
- "subkey",
 ]
 
 [[package]]

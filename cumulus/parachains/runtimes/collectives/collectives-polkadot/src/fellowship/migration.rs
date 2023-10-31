@@ -238,7 +238,6 @@ pub mod tests {
 
 		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
 		ext.execute_with(|| {
 			assert_eq!(MemberCount::<Runtime, Fellowship>::get(0), 0);
 			Migration::<Runtime, Fellowship>::on_runtime_upgrade();
