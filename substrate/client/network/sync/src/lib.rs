@@ -3365,8 +3365,8 @@ mod test {
 		assert_eq!(pending_responses.len(), 0);
 	}
 
-	/// The test demonstrates the issue discussed here:
-	/// https://github.com/paritytech/polkadot-sdk/issues/493#issuecomment-1776648354.
+	/// The test demonstrates https://github.com/paritytech/polkadot-sdk/issues/2094.
+	/// TODO: convert it into desired behavior test once the issue is fixed (see inline comments).
 	/// The issue: we currently rely on block numbers instead of block hash
 	/// to download blocks from peers. As a result, we can end up with blocks
 	/// from different forks as shown by the test.
