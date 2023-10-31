@@ -107,7 +107,7 @@ pub trait QueryControllerWeightInfo {
 	/// Weight for [`QueryController::query`]
 	fn query() -> Weight;
 
-	/// Weight for [`QueryController::take_response`]
+	/// Weight for [`QueryHandler::take_response`]
 	fn take_response() -> Weight;
 }
 
