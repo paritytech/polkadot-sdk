@@ -1,6 +1,6 @@
 [package]
-name = "bp-asset-hub-wococo"
-description = "Primitives of AssetHubWococo parachain runtime."
+name = "bp-asset-hub-westend"
+description = "Primitives of AssetHubWestend parachain runtime."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

@@ -36,6 +36,10 @@ use crate::bridges::{
 		millau_headers_to_rialto_parachain::MillauToRialtoParachainCliBridge,
 		rialto_parachains_to_millau::RialtoParachainToMillauCliBridge,
 	},
+	rococo_westend::{
+		bridge_hub_rococo_messages_to_bridge_hub_westend::BridgeHubRococoToBridgeHubWestendMessagesCliBridge,
+		bridge_hub_westend_messages_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoMessagesCliBridge,
+	},
 	rococo_wococo::{
 		bridge_hub_rococo_messages_to_bridge_hub_wococo::BridgeHubRococoToBridgeHubWococoMessagesCliBridge,
 		bridge_hub_wococo_messages_to_bridge_hub_rococo::BridgeHubWococoToBridgeHubRococoMessagesCliBridge,
@@ -111,6 +115,8 @@ impl MessagesRelayer for MillauToRialtoParachainCliBridge {}
 impl MessagesRelayer for RialtoParachainToMillauCliBridge {}
 impl MessagesRelayer for BridgeHubRococoToBridgeHubWococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubWococoToBridgeHubRococoMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubRococoToBridgeHubWestendMessagesCliBridge {}
+impl MessagesRelayer for BridgeHubWestendToBridgeHubRococoMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge {}
 impl MessagesRelayer for BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge {}
 impl MessagesRelayer for PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge {}
@@ -130,6 +136,10 @@ impl RelayMessages {
 				BridgeHubRococoToBridgeHubWococoMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubWococoToBridgeHubRococo =>
 				BridgeHubWococoToBridgeHubRococoMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubRococoToBridgeHubWestend =>
+				BridgeHubRococoToBridgeHubWestendMessagesCliBridge::relay_messages(self),
+			FullBridge::BridgeHubWestendToBridgeHubRococo =>
+				BridgeHubWestendToBridgeHubRococoMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubKusamaToBridgeHubPolkadot =>
 				BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
 			FullBridge::BridgeHubPolkadotToBridgeHubKusama =>

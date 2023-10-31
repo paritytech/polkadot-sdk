@@ -16,20 +16,35 @@
 
 //! Types used to connect to the Westend chain.
 
+pub mod codegen_runtime;
+
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use bp_runtime::ChainId;
 use bp_westend::WESTEND_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
+use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithGrandpa, RelayChain, UnderlyingChainProvider,
+	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
+	RelayChain, SignParam, UnderlyingChainProvider, UnsignedTransaction,
 };
-use sp_core::storage::StorageKey;
+use sp_core::{storage::StorageKey, Pair};
+use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
 use sp_session::MembershipProof;
 use std::time::Duration;
+
+pub use codegen_runtime::api::runtime_types;
+
+pub type RuntimeCall = runtime_types::westend_runtime::RuntimeCall;
+
+pub type GrandpaCall = runtime_types::pallet_grandpa::pallet::Call;
 
 /// Westend header id.
 pub type HeaderId = relay_utils::HeaderId<bp_westend::Hash, bp_westend::BlockNumber>;
 
 /// Westend header type used in headers sync.
 pub type SyncHeader = relay_substrate_client::SyncHeader<bp_westend::Header>;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<bp_westend::AccountId, ()>;
 
 /// Westend chain definition
 #[derive(Debug, Clone, Copy)]
@@ -47,7 +62,7 @@ impl Chain for Westend {
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
 
 	type SignedBlock = bp_westend::SignedBlock;
-	type Call = ();
+	type Call = RuntimeCall;
 }
 
 impl ChainWithGrandpa for Westend {
@@ -59,8 +74,7 @@ impl ChainWithGrandpa for Westend {
 
 impl RelayChain for Westend {
 	const PARAS_PALLET_NAME: &'static str = bp_westend::PARAS_PALLET_NAME;
-	const PARACHAINS_FINALITY_PALLET_NAME: &'static str =
-		bp_westend::WITH_WESTEND_BRIDGE_PARAS_PALLET_NAME;
+	const PARACHAINS_FINALITY_PALLET_NAME: &'static str = "BridgeWestendParachains";
 }
 
 impl ChainWithBalances for Westend {
@@ -69,23 +83,53 @@ impl ChainWithBalances for Westend {
 	}
 }
 
-/// `AssetHubWestend` parachain definition
-#[derive(Debug, Clone, Copy)]
-pub struct AssetHubWestend;
+impl ChainWithTransactions for Westend {
+	type AccountKeyPair = sp_core::sr25519::Pair;
+	type SignedTransaction =
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_westend::SignedExtension>;
 
-impl UnderlyingChainProvider for AssetHubWestend {
-	type Chain = bp_westend::AssetHubWestend;
-}
+	fn sign_transaction(
+		param: SignParam<Self>,
+		unsigned: UnsignedTransaction<Self>,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
+		let raw_payload = SignedPayload::new(
+			unsigned.call,
+			bp_westend::SignedExtension::from_params(
+				param.spec_version,
+				param.transaction_version,
+				unsigned.era,
+				param.genesis_hash,
+				unsigned.nonce,
+				unsigned.tip,
+				((), ()),
+			),
+		)?;
 
-// Westmint seems to use the same configuration as all Polkadot-like chains, so we'll use Westend
-// primitives here.
-impl Chain for AssetHubWestend {
-	const ID: ChainId = bp_runtime::ASSET_HUB_WESTEND_CHAIN_ID;
-	const NAME: &'static str = "Westmint";
-	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
-		bp_westend::BEST_FINALIZED_ASSETHUBWESTEND_HEADER_METHOD;
-	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+		let signature = raw_payload.using_encoded(|payload| param.signer.sign(payload));
+		let signer: sp_runtime::MultiSigner = param.signer.public().into();
+		let (call, extra, _) = raw_payload.deconstruct();
 
-	type SignedBlock = bp_westend::SignedBlock;
-	type Call = ();
+		Ok(Self::SignedTransaction::new_signed(
+			call,
+			signer.into_account().into(),
+			signature.into(),
+			extra,
+		))
+	}
+
+	fn is_signed(tx: &Self::SignedTransaction) -> bool {
+		tx.signature.is_some()
+	}
+
+	fn is_signed_by(signer: &Self::AccountKeyPair, tx: &Self::SignedTransaction) -> bool {
+		tx.signature
+			.as_ref()
+			.map(|(address, _, _)| *address == Address::Id(signer.public().into()))
+			.unwrap_or(false)
+	}
+
+	fn parse_transaction(tx: Self::SignedTransaction) -> Option<UnsignedTransaction<Self>> {
+		let extra = &tx.signature.as_ref()?.2;
+		Some(UnsignedTransaction::new(tx.function, extra.nonce()).tip(extra.tip()))
+	}
 }

@@ -568,7 +568,7 @@ impl pallet_bridge_parachains::Config<WithWestendParachainsInstance> for Runtime
 	type BridgesGrandpaPalletInstance = WestendGrandpaInstance;
 	type ParasPalletName = WestendParasPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_westend::AssetHubWestend>;
+		SingleParaStoredHeaderDataBuilder<bp_bridged_chain::AssetHubWestend>;
 	type HeadsToKeep = ConstU32<1024>;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
 }
@@ -974,12 +974,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_westend::AssetHubWestendFinalityApi<Block> for Runtime {
+	impl bp_bridged_chain::AssetHubWestendFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			pallet_bridge_parachains::Pallet::<
 				Runtime,
 				WithWestendParachainsInstance,
-			>::best_parachain_head_id::<bp_westend::AssetHubWestend>().unwrap_or(None)
+			>::best_parachain_head_id::<bp_bridged_chain::AssetHubWestend>().unwrap_or(None)
 		}
 	}
 
@@ -1251,4 +1251,50 @@ mod tests {
 		const MAX_CALL_SIZE: usize = 230; // value from polkadot-runtime tests
 		assert!(core::mem::size_of::<RuntimeCall>() <= MAX_CALL_SIZE);
 	}
+}
+
+/// TODO: Note: I know this does not belong here, but I don't want to add it to the
+/// `chain-asset-hub-westend` or `chain-westend`, because we wont use it for production and I don't
+/// want to bring this to the bridges subtree now. Anyway, we plan to retire millau/rialto, so this
+/// hack will disappear with that.
+pub mod bp_bridged_chain {
+	use bp_messages::Weight;
+	pub use bp_polkadot_core::{
+		AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash,
+		Hasher, Hashing, Header, Nonce, Perbill, Signature, SignedBlock, UncheckedExtrinsic,
+		EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
+	};
+	use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, Parachain};
+
+	/// `AssetHubWestend` parachain definition
+	#[derive(Debug, Clone, Copy)]
+	pub struct AssetHubWestend;
+
+	// AssetHubWestend seems to use the same configuration as all Polkadot-like chains, so we'll use
+	// Westend primitives here.
+	impl Chain for AssetHubWestend {
+		type BlockNumber = BlockNumber;
+		type Hash = Hash;
+		type Hasher = Hasher;
+		type Header = Header;
+
+		type AccountId = AccountId;
+		type Balance = Balance;
+		type Nonce = Nonce;
+		type Signature = Signature;
+
+		fn max_extrinsic_size() -> u32 {
+			bp_westend::Westend::max_extrinsic_size()
+		}
+
+		fn max_extrinsic_weight() -> Weight {
+			bp_westend::Westend::max_extrinsic_weight()
+		}
+	}
+
+	impl Parachain for AssetHubWestend {
+		const PARACHAIN_ID: u32 = 1000;
+	}
+
+	decl_bridge_finality_runtime_apis!(AssetHubWestend);
 }
