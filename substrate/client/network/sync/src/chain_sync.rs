@@ -183,33 +183,33 @@ struct GapSync<B: BlockT> {
 	target: NumberFor<B>,
 }
 
-/// Action that [`engine::SyncingEngine`] should perform after reporting imported blocks with
+/// Action that the parent of [`ChainSync`] should perform after reporting imported blocks with
 /// [`ChainSync::on_blocks_processed`].
-pub(crate) enum BlockRequestAction<B: BlockT> {
+pub enum BlockRequestAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendRequest { peer_id: PeerId, request: BlockRequest<B> },
 	/// Drop stale block request.
 	RemoveStale { peer_id: PeerId },
 }
 
-/// Action that [`engine::SyncingEngine`] should perform if we want to import blocks.
+/// Action that the parent of [`ChainSync`] should perform if we want to import blocks.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ImportBlocksAction<B: BlockT> {
-	pub(crate) origin: BlockOrigin,
-	pub(crate) blocks: Vec<IncomingBlock<B>>,
+pub struct ImportBlocksAction<B: BlockT> {
+	pub origin: BlockOrigin,
+	pub blocks: Vec<IncomingBlock<B>>,
 }
 
-/// Action that [`engine::SyncingEngine`] should perform if we want to import justifications.
-pub(crate) struct ImportJustificationsAction<B: BlockT> {
-	pub(crate) peer_id: PeerId,
-	pub(crate) hash: B::Hash,
-	pub(crate) number: NumberFor<B>,
-	pub(crate) justifications: Justifications,
+/// Action that the parent of [`ChainSync`] should perform if we want to import justifications.
+pub struct ImportJustificationsAction<B: BlockT> {
+	pub peer_id: PeerId,
+	pub hash: B::Hash,
+	pub number: NumberFor<B>,
+	pub justifications: Justifications,
 }
 
 /// Result of [`ChainSync::on_block_data`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum OnBlockData<Block: BlockT> {
+pub enum OnBlockData<Block: BlockT> {
 	/// The block should be imported.
 	Import(ImportBlocksAction<Block>),
 	/// A new block request needs to be made to the given peer.
@@ -220,7 +220,7 @@ pub(crate) enum OnBlockData<Block: BlockT> {
 
 /// Result of [`ChainSync::on_block_justification`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum OnBlockJustification<Block: BlockT> {
+pub enum OnBlockJustification<Block: BlockT> {
 	/// The justification needs no further handling.
 	Nothing,
 	/// The justification should be imported.
@@ -234,16 +234,16 @@ pub(crate) enum OnBlockJustification<Block: BlockT> {
 
 // Result of [`ChainSync::on_state_data`].
 #[derive(Debug)]
-pub(crate) enum OnStateData<Block: BlockT> {
+pub enum OnStateData<Block: BlockT> {
 	/// The block and state that should be imported.
 	Import(BlockOrigin, IncomingBlock<Block>),
 	/// A new state request needs to be made to the given peer.
 	Continue,
 }
 
-/// Action that [`engine::SyncingEngine`] should perform on behalf of [`ChainSync`]
-/// after reporting block response with [`ChainSync::on_block_response`].
-pub(crate) enum OnBlockResponse<B: BlockT> {
+/// Action that the parent of [`ChainSync`] should perform after reporting block response with
+/// [`ChainSync::on_block_response`].
+pub enum OnBlockResponse<B: BlockT> {
 	/// Nothing to do
 	Nothing,
 	/// Perform block request.
@@ -256,7 +256,7 @@ pub(crate) enum OnBlockResponse<B: BlockT> {
 
 /// The main data structure which contains all the state for a chains
 /// active syncing strategy.
-pub(crate) struct ChainSync<B: BlockT, Client> {
+pub struct ChainSync<B: BlockT, Client> {
 	/// Chain client.
 	client: Arc<Client>,
 	/// The active peers that we are using to sync and their PeerSync status
@@ -390,7 +390,7 @@ where
 		+ 'static,
 {
 	/// Create a new instance.
-	pub(crate) fn new(
+	pub fn new(
 		mode: SyncMode,
 		client: Arc<Client>,
 		block_announce_protocol_name: ProtocolName,
@@ -428,14 +428,14 @@ where
 	}
 
 	/// Get peer's best hash & number.
-	pub(crate) fn peer_info(&self, who: &PeerId) -> Option<PeerInfo<B>> {
+	pub fn peer_info(&self, who: &PeerId) -> Option<PeerInfo<B>> {
 		self.peers
 			.get(who)
 			.map(|p| PeerInfo { best_hash: p.best_hash, best_number: p.best_number })
 	}
 
 	/// Returns the current sync status.
-	pub(crate) fn status(&self) -> SyncStatus<B> {
+	pub fn status(&self) -> SyncStatus<B> {
 		let median_seen = self.median_seen();
 		let best_seen_block =
 			median_seen.and_then(|median| (median > self.best_queued_number).then_some(median));
@@ -485,7 +485,7 @@ where
 	}
 
 	/// Get an estimate of the number of parallel sync requests.
-	pub(crate) fn num_sync_requests(&self) -> usize {
+	pub fn num_sync_requests(&self) -> usize {
 		self.fork_targets
 			.values()
 			.filter(|f| f.number <= self.best_queued_number)
@@ -493,18 +493,18 @@ where
 	}
 
 	/// Get the total number of downloaded blocks.
-	pub(crate) fn num_downloaded_blocks(&self) -> usize {
+	pub fn num_downloaded_blocks(&self) -> usize {
 		self.downloaded_blocks
 	}
 
 	/// Get the number of peers known to the syncing state machine.
-	pub(crate) fn num_peers(&self) -> usize {
+	pub fn num_peers(&self) -> usize {
 		self.peers.len()
 	}
 
 	/// Notify syncing state machine that a new sync peer has connected.
 	#[must_use]
-	pub(crate) fn new_peer(
+	pub fn new_peer(
 		&mut self,
 		who: PeerId,
 		best_hash: B::Hash,
@@ -629,19 +629,19 @@ where
 	}
 
 	/// Inform sync about a new best imported block.
-	pub(crate) fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
+	pub fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
 		self.on_block_queued(best_hash, best_number);
 	}
 
 	/// Request extra justification.
-	pub(crate) fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	pub fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		let client = &self.client;
 		self.extra_justifications
 			.schedule((*hash, number), |base, block| is_descendent_of(&**client, base, block))
 	}
 
 	/// Clear extra justification requests.
-	pub(crate) fn clear_justification_requests(&mut self) {
+	pub fn clear_justification_requests(&mut self) {
 		self.extra_justifications.reset();
 	}
 
@@ -653,7 +653,7 @@ where
 	///
 	/// Passing empty `peers` set effectively removes the sync request.
 	// The implementation is similar to `on_validated_block_announce` with unknown parent hash.
-	pub(crate) fn set_sync_fork_request(
+	pub fn set_sync_fork_request(
 		&mut self,
 		mut peers: Vec<PeerId>,
 		hash: &B::Hash,
@@ -709,7 +709,7 @@ where
 
 	/// Submit a block response for processing.
 	#[must_use]
-	pub(crate) fn on_block_data(
+	pub fn on_block_data(
 		&mut self,
 		who: &PeerId,
 		request: Option<BlockRequest<B>>,
@@ -975,7 +975,7 @@ where
 
 	/// Submit a justification response for processing.
 	#[must_use]
-	pub(crate) fn on_block_justification(
+	pub fn on_block_justification(
 		&mut self,
 		who: PeerId,
 		response: BlockResponse<B>,
@@ -1032,12 +1032,7 @@ where
 	}
 
 	/// Report a justification import (successful or not).
-	pub(crate) fn on_justification_import(
-		&mut self,
-		hash: B::Hash,
-		number: NumberFor<B>,
-		success: bool,
-	) {
+	pub fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
 		let finalization_result = if success { Ok((hash, number)) } else { Err(()) };
 		self.extra_justifications
 			.try_finalize_root((hash, number), finalization_result, true);
@@ -1045,7 +1040,7 @@ where
 	}
 
 	/// Notify sync that a block has been finalized.
-	pub(crate) fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	pub fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
 		let client = &self.client;
 		let r = self.extra_justifications.on_block_finalized(hash, number, |base, block| {
 			is_descendent_of(&**client, base, block)
@@ -1085,7 +1080,7 @@ where
 	}
 
 	/// Submit a validated block announcement.
-	pub(crate) fn on_validated_block_announce(
+	pub fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
 		who: PeerId,
@@ -1172,7 +1167,7 @@ where
 
 	/// Notify that a sync peer has disconnected.
 	#[must_use]
-	pub(crate) fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<B>> {
+	pub fn peer_disconnected(&mut self, who: &PeerId) -> Option<ImportBlocksAction<B>> {
 		self.blocks.clear_peer_download(who);
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(who)
@@ -1191,7 +1186,7 @@ where
 	}
 
 	/// Get prometheus metrics.
-	pub(crate) fn metrics(&self) -> Metrics {
+	pub fn metrics(&self) -> Metrics {
 		Metrics {
 			queued_blocks: self.queue_blocks.len().try_into().unwrap_or(std::u32::MAX),
 			fork_targets: self.fork_targets.len().try_into().unwrap_or(std::u32::MAX),
@@ -1433,7 +1428,7 @@ where
 	}
 
 	/// Check if the peer is known to the sync state machine. Used for sanity checks.
-	pub(crate) fn is_peer_known(&self, peer_id: &PeerId) -> bool {
+	pub fn is_peer_known(&self, peer_id: &PeerId) -> bool {
 		self.peers.contains_key(peer_id)
 	}
 
@@ -1464,7 +1459,7 @@ where
 	}
 
 	/// Set the warp sync target block externally in case we skip warp proofs downloading.
-	pub(crate) fn set_warp_sync_target_block(&mut self, header: B::Header) {
+	pub fn set_warp_sync_target_block(&mut self, header: B::Header) {
 		if let Some(ref mut warp_sync) = self.warp_sync {
 			warp_sync.set_target_block(header);
 		} else {
@@ -1503,7 +1498,7 @@ where
 
 	/// Submit blocks received in a response.
 	#[must_use]
-	pub(crate) fn on_block_response(
+	pub fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
 		request: BlockRequest<B>,
@@ -1566,7 +1561,7 @@ where
 
 	/// Submit a state received in a response.
 	#[must_use]
-	pub(crate) fn on_state_response(
+	pub fn on_state_response(
 		&mut self,
 		peer_id: PeerId,
 		response: OpaqueStateResponse,
@@ -1585,7 +1580,7 @@ where
 	}
 
 	/// Submit a warp proof response received.
-	pub(crate) fn on_warp_sync_response(&mut self, peer_id: PeerId, response: EncodedProof) {
+	pub fn on_warp_sync_response(&mut self, peer_id: PeerId, response: EncodedProof) {
 		if let Err(BadPeer(id, repu)) = self.on_warp_sync_data(&peer_id, response) {
 			self.network_service
 				.disconnect_peer(id, self.block_announce_protocol_name.clone());
@@ -1594,7 +1589,7 @@ where
 	}
 
 	/// Get justification requests scheduled by sync to be sent out.
-	pub(crate) fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
+	pub fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
 		let mut matcher = self.extra_justifications.matcher();
 		std::iter::from_fn(move || {
@@ -1621,7 +1616,7 @@ where
 	}
 
 	/// Get block requests scheduled by sync to be sent out.
-	pub(crate) fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
+	pub fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		if self.mode == SyncMode::Warp {
 			return self
 				.warp_target_block_request()
@@ -1748,7 +1743,7 @@ where
 	}
 
 	/// Get a state request scheduled by sync to be sent out (if any).
-	pub(crate) fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
+	pub fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
 		if self.allowed_requests.is_empty() {
 			return None
 		}
@@ -1794,7 +1789,7 @@ where
 	}
 
 	/// Get a warp proof request scheduled by sync to be sent out (if any).
-	pub(crate) fn warp_sync_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
+	pub fn warp_sync_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		if let Some(sync) = &self.warp_sync {
 			if self.allowed_requests.is_empty() ||
 				sync.is_complete() ||
@@ -1929,7 +1924,7 @@ where
 	/// queue, with or without errors. If an error is returned, the pending response
 	/// from the peer must be dropped.
 	#[must_use]
-	pub(crate) fn on_blocks_processed(
+	pub fn on_blocks_processed(
 		&mut self,
 		imported: usize,
 		count: usize,
