@@ -1219,8 +1219,7 @@ impl<T: Config> Pallet<T> {
 				ensure!(!x.is_zero(), Error::<T>::Empty);
 			}
 			let transfer_type =
-				T::XcmExecutor::determine_for(&asset, dest)
-					.map_err(Error::<T>::from)?;
+				T::XcmExecutor::determine_for(&asset, dest).map_err(Error::<T>::from)?;
 			// Ensure asset is not teleportable to `dest`.
 			ensure!(transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 			if let Some(reserve) = reserve.as_ref() {
@@ -1259,8 +1258,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type =
-			T::XcmExecutor::determine_for(&fees, &dest)
-				.map_err(Error::<T>::from)?;
+			T::XcmExecutor::determine_for(&fees, &dest).map_err(Error::<T>::from)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (one used for fees where transfer type is determined above).
 			ensure!(fees_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
@@ -1332,8 +1330,7 @@ impl<T: Config> Pallet<T> {
 		let (origin_location, assets) = value;
 		for asset in assets.iter() {
 			let transfer_type =
-				T::XcmExecutor::determine_for(asset, &dest)
-					.map_err(Error::<T>::from)?;
+				T::XcmExecutor::determine_for(asset, &dest).map_err(Error::<T>::from)?;
 			ensure!(matches!(transfer_type, TransferType::Teleport), Error::<T>::Filtered);
 		}
 		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
