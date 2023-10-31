@@ -16874,7 +16874,6 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
- "sp-runtime-interface",
  "sp-std",
 ]
 
@@ -17245,9 +17244,7 @@ version = "24.0.0"
 dependencies = [
  "lazy_static",
  "sp-core",
- "sp-io",
  "sp-runtime",
- "sp-runtime-interface",
  "sp-std",
  "strum",
 ]
