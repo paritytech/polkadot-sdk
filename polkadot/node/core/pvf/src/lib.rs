@@ -97,6 +97,7 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
+mod security;
 mod worker_intf;
 
 #[cfg(feature = "test-utils")]
