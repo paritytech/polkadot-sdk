@@ -42,6 +42,7 @@ pub struct NetworkParams {
 	pub reserved_nodes: Vec<MultiaddrWithPeerId>,
 
 	/// Whether to only synchronize the chain with reserved nodes.
+	///
 	/// Also disables automatic peer discovery.
 	/// TCP connections might still be established with non-reserved nodes.
 	/// In particular, if you are a validator your node might still connect to other
@@ -50,7 +51,8 @@ pub struct NetworkParams {
 	#[arg(long)]
 	pub reserved_only: bool,
 
-	/// The public address that other nodes will use to connect to it.
+	/// Public address that other nodes will use to connect to this node.
+	///
 	/// This can be used if there's a proxy in front of this node.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
@@ -67,20 +69,28 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
 	pub port: Option<u16>,
 
-	/// Always forbid connecting to private IPv4/IPv6 addresses (as specified in
-	/// [RFC1918](https://tools.ietf.org/html/rfc1918)), unless the address was passed with
-	/// `--reserved-nodes` or `--bootnodes`. Enabled by default for chains marked as "live" in
-	/// their chain specifications.
+	/// Always forbid connecting to private IPv4/IPv6 addresses.
+	///
+	/// The option doesn't apply to addresses passed with `--reserved-nodes` or
+	/// `--bootnodes`. Enabled by default for chains marked as "live" in their chain
+	/// specifications.
+	///
+	/// Address allocation for private networks is specified by
+	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
 	#[arg(long, alias = "no-private-ipv4", conflicts_with_all = &["allow_private_ip"])]
 	pub no_private_ip: bool,
 
-	/// Always accept connecting to private IPv4/IPv6 addresses (as specified in
-	/// [RFC1918](https://tools.ietf.org/html/rfc1918)). Enabled by default for chains marked as
-	/// "local" in their chain specifications, or when `--dev` is passed.
+	/// Always accept connecting to private IPv4/IPv6 addresses.
+	///
+	/// Enabled by default for chains marked as "local" in their chain specifications,
+	/// or when `--dev` is passed.
+	///
+	/// Address allocation for private networks is specified by
+	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
 	#[arg(long, alias = "allow-private-ipv4", conflicts_with_all = &["no_private_ip"])]
 	pub allow_private_ip: bool,
 
-	/// Specify the number of outgoing connections we're trying to maintain.
+	/// Number of outgoing connections we're trying to maintain.
 	#[arg(long, value_name = "COUNT", default_value_t = 8)]
 	pub out_peers: u32,
 
@@ -92,15 +102,17 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "COUNT", default_value_t = 100)]
 	pub in_peers_light: u32,
 
-	/// Disable mDNS discovery.
+	/// Disable mDNS discovery (default: true).
+	///
 	/// By default, the network will use mDNS to discover other nodes on the
 	/// local network. This disables it. Automatically implied when using --dev.
 	#[arg(long)]
 	pub no_mdns: bool,
 
 	/// Maximum number of peers from which to ask for the same blocks in parallel.
-	/// This allows downloading announced blocks from multiple peers. Decrease to save
-	/// traffic and risk increased latency.
+	///
+	/// This allows downloading announced blocks from multiple peers.
+	/// Decrease to save traffic and risk increased latency.
 	#[arg(long, value_name = "COUNT", default_value_t = 5)]
 	pub max_parallel_downloads: u32,
 
@@ -109,19 +121,24 @@ pub struct NetworkParams {
 	pub node_key_params: NodeKeyParams,
 
 	/// Enable peer discovery on local networks.
+	///
 	/// By default this option is `true` for `--dev` or when the chain type is
 	/// `Local`/`Development` and false otherwise.
 	#[arg(long)]
 	pub discover_local: bool,
 
-	/// Require iterative Kademlia DHT queries to use disjoint paths for increased resiliency in
-	/// the presence of potentially adversarial nodes.
+	/// Require iterative Kademlia DHT queries to use disjoint paths.
+	///
+	/// Disjoint paths increase resiliency in the presence of potentially adversarial nodes.
+	///
 	/// See the S/Kademlia paper for more information on the high level design as well as its
 	/// security improvements.
 	#[arg(long)]
 	pub kademlia_disjoint_query_paths: bool,
 
-	/// Kademlia replication factor determines to how many closest peers a record is replicated to.
+	/// Kademlia replication factor.
+	///
+	/// Determines to how many closest peers a record is replicated to.
 	///
 	/// Discovery mechanism requires successful replication to all
 	/// `kademlia_replication_factor` peers to consider record successfully put.
