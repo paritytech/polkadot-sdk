@@ -225,8 +225,6 @@
 //!
 //! ### Event and Error
 //!
-//! TODO: this should be a new tutorial.
-//!
 //! Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
 //! Errors. First, let's understand what each are.
 //!
@@ -244,8 +242,8 @@
 //!   (eg. a light-client, A DApp) to listen to particular events happening, without needing to
 //!   re-execute the whole state transition function.
 //!
-//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation of
-//! event is probably not the best.
+//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
+//! of event is probably not the best.
 //!
 //! With the explanation out of the way, let's see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with an extra `#[frame::event/error]` attribute

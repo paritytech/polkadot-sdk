@@ -31,14 +31,15 @@
 //!
 //! ### Checklist
 //!
-//! - [ ] Always make sure all downstream types and items are improved.
+//! - [ ] Always make sure all downstream types and items are improved. Don't assume too many "this
+//!   is blackbox". It should be a box that if I want to learn, there should be a way for it.
 //! - [ ] Make sure you read all relevant documents, build on top of. Imagine the process of posting
 //!   something new in SE.
 //!
 //! ### Note on `crates.io` and Publishing
 //!
-//! TODO: This crate cannot be published for now, and that is fine. We use `paritytech.github.io` as
-//! the entry point.
+//! TODO: This crate cannot be published for now, and that is fine. We use `paritytech.github.io`
+//! as the entry point.
 //! TODO: link checker.
 //!
 //! ### Why Rust Docs?

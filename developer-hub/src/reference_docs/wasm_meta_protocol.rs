@@ -45,7 +45,7 @@
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_client_runtime.mmd")]
 //!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
-//! functionality, but it can also expose more APIs. See <TODO> as an example of how to add custom
+//! functionality, but it can also expose more APIs. See TODO as an example of how to add custom
 //! runtime APIs to your FRAME-based runtime.
 //!
 //! Similarly, for a runtime to be "compatible" with a client, the client must implement the full
@@ -104,4 +104,4 @@
 //!
 //! ## Example: Block Execution.
 //!
-//! <TODO>
+//! TODO
