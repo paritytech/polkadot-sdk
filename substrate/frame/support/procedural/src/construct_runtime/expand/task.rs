@@ -29,7 +29,6 @@ pub fn expand_outer_task(
 	let mut task_variants = Vec::new();
 	let mut variant_names = Vec::new();
 	let mut task_paths = Vec::new();
-	let mut iter_generalizations = Vec::new();
 	for decl in pallet_decls {
 		if let Some(_) = decl.find_part("Task") {
 			let variant_name = &decl.name;
@@ -54,17 +53,6 @@ pub fn expand_outer_task(
 			variant_names.push(quote!(#variant_name));
 
 			task_paths.push(quote!(#path::pallet::Task));
-
-			iter_generalizations.push(quote! {
-				RuntimeTask::#variant_name(val) => {
-					for variant in #path::pallet::Task::<#runtime_name>::iter() {
-						let index = variant.task_index();
-						if !all_task_indices.insert(index) {
-							panic!("duplicate task index `{index}` within pallet `{}`", stringify!(#path));
-						}
-					}
-				}
-			})
 		}
 	}
 
@@ -115,15 +103,6 @@ pub fn expand_outer_task(
 
 			#[allow(unreachable_code)]
 			fn task_index(&self) -> u32 {
-				// for debug builds, ensure at runtime there are no duplicate task indices
-				// within the pallet being accessed
-				#[cfg(debug_assertions)] {
-					let mut all_task_indices: std::collections::HashSet<u32> = std::collections::HashSet::new();
-					match self {
-						#(#iter_generalizations,)*
-						_ => unreachable!(#INCOMPLETE_MATCH_QED),
-					}
-				}
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.task_index(),)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),
