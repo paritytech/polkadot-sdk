@@ -39,6 +39,7 @@ polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = tr
 assert_matches = "1.4.0"
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "async_tokio"] }
 hex-literal = "0.4.1"
+
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
@@ -47,6 +48,10 @@ rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }
 halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+procfs = "0.16.0"
+rusty-fork = "0.3.0"
 
 [[bench]]
 name = "host_prepare_rococo_runtime"
