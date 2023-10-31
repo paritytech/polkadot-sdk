@@ -51,6 +51,7 @@ pub trait HandleFee {
 		-> MultiAssets;
 }
 
+// Default `HandleFee` implementation that just burns the fee.
 impl HandleFee for () {
 	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) -> MultiAssets {
 		MultiAssets::new()

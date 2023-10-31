@@ -68,7 +68,7 @@ mod currency_adapter;
 pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
-pub use fee_handling::{try_deposit_fee, XcmFeeManagerFromComponents, XcmFeeToAccount};
+pub use fee_handling::{deposit_or_burn_fee, XcmFeeManagerFromComponents, XcmFeeToAccount};
 
 mod fungibles_adapter;
 pub use fungibles_adapter::{

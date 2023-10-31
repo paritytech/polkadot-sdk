@@ -55,7 +55,7 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	try_deposit_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
+	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, IsConcrete,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
@@ -434,6 +434,7 @@ impl ExportXcm for BridgeHubRococoOrBridgeHubWococoSwitchExporter {
 
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.
+/// Burns the fees in case of a failure.
 pub struct XcmExportFeeToRelayerRewardAccounts<
 	AssetTransactor,
 	DestNetwork,
@@ -494,21 +495,21 @@ impl<
 				match asset.fun {
 					Fungible(total_fee) => {
 						let source_fee = total_fee / 2;
-						try_deposit_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor, _>(
 							MultiAsset { id: asset.id, fun: Fungible(source_fee) }.into(),
 							maybe_context,
 							source_para_account.clone(),
 						);
 
 						let dest_fee = total_fee - source_fee;
-						try_deposit_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor, _>(
 							MultiAsset { id: asset.id, fun: Fungible(dest_fee) }.into(),
 							maybe_context,
 							dest_para_account.clone(),
 						);
 					},
 					NonFungible(_) => {
-						try_deposit_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor, _>(
 							asset.into(),
 							maybe_context,
 							source_para_account.clone(),

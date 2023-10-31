@@ -36,9 +36,8 @@ impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
 }
 
 /// Try to deposit the given fee in the specified account.
-///
-/// Returns any part of the fee that wasn't deposited.
-pub fn try_deposit_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[u8; 32]>>(
+/// Burns the fee in case of a failure.
+pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[u8; 32]>>(
 	fee: MultiAssets,
 	context: Option<&XcmContext>,
 	receiver: AccountId,
@@ -48,7 +47,7 @@ pub fn try_deposit_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[
 		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
 			log::trace!(
 				target: "xcm::fees",
-				"`AssetTransactor::deposit_asset` returned error: {:?}. Skipping fees: {:?}. \
+				"`AssetTransactor::deposit_asset` returned error: {:?}. Burning fee: {:?}. \
 				They might be burned.",
 				e, asset,
 			);
@@ -61,7 +60,7 @@ pub fn try_deposit_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[
 ///
 /// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
 /// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
-/// logged.
+/// logged and the fee burned.
 pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 	PhantomData<(AssetTransactor, AccountId, ReceiverAccount)>,
 );
@@ -77,7 +76,8 @@ impl<
 		context: Option<&XcmContext>,
 		_reason: FeeReason,
 	) -> MultiAssets {
-		try_deposit_fee::<AssetTransactor, _>(fee, context, ReceiverAccount::get());
+		deposit_or_burn_fee::<AssetTransactor, _>(fee, context, ReceiverAccount::get());
+
 		MultiAssets::new()
 	}
 }
