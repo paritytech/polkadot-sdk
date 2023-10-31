@@ -88,8 +88,6 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
-			// allow setting fees mode to jit or not for use in following `BuyExecution`
-			.skip_inst_while(|inst| matches!(inst, SetFeesMode { .. }))?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
 					if weight.all_gte(max_weight) =>
