@@ -23,6 +23,7 @@ use clap::Parser;
 use node_cli::chain_spec;
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use sp_core::{crypto::Ss58Codec, sr25519};
+use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
 fn main() -> Result<(), String> {
