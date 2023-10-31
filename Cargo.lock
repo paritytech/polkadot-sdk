@@ -17256,7 +17256,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-ec-utils"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
