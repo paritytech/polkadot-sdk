@@ -17,6 +17,7 @@ array-bytes = "6.1"
 chrono = "0.4"
 clap = { version = "4.4.6", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
+color-print = "0.3.4"
 comfy-table = { version = "7.0.1", default-features = false }
 handlebars = "4.2.2"
 Inflector = "0.11.4"
