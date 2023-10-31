@@ -19,10 +19,10 @@
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU16, ConstU64, HandleMessage, QueueFootprint},
+	traits::{HandleMessage, QueueFootprint},
 };
-use sp_core::{bounded_vec::BoundedSlice, ConstU32, H256};
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
+use sp_core::{bounded_vec::BoundedSlice, ConstU32};
+use sp_runtime::traits::IdentityLookup;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
