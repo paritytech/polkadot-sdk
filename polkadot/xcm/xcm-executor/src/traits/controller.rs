@@ -20,7 +20,7 @@ use crate::{
 	traits::{QueryHandler, QueryResponseStatus},
 	InteriorMultiLocation,
 	Junctions::Here,
-	MultiLocation, Xcm,
+	MultiLocation, Xcm, Outcome, XcmError
 };
 use frame_support::{pallet_prelude::*, parameter_types};
 use sp_weights::Weight;
@@ -49,7 +49,7 @@ pub trait ExecuteControllerWeightInfo {
 pub trait ExecuteController<Origin, RuntimeCall> {
 	type WeightInfo: ExecuteControllerWeightInfo;
 
-	/// Execute an XCM locally.
+	/// Attempt to execute an XCM locally, and return the outcome.
 	///
 	/// # Parameters
 	///
@@ -60,7 +60,7 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 		origin: Origin,
 		message: Box<VersionedXcm<RuntimeCall>>,
 		max_weight: Weight,
-	) -> DispatchResultWithPostInfo;
+	) -> Result<Outcome, DispatchError>;
 }
 
 /// Weight functions needed for [`SendController`].
@@ -120,8 +120,8 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_origin: Origin,
 		_message: Box<VersionedXcm<RuntimeCall>>,
 		_max_weight: Weight,
-	) -> DispatchResultWithPostInfo {
-		Ok(().into())
+	) -> Result<Outcome, DispatchError> {
+		Ok(Outcome::Error(XcmError::Unimplemented))
 	}
 }
 
