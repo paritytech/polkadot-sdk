@@ -35,6 +35,7 @@ use sp_core::{
 };
 use sp_runtime::traits::BlakeTwo256;
 use sp_state_machine::TestExternalities as CoreTestExternalities;
+use staging_node_executor as node_executor;
 
 criterion_group!(benches, bench_execute_block);
 criterion_main!(benches);
