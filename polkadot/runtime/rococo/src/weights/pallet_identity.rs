@@ -334,20 +334,4 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `Identity::IdentityOf` (r:1 w:1)
-	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Identity::SubsOf` (r:1 w:1)
-	/// Proof: `Identity::SubsOf` (`max_values`: None, `max_size`: Some(3258), added: 5733, mode: `MaxEncodedLen`)
-	fn poke_deposit() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `628`
-		//  Estimated: `11003`
-		// Minimum execution time: 525_039_000 picoseconds.
-		Weight::from_parts(554_552_000, 0)
-			.saturating_add(Weight::from_parts(0, 11003))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
 }
