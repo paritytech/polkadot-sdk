@@ -23,14 +23,15 @@ pallet-balances = { path = "../../balances", default-features = false}
 sp-io = { path = "../../../primitives/io", default-features = false}
 sp-runtime = { path = "../../../primitives/runtime", default-features = false}
 sp-std = { path = "../../../primitives/std", default-features = false}
+docify = "0.2.4"
 
 [dev-dependencies]
 sp-core = { path = "../../../primitives/core", default-features = false}
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"codec/std",
+    "codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",

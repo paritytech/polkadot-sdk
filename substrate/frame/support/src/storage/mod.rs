@@ -108,7 +108,7 @@ pub trait StorageValue<T: FullCodec> {
 	/// type rather than the underlying value.
 	fn set(val: Self::Query);
 
-	/// Mutate the value
+	/// Mutate the value.
 	fn mutate<R, F: FnOnce(&mut Self::Query) -> R>(f: F) -> R;
 
 	/// Mutate the value under a key if the value already exists. Do nothing and return the default
