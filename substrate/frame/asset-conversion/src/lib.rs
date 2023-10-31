@@ -81,7 +81,7 @@ use frame_support::{
 			Precision::Exact,
 			Preservation::{Expendable, Preserve},
 		},
-		AccountTouch, ContainsPair, Incrementable, OnUnbalanced,
+		AccountTouch, Incrementable, OnUnbalanced,
 	},
 	PalletId,
 };
@@ -130,7 +130,6 @@ pub mod pallet {
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ AccountTouch<Self::AssetKind, Self::AccountId, Balance = Self::Balance>
-			+ ContainsPair<Self::AssetKind, Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
 		/// Liquidity pool identifier.
@@ -377,11 +376,11 @@ pub mod pallet {
 				Self::withdraw(T::PoolSetupFeeAsset::get(), &sender, T::PoolSetupFee::get(), true)?;
 			T::PoolSetupFeeTarget::on_unbalanced(fee);
 
-			if !T::Assets::contains(&asset1, &pool_account) {
+			if T::Assets::should_touch(*asset1.clone(), &pool_account) {
 				T::Assets::touch(*asset1, &pool_account, &sender)?
 			};
 
-			if !T::Assets::contains(&asset2, &pool_account) {
+			if T::Assets::should_touch(*asset2.clone(), &pool_account) {
 				T::Assets::touch(*asset2, &pool_account, &sender)?
 			};
 
