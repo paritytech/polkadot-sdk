@@ -727,6 +727,7 @@ impl_runtime_apis! {
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			log::info!("{:#?}", AccountKeyring::Alice.public().to_ss58check());
+			log::info!("{:#?}", AccountKeyring::Bob.public().to_ss58check());
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
