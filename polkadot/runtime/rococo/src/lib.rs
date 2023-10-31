@@ -1075,7 +1075,6 @@ impl auctions::Config for Runtime {
 	type WeightInfo = weights::runtime_common_auctions::WeightInfo<Runtime>;
 }
 
-// use frame_system::EnsureSigned;
 impl identity_migrator::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
