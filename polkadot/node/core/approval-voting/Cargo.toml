@@ -32,6 +32,8 @@ sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots"
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 rand_core = "0.5.1"
+rand_chacha = { version = "0.3.1" }
+rand = "0.8.5"
 
 [dev-dependencies]
 async-trait = "0.1.57"

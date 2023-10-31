@@ -16,6 +16,7 @@
 
 //! Assignment criteria VRF generation and checking.
 
+use itertools::Itertools;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_primitives::approval::{
 	self as approval_types,
@@ -26,14 +27,18 @@ use polkadot_primitives::{
 	AssignmentId, AssignmentPair, CandidateHash, CoreIndex, GroupIndex, IndexedVec, SessionInfo,
 	ValidatorIndex,
 };
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::ByteArray;
 
 use merlin::Transcript;
 use schnorrkel::vrf::VRFInOut;
 
-use itertools::Itertools;
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+	cmp::min,
+	collections::{hash_map::Entry, HashMap, HashSet},
+};
 
 use super::LOG_TARGET;
 
@@ -125,17 +130,11 @@ fn relay_vrf_modulo_transcript_v2(relay_vrf_story: RelayVRFStory) -> Transcript 
 /// A hard upper bound on num_cores * target_checkers / num_validators
 const MAX_MODULO_SAMPLES: usize = 40;
 
-use std::convert::AsMut;
+/// The maximum number of samples we take to try to obtain an
+/// a distinct core_index.
+const MAX_SAMPLING_ITERATIONS: usize = 20;
 
-fn clone_into_array<A, T>(slice: &[T]) -> A
-where
-	A: Default + AsMut<[T]>,
-	T: Clone,
-{
-	let mut a = A::default();
-	<A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
-	a
-}
+use std::convert::AsMut;
 
 struct BigArray(pub [u8; MAX_MODULO_SAMPLES * 4]);
 
@@ -170,14 +169,38 @@ fn relay_vrf_modulo_cores(
 		);
 	}
 
-	vrf_in_out
-		.make_bytes::<BigArray>(approval_types::v2::CORE_RANDOMNESS_CONTEXT)
-		.0
-		.chunks_exact(4)
-		.take(num_samples as usize)
-		.map(move |sample| CoreIndex(u32::from_le_bytes(clone_into_array(&sample)) % max_cores))
-		.unique()
-		.collect::<Vec<CoreIndex>>()
+	if 2 * num_samples > max_cores {
+		gum::error!(
+			target: LOG_TARGET,
+			n_cores = max_cores,
+			num_samples,
+			max_modulo_samples = MAX_MODULO_SAMPLES,
+			"Suboptimal configuration `num_samples` should be less than `n_cores` / 2",
+		);
+	}
+
+	let mut rand_chacha =
+		ChaCha20Rng::from_seed(vrf_in_out.make_bytes::<<ChaCha20Rng as SeedableRng>::Seed>(
+			approval_types::v2::CORE_RANDOMNESS_CONTEXT,
+		));
+
+	let mut res = HashSet::with_capacity(num_samples as usize);
+	while res.len() < min(num_samples, max_cores) as usize {
+		// Production networks should run with num_samples no larger than `n_cores/2`, so on worst
+		// case on each iteration this loop has >1/2 chance of finishing.
+		// With our current production parameters the chances for each iteration not hitting
+		// a duplicate are around 90%.
+		// See: https://github.com/paritytech/polkadot-sdk/pull/1178#discussion_r1376501206
+		// for more details.
+		for _ in 0..MAX_SAMPLING_ITERATIONS {
+			let random_core = rand_chacha.gen_range(0..max_cores).into();
+			if !res.contains(&random_core) {
+				res.insert(random_core);
+				break
+			}
+		}
+	}
+	res.into_iter().collect_vec()
 }
 
 fn relay_vrf_modulo_core(vrf_in_out: &VRFInOut, n_cores: u32) -> CoreIndex {
