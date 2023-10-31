@@ -244,60 +244,18 @@ pub mod pallet {
 		}
 
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-			use migration::{v3, LOG};
 			let mut meter = WeightMeter::with_limit(limit);
 
 			if meter.try_consume(Self::on_idle_weight()).is_err() {
-				log::debug!(target: LOG, "Not enough weight for on_idle. {} < {}", Self::on_idle_weight(), limit);
-				return meter.consumed()
-			}
-
-			let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
-				log::debug!(target: LOG, "Lazy migration finished: item gone");
-				return meter.consumed();
-			};
-			let Some(ref mut next) = states.first_mut() else {
-				log::debug!(target: LOG, "Lazy migration finished: item empty");
-				v3::InboundXcmpStatus::<T>::kill();
-				return meter.consumed();
-			};
-			log::debug!(
-				"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
-				next.sender,
-				next.message_metadata.len()
-			);
-			// We take the last element since the MQ is a FIFO and we want to keep the order.
-			let Some((block_number, format)) = next.message_metadata.pop() else {
-				states.remove(0);
-				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
-			};
-			if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-				log::warn!(target: LOG,
-					"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
-					format
+				log::debug!(
+					"Not enough weight for on_idle. {} < {}",
+					Self::on_idle_weight(),
+					limit
 				);
-				v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
-				v3::InboundXcmpStatus::<T>::put(states);
 				return meter.consumed()
 			}
 
-			let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
-				defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
-				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
-			};
-
-			let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
-				log::error!(target: LOG, "Message dropped: too big");
-				v3::InboundXcmpStatus::<T>::put(states);
-				return meter.consumed();
-			};
-
-			// Finally! We have a proper message.
-			T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-			log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
-			v3::InboundXcmpStatus::<T>::put(states);
+			migration::lazy_migrate_inbound_queue::<T>();
 
 			meter.consumed()
 		}

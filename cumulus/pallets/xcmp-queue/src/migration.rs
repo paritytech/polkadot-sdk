@@ -17,9 +17,10 @@
 //! A module that is responsible for migration of storage.
 
 use crate::{Config, OverweightIndex, Pallet, ParaId, QueueConfig, DEFAULT_POV_SIZE};
+use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
@@ -160,6 +161,55 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
 	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
 
 	T::DbWeight::get().reads_writes(overweight_messages, 1)
+}
+
+pub fn lazy_migrate_inbound_queue<T: Config>() {
+	let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
+		log::debug!(target: LOG, "Lazy migration finished: item gone");
+		return
+	};
+	let Some(ref mut next) = states.first_mut() else {
+		log::debug!(target: LOG, "Lazy migration finished: item empty");
+		v3::InboundXcmpStatus::<T>::kill();
+		return
+	};
+	log::debug!(
+		"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
+		next.sender,
+		next.message_metadata.len()
+	);
+	// We take the last element since the MQ is a FIFO and we want to keep the order.
+	let Some((block_number, format)) = next.message_metadata.pop() else {
+		states.remove(0);
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+	if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+		log::warn!(target: LOG,
+			"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
+			format
+		);
+		v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	}
+
+	let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
+		defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+
+	let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
+		log::error!(target: LOG, "Message dropped: too big");
+		v3::InboundXcmpStatus::<T>::put(states);
+		return
+	};
+
+	// Finally! We have a proper message.
+	T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
+	log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+	v3::InboundXcmpStatus::<T>::put(states);
 }
 
 #[cfg(test)]
