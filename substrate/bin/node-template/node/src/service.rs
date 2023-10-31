@@ -17,12 +17,16 @@ pub struct ExecutorDispatch;
 
 #[cfg(feature = "runtime-benchmarks")]
 type ExtendedHostFunctions = (
-	sp_crypto_ec_utils::elliptic_curves::HostFunctions,
+	sp_crypto_ec_utils::bls12_381::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-type ExtendedHostFunctions = sp_crypto_ec_utils::elliptic_curves::HostFunctions;
+type ExtendedHostFunctions = (
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+);
 
 impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ExtendedHostFunctions;
