@@ -21,16 +21,6 @@ check-try-runtime:
     # experimental code may rely on try-runtime and vice-versa
     - time cargo check --locked --all --features try-runtime,experimental
 
-cargo-fmt-manifest:
-  stage: check
-  extends:
-    - .docker-env
-    - .common-refs
-  script:
-    - cargo install zepter --locked --version 0.11.0 -q -f --no-default-features && zepter --version
-    - echo "👉 Hello developer! If you see this CI check failing then it means that one of the your changes in a Cargo.toml file introduced ill-formatted or unsorted features. Please take a look at 'docs/STYLE_GUIDE.md#manifest-formatting' to find out more."
-    - zepter format features --check
-
 # FIXME
 .cargo-deny-licenses:
   stage: check
@@ -91,17 +81,14 @@ job-starter:
   script:
     - echo ok
 
-test-rust-feature-propagation:
+check-rust-feature-propagation:
   stage: check
   extends:
     - .kubernetes-env
-    - .test-pr-refs
+    - .common-refs
   script:
-    - cargo install --locked --version 0.11.1 -q -f zepter && zepter --version
-    - echo "👉 Hello developer! If you see this CI check failing then it means that one of the crates is missing a feature for one of its dependencies. The output below tells you which feature needs to be added for which dependency to which crate. You can do this by modifying the Cargo.toml file. For more context see the MR where this check was introduced https://github.com/paritytech/substrate/pull/14660"
-    - zepter lint propagate-feature --feature try-runtime --left-side-feature-missing=ignore --workspace --feature-enables-dep="try-runtime:frame-try-runtime" --locked
-    - zepter lint propagate-feature --feature runtime-benchmarks --left-side-feature-missing=ignore --workspace --feature-enables-dep="runtime-benchmarks:frame-benchmarking" --locked
-    - zepter lint propagate-feature --feature std --left-side-feature-missing=ignore --workspace --locked
+    - cargo install --locked --version 0.13.2 -q -f zepter && zepter --version
+    - zepter run check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
 .check-runtime-migration:
@@ -120,7 +107,7 @@ test-rust-feature-propagation:
       echo "---------- Building ${PACKAGE} runtime ----------"
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
-      echo "---------- Executing `on-runtime-upgrade` for ${NETWORK} ----------"
+      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
       time ./try-runtime \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --checks=pre-and-post ${EXTRA_ARGS} live --uri ${URI}

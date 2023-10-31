@@ -27,7 +27,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, WhitelistedStorageKeys,
+		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -68,6 +68,10 @@ pub enum TestId {
 	Foo,
 	Bar,
 	Baz,
+}
+
+impl VariantCount for TestId {
+	const VARIANT_COUNT: u32 = 3;
 }
 
 frame_support::construct_runtime!(
@@ -132,9 +136,10 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]

@@ -8,7 +8,7 @@
 //! First, see [why we use rust-docs for everything](crate#why-rust-docs) and our documentation
 //! [principles](crate#principles). We acknowledge that as much of the crucial information should be
 //! embedded in the low level rust-docs. Then, high level scenarios should be covered in
-//! [`crate::tutorial`]. Finally, we acknowledge that there is a cateogry of information that is:
+//! [`crate::tutorial`]. Finally, we acknowledge that there is a category of information that is:
 //!
 //! 1. crucial to know.
 //! 2. is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
@@ -52,3 +52,7 @@ pub mod safe_defensive_programming;
 
 /// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
 pub mod frame_composite_enums;
+
+/// Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
+/// control usage and sybil attacks.
+pub mod fee_less_runtime;

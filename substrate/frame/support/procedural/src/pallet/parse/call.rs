@@ -25,6 +25,7 @@ use syn::spanned::Spanned;
 mod keyword {
 	syn::custom_keyword!(Call);
 	syn::custom_keyword!(OriginFor);
+	syn::custom_keyword!(RuntimeOrigin);
 	syn::custom_keyword!(weight);
 	syn::custom_keyword!(call_index);
 	syn::custom_keyword!(compact);
@@ -138,10 +139,10 @@ impl syn::parse::Parse for ArgAttrIsCompact {
 	}
 }
 
-/// Check the syntax is `OriginFor<T>`
-pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
-	pub struct CheckDispatchableFirstArg;
-	impl syn::parse::Parse for CheckDispatchableFirstArg {
+/// Check the syntax is `OriginFor<T>` or `T::RuntimeOrigin` or `<T as frame_system::Config>::RuntimeOrigin`.
+pub fn check_dispatchable_first_arg_type(ty: &syn::Type, system: &syn::Path) -> syn::Result<()> {
+	pub struct CheckOriginFor;
+	impl syn::parse::Parse for CheckOriginFor {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 			input.parse::<keyword::OriginFor>()?;
 			input.parse::<syn::Token![<]>()?;
@@ -152,7 +153,29 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
 		}
 	}
 
-	// syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream()).map_err(|e| {
+	pub struct CheckRuntimeOrigin;
+	impl syn::parse::Parse for CheckRuntimeOrigin {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			input.parse::<keyword::T>()?;
+			input.parse::<syn::Token![::]>()?;
+			input.parse::<keyword::RuntimeOrigin>()?;
+
+			Ok(Self)
+		}
+	}
+
+	pub struct CheckSystemRuntimeOrigin;
+	impl syn::parse::Parse for CheckSystemRuntimeOrigin {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			input.parse::<keyword::T>()?;
+			input.parse::<syn::Token![::]>()?;
+			input.parse::<keyword::RuntimeOrigin>()?;
+
+			Ok(Self)
+		}
+	}
+
+	// syn::parse2::<CheckOriginFor>(ty.to_token_stream()).map_err(|e| {
 	// 	let msg = "Invalid type: expected `OriginFor<T>`";
 	// 	let mut err = syn::Error::new(ty.span(), msg);
 	// 	err.combine(e);

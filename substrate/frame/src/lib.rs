@@ -45,14 +45,6 @@
 //!
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
-//!
-//! ## Underlying dependencies
-//!
-//! This crate is an amalgamation of multiple other crates that are often used together to compose a
-//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
-//!
-//! In short, this crate only re-exports types and traits from multiple sources. All of these
-//! sources are listed (and re-exported again) in [`deps`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
