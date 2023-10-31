@@ -132,7 +132,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Timestamp: pallet_timestamp::{Call, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage},
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage,  Event<T>},
 		Council: pallet_collective::<Instance1>,
 		Utility: utility::{Pallet, Call, Event},
 		Example: example::{Pallet, Call},
@@ -187,7 +187,9 @@ impl pallet_balances::Config for Test {
 	type MaxHolds = ();
 }
 
-impl pallet_root_testing::Config for Test {}
+impl pallet_root_testing::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;
