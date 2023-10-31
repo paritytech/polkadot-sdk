@@ -20,10 +20,6 @@ sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
 sp-std = { path = "../std", default-features = false  }
 
-#todo: remove this (required for `cargo build --no-default-features`)
-sp-io = { path = "../io", default-features = false, optional = true }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false, optional = true }
-
 [features]
 default = [ "std" ]
 std = [
@@ -31,9 +27,6 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-
-#todo: remove this (required for `cargo build --no-default-features`)
-compile = [ "sp-io/disable_panic_handler", "sp-runtime-interface/disable_target_static_assertions" ]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
