@@ -24,7 +24,7 @@ use frame_support::traits::{
 		fungible, fungibles, AssetId, DepositConsequence, Fortitude, Imbalance as ImbalanceT,
 		Precision, Preservation, Provenance, Restriction, WithdrawConsequence,
 	},
-	AccountTouch, ContainsPair,
+	AccountTouch,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -988,25 +988,6 @@ impl<
 			Left(()) => <Left as AccountTouch<(), AccountId>>::touch((), who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
-		}
-	}
-}
-
-impl<
-		Left: fungible::Inspect<AccountId>,
-		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
-			+ ContainsPair<Right::AssetId, AccountId>,
-		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
-		AssetKind: AssetId,
-		AccountId,
-	> ContainsPair<AssetKind, AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
-{
-	fn contains(asset: &AssetKind, who: &AccountId) -> bool {
-		match Criterion::convert(asset.clone()) {
-			Left(()) =>
-				<Left as fungible::Inspect<AccountId>>::total_balance(who) >=
-					<Left as fungible::Inspect<AccountId>>::minimum_balance(),
-			Right(a) => <Right as ContainsPair<Right::AssetId, AccountId>>::contains(&a, who),
 		}
 	}
 }
