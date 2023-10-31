@@ -243,7 +243,7 @@ pub mod pallet {
 		InvalidTarget,
 		/// Too many additional fields.
 		TooManyFields,
-		/// Identity encoded size is too high.
+		/// Identity encoded size is too large.
 		IdentitySize,
 		/// Maximum amount of registrars reached. Cannot add any more.
 		TooManyRegistrars,
