@@ -27,6 +27,7 @@
 
 use std::sync::Arc;
 
+use error::FatalError;
 use futures::FutureExt;
 
 use gum::CandidateHash;
@@ -431,7 +432,7 @@ impl DisputeCoordinatorSubsystem {
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
 async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<ActivatedLeaf>> {
 	loop {
-		match ctx.recv().await? {
+		match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
