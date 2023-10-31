@@ -49,9 +49,9 @@ use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure, MaxNominationsOf,
-	MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, CheckedPayoutDestination, EraPayout, Exposure, ExposureOf, Forcing,
+	IndividualExposure, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
+	PayoutDestination, PositiveImbalanceOf, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::get(account)
 	}
 
-	pub fn payee(account: StakingAccount<T::AccountId>) -> RewardDestination<T::AccountId> {
+	pub fn payee(account: StakingAccount<T::AccountId>) -> CheckedPayoutDestination<T::AccountId> {
 		StakingLedger::<T>::reward_destination(account)
 	}
 
@@ -260,9 +260,12 @@ impl<T: Config> Pallet<T> {
 			total_imbalance.subsume(imbalance);
 		}
 
-		// Track the number of payout ops to nominators. Note:
-		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
+		// Track the number of payout ops to nominators.
+		//
+		// Notes:
+		// - `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
 		// out, so we do not need to count their payout op.
+		// - this logic does not count payouts for `PayoutDestination::Forgo`.
 		let mut nominator_payout_count: u32 = 0;
 
 		// Lets now calculate how this is split to the nominators.
@@ -305,29 +308,52 @@ impl<T: Config> Pallet<T> {
 	fn make_payout(
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
-		let maybe_imbalance = match dest {
-			RewardDestination::Controller => Self::bonded(stash)
-				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
-			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
+	) -> Option<(PositiveImbalanceOf<T>, CheckedPayoutDestination<T::AccountId>)> {
+		// NOTE: temporary getter while `Payee` -> `Payees` lazy migration is taking place.
+		// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
+		// Can replace with `dest = Self:payees(stash);` once migration is done.
+		//
+		// let dest = Self::payee(StakingAccount::Stash(stash.clone()));
+
+		let dest = Self::bonded(stash)
+			.and_then(|c| Some(Self::get_payout_destination_migrate(stash, c)))?;
+
+		// Closure to handle the `Stake` payout destination, used in `Stake` and `Split` variants.
+		let payout_destination_stake = |a: BalanceOf<T>| -> Option<PositiveImbalanceOf<T>> {
+			Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
-
 					let _ = ledger
 						.update()
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
 
+					let r = T::Currency::deposit_into_existing(stash, amount).ok();
 					Ok(r)
 				})
-				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
-			RewardDestination::None => None,
+				.unwrap_or_default()
 		};
+
+		let maybe_imbalance = match dest {
+			PayoutDestination::Stake => payout_destination_stake(amount),
+			PayoutDestination::Split((share, deposit_to)) => {
+				// `share` can never be 0% or 100%.
+				let amount_free = share * amount;
+				let amount_stake = amount.saturating_sub(amount_free);
+				let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+				total_imbalance.subsume(
+					payout_destination_stake(amount_stake)
+						.unwrap_or(PositiveImbalanceOf::<T>::zero()),
+				);
+				total_imbalance.subsume(T::Currency::deposit_creating(&deposit_to, amount_free));
+				Some(total_imbalance)
+			},
+			PayoutDestination::Deposit(deposit_to) =>
+				Some(T::Currency::deposit_creating(&deposit_to, amount)),
+			PayoutDestination::Forgo => None,
+		};
+
 		maybe_imbalance
 			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
 	}
@@ -1036,6 +1062,28 @@ impl<T: Config> Pallet<T> {
 			DispatchClass::Mandatory,
 		);
 	}
+
+	/// Temporary getter for `Payees`.
+	///
+	/// Migrates `Payee` to `Payees` if it has not been migrated already.
+	/// TODO: move to `StakingLedger`.
+	pub fn get_payout_destination_migrate(
+		stash: &T::AccountId,
+		controller: T::AccountId,
+	) -> PayoutDestination<T::AccountId> {
+		if !Payees::<T>::contains_key(stash) {
+			let current = PayoutDestination::from_reward_destination(
+				DeprecatedPayee::<T>::get(stash),
+				stash.clone(),
+				controller,
+			);
+			Payees::<T>::insert(stash, current.clone());
+			DeprecatedPayee::<T>::remove(stash);
+			current.0
+		} else {
+			Payees::<T>::get(stash).0
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1697,7 +1745,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::bond(
 			RawOrigin::Signed(who.clone()).into(),
 			value,
-			RewardDestination::Account(payee.clone()),
+			PayoutDestination::Deposit(payee.clone()),
 		)
 	}
 

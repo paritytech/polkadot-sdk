@@ -25,7 +25,9 @@ use pallet_nomination_pools::{
 	BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers,
 	PoolState,
 };
-use pallet_staking::{CurrentEra, Event as StakingEvent, Payee, RewardDestination};
+use pallet_staking::{
+	CheckedPayoutDestination, CurrentEra, Event as StakingEvent, Payees, PayoutDestination,
+};
 use sp_runtime::{bounded_btree_map, traits::Zero};
 
 #[test]
@@ -214,8 +216,11 @@ fn pool_slash_e2e() {
 			]
 		);
 
-		assert_eq!(Payee::<Runtime>::get(POOL1_BONDED), RewardDestination::Account(POOL1_REWARD));
-
+		assert_eq!(
+			Payees::<Runtime>::get(POOL1_BONDED),
+			CheckedPayoutDestination(PayoutDestination::Deposit(POOL1_REWARD))
+		);
+		
 		// have two members join
 		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 20, 1));
 		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 20, 1));

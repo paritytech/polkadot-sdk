@@ -40,7 +40,8 @@ use sp_staking::{EraIndex, StakingAccount};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, CheckedPayoutDestination, Config, DeprecatedPayee, Error, Ledger, Payees,
+	StakingLedger, STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -125,13 +126,13 @@ impl<T: Config> StakingLedger<T> {
 			.ok_or(Error::<T>::NotController)
 	}
 
-	/// Returns the reward destination of a staking ledger, stored in [`Payee`].
+	/// Returns the payout destination of a staking ledger, stored in [`Payees`].
 	///
-	/// Note: if the stash is not bonded and/or does not have an entry in [`Payee`], it returns the
-	/// default reward destination.
+	/// Note: if the stash is not bonded and/or does not have an entry in [`Payees`], it returns the
+	/// default payout destination.
 	pub(crate) fn reward_destination(
 		account: StakingAccount<T::AccountId>,
-	) -> RewardDestination<T::AccountId> {
+	) -> CheckedPayoutDestination<T::AccountId> {
 		let stash = match account {
 			StakingAccount::Stash(stash) => Some(stash),
 			StakingAccount::Controller(controller) =>
@@ -139,10 +140,10 @@ impl<T: Config> StakingLedger<T> {
 		};
 
 		if let Some(stash) = stash {
-			<Payee<T>>::get(stash)
+			<Payees<T>>::get(stash)
 		} else {
-			defensive!("fetched reward destination from unbonded stash {}", stash);
-			RewardDestination::default()
+			defensive!("fetched payout destination from unbonded stash {}", stash);
+			CheckedPayoutDestination::default()
 		}
 	}
 
@@ -186,22 +187,33 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds a ledger.
 	///
 	/// It sets the reward preferences for the bonded stash.
-	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
+	pub(crate) fn bond(
+		self,
+		payee: CheckedPayoutDestination<T::AccountId>,
+	) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
 			Err(Error::<T>::AlreadyBonded)
 		} else {
-			<Payee<T>>::insert(&self.stash, payee);
+			<Payees<T>>::insert(&self.stash, payee);
 			<Bonded<T>>::insert(&self.stash, &self.stash);
 			self.update()
 		}
 	}
 
 	/// Sets the ledger Payee.
-	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
+	pub(crate) fn set_payee(
+		self,
+		payee: CheckedPayoutDestination<T::AccountId>,
+	) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			Err(Error::<T>::NotStash)
 		} else {
-			<Payee<T>>::insert(&self.stash, payee);
+			<Payees<T>>::insert(&self.stash, payee);
+			// In-progress lazy migration to `Payees` storage item.
+			// NOTE: To be removed in next runtime upgrade once migration is completed.
+			if DeprecatedPayee::<T>::contains_key(&self.stash) {
+				DeprecatedPayee::<T>::remove(self.stash);
+			}
 			Ok(())
 		}
 	}
@@ -214,9 +226,14 @@ impl<T: Config> StakingLedger<T> {
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			Ledger::<T>::remove(controller);
-
 			<Bonded<T>>::remove(&stash);
-			<Payee<T>>::remove(&stash);
+			// NOTE: Checks both `Payees` and `Payee` records during migration period.
+			// Tracking issue: <https://github.com/paritytech/polkadot-sdk/issues/1195>
+			if <Payees<T>>::contains_key(&stash) {
+				<Payees<T>>::remove(stash);
+			} else {
+				<DeprecatedPayee<T>>::remove(stash);
+			}
 
 			Ok(())
 		})?
