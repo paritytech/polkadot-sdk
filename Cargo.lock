@@ -18974,7 +18974,6 @@ name = "tracing-gum"
 version = "1.0.0"
 dependencies = [
  "coarsetime",
- "polkadot-node-jaeger",
  "polkadot-primitives",
  "tracing",
  "tracing-gum-proc-macro",
