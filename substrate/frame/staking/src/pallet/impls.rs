@@ -334,6 +334,11 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
+		// noop if amount is zero
+		if amount.is_zero() {
+			return None
+		}
+
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
 			RewardDestination::Controller => Self::bonded(stash)

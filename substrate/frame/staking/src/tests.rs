@@ -3809,10 +3809,21 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		let pre_payout_total_issuance = Balances::total_issuance();
 		RewardOnUnbalanceWasCalled::set(false);
+		System::reset_events();
 
 		let controller_balance_before_p0_payout = Balances::free_balance(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0));
+
+		// verify `Rewarded` events are being executed
+		assert!(matches!(
+			staking_events_since_last_call().as_slice(),
+			&[
+				..,
+				Event::Rewarded { stash: 1063, dest: RewardDestination::Controller, amount: 111 },
+				Event::Rewarded { stash: 1064, dest: RewardDestination::Controller, amount: 111 },
+			]
+		));
 
 		let controller_balance_after_p0_payout = Balances::free_balance(&11);
 
@@ -3826,6 +3837,17 @@ fn test_multi_page_payout_stakers_by_page() {
 		// Payout the second and last page of nominators
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 1));
 
+		// verify `Rewarded` events are being executed for the second page.
+		let events = staking_events_since_last_call();
+		assert!(matches!(
+			events.as_slice(),
+			&[
+				Event::PayoutStarted { era_index: 1, validator_stash: 11 },
+				Event::Rewarded { stash: 1065, dest: RewardDestination::Controller, amount: 111 },
+				Event::Rewarded { stash: 1066, dest: RewardDestination::Controller, amount: 111 },
+				..
+			]
+		));
 		// verify the validator was not rewarded the second time
 		assert_eq!(Balances::free_balance(&11), controller_balance_after_p0_payout);
 
@@ -3833,15 +3855,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
-		// verify `Rewarded` events are being executed
-		assert!(matches!(
-			staking_events_since_last_call().as_slice(),
-			&[
-				..,
-				Event::Rewarded { stash: 1037, dest: RewardDestination::Controller, amount: 108 },
-				Event::Rewarded { stash: 1036, dest: RewardDestination::Controller, amount: 108 },
-			]
-		));
+
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
 		assert!(Balances::free_balance(&11) > balance);
