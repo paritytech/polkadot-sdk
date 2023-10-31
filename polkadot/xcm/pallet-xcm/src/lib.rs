@@ -298,24 +298,20 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
-		) -> DispatchResultWithPostInfo {
+		) -> Result<Outcome, DispatchError> {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let hash = message.using_encoded(sp_io::hashing::blake2_256);
 			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let value = (origin_location, message);
 			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
 			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::execute_xcm_in_credit(
+			Ok(T::XcmExecutor::execute_xcm_in_credit(
 				origin_location,
 				message,
 				hash,
 				max_weight,
 				max_weight,
-			);
-			let result =
-				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
-			Self::deposit_event(Event::Attempted { outcome });
-			result
+			))
 		}
 	}
 
@@ -1003,7 +999,11 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)
+			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
+			let result =
+				Ok(Some(outcome.weight_used().saturating_add(T::WeightInfo::execute())).into());
+			Self::deposit_event(Event::Attempted { outcome });
+			result
 		}
 
 		/// Extoll that a particular destination can be communicated with through a particular
