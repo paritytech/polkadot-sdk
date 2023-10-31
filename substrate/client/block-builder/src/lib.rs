@@ -41,6 +41,7 @@ use sp_runtime::{
 
 use sc_client_api::backend;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// Used as parameter to [`BlockBuilderProvider`] to express if proof recording should be enabled.
 ///
@@ -173,6 +174,10 @@ where
 
 		if record_proof.yes() {
 			api.record_proof();
+			let recorder = api
+				.proof_recorder()
+				.expect("Proof recording is enabled in the line above; qed.");
+			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
 		api.set_call_context(CallContext::Onchain);

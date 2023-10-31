@@ -584,7 +584,6 @@ impl<'a> ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 							#crate_::CallApiAt::<__SrApiBlock__>::initialize_extensions(
 								self.call,
 								at,
-								self.recorder.as_ref(),
 								&mut std::cell::RefCell::borrow_mut(&self.extensions),
 							)?;
 

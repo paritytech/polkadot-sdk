@@ -78,7 +78,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{CompactProof, MerkleValue, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -864,6 +864,10 @@ where
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
+					let recorder = runtime_api
+						.proof_recorder()
+						.expect("Proof recording is enabled in the line above; qed.");
+					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
 				runtime_api.execute_block(
@@ -1747,16 +1751,11 @@ where
 	fn initialize_extensions(
 		&self,
 		at: Block::Hash,
-		recorder: Option<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
 		extensions: &mut sp_externalities::Extensions,
 	) -> Result<(), sp_api::ApiError> {
 		let block_number = self.expect_block_number_from_id(&BlockId::Hash(at))?;
 
-		extensions.merge(self.executor.execution_extensions().extensions(
-			at,
-			block_number,
-			recorder,
-		));
+		extensions.merge(self.executor.execution_extensions().extensions(at, block_number));
 
 		Ok(())
 	}

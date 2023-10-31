@@ -121,16 +121,11 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 		&self,
 		block_hash: Block::Hash,
 		block_number: NumberFor<Block>,
-		proof_recorder: Option<&Recorder<HashingFor<Block>>>,
 	) -> Extensions {
 		let mut extensions =
 			self.extensions_factory.read().extensions_for(block_hash, block_number);
 
 		extensions.register(ReadRuntimeVersionExt::new(self.read_runtime_version.clone()));
-		if let Some(recorder) = proof_recorder {
-			extensions.register(sp_trie::proof_size_extension::ProofSizeExt::new(recorder.clone()));
-		};
-
 		extensions
 	}
 }

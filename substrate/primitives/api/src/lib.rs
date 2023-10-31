@@ -661,7 +661,6 @@ pub trait CallApiAt<Block: BlockT> {
 	fn initialize_extensions(
 		&self,
 		at: Block::Hash,
-		recorder: Option<&sp_trie::recorder::Recorder<HashingFor<Block>>>,
 		extensions: &mut Extensions,
 	) -> Result<(), ApiError>;
 }
