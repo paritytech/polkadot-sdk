@@ -1050,7 +1050,7 @@ fn limit_and_sanitize_disputes<
 fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	para_id_to_core_idx: &BTreeMap<ParaId, CoreIndex>,
+	scheduled: &BTreeMap<ParaId, CoreIndex>,
 ) -> bool {
 	let disabled_validators = shared::Pallet::<T>::disabled_validators();
 
@@ -1066,7 +1066,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 	let backed_len_before = backed_candidates.len();
 	backed_candidates.retain_mut(|bc| {
 		// Get `core_idx` assigned to the `para_id` of the candidate (step 2)
-		let core_idx = match para_id_to_core_idx.get(&bc.descriptor().para_id) {
+		let core_idx = match scheduled.get(&bc.descriptor().para_id) {
 			Some(core_idx) => *core_idx,
 			None => {
 				log::debug!(target: LOG_TARGET, "Can't get core idx got a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
@@ -1143,7 +1143,6 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 
 		bc.validity_votes = validity_votes.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
 
-		// let removed_indecies = dropped.into_iter().map(|(idx, _)| idx).collect::<Vec<_>>();
 		for idx in dropped.into_iter().map(|(idx, _)| idx) {
 			bc.validator_indices.set(idx, false);
 		}
