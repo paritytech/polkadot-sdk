@@ -139,8 +139,8 @@ impl syn::parse::Parse for ArgAttrIsCompact {
 	}
 }
 
-/// Check the syntax is `OriginFor<T>` or `T::RuntimeOrigin` or `<T as frame_system::Config>::RuntimeOrigin`.
-pub fn check_dispatchable_first_arg_type(ty: &syn::Type, system: &syn::Path) -> syn::Result<()> {
+/// Check the syntax is `OriginFor<T>` or `T::RuntimeOrigin`.
+pub fn check_dispatchable_first_arg_type(ty: &syn::Type) -> syn::Result<()> {
 	pub struct CheckOriginFor;
 	impl syn::parse::Parse for CheckOriginFor {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -164,23 +164,15 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, system: &syn::Path) -> 
 		}
 	}
 
-	pub struct CheckSystemRuntimeOrigin;
-	impl syn::parse::Parse for CheckSystemRuntimeOrigin {
-		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-			input.parse::<keyword::T>()?;
-			input.parse::<syn::Token![::]>()?;
-			input.parse::<keyword::RuntimeOrigin>()?;
-
-			Ok(Self)
-		}
-	}
-
-	// syn::parse2::<CheckOriginFor>(ty.to_token_stream()).map_err(|e| {
-	// 	let msg = "Invalid type: expected `OriginFor<T>`";
-	// 	let mut err = syn::Error::new(ty.span(), msg);
-	// 	err.combine(e);
-	// 	err
-	// })?;
+	syn::parse2::<CheckOriginFor>(ty.to_token_stream())
+		.map(|_| ())
+		.or_else(|_| syn::parse2::<CheckRuntimeOrigin>(ty.to_token_stream()).map(|_| ()))
+		.map_err(|e| {
+			let msg = "Invalid type: expected `OriginFor<T>`";
+			let mut err = syn::Error::new(ty.span(), msg);
+			err.combine(e);
+			err
+		})?;
 
 	Ok(())
 }

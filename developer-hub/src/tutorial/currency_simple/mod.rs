@@ -24,7 +24,7 @@
 //! - [Event](frame::pallet_macros::event)
 //! - [Error](frame::pallet_macros::error)
 //! - Basics of testing a pallet.
-//! - [Constructing a runtime](frame::runtime::construct_runtime)
+//! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
 //!
 //! ## Writing Your First Pallet
 //!

@@ -34,11 +34,14 @@
 //! make as few assumptions about the general runtime as possible. A pallet is analogous to a
 //! _module_ in the runtime.
 //!
-//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro. Within this macro, pallet components/parts can be defined. Most notable of these parts are:
+//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro. Within this macro,
+//! pallet components/parts can be defined. Most notable of these parts are:
 //!
-//! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and generic over types, values and such.
+//! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and
+//!   generic over types, values and such.
 //! - [Storage](frame::pallet_macros::storage), allowing a pallet to define onchain storage.
-//! - [Dispatchable function aka. Extrinsics](frame::pallet_macros::call), allowing a pallet to define extrinsics that are callable by end users, from the outer world.
+//! - [Dispatchable function aka. Extrinsics](frame::pallet_macros::call), allowing a pallet to
+//!   define extrinsics that are callable by end users, from the outer world.
 //! - [Events](frame::pallet_macros::event), allowing a pallet to emit events.
 //! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
 //!
@@ -58,7 +61,7 @@
 //!
 //! A (real) runtime that actually wishes to compile to WASM needs to also implement a set of
 //! runtime-apis. These implementation can be specified using the
-//! [`frame::runtime::impl_runtime_apis`] macro.
+//! [`frame::runtime::prelude::impl_runtime_apis`] macro.
 //!
 //! ### Example
 //!
