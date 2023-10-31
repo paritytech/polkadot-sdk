@@ -18,6 +18,7 @@
 
 use crate::{
 	artifacts::ArtifactPathId,
+	security,
 	worker_intf::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
 		SpawnErr, WorkerDir, WorkerHandle, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -106,7 +107,7 @@ pub enum Outcome {
 /// returns the outcome.
 ///
 /// NOTE: Not returning the idle worker token in `Outcome` will trigger the child process being
-/// killed.
+/// killed, if it's still alive.
 pub async fn start_work(
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
@@ -124,7 +125,10 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
+	let artifact_path = artifact.path.clone();
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
+		let audit_log_file = security::AuditLogFile::try_open_and_seek_to_end().await;
+
 		if let Err(error) = send_request(&mut stream, &validation_params, execution_timeout).await {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -153,9 +157,38 @@ pub async fn start_work(
 							?error,
 							"failed to recv an execute response",
 						);
+						// The worker died. Check if it was due to a seccomp violation.
+						//
+						// NOTE: Log, but don't change the outcome. Not all validators may have
+						// auditing enabled, so we don't want attackers to abuse a non-deterministic
+						// outcome.
+						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
+							gum::error!(
+								target: LOG_TARGET,
+								worker_pid = %pid,
+								%syscall,
+								validation_code_hash = ?artifact.id.code_hash,
+								?artifact_path,
+								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+							);
+						}
+
 						return Outcome::IoErr
 					},
 					Ok(response) => {
+						// Check if any syscall violations occurred during the job. For now this is
+						// only informative, as we are not enforcing the seccomp policy yet.
+						for syscall in security::check_seccomp_violations_for_worker(audit_log_file, pid).await {
+							gum::error!(
+								target: LOG_TARGET,
+								worker_pid = %pid,
+								%syscall,
+								validation_code_hash = ?artifact.id.code_hash,
+								?artifact_path,
+								"A forbidden syscall was attempted! This is a violation of our seccomp security policy. Report an issue ASAP!"
+							);
+						}
+
 						if let Response::Ok{duration, ..} = response {
 							if duration > execution_timeout {
 								// The job didn't complete within the timeout.

@@ -48,14 +48,14 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	io::{Read, Write},
+	fs,
+	io::{self, Read, Write},
 	os::unix::net::UnixStream,
 	path::PathBuf,
 	process,
 	sync::Arc,
 	time::Duration,
 };
-use tokio::io;
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
@@ -139,7 +139,7 @@ pub fn worker_entrypoint(
 		node_version,
 		worker_version,
 		&security_status,
-		|mut stream, worker_dir_path| async move {
+		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
 
@@ -173,7 +173,6 @@ pub fn worker_entrypoint(
 							prepare_job_kind,
 							executor_params,
 						)
-						.await
 					},
 					// parent
 					_ => {
@@ -187,7 +186,6 @@ pub fn worker_entrypoint(
 							usage_before,
 							preparation_timeout.as_secs(),
 						)
-						.await
 					},
 				};
 				send_response(&mut stream, result)?;
@@ -247,7 +245,7 @@ struct Response {
 /// - If any error occur, pipe response back with `PrepareError`.
 ///
 /// - If success, pipe back `Response`.
-async fn handle_child_process(
+fn handle_child_process(
 	pvf: PvfPrepData,
 	pipe_write: os_pipe::PipeWriter,
 	preparation_timeout: Duration,
@@ -324,8 +322,7 @@ async fn handle_child_process(
 
 			// Stop the memory stats worker and get its observed memory stats.
 			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
-			let memory_tracker_stats =
-				get_memory_tracker_loop_stats(memory_tracker_thread, process::id()).await;
+			let memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 			let memory_stats = MemoryStats {
 				#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -366,7 +363,7 @@ async fn handle_child_process(
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 ///
 /// - If the child process exits with an unknown status, it returns `PrepareError`.
-async fn handle_parent_process(
+fn handle_parent_process(
 	mut pipe_read: os_pipe::PipeReader,
 	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
@@ -413,9 +410,7 @@ async fn handle_parent_process(
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
-					if let Err(err) =
-						tokio::fs::write(&temp_artifact_dest, &response.artifact).await
-					{
+					if let Err(err) = fs::write(&temp_artifact_dest, &response.artifact) {
 						return Err(PrepareError::Panic(format!("{:?}", err)))
 					};
 
