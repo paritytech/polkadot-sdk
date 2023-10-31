@@ -1170,17 +1170,25 @@ impl<Hash> PreimageRecipient<Hash> for () {
 	fn unnote_preimage(_: &Hash) {}
 }
 
-/// Trait for creating an asset account with a deposit taken from a designated depositor specified
-/// by the client.
+/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied  by the system's
+/// account existence requirements. For example, this is particularly useful for the account
+/// creation of non-sufficient assets when its system account may not have the free consumer
+/// reference required for it.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
 
-	/// The deposit amount of a native currency required for creating an account of the `asset`.
+	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
+	/// Checks if an account for a given asset should be touched.
+	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
+
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
-	fn touch(asset: AssetId, who: AccountId, depositor: AccountId) -> DispatchResult;
+	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
 #[cfg(test)]
