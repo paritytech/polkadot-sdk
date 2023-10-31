@@ -24,7 +24,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
-use sp_runtime::Perbill;
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
@@ -145,11 +144,11 @@ pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 async_backing_params                     : pre.async_backing_params,
 executor_params                          : pre.executor_params,
-on_demand_queue_max_size                 : 10_000u32,
-on_demand_base_fee                       : 10_000_000u128,
-on_demand_fee_variability                : Perbill::from_percent(3),
-on_demand_target_queue_utilization       : Perbill::from_percent(25),
-on_demand_ttl                            : 5u32.into(),
+on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
+on_demand_base_fee                       : pre.on_demand_base_fee,
+on_demand_fee_variability                : pre.on_demand_fee_variability,
+on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
+on_demand_ttl                            : pre.on_demand_ttl,
 minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 		}
 	};

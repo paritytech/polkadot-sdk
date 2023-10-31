@@ -312,10 +312,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		let current_version = <Pallet<T>>::current_storage_version();
 
 		if on_chain_version == current_version {
-			log::warn!(
-				target: LOG_TARGET,
-				"No upgrade: Please remove this migration from your Migrations tuple"
-			)
+			return Ok(Default::default())
 		}
 
 		log::debug!(
@@ -324,9 +321,11 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 			<Pallet<T>>::name(), on_chain_version, current_version
 		);
 
-		if !T::Migrations::is_upgrade_supported(on_chain_version, current_version) {
-			log::warn!(target: LOG_TARGET, "Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)")
-		}
+		ensure!(
+			T::Migrations::is_upgrade_supported(on_chain_version, current_version),
+			"Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)"
+		);
+
 		Ok(Default::default())
 	}
 
