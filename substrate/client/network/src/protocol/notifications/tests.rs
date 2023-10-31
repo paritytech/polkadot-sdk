@@ -30,8 +30,7 @@ use libp2p::{
 	identity, noise,
 	swarm::{
 		behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmBuilder, SwarmEvent, THandler, THandlerInEvent,
-		THandlerOutEvent, ToSwarm,
+		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	yamux, Multiaddr, PeerId, Transport,
 };
@@ -118,7 +117,8 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 		};
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		let mut swarm = SwarmBuilder::with_executor(
+		#[allow(deprecated)]
+		let mut swarm = libp2p::swarm::SwarmBuilder::with_executor(
 			transport,
 			behaviour,
 			keypairs[index].public().to_peer_id(),

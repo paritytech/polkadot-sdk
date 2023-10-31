@@ -682,9 +682,11 @@ impl ConnectionHandler for NotifsHandler {
 
 		// A grace period of `INITIAL_KEEPALIVE_TIME` must be given to leave time for the remote
 		// to express desire to open substreams.
+		#[allow(deprecated)]
 		KeepAlive::Until(self.when_connection_open + INITIAL_KEEPALIVE_TIME)
 	}
 
+	#[allow(deprecated)]
 	fn poll(
 		&mut self,
 		cx: &mut Context,
@@ -711,6 +713,7 @@ impl ConnectionHandler for NotifsHandler {
 					// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
+					#[allow(deprecated)]
 					match Pin::new(&mut *notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) =>
 							return Poll::Ready(ConnectionHandlerEvent::Close(

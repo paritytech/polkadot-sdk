@@ -56,6 +56,8 @@ use crate::{
 
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
+#[allow(deprecated)]
+use libp2p::swarm::{SwarmBuilder, THandlerErr};
 use libp2p::{
 	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
@@ -64,14 +66,13 @@ use libp2p::{
 	multiaddr,
 	swarm::{
 		ConnectionError, ConnectionId, DialError, Executor, ListenError, NetworkBehaviour, Swarm,
-		SwarmBuilder, SwarmEvent, THandlerErr,
+		SwarmEvent,
 	},
 	Multiaddr, PeerId,
 };
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, HistogramVec, MetricSources, Metrics};
 use parking_lot::Mutex;
-use schnellru::{ByLength, LruMap};
 
 use sc_network_common::ExHashT;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -89,6 +90,7 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
+	time::Duration,
 };
 
 pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
@@ -457,6 +459,7 @@ where
 						(self.0)(f)
 					}
 				}
+				#[allow(deprecated)]
 				SwarmBuilder::with_executor(
 					transport,
 					behaviour,
@@ -470,7 +473,8 @@ where
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
 				// See <https://github.com/paritytech/substrate/pull/6080>
 				.per_connection_event_buffer_size(24)
-				.max_negotiating_inbound_streams(2048);
+				.max_negotiating_inbound_streams(2048)
+				.idle_connection_timeout(Duration::from_secs(10));
 
 			(builder.build(), bandwidth)
 		};
@@ -533,7 +537,7 @@ where
 			reported_invalid_boot_nodes: Default::default(),
 			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
-			address_scores: LruMap::new(ByLength::new(128)),
+			peer_endpoints: HashMap::new(),
 			_marker: Default::default(),
 			_block: Default::default(),
 		})
@@ -1236,8 +1240,8 @@ where
 	peers_notifications_sinks: Arc<Mutex<HashMap<(PeerId, ProtocolName), NotificationsSink>>>,
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
-	/// Address scores for tracking external addresses.
-	address_scores: LruMap<Multiaddr, usize>,
+	/// Peer dialer/listener roles, used to report external addresses.
+	peer_endpoints: HashMap<PeerId, ConnectedPoint>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -1356,6 +1360,7 @@ where
 	}
 
 	/// Process the next event coming from `Swarm`.
+	#[allow(deprecated)]
 	fn handle_swarm_event(&mut self, event: SwarmEvent<BehaviourOut, THandlerErr<Behaviour<B>>>) {
 		match event {
 			SwarmEvent::Behaviour(BehaviourOut::InboundRequest { protocol, result, .. }) => {
@@ -1463,18 +1468,8 @@ where
 				}
 				self.peer_store_handle.add_known_peer(peer_id);
 
-				// TODO: remove this when/if AutoNAT is implemented.
-				match self.address_scores.get(&observed_addr) {
-					Some(value) => {
-						*value = value.saturating_add(1);
-
-						if *value >= 8 {
-							self.network_service.add_external_address(observed_addr);
-						}
-					},
-					None => {
-						self.address_scores.insert(observed_addr.clone(), 1usize);
-					},
+				if let Some(ConnectedPoint::Listener { .. }) = self.peer_endpoints.get(&peer_id) {
+					self.network_service.add_external_address(observed_addr);
 				}
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
@@ -1619,6 +1614,7 @@ where
 						metrics.distinct_peers_connections_opened_total.inc();
 					}
 				}
+				self.peer_endpoints.insert(peer_id, endpoint);
 			},
 			SwarmEvent::ConnectionClosed {
 				connection_id,
@@ -1654,6 +1650,7 @@ where
 						metrics.distinct_peers_connections_closed_total.inc();
 					}
 				}
+				self.peer_endpoints.remove(&peer_id);
 			},
 			SwarmEvent::NewListenAddr { address, .. } => {
 				trace!(target: "sub-libp2p", "Libp2p => NewListenAddr({})", address);

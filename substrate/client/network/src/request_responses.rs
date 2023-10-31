@@ -303,7 +303,6 @@ impl RequestResponsesBehaviour {
 		let mut protocols = HashMap::new();
 		for protocol in list {
 			let mut cfg = Config::default();
-			cfg.set_connection_keep_alive(Duration::from_secs(10));
 			cfg.set_request_timeout(protocol.request_timeout);
 
 			let protocol_support = if protocol.inbound_queue.is_some() {
@@ -996,7 +995,7 @@ mod tests {
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
+		swarm::{Executor, Swarm, SwarmEvent},
 		Multiaddr,
 	};
 	use std::{iter, time::Duration};
@@ -1022,7 +1021,8 @@ mod tests {
 		let behaviour = RequestResponsesBehaviour::new(list, Box::new(MockPeerStore {})).unwrap();
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		let mut swarm = SwarmBuilder::with_executor(
+		#[allow(deprecated)]
+		let mut swarm = libp2p::swarm::SwarmBuilder::with_executor(
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),

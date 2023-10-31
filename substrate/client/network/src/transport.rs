@@ -57,6 +57,7 @@ pub fn build_transport(
 		// Main transport: DNS(TCP)
 		let tcp_config = tcp::Config::new().nodelay(true);
 		let tcp_trans = tcp::tokio::Transport::new(tcp_config.clone());
+		#[allow(deprecated)]
 		let dns_init = dns::TokioDnsConfig::system(tcp_trans);
 
 		Either::Left(if let Ok(dns) = dns_init {
@@ -66,6 +67,7 @@ pub fn build_transport(
 			// unresolved addresses (BUT WSS transport itself needs an instance of DNS transport to
 			// resolve and dial addresses).
 			let tcp_trans = tcp::tokio::Transport::new(tcp_config);
+			#[allow(deprecated)]
 			let dns_for_wss = dns::TokioDnsConfig::system(tcp_trans)
 				.expect("same system_conf & resolver to work");
 			Either::Left(websocket::WsConfig::new(dns_for_wss).or_transport(dns))
@@ -96,7 +98,7 @@ pub fn build_transport(
 	};
 
 	let transport = transport
-		.upgrade(upgrade::Version::V1)
+		.upgrade(upgrade::Version::V1Lazy)
 		.authenticate(authentication_config)
 		.multiplex(multiplexing_config)
 		.timeout(Duration::from_secs(20))
