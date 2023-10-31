@@ -36,7 +36,7 @@ xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-feature
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
-sp-proof-size-hostfunction = { path = "../../../substrate/primitives/proof-size-hostfunction", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
 
 [dev-dependencies]
 assert_matches = "1.5"
@@ -74,7 +74,7 @@ std = [
 	"sp-externalities/std",
 	"sp-inherents/std",
 	"sp-io/std",
-	"sp-proof-size-hostfunction/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",

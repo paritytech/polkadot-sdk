@@ -3550,6 +3550,7 @@ dependencies = [
  "cumulus-client-network",
  "cumulus-client-pov-recovery",
  "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -3570,7 +3571,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
- "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-transaction-pool",
 ]
@@ -3619,6 +3619,7 @@ dependencies = [
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "environmental",
@@ -3639,7 +3640,6 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-state-machine",
  "sp-std",
@@ -3797,6 +3797,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-primitives-proof-size-hostfunction"
+version = "0.1.0"
+dependencies = [
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-trie",
+]
+
+[[package]]
 name = "cumulus-primitives-timestamp"
 version = "0.1.0"
 dependencies = [
@@ -3949,6 +3961,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "cumulus-test-service",
@@ -3969,7 +3982,6 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
- "sp-proof-size-hostfunction",
  "sp-runtime",
  "sp-timestamp",
  "substrate-test-client",
@@ -17347,18 +17359,6 @@ dependencies = [
  "backtrace",
  "lazy_static",
  "regex",
-]
-
-[[package]]
-name = "sp-proof-size-hostfunction"
-version = "0.1.0"
-dependencies = [
- "sp-core",
- "sp-externalities",
- "sp-io",
- "sp-runtime-interface",
- "sp-state-machine",
- "sp-trie",
 ]
 
 [[package]]
