@@ -1119,7 +1119,7 @@ fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>
 			})
 			.collect::<Vec<_>>();
 
-		let validity_votes = std::mem::take(&mut bc.validity_votes);
+		let validity_votes = sp_std::mem::take(&mut bc.validity_votes);
 		let (validity_votes, dropped) : (Vec<(usize, ValidityAttestation)>, Vec<(usize, ValidityAttestation)>) =  validity_votes.into_iter().enumerate().partition(|(idx, _)| {
 			let voted_validator_index = match voted_validator_ids.get(*idx) {
 				Some(validator_index) => validator_index,
