@@ -15,12 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A set of traits that define how a pallet interface with XCM.
+//! Controller traits defined in this module are high-level traits that will rely on other more
+//! low-level traits of this crate to perform their tasks.
 
 use crate::{
 	traits::{QueryHandler, QueryResponseStatus},
 	InteriorMultiLocation,
 	Junctions::Here,
-	MultiLocation, Xcm, Outcome, XcmError
+	MultiLocation, Outcome, Xcm, XcmError,
 };
 use frame_support::{pallet_prelude::*, parameter_types};
 use sp_weights::Weight;
@@ -46,6 +48,11 @@ pub trait ExecuteControllerWeightInfo {
 }
 
 /// Execute an XCM locally, for a given origin.
+///
+/// An implementation of that trait will handle the low-level details of the execution, such as:
+/// - Validating and Converting the origin to a MultiLocation.
+/// - Handling versioning.
+/// - Calling  the internal executor, which implements [`ExecuteXcm`].
 pub trait ExecuteController<Origin, RuntimeCall> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
@@ -71,6 +78,12 @@ pub trait SendControllerWeightInfo {
 }
 
 /// Send an XCM from a given origin.
+///
+/// An implementation of that trait will handle the low-level details of dispatching an XCM, such
+/// as:
+/// - Validating and Converting the origin to an interior location.
+/// - Handling versioning.
+/// - Calling  the internal router, which implements [`SendXcm`].
 pub trait SendController<Origin> {
 	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
@@ -99,6 +112,12 @@ pub trait QueryControllerWeightInfo {
 }
 
 /// Query a remote location, from a given origin.
+///
+/// An implementation of that trait will handle the low-level details of querying a remote location,
+/// such as:
+/// - Validating and Converting the origin to an interior location.
+/// - Handling versioning.
+/// - Calling the [`QueryHandler`] to register the query.
 pub trait QueryController<Origin, Timeout>: QueryHandler {
 	/// Weight information for QueryController functions.
 	type WeightInfo: QueryControllerWeightInfo;

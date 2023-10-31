@@ -53,9 +53,8 @@ use xcm_executor::{
 	traits::{
 		CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin, DropAssets,
 		ExecuteController, ExecuteControllerWeightInfo, MatchesFungible, OnResponse, Properties,
-		QueryController, QueryControllerWeightInfo, QueryHandler,
-		QueryResponseStatus, SendController, SendControllerWeightInfo, VersionChangeNotifier,
-		WeightBounds,
+		QueryController, QueryControllerWeightInfo, QueryHandler, QueryResponseStatus,
+		SendController, SendControllerWeightInfo, VersionChangeNotifier, WeightBounds,
 	},
 	Assets,
 };
