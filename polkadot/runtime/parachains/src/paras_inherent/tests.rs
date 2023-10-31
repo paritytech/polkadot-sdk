@@ -1242,7 +1242,6 @@ mod sanitizers {
 			let keystore = Arc::new(keystore) as KeystorePtr;
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
-			// 5 active validators where `Eve` is disabled
 			let validators = vec![
 				keyring::Sr25519Keyring::Alice,
 				keyring::Sr25519Keyring::Bob,
@@ -1421,24 +1420,19 @@ mod sanitizers {
 		#[test]
 		fn disabled_non_signing_validator_doesnt_get_filtered() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
 
 				// Disable Eve
 				set_disabled_validators(vec![4]);
 
 				let before = backed_candidates.clone();
 
-				// TODO: fix this. No need to keep this in runtime anymore.
-				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
-					.map(|(core_idx, para_id)| (para_id, core_idx))
-					.collect();
-
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
 				assert!(!filter_backed_statements_from_disabled::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled
+					&scheduled_paras
 				));
 				assert_eq!(backed_candidates, before);
 			});
@@ -1447,7 +1441,7 @@ mod sanitizers {
 		#[test]
 		fn drop_single_disabled_vote() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -1468,17 +1462,10 @@ mod sanitizers {
 				);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
-				// TODO: fix this. No need to keep this in runtime anymore.
-				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
-					.map(|(core_idx, para_id)| (para_id, core_idx))
-					.collect();
-
-				// Eve is disabled but no backing statement is signed by it so nothing should be
-				// filtered
 				assert!(filter_backed_statements_from_disabled::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled
+					&scheduled_paras
 				));
 
 				// there should still be two backed candidates
@@ -1502,7 +1489,7 @@ mod sanitizers {
 		#[test]
 		fn drop_candidate_if_all_statements_are_from_disabled() {
 			new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-				let TestData { mut backed_candidates, scheduled_paras: _ } = get_test_data();
+				let TestData { mut backed_candidates, scheduled_paras } = get_test_data();
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
@@ -1511,17 +1498,10 @@ mod sanitizers {
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
-				// TODO: fix this. No need to keep this in runtime anymore.
-				let scheduled = <scheduler::Pallet<Test>>::scheduled_paras()
-					.map(|(core_idx, para_id)| (para_id, core_idx))
-					.collect();
-
-				// Eve is disabled but no backing statement is signed by it so nothing should be
-				// filtered
 				assert!(filter_backed_statements_from_disabled::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
-					&scheduled
+					&scheduled_paras
 				));
 
 				assert_eq!(backed_candidates.len(), 1);
