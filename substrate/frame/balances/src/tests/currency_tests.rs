@@ -144,7 +144,9 @@ fn lock_removal_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::remove_lock(ID_1, &1);
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -156,7 +158,9 @@ fn lock_replacement_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -168,7 +172,9 @@ fn double_locking_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_2, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -179,8 +185,11 @@ fn combination_locking_should_work() {
 		.existential_deposit(1)
 		.monied(true)
 		.build_and_execute_with(|| {
+			assert_eq!(System::consumers(&1), 0);
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::empty());
+			assert_eq!(System::consumers(&1), 0);
 			Balances::set_lock(ID_2, &1, 0, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -192,16 +201,19 @@ fn lock_value_extension_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 6, AllowDeath),
 				TokenError::Frozen
 			);
 			Balances::extend_lock(ID_1, &1, 2, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 6, AllowDeath),
 				TokenError::Frozen
 			);
 			Balances::extend_lock(ID_1, &1, 8, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 3, AllowDeath),
 				TokenError::Frozen
@@ -1324,9 +1336,14 @@ fn freezing_and_locking_should_work() {
 		.existential_deposit(1)
 		.monied(true)
 		.build_and_execute_with(|| {
+			// Consumer is shared between freezing and locking.
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 4));
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
-			assert_eq!(System::consumers(&1), 2);
+			assert_eq!(System::consumers(&1), 1);
+
+			// Frozen and locked balances update correctly.
 			assert_eq!(Balances::account(&1).frozen, 5);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 6));
 			assert_eq!(Balances::account(&1).frozen, 6);
@@ -1336,8 +1353,13 @@ fn freezing_and_locking_should_work() {
 			assert_eq!(Balances::account(&1).frozen, 4);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
 			assert_eq!(Balances::account(&1).frozen, 5);
+
+			// Locks update correctly.
 			Balances::remove_lock(ID_1, &1);
 			assert_eq!(Balances::account(&1).frozen, 4);
 			assert_eq!(System::consumers(&1), 1);
+			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 0));
+			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(System::consumers(&1), 0);
 		});
 }

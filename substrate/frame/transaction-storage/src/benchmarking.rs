@@ -21,9 +21,9 @@
 
 use super::*;
 use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
-use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
+use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
-use sp_runtime::traits::{Bounded, One, Zero};
+use sp_runtime::traits::{Bounded, CheckedDiv, One, Zero};
 use sp_std::*;
 use sp_transaction_storage_proof::TransactionStorageProof;
 
@@ -103,9 +103,6 @@ fn proof() -> Vec<u8> {
 	array_bytes::hex2bytes_unchecked(PROOF)
 }
 
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = System::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
@@ -129,7 +126,8 @@ benchmarks! {
 	store {
 		let l in 1 .. T::MaxTransactionSize::get();
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
+		T::Currency::set_balance(&caller, initial_balance);
 	}: _(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize])
 	verify {
 		assert!(!BlockTransactions::<T>::get().is_empty());
@@ -138,7 +136,8 @@ benchmarks! {
 
 	renew {
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
+		T::Currency::set_balance(&caller, initial_balance);
 		TransactionStorage::<T>::store(
 			RawOrigin::Signed(caller.clone()).into(),
 			vec![0u8; T::MaxTransactionSize::get() as usize],
@@ -152,7 +151,8 @@ benchmarks! {
 	check_proof_max {
 		run_to_block::<T>(1u32.into());
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
+		T::Currency::set_balance(&caller, initial_balance);
 		for _ in 0 .. T::MaxBlockTransactions::get() {
 			TransactionStorage::<T>::store(
 				RawOrigin::Signed(caller.clone()).into(),
