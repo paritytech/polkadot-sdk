@@ -152,7 +152,7 @@ let mut target_path =
 
 > **TLDR**
 > You can use the CLI tool [Zepter](https://crates.io/crates/zepter) to
-> format the files: `zepter format features`
+> format the files: `zepter format features --fix` (or `zepter f f -f`).
 
 Rust `Cargo.toml` files need to respect certain formatting rules. All entries
 need to be alphabetically sorted. This makes it easier to read them and insert

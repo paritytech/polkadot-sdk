@@ -21,7 +21,7 @@ frame-system = { path = "../../system", default-features = false}
 pallet-asset-conversion = { path = "../../asset-conversion", default-features = false}
 pallet-transaction-payment = { path = "..", default-features = false}
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 sp-core = { path = "../../../primitives/core", default-features = false}

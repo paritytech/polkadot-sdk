@@ -351,10 +351,9 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
-	/// Execute all `OnRuntimeUpgrade` of this runtime, including the pre and post migration checks.
+	/// Execute all `OnRuntimeUpgrade` of this runtime.
 	///
-	/// Runs the try-state code both before and after the migration function if `checks` is set to
-	/// `true`. Also, if set to `true`, it runs the `pre_upgrade` and `post_upgrade` hooks.
+	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
 	pub fn try_runtime_upgrade(
 		checks: frame_try_runtime::UpgradeCheckSelect,
 	) -> Result<Weight, TryRuntimeError> {
@@ -912,6 +911,7 @@ mod tests {
 		type FreezeIdentifier = ();
 		type MaxFreezes = ConstU32<1>;
 		type RuntimeHoldReason = ();
+		type RuntimeFreezeReason = ();
 		type MaxHolds = ConstU32<1>;
 	}
 
