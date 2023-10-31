@@ -1259,7 +1259,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let fees = assets.swap_remove(fee_asset_item as usize);
 		let fees_transfer_type =
-			<T::XcmExecutor as AssetTransferSupport>::determine_for(&fees, &dest)
+			T::XcmExecutor::determine_for(&fees, &dest)
 				.map_err(Error::<T>::from)?;
 		let assets_transfer_type = if assets.is_empty() {
 			// Single asset to transfer (one used for fees where transfer type is determined above).
