@@ -27,9 +27,8 @@ use asset_hub_westend_runtime::{
 };
 pub use asset_hub_westend_runtime::{
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
-	AllowMultiAssetPools, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
-	TrustBackedAssetsInstance,
+	AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
+	ParachainSystem, Runtime, SessionKeys, System, TrustBackedAssetsInstance,
 };
 use asset_test_utils::{CollatorSessionKeys, ExtBuilder, XcmReceivedFrom};
 use codec::{Decode, DecodeLimit, Encode};

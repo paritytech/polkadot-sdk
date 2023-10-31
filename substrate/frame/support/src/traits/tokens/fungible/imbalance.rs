@@ -87,6 +87,11 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	pub(crate) fn new(amount: B) -> Self {
 		Self { amount, _phantom: PhantomData }
 	}
+
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		sp_std::mem::forget(imbalance);
+	}
 }
 
 impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>

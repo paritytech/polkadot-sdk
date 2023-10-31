@@ -207,7 +207,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision},
+		traits::{fungible::Credit, tokens::Precision, VariantCount},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -229,6 +229,8 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			#[inject_runtime_type]
 			type RuntimeHoldReason = ();
+			#[inject_runtime_type]
+			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
 			type ExistentialDeposit = ConstU64<1>;
@@ -238,10 +240,10 @@ pub mod pallet {
 
 			type DustRemoval = ();
 
-			type MaxLocks = ();
-			type MaxReserves = ();
-			type MaxFreezes = ();
-			type MaxHolds = ();
+			type MaxLocks = ConstU32<100>;
+			type MaxReserves = ConstU32<100>;
+			type MaxFreezes = ConstU32<100>;
+			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -256,7 +258,11 @@ pub mod pallet {
 
 		/// The overarching hold reason.
 		#[pallet::no_default_bounds]
-		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
+
+		/// The overarching freeze reason.
+		#[pallet::no_default_bounds]
+		type RuntimeFreezeReason: VariantCount;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -300,7 +306,7 @@ pub mod pallet {
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
 		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
@@ -543,6 +549,19 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
+			);
+
+			assert!(
+				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
+				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
+				T::MaxHolds::get(),
+				<T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT
+			);
+
+			assert!(
+				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
+				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
+				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
 		}
 	}

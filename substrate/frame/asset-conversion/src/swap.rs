@@ -24,7 +24,7 @@ pub trait Swap<AccountId> {
 	/// Measure units of the asset classes for swapping.
 	type Balance: Balance;
 	/// Kind of assets that are going to be swapped.
-	type MultiAssetId;
+	type AssetKind;
 
 	/// Returns the upper limit on the length of the swap path.
 	fn max_path_len() -> u32;
@@ -41,7 +41,7 @@ pub trait Swap<AccountId> {
 	/// This operation is expected to be atomic.
 	fn swap_exact_tokens_for_tokens(
 		sender: AccountId,
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		amount_in: Self::Balance,
 		amount_out_min: Option<Self::Balance>,
 		send_to: AccountId,
@@ -60,7 +60,7 @@ pub trait Swap<AccountId> {
 	/// This operation is expected to be atomic.
 	fn swap_tokens_for_exact_tokens(
 		sender: AccountId,
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		amount_out: Self::Balance,
 		amount_in_max: Option<Self::Balance>,
 		send_to: AccountId,
@@ -73,7 +73,7 @@ pub trait SwapCredit<AccountId> {
 	/// Measure units of the asset classes for swapping.
 	type Balance: Balance;
 	/// Kind of assets that are going to be swapped.
-	type MultiAssetId;
+	type AssetKind;
 	/// Credit implying a negative imbalance in the system that can be placed into an account or
 	/// alter the total supply.
 	type Credit;
@@ -90,7 +90,7 @@ pub trait SwapCredit<AccountId> {
 	///
 	/// This operation is expected to be atomic.
 	fn swap_exact_tokens_for_tokens(
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		credit_in: Self::Credit,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Self::Credit, (Self::Credit, DispatchError)>;
@@ -106,7 +106,7 @@ pub trait SwapCredit<AccountId> {
 	///
 	/// This operation is expected to be atomic.
 	fn swap_tokens_for_exact_tokens(
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		credit_in: Self::Credit,
 		amount_out: Self::Balance,
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
@@ -114,7 +114,7 @@ pub trait SwapCredit<AccountId> {
 
 impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 	type Balance = T::Balance;
-	type MultiAssetId = T::MultiAssetId;
+	type AssetKind = T::AssetKind;
 
 	fn max_path_len() -> u32 {
 		T::MaxSwapPathLength::get()
@@ -122,7 +122,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		amount_in: Self::Balance,
 		amount_out_min: Option<Self::Balance>,
 		send_to: T::AccountId,
@@ -138,12 +138,12 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 				keep_alive,
 			)
 		})?;
-		Ok(amount_out.into())
+		Ok(amount_out)
 	}
 
 	fn swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		amount_out: Self::Balance,
 		amount_in_max: Option<Self::Balance>,
 		send_to: T::AccountId,
@@ -159,24 +159,25 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 				keep_alive,
 			)
 		})?;
-		Ok(amount_in.into())
+		Ok(amount_in)
 	}
 }
 
 impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 	type Balance = T::Balance;
-	type MultiAssetId = T::MultiAssetId;
-	type Credit = Credit<T>;
+	type AssetKind = T::AssetKind;
+	type Credit = CreditOf<T>;
 
 	fn max_path_len() -> u32 {
 		T::MaxSwapPathLength::get()
 	}
 
 	fn swap_exact_tokens_for_tokens(
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		credit_in: Self::Credit,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Self::Credit, (Self::Credit, DispatchError)> {
+		let credit_asset = credit_in.asset();
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let res = Self::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min);
 			match &res {
@@ -187,14 +188,15 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 			}
 		})
 		// should never map an error since `with_transaction` above never returns it.
-		.map_err(|_| (Self::Credit::native_zero(), DispatchError::Corruption))?
+		.map_err(|_| (Self::Credit::zero(credit_asset), DispatchError::Corruption))?
 	}
 
 	fn swap_tokens_for_exact_tokens(
-		path: Vec<Self::MultiAssetId>,
+		path: Vec<Self::AssetKind>,
 		credit_in: Self::Credit,
 		amount_out: Self::Balance,
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
+		let credit_asset = credit_in.asset();
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let res = Self::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);
 			match &res {
@@ -205,6 +207,6 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 			}
 		})
 		// should never map an error since `with_transaction` above never returns it.
-		.map_err(|_| (Self::Credit::native_zero(), DispatchError::Corruption))?
+		.map_err(|_| (Self::Credit::zero(credit_asset), DispatchError::Corruption))?
 	}
 }
