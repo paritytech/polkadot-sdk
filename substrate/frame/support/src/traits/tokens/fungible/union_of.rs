@@ -954,7 +954,8 @@ impl<
 }
 
 impl<
-		Left: fungible::Inspect<AccountId>,
+		Left: fungible::Inspect<AccountId>
+			+ AccountTouch<(), AccountId, Balance = <Left as fungible::Inspect<AccountId>>::Balance>,
 		Right: fungibles::Inspect<AccountId>
 			+ AccountTouch<
 				Right::AssetId,
@@ -975,10 +976,16 @@ impl<
 		}
 	}
 
-	fn touch(asset: AssetKind, who: AccountId, depositor: AccountId) -> DispatchResult {
+	fn should_touch(asset: AssetKind, who: &AccountId) -> bool {
 		match Criterion::convert(asset) {
-			// no-op for `Left` since `AccountTouch` trait is not defined within `fungible::*`.
-			Left(()) => Ok(()),
+			Left(()) => <Left as AccountTouch<(), AccountId>>::should_touch((), who),
+			Right(a) => <Right as AccountTouch<Right::AssetId, AccountId>>::should_touch(a, who),
+		}
+	}
+
+	fn touch(asset: AssetKind, who: &AccountId, depositor: &AccountId) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(()) => <Left as AccountTouch<(), AccountId>>::touch((), who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
 		}

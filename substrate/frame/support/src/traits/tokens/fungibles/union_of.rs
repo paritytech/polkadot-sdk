@@ -959,7 +959,14 @@ impl<
 		}
 	}
 
-	fn touch(asset: AssetKind, who: AccountId, depositor: AccountId) -> DispatchResult {
+	fn should_touch(asset: AssetKind, who: &AccountId) -> bool {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as AccountTouch<Left::AssetId, AccountId>>::should_touch(a, who),
+			Right(a) => <Right as AccountTouch<Right::AssetId, AccountId>>::should_touch(a, who),
+		}
+	}
+
+	fn touch(asset: AssetKind, who: &AccountId, depositor: &AccountId) -> DispatchResult {
 		match Criterion::convert(asset) {
 			Left(a) => <Left as AccountTouch<Left::AssetId, AccountId>>::touch(a, who, depositor),
 			Right(a) =>

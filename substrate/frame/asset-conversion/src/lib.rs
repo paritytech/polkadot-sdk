@@ -378,11 +378,11 @@ pub mod pallet {
 			T::PoolSetupFeeTarget::on_unbalanced(fee);
 
 			if !T::Assets::contains(&asset1, &pool_account) {
-				T::Assets::touch(*asset1, pool_account.clone(), sender.clone())?
+				T::Assets::touch(*asset1, &pool_account, &sender)?
 			};
 
 			if !T::Assets::contains(&asset2, &pool_account) {
-				T::Assets::touch(*asset2, pool_account.clone(), sender.clone())?
+				T::Assets::touch(*asset2, &pool_account, &sender)?
 			};
 
 			let lp_token = NextPoolAssetId::<T>::get()
@@ -392,7 +392,7 @@ pub mod pallet {
 			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
 
 			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
-			T::PoolAssets::touch(lp_token.clone(), pool_account.clone(), sender.clone())?;
+			T::PoolAssets::touch(lp_token.clone(), &pool_account, &sender)?;
 
 			let pool_info = PoolInfo { lp_token: lp_token.clone() };
 			Pools::<T>::insert(pool_id.clone(), pool_info);
