@@ -47,6 +47,7 @@ pub trait ExecuteControllerWeightInfo {
 
 /// Execute an XCM locally, for a given origin.
 pub trait ExecuteController<Origin, RuntimeCall> {
+	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
 
 	/// Attempt to execute an XCM locally, and return the outcome.
@@ -71,6 +72,7 @@ pub trait SendControllerWeightInfo {
 
 /// Send an XCM from a given origin.
 pub trait SendController<Origin> {
+	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
 
 	/// Send an XCM to be executed by a remote location.
@@ -98,6 +100,7 @@ pub trait QueryControllerWeightInfo {
 
 /// Query a remote location, from a given origin.
 pub trait QueryController<Origin, Timeout>: QueryHandler {
+	/// Weight information for QueryController functions.
 	type WeightInfo: QueryControllerWeightInfo;
 
 	/// Query a remote location.
