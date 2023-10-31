@@ -212,7 +212,7 @@ impl QueryHandler for () {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(_id: Self::QueryId, _response: Response) {}
+	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
 }
 
 impl QueryControllerWeightInfo for () {
