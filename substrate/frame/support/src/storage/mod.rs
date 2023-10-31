@@ -177,16 +177,16 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.
-	/// This means that any duplicate items are included.
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
 	///
 	/// - `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	///
 	/// # Example
 	#[doc = docify::embed!("src/storage/mod.rs", btree_set_decode_non_dedup_len)]
-	/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values
-	/// in the storage (in this case, the number `4` is counted twice).
+	/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values in the
+	/// storage (in this case, the number `4` is counted twice).
 	fn decode_non_dedup_len() -> Option<usize>
 	where
 		T: StorageDecodeNonDedupLength,
@@ -1446,22 +1446,27 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// It is expected that the length is at the beginning of the encoded object
-/// and that the length is a `Compact<u32>`.
+/// It is expected that the length is at the beginning of the encoded objectand that the length is a
+/// `Compact<u32>`.
 ///
 /// # Note
-/// The length returned by this trait is not deduplicated, i.e. it is the length of the
-/// underlying stored Vec.
+/// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
+/// stored Vec.
 ///
 /// This trait is sealed.
 pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// Decode the length of the storage value at `key`.
 	///
-	/// This function assumes that the length is at the beginning of the encoded object
-	/// and is a `Compact<u32>`.
+	/// This function assumes that the length is at the beginning of the encoded object and is a
+	/// `Compact<u32>`.
 	///
 	/// Returns `None` if the storage value does not exist or the decoding failed.
-	fn decode_non_dedup_len(key: &[u8]) -> Option<usize>;
+	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
+		let mut data = [0u8; 5];
+		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = data.len().min(len as usize);
+		<Self as codec::DecodeLength>::len(&data[..len]).ok()
+	}
 }
 
 /// Provides `Sealed` trait to prevent implementing trait `StorageAppend` & `StorageDecodeLength`
@@ -1514,18 +1519,10 @@ impl<T: Encode> StorageAppend<T> for Vec<T> {}
 impl<T: Encode> StorageDecodeLength for Vec<T> {}
 
 impl<T: Encode> StorageAppend<T> for BTreeSet<T> {}
-impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {
-	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
-		let mut data = [0u8; 5];
-		let len = sp_io::storage::read(key, &mut data, 0)?;
-		let len = data.len().min(len as usize);
-		<Self as codec::DecodeLength>::len(&data[..len]).ok()
-	}
-}
+impl<T: Encode> StorageDecodeNonDedupLength for BTreeSet<T> {}
 
-// Blanket implementation StorageDecodeNonDedupLength
-// for all types that are StorageDecodeLength.
-impl<T: StorageDecodeLength> StorageDecodeNonDedupLength for T {
+// Blanket implementation StorageDecodeNonDedupLength for all types that are StorageDecodeLength.
+impl<T:StorageDecodeLength> StorageDecodeNonDedupLength for T {
 	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
 		T::decode_len(key)
 	}
@@ -1676,6 +1673,7 @@ mod test {
 	use sp_core::hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
+	use bounded_btree_map::BoundedBTreeMap;
 
 	#[test]
 	fn prefixed_map_works() {
