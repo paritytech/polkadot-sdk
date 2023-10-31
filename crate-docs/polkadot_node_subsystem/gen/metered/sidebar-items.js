@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MaybeTimeOfFlight","SendError","TrySendError"],"fn":["channel","unbounded"],"mod":["oneshot"],"struct":["CoarseDuration","Meter","MeteredReceiver","MeteredSender","Readout","RecvError","UnboundedMeteredReceiver","UnboundedMeteredSender"]};
