@@ -134,6 +134,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false}
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false}
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false}
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false}
+tasks-example = { path = "../../../frame/examples/tasks-example", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -250,6 +251,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tasks-example/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -395,4 +397,5 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+	"tasks-example/try-runtime",
 ]
