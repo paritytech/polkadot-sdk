@@ -229,20 +229,12 @@ fn handle_invalid_data_no_panic() {
 
 #[test]
 fn suspend_xcm_execution_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext().execute_with(|| {	
+		assert!(!XcmpQueue::is_paused(&2000.into()));
 		QueueSuspended::<Test>::put(true);
-
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin])).encode();
-		let data = [ConcatenatedVersionedXcm.encode(), xcm.clone()].concat();
-
-		// This should have executed the incoming XCM, because it came from a system parachain
-		XcmpQueue::handle_xcmp_messages(once((999.into(), 1, data.as_slice())), Weight::MAX);
-
-		// This should have queue instead of executing since it comes from a sibling.
-		XcmpQueue::handle_xcmp_messages(once((2000.into(), 1, data.as_slice())), Weight::MAX);
-
-		let queued_xcm = mock::enqueued_messages(ParaId::from(2000));
-		assert_eq!(queued_xcm, vec![xcm]);
+		assert!(XcmpQueue::is_paused(&2000.into()));
+		// System parachains can bypass suspension:
+		assert!(!XcmpQueue::is_paused(&999.into()));
 	});
 }
 

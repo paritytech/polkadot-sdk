@@ -209,14 +209,6 @@ parameter_types! {
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
-pub fn enqueued_messages(origin: ParaId) -> Vec<Vec<u8>> {
-	EnqueuedMessages::get()
-		.into_iter()
-		.filter(|(o, _)| *o == origin)
-		.map(|(_, m)| m)
-		.collect()
-}
-
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
 	type MaxMessageLen = sp_core::ConstU32<65_536>;
 
