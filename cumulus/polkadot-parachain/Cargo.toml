@@ -5,6 +5,7 @@ authors.workspace = true
 build = "build.rs"
 edition.workspace = true
 description = "Runs a polkadot parachain node which could be a collator."
+license = "Apache-2.0"
 
 [[bin]]
 name = "polkadot-parachain"
