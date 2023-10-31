@@ -485,7 +485,7 @@ pub struct StakingLedger<T: Config> {
 	/// for validators.
 	///
 	/// This is deprecated as of V14 in favor of `T::ClaimedRewards` and will be removed in future.
-	/// Refer to issue <https://github.com/paritytech/substrate/issues/13034>
+	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
 	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 
 	/// The controller associated with this ledger's stash.
