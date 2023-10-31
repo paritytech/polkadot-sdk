@@ -14,18 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Westend chain specification for CLI.
+//! Declaration of all bridges between Rococo Bridge Hub and Westend Bridge Hub.
 
-use crate::cli::CliChain;
-use relay_bridge_hub_westend_client::BridgeHubWestend;
-use relay_substrate_client::SimpleRuntimeVersion;
-use relay_westend_client::Westend;
-
-impl CliChain for Westend {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> = None;
-}
-
-impl CliChain for BridgeHubWestend {
-	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
-		Some(SimpleRuntimeVersion { spec_version: 10000, transaction_version: 3 });
-}
+pub mod bridge_hub_rococo_messages_to_bridge_hub_westend;
+pub mod bridge_hub_westend_messages_to_bridge_hub_rococo;
+pub mod rococo_headers_to_bridge_hub_westend;
+pub mod rococo_parachains_to_bridge_hub_westend;
+pub mod westend_headers_to_bridge_hub_rococo;
+pub mod westend_parachains_to_bridge_hub_rococo;

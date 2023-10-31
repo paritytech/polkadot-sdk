@@ -35,6 +35,8 @@ pub enum FullBridge {
 	RialtoParachainToMillau,
 	BridgeHubRococoToBridgeHubWococo,
 	BridgeHubWococoToBridgeHubRococo,
+	BridgeHubRococoToBridgeHubWestend,
+	BridgeHubWestendToBridgeHubRococo,
 	BridgeHubKusamaToBridgeHubPolkadot,
 	BridgeHubPolkadotToBridgeHubKusama,
 	PolkadotBulletinToBridgeHubPolkadot,

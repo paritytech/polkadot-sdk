@@ -20,5 +20,6 @@ pub mod kusama_polkadot;
 pub mod polkadot_bulletin;
 pub mod rialto_millau;
 pub mod rialto_parachain_millau;
+pub mod rococo_westend;
 pub mod rococo_wococo;
 pub mod westend_millau;

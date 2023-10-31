@@ -97,6 +97,9 @@ pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
 /// BridgeHubWococo chain id.
 pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
 
+/// BridgeHubWestend chain id.
+pub const BRIDGE_HUB_WESTEND_CHAIN_ID: ChainId = *b"bhwd";
+
 /// BridgeHubKusama chain id.
 pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";
 

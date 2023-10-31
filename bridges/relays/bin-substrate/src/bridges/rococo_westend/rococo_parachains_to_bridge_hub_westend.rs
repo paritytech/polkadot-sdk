@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Wococo-to-Rococo parachains sync entrypoint.
+//! Westend-to-Rococo parachains sync entrypoint.
 
 use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
@@ -25,27 +25,27 @@ use substrate_relay_helper::parachains::{
 
 /// BridgeHub-to-BridgeHub parachain sync description.
 #[derive(Clone, Debug)]
-pub struct BridgeHubRococoToBridgeHubWococo;
+pub struct BridgeHubRococoToBridgeHubWestend;
 
-impl SubstrateParachainsPipeline for BridgeHubRococoToBridgeHubWococo {
+impl SubstrateParachainsPipeline for BridgeHubRococoToBridgeHubWestend {
 	type SourceParachain = relay_bridge_hub_rococo_client::BridgeHubRococo;
 	type SourceRelayChain = relay_rococo_client::Rococo;
-	type TargetChain = relay_bridge_hub_wococo_client::BridgeHubWococo;
+	type TargetChain = relay_bridge_hub_westend_client::BridgeHubWestend;
 
-	type SubmitParachainHeadsCallBuilder = BridgeHubRococoToBridgeHubWococoCallBuilder;
+	type SubmitParachainHeadsCallBuilder = BridgeHubRococoToBridgeHubWestendCallBuilder;
 }
 
-pub struct BridgeHubRococoToBridgeHubWococoCallBuilder;
-impl SubmitParachainHeadsCallBuilder<BridgeHubRococoToBridgeHubWococo>
-	for BridgeHubRococoToBridgeHubWococoCallBuilder
+pub struct BridgeHubRococoToBridgeHubWestendCallBuilder;
+impl SubmitParachainHeadsCallBuilder<BridgeHubRococoToBridgeHubWestend>
+	for BridgeHubRococoToBridgeHubWestendCallBuilder
 {
 	fn build_submit_parachain_heads_call(
 		at_relay_block: HeaderIdOf<relay_rococo_client::Rococo>,
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
-	) -> CallOf<relay_bridge_hub_wococo_client::BridgeHubWococo> {
-		relay_bridge_hub_wococo_client::RuntimeCall::BridgeRococoParachains(
-			relay_bridge_hub_wococo_client::BridgeParachainCall::submit_parachain_heads {
+	) -> CallOf<relay_bridge_hub_westend_client::BridgeHubWestend> {
+		relay_bridge_hub_westend_client::runtime::Call::BridgeRococoParachains(
+			relay_bridge_hub_westend_client::runtime::BridgeParachainCall::submit_parachain_heads {
 				at_relay_block: (at_relay_block.0, at_relay_block.1),
 				parachains,
 				parachain_heads_proof,
@@ -55,21 +55,21 @@ impl SubmitParachainHeadsCallBuilder<BridgeHubRococoToBridgeHubWococo>
 }
 
 /// `BridgeHubParachain` to `BridgeHubParachain` bridge definition.
-pub struct BridgeHubRococoToBridgeHubWococoCliBridge {}
+pub struct BridgeHubRococoToBridgeHubWestendCliBridge {}
 
-impl ParachainToRelayHeadersCliBridge for BridgeHubRococoToBridgeHubWococoCliBridge {
+impl ParachainToRelayHeadersCliBridge for BridgeHubRococoToBridgeHubWestendCliBridge {
 	type SourceRelay = relay_rococo_client::Rococo;
-	type ParachainFinality = BridgeHubRococoToBridgeHubWococo;
+	type ParachainFinality = BridgeHubRococoToBridgeHubWestend;
 	type RelayFinality =
-		crate::bridges::rococo_wococo::rococo_headers_to_bridge_hub_wococo::RococoFinalityToBridgeHubWococo;
+		crate::bridges::rococo_westend::rococo_headers_to_bridge_hub_westend::RococoFinalityToBridgeHubWestend;
 }
 
-impl CliBridgeBase for BridgeHubRococoToBridgeHubWococoCliBridge {
+impl CliBridgeBase for BridgeHubRococoToBridgeHubWestendCliBridge {
 	type Source = relay_bridge_hub_rococo_client::BridgeHubRococo;
-	type Target = relay_bridge_hub_wococo_client::BridgeHubWococo;
+	type Target = relay_bridge_hub_westend_client::BridgeHubWestend;
 }
 
-impl MessagesCliBridge for BridgeHubRococoToBridgeHubWococoCliBridge {
+impl MessagesCliBridge for BridgeHubRococoToBridgeHubWestendCliBridge {
 	type MessagesLane =
-	crate::bridges::rococo_wococo::bridge_hub_rococo_messages_to_bridge_hub_wococo::BridgeHubRococoMessagesToBridgeHubWococoMessageLane;
+	crate::bridges::rococo_westend::bridge_hub_rococo_messages_to_bridge_hub_westend::BridgeHubRococoMessagesToBridgeHubWestendMessageLane;
 }
