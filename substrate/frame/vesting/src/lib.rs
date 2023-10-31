@@ -452,8 +452,10 @@ pub mod pallet {
 
 			Self::remove_vesting_schedule(&who, schedule_index);
 			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
-				schedules_count as u32, T::MAX_VESTING_SCHEDULES,
-			)).into())
+				schedules_count as u32,
+				T::MAX_VESTING_SCHEDULES,
+			))
+			.into())
 		}
 	}
 }
