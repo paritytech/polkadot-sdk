@@ -18,7 +18,7 @@
 
 use crate::cli::bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge};
 use relay_millau_client::Millau;
-use relay_westend_client::{AssetHubWestend, Westend};
+use relay_westend_client::Westend;
 use substrate_relay_helper::parachains::{
 	DirectSubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
 };
@@ -28,7 +28,7 @@ use substrate_relay_helper::parachains::{
 pub struct WestendParachainsToMillau;
 
 impl SubstrateParachainsPipeline for WestendParachainsToMillau {
-	type SourceParachain = AssetHubWestend;
+	type SourceParachain = relay_asset_hub_westend_client::AssetHubWestend;
 	type SourceRelayChain = Westend;
 	type TargetChain = Millau;
 
@@ -54,6 +54,37 @@ impl ParachainToRelayHeadersCliBridge for AssetHubWestendToMillauCliBridge {
 }
 
 impl CliBridgeBase for AssetHubWestendToMillauCliBridge {
-	type Source = AssetHubWestend;
+	type Source = relay_asset_hub_westend_client::AssetHubWestend;
 	type Target = Millau;
+}
+
+/// TODO: Note: I know this does not belong here, but I don't want to add it to the
+/// `chain-asset-hub-westend` or `chain-westend`, because we wont use it for production and I don't
+/// want to bring this to the bridges subtree now. Anyway, we plan to retire millau/rialto, so this
+/// hack will disappear with that.
+pub mod relay_asset_hub_westend_client {
+	use bp_runtime::{ChainId, UnderlyingChainProvider};
+	use relay_substrate_client::Chain;
+	use std::time::Duration;
+
+	/// `AssetHubWestend` parachain definition
+	#[derive(Debug, Clone, Copy)]
+	pub struct AssetHubWestend;
+
+	impl UnderlyingChainProvider for AssetHubWestend {
+		type Chain = millau_runtime::bp_bridged_chain::AssetHubWestend;
+	}
+
+	// Westmint seems to use the same configuration as all Polkadot-like chains, so we'll use
+	// Westend primitives here.
+	impl Chain for AssetHubWestend {
+		const ID: ChainId = bp_runtime::ASSET_HUB_WESTEND_CHAIN_ID;
+		const NAME: &'static str = "Westmint";
+		const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
+			millau_runtime::bp_bridged_chain::BEST_FINALIZED_ASSETHUBWESTEND_HEADER_METHOD;
+		const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(6);
+
+		type SignedBlock = bp_polkadot_core::SignedBlock;
+		type Call = ();
+	}
 }

@@ -18,7 +18,6 @@ bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-rococo = { path = "../../primitives/chain-rococo" }
 bp-runtime = { path = "../../primitives/runtime" }
 
 bridge-runtime-common = { path = "../../bin/runtime-common" }

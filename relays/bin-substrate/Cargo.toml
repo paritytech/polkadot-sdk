@@ -41,6 +41,7 @@ relay-rialto-parachain-client = { path = "../client-rialto-parachain" }
 relay-bridge-hub-kusama-client = { path = "../client-bridge-hub-kusama" }
 relay-bridge-hub-polkadot-client = { path = "../client-bridge-hub-polkadot" }
 relay-bridge-hub-rococo-client = { path = "../client-bridge-hub-rococo" }
+relay-bridge-hub-westend-client = { path = "../client-bridge-hub-westend" }
 relay-bridge-hub-wococo-client = { path = "../client-bridge-hub-wococo" }
 relay-kusama-client = { path = "../client-kusama" }
 relay-polkadot-client = { path = "../client-polkadot" }
