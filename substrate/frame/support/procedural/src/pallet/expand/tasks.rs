@@ -155,7 +155,7 @@ impl ToTokens for TasksDef {
 
 				fn iter() -> Self::Enumeration {
 					let mut all_tasks = #sp_std::vec![];
-					#(all_tasks.extend(#task_iters.map(|i| #enum_ident::#task_fn_idents { i }).collect::<Vec<_>>());)*
+					#(all_tasks.extend(#task_iters.map(|i| #enum_ident::#task_fn_idents { i }).collect::<#sp_std::vec::Vec<_>>());)*
 					all_tasks.into_iter()
 				}
 

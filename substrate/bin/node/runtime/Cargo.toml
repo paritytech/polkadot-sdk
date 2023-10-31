@@ -397,4 +397,5 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+	"tasks-example/try-runtime",
 ]
