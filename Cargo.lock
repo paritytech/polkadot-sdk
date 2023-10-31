@@ -6851,6 +6851,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
+ "node-primitives",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-tx-payment",
@@ -6948,7 +6949,6 @@ dependencies = [
  "sp-storage",
  "sp-transaction-pool",
  "sp-version",
- "staging-node-primitives",
  "static_assertions",
  "substrate-wasm-builder",
 ]
@@ -8353,6 +8353,7 @@ dependencies = [
  "kvdb-rocksdb",
  "lazy_static",
  "log",
+ "node-primitives",
  "node-testing",
  "parity-db",
  "rand 0.8.5",
@@ -8370,8 +8371,47 @@ dependencies = [
  "sp-timestamp",
  "sp-tracing",
  "sp-trie",
- "staging-node-primitives",
  "tempfile",
+]
+
+[[package]]
+name = "node-primitives"
+version = "2.0.0"
+dependencies = [
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "node-rpc"
+version = "3.0.0-dev"
+dependencies = [
+ "jsonrpsee",
+ "mmr-rpc",
+ "node-primitives",
+ "pallet-transaction-payment-rpc",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-grandpa",
+ "sc-consensus-grandpa-rpc",
+ "sc-mixnet",
+ "sc-rpc",
+ "sc-rpc-api",
+ "sc-rpc-spec-v2",
+ "sc-sync-state-rpc",
+ "sc-transaction-pool-api",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-statement-store",
+ "substrate-frame-rpc-system",
+ "substrate-state-trie-migration-rpc",
 ]
 
 [[package]]
@@ -8487,6 +8527,7 @@ dependencies = [
  "futures",
  "kitchensink-runtime",
  "log",
+ "node-primitives",
  "pallet-asset-conversion",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
@@ -8509,7 +8550,6 @@ dependencies = [
  "sp-runtime",
  "sp-timestamp",
  "staging-node-executor",
- "staging-node-primitives",
  "substrate-test-client",
  "tempfile",
 ]
@@ -17561,6 +17601,8 @@ dependencies = [
  "kitchensink-runtime",
  "log",
  "nix 0.26.2",
+ "node-primitives",
+ "node-rpc",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -17623,8 +17665,6 @@ dependencies = [
  "sp-transaction-storage-proof",
  "staging-node-executor",
  "staging-node-inspect",
- "staging-node-primitives",
- "staging-node-rpc",
  "substrate-build-script-utils",
  "substrate-cli-test-utils",
  "substrate-frame-cli",
@@ -17646,6 +17686,7 @@ dependencies = [
  "frame-system",
  "futures",
  "kitchensink-runtime",
+ "node-primitives",
  "node-testing",
  "pallet-balances",
  "pallet-contracts",
@@ -17670,7 +17711,6 @@ dependencies = [
  "sp-statement-store",
  "sp-tracing",
  "sp-trie",
- "staging-node-primitives",
  "wat",
 ]
 
@@ -17687,46 +17727,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "thiserror",
-]
-
-[[package]]
-name = "staging-node-primitives"
-version = "2.0.0"
-dependencies = [
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
-name = "staging-node-rpc"
-version = "3.0.0-dev"
-dependencies = [
- "jsonrpsee",
- "mmr-rpc",
- "pallet-transaction-payment-rpc",
- "sc-chain-spec",
- "sc-client-api",
- "sc-consensus-babe",
- "sc-consensus-babe-rpc",
- "sc-consensus-grandpa",
- "sc-consensus-grandpa-rpc",
- "sc-mixnet",
- "sc-rpc",
- "sc-rpc-api",
- "sc-rpc-spec-v2",
- "sc-sync-state-rpc",
- "sc-transaction-pool-api",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-babe",
- "sp-keystore",
- "sp-runtime",
- "sp-statement-store",
- "staging-node-primitives",
- "substrate-frame-rpc-system",
- "substrate-state-trie-migration-rpc",
 ]
 
 [[package]]
@@ -17967,12 +17967,12 @@ dependencies = [
  "assert_cmd",
  "futures",
  "nix 0.26.2",
+ "node-primitives",
  "regex",
  "sc-cli",
  "sc-service",
  "sp-rpc",
  "staging-node-cli",
- "staging-node-primitives",
  "substrate-rpc-client",
  "tokio",
 ]
@@ -19147,6 +19147,7 @@ dependencies = [
  "frame-try-runtime",
  "hex",
  "log",
+ "node-primitives",
  "parity-scale-codec",
  "regex",
  "sc-cli",
@@ -19169,7 +19170,6 @@ dependencies = [
  "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
- "staging-node-primitives",
  "substrate-cli-test-utils",
  "substrate-rpc-client",
  "tempfile",
