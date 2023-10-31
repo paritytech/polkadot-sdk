@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["elliptic_curves"]};
+window.SIDEBAR_ITEMS = {};
