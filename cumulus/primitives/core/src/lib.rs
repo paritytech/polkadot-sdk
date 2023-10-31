@@ -82,7 +82,7 @@ impl From<MessageSendError> for &'static str {
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
 pub enum AggregateMessageOrigin {
 	/// The message came from the para-chain itself.
-	Loopback,
+	Here,
 	/// The message came from the relay-chain.
 	///
 	/// This is used by the DMP queue.
@@ -96,7 +96,7 @@ pub enum AggregateMessageOrigin {
 impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 	fn from(origin: AggregateMessageOrigin) -> Self {
 		match origin {
-			AggregateMessageOrigin::Loopback => MultiLocation::here(),
+			AggregateMessageOrigin::Here => MultiLocation::here(),
 			AggregateMessageOrigin::Parent => MultiLocation::parent(),
 			AggregateMessageOrigin::Sibling(id) =>
 				MultiLocation::new(1, Junction::Parachain(id.into())),
@@ -108,7 +108,7 @@ impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
 		match x {
-			0 => Self::Loopback,
+			0 => Self::Here,
 			1 => Self::Parent,
 			p => Self::Sibling(ParaId::from(p)),
 		}
