@@ -17,6 +17,7 @@
 
 //! Support code for the runtime. A set of test accounts.
 
+use core::ops::Deref;
 use lazy_static::lazy_static;
 pub use sp_core::ed25519;
 #[cfg(feature = "std")]
@@ -26,18 +27,9 @@ use sp_core::{
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
-#[cfg(not(feature = "std"))]
-use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
-#[cfg(feature = "std")]
-use std::{collections::BTreeMap, ops::Deref};
 
-// todo: this requires cleanup!
-// #[cfg(not(feature = "std"))]
-// use sp_std::{alloc::string::String, format};
-#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
+use alloc::{collections::btree_map::BTreeMap, format, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(

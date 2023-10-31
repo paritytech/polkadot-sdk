@@ -17,6 +17,7 @@
 
 //! Support code for the runtime. A set of test accounts.
 
+use core::ops::Deref;
 use lazy_static::lazy_static;
 pub use sp_core::sr25519;
 #[cfg(feature = "std")]
@@ -26,18 +27,11 @@ use sp_core::{
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
-#[cfg(not(feature = "std"))]
-use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
-#[cfg(feature = "std")]
-use std::{collections::BTreeMap, ops::Deref};
 
-// todo: this requires cleanup!
-// #[cfg(not(feature = "std"))]
-// use sp_std::{alloc::string::String, format};
-#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
+use alloc::{
+	collections::btree_map::BTreeMap, fmt, format, str::FromStr, string::String, vec::Vec,
+};
 
 /// Set of test accounts.
 #[derive(
@@ -157,16 +151,16 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 #[derive(Debug)]
 pub struct ParseKeyringError;
 
-impl sp_std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl fmt::Display for ParseKeyringError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "ParseKeyringError")
 	}
 }
 
-impl sp_std::str::FromStr for Keyring {
+impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as sp_std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
 			"alice" => Ok(Keyring::Alice),
 			"bob" => Ok(Keyring::Bob),

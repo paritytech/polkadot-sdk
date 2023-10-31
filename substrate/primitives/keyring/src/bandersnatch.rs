@@ -17,26 +17,23 @@
 
 //! A set of well-known keys used for testing.
 
+use core::ops::Deref;
 use lazy_static::lazy_static;
 pub use sp_core::bandersnatch;
+#[cfg(feature = "std")]
+use sp_core::bandersnatch::Signature;
 use sp_core::{
-	bandersnatch::{Pair, Public, Signature},
+	bandersnatch::{Pair, Public},
 	crypto::UncheckedFrom,
 	ByteArray, Pair as PairT,
 };
-
-#[cfg(not(feature = "std"))]
-use sp_std::{collections::btree_map::BTreeMap, ops::Deref, prelude::*};
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, ops::Deref, sync::Mutex};
+use std::sync::Mutex;
 
-// todo: this requires cleanup!
-// #[cfg(not(feature = "std"))]
-// use sp_std::{alloc::string::String, format};
-#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
+use alloc::{
+	collections::btree_map::BTreeMap, fmt, format, str::FromStr, string::String, vec::Vec,
+};
 
 #[cfg(not(feature = "std"))]
 compile_error!("No support for bandersnatch in no-std yet.");
@@ -122,16 +119,16 @@ impl From<Keyring> for &'static str {
 #[derive(Debug)]
 pub struct ParseKeyringError;
 
-impl sp_std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl fmt::Display for ParseKeyringError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "ParseKeyringError")
 	}
 }
 
-impl sp_std::str::FromStr for Keyring {
+impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as sp_std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
 			"Alice" => Ok(Keyring::Alice),
 			"Bob" => Ok(Keyring::Bob),

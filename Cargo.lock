@@ -17245,7 +17245,6 @@ dependencies = [
  "lazy_static",
  "sp-core",
  "sp-runtime",
- "sp-std",
  "strum",
 ]
 
