@@ -51,7 +51,14 @@ use sp_std::prelude::*;
 /// 	#[pallet::getter(fn foo)]
 /// 	#[pallet::storage_prefix = "OtherFoo"]
 /// 	#[pallet::unbounded]
-///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
+///     pub type Foo<T> = StorageValue<_, u32,ValueQuery>;
+///
+/// 	/// Named alternative syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageValue<
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
 /// }
 /// ```
 pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault>(

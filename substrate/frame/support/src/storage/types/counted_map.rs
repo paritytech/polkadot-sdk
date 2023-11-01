@@ -48,25 +48,40 @@ use sp_std::prelude::*;
 /// Whenever the counter needs to be updated, an additional read and write occurs to update that
 /// counter.
 ///
+/// The total number of items currently stored in the map can be retrieved with the
+/// [`CountedStorageMap::count`] method.
+///
 /// For general information regarding the `#[pallet::storage]` attribute, refer to
 /// [`crate::pallet_macros::storage`].
 ///
 /// # Examples
-/// ### Kitchen-sink
+///
+/// Declaring a counted map:
+///
 /// ```
 /// #[frame_support::pallet]
 /// mod pallet {
-///     # use frame_support::pallet_prelude::*;
-///     # #[pallet::config]
-///     # pub trait Config: frame_system::Config {}
-///     # #[pallet::pallet]
-///     # pub struct Pallet<T>(_);
+/// # 	use frame_support::pallet_prelude::*;
+/// # 	#[pallet::config]
+/// # 	pub trait Config: frame_system::Config {}
+/// # 	#[pallet::pallet]
+/// # 	pub struct Pallet<T>(_);
 /// 	/// A kitchen-sink CountedStorageMap, with all possible additional attributes.
 ///     #[pallet::storage]
 /// 	#[pallet::getter(fn foo)]
 /// 	#[pallet::storage_prefix = "OtherFoo"]
 /// 	#[pallet::unbounded]
-///     pub type FooCountedMap<T> = CountedStorageMap<
+///     pub type Foo<T> = CountedStorageMap<
+/// 		_,
+/// 		Blake2_128Concat,
+/// 		u32,
+/// 		u32,
+/// 		ValueQuery,
+/// 	>;
+///
+/// 	/// Alternative named syntax.
+/// 	#[pallet::storage]
+///     pub type Bar<T> = CountedStorageMap<
 /// 		Hasher = Blake2_128Concat,
 /// 		Key = u32,
 /// 		Value = u32,
@@ -74,9 +89,8 @@ use sp_std::prelude::*;
 /// 	>;
 /// }
 /// ```
-/// ### Counting the Number of Items
-/// The total number of items currently stored in the map can be retrieved with the
-/// [`count()`](#method.count) method.
+///
+/// Using a counted map in action:
 #[doc = docify::embed!("src/storage/types/counted_map.rs", test_simple_count_works)]
 pub struct CountedStorageMap<
 	Prefix,

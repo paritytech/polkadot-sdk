@@ -65,6 +65,19 @@ use sp_std::prelude::*;
 /// 	#[pallet::storage_prefix = "OtherFoo"]
 /// 	#[pallet::unbounded]
 ///     pub type Foo<T> = CountedStorageNMap<
+/// 		_,
+/// 		(
+/// 			NMapKey<Blake2_128Concat, u8>,
+/// 			NMapKey<Identity, u16>,
+/// 			NMapKey<Twox64Concat, u32>
+/// 		),
+/// 		u64,
+/// 		ValueQuery,
+/// 	>;
+///
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = CountedStorageNMap<
 /// 		Key = (
 /// 			NMapKey<Blake2_128Concat, u8>,
 /// 			NMapKey<Identity, u16>,

@@ -53,6 +53,16 @@ use sp_std::prelude::*;
 /// 	#[pallet::storage_prefix = "OtherFoo"]
 /// 	#[pallet::unbounded]
 ///     pub type Foo<T> = StorageMap<
+/// 		_
+/// 		Blake2_128Concat,
+/// 		u32,
+/// 		u32,
+/// 		ValueQuery
+/// 	>;
+///
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageMap<
 /// 		Hasher = Blake2_128Concat,
 /// 		Key = u32,
 /// 		Value = u32,
