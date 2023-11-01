@@ -385,7 +385,7 @@ benchmarks! {
 
 force_remove_vesting_schedule {
 		let l in 0 .. MaxLocksOf::<T>::get() - 1;
-		let s in 2 .. T::MAX_VESTING_SCHEDULES;
+		let s in 2 .. T::MAX_VESTING_SCHEDULES - 1;
 
 		let source: T::AccountId = account("source", 0, SEED);
 		let source_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(source.clone());
