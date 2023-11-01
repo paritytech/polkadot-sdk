@@ -979,18 +979,23 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded by `Get`
-/// from [`pallet::config`](`macro@config`) into metadata, e.g.:
 ///
-/// ```ignore
-/// #[pallet::config]
-/// pub trait Config: frame_system::Config {
-/// 	#[pallet::constant]
-/// 	type Foo: Get<u32>;
-/// }
-/// ```
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant`.
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::constant_name`.
+#[proc_macro_attribute]
+pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1096,6 +1101,16 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 /// return a `DispatchResultWithPostInfo` or `DispatchResult`.
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::call`.
+#[proc_macro_attribute]
+pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1268,60 +1283,11 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::storage]` attribute lets you define some abstract storage inside of runtime
-/// storage and also set its metadata. This attribute can be used multiple times.
 ///
-/// Item should be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<$generic_name = $some_generics, $other_name = $some_other, ...>;
-/// ```
-///
-/// or with unnamed generic:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// #[pallet::getter(fn $getter_name)] // optional
-/// $vis type $StorageName<$some_generic> $optional_where_clause
-/// 	= $StorageType<_, $some_generics, ...>;
-/// ```
-///
-/// I.e. it must be a type alias, with generics: `T` or `T: Config`. The aliased type must be
-/// one of `StorageValue`, `StorageMap` or `StorageDoubleMap`. The generic arguments of the
-/// storage type can be given in two manners: named and unnamed. For named generic arguments,
-/// the name for each argument should match the name defined for it on the storage struct:
-/// * `StorageValue` expects `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `CountedStorageMap` expects `Hasher`, `Key`, `Value` and optionally `QueryKind` and `OnEmpty`,
-/// * `StorageDoubleMap` expects `Hasher1`, `Key1`, `Hasher2`, `Key2`, `Value` and optionally
-///   `QueryKind` and `OnEmpty`.
-///
-/// For unnamed generic arguments: Their first generic must be `_` as it is replaced by the
-/// macro and other generic must declared as a normal generic type declaration.
-///
-/// The `Prefix` generic written by the macro is generated using
-/// `PalletInfo::name::<Pallet<..>>()` and the name of the storage type. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = ...` should use the prefix:
-/// `Twox128(b"MyExample") ++ Twox128(b"Foo")`.
-///
-/// For the `CountedStorageMap` variant, the `Prefix` also implements
-/// `CountedStorageMapInstance`. It also associates a `CounterPrefix`, which is implemented the
-/// same as above, but the storage prefix is prepend with `"CounterFor"`. E.g. if runtime names
-/// the pallet "MyExample" then the storage `type Foo<T> = CountedStorageaMap<...>` will store
-/// its counter at the prefix: `Twox128(b"MyExample") ++ Twox128(b"CounterForFoo")`.
-///
-/// E.g:
-///
-/// ```ignore
-/// #[pallet::storage]
-/// pub(super) type MyStorage<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
-/// ```
-///
-/// In this case the final prefix used by the map is `Twox128(b"MyExample") ++
-/// Twox128(b"OtherName")`.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::storage`.
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1424,6 +1390,9 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+///
+/// ---
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
@@ -1431,6 +1400,9 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+///
+/// ---
+///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
 /// `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
