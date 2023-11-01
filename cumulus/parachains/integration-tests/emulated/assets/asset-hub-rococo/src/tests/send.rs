@@ -83,7 +83,10 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-		AssetHubRococo::assert_xcmp_queue_success(Some(Weight::from_parts(2_176_414_000, 203_593)));
+		AssetHubRococo::assert_xcmp_queue_success(Some(Weight::from_parts(
+			15_594_564_000,
+			562_893,
+		)));
 
 		assert_expected_events!(
 			AssetHubRococo,

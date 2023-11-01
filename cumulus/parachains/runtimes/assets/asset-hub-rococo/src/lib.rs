@@ -1380,7 +1380,13 @@ impl_runtime_apis! {
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
-				pub const TrustedReserve: Option<(Location, Asset)> = None;
+				// AssetHubRococo trusts AssetHubWococo as reserve for WOCs
+				pub TrustedReserve: Option<(Location, Asset)> = Some(
+					(
+						xcm_config::bridging::to_wococo::AssetHubWococo::get(),
+						Asset::from((xcm_config::bridging::to_wococo::WocLocation::get(), 1000000000000 as u128))
+					)
+				);
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {

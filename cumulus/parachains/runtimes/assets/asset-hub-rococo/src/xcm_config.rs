@@ -40,7 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain::SystemParachains;
+use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -76,6 +76,7 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Adapter for resolving `NetworkId` based on `pub storage Flavor: RuntimeFlavor`.
@@ -503,10 +504,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and BridgeHub get free
-					// execution.
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet and
+					// BridgeHub get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
+						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
@@ -536,22 +538,19 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 		ForeignAssetsInstance,
 	>;
 
-parameter_types! {
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
-}
-
-pub struct RelayTreasury;
-impl Contains<Location> for RelayTreasury {
+pub struct SystemParachains;
+impl Contains<Location> for SystemParachains {
 	fn contains(location: &Location) -> bool {
-		let relay_treasury_location = RelayTreasuryLocation::get();
-		*location == relay_treasury_location
+		use system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID, CONTRACTS_ID, ENCOINTER_ID};
+		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID | BRIDGE_HUB_ID | CONTRACTS_ID | ENCOINTER_ID)]))
 	}
 }
 
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, RelayTreasury);
+pub type WaivedLocations =
+	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///

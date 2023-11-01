@@ -26,7 +26,7 @@ use assets_common::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Everything, Nothing, PalletInfoAccess},
+	traits::{ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -74,6 +74,7 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub TreasuryAccount: Option<AccountId> = Some(TREASURY_PALLET_ID.into_account_truncating());
+	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -157,7 +158,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-/// `AssetId/Balance` converter for `PoolAssets`
+/// `AssetId`/`Balance` converter for `PoolAssets`.
 pub type PoolAssetsConvertedConcreteId =
 	assets_common::PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance>;
 
@@ -235,13 +236,6 @@ pub struct ParentOrParentsPlurality;
 impl Contains<Location> for ParentOrParentsPlurality {
 	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
-	}
-}
-
-pub struct ParentTreasuryPallet;
-impl Contains<Location> for ParentTreasuryPallet {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [PalletInstance(index)]) if *index == ParentTreasuryPalletIndex)
 	}
 }
 
@@ -470,9 +464,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and treasury pallet get
-					// free execution.
-					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, ParentTreasuryPallet)>,
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet and
+					// BridgeHub get free execution.
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						Equals<RelayTreasuryLocation>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
 				),
@@ -502,9 +499,7 @@ impl Contains<Location> for SystemParachains {
 
 		matches!(
 			location.unpack(),
-			(1, [Parachain(ASSET_HUB_ID)]) |
-				(1, [Parachain(COLLECTIVES_ID)]) |
-				(1, [Parachain(BRIDGE_HUB_ID)])
+			(1, [Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID)])
 		)
 	}
 }
@@ -512,7 +507,8 @@ impl Contains<Location> for SystemParachains {
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (RelayOrOtherSystemParachains<SystemParachains, Runtime>, ParentTreasuryPallet);
+pub type WaivedLocations =
+	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
@@ -543,6 +539,8 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = (
 		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
+		// `pallet_assets` instance - `Assets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
 			AccountId,
 			AssetFeeAsExistentialDepositMultiplierFeeCharger,

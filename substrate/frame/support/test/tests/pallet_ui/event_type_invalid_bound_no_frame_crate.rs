@@ -15,7 +15,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod deps {
-	pub use frame_support;
-	pub use frame_system;
+#[frame_support::pallet]
+mod pallet {
+	use frame::deps::frame_system::pallet_prelude::BlockNumberFor;
+	use frame_support::pallet_prelude::{Hooks, IsType};
+
+	#[pallet::config]
+	pub trait Config: frame::deps::frame_system::Config {
+		type Bar: Clone + std::fmt::Debug + Eq;
+		type RuntimeEvent: IsType<<Self as frame::deps::frame_system::Config>::RuntimeEvent>
+			+ From<Event<Self>>;
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::event]
+	pub enum Event<T: Config> {
+		B { b: T::Bar },
+	}
 }
+
+fn main() {}
