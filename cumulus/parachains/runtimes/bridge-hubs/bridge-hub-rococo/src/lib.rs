@@ -492,7 +492,7 @@ impl pallet_message_queue::Config for Runtime {
 	type ServiceWeight = MessageQueueServiceWeight;
 	type MessageProcessor = EthereumOutboundQueue;
 	type QueueChangeHandler = ();
-	type QueuePausedQuery = ();
+	type QueuePausedQuery = EthereumOutboundQueue;
 	type WeightInfo = ();
 }
 
@@ -530,28 +530,16 @@ impl snowbridge_inbound_queue::Config for Runtime {
 		MessageToXcm<CreateAssetCall, CreateAssetExecutionFee, SendTokenExecutionFee>;
 }
 
-pub const GWEI: u128 = 1_000_000_000;
-
-parameter_types! {
-	pub const MaxMessagePayloadSize: u32 = 2048;
-	pub const MaxMessagesPerBlock: u32 = 32;
-	pub const DeliveryFeePerGas: u128 = 10;
-	pub const DeliveryRefundPerGas: u128 = 10 * GWEI;
-	pub const DeliveryReward: u128 = 1000 * GWEI;
-}
-
 impl snowbridge_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
-	type MaxMessagePayloadSize = MaxMessagePayloadSize;
-	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type Decimals = ConstU8<12>;
+	type MaxMessagePayloadSize = ConstU32<2048>;
+	type MaxMessagesPerBlock = ConstU32<32>;
 	type OwnParaId = ParachainInfo;
 	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	type Balance = Balance;
-	type DeliveryFeePerGas = DeliveryFeePerGas;
-	type DeliveryRefundPerGas = DeliveryRefundPerGas;
-	type DeliveryReward = DeliveryReward;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 }
