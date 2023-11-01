@@ -55,7 +55,7 @@ use polkadot_primitives::{
 
 use parity_scale_codec::Encode;
 
-use futures::{channel::oneshot, prelude::*};
+use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
 use std::{
 	path::PathBuf,
@@ -153,103 +153,98 @@ async fn run<Context>(
 	.await;
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
+	let mut tasks = FuturesUnordered::new();
 	loop {
-		match ctx.recv().await? {
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_)) => {},
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
-			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
-			FromOrchestra::Communication { msg } => match msg {
-				CandidateValidationMessage::ValidateFromChainState(
-					candidate_receipt,
-					pov,
-					executor_params,
-					timeout,
-					response_sender,
-				) => {
-					let bg = {
-						let mut sender = ctx.sender().clone();
-						let metrics = metrics.clone();
-						let validation_host = validation_host.clone();
+		futures::select! {
+			comm = ctx.recv().fuse() => {
+				match comm {
+					Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
+					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
+					Ok(FromOrchestra::Communication { msg }) => match msg {
+						CandidateValidationMessage::ValidateFromChainState(
+							candidate_receipt,
+							pov,
+							executor_params,
+							timeout,
+							response_sender,
+						) => {
+							let mut sender = ctx.sender().clone();
+							let metrics = metrics.clone();
+							let validation_host = validation_host.clone();
 
-						async move {
-							let _timer = metrics.time_validate_from_chain_state();
-							let res = validate_from_chain_state(
-								&mut sender,
-								validation_host,
-								candidate_receipt,
-								pov,
-								executor_params,
-								timeout,
-								&metrics,
-							)
-							.await;
+							tasks.push(async move {
+								let _timer = metrics.time_validate_from_chain_state();
+								let res = validate_from_chain_state(
+									&mut sender,
+									validation_host,
+									candidate_receipt,
+									pov,
+									executor_params,
+									timeout,
+									&metrics,
+								)
+								.await;
 
-							metrics.on_validation_event(&res);
-							let _ = response_sender.send(res);
+								metrics.on_validation_event(&res);
+								let _ = response_sender.send(res);
+							}.boxed());
+						},
+						CandidateValidationMessage::ValidateFromExhaustive(
+							persisted_validation_data,
+							validation_code,
+							candidate_receipt,
+							pov,
+							executor_params,
+							timeout,
+							response_sender,
+						) => {
+							let metrics = metrics.clone();
+							let validation_host = validation_host.clone();
+
+							tasks.push(async move {
+								let _timer = metrics.time_validate_from_exhaustive();
+								let res = validate_candidate_exhaustive(
+									validation_host,
+									persisted_validation_data,
+									validation_code,
+									candidate_receipt,
+									pov,
+									executor_params,
+									timeout,
+									&metrics,
+								)
+								.await;
+
+								metrics.on_validation_event(&res);
+								let _ = response_sender.send(res);
+							}.boxed());
+						},
+						CandidateValidationMessage::PreCheck(
+							relay_parent,
+							validation_code_hash,
+							response_sender,
+						) => {
+							let mut sender = ctx.sender().clone();
+							let validation_host = validation_host.clone();
+
+							tasks.push(async move {
+								let precheck_result = precheck_pvf(
+									&mut sender,
+									validation_host,
+									relay_parent,
+									validation_code_hash,
+								)
+								.await;
+
+								let _ = response_sender.send(precheck_result);
+							}.boxed());
 						}
-					};
-
-					ctx.spawn("validate-from-chain-state", bg.boxed())?;
-				},
-				CandidateValidationMessage::ValidateFromExhaustive(
-					persisted_validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					timeout,
-					response_sender,
-				) => {
-					let bg = {
-						let metrics = metrics.clone();
-						let validation_host = validation_host.clone();
-
-						async move {
-							let _timer = metrics.time_validate_from_exhaustive();
-							let res = validate_candidate_exhaustive(
-								validation_host,
-								persisted_validation_data,
-								validation_code,
-								candidate_receipt,
-								pov,
-								executor_params,
-								timeout,
-								&metrics,
-							)
-							.await;
-
-							metrics.on_validation_event(&res);
-							let _ = response_sender.send(res);
-						}
-					};
-
-					ctx.spawn("validate-from-exhaustive", bg.boxed())?;
-				},
-				CandidateValidationMessage::PreCheck(
-					relay_parent,
-					validation_code_hash,
-					response_sender,
-				) => {
-					let bg = {
-						let mut sender = ctx.sender().clone();
-						let validation_host = validation_host.clone();
-
-						async move {
-							let precheck_result = precheck_pvf(
-								&mut sender,
-								validation_host,
-								relay_parent,
-								validation_code_hash,
-							)
-							.await;
-
-							let _ = response_sender.send(precheck_result);
-						}
-					};
-
-					ctx.spawn("candidate-validation-pre-check", bg.boxed())?;
-				},
+					},
+					Err(e) => return Err(SubsystemError::from(e))
+				}
 			},
+			_ = tasks.select_next_some() => ()
 		}
 	}
 }
