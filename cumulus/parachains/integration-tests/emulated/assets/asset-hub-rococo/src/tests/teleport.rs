@@ -157,10 +157,12 @@ fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
 fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
+	let dest = Rococo::child_location_of(AssetHubRococo::para_id());
+	let beneficiary_id = AssetHubRococoReceiver::get();
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(amount_to_send),
+		args: relay_test_args(dest, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -278,10 +280,12 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 fn teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
+	let dest = Rococo::child_location_of(AssetHubRococo::para_id());
+	let beneficiary_id = AssetHubRococoReceiver::get();
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(amount_to_send),
+		args: relay_test_args(dest, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);

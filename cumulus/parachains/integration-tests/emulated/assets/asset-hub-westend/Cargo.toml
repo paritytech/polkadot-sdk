@@ -39,6 +39,7 @@ asset-hub-westend-runtime = { path = "../../../../runtimes/assets/asset-hub-west
 asset-test-utils = { path = "../../../../runtimes/assets/test-utils", default-features = false }
 cumulus-pallet-dmp-queue = { default-features = false, path = "../../../../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../pallets/parachain-system" }
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false}
