@@ -16,7 +16,6 @@
 
 use futures::{select, StreamExt};
 use parking_lot::Mutex;
-use schnellru::{ByLength, LruMap};
 use std::{collections::HashMap, sync::Arc};
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -37,7 +36,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 use polkadot_primitives::CollatorPair;
 
@@ -165,7 +164,6 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
