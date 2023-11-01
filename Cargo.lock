@@ -529,18 +529,6 @@ dependencies = [
 
 [[package]]
 name = "ark-scale"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d028cd1025d002fa88c10cd644d29028a7b40806579b608c6ba843b937bbb23"
-dependencies = [
- "ark-ec",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
-]
-
-[[package]]
-name = "ark-scale"
 version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
@@ -556,7 +544,7 @@ dependencies = [
 [[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=0e82312#0e823122942bd22674f12ad9f25ad73acba0f329"
+source = "git+https://github.com/davxy/ring-vrf?branch=fix-broken-dependency#d754384f578d805a137c89d2edcef8295fbbc765"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -605,7 +593,7 @@ dependencies = [
 [[package]]
 name = "ark-transcript"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=0e82312#0e823122942bd22674f12ad9f25ad73acba0f329"
+source = "git+https://github.com/davxy/ring-vrf?branch=fix-broken-dependency#d754384f578d805a137c89d2edcef8295fbbc765"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -1348,7 +1336,7 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.3"
-source = "git+https://github.com/w3f/ring-vrf?rev=0e82312#0e823122942bd22674f12ad9f25ad73acba0f329"
+source = "git+https://github.com/davxy/ring-vrf?branch=fix-broken-dependency#d754384f578d805a137c89d2edcef8295fbbc765"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -4593,11 +4581,11 @@ checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=0e82312#0e823122942bd22674f12ad9f25ad73acba0f329"
+source = "git+https://github.com/davxy/ring-vrf?branch=fix-broken-dependency#d754384f578d805a137c89d2edcef8295fbbc765"
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-scale 0.0.11",
+ "ark-scale",
  "ark-secret-scalar",
  "ark-serialize",
  "ark-std",
@@ -16888,28 +16876,20 @@ dependencies = [
 
 [[package]]
 name = "sp-ark-bls12-381"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "840194ac8a222b20713373717aba7931e0e2c25e30aa04a935cef72cda8bc0f6"
+version = "0.4.2"
+source = "git+https://github.com/paritytech/arkworks-substrate#caa2eed74beb885dd07c7db5f916f2281dad818f"
 dependencies = [
  "ark-bls12-381-ext",
- "ark-ec",
- "ark-scale 0.0.11",
- "ark-std",
- "sp-crypto-ec-utils 0.4.0",
+ "sp-crypto-ec-utils 0.4.1 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
 name = "sp-ark-ed-on-bls12-381-bandersnatch"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f858b50fcfba9356f7c5000d057cd8f1e7fdb443cdc4dc0a0d6e8f2d35916af5"
+version = "0.4.2"
+source = "git+https://github.com/paritytech/arkworks-substrate#caa2eed74beb885dd07c7db5f916f2281dad818f"
 dependencies = [
- "ark-ec",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale 0.0.11",
- "ark-std",
- "sp-crypto-ec-utils 0.4.0",
+ "sp-crypto-ec-utils 0.4.1 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -17147,27 +17127,6 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-ec-utils"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9a119f88fcd9c01c9832511eae041cd5fdae35abbeff770b2954f636a7595a"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-bw6-761",
- "ark-ec",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff",
- "ark-scale 0.0.3",
- "ark-serialize",
- "ark-std",
- "parity-scale-codec",
- "sp-runtime-interface 18.0.0",
- "sp-std 9.0.0",
-]
-
-[[package]]
-name = "sp-crypto-ec-utils"
 version = "0.4.1"
 dependencies = [
  "ark-bls12-377",
@@ -17181,9 +17140,30 @@ dependencies = [
  "ark-ed-on-bls12-377-ext",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale 0.0.11",
+ "ark-scale",
  "sp-runtime-interface 17.0.0",
  "sp-std 8.0.0",
+]
+
+[[package]]
+name = "sp-crypto-ec-utils"
+version = "0.4.1"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-377-ext",
+ "ark-bls12-381",
+ "ark-bls12-381-ext",
+ "ark-bw6-761",
+ "ark-bw6-761-ext",
+ "ark-ec",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-377-ext",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ed-on-bls12-381-bandersnatch-ext",
+ "ark-scale",
+ "sp-runtime-interface 17.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -17205,9 +17185,8 @@ dependencies = [
 
 [[package]]
 name = "sp-debug-derive"
-version = "9.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12dae7cf6c1e825d13ffd4ce16bd9309db7c539929d0302b4443ed451a9f4e5"
+version = "8.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -17226,14 +17205,13 @@ dependencies = [
 
 [[package]]
 name = "sp-externalities"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3313e2c5f2523b06062e541dff9961bde88ad5a28861621dc7b7b47a32bb0f7c"
+version = "0.19.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 9.0.0",
- "sp-storage 14.0.0",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-storage 13.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -17459,20 +17437,19 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf9781c72848efe6750116eb96edaeb105ee7e0bd7f38a4e46371bf810b3db7b"
+version = "17.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.20.0",
- "sp-runtime-interface-proc-macro 12.0.0",
- "sp-std 9.0.0",
- "sp-storage 14.0.0",
- "sp-tracing 11.0.0",
- "sp-wasm-interface 15.0.0",
+ "sp-externalities 0.19.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-storage 13.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-tracing 10.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-wasm-interface 14.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "static_assertions",
 ]
 
@@ -17489,9 +17466,8 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface-proc-macro"
-version = "12.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7402572a08aa1ae421ea5bab10918764b0ae72301b27710913e5d804862f2448"
+version = "11.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "Inflector",
  "proc-macro-crate",
@@ -17618,9 +17594,8 @@ version = "8.0.0"
 
 [[package]]
 name = "sp-std"
-version = "9.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d5bbc9339227d1b6a9b7ccd9b2920c818653d40eef1512f1e2e824d72e7a336"
+version = "8.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 
 [[package]]
 name = "sp-storage"
@@ -17636,16 +17611,15 @@ dependencies = [
 
 [[package]]
 name = "sp-storage"
-version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a21245c3a7799ff6d3f1f159b496f9ac72eb32cd6fe68c6f73013155289aa9f1"
+version = "13.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 9.0.0",
- "sp-std 9.0.0",
+ "sp-debug-derive 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
 
 [[package]]
@@ -17686,12 +17660,11 @@ dependencies = [
 
 [[package]]
 name = "sp-tracing"
-version = "11.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f5ba26db1f7513d5975970d1ba1f0580d7a1b8da8c86ea3f9f0f8dbe2cfa96e"
+version = "10.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "parity-scale-codec",
- "sp-std 9.0.0",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -17788,15 +17761,14 @@ dependencies = [
 
 [[package]]
 name = "sp-wasm-interface"
-version = "15.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d07945f592d2792632e6f030108769757e928a0fd78cf8659c9c210a5e341e55"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk#37f3269c4513827cd1473bce49b0401cc285f5bf"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 9.0.0",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "wasmtime",
 ]
 

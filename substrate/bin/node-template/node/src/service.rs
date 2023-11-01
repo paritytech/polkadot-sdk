@@ -17,8 +17,8 @@ pub struct ExecutorDispatch;
 
 #[cfg(feature = "runtime-benchmarks")]
 type ExtendedHostFunctions = (
-	sp_crypto_ec_utils::bls12_381::HostFunctions,
-	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::HostFunctions,
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
