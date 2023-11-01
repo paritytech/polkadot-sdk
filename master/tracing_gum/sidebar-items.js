@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Times"],"macro":["debug","enabled","error","event","info","trace","warn","warn_if_frequent"],"mod":["event"],"struct":["Freq","Level"]};
+window.SIDEBAR_ITEMS = {"enum":["Times"],"fn":["hash_to_trace_identifier"],"macro":["debug","enabled","error","event","info","trace","warn","warn_if_frequent"],"mod":["event"],"struct":["Freq","Level"]};
