@@ -166,6 +166,7 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	let mut test = SystemParaToParaTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
+	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_assertions);
 	// TODO: Add assertion for Penpal runtime. Right now message is failing with
@@ -174,6 +175,7 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
+	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = AssetHubRococo::execute_with(|| {
 		xcm_helpers::transfer_assets_delivery_fees::<
@@ -181,9 +183,10 @@ fn limited_reserve_transfer_native_asset_from_system_para_to_para() {
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
 
+	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// TODO: Check receiver balance when Penpal runtime is improved to propery handle reserve
-	// transfers
+	// Receiver's balance is increased
+	assert!(receiver_balance_after > receiver_balance_before);
 }
 
 /// Limited Reserve Transfers of a local asset from System Parachain to Parachain should work
