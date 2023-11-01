@@ -49,9 +49,11 @@ enum GenesisSource<G> {
 	#[deprecated(
 		note = "Factory and G type parameter are planned to be removed in December 2023. Use `GenesisBuilderApi` instead."
 	)]
-	Factory(Arc<dyn Fn() -> G + Send + Sync>),
+	/// factory function + code
+	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
-	GenesisBuilderApi(GenesisBuildAction),
+	/// build action + code
+	GenesisBuilderApi(GenesisBuildAction, Vec<u8>),
 }
 
 impl<G> Clone for GenesisSource<G> {
@@ -60,9 +62,9 @@ impl<G> Clone for GenesisSource<G> {
 			Self::File(ref path) => Self::File(path.clone()),
 			Self::Binary(ref d) => Self::Binary(d.clone()),
 			#[allow(deprecated)]
-			Self::Factory(ref f) => Self::Factory(f.clone()),
+			Self::Factory(ref f, ref c) => Self::Factory(f.clone(), c.clone()),
 			Self::Storage(ref s) => Self::Storage(s.clone()),
-			Self::GenesisBuilderApi(ref s) => Self::GenesisBuilderApi(s.clone()),
+			Self::GenesisBuilderApi(ref s, ref c) => Self::GenesisBuilderApi(s.clone(), c.clone()),
 		}
 	}
 }
@@ -100,12 +102,18 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 				Ok(genesis.genesis)
 			},
 			#[allow(deprecated)]
-			Self::Factory(f) => Ok(Genesis::Runtime(f())),
+			Self::Factory(f, code) => Ok(Genesis::Runtime(f(), code.clone())),
 			Self::Storage(storage) => Ok(Genesis::Raw(RawGenesis::from(storage.clone()))),
-			Self::GenesisBuilderApi(GenesisBuildAction::Full(config)) =>
-				Ok(Genesis::RuntimeGenesisConfig(config.clone())),
-			Self::GenesisBuilderApi(GenesisBuildAction::Patch(patch)) =>
-				Ok(Genesis::RuntimeGenesisConfigPatch(patch.clone())),
+			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) =>
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Config(config.clone()),
+					code: code.clone(),
+				})),
+			Self::GenesisBuilderApi(GenesisBuildAction::Patch(patch), code) =>
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
+					code: code.clone(),
+				})),
 		}
 	}
 }
@@ -114,7 +122,10 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
 		match self.genesis.resolve()? {
 			#[allow(deprecated)]
-			Genesis::Runtime(gc) => gc.assimilate_storage(storage),
+			Genesis::Runtime(gc, code) => {
+				gc.assimilate_storage(storage)?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
+			},
 			Genesis::Raw(RawGenesis { top: map, children_default: children_map }) => {
 				storage.top.extend(map.into_iter().map(|(k, v)| (k.0, v.0)));
 				children_map.into_iter().for_each(|(k, v)| {
@@ -126,25 +137,37 @@ impl<G: RuntimeGenesis, E> BuildStorage for ChainSpec<G, E> {
 						.data
 						.extend(v.into_iter().map(|(k, v)| (k.0, v.0)));
 				});
-				Ok(())
 			},
 			// The `StateRootHash` variant exists as a way to keep note that other clients support
 			// it, but Substrate itself isn't capable of loading chain specs with just a hash at the
 			// moment.
-			Genesis::StateRootHash(_) => Err("Genesis storage in hash format not supported".into()),
-			Genesis::RuntimeGenesisConfig(config) => RuntimeCaller::new(&self.code[..])
-				.get_storage_for_config(config)?
-				.assimilate_storage(storage),
-			Genesis::RuntimeGenesisConfigPatch(patch) => RuntimeCaller::new(&self.code[..])
-				.get_storage_for_patch(patch)?
-				.assimilate_storage(storage),
-		}?;
+			Genesis::StateRootHash(_) =>
+				return Err("Genesis storage in hash format not supported".into()),
+			Genesis::RuntimeGenesis(RuntimeGenesisInner {
+				json_blob: RuntimeGenesisConfigJson::Config(config),
+				code,
+			}) => {
+				RuntimeCaller::new(&code[..])
+					.get_storage_for_config(config)?
+					.assimilate_storage(storage)?;
 
-		if !self.code.is_empty() {
-			storage
-				.top
-				.insert(sp_core::storage::well_known_keys::CODE.to_vec(), self.code.clone());
-		}
+				storage
+					.top
+					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
+			},
+			Genesis::RuntimeGenesis(RuntimeGenesisInner {
+				json_blob: RuntimeGenesisConfigJson::Patch(patch),
+				code,
+			}) => {
+				RuntimeCaller::new(&code[..])
+					.get_storage_for_patch(patch)?
+					.assimilate_storage(storage)?;
+
+				storage
+					.top
+					.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.clone());
+			},
+		};
 
 		Ok(())
 	}
@@ -183,33 +206,55 @@ impl From<sp_core::storage::Storage> for RawGenesis {
 	}
 }
 
-/// Represents different formats for the GenesisConfig configuration.
+/// Inner representation of RuntimeGenesis format
+#[derive(Serialize, Deserialize, Debug)]
+struct RuntimeGenesisInner {
+	/// runtime wasm code, expected to be hex-encoded
+	/// The code shall be capable of parsing `json_blob`.
+	#[serde(default, with = "sp_core::bytes")]
+	code: Vec<u8>,
+	/// patch or full config, this field will be flattened
+	#[serde(flatten)]
+	json_blob: RuntimeGenesisConfigJson,
+}
+
+/// Represents two possible variants of the contained JSON blob for the RuntimeGenesis format.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+enum RuntimeGenesisConfigJson {
+	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
+	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
+	Config(json::Value),
+	/// Represents a patch for the default runtime genesis config in JSON format which is
+	/// essentially a list of keys that are to be customized in runtime genesis config.
+	/// The contained value is a JSON blob that can be parsed by a compatible runtime.
+	Patch(json::Value),
+}
+
+/// Represents different formats of the GenesisConfig configuration within chain spec JSON blob.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
-pub enum Genesis<G> {
+enum Genesis<G> {
 	/// (Deprecated) Contains the JSON representation of G (the native type representing the
-	/// runtime GenesisConfig struct) (will be removed with `ChainSpec::from_genesis`).
-	Runtime(G),
+	/// runtime GenesisConfig struct) (will be removed with `ChainSpec::from_genesis`) and the
+	/// runtime code.
+	Runtime(G, Vec<u8>),
 	/// The genesis storage as raw data. Typically raw key-value entries in state.
 	Raw(RawGenesis),
 	/// State root hash of the genesis storage.
 	StateRootHash(StorageData),
-	/// Represents the explicit and comprehensive runtime genesis config in JSON format.
-	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
-	RuntimeGenesisConfig(json::Value),
-	/// Represents a patch for the default runtime genesis config in JSON format which is
-	/// essentially a list of keys that are to be customized in runtime genesis config.
-	/// The contained value is a JSON blob that can be parsed by a compatible runtime.
-	RuntimeGenesisConfigPatch(json::Value),
+	/// Represents the runtime genesis config in JSON format toghether with runtime code.
+	RuntimeGenesis(RuntimeGenesisInner),
 }
 
 /// A configuration of a client. Does not include runtime storage initialization.
-/// Note: `genesis` and `code` are ignored due to way how the chain specification is serialized into
+/// Note: `genesis` field is ignored due to way how the chain specification is serialized into
 /// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies uknown
 /// fields.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 struct ClientSpec<E> {
 	name: String,
 	id: String,
@@ -233,9 +278,6 @@ struct ClientSpec<E> {
 	#[serde(skip_serializing)]
 	#[allow(unused)]
 	genesis: serde::de::IgnoredAny,
-	#[serde(skip)]
-	#[allow(unused)]
-	code: serde::de::IgnoredAny,
 	/// Mapping from `block_number` to `wasm_code`.
 	///
 	/// The given `wasm_code` will be used to substitute the on-chain wasm code starting with the
@@ -370,14 +412,12 @@ impl<G, E> ChainSpecBuilder<G, E> {
 			extensions: self.extensions,
 			consensus_engine: (),
 			genesis: Default::default(),
-			code: Default::default(),
 			code_substitutes: BTreeMap::new(),
 		};
 
 		ChainSpec {
 			client_spec,
-			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action),
-			code: self.code,
+			genesis: GenesisSource::GenesisBuilderApi(self.genesis_build_action, self.code.into()),
 		}
 	}
 }
@@ -386,16 +426,11 @@ impl<G, E> ChainSpecBuilder<G, E> {
 pub struct ChainSpec<G, E = NoExtension> {
 	client_spec: ClientSpec<E>,
 	genesis: GenesisSource<G>,
-	code: Vec<u8>,
 }
 
 impl<G, E: Clone> Clone for ChainSpec<G, E> {
 	fn clone(&self) -> Self {
-		ChainSpec {
-			client_spec: self.client_spec.clone(),
-			genesis: self.genesis.clone(),
-			code: self.code.clone(),
-		}
+		ChainSpec { client_spec: self.client_spec.clone(), genesis: self.genesis.clone() }
 	}
 }
 
@@ -482,15 +517,13 @@ impl<G, E> ChainSpec<G, E> {
 			extensions,
 			consensus_engine: (),
 			genesis: Default::default(),
-			code: Default::default(),
 			code_substitutes: BTreeMap::new(),
 		};
 
 		#[allow(deprecated)]
 		ChainSpec {
 			client_spec,
-			genesis: GenesisSource::Factory(Arc::new(constructor)),
-			code: code.into(),
+			genesis: GenesisSource::Factory(Arc::new(constructor), code.into()),
 		}
 	}
 
@@ -499,22 +532,10 @@ impl<G, E> ChainSpec<G, E> {
 		self.client_spec.chain_type.clone()
 	}
 
-	/// Sets the code.
-	pub fn set_code(&mut self, code: &[u8]) {
-		self.code = code.into();
-	}
-
 	/// Provides a `ChainSpec` builder.
 	pub fn builder(code: &[u8], extensions: E) -> ChainSpecBuilder<G, E> {
 		ChainSpecBuilder::new(code, extensions)
 	}
-}
-
-/// Helper structure for deserializing optional `code` attribute from JSON file.
-#[derive(Serialize, Deserialize)]
-struct CodeContainer {
-	#[serde(default, with = "sp_core::bytes")]
-	code: Vec<u8>,
 }
 
 impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G, E> {
@@ -524,10 +545,7 @@ impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G
 		let client_spec = json::from_slice(json.as_ref())
 			.map_err(|e| format!("Error parsing spec file: {}", e))?;
 
-		let code: CodeContainer = json::from_slice(json.as_ref())
-			.map_err(|e| format!("Error parsing spec file: {}", e))?;
-
-		Ok(ChainSpec { client_spec, genesis: GenesisSource::Binary(json), code: code.code })
+		Ok(ChainSpec { client_spec, genesis: GenesisSource::Binary(json) })
 	}
 
 	/// Parse json file into a `ChainSpec`
@@ -543,14 +561,10 @@ impl<G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned> ChainSpec<G
 			memmap2::Mmap::map(&file)
 				.map_err(|e| format!("Error mmaping spec file `{}`: {}", path.display(), e))?
 		};
-
 		let client_spec =
 			json::from_slice(&bytes).map_err(|e| format!("Error parsing spec file: {}", e))?;
 
-		let code: CodeContainer =
-			json::from_slice(&bytes).map_err(|e| format!("Error parsing spec file: {}", e))?;
-
-		Ok(ChainSpec { client_spec, genesis: GenesisSource::File(path), code: code.code })
+		Ok(ChainSpec { client_spec, genesis: GenesisSource::File(path) })
 	}
 }
 
@@ -562,47 +576,51 @@ struct ChainSpecJsonContainer<G, E> {
 	#[serde(flatten)]
 	client_spec: ClientSpec<E>,
 	genesis: Genesis<G>,
-	#[serde(with = "sp_core::bytes", skip_serializing_if = "Vec::is_empty")]
-	code: Vec<u8>,
 }
 
 impl<G: RuntimeGenesis, E: serde::Serialize + Clone + 'static> ChainSpec<G, E> {
 	fn json_container(&self, raw: bool) -> Result<ChainSpecJsonContainer<G, E>, String> {
-		let mut raw_genesis = match (raw, self.genesis.resolve()?) {
-			(true, Genesis::RuntimeGenesisConfigPatch(patch)) => {
-				let storage = RuntimeCaller::new(&self.code[..]).get_storage_for_patch(patch)?;
+		let raw_genesis = match (raw, self.genesis.resolve()?) {
+			(
+				true,
+				Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Config(config),
+					code,
+				}),
+			) => {
+				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_config(config)?;
+
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
-			(true, Genesis::RuntimeGenesisConfig(config)) => {
-				let storage = RuntimeCaller::new(&self.code[..]).get_storage_for_config(config)?;
+			(
+				true,
+				Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					code,
+				}),
+			) => {
+				let mut storage = RuntimeCaller::new(&code[..]).get_storage_for_patch(patch)?;
+
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
+
 			#[allow(deprecated)]
-			(true, Genesis::Runtime(g)) => {
-				let storage = g.build_storage()?;
+			(true, Genesis::Runtime(g, code)) => {
+				let mut storage = g.build_storage()?;
+				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
 			(true, Genesis::Raw(raw)) => raw,
 
 			(_, genesis) =>
-				return Ok(ChainSpecJsonContainer {
-					client_spec: self.client_spec.clone(),
-					genesis,
-					code: self.code.clone(),
-				}),
+				return Ok(ChainSpecJsonContainer { client_spec: self.client_spec.clone(), genesis }),
 		};
-
-		if !self.code.is_empty() {
-			raw_genesis.top.insert(
-				StorageKey(sp_core::storage::well_known_keys::CODE.to_vec()),
-				StorageData(self.code.clone()),
-			);
-		}
 
 		Ok(ChainSpecJsonContainer {
 			client_spec: self.client_spec.clone(),
 			genesis: Genesis::Raw(raw_genesis),
-			code: vec![],
 		})
 	}
 
@@ -860,7 +878,10 @@ mod tests {
 				json_path!["genesis", "raw", "top", "0x3a636f6465"],
 			)
 		} else {
-			(json!({"code":"0x0"}), json_path!["code"])
+			(
+				json!({"genesis":{"runtimeGenesis":{"code":"0x0"}}}),
+				json_path!["genesis", "runtimeGenesis", "code"],
+			)
 		};
 		assert!(json_contains_path(&json, &mut path));
 		crate::json_patch::merge(&mut json, zeroing_patch);
@@ -1039,69 +1060,12 @@ mod tests {
 	}
 
 	#[test]
-	fn check_if_code_is_removed_from_raw_with_encoded() {
-		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
-			include_bytes!("../res/raw_with_code.json").to_vec(),
-		))
-		.unwrap();
-
-		let j = from_str::<Value>(&spec.as_json(true).unwrap()).unwrap();
-
-		assert!(json_eval_value_at_key(
-			&j,
-			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
-			&|v| { *v == "0x060708" }
-		));
-
-		assert!(!json_contains_path(&j, &mut json_path!["code"]));
-	}
-
-	#[test]
-	fn check_if_code_is_removed_from_raw_without_encoded() {
-		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
-			include_bytes!("../res/raw_with_code_no_encoded.json").to_vec(),
-		))
-		.unwrap();
-
-		let j = from_str::<Value>(&spec.as_json(true).unwrap()).unwrap();
-
-		assert!(json_eval_value_at_key(
-			&j,
-			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
-			&|v| { *v == "0x060708" }
-		));
-
-		assert!(!json_contains_path(&j, &mut json_path!["code"]));
-	}
-
-	#[test]
+	#[should_panic(expected = "unknown field `code`")]
 	fn check_code_in_assimilated_storage_for_raw_with_encoded() {
-		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
+		let _ = ChainSpec::<()>::from_json_bytes(Cow::Owned(
 			include_bytes!("../res/raw_with_code.json").to_vec(),
 		))
 		.unwrap();
-
-		let storage = spec.build_storage().unwrap();
-		assert!(storage
-			.top
-			.get(&well_known_keys::CODE.to_vec())
-			.map(|v| *v == vec![6, 7, 8])
-			.unwrap())
-	}
-
-	#[test]
-	fn check_code_in_assimilated_storage_for_raw_without_encoded() {
-		let spec = ChainSpec::<()>::from_json_bytes(Cow::Owned(
-			include_bytes!("../res/raw_with_code_no_encoded.json").to_vec(),
-		))
-		.unwrap();
-
-		let storage = spec.build_storage().unwrap();
-		assert!(storage
-			.top
-			.get(&well_known_keys::CODE.to_vec())
-			.map(|v| *v == vec![6, 7, 8])
-			.unwrap())
 	}
 
 	#[test]
