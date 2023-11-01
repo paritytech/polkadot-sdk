@@ -87,7 +87,7 @@ impl<A, F> Pay for PayFromAccount<F, A>
 where
 	A: TypedGet,
 	F: fungible::Mutate<A::Type>,
-	A::Type: PartialEq,
+	A::Type: Eq,
 {
 	type Balance = F::Balance;
 	type Beneficiary = A::Type;
@@ -120,7 +120,7 @@ impl<A, F> frame_support::traits::tokens::Pay for PayAssetFromAccount<F, A>
 where
 	A: TypedGet,
 	F: fungibles::Mutate<A::Type> + fungibles::Create<A::Type>,
-	A::Type: PartialEq,
+	A::Type: Eq,
 {
 	type Balance = F::Balance;
 	type Beneficiary = A::Type;

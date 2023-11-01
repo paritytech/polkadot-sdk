@@ -237,7 +237,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 /// Trait for providing a basic fungible asset.
 pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId>
 where
-	AccountId: PartialEq,
+	AccountId: Eq,
 {
 	/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn't
 	/// possible then an `Err` is returned and nothing is changed.
