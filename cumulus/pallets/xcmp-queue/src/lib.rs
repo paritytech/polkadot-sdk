@@ -941,7 +941,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		debug_assert!(
+		defensive_assert!(
 			validate_xcm_nesting(&xcm).is_ok(),
 			"Tickets are valid prior to delivery by trait XCM; qed"
 		);
