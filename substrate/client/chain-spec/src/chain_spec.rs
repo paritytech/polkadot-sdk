@@ -32,7 +32,12 @@ use sp_core::{
 };
 use sp_runtime::BuildStorage;
 use std::{
-	borrow::Cow, collections::BTreeMap, fs::File, marker::PhantomData, path::PathBuf, sync::Arc,
+	borrow::Cow,
+	collections::{BTreeMap, VecDeque},
+	fs::File,
+	marker::PhantomData,
+	path::PathBuf,
+	sync::Arc,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -711,6 +716,77 @@ where
 	}
 }
 
+/// The `fun` will be called with the value at `path`.
+///
+/// If exists, the value at given `path` will be passed to the `fun` and the result of `fun`
+/// call will be returned. Otherwise false is returned.
+/// `path` will be modified.
+///
+/// # Examples
+/// ```
+/// use serde_json::{from_str, json, Value};
+/// let doc = json!({"a":{"b":{"c":"5"}}});
+/// let mut path = ["a", "b", "c"].into();
+/// assert!(json_eval_value_at_key(&doc, &mut path, &|v| { assert_eq!(v,"5"); true }));
+/// ```
+fn json_eval_value_at_key(
+	doc: &json::Value,
+	path: &mut VecDeque<&str>,
+	fun: &dyn Fn(&json::Value) -> bool,
+) -> bool {
+	if path.len() == 1 {
+		doc.as_object().map_or(false, |o| o.get(path[0]).map_or(false, |v| fun(v)))
+	} else {
+		let key = path.pop_front().unwrap();
+		doc.as_object()
+			.map_or(false, |o| o.get(key).map_or(false, |v| json_eval_value_at_key(v, path, fun)))
+	}
+}
+
+macro_rules! json_path {
+	[ $($x:expr),+ ] => {
+		VecDeque::<&str>::from([$($x),+])
+	};
+}
+
+fn json_contains_path(doc: &json::Value, path: &mut VecDeque<&str>) -> bool {
+	json_eval_value_at_key(doc, path, &|_| true)
+}
+
+/// This function updates the code in given chain spec.
+///
+/// Function support updating the runtime code in provided JSON chain spec blob. `Genesis<G>::Raw`
+/// and `Genesis<G>::RuntimeGenesis` formats are supported.
+///
+/// If update was successful `true` is returned, otherwise `false`. Chain spec JSON is modified in
+/// place.
+pub fn update_code_in_json_chain_spec<'a>(chain_spec: &mut json::Value, code: &'a [u8]) -> bool {
+	let mut path = json_path!["genesis", "runtimeGenesis", "code"];
+	let mut raw_path = json_path!["genesis", "raw", "top", "0x3a636f6465"];
+
+	if json_contains_path(&chain_spec, &mut path) {
+		#[derive(Serialize)]
+		struct Container<'a> {
+			#[serde(with = "sp_core::bytes")]
+			code: &'a [u8],
+		}
+		let code_patch = json::json!({"genesis":{"runtimeGenesis": Container { code }}});
+		crate::json_patch::merge(chain_spec, code_patch);
+		true
+	} else if json_contains_path(&chain_spec, &mut raw_path) {
+		#[derive(Serialize)]
+		struct Container<'a> {
+			#[serde(with = "sp_core::bytes", rename = "0x3a636f6465")]
+			code: &'a [u8],
+		}
+		let code_patch = json::json!({"genesis":{"raw":{"top": Container { code }}}});
+		crate::json_patch::merge(chain_spec, code_patch);
+		true
+	} else {
+		false
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -718,7 +794,6 @@ mod tests {
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
 	use sp_keyring::AccountKeyring;
-	use std::collections::VecDeque;
 
 	#[derive(Debug, Serialize, Deserialize)]
 	struct Genesis(BTreeMap<String, String>);
@@ -809,44 +884,6 @@ mod tests {
 					.unwrap()
 			);
 		}
-	}
-
-	macro_rules! json_path {
-		[ $($x:expr),+ ] => {
-			VecDeque::<String>::from([$($x),+].map(String::from))
-		};
-	}
-
-	/// The `fun` will be called with the value at `path`.
-	///
-	/// If exists, the value at given `path` will be passed to the `fun` and the result of `fun`
-	/// call will be returned. Otherwise false is returned.
-	/// `path` will be modified.
-	///
-	/// # Examples
-	/// ```
-	/// use serde_json::{from_str, json, Value};
-	/// let doc = json!({"a":{"b":{"c":"5"}}});
-	/// let mut path = ["a", "b", "c"].map(String::from).into();
-	/// assert!(json_eval_value_at_key(&doc, &mut path, &|v| { assert_eq!(v,"5"); true }));
-	/// ```
-	pub fn json_eval_value_at_key(
-		doc: &Value,
-		path: &mut VecDeque<String>,
-		fun: &dyn Fn(&Value) -> bool,
-	) -> bool {
-		if path.len() == 1 {
-			doc.as_object().map_or(false, |o| o.get(&path[0]).map_or(false, |v| fun(v)))
-		} else {
-			let key = path.pop_front().unwrap();
-			doc.as_object().map_or(false, |o| {
-				o.get(&key).map_or(false, |v| json_eval_value_at_key(v, path, fun))
-			})
-		}
-	}
-
-	fn json_contains_path(doc: &Value, path: &mut VecDeque<String>) -> bool {
-		json_eval_value_at_key(doc, path, &|_| true)
 	}
 
 	#[test]
@@ -1081,5 +1118,73 @@ mod tests {
 			.get(&well_known_keys::CODE.to_vec())
 			.map(|v| *v == vec![1, 1, 1])
 			.unwrap())
+	}
+
+	#[test]
+	fn update_code_works_with_runtime_genesis_config() {
+		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeGenesis", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn update_code_works_for_raw() {
+		let j = include_str!("../../../test-utils/runtime/res/default_genesis_config.json");
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config(from_str(j).unwrap())
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(true).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "raw", "top", "0x3a636f6465"],
+			&|v| { *v == "0x000102040506" }
+		));
+	}
+
+	#[test]
+	fn update_code_works_with_runtime_genesis_patch() {
+		let chain_spec: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_patch(json!({}))
+		.build();
+
+		let mut chain_spec_json = from_str::<Value>(&chain_spec.as_json(false).unwrap()).unwrap();
+		assert!(update_code_in_json_chain_spec(&mut chain_spec_json, &[0, 1, 2, 4, 5, 6]));
+
+		assert!(json_eval_value_at_key(
+			&chain_spec_json,
+			&mut json_path!["genesis", "runtimeGenesis", "code"],
+			&|v| { *v == "0x000102040506" }
+		));
 	}
 }

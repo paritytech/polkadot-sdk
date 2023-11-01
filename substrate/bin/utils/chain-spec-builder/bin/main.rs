@@ -23,7 +23,7 @@ use chain_spec_builder::{
 use clap::Parser;
 use node_cli::chain_spec;
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
-use sc_chain_spec::GenericChainSpec;
+use sc_chain_spec::{update_code_in_json_chain_spec, GenericChainSpec};
 use sp_core::{crypto::Ss58Codec, sr25519};
 use std::fs;
 
@@ -98,28 +98,33 @@ fn main() -> Result<(), String> {
 			ref runtime_wasm_path,
 			convert_to_raw,
 		}) => {
-			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+
+			let mut chain_spec_json =
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
+					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			if let Some(path) = runtime_wasm_path {
-				chain_spec
-					.set_code(
-						&fs::read(path.as_path())
-							.map_err(|e| format!("wasm blob file shall be readable {e}"))?[..],
-					)
-					.into()
+				update_code_in_json_chain_spec(
+					&mut chain_spec_json,
+					&fs::read(path.as_path())
+						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
+				);
 			}
 
 			chain_spec.as_json(convert_to_raw)
 		},
 		ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec, ref runtime_wasm_path }) => {
 			write_chain_spec = false;
-			let mut chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+			let mut chain_spec_json =
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
+					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			if let Some(path) = runtime_wasm_path {
-				chain_spec
-					.set_code(
-						&fs::read(path.as_path())
-							.map_err(|e| format!("wasm blob file shall be readable {e}"))?[..],
-					)
-					.into()
+				update_code_in_json_chain_spec(
+					&mut chain_spec_json,
+					&fs::read(path.as_path())
+						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
+				);
 			};
 			chain_spec.as_json(true)
 		},
